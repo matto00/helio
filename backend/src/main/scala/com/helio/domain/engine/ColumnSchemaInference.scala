@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.model.DataFieldType
-import com.helio.domain.steps.{AggregateStep, GroupByConfig, GroupByStep}
+import com.helio.domain.steps.{AggregateStep, CastStep, GroupByConfig, GroupByStep}
 import org.slf4j.LoggerFactory
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -31,7 +31,12 @@ private[engine] object ColumnSchemaInference {
   private[engine] def inferCast(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) =
     parseConfig("cast", config) { json =>
       val casts = json.fields("casts").convertTo[Map[String, String]]
-      inputSchema.map(f => f.copy(`type` = casts.get(f.name).map(canonicalizeLegacyType).getOrElse(f.`type`)))
+      // HEL-1436 D4a: a target outside CastStep.SupportedTargets is the run-time's explicit legacy
+      // passthrough, so the field keeps its input type.
+      inputSchema.map { f =>
+        val projected = casts.get(f.name).filter(CastStep.SupportedTargets.contains).map(canonicalizeLegacyType)
+        f.copy(`type` = projected.getOrElse(f.`type`))
+      }
     } (inputSchema)
 
   /** compute — append a single derived field to the existing schema.

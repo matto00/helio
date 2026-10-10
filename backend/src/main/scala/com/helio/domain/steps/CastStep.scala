@@ -2,6 +2,7 @@ package com.helio.domain.steps
 
 import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
+import com.helio.domain.engine.TimestampParsing
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -10,8 +11,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 /** Typed config for the `cast` step. The map's keys are field names; the
- *  values are target type names (`string` / `integer` / `long` / `double`
- *  / `boolean` / `date`). Fields not in the map pass through unchanged. */
+ *  values are target type names (see [[CastStep.SupportedTargets]]). Fields
+ *  not in the map pass through unchanged. */
 final case class CastConfig(casts: Map[String, String])
 
 object CastConfig {
@@ -66,6 +67,11 @@ object CastStep {
     }
   }
 
+  /** The cast targets the run-time can honestly produce (HEL-1436 D1). The write validator, `castValue`
+   *  and the analyze-warning trust set all derive from this one list. */
+  val SupportedTargets: Vector[String] =
+    Vector("string", "integer", "long", "float", "double", "number", "boolean", "date", "timestamp")
+
   private def castValue(v: Any, dataType: String): Any = {
     if (v == null) return null
     val str = v.toString
@@ -73,12 +79,36 @@ object CastStep {
       case "string"  => str
       case "integer" => Try(str.toInt).orElse(Try(str.toDouble.toInt)).getOrElse(null)
       case "long"    => Try(str.toLong).orElse(Try(str.toDouble.toLong)).getOrElse(null)
-      case "double"  => Try(str.toDouble).getOrElse(null)
+      // float / number project analyze's `float` (the numeric family): a 64-bit Double, like `double`
+      // and like a JSON number (HEL-1436 D2).
+      case "double" | "float" | "number" => Try(str.toDouble).getOrElse(null)
       case "boolean" => Try(str.toBoolean).getOrElse(null)
-      case "date"    => str
-      case _         => str
+      // Keep the ORIGINAL string when either platform timestamp reader accepts it, else null
+      // (HEL-1436 D3, owner rulings 1 and 3). A non-String input is emitted as its string form.
+      case "date" | "timestamp" => if (isTimestampLike(str)) str else null
+      // Explicit, owner-ruled passthrough (HEL-1436 D5) for a target stored before the write
+      // validator started rejecting it (`string-body`, `binary-ref`, unrecognised). The ORIGINAL
+      // value is kept. Unreachable for new writes.
+      case _ => v
     }
   }
+
+  /** Accepted by EITHER platform timestamp reader (HEL-1436 D3): source schema inference or `datebucket`. */
+  private def isTimestampLike(str: String): Boolean =
+    TimestampParsing.looksLikeTimestamp(str) || DateBucketStep.parsesAsDate(str)
+
+  /** WRITE-only (HEL-1436 D4): names every unsupported target of the `casts` map. Never part of
+   *  `validateRawConfig`, so analyze and the run gates keep admitting stored legacy targets. */
+  private def unsupportedTargetProblem(raw: String): Option[String] =
+    Try(CastConfig.decode(raw)).toOption.flatMap { cfg =>
+      val bad = cfg.casts.filterNot { case (_, t) => SupportedTargets.contains(t) }.toVector.sortBy(_._1)
+      if (bad.isEmpty) None
+      else Some(
+        "cast: unsupported target type " +
+          bad.map { case (f, t) => s"'$t' for field '$f'" }.mkString(", ") +
+          s". Supported: ${SupportedTargets.mkString(", ")}"
+      )
+    }
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
@@ -105,5 +135,7 @@ object CastStep {
           )
         )
         .orElse(strictDecodeProblem(raw))
+
+    override def writeConfigProblem(raw: String): Option[String] = unsupportedTargetProblem(raw)
   }
 }

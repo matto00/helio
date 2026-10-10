@@ -87,6 +87,32 @@ class NumericOpOnTextFieldWarningSpec extends AnyWordSpec with Matchers {
       warnings(steps).filter(_.code == Code) shouldBe empty
     }
 
+    "RED (HEL-1436 D6): a cast mixing float with string is trusted, so abs($string-cast field) warns" in {
+      val steps = Vector(
+        NodeStepInput("k1", None, 0, "cast", """{"casts":{"price":"float","s":"string"}}""", Some("L"), true),
+        compute("c1", Some("k1"), 1, "o", "abs($s)")
+      )
+      val ws = warnings(steps).filter(_.code == Code)
+      ws should have size 1
+      ws.head.message should include("'s'")
+    }
+
+    "GUARD (HEL-1436 D6): no warning for abs() over a field cast to float" in {
+      val steps = Vector(
+        NodeStepInput("k1", None, 0, "cast", """{"casts":{"price":"float"}}""", Some("L"), true),
+        compute("c1", Some("k1"), 1, "o", "abs($price)")
+      )
+      warnings(steps).filter(_.code == Code) shouldBe empty
+    }
+
+    "GUARD (HEL-1436 D6): abs() over a timestamp-cast field neither crashes nor warns (timestamp family is not pinned)" in {
+      val steps = Vector(
+        NodeStepInput("k1", None, 0, "cast", """{"casts":{"price":"timestamp"}}""", Some("L"), true),
+        compute("c1", Some("k1"), 1, "o", "abs($price)")
+      )
+      warnings(steps).filter(_.code == Code) shouldBe empty
+    }
+
     "not warn when the field was produced by an upstream compute as TEXT (untrusted types)" in {
       // x = $s is text-typed; without the trust gate floor($x) WOULD warn, so the gate alone is why none appears.
       val steps = Vector(compute("c1", None, 0, "x", "$s"), compute("c2", Some("c1"), 1, "o", "floor($x)"))

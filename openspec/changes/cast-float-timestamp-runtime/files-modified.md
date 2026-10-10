@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/domain/steps/CastStep.scala` — SupportedTargets, float/number->Double, timestamp/date keep-original-or-null, explicit legacy passthrough, write-only unsupported-target rejection
+- `backend/src/main/scala/com/helio/domain/steps/DateBucketStep.scala` — expose `parsesAsDate` predicate for the D3 union (scaladoc placed before the formatter, parseToUtcDate doc restored)
+- `backend/src/main/scala/com/helio/domain/model/PipelineStep.scala` — write-only `Companion.writeConfigProblem` hook, called from `rawConfigProblem`
+- `backend/src/main/scala/com/helio/domain/engine/ColumnSchemaInference.scala` — analyze projects a legacy cast target as passthrough (D4a)
+- `backend/src/main/scala/com/helio/domain/engine/AnalyzeSchemaWarnings.scala` — castRuntimeTargets = CastStep.SupportedTargets (D6)
+- `backend/src/test/scala/com/helio/domain/steps/CastStepSpec.scala` — new: unit RED/GUARD cases, write validation, C5 gating, analyze projection
+- `backend/src/test/scala/com/helio/domain/steps/CastSupportedTargetsSpec.scala` — new: every supported target has an explicit runtime case
+- `backend/src/test/scala/com/helio/domain/engine/CastRuntimeParitySpec.scala` — new: D7 parity iterating CastStep.SupportedTargets (timestamp via the D3 predicate), cast->datebucket, stored legacy engine run and gate
+- `backend/src/test/scala/com/helio/services/pipelines/CastPipelineRunSpec.scala` — new (cycle 2): task 1.6, CSV source through PipelineRunService.submit, persisted node_snapshots rows
+- `backend/src/test/scala/com/helio/api/routes/pipelines/CastTargetWriteRoutesSpec.scala` — new: 422 on step-create and single-call create; stored legacy lists/analyzes/not gated
+- `backend/src/test/scala/com/helio/domain/engine/NumericOpOnTextFieldWarningSpec.scala` — cast-mixed warning cases (D6)
+- `backend/src/test/scala/com/helio/domain/engine/AnalyzeSchemaWarningsSpec.scala` — intentionally flipped "cast to float" trust case (D6)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineProposalServiceValidateSpec.scala` — proposal validate rejects string-body cast
+- `openspec/changes/cast-float-timestamp-runtime/` — tasks ticked; red-evidence.md/.log, mutation-evidence.md, green-evidence.log, files-modified.md
