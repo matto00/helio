@@ -3,26 +3,6 @@ import sjsonnew.support.scalajson.unsafe.{Converter, Parser}
 
 ThisBuild / scalaVersion := "2.13.15"
 
-def loadDotEnv(baseDir: File): Map[String, String] = {
-  val envFile = baseDir / ".env"
-  if (!envFile.exists()) {
-    Map.empty
-  } else {
-    IO.readLines(envFile)
-      .map(_.trim)
-      .filter(line => line.nonEmpty && !line.startsWith("#"))
-      .flatMap { line =>
-        line.split("=", 2) match {
-          case Array(key, value) if key.trim.nonEmpty =>
-            Some(key.trim -> value.trim)
-          case _ =>
-            None
-        }
-      }
-      .toMap
-  }
-}
-
 // HEL-1442: local-only explicit max heap for the forked test JVMs and the forked `sbt run` JVM. Without it a
 // forked JVM's max heap defaults to 1/4 of physical RAM (16.65 GB on the 62 GB dev box, measured), so several
 // concurrent delivery lanes can each grow to it. CI sets `CI`, so this is empty there and the JVM options are
@@ -47,6 +27,19 @@ def localJvmHeapOptions(env: Map[String, String]): Seq[String] =
 // guard against (design.md D2) — every entry here is a coordinate Coursier actually put on
 // the classpath. `osv-scanner` (backend/osv-scanner.toml) consumes this file's output.
 val generateSbom = taskKey[File]("Generate a CycloneDX 1.4 SBOM from the resolved compile-scope classpath")
+
+// HEL-1450: the safe replacement for `show Test/envVars` / `show Compile/run/envVars` (which print values).
+// Prints KEY NAMES only, and fails if Test / envVars is anything other than DevEnv.testEnv. Uncached so a repeat
+// run in one sbt session still prints (a cached Unit task is a silent no-op the second time).
+val envVarKeys = taskKey[Unit]("Print the key names (never values) of the test and run environments")
+
+envVarKeys := Def.uncached {
+  val testEnvNow = (Test / envVars).value
+  val runEnvNow = (Compile / run / envVars).value
+  println(s"test: ${testEnvNow.keySet.toSeq.sorted.mkString(", ")}")
+  println(s"run: ${runEnvNow.keySet.toSeq.sorted.mkString(", ")}")
+  DevEnv.testEnvMismatch(testEnvNow).foreach(msg => sys.error(msg))
+}
 
 generateSbom := Def.uncached {
   val log = streams.value.log
@@ -115,6 +108,9 @@ lazy val root = (project in file("."))
     },
     Compile / run / fork := true,
     Test / fork := true,
+    // HEL-1450: compile the sbt-free DevEnv object into the test sources too, so DevEnvSpec exercises exactly
+    // the code this build runs.
+    Test / unmanagedSources += baseDirectory.value / "project" / "DevEnv.scala",
     // HEL-1018: sbt 2 flipped the default of `Test / testForkedParallel` from false (sbt 1) to true, which
     // runs the suites *inside* each forked group concurrently -- ~3x faster wall-clock, but it re-creates the
     // exact HEL-924 failure (dozens of EmbeddedPostgres instances at once -> RouteTestTimeout / 50ms-expiry
@@ -137,8 +133,16 @@ lazy val root = (project in file("."))
       "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
       "--add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED"
     ),
-    Compile / run / envVars ++= loadDotEnv(baseDirectory.value),
-    Test / envVars ++= loadDotEnv(baseDirectory.value),
+    // HEL-1450: tests no longer read backend/.env at all. Test / envVars is the fixed, committed, test-only map
+    // DevEnv.testEnv (the same public CONNECTOR_MASTER_KEY/_ID values CI uses); a forked JVM still inherits the
+    // sbt process env. The dev server gets .env minus DevEnv.neverForwardKeys, never overriding a shell-exported
+    // key. The sbt server captures its env at start, so after a fresh `export` run `sbt shutdown`. Inspect keys
+    // with `sbt envVarKeys`, NEVER `show Test/envVars` or `show Compile/run/envVars`.
+    // Uncached: the run env reads a file and sys.env, and caching would serialize real values into sbt's CAS.
+    Compile / run / envVars := Def.uncached(
+      DevEnv.runEnv(DevEnv.parseDotEnv(baseDirectory.value / ".env"), sys.env)
+    ),
+    Test / envVars := DevEnv.testEnv,
     // Required for Spark to access internal JDK classes under Java 9+ module system
     Test / javaOptions ++= Seq(
       "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
@@ -215,6 +219,9 @@ lazy val root = (project in file("."))
         connectInput = false,
         envVars = (Test / envVars).value
       )
+      // HEL-1450 wiring guard: the COMPUTED Test / envVars (what every forked group below receives) must be
+      // exactly DevEnv.testEnv. Reports KEY NAMES only, never a value or a whole map.
+      DevEnv.testEnvMismatch((Test / envVars).value).foreach(msg => sys.error(msg))
       val defined = (Test / definedTests).value
       // HEL-1287: when HELIO_TEST_SHARD_INDEX/COUNT are both set (CI matrix), run only this shard's suites,
       // LPT-packed over test-suite-weights.tsv; every shard's partition is verified exact before any test runs.
