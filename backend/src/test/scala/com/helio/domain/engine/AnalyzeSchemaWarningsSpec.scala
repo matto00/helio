@@ -426,7 +426,7 @@ class AnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers {
       val ws = warnings(steps, roots)
       codes(ws) shouldBe Vector("lk" -> Missing)
       ws.head.message should startWith("lookup:")
-      ws.head.message should include("key 'cust_id'")
+      ws.head.message should include("reference match field 'cust_id'")
     }
 
     "warn when the lookupKey is absent from a source secondary" in {
@@ -459,6 +459,44 @@ class AnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers {
       val sec = Map("ds" -> Vector(f("k", "string"), f("val", "integer")))
       val ws = AnalyzeSchemaWarnings.compute(steps, PipelineAnalyzeService.analyzeNodes(steps, roots, sec), sec)
       ws.filter(_.code == TypeMismatch) shouldBe empty
+    }
+  }
+
+  // HEL-1465: the lookup warnings name the fields by the labels on the lookup card ("Match on field" /
+  // "Reference match field"), not the config keys; the join wording ("key '...'") is untouched.
+  "lookup warning wording (HEL-1465)" should {
+
+    "name the fields by the card labels in the type-mismatch message" in {
+      val (steps, roots) = laneLookup(("customer_id", "id"), "\"name\"", Vector(f("customer_id", "string")), Vector(f("id", "integer"), f("name")))
+      val ws = warnings(steps, roots)
+      codes(ws) shouldBe Vector("lk" -> TypeMismatch)
+      ws.head.message shouldBe "lookup: match field 'customer_id' is string on the input but reference match field 'id' is integer on the secondary input; " +
+        "values of different types never match, so no row will find a match (types are from the inferred schemas)"
+      ws.head.message should not include "source key"
+      ws.head.message should not include "lookup key"
+    }
+
+    "call a missing secondary-side field the reference match field" in {
+      val (steps, roots) = laneLookup(("id", "cust_id"), "\"name\"", Vector(f("id")), Vector(f("id"), f("name")))
+      val ws = warnings(steps, roots)
+      codes(ws) shouldBe Vector("lk" -> Missing)
+      ws.head.message shouldBe "lookup: reference match field 'cust_id' not found in this step's inferred secondary input schema (available: id, name)"
+    }
+
+    "call a missing input-side field the match field" in {
+      val (steps, roots) = laneLookup(("nope", "id"), "\"name\"", Vector(f("id")), Vector(f("id"), f("name")))
+      val ws = warnings(steps, roots)
+      codes(ws) shouldBe Vector("lk" -> Missing)
+      ws.head.message shouldBe "lookup: match field 'nope' not found in this step's inferred input schema (available: id)"
+    }
+
+    "GUARD: leave the join missing-key wording unchanged" in {
+      val (steps, roots) = laneJoin(Vector(f("id", "string")), Vector(f("other", "string")))
+      warnings(steps, roots).map(_.message) shouldBe Vector(
+        "join: key 'id' not found in this step's inferred secondary input schema (available: other)")
+      val (leftSteps, leftRoots) = laneJoin(Vector(f("other", "string")), Vector(f("id", "integer")))
+      warnings(leftSteps, leftRoots).map(_.message) shouldBe Vector(
+        "join: field 'id' not found in this step's inferred input schema (available: other)")
     }
   }
 

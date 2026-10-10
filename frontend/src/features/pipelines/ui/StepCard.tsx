@@ -7,130 +7,17 @@ import React, { useId, useState } from "react";
 
 import { useStepCardState } from "../hooks/useStepCardState";
 import { useStepCardPreview } from "../hooks/useStepCardPreview";
-import { DataGrid, StatusChip } from "../../../shared/ui/index";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { isTempStepId, renamesOf } from "../state/stepNarrowing";
-import type { AnalyzeWarning, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { StepOpEditor } from "./StepOpEditor";
 import { StepSchemaDiffChips } from "./StepSchemaDiffChips";
 import { OutputsRail } from "./OutputsRail";
-import type { Output } from "../types/output";
-import { TriangleAlert, ChevronDown, ChevronUp, Copy, GripVertical, Power } from "lucide-react";
-import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
-interface StepCardProps {
-  step: Step;
-  /** HEL-912 task 5.3 — every step in the pipeline (across every lane), so
-   *  `union`/`lookup`'s `SecondaryInputPicker` can offer "other lane" node
-   *  options. Not filtered/derived per-card — the picker itself computes
-   *  eligibility (design.md Decision 3). Optional/defaults to `[]` so every
-   *  pre-existing non-union/lookup test site (which never exercises this
-   *  path) doesn't need updating just to satisfy this prop. */
-  allSteps?: Step[];
-  /** HEL-1102 (design.md Decision 2) — true only for the pipeline's owner;
-   *  passed straight through to `StepOpEditor`'s `UpsertSourceConfig`.
-   *  Optional/defaults to `true` so every pre-existing non-upsertsource test
-   *  site (which never exercises this path) doesn't need updating just to
-   *  satisfy this prop. */
-  isOwner?: boolean;
-  /** HEL-407 — this step's index in the editor's step list. Threaded down so
-   *  the Move up/down buttons know when to disable (design.md Decision 6),
-   *  the drag handle can report which step is being dragged (Decision 5),
-   *  and the preview-refresh fingerprint can pick up a reorder even though
-   *  the UI `Step` type has no persisted `position` field (Decision 9). */
-  stepIndex: number;
-  pipelineId: string;
-  onRemove: (id: string) => void;
-  /** Column names from the analyze endpoint's inputSchema for this step — used by SelectFieldsConfig/RenameFieldsConfig/CastFieldsConfig. */
-  analyzeColumns: string[];
-  /** Full schema fields from the analyze endpoint's inputSchema — used by FilterConfig for type-aware value input. */
-  analyzeSchema: SchemaField[];
-  /** HEL-404 — this step's output schema (name + type) from the analyze endpoint,
-   *  rendered inline in the preview tray alongside the sample rows. Empty when
-   *  analyze data for the step is unavailable (pending/failed/unknown step id). */
-  analyzeOutputSchema: SchemaField[];
-  /** HEL-1340 — whether `analyzeSchema` comes from this step's OWN analyze entry. False while an
-   *  already-created draft is still on the anchor-derived fallback schema (no output schema yet),
-   *  where a diff would falsely report every field as dropped. Defaults to true. */
-  hasOwnAnalyze?: boolean;
-  /** This step's analyze-time `validationError`, if any. Rendered generically via
-   *  `InlineError` in the expanded card body (skeptic-final-1.md CR1) for every op
-   *  except `compute`, which renders it itself inline below the expression input
-   *  (`ComputeFieldConfig`) — kept there for its more specific placement, not
-   *  double-rendered. */
-  validationError?: string;
-  /** HEL-1414 — this step's schema-only, NON-BLOCKING analyze warnings. Shown as a header indicator
-   *  and, when expanded, a "Check before running" region; never marks the card errored. */
-  warnings?: AnalyzeWarning[];
-  /** Called after a successful config PATCH so the parent can keep step.config in sync. */
-  onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
-  /** Output row count from the last run, if available. Null hides the chip. */
-  rowCount: number | null;
-  /** HEL-407 — the drag handle is the SOLE draggable element (design.md
-   *  Decision 5); RiverView owns drop targeting on its own card wrapper. */
-  onStepDragStart: (index: number, stepId: string) => void;
-  onStepDragEnd: () => void;
-  /** Undefined disables the button — RiverView omits the handler at the
-   *  first/last position rather than StepCard reasoning about bounds.
-   *  F-146 — id-keyed (not `() => void`) so RiverView can hand every
-   *  StepCard the *same* stable callback reference instead of allocating a
-   *  fresh index-closing arrow per card per render (see
-   *  `PipelineRiverView.handleMoveUp`/`handleMoveDown`); StepCard supplies
-   *  its own `step.id` at the call site below. */
-  onMoveUp?: (stepId: string) => void;
-  onMoveDown?: (stepId: string) => void;
-  /** HEL-1007 — the lane this card sits in (a root trunk lane's source name). Appended to the Move
-   *  buttons' accessible name/title ("Move step up in <lane>") so the controls of different roots'
-   *  lanes are distinguishable. Absent keeps the bare "Move step up" name. */
-  laneLabel?: string;
-  /** HEL-1007 — `false` renders NO drag handle and NO Move buttons (a branch lane: the reorder
-   *  endpoint permutes trunk ids only, so a permanently-disabled control there would only mislead).
-   *  Defaults to `true`. Independent of `isTail`, which also hides them. */
-  reorderable?: boolean;
-  /** HEL-412 — persists the disable/enable toggle; the page owns the
-   *  optimistic flip + revert-on-failure convention. */
-  onToggleEnabled: (stepId: string, enabled: boolean) => void;
-  /** HEL-412 — invokes the duplicate endpoint; the page owns splicing the
-   *  clone in after the original. */
-  onDuplicate: (stepId: string) => void;
-  /** HEL-706 — true while this step's own duplicate request is in flight;
-   *  disables the "Duplicate step" button only (not the unrelated step
-   *  enable/disable toggle, which already overloads `disabled`/`enabled`
-   *  vocabulary on this card -- see the CSS `--disabled` modifier below). */
-  isDuplicating: boolean;
-  /** HEL-412 — the join of every step's enabled flag (design.md Decision 8),
-   *  folded into the preview fingerprint so a toggle anywhere refreshes every
-   *  open preview tray, not just this card's own. */
-  enabledBits: string;
-  /** task 3.3 — this step's own Outputs (already filtered/grouped by the
-   *  parent's `selectOutputsByStepId`); rendered as an `OutputsRail` chip row
-   *  in the card body. */
-  outputs: Output[];
-  previewRowCountByOutputId: Record<string, number>;
-  onOpenOutput: (output: Output) => void;
-  onAddOutput: (stepId: string) => void;
-  /** HEL-908 task 3.4 — `true` renders this card as an indented, dashed tail
-   *  item (`TailChain`'s sole consumer) instead of a top-level trunk card;
-   *  hides the Move up/down buttons and drag handle, since tail-internal
-   *  reorder shares the same backend `PUT /steps/order` sibling-scoped
-   *  primitive that trunk-to-trunk reorder already relies on (untouched by
-   *  this ticket — see `execution-progress.md` Cycle 6 for why building new
-   *  reorder UI on top of it isn't attempted here). */
-  isTail?: boolean;
-  /** HEL-1109 (design.md D5) — the pipeline's own estimated row count,
-   *  threaded to `StepOpEditor`'s AI-card cost disclosure. */
-  estimatedRows?: number;
-  /** HEL-1109 (pipeline-ai-step-authoring spec) — this draft's rejected
-   *  create message, if its most recent create attempt failed. `undefined`
-   *  for a persisted step or a draft with no outstanding failure. */
-  draftError?: string;
-  /** HEL-1294 — true while this step's optimistic create (POST + resync) is in flight. The resync
-   *  swaps the temp id for the persisted one, which remounts this keyed card collapsed, so the
-   *  expand toggle is disabled until then (an open editor would be lost, and an edit made on the
-   *  temp id is a no-op). Cleared on failure so the kept local step stays openable. */
-  isCreating?: boolean;
-}
+import type { StepCardProps } from "./stepCardTypes";
+import { StepCardHeader } from "./StepCardHeader";
+import { StepCardWarnings } from "./StepCardWarnings";
+import { StepCardPreviewTray } from "./StepCardPreviewTray";
 
 // F-146 — rendered once per pipeline step, and every edit to any one step's
 // config re-renders `PipelineDetailPage`/`PipelineRiverView` with a new
@@ -245,158 +132,34 @@ export const StepCard = React.memo(function StepCard({
        * nested inside the toggle — following the
        * `SidebarItemList.renderRowAction` precedent (no `stopPropagation`
        * needed since the controls aren't inside another button). */}
-      <div className="pipeline-detail-page__step-card-header">
-        <button
-          type="button"
-          className="pipeline-detail-page__step-card-toggle"
-          onClick={handleHeaderClick}
-          aria-expanded={expanded}
-          disabled={isCreating}
-          title={isCreating ? "Saving step…" : undefined}
-        >
-          <span className="pipeline-detail-page__step-card-icon" aria-hidden="true">
-            <step.opType.icon size={ICON_SIZE.md} />
-          </span>
-          <span className="pipeline-detail-page__step-card-label">{step.label}</span>
-          {/* HEL-1109 (design.md D6) — an unsaved AI draft's own affordance;
-           * DESIGN.md's one pill recipe, same treatment as a never-run
-           * pipeline (`PipelineListTable.tsx:37-39`), not a new badge. */}
-          {isDraft && (
-            <StatusChip intent="neutral" dashed>
-              Draft — not yet saved
-            </StatusChip>
-          )}
-          {/* Non-interactive chip, like the count chip below (design.md Decision 2). */}
-          {validationError && (
-            <span
-              className="pipeline-detail-page__step-card-error-chip"
-              role="img"
-              aria-label="Step has a validation error"
-            >
-              <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
-            </span>
-          )}
-          {/* HEL-1414 — non-interactive warning-intent indicator, a sibling of the error chip;
-           * never marks the card errored (warning tokens only). */}
-          {warningCount > 0 && (
-            <span
-              className="pipeline-detail-page__step-card-warning-chip"
-              role="img"
-              aria-label={`${warningCount} schema ${warningCount === 1 ? "warning" : "warnings"}`}
-            >
-              <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
-              {warningCount > 1 && <span aria-hidden="true">{warningCount}</span>}
-            </span>
-          )}
-          {rowCount !== null && (
-            <span className="pipeline-detail-page__step-card-count">
-              {rowCount.toLocaleString()} rows
-            </span>
-          )}
-          <span
-            className={`pipeline-detail-page__step-card-chevron${expanded ? " pipeline-detail-page__step-card-chevron--open" : ""}`}
-            aria-hidden="true"
-          >
-            ▾
-          </span>
-        </button>
-        <div className="pipeline-detail-page__step-card-actions-cluster">
-          {/* HEL-908 task 3.4 — the drag handle and Move up/down buttons are
-           * trunk-only (see `isTail` prop doc): tail-internal reorder shares
-           * the same sibling-scoped `PUT /steps/order` primitive trunk
-           * reorder already relies on, unmodified by this ticket. */}
-          {!isTail && reorderable && (
-            <>
-              {/* design.md Decision 5 — the drag handle is an `aria-hidden`
-               * mouse/touch-only drag surface, not a focusable control: the
-               * keyboard-accessible reorder path is the Move up/down buttons
-               * below, not this handle. A focusable-but-hidden element would be
-               * an accessibility anti-pattern (phantom tab-stop excluded from
-               * the a11y tree), so this is a `<span>`, not a `<button>`. */}
-              <span
-                className="pipeline-detail-page__step-card-drag-handle"
-                aria-hidden="true"
-                draggable
-                onDragStart={() => onStepDragStart(stepIndex, step.id)}
-                onDragEnd={onStepDragEnd}
-              >
-                <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
-              </span>
-              <button
-                type="button"
-                className="pipeline-detail-page__step-card-move-btn"
-                aria-label={moveUpLabel}
-                title={moveUpLabel}
-                data-step-id={step.id}
-                data-move-dir="up"
-                disabled={onMoveUp === undefined}
-                onClick={() => onMoveUp?.(step.id)}
-              >
-                <ChevronUp aria-hidden="true" size={ICON_SIZE.sm} />
-              </button>
-              <button
-                type="button"
-                className="pipeline-detail-page__step-card-move-btn"
-                aria-label={moveDownLabel}
-                title={moveDownLabel}
-                data-step-id={step.id}
-                data-move-dir="down"
-                disabled={onMoveDown === undefined}
-                onClick={() => onMoveDown?.(step.id)}
-              >
-                <ChevronDown aria-hidden="true" size={ICON_SIZE.sm} />
-              </button>
-            </>
-          )}
-          {/* HEL-412 (design.md Decision 6) — sibling of the toggle/drag/move
-           * controls above, never nested inside another button. The
-           * accessible name flips with state; the icon stays constant
-           * (mirrors the Move up/down buttons, which don't swap icons either). */}
-          <button
-            type="button"
-            className="pipeline-detail-page__step-card-toggle-enabled-btn"
-            aria-label={step.enabled ? "Disable step" : "Enable step"}
-            title={step.enabled ? "Disable step" : "Enable step"}
-            aria-pressed={!step.enabled}
-            onClick={() => onToggleEnabled(step.id, !step.enabled)}
-          >
-            <Power aria-hidden="true" size={ICON_SIZE.sm} />
-          </button>
-          <button
-            type="button"
-            className="pipeline-detail-page__step-card-duplicate-btn"
-            aria-label="Duplicate step"
-            title="Duplicate step"
-            disabled={isDuplicating}
-            onClick={() => onDuplicate(step.id)}
-          >
-            <Copy aria-hidden="true" size={ICON_SIZE.sm} />
-          </button>
-        </div>
-      </div>
+      <StepCardHeader
+        step={step}
+        isDraft={isDraft}
+        expanded={expanded}
+        isCreating={isCreating}
+        validationError={validationError}
+        warningCount={warningCount}
+        rowCount={rowCount}
+        handleHeaderClick={handleHeaderClick}
+        isTail={isTail}
+        reorderable={reorderable}
+        stepIndex={stepIndex}
+        onStepDragStart={onStepDragStart}
+        onStepDragEnd={onStepDragEnd}
+        moveUpLabel={moveUpLabel}
+        moveDownLabel={moveDownLabel}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+        onToggleEnabled={onToggleEnabled}
+        onDuplicate={onDuplicate}
+        isDuplicating={isDuplicating}
+      />
 
       {/* HEL-1414 — warnings region: expanded only, directly after the header and before the
        * Outputs rail (outside the card body). Not role="alert": non-blocking and refreshed on
        * every analyze. */}
       {expanded && warningCount > 0 && (
-        <div
-          className="pipeline-detail-page__step-card-warnings"
-          role="region"
-          aria-labelledby={warningsHeadingId}
-        >
-          <p id={warningsHeadingId} className="pipeline-detail-page__step-card-warnings-heading">
-            <TriangleAlert aria-hidden="true" size={ICON_SIZE.sm} />
-            Check before running{" "}
-            <span className="pipeline-detail-page__step-card-warnings-note">
-              (these don&apos;t block runs)
-            </span>
-          </p>
-          <ul className="pipeline-detail-page__step-card-warnings-list">
-            {warnings?.map((w, i) => (
-              <li key={`${w.code}-${i}`}>{w.message}</li>
-            ))}
-          </ul>
-        </div>
+        <StepCardWarnings warnings={warnings} warningsHeadingId={warningsHeadingId} />
       )}
 
       {/* task 3.3 — always visible (not gated on `expanded`): the rail is
@@ -471,35 +234,12 @@ export const StepCard = React.memo(function StepCard({
           </div>
 
           {previewOpen && step.enabled && (
-            <div className="pipeline-detail-page__step-preview">
-              {analyzeOutputSchema.length > 0 && (
-                <div
-                  className="pipeline-detail-page__step-preview-schema"
-                  aria-label="Output schema"
-                >
-                  {analyzeOutputSchema.map((field) => (
-                    <span
-                      key={field.name}
-                      className="pipeline-detail-page__step-preview-schema-chip"
-                    >
-                      {field.name}
-                      <span className="pipeline-detail-page__step-preview-schema-chip-type">
-                        : {field.type}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              )}
-              {previewLoading ? (
-                <p className="pipeline-detail-page__step-preview-loading">Loading preview…</p>
-              ) : previewError !== null ? (
-                <p className="pipeline-detail-page__step-preview-error" role="alert">
-                  {previewError}
-                </p>
-              ) : (
-                <DataGrid variant="preview" rows={previewRows} emptyText="No rows to preview." />
-              )}
-            </div>
+            <StepCardPreviewTray
+              analyzeOutputSchema={analyzeOutputSchema}
+              previewLoading={previewLoading}
+              previewError={previewError}
+              previewRows={previewRows}
+            />
           )}
         </div>
       )}
