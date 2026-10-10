@@ -139,6 +139,9 @@ jobs:
       # actually runs, so the hook and CI cannot silently diverge again.
       - run: npm run check:precommit-ci-parity
       - run: npm run check:precommit-ci-parity:selftest
+      # HEL-1428: every ci.yml job must be in ci-complete.needs (fail-closed). The hook runs the check; the selftest is CI-only.
+      - run: npm run check:ci-complete-needs
+      - run: npm run check:ci-complete-needs:selftest
       # HEL-1299: cache-budget tooling. CI-only on purpose, like the other selftests above that avoid touching
       # `.husky/**`; check:precommit-ci-parity only requires hook checks to appear here, not the reverse.
       - run: npm run selftest:cache-janitor
