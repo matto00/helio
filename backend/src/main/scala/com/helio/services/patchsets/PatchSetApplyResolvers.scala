@@ -8,6 +8,7 @@ import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, OutputResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}
 import com.helio.api.protocols.patchsets.Edit
+import com.helio.services.pipelines.PipelineCreatePreflight
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSourceId, DataSourceKind, Output, OutputId, PanelId, PipelineId, PipelineRootId, PipelineStep, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
@@ -534,6 +535,12 @@ private[services] object PatchSetApplyResolvers {
         }
     }
 
+  private def prefixedWithEdit(index: Int, err: ServiceError): ServiceError = err match {
+    case ServiceError.UnprocessableEntity(msg) => ServiceError.UnprocessableEntity(s"edit $index: $msg")
+    case ServiceError.BadRequest(msg)          => ServiceError.BadRequest(s"edit $index: $msg")
+    case other                                 => other
+  }
+
   private def resolvePipelineCreate(
       edit: Edit,
       index: Int,
@@ -569,17 +576,15 @@ private[services] object PatchSetApplyResolvers {
                 case None => loop(rest)
               }
           }
-          // HEL-1402: same strict step-config check `PipelineService.create` applies, surfaced at
-          // resolve time (422, nothing applied) like a pipelineStep update edit, instead of a
-          // forward-apply failure reported as HTTP 200.
-          val stepConfigError: Option[ServiceError] = request.steps.iterator.flatMap { step =>
-            PipelineStep.rawConfigProblem(step.`type`, step.config.compactPrint)
-              .map(msg => ServiceError.UnprocessableEntity(s"edit $index: Step '${step.clientId}': $msg"): ServiceError)
-          }.nextOption()
           loop(request.roots.toList).map {
             case Left(err) => Left(err)
             case Right(()) =>
-              stepConfigError.toLeft(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
+              // HEL-1402/HEL-1469: the SAME request-only step/Output pre-flight `PipelineService.create`
+              // runs before it creates any inline root source, surfaced at resolve time (4xx, nothing
+              // applied, no source created) instead of a forward-apply failure reported as HTTP 200 --
+              // for apply AND preview (which shares `resolveAll`). Root errors above stay first.
+              PipelineCreatePreflight.run(request).left.map(prefixedWithEdit(index, _))
+                .map(_ => ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
           }
         }
     }

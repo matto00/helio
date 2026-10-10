@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, PipelineStepConfigCodec, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.services.panels.LayoutWritePolicy
 import com.helio.services.pipelines.OutputConfigWritePolicy
@@ -11,7 +11,7 @@ import com.helio.domain.model._
 import com.helio.domain.panels._
 import PatchSetApplyServiceJson._
 import org.slf4j.LoggerFactory
-import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
+import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue, JsonParser}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -134,13 +134,15 @@ private[services] object PatchSetApplyRollback {
       // HEL-904 task 3.3: the `dataType` ResolvedAction cases (update/delete)
       // are REMOVED outright -- see `PatchSetApplyForward`'s identical note.
 
-      case ResolvedAction.PipelineCreate(_) =>
+      case ResolvedAction.PipelineCreate(request) =>
         forwardOutcome.newId match {
           case None => Future.successful(edit.toOutcome("unrecoverable"))
           case Some(idStr) =>
-            services.pipelineService.delete(PipelineId(idStr), user).map {
-              case Right(_)  => edit.toOutcome("rolledBack")
-              case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
+            services.pipelineService.delete(PipelineId(idStr), user).flatMap {
+              case Left(err) => logFailure(edit, err.message); Future.successful(edit.toOutcome("unrecoverable"))
+              // HEL-1469: the pipeline is gone, so the inline root sources this create made are now
+              // unreferenced -- delete them too (a delete failure leaves the edit unrecoverable).
+              case Right(_)  => deleteInlineRootSources(edit, request, forwardOutcome, user, services)
             }
         }
       case ResolvedAction.PipelineUpdate(id, _, prior) =>
@@ -193,6 +195,33 @@ private[services] object PatchSetApplyRollback {
         // positions, would duplicate a multi-step composition this ticket does not reimplement.
         Future.successful(edit.toOutcome("unrecoverable"))
     }
+
+  /** HEL-1469: the roots of a rolled-back pipeline create whose request root was INLINE (`type` defined),
+   *  identified by position in the forward outcome's summary (`roots` preserves request order). */
+  private def deleteInlineRootSources(
+      edit: ResolvedEdit,
+      request: CreatePipelineRequest,
+      forwardOutcome: EditOutcome,
+      user: AuthenticatedUser,
+      services: PatchSetApplyServices
+  )(implicit ec: ExecutionContext): Future[EditOutcome] = {
+    val summaryRoots: Vector[JsValue] = forwardOutcome.resultingState match {
+      case Some(o: JsObject) => o.fields.get("roots").collect { case JsArray(els) => els }.getOrElse(Vector.empty)
+      case _                 => Vector.empty
+    }
+    val inlineIds: Vector[DataSourceId] = request.roots.zip(summaryRoots).collect {
+      case (root, JsObject(fields)) if root.`type`.isDefined =>
+        fields.get("dataSourceId").collect { case JsString(id) => DataSourceId(id) }
+    }.flatten
+    inlineIds.foldLeft(Future.successful(true)) { (accF, id) =>
+      accF.flatMap { ok =>
+        services.dataSourceService.delete(id, user).map {
+          case Right(_)  => ok
+          case Left(err) => logFailure(edit, err.err.message); false
+        }
+      }
+    }.map(ok => if (ok) edit.toOutcome("rolledBack") else edit.toOutcome("unrecoverable"))
+  }
 
   /** design.md D3a: recreate via `addStep`, then `updateStep(position=...)`
    *  if it landed elsewhere (a new step is always appended, so anywhere but

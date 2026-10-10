@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.assistant
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.assistant.AssistantDailyUsageRepository
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -13,6 +14,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.time.{LocalDate, ZoneOffset}
+import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -87,7 +89,7 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
     appDb = JdbcBackend.Database.forDataSource(new HikariDataSource(appCfg), Some(10))
 
     ctx  = new DbContext(appDb, privilegedDb)
-    repo = new AssistantDailyUsageRepository(ctx)
+    repo = new AssistantDailyUsageRepository(ctx, PinnedDayClock)
 
     await(ctx.withSystemContext(DBIO.seq(
       sqlu"""INSERT INTO users (id, email, created_at)
@@ -105,10 +107,14 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
     embeddedPostgres.close()
   }
 
+  // HEL-1473: pin the beta per-UTC-day bucket so a run straddling real UTC midnight cannot split it.
+  private object PinnedDayClock extends Clock { def now(): Instant = Instant.parse("2026-01-01T12:00:00Z") }
+  private val pinnedDate: LocalDate = LocalDate.ofInstant(PinnedDayClock.now(), ZoneOffset.UTC)
+
   private def cleanDb(): Unit = await(ctx.withSystemContext(sqlu"TRUNCATE TABLE assistant_daily_usage"))
 
   private def countFor(owner: UserId): Option[Int] = {
-    val today = LocalDate.now(ZoneOffset.UTC).toString
+    val today = pinnedDate.toString
     await(ctx.withSystemContext(
       sql"""SELECT message_count FROM assistant_daily_usage
             WHERE user_id = ${owner.value}::uuid AND usage_date = $today::date"""
@@ -169,7 +175,7 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
 
     "keys usage per UTC day -- yesterday's row is untouched by today's increment, and doesn't count toward today's cap" in {
       cleanDb()
-      val yesterday = LocalDate.now(ZoneOffset.UTC).minusDays(1).toString
+      val yesterday = pinnedDate.minusDays(1).toString
       await(ctx.withSystemContext(
         sqlu"""INSERT INTO assistant_daily_usage (user_id, usage_date, message_count)
                VALUES (${ownerA.value}::uuid, $yesterday::date, 999)"""
@@ -194,7 +200,7 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
       cleanDb()
       await(repo.incrementIfUnderCap(ownerA, limit = 5))
 
-      val today = LocalDate.now(ZoneOffset.UTC).toString
+      val today = pinnedDate.toString
       val rows = await(ctx.withUserContext(ownerB.value)(
         sql"""SELECT user_id::text FROM assistant_daily_usage
               WHERE usage_date = $today::date""".as[String]
@@ -205,7 +211,7 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
     "RLS: ownerB's context cannot increment/overwrite ownerA's daily usage row via a direct write" in {
       cleanDb()
       await(repo.incrementIfUnderCap(ownerA, limit = 5))
-      val today = LocalDate.now(ZoneOffset.UTC).toString
+      val today = pinnedDate.toString
 
       val updated = await(ctx.withUserContext(ownerB.value)(
         sqlu"""UPDATE assistant_daily_usage SET message_count = 999
@@ -218,7 +224,7 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
     "withSystemContext (privileged pool) sees the row regardless of owner" in {
       cleanDb()
       await(repo.incrementIfUnderCap(ownerA, limit = 5))
-      val today = LocalDate.now(ZoneOffset.UTC).toString
+      val today = pinnedDate.toString
 
       val rows = await(ctx.withSystemContext(
         sql"""SELECT user_id::text FROM assistant_daily_usage

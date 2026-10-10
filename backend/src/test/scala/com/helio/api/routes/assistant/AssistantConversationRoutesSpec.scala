@@ -1,6 +1,7 @@
 package com.helio.api.routes.assistant
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.domain.util.Clock
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.assistant.AssistantConversationRoutes
@@ -39,6 +40,7 @@ import spray.json._
 import java.nio.file.Files
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -137,7 +139,7 @@ class AssistantConversationRoutesSpec
     conversationService = new AssistantConversationService(repo, fileSystem)(routeEc)
 
     userRepo  = new UserRepository(appDb)(routeEc)
-    usageRepo = new AssistantDailyUsageRepository(ctx)(routeEc)
+    usageRepo = new AssistantDailyUsageRepository(ctx, PinnedDayClock)(routeEc)
     // HEL-703: the module-level userA/userB fixtures below are seeded `owner`-tier (not the
     // `free` default) precisely so every PRE-EXISTING test in this file — written before tier
     // gating existed — keeps exercising unrestricted, uncounted access. The dedicated tier-gating
@@ -261,8 +263,12 @@ class AssistantConversationRoutesSpec
   // `AssistantDailyUsageRepository.incrementIfUnderCap` writes -- deliberately NOT `CURRENT_DATE`
   // (Postgres session-timezone-dependent), so this assertion can never disagree with production
   // behavior over a timezone mismatch.
+  // HEL-1473: pin the beta per-UTC-day bucket so a run straddling real UTC midnight cannot split it.
+  private object PinnedDayClock extends Clock { def now(): Instant = Instant.parse("2026-01-01T12:00:00Z") }
+  private val pinnedDate: LocalDate = LocalDate.ofInstant(PinnedDayClock.now(), ZoneOffset.UTC)
+
   private def dailyUsageCount(user: AuthenticatedUser): Option[Int] = {
-    val today = LocalDate.now(ZoneOffset.UTC).toString
+    val today = pinnedDate.toString
     await(ctx.withSystemContext(
       sql"""SELECT message_count FROM assistant_daily_usage
             WHERE user_id = ${user.id.value}::uuid AND usage_date = $today::date"""
@@ -585,6 +591,13 @@ class AssistantConversationRoutesSpec
         body.code shouldBe "CHAT_LIMIT_REACHED"
         body.limit shouldBe Some(1)
       }
+
+      // Wiring guard (HEL-1473): the stored usage_date IS the pinned day. Fails on SystemClock on any
+      // day but 2026-01-01, so dropping the pin from the repo is caught immediately.
+      val storedDays = await(ctx.withSystemContext(
+        sql"""SELECT usage_date::text FROM assistant_daily_usage WHERE user_id = ${betaUser.id.value}::uuid""".as[String]
+      ))
+      storedDays shouldBe Vector(pinnedDate.toString)
 
       // The model was invoked exactly once (for the first, under-cap call) -- the second,
       // over-cap call never reached AssistantService.converse at all.
