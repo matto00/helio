@@ -245,8 +245,11 @@ jobs:
         # HEL-1339: sbt runs through scripts/ci-sbt.sh: `--server` (one foreground JVM, no sbtn -> background-server
         # handoff, the suspect in two silent hangs) plus an in-step deadline (660 s; step bound 13 min) that captures
         # a thread dump of the recorded sbt JVM, uploaded as an artifact, before failing. 660 + 25 capture + 5 grace
-        # < 780 s step bound; 780 s + shard-0 pre-steps (job start -> this step, incl. the 41-46 s selftest) <
-        # 900 s job bound. Measured on 4 HEL-1362 PR runs: 83, 90, 73, 77 s; worst 90 s -> 870 s, about 30 s to spare.
+        # < 780 s step bound. The 900 s job bound must cover pre-steps + 780 s + post-steps. HEL-1425, shard 0 of 10
+        # runs 38015649444..38020588117: pre-steps (job start -> this step, incl. the 41-42 s selftest) 66-87 s;
+        # post-steps (this step's end -> job end) 5-10 s, main-only saves excluded (skipped on failure). Worst
+        # 87 + 780 + 10 = 877 s: about 20 s to spare, less the failure-only diagnostics upload (unmeasured; the JUnit
+        # upload takes 2-3 s). A hang is normally stopped by the 660 s deadline (~690 s), far inside both bounds.
         timeout-minutes: 13
         # HEL-1018: one quoted command -- sbt 2's thin client joins unquoted args into a single
         # (unparseable) command; testFull never serves a cached result.

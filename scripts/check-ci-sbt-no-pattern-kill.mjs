@@ -3,6 +3,7 @@
 // (see scripts/lib/ci-sbt-diag.sh), never by name or command-line pattern. Fails on pgrep/pkill/killall/pidof or a
 // `ps ... | ... grep` pipeline in the CI sbt helper scripts and in ci.yml. Comment lines are not scanned. Matching runs over LOGICAL lines (HEL-1362):
 // backslash / trailing-`|` / `&&` / `||` continuations are joined, so a pipeline split across lines is still caught.
+// Blank lines after an operator are skipped (HEL-1425).
 // JDK-free, node built-ins only: runs in the CI `frontend` job (CI-only, like the other check:* guards there).
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -25,16 +26,20 @@ const YAML_BLOCK_HEADER = /:\s*\|[-+]?\s*$/;
 const CONTINUES = /(\\|\|\||&&|\|)\s*$/;
 
 // Fold physical lines into logical shell lines: a line ending in `\`, `|`, `||` or `&&` is joined with the next.
-// Comment-only lines are dropped (also inside a continuation). Each logical line keeps its first physical line number.
+// Comment-only lines are dropped (also inside a continuation). After a trailing `|`, `||` or `&&` (not `\`), blank lines are skipped too, as bash does (HEL-1425). Each logical line keeps its first physical line number.
 export function logicalLines(text) {
   const out = [];
   let cur = null;
+  let afterOperator = false;
   text.split("\n").forEach((line, i) => {
     if (/^\s*#/.test(line)) return;
+    if (cur && afterOperator && /^\s*$/.test(line)) return;
     const continues = !YAML_BLOCK_HEADER.test(line) && CONTINUES.test(line);
-    const piece = continues && /\\\s*$/.test(line) ? line.replace(/\\\s*$/, "") : line;
+    const backslash = continues && /\\\s*$/.test(line);
+    const piece = backslash ? line.replace(/\\\s*$/, "") : line;
     if (cur) cur.text += ` ${piece.trim()}`;
     else cur = { n: i + 1, text: piece };
+    afterOperator = continues && !backslash;
     if (!continues) {
       out.push(cur);
       cur = null;
