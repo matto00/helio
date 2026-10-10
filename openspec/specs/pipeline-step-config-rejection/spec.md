@@ -1,7 +1,7 @@
 # pipeline-step-config-rejection Specification
 
 ## Purpose
-Reject a step configuration the caller supplied but the system cannot represent, with a 422 naming the offending key and the expected shape, so a misunderstood config can never be stored as a silent no-op that runs green while doing nothing.
+Reject a step configuration the caller supplied but the system cannot represent, or that parses but is invalid (an unparseable compute expression, an unsupported aggregation function, an unsupported fillnull/window/pivot value), with a 422 naming the offending key or value and the expected shape, on every write surface (step create/update, single-call pipeline create, pipeline proposals, and patch-set apply and preview edits), so a misunderstood config can never be stored as a silent no-op that runs green while doing nothing.
 
 ## Requirements
 
@@ -198,7 +198,7 @@ be rejected on write SHALL still load and still be analyzed exactly as before.
 ### Requirement: Clearly invalid fillnull, window and pivot enum values are rejected on every write surface
 
 Every surface that already applies the step-configuration rejection of this capability (step create, step update,
-pipeline proposal validate/apply, patch-set step-update and pipeline-create edits on apply and preview, single-call
+pipeline proposal validate/apply, patch-set step-create, step-update and pipeline-create edits on apply and preview, single-call
 pipeline create) SHALL reject, with that surface's existing step-configuration rejection status (422 on the REST step
 and pipeline routes):
 
@@ -269,3 +269,28 @@ SHALL still load, still be analyzed (reporting the problem), and still fail at r
 #### Scenario: The step editors surface a rejected save
 - **WHEN** a save of a `fillnull`, `window` or `pivot` step's configuration is rejected by the server
 - **THEN** the step editor shows the server's rejection message
+
+### Requirement: A patch-set pipelineStep create edit with a rejected config fails at resolve and preview
+
+A patch-set `pipelineStep` create edit whose supplied configuration the REST step create surface would reject with 422
+SHALL be rejected when the patch set is resolved, before any edit in it is applied: applying such a patch set SHALL
+return a 422 response whose message is `edit <index>: ` followed by the same rejection message the step create surface
+returns, and previewing it SHALL be rejected with the same 422 and message. No step SHALL be created and no other edit
+in that patch set SHALL be applied. This is the same status and message shape a patch-set `pipelineStep` update edit
+already returns for a rejected configuration. A configuration this surface accepts SHALL still apply, and an incomplete
+draft that the step create surface accepts SHALL still be accepted.
+
+#### Scenario: Step-create edit with an unknown compute function is rejected on apply
+- **GIVEN** a pipeline owned by the caller and a patch set whose first edit updates that pipeline and whose second edit
+  creates a `compute` step on it with expression `$a + nosuchfn($b)`
+- **WHEN** the patch set is applied
+- **THEN** the response status is 422 and the message starts with `edit 1: ` and names `nosuchfn`
+- **AND** the first edit is not applied and no step is created
+
+#### Scenario: Step-create edit with an unknown compute function is rejected on preview
+- **WHEN** the same patch set is previewed
+- **THEN** the response status is 422 and the message starts with `edit 1: `
+
+#### Scenario: Step-create edit with a valid config still applies
+- **WHEN** a patch set creating a `compute` step with a parseable expression is applied
+- **THEN** the step is created and the response reports no failure

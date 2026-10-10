@@ -201,8 +201,7 @@ private[services] object PatchSetApplyResolvers {
         // surface, so it gets the same status. Deliberately NOT the
         // BadRequest (400) this function emits for a decode failure: that one
         // means "unparseable", this one means "understood and refused".
-        PipelineStep.companionFor(existing.kind).toOption
-          .flatMap(_.validateRawConfig(cfgJson.compactPrint)) match {
+        PipelineStep.rawConfigProblem(existing.kind, cfgJson.compactPrint) match {
           case Some(msg) =>
             Future.successful(Left(ServiceError.UnprocessableEntity(s"edit $index: $msg")))
           case None =>
@@ -574,8 +573,7 @@ private[services] object PatchSetApplyResolvers {
           // resolve time (422, nothing applied) like a pipelineStep update edit, instead of a
           // forward-apply failure reported as HTTP 200.
           val stepConfigError: Option[ServiceError] = request.steps.iterator.flatMap { step =>
-            PipelineStep.companionFor(step.`type`).toOption
-              .flatMap(_.validateRawConfig(step.config.compactPrint))
+            PipelineStep.rawConfigProblem(step.`type`, step.config.compactPrint)
               .map(msg => ServiceError.UnprocessableEntity(s"edit $index: Step '${step.clientId}': $msg"): ServiceError)
           }.nextOption()
           loop(request.roots.toList).map {
@@ -731,9 +729,19 @@ private[services] object PatchSetApplyResolvers {
             decodeCreatePatch[CreatePipelineStepRequest](edit, index) match {
               case Left(err) => Future.successful(Left(err))
               case Right(request) =>
-                authorizeSecondSourceForCreate(request, index, user, ctx).map {
-                  case Left(err) => Left(err)
-                  case Right(_)  => Right(ResolvedEdit(index, "pipelineStep", "create", None, ResolvedAction.PipelineStepCreate(pipelineId, request)))
+                // HEL-1417: the strict step-config check `addStep` applies, at resolve time (422,
+                // nothing applied; preview shares this path) -- same `edit N: <msg>` shape as a
+                // pipelineStep update edit. Runs after authorization and before the second-source
+                // check so a caller gets the specific config message. An unknown `type` yields no
+                // problem here and keeps its apply-time 400.
+                PipelineStep.rawConfigProblem(request.`type`, request.config.compactPrint) match {
+                  case Some(msg) =>
+                    Future.successful(Left(ServiceError.UnprocessableEntity(s"edit $index: $msg")))
+                  case None =>
+                    authorizeSecondSourceForCreate(request, index, user, ctx).map {
+                      case Left(err) => Left(err)
+                      case Right(_)  => Right(ResolvedEdit(index, "pipelineStep", "create", None, ResolvedAction.PipelineStepCreate(pipelineId, request)))
+                    }
                 }
             }
         }

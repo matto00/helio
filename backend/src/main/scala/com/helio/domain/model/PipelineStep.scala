@@ -274,6 +274,12 @@ object PipelineStep {
     GenerateTextStep.Kind -> GenerateTextStep.companion
   )
 
+  /** HEL-1417: the strict write-path config problem for `kind`'s raw config, or `None` when the
+   *  config is acceptable OR the kind is unregistered / has not opted in (callers handle an
+   *  unknown kind separately). The one shared lookup behind every `validateRawConfig` call site. */
+  def rawConfigProblem(kind: String, raw: String): Option[String] =
+    companionFor(kind).toOption.flatMap(_.validateRawConfig(raw))
+
   /** Look up a kind's companion, or `Left` with a descriptive error. */
   def companionFor(kind: String): Either[String, Companion] =
     Registry.get(kind) match {
