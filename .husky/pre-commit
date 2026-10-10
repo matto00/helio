@@ -11,6 +11,7 @@ npm run check:schemas
 npm run check:spec-structure
 npm run check:openspec
 npm run check:openspec:selftest
+npm run check:ci-complete-needs
 npm run check:dependabot
 npm run check:dependabot:selftest
 npm run check:cloud-run-cpu

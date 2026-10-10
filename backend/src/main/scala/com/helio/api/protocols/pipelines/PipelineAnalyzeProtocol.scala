@@ -248,7 +248,8 @@ final case class CostVerdictResponse(
 )
 
 /** HEL-1235: one schema-only, NON-BLOCKING analyze finding (`AnalyzeSchemaWarnings`). `code` is
- *  `field-not-in-input-schema`, `join-key-type-mismatch` or `join-column-renamed`; `stepId` is the
+ *  `field-not-in-input-schema`, `join-key-type-mismatch`, `join-column-renamed` or
+ *  `numeric-op-on-text-field` (HEL-1403); `stepId` is the
  *  step it is about (the client step id for a proposal). Never feeds `validationError`,
  *  `costVerdict` or the auto-run gate, and is unrelated to `propose_pipeline`'s `warnings: string[]`
  *  and to run warnings. Always present (possibly empty) on the full and proposal responses. */

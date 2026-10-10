@@ -30,8 +30,8 @@ FROM ${BASE_REGISTRY}/eclipse-temurin:21-jre-alpine AS runtime
 RUN addgroup -S helio && adduser -S helio -G helio
 
 WORKDIR /app
-COPY --from=builder /build/backend/target/scala-2.13/helio-backend.jar helio-backend.jar
-RUN mkdir -p data && chown -R helio:helio /app
+COPY --chown=helio:helio --from=builder /build/backend/target/scala-2.13/helio-backend.jar helio-backend.jar
+RUN mkdir -p data && chown helio:helio /app /app/data
 
 USER helio
 

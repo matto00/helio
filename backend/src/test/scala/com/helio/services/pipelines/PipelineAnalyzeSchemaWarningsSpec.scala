@@ -7,6 +7,7 @@ import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.testsupport.JsonSchemaValidation
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -192,6 +193,54 @@ class PipelineAnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers with B
       val response = await(service.analyzeProposal(clean, owner)).getOrElse(fail("expected Right"))
       response.warnings shouldBe empty
       response.toJson.asJsObject.fields("warnings") shouldBe JsArray()
+    }
+  }
+
+  // ---- HEL-1403: numeric-op-on-text-field (compute) -- the warned compute still analyzes as runnable.
+  private val NumericCode = "numeric-op-on-text-field"
+
+  private def computeConfig(expr: String): JsObject =
+    JsObject("column" -> JsString("o"), "type" -> JsString("float"), "expression" -> JsString(expr))
+
+  "numeric-op-on-text-field through the analyze services" should {
+    def textPipeline(owner: AuthenticatedUser): PipelineId = {
+      val src = newSource(owner, Vector("price" -> "string"))
+      val pid = createPipeline(owner, src)
+      await(service.addStep(pid, CreatePipelineStepRequest(`type` = "compute", config = computeConfig("floor($price)")), owner)) shouldBe a[Right[_, _]]
+      pid
+    }
+
+    "carry the warning on the full analyze response without blocking, and validate against the response schema" in {
+      val owner    = newUser()
+      val response = await(service.analyze(textPipeline(owner), owner)).getOrElse(fail("expected Right"))
+      response.warnings.map(_.code) shouldBe Vector(NumericCode)
+      response.warnings.head.message should include("'price'")
+      response.steps.foreach(_.validationError shouldBe None)
+      response.costVerdict.canRun shouldBe true
+      response.costVerdict.reasons.map(_.code) should not contain PipelineAnalyzeService.StepConfigInvalidCode
+      val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json")
+      JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint) shouldBe empty
+    }
+
+    "carry the warning on the concise per-node response" in {
+      val owner   = newUser()
+      val concise = await(service.analyzeConcise(textPipeline(owner), owner)).getOrElse(fail("expected Right"))
+      concise.nodes.filter(_.op == "compute").flatMap(_.warnings.getOrElse(Vector.empty)).exists(_.contains("'price'")) shouldBe true
+    }
+
+    "carry the warning on the un-applied proposal analyze response and validate against the proposal schema" in {
+      val owner = newUser()
+      val src   = newSource(owner, Vector("price" -> "string"))
+      val proposal = PipelineProposal(
+        pipelineName = "warn-proposal-compute",
+        roots = Vector(PipelineProposalSource(sourceId = Some(src.value), `type` = None, name = None, csvConfig = None, restConfig = None, sqlConfig = None, staticConfig = None)),
+        steps = Vector(CreatePipelineTransactionalStepRequest("c1", "compute", computeConfig("floor($price)")))
+      )
+      val response = await(service.analyzeProposal(proposal, owner)).getOrElse(fail("expected Right"))
+      response.warnings.map(w => w.stepId -> w.code) shouldBe Vector("c1" -> NumericCode)
+      response.steps.foreach(_.validationError shouldBe None)
+      val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-proposal-response.schema.json")
+      JsonSchemaValidation.validationErrors(schema, response.toJson.compactPrint) shouldBe empty
     }
   }
 }

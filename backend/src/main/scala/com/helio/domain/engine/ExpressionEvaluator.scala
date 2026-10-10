@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import spray.json._
 import ExpressionInterpreter.{evalExpr, valToJs}
-import ExpressionParser.{BinOp, Call, Expr, FieldRef, NumLit, StrLit, isDollarPrefixError, parse, parseLegacy}
+import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit, isDollarPrefixError, parse, parseLegacy}
 import ExpressionTypeInference.inferTypeOf
 
 /** Errors that can occur during expression evaluation at row-processing time. */
@@ -29,7 +29,8 @@ object EvaluationError {
  * `docs/compute-expression-grammar.md` (shared contract with the frontend); summary:
  *   - Numeric literals, double-quoted string literals
  *   - `$`-prefixed field references (`$col`) — REQUIRED for the strict grammar (see below)
- *   - Arithmetic: +, -, *, / (with correct precedence); `-`/`*`/`/` are numeric-strict,
+ *   - Arithmetic: +, -, *, / (with correct precedence) and prefix unary `-` (HEL-1403; binds tighter
+ *     than `*`/`/`, repeatable, strict grammar only); `-`/`*`/`/` are numeric-strict,
  *     `+` is coercion-permissive (string concatenation if either side is a string)
  *   - Function calls: `concat`, `substring`, `lower`, `upper`, `length`, and the numeric
  *     `floor`, `ceil`, `round(x[, digits])`, `mod`, `abs` (strict numeric, null-propagating)
@@ -38,7 +39,8 @@ object EvaluationError {
  *
  * Grammar (strict):
  *   expr   → term   (('+' | '-') term)*
- *   term   → factor (('*' | '/') factor)*
+ *   term   → unary (('*' | '/') unary)*
+ *   unary  → '-' unary | factor
  *   factor → NUMBER | STRING | '$' IDENT | IDENT '(' args ')' | '(' expr ')'
  *   args   → (expr (',' expr)*)?
  *
@@ -157,6 +159,7 @@ object ExpressionEvaluator {
       if (names.contains(name)) Right(()) else Left(unknownFieldMessage(name, names))
     case BinOp(_, l, r) =>
       checkRefs(l, names).flatMap(_ => checkRefs(r, names))
+    case Neg(e) => checkRefs(e, names)
     case Call(_, args) =>
       args.foldLeft[Either[String, Unit]](Right(())) { (acc, a) =>
         acc.flatMap(_ => checkRefs(a, names))
@@ -173,6 +176,12 @@ object ExpressionEvaluator {
    */
   def inferType(expr: String, fieldTypes: Map[String, String]): Either[String, String] =
     parse(expr).flatMap(ast => inferTypeOf(ast, fieldTypes))
+
+  /** HEL-1403: `(field, contexts)` for each text-typed (`string`/`string-body`/`boolean`) field the
+   *  STRICT parse of `expr` uses where a number is required (see `ExpressionNumericContexts`). A
+   *  legacy/unparseable expression yields nothing. Pure and schema-only (no row reads). */
+  def numericContextTextFields(expr: String, fieldTypes: Map[String, String]): Vector[(String, Vector[String])] =
+    parse(expr).toOption.fold(Vector.empty[(String, Vector[String])])(ExpressionNumericContexts.textFieldsInNumericContext(_, fieldTypes))
 
   /** An expression parsed once (HEL-888 design.md Decision 6), ready to be
    *  evaluated against any number of rows without re-parsing. The AST type
