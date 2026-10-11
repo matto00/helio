@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-958 — build a join through the pipeline UI (palette -> "Join tables" -> right source, key,
@@ -21,6 +22,7 @@ test.describe("HEL-958 join step editor", () => {
       },
       headers,
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     // Left: id, name, score. Right: id, name (collides), city. ids 1,2 match; 3 / 4 do not.

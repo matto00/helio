@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
@@ -38,10 +39,11 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
 
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-716 E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);

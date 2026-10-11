@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
@@ -20,10 +21,11 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     const email = uniqueEmail("hel666", "entrypoints", "example.com");
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-666 E2E Entry Points" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -79,10 +81,11 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     const email = uniqueEmail("hel666", "proposal", "example.com");
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-666 E2E Proposal" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);

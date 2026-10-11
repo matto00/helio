@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { isolateLivePage } from "./support/isolateLivePage";
 
 // HEL-1345 — a UI step append and a UI gap insert must PERSIST where the editor shows them.
@@ -48,6 +49,7 @@ test.describe("HEL-1345 — rootId step create placement persists", () => {
       data: { email: created.userEmail, password, displayName: "HEL-1345 E2E" },
       headers: CSRF,
     });
+    await recordRegisteredUser(reg);
     expect(reg.status()).toBe(201);
     created.userId = (await reg.json()).id ?? (await reg.json()).user?.id;
     record();

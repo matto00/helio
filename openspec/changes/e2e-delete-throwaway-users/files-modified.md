@@ -1,0 +1,29 @@
+- `e2e/support/userCleanupCore.cjs` — pure exact-id deletion builder, validation, registry-dir reader
+- `e2e/support/userCleanup.ts` — registry setup, recordCreatedUser/recordRegisteredUser, deleteRecordedUsers
+- `e2e/support/userRegistry.globalSetup.ts` — fresh per-run registry
+- `e2e/support/userRegistry.globalTeardown.ts` — runs the teardown deletion
+- `e2e/support/db.cjs` — shared psql connection/runner, credential-scrubbed errors
+- `e2e/support/userCleanup.selftest.mjs` — builder/guard/isolation/credential-leak selftest
+- `e2e/support/historySeed.ts` — uses the shared db.cjs
+- `e2e/support/auth.ts` — registerUser records the created user
+- `e2e/auth-cookie-migration.spec.ts` — record direct register site(s)
+- `e2e/hel1007-multi-root-reorder.spec.ts` — record direct register site(s)
+- `e2e/hel1345-rootid-step-placement.spec.ts` — record direct register site(s)
+- `e2e/hel516-palette-quick-create.spec.ts` — record direct register site(s)
+- `e2e/hel665-message-composer.spec.ts` — record direct register site(s)
+- `e2e/hel666-single-assistant-entry.spec.ts` — record direct register site(s)
+- `e2e/hel716-panel-detail-tall-viewport-footer.spec.ts` — record direct register site(s)
+- `e2e/hel908-full-flow.spec.ts` — record direct register site(s)
+- `e2e/hel908-step-card-split.spec.ts` — record direct register site(s)
+- `e2e/hel908-tail-attach.spec.ts` — record direct register site(s)
+- `e2e/hel908-trunk-reorder-drag.spec.ts` — record direct register site(s)
+- `e2e/hel908-trunk-reorder-order.spec.ts` — record direct register site(s)
+- `e2e/hel912-lanes-rejoin.spec.ts` — record direct register site(s)
+- `e2e/hel958-join-step-editor.spec.ts` — record direct register site(s)
+- `playwright.config.ts` — globalSetup/globalTeardown (regression config inherits)
+- `scripts/check-e2e-user-cleanup.mjs` — static check that every registration is recorded
+- `scripts/check-e2e-user-cleanup.selftest.mjs` — selftest for the static check
+- `package.json`, `.github/workflows/ci.yml`, `.husky/pre-commit` — scripts, CI lines, hook lines
+- `.gitignore` — `/.e2e-user-registry/`
+- `e2e/README.md` — registry/teardown/recovery docs
+- `openspec/changes/e2e-delete-throwaway-users/{tasks.md,measurements.md,files-modified.md}` — task state, evidence
