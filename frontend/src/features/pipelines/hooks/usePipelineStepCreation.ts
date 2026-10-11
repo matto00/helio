@@ -36,8 +36,10 @@ type UsePipelineStepCreationArgs = {
   setStepsInitialized: Dispatch<SetStateAction<boolean>>;
   syncStepsFromServer: () => Promise<void>;
   pushToast: ReturnType<typeof useToast>["push"];
-  // Created by the page hook because `stepsFingerprint` reads it during render.
+  // Created by the page hook, which mirrors its key set into `pendingDraftIds` state (via
+  // `setPendingDraftIds`, called after every mutation below) for `stepsFingerprint`.
   pendingDraftMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
+  setPendingDraftIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   // HEL-1340 — sent drafts' anchor meta for the schema fallback (see the page hook).
   draftFallbackMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
 };
@@ -55,6 +57,7 @@ export function usePipelineStepCreation({
   setStepsInitialized,
   pushToast,
   pendingDraftMetaRef,
+  setPendingDraftIds,
   draftFallbackMetaRef,
 }: UsePipelineStepCreationArgs) {
   // Guards against firing a second create for the same draft while the
@@ -109,6 +112,13 @@ export function usePipelineStepCreation({
     [setSteps],
   );
 
+  // HEL-1478 -- publishes `pendingDraftMetaRef`'s current key set to the page hook's state. Called
+  // right after every mutation of the ref, each of which sits in the same synchronous batch as a
+  // setState that already re-renders the page (`setSteps` / `setDraftCreateErrors`).
+  const syncPendingDraftIds = useCallback(() => {
+    setPendingDraftIds(new Set(pendingDraftMetaRef.current.keys()));
+  }, [setPendingDraftIds, pendingDraftMetaRef]);
+
   const clearDraftCreateError = useCallback((stepId: string) => {
     setDraftCreateErrors((prev) => {
       if (!(stepId in prev)) return prev;
@@ -153,6 +163,7 @@ export function usePipelineStepCreation({
           anchor,
           rootId: roots[0]?.id,
         });
+        syncPendingDraftIds();
         return;
       }
       markCreating(tempStep.id, true);
@@ -202,6 +213,7 @@ export function usePipelineStepCreation({
       setSteps,
       setStepsInitialized,
       pendingDraftMetaRef,
+      syncPendingDraftIds,
     ],
   );
 
@@ -265,6 +277,7 @@ export function usePipelineStepCreation({
           attachAsTail: true,
           rootId: anchorStep?.rootId,
         });
+        syncPendingDraftIds();
         return;
       }
       markCreating(tempStep.id, true);
@@ -300,6 +313,7 @@ export function usePipelineStepCreation({
       setSteps,
       setStepsInitialized,
       pendingDraftMetaRef,
+      syncPendingDraftIds,
     ],
   );
 
@@ -316,6 +330,7 @@ export function usePipelineStepCreation({
       if (!id) return;
       creatingDraftIdsRef.current.add(stepId);
       pendingDraftMetaRef.current.delete(stepId);
+      syncPendingDraftIds();
       draftFallbackMetaRef.current.set(stepId, meta);
       // A lane draft (`meta.parentStepId`) sends its own anchor; a trunk draft builds the wire
       // call from its click-time anchor NOW (and on every retry), so a trunk that changed in
@@ -368,12 +383,13 @@ export function usePipelineStepCreation({
           draftFallbackMetaRef.current.delete(stepId);
           // Restore the pending meta so a subsequent completing edit retries the create.
           pendingDraftMetaRef.current.set(stepId, meta);
+          syncPendingDraftIds();
         })
         .finally(() => {
           creatingDraftIdsRef.current.delete(stepId);
         });
     },
-    [id, stepsRef, applyCreated, pendingDraftMetaRef, draftFallbackMetaRef],
+    [id, stepsRef, applyCreated, pendingDraftMetaRef, draftFallbackMetaRef, syncPendingDraftIds],
   );
 
   return {

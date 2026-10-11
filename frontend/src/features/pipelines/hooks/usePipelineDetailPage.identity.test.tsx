@@ -95,8 +95,9 @@ function renderPage() {
 
 type Page = ReturnType<typeof usePipelineDetailPage>;
 
-// Handlers/getters from the analyze-lookup, step-structure and step-mutation clusters that depend
-// on neither `steps` nor `outputName` on the base.
+// Handlers/getters from the analyze-lookup, step-structure, step-mutation, page-load, output-sheet,
+// source/schedule and run/save/cancel clusters that depend on neither `steps` nor `outputName` on
+// the base. (`handleSave`/`handleCancel` are excluded: they close over `outputName`/`isDirty`.)
 const STEP_INDEPENDENT_KEYS = [
   "getAnalyzeOutputSchema",
   "hasOwnAnalyzeEntry",
@@ -114,6 +115,21 @@ const STEP_INDEPENDENT_KEYS = [
   "handleDuplicateStep",
   "handleAddRoot",
   "handleRemoveRoot",
+  // HEL-1478 (T1) -- the page-load, output-sheet, source/schedule and run/save/cancel handlers that
+  // the remainder split moves into sub-hooks. None depends on `steps` or `outputName` on the base.
+  "retryPipelineLoad",
+  "handleOpenOutput",
+  "handleOpenOutputHistory",
+  "handleCloseOutputHistory",
+  "handleAddOutput",
+  "handleCloseOutputSheet",
+  "handleEditSource",
+  "handleToggleScheduleEnabled",
+  "handleRunPipeline",
+  "handleDryRun",
+  "handleRunToUpdate",
+  "confirmCancelDiscard",
+  "dismissCancelConfirm",
 ] as const satisfies readonly (keyof Page)[];
 
 // `getAnalyzeColumns`/`getAnalyzeSchema` legitimately change identity when `steps` changes on the

@@ -17,9 +17,8 @@ type UsePipelineAnalyzeDeferWatchdogArgs = {
 /**
  * The HEL-972 defer watchdog extracted from `usePipelineDetailPage` (HEL-1465): the timer-clearing
  * callback, the forced deferred `/analyze` dispatch and the unmount-only cleanup. The debounced
- * re-analyze effect that consumes both stays in the page hook, right after this call (see design.md
- * D2b: its existing hooks-lint suppression must stay in a file that ALSO owns the render-time ref
- * writes, or moving it exposes them to the compiler lint).
+ * re-analyze effect that consumes both lives in `usePipelineDebouncedAnalyze` (HEL-1478 D2), called
+ * right after this hook; its hooks-lint suppression moved with it unchanged.
  */
 export function usePipelineAnalyzeDeferWatchdog({
   id,
@@ -62,7 +61,7 @@ export function usePipelineAnalyzeDeferWatchdog({
     lastAnalyzedFingerprintRef,
     stepsFingerprintRef,
   ]);
-  // Unmount-only cleanup -- the debounce effect below clears its OWN 300ms
+  // Unmount-only cleanup -- `usePipelineDebouncedAnalyze`'s debounce effect clears its OWN 300ms
   // `handle` on every dependency change, but the watchdog is deliberately
   // NOT tied to that effect's lifecycle (it must keep counting down across
   // `sseActive`/`analyzeStatus` changes that don't resolve the defer); it
