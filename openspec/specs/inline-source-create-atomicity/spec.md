@@ -25,8 +25,12 @@ Wherever a call deletes an inline `rest_api` source it created from a bare `url`
 - **THEN** the counts of `data_sources` and `connectors` rows owned by the caller are unchanged from before the request
 
 #### Scenario: An explicitly-referenced Connector is never removed
-- **WHEN** an inline `rest_api` root names an existing `connectorId` and the call is compensated
+- **WHEN** an inline `rest_api` root names an existing user-created (or adopted) `connectorId` and the call is compensated
 - **THEN** the inline source is deleted and the named Connector still exists
+
+#### Scenario: An explicitly-referenced unadopted auto-created Connector follows the source-delete rule
+- **WHEN** an inline `rest_api` root names an existing auto-created `Auto: `-named `connectorId` that no other source references, and the call is compensated
+- **THEN** the inline source is deleted and the Connector is removed exactly as a user source delete would remove it
 
 ### Requirement: Source creation leaves no row behind when it fails after its insert
 `SourceService.createSql` and `SourceService.createRest` SHALL delete the data source row they inserted, and any implicit Connector `createRest` created, when a step after the insert fails, and SHALL then surface the original failure unchanged. A bare-`url` `createRest` whose source insert fails SHALL delete the implicit Connector it created. A schema-fetch error reported as `fetchError` is a success, not a failure: the source is kept.

@@ -372,10 +372,14 @@ export const outputsReducer = outputsSlice.reducer;
 // `useAppSelector` (React-Redux) compares selector results by reference; a fresh array every
 // call breaks that comparison and defeats memoization for every downstream consumer, cascading
 // rerenders that grow with every interaction.
-const EMPTY_OUTPUTS: readonly Output[] = [];
+// Also the single owner of the per-step zero-Outputs default: `ui/LaneColumn.tsx` and
+// `ui/PipelineRiverView.tsx` import it for `StepCard`'s `outputs` prop (a stable reference keeps
+// the React.memo'd card from re-rendering). Typed `Output[]` (not readonly) because that prop and
+// `selectOutputsForPipeline` are mutable-typed; nothing ever writes to it.
+export const EMPTY_OUTPUTS: Output[] = [];
 
 export const selectOutputsForPipeline = (state: RootState, pipelineId: string): Output[] =>
-  state.outputs.byPipeline[pipelineId] ?? (EMPTY_OUTPUTS as Output[]);
+  state.outputs.byPipeline[pipelineId] ?? EMPTY_OUTPUTS;
 
 export const selectOutputsForStep = createSelector(
   [

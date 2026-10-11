@@ -271,6 +271,45 @@ describe("PatchSetReviewPage", () => {
     expect(store.getState().toasts.items.some((t) => t.id === appliedToastId)).toBe(false);
   });
 
+  it("shows each kept inline source on its own line of one warning toast after an undo (HEL-1493)", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);
+    mockedUndoPatchSet.mockResolvedValueOnce({
+      edits: [
+        {
+          index: 0,
+          status: "restored",
+          inlineSources: [
+            { id: "s1", name: "Sales", result: "kept", reason: "Still used by pipeline P." },
+            { id: "s2", result: "kept", reason: "The data source could not be removed." },
+          ],
+        },
+      ],
+    });
+
+    const { store } = renderPage({ patchSet: explicitPatchSet });
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+    await waitFor(() => {
+      expect(store.getState().toasts.items).toHaveLength(1);
+    });
+    const undoAction = store.getState().toasts.items[0].action;
+    if (!undoAction) throw new Error("expected an Undo action on the toast");
+    await act(async () => {
+      undoAction.onClick();
+    });
+
+    await waitFor(() => {
+      expect(store.getState().toasts.items.some((t) => t.variant === "warning")).toBe(true);
+    });
+    const warning = store.getState().toasts.items.find((t) => t.variant === "warning");
+    expect(warning?.message.split("\n")).toEqual([
+      "Undone.",
+      'Kept data source "Sales": Still used by pipeline P.',
+      "Kept a data source: The data source could not be removed.",
+    ]);
+  });
+
   it("clicking the Undo toast action shows an error toast when the undo call is rejected (e.g. a conflict)", async () => {
     mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
     mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);

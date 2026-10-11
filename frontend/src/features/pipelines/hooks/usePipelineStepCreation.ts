@@ -38,7 +38,8 @@ type UsePipelineStepCreationArgs = {
   syncStepsFromServer: () => Promise<void>;
   pushToast: ReturnType<typeof useToast>["push"];
   // Created by the page hook, which mirrors its key set into `pendingDraftIds` state (via
-  // `setPendingDraftIds`, called after every mutation of the ref, here and in `usePipelineLaneStepCreation` / `usePipelineDraftCreate`) for `stepsFingerprint`.
+  // `setPendingDraftIds`, called after every mutation of the ref, here and in
+  // `usePipelineLaneStepCreation` / `usePipelineDraftCreate`) for `stepsFingerprint`.
   pendingDraftMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
   setPendingDraftIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   // HEL-1340 — sent drafts' anchor meta for the schema fallback (see the page hook).

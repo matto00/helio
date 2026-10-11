@@ -8,7 +8,7 @@ import org.apache.pekko.stream.Materializer
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.sources.{CsvPreviewResponse, DatasetFieldResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, FieldOverridePayload, InferredFieldResponse, InferredSchemaResponse, SchemaFieldRejection, SchemaUpdateConflictResponse, StaticColumnPayload, StaticDataPayload, StaticDataSourceRequest, UpdateDataSourceRequest, UpdateDatasetSchemaRequest}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceReferenceRepository.SourceReferences
 import com.helio.infrastructure.persistence.sources.DataSourceRepository.{DatasetRowRow, RowListPage, RowMutationFailure}
 import com.helio.infrastructure.storage.FileSystem
@@ -63,12 +63,18 @@ final class DataSourceService(
     // fixtures that don't pass an AutoRunTriggerService simply skip the debounce-scheduling call
     // on every row-mutation method's successful-write branch (this class's own null-checked
     // `triggerAutoRun` helper below).
-    autoRunTriggerService: AutoRunTriggerService = null
+    autoRunTriggerService: AutoRunTriggerService = null,
+    // HEL-1497: nullable-optional like the two above -- when present, deleting a `rest_api` source also removes its
+    // unadopted auto-created Connector (see `removeUnadoptedConnector`); when null, that cleanup is skipped.
+    connectorRepo: ConnectorRepository = null
 )(implicit ec: ExecutionContext, @annotation.unused mat: Materializer, system: ActorSystem[_]) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val staticMaxRows = DataSourceService.DatasetMaxRows
+
+  private val connectorCleanup: ImplicitConnectorCleanup =
+    if (connectorRepo == null) null else new ImplicitConnectorCleanup(dataSourceRepo, connectorRepo)
 
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
@@ -681,8 +687,31 @@ final class DataSourceService(
         // log the source id and SQLSTATE only, never `ex` or its message.
         log.warn(s"DataSourceService.delete: race-path P0001 for source ${sourceId.value} (SQLSTATE ${ex.getSQLState}), mapping to conflict")
         Left(DataSourceDeleteError.conflict(referenceConflict(source, SourceReferences(Vector.empty, 1, Vector.empty, 0))))
+    }.flatMap {
+      // HEL-1497: chained OUTSIDE the zero-root `.recover` above so a cleanup problem can never be mapped to that
+      // conflict; `removeUnadoptedConnector` cannot fail, and the outcome is the source delete's, unchanged.
+      case right @ Right(_) => removeUnadoptedConnector(source, user).map(_ => right)
+      case left             => Future.successful(left)
     }
   }
+
+  /** HEL-1497 (Q1-Q3): after the SOURCE is gone (the dependents guard would refuse while it still references the
+   *  Connector), removes the `rest_api` source's auto-created Connector if it is still unadopted and unreferenced.
+   *  Awaited so the response follows the cleanup; never fails; skipped when no `ConnectorRepository` is wired. */
+  private def removeUnadoptedConnector(source: DataSource, user: AuthenticatedUser): Future[Unit] =
+    source match {
+      case rest: RestSource if connectorCleanup != null =>
+        Try(UUID.fromString(rest.config.connectorId)).toOption match {
+          case Some(_) =>
+            connectorCleanup
+              .deleteIfUnadoptedImplicit(ConnectorId(rest.config.connectorId), user, s"DataSourceService.delete(source ${source.id.value})")
+              .map(_ => ())
+          case None =>
+            log.warn(s"DataSourceService.delete: source ${source.id.value} has a non-UUID connector id, skipping connector cleanup")
+            Future.unit
+        }
+      case _ => Future.unit
+    }
 
   /** Task 3.2's defensive mapping: matches on SQLSTATE `P0001` (`raise_exception`) PLUS the
    *  `hel913_prevent_zero_root_pipelines` message signature, never on message text alone --

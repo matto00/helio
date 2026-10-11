@@ -37,6 +37,40 @@
         "resultingState": {
           "type": "object",
           "description": "The resource's full post-restore state for a 'restored' update or a 'recreated' delete-undo, serialized using its target kind's existing response shape. Absent for a 'restored' create-undo (the resource was deleted), a 'failed', or a 'notAttempted' edit."
+        },
+        "inlineSources": {
+          "type": "array",
+          "minItems": 1,
+          "description": "HEL-1493: for a 'restored' pipeline create-undo whose journal recorded the inline root sources the apply created, one entry per source saying whether undo removed it. Absent for every other edit, for a journal entry written before inline sources were recorded (the source survives), and for a create that made no inline source.",
+          "items": {
+            "$ref": "#/$defs/InlineSourceUndoOutcome"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "InlineSourceUndoOutcome": {
+      "type": "object",
+      "description": "What undoing a pipeline create did to one inline root source the apply created. removed: deleted (with its implicit Connector, if any). kept: still referenced by something, or it could not be removed; reason says which. alreadyGone: it no longer existed.",
+      "required": ["id", "result"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The data source id."
+        },
+        "name": {
+          "type": "string",
+          "description": "The source's name, when it could be read."
+        },
+        "result": {
+          "type": "string",
+          "enum": ["removed", "kept", "alreadyGone"]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Present exactly when result is 'kept': for a still-referenced source UI-safe text naming the referencing resources the caller can see (hidden ones as a count only, no ids), otherwise a fixed sentence."
         }
       },
       "additionalProperties": false

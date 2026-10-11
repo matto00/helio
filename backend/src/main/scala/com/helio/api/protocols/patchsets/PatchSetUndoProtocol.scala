@@ -28,13 +28,22 @@ final case class EditUndoOutcome(
     index: Int,
     status: String,
     newId: Option[String],
-    resultingState: Option[JsValue]
+    resultingState: Option[JsValue],
+    inlineSources: Option[Vector[InlineSourceUndoOutcome]] = None
 )
+
+/** What undoing a `pipeline` `create` did to one inline root source the apply created (HEL-1493). `result` is
+ *  `removed`, `kept` (still referenced, or it could not be removed; `reason` says which) or `alreadyGone`. `name` is
+ *  absent when the source could not be read. The wire omits `inlineSources` entirely for a journal entry that
+ *  recorded no inline sources and for a create that made none. */
+final case class InlineSourceUndoOutcome(id: String, name: Option[String], result: String, reason: Option[String])
 
 final case class PatchSetUndoResponse(edits: Vector[EditUndoOutcome])
 
 trait PatchSetUndoProtocol extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val editUndoOutcomeFormat: RootJsonFormat[EditUndoOutcome] = jsonFormat4(EditUndoOutcome.apply)
+  // Declared before `editUndoOutcomeFormat`, which uses it: a later declaration reads as null at runtime.
+  implicit val inlineSourceUndoOutcomeFormat: RootJsonFormat[InlineSourceUndoOutcome] = jsonFormat4(InlineSourceUndoOutcome.apply)
+  implicit val editUndoOutcomeFormat: RootJsonFormat[EditUndoOutcome] = jsonFormat5(EditUndoOutcome.apply)
   implicit val patchSetUndoResponseFormat: RootJsonFormat[PatchSetUndoResponse] =
     jsonFormat1(PatchSetUndoResponse.apply)
 }

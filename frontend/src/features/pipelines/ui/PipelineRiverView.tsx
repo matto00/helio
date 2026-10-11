@@ -31,17 +31,12 @@ import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
 import type { Output } from "../types/output";
 import type { LaneGraph } from "../state/stepTree";
 import { childLanesOf, laneRenderKey, stepRenderKey } from "../state/stepTree";
+import { EMPTY_OUTPUTS } from "../state/outputsSlice";
 import { useLaneReorder } from "../hooks/useLaneReorder";
 import type { LaneReorder } from "../hooks/useLaneReorder";
 import { nodePath } from "../state/nodePath";
 import { GitBranch, Plus } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
-
-// task 3.3 — mirrors `EMPTY_ANALYZE_COLUMNS` in `usePipelineAnalyzeLookups.ts`: a
-// step with zero Outputs gets the same stable `[]` reference on every
-// lookup, not a fresh array per render (a precondition for `StepCard`'s
-// `React.memo` to actually skip re-rendering unrelated cards -- see F-146).
-const EMPTY_OUTPUTS: Output[] = [];
 
 interface PipelineRiverViewProps {
   steps: Step[];
@@ -482,11 +477,12 @@ export function PipelineRiverView({
                 >
                   + Add transformation step
                 </button>
-                {/* HEL-912 (design.md Decision 1) — the `trunkLastHasTail`
-                 * disable this used to have relied on the single-tail
-                 * invariant, which is gone: a shape's first step landing as
-                 * another child of the primary-lane's last step is just a new
-                 * lane now, not a dead branch. */}
+                {/* HEL-912 (design.md Decision 1) removed the `trunkLastHasTail`
+                 * disable this button used to have; it is no longer gated on
+                 * the anchor's children. The shape's first step is a plain
+                 * splice, which reparented a lane hanging off the anchor
+                 * (known hazard, HEL-1506): see the KNOWN HAZARD note in
+                 * `usePipelineShapeInstantiation.ts`. */}
                 <button
                   type="button"
                   className="pipeline-detail-page__shape-picker-btn pipeline-detail-page__shape-picker-btn--dashed"

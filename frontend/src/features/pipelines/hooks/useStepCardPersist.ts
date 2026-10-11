@@ -32,7 +32,7 @@ export function useStepCardPersist({
 }: UseStepCardPersistArgs) {
   // Debounce ref for the persist path below, plus a monotonically
   // increasing request token: `persist` may be called many times in a row
-  // (one keystroke = one call, across any of the 20 change handlers) but
+  // (one keystroke = one call, across any of the 26 change handlers) but
   // must only PATCH once the caller stops calling for
   // STEP_CONFIG_PERSIST_DEBOUNCE_MS. The token additionally guards against
   // an *out-of-order response* — e.g. the network reorders two PATCHes so an

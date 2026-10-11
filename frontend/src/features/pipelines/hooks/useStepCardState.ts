@@ -2,9 +2,9 @@
 // pipeline-step row inside StepCard.
 //
 // Extracted from StepCard.tsx purely as a structural decomposition: the
-// hook owns the eight per-op-kind editor states, keeps them in sync with
-// the persisted `step.config` via the during-render `prev*` pattern, and
-// exposes a single `persist` plus eight typed change handlers that update
+// hook owns the per-op-kind editor states, keeps them in sync with the
+// persisted `step.config` via the during-render `prev*` pattern, and
+// exposes a single `persist` plus 26 typed change handlers that update
 // local state and PATCH in lockstep. StepCard.tsx becomes a presentational
 // shell over this hook.
 

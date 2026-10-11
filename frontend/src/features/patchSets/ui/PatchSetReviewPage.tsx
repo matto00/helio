@@ -12,6 +12,7 @@ import { dismissToast } from "../../toasts/state/toastsSlice";
 import { useToast } from "../../toasts/hooks/useToast";
 import { applyPatchSet, previewPatchSet, undoPatchSet } from "../state/patchSetsSlice";
 import { PatchSetReview } from "./PatchSetReview";
+import { undoSuccessToast } from "./undoToast";
 import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
 import { Columns3 } from "lucide-react";
 
@@ -110,8 +111,8 @@ export function PatchSetReviewPage() {
               dispatch(dismissToast(toastId));
               dispatch(undoPatchSet({ applicationId, patchSet }))
                 .unwrap()
-                .then(() => {
-                  pushToast({ variant: "success", message: "Undone." });
+                .then((undone) => {
+                  pushToast(undoSuccessToast(undone));
                 })
                 .catch((err) => {
                   pushToast({

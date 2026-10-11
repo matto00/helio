@@ -224,6 +224,10 @@ class HookRoutesSpec
         // `tokenScope.map(_.tokenId.value)`, not a bug.
         records.head.triggeredByTokenId shouldBe None
       }
+
+      // HEL-1492: the row is attributed to the token's user (`triggered_by_user_id`), even though the unscoped
+      // PAT's own id is not recorded (`triggeredByTokenId` above).
+      await(pipelineRunRepo.listByPipelineInternal(PipelineId(pid))).map(_.triggeredByUserId) shouldBe Vector(Some(UUID.fromString(userIdA)))
     }
 
     "trigger an in-scope pipeline successfully with a scoped PAT, recording the triggering token's id in run-history" in {
