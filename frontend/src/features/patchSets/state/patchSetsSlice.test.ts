@@ -141,6 +141,37 @@ describe("patchSetsSlice", () => {
   // written, instead of silently showing stale data until a manual reload
   // (reproduced live in evaluation-1.md's Phase 3 UI review).
 
+  describe("invalidateAffectedState: source list after an undo that removed inline sources (HEL-1493)", () => {
+    const pipelineCreate: PatchSet = {
+      edits: [{ target: { kind: "pipeline" }, op: "create", patch: { name: "P" } }],
+    };
+    const dispatchCount = (dispatch: jest.Mock) =>
+      dispatch.mock.calls.filter(([arg]) => typeof arg === "function").length;
+    const run = (inlineSources: { id: string; result: string }[] | undefined) => {
+      const dispatch = jest.fn();
+      invalidateAffectedState(
+        pipelineCreate,
+        [{ index: 0, newId: "p-1", inlineSources }],
+        dispatch as unknown as Parameters<typeof invalidateAffectedState>[2],
+        () => ({ panels: { loadedDashboardId: null } }) as unknown as RootState,
+      );
+      return dispatch;
+    };
+
+    it("re-fetches the sources and their references when an inline source was removed", () => {
+      expect(dispatchCount(run([{ id: "s", result: "removed" }]))).toBe(2);
+    });
+    it("re-fetches the sources and their references when an inline source was already gone", () => {
+      expect(dispatchCount(run([{ id: "s", result: "alreadyGone" }]))).toBe(2);
+    });
+    it("re-fetches only the references (not the list) when every inline source was kept", () => {
+      expect(dispatchCount(run([{ id: "s", result: "kept" }]))).toBe(1);
+    });
+    it("does not re-fetch when the outcome lists no inline sources", () => {
+      expect(dispatchCount(run(undefined))).toBe(0);
+    });
+  });
+
   describe("invalidateAffectedState", () => {
     // `ThunkDispatch` accepts both plain actions and thunk action creators;
     // a bare `jest.fn()` satisfies every call shape this function makes.

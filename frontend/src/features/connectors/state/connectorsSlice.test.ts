@@ -9,6 +9,7 @@ import {
   rotateConnectorCredential,
   updateConnector,
 } from "./connectorsSlice";
+import { deleteSource } from "../../sources/state/sourcesSlice";
 import * as connectorEntityService from "../services/connectorEntityService";
 import type { Connector } from "../types/connector";
 
@@ -36,6 +37,16 @@ const testConnector: Connector = {
 };
 
 describe("connectorsSlice", () => {
+  it("resets status to idle when a source delete fulfills so the Connectors list refetches (HEL-1497)", () => {
+    const loaded = connectorsReducer(
+      undefined,
+      fetchConnectors.fulfilled([testConnector], "req-1"),
+    );
+    expect(loaded.status).toBe("succeeded");
+    const next = connectorsReducer(loaded, deleteSource.fulfilled("source-1", "req-2", "source-1"));
+    expect(next.status).toBe("idle");
+  });
+
   it("populates items when fetchConnectors fulfills", () => {
     const nextState = connectorsReducer(
       undefined,
