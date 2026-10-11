@@ -1,0 +1,17 @@
+- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — HEL-1459 patch-set target-kind alignment
+- `backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala` — HEL-1459 patch-set target-kind alignment
+- `backend/src/main/scala/com/helio/domain/patchsets/PatchSetTargetKinds.scala` — HEL-1459 patch-set target-kind alignment
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementEditShape.scala` — HEL-1459 patch-set target-kind alignment
+- `backend/src/test/scala/com/helio/domain/patchsets/PatchSetPreviewResponseSchemaSpec.scala` — HEL-1459 patch-set target-kind alignment
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetTargetKindsSchemaGuardSpec.scala` — HEL-1459 patch-set target-kind alignment
+- `frontend/src/features/patchSets/types/patchSetTargetKinds.guard.test.ts` — HEL-1459 patch-set target-kind alignment
+- `frontend/src/features/patchSets/types/patchSet.ts` — HEL-1459 patch-set target-kind alignment
+- `frontend/src/features/patchSets/ui/PatchSetReview.test.tsx` — HEL-1459 patch-set target-kind alignment
+- `helio-mcp/src/tools/patchSetTargetKinds.guard.test.ts` — HEL-1459 patch-set target-kind alignment
+- `helio-mcp/src/tools/patchSetTargetKinds.ts` — HEL-1459 patch-set target-kind alignment
+- `helio-mcp/src/tools/refinementSchemas.ts` — HEL-1459 patch-set target-kind alignment
+- `helio-mcp/src/types.ts` — HEL-1459 patch-set target-kind alignment
+- `schemas/patch-sets/patch-set-apply-response.schema.json` — HEL-1459 patch-set target-kind alignment
+- `schemas/patch-sets/patch-set-preview-response.schema.json` — HEL-1459 patch-set target-kind alignment
+- `scripts/check-schema-drift.mjs` — resolve the tool-schema kind enum from PatchSetTargetKinds.All
+- `openspec/changes/align-patch-set-target-kinds/design.md`, `tasks.md` — D7 decision note and tasks 1.5/1.6

@@ -582,9 +582,26 @@ function scalaSchemaEnumValues(name, field) {
   const enumSchemaIdx = valueSrc.indexOf("enumSchema(");
   if (enumSchemaIdx !== -1) {
     const openIdx = enumSchemaIdx + "enumSchema".length;
-    return new Set(
-      extractQuoted(valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx))),
-    );
+    const args = valueSrc.slice(openIdx + 1, findMatchingParen(valueSrc, openIdx));
+    // HEL-1459: the patch-set kind enum reads the single backend list instead of repeating literals.
+    if (args.includes("PatchSetTargetKinds.All")) {
+      const kindsSrc = stripComments(
+        readFileSync(
+          join(
+            repoRoot,
+            "backend/src/main/scala/com/helio/domain/patchsets/PatchSetTargetKinds.scala",
+          ),
+          "utf8",
+        ),
+      );
+      const m = /val All: Vector\[String\] = Vector\(([^)]*)\)/.exec(kindsSrc);
+      if (!m)
+        throw new Error(
+          "PatchSetTargetKinds.scala: no `val All: Vector[String] = Vector(...)` found",
+        );
+      return new Set(extractQuoted(m[1]));
+    }
+    return new Set(extractQuoted(args));
   }
 
   const enumKeyIdx = valueSrc.indexOf('"enum"');

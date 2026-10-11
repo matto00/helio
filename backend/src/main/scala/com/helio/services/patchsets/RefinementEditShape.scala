@@ -1,5 +1,6 @@
 package com.helio.services.patchsets
 
+import com.helio.domain.patchsets.PatchSetTargetKinds
 import com.helio.domain.steps.AggregateStep
 import com.helio.services.pipelines.OutputConfigValidation
 
@@ -18,12 +19,12 @@ import com.helio.services.pipelines.OutputConfigValidation
  *  `PipelineStepProtocol`, `domain.panels.*PanelConfig.Patch`) — not paraphrased shapes. */
 object RefinementEditShape {
 
-  private val Skeleton: String =
-    """{
+  private[services] val Skeleton: String =
+    s"""{
       |  "summary": "string, optional — a short human-readable description of this patch set",
       |  "edits": [
       |    {
-      |      "target": { "kind": "panel | dashboard | dataSource | pipeline | pipelineStep", "id": "string — REQUIRED for update/delete (a REAL id from the state below); OMIT for create" },
+      |      "target": { "kind": "${PatchSetTargetKinds.AllPiped}", "id": "string — REQUIRED for update/delete (a REAL id from the state below); OMIT for create" },
       |      "op": "update | delete | create",
       |      "patch": "object — REQUIRED for update/create; MUST be absent entirely for delete. Shape depends on (target.kind, op) — see the worked examples below."
       |    }
