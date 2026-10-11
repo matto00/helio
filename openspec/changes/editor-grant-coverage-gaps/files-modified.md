@@ -1,8 +1,0 @@
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala` — site 7: viewer grantee Forbidden (real/dry), editor run executes (response effects)
-- `backend/src/test/scala/com/helio/services/dashboards/EditorGrantCoverageSpec.scala` — new: sites 1, 2, 3, 8 viewer/editor/owner
-- `backend/src/test/scala/com/helio/api/http/AccessCheckerImplSpec.scala` — site 4: anonymous public-viewer arm exact
-- `backend/src/test/scala/com/helio/api/http/AclDirectiveSpec.scala` — site 5: anonymous token-authorized arm exact Viewer
-- `backend/src/test/scala/com/helio/infrastructure/persistence/auth/ResourcePermissionRoleFallbackSpec.scala` — new: site 6 unknown-role fallback on a private cluster
-- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/ResourcePermissionRepository.scala` — comment only: fail-closed fallback rationale
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreateTransaction.scala` — comment only: stale resolveRootDataSources citation repointed
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineRootWrites.scala` — comment only: stale resolveRootDataSources citation repointed
