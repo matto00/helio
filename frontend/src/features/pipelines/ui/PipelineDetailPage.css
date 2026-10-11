@@ -2108,6 +2108,12 @@
   list-style: none;
 }
 
+.pipeline-detail-page__compute-functions-list + .pipeline-detail-page__compute-functions-list {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--app-border-subtle);
+}
+
 .pipeline-detail-page__compute-functions-item {
   display: flex;
   flex-direction: column;
@@ -2116,6 +2122,8 @@
 
 .pipeline-detail-page__compute-functions-signature {
   font-family: var(--font-mono);
+  /* Show != <= >= as typed, not as the ligature glyphs, which are not what the parser accepts. */
+  font-variant-ligatures: none;
   font-size: var(--text-xs);
   color: var(--app-text);
 }

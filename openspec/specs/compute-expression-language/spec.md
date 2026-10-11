@@ -13,7 +13,8 @@ SHALL match `[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*` — that is, one or more 
 segments joined by interior dots. A dot SHALL be admitted only between two identifier characters: a
 reference with a leading, trailing, or doubled dot SHALL be a parse error. A bare identifier not
 preceded by `$` and not immediately followed by `(` (a function call, see below) SHALL be a parse
-error. Numeric constants and double-quoted string literals are unaffected by this requirement.
+error, except the reserved words `and`, `or`, `not`, `true` and `false` (case-insensitive), which are operators or
+literals per the boolean-operators requirement, also when immediately followed by `(`. Numeric constants and double-quoted string literals are unaffected by this requirement.
 
 A dotted reference SHALL name exactly one column whose literal name contains those dots. The
 evaluator SHALL resolve it by exact match against the row's keys and SHALL NOT split it into
@@ -77,15 +78,21 @@ to check the flattened column name rather than assume path traversal was attempt
   `{"first_name": "Ada", "last_name": "Lovelace"}`
 - **THEN** the result is `"Ada Lovelace"`
 
+#### Scenario: reserved words are not column references
+- **WHEN** `true`, `not($a)` and `$a AND $b` are validated against fields `a`, `b`
+- **THEN** each validates (a literal, a `not` operator and an `and` operator), none fails with the `$`-prefix error
+
 ### Requirement: Function-call syntax for string operations
 `ExpressionEvaluator` SHALL support function-call syntax `name(arg1, arg2, ...)` for a fixed set
 of functions: the string functions `concat` (variadic, arity ≥ 1), `substring` (arity 3: value, start, end —
 0-indexed, end exclusive), `lower` (arity 1), `upper` (arity 1), and `length` (arity 1), and the numeric functions
-`floor` (arity 1), `ceil` (arity 1), `abs` (arity 1), `round` (arity 1 or 2), and `mod` (arity 2), and the
-null-handling function `coalesce` (variadic, arity ≥ 2). Function
-arguments are themselves expressions (literals, `$refs`, or nested calls). An unknown function
-name, or a call with the wrong arity, SHALL be a parse error. The unknown-function error message SHALL name the
-unrecognized function and list every supported function name.
+`floor` (arity 1), `ceil` (arity 1), `abs` (arity 1), `round` (arity 1 or 2), and `mod` (arity 2), the
+null-handling function `coalesce` (variadic, arity ≥ 2), and the conditional function `if` (arity 3; see the `if`
+requirement). Function arguments are themselves expressions (literals, `$refs`, comparisons, boolean expressions, or
+nested calls). An unknown function name, or a call with the wrong arity, SHALL be a parse error. The unknown-function
+error message SHALL name the unrecognized function and list every supported function name. A boolean value given as
+the text argument of `substring`, `lower`, `upper` or `length` SHALL be read as its text `true`/`false`, so these
+functions return the same results on boolean columns as before booleans existed.
 
 #### Scenario: concat joins multiple arguments as strings
 - **WHEN** the expression `concat($first_name, " ", $last_name)` is evaluated against
@@ -108,10 +115,15 @@ unrecognized function and list every supported function name.
 - **WHEN** the expression `length($name)` is evaluated against `{"name": "Ada"}`
 - **THEN** the result is `3`
 
+#### Scenario: string functions read a boolean column as its text
+- **WHEN** `length($flag)`, `upper($flag)` and `substring($flag, 0, 1)` are evaluated against `{"flag": true}`
+- **THEN** the results are `4`, `"TRUE"` and `"t"`
+
 #### Scenario: Unknown function name is a parse error
 - **WHEN** the expression `reverse($name)` is validated
 - **THEN** validation returns an error indicating `reverse` is not a recognized function
-- **AND** the error lists the supported functions, including `floor`, `ceil`, `round`, `mod`, `abs`, and `coalesce`
+- **AND** the error lists the supported functions, including `floor`, `ceil`, `round`, `mod`, `abs`, `coalesce` and
+  `if`
 
 #### Scenario: Wrong arity is a parse error
 - **WHEN** the expression `substring($name, 0)` is validated
@@ -126,12 +138,13 @@ unrecognized function and list every supported function name.
 - **THEN** validation returns the error `coalesce requires at least 2 arguments`
 
 ### Requirement: Numeric operators are type-strict; `+` is coercion-permissive
-`-`, `*`, and `/` SHALL require both operands to evaluate to numbers; a non-numeric operand
-(after field/function resolution) SHALL be an evaluation-time `TypeError`. `+` SHALL remain
-permissive: if either operand is a string, the other is coerced to its string representation
-and the result is string concatenation; if both are numbers, the result is numeric addition.
-Function arguments follow the same per-function type rules as their own arity/type requirements
-(e.g. `substring`'s first argument must be a string).
+`-`, `*`, and `/` SHALL require both operands to evaluate to numbers; a non-numeric operand (a string or a boolean,
+after field/function resolution) SHALL be an evaluation-time `TypeError`. `+` SHALL remain permissive: if either
+operand is a string or a boolean, each operand is coerced to its text (a boolean to `true`/`false`, a number to its
+string representation) and the result is string concatenation; if both are numbers, the result is numeric addition.
+Function arguments follow the same per-function type rules as their own arity/type requirements (e.g. `substring`'s
+first argument must be a string or a boolean read as text). A boolean given where a date/time function expects a
+timestamp SHALL be "not a timestamp" (that row's result is `null`), never a run failure.
 
 #### Scenario: Subtracting a string field is a type error
 - **WHEN** the expression `$amount - $label` is evaluated against `{"amount": 10, "label": "x"}`
@@ -145,26 +158,45 @@ Function arguments follow the same per-function type rules as their own arity/ty
 - **WHEN** the expression `$a + $b` is evaluated against `{"a": 1, "b": 2}`
 - **THEN** the result is `3` (not `"12"`)
 
+#### Scenario: Addition with a boolean concatenates
+- **WHEN** `$flag + 1` and `$flag + $flag` are evaluated against `{"flag": true}`
+- **THEN** the results are `"true1"` and `"truetrue"`
+
+#### Scenario: a boolean timestamp argument nulls the row, never fails the run
+- **WHEN** a compute step with `seconds_between($flag, $ts)` runs over `{"flag": true, "ts": "2026-01-01"}`
+- **THEN** that row's value is `null` and the run succeeds
+
 ### Requirement: Output type can be inferred from the expression AST
 `ExpressionEvaluator.inferType` SHALL compute a result type for a given expression and a map of input field name →
-type. The result is a canonical wire value: `"float"`, `"string"` or `"timestamp"`, or, for `coalesce` of same-typed
-arguments, that shared input type. It SHALL walk the same AST used for parsing, without evaluating against actual
-row data.
+type. The result is a canonical wire value: `"float"`, `"string"`, `"timestamp"` or `"boolean"`, or, for `coalesce`
+or `if` of same-typed values, that shared input type. It SHALL walk the same AST used for parsing, without evaluating
+against actual row data.
 - Field references resolve via the supplied type map.
 - Numeric literals and operators infer `"float"`.
 - String literals, `concat`, `substring`, `lower` and `upper` infer `"string"`.
 - `length`, `floor`, `ceil`, `round`, `mod`, `abs` and `seconds_between` infer `"float"`.
 - `date_trunc` and `add_days` infer `"timestamp"`.
-- `+` infers `"string"` if either operand infers `"string"` or `"timestamp"` (a timestamp value is text at evaluation
-  time, so `+` concatenates); otherwise it infers `"float"`.
-- For every numeric function and every date/time function, the inferred type SHALL agree with the value the same
-  expression produces at run time: a JSON number for `"float"`, a JSON string for `"timestamp"`.
-- `coalesce` SHALL infer the common type of its arguments:
-  - if every argument infers the same type, that type;
-  - otherwise, if every argument infers a numeric type (`"integer"` or `"float"`), `"float"`;
-  - otherwise, if no argument infers a numeric type, `"string"`.
-  - If at least one argument infers a numeric type and at least one infers a non-numeric type, inference SHALL fail
-    with an error naming `coalesce`, the argument types, and the `concat(...)` workaround.
+- `true`, `false`, comparisons, `and`, `or` and `not` infer `"boolean"`.
+- `+` infers `"string"` if either operand infers `"string"`, `"timestamp"` or `"boolean"` (each is concatenated as
+  text); otherwise it infers `"float"`.
+- A comparison whose operands infer different kinds (numeric `"integer"`/`"float"`; text `"string"`/`"string-body"`/
+  `"timestamp"`; `"boolean"`), or an ordering comparison of booleans, SHALL fail inference with an error naming the
+  operator and both operand types.
+- A boolean-valued sub-expression other than a bare field reference used as an operand of `-`, `*`, `/`, unary `-` or
+  a numeric function SHALL fail inference with an error suggesting `if(cond, 1, 0)`.
+- An `and`/`or`/`not` operand, or an `if` condition, that does not infer `"boolean"` SHALL fail inference with an
+  error naming the operator or `if`.
+- For every numeric function, date/time function, comparison, boolean operator and `if`, the inferred type SHALL agree
+  with the value the same expression produces at run time: a JSON number for `"float"`, a JSON string for
+  `"timestamp"` or `"string"`, a JSON boolean for `"boolean"`.
+- `coalesce` arguments and `if`'s two branches SHALL infer their common type:
+  - if every value infers the same type, that type;
+  - otherwise, if every value infers a numeric type (`"integer"` or `"float"`), `"float"`;
+  - otherwise, if no value infers a numeric type and none infers `"boolean"`, `"string"`.
+  - Any other mix (numeric with non-numeric, or boolean with non-boolean) SHALL fail inference with an error naming
+    `coalesce` or `if` and the types; for `coalesce` of numeric and text it SHALL suggest the `concat(...)` workaround.
+- On the pipeline `compute` step every inference failure above SHALL be reported at analyze time as that step's
+  validation error; saving the step SHALL remain governed by parse validity alone.
 
 #### Scenario: Arithmetic expression infers number
 - **WHEN** `inferType` is called with `$price * $qty` and `{"price": "float", "qty": "float"}`
@@ -203,6 +235,29 @@ row data.
 - **WHEN** `inferType` is called with `$ts + 1` and `{"ts": "timestamp"}`
 - **THEN** it returns `Right("string")`
 - **AND** evaluating it against `{"ts": "2026-07-01"}` yields the JSON string `"2026-07-011"`
+
+#### Scenario: comparison and boolean operators infer boolean, matching evaluation
+- **WHEN** `inferType` is called with `$amount > 100 and not $closed` and `{"amount": "float", "closed": "boolean"}`
+- **THEN** it returns `Right("boolean")`
+- **AND** evaluating it against `{"amount": 150, "closed": false}` yields the JSON boolean `true`
+
+#### Scenario: a boolean column referenced alone infers and evaluates as boolean
+- **WHEN** `inferType` is called with `$flag` and `{"flag": "boolean"}`
+- **THEN** it returns `Right("boolean")` and evaluating it against `{"flag": true}` yields the JSON boolean `true`
+
+#### Scenario: plus with a boolean operand infers string
+- **WHEN** `inferType` is called with `$flag + 1` and `{"flag": "boolean"}`
+- **THEN** it returns `Right("string")`
+
+#### Scenario: if infers the common type of its branches
+- **WHEN** `inferType` is called with `if($ok, $n, 0)` and `{"ok": "boolean", "n": "integer"}`
+- **THEN** it returns `Right("float")`
+- **AND** `if($ok, $n, "none")` returns `Left(...)` naming `if`
+
+#### Scenario: mismatched comparison is an analyze-time error, not a save or run block
+- **WHEN** a pipeline `compute` step has expression `$n = "5"` where `n` is a float field
+- **THEN** analyze reports a validation error on that step naming `=` and both types
+- **AND** saving the step succeeds
 
 ### Requirement: Dotted references are usable on every expression surface
 Every surface that evaluates or validates an expression SHALL accept a dotted column reference on
@@ -449,3 +504,115 @@ never failing the run.
 #### Scenario: add_days with a text day count nulls the row
 - **WHEN** `add_days($ts, $n)` is evaluated against `{"ts": "2026-07-01", "n": "3"}`
 - **THEN** the row's computed value is `null`
+
+### Requirement: Comparison operators compare values of one kind
+The strict compute grammar SHALL support the binary comparison operators `=`, `!=`, `<`, `<=`, `>` and `>=`. A
+comparison SHALL evaluate to a boolean. Comparisons SHALL be non-associative: an expression that chains two comparisons
+without parentheses (`1 < $x < 5`) SHALL be a parse error. `==` and `<>` SHALL be parse errors.
+- Two numbers SHALL compare numerically.
+- Two text values (string or timestamp columns, string literals, text-valued functions) SHALL compare exactly, ordered
+  by UTF-16 code unit; a timestamp compares as its text, not as an instant.
+- Two booleans SHALL support `=` and `!=` only; an ordering comparison of booleans SHALL be a type error.
+- A comparison between values of different kinds (number vs text, boolean vs number, boolean vs text) SHALL be a type
+  error, never a silent `true` or `false`. At analyze time a number-vs-text comparison error SHALL tell the user to
+  add a cast step to convert the text field to a number (or, for a timestamp, to use `seconds_between`).
+- A comparison with a `null` operand SHALL evaluate to `null`.
+- A type error at evaluation time SHALL yield `null` for that row, like every other evaluation error.
+
+#### Scenario: numeric comparison
+- **WHEN** `$amount > 100` is evaluated against `{"amount": 150}` and against `{"amount": 100}`
+- **THEN** the results are the JSON booleans `true` and `false`
+
+#### Scenario: text equality
+- **WHEN** `$status = "Done"` is evaluated against `{"status": "Done"}` and `{"status": "done"}`
+- **THEN** the results are `true` and `false`
+
+#### Scenario: a number compared with text is a type error, not false
+- **WHEN** `$n = "5"` is evaluated against `{"n": 5}`
+- **THEN** the row's computed value is `null`
+
+#### Scenario: null comparison is null
+- **WHEN** `$x != 5` is evaluated against `{"x": null}`
+- **THEN** the result is `null`
+
+#### Scenario: chained comparison is a parse error
+- **WHEN** `1 < $x < 5` is validated
+- **THEN** validation fails with a parse error
+
+### Requirement: Boolean operators use SQL three-valued logic and precedence
+The strict grammar SHALL support `and`, `or` and `not` and the literals `true` and `false`, as reserved words
+(case-insensitive) in the strict grammar only, including when written directly before `(` (`$a and($b)`,
+`not($x)`). A reserved word where a value is expected (`$a = and`, `not`) SHALL be a parse error naming the word as
+reserved; it SHALL NOT be reported as a missing `$` prefix and SHALL NOT fall back to the legacy bare-identifier
+grammar. The legacy bare-identifier grammar is still tried only when the strict parse fails with the `$`-prefix error, so a
+legacy (pre-`$`) expression changes behaviour only when the strict parse no longer produces that error, i.e. the
+strict parse now succeeds or stops on a different error before it reaches a non-reserved bare name. In practice: (a)
+every bare word is `true`/`false` (`true`, `true * 2`), now literals; or (b) the strict parser reaches a reserved word
+misused as a value (`and + 1`, `not`, `not + price`) before any other bare name, now a reserved-word or syntax error.
+A legacy expression containing any other bare column name reached before a reserved word (`price * and`,
+`true + price`) still falls back to the legacy grammar and behaves exactly as before. Precedence from loosest to tightest SHALL be: `or`, `and`, `not`,
+comparison, `+`/`-`, `*`/`/`, unary `-`; `and`/`or` are left-associative and parentheses override. Operands of `and`,
+`or` and `not` SHALL be booleans; any other non-null operand SHALL be a type error. `null` SHALL follow SQL
+three-valued logic: `null and false` = `false`, `null and true` = `null`, `null or true` = `true`, `null or false` =
+`null`, `not null` = `null`. `and` SHALL NOT evaluate its right operand when the left is `false`, and `or` SHALL NOT
+evaluate its right operand when the left is `true`.
+
+#### Scenario: and binds tighter than or
+- **WHEN** `$a or $b and $c` is evaluated against `{"a": true, "b": false, "c": false}`
+- **THEN** the result is `true` (it is `$a or ($b and $c)`, not `($a or $b) and $c`)
+
+#### Scenario: not applies to the whole comparison
+- **WHEN** `not $a = $b` is evaluated against `{"a": 1, "b": 2}`
+- **THEN** the result is `true` (it is `not ($a = $b)`)
+
+#### Scenario: three-valued logic
+- **WHEN** `$x > 1 and false` and `$x > 1 or true` are evaluated against `{"x": null}`
+- **THEN** the results are `false` and `true`
+
+#### Scenario: keywords before a parenthesis
+- **WHEN** `$a and($b or $c)` and `not($a)` are evaluated against `{"a": true, "b": false, "c": true}`
+- **THEN** the results are `true` and `false`
+
+#### Scenario: a reserved word as a value is a reserved-word parse error
+- **WHEN** `$a = and` is validated
+- **THEN** validation fails with an error naming `and` as a reserved word, not the `$`-prefix error
+
+#### Scenario: legacy expressions with other bare names still fall back
+- **WHEN** the legacy expressions `price * and` and `true + price` are evaluated against
+  `{"price": 2, "and": 3, "true": "x"}`
+- **THEN** the results are `6` and `"x2"`, the same as before this change
+
+#### Scenario: short-circuit skips an erroring right operand
+- **WHEN** `false and floor($s) > 1` is evaluated against `{"s": "x"}`
+- **THEN** the result is `false`
+
+### Requirement: if selects one of two branches
+`if(cond, then, else)` SHALL require exactly 3 arguments. It SHALL evaluate `cond` and then only the selected branch:
+`then` when `cond` is `true`, `else` when `cond` is `false` or `null`. An evaluation error in the unselected branch SHALL
+NOT occur. A non-boolean, non-null condition SHALL be a type error. The selected value SHALL be returned unchanged.
+
+#### Scenario: conditional count column
+- **WHEN** `if($status = "Done", 1, 0)` is evaluated against rows with status `"Done"`, `"Open"` and `null`
+- **THEN** the results are `1`, `0` and `0`
+- **AND** an aggregate `sum` over that column counts the Done rows
+
+#### Scenario: unselected branch is not evaluated
+- **WHEN** `if($b = 0, 0, $a / $b)` is evaluated against `{"a": 4, "b": 0}`
+- **THEN** the result is `0`, not `null`
+
+#### Scenario: wrong arity is a parse error
+- **WHEN** `if($a > 1, 1)` is validated
+- **THEN** validation fails naming `if` and its 3 arguments
+
+### Requirement: Boolean columns are booleans in expressions
+A JSON boolean cell referenced by `$name` SHALL evaluate as a boolean (usable as an `if` condition and with `and`,
+`or`, `not`, `=`, `!=`). `+` and `concat` with a boolean SHALL concatenate its text `true`/`false`, as before. A
+boolean used where a number is required SHALL remain a type error.
+
+#### Scenario: boolean column as a condition
+- **WHEN** `if($flag, "yes", "no")` is evaluated against `{"flag": true}`
+- **THEN** the result is `"yes"`
+
+#### Scenario: plus still concatenates a boolean
+- **WHEN** `$flag + 1` is evaluated against `{"flag": true}`
+- **THEN** the result is the JSON string `"true1"`

@@ -5,7 +5,7 @@ import java.time.temporal.{ChronoUnit, TemporalAdjusters}
 import java.time.{DayOfWeek, Duration, Instant, LocalDate, ZoneOffset}
 import scala.util.Try
 
-import ExpressionInterpreter.{VNull, VNum, VStr, Val}
+import ExpressionInterpreter.{VBool, VNull, VNum, VStr, Val}
 
 /** HEL-1314: `seconds_between`, `date_trunc` and `add_days`. Each timestamp argument is read through
  *  the shared [[TimestampParsing.parseInstant]] and interpreted in UTC; a value it rejects makes the
@@ -35,6 +35,7 @@ private[engine] object ExpressionDateTimeFunctions {
   private def instantOf(v: Val): Option[Instant] = v match {
     case VStr(s)  => TimestampParsing.parseInstant(s)
     case VNum(n)  => TimestampParsing.parseInstant(n)
+    case VBool(_) => None // a boolean is not a timestamp: the row's result is null, never a run failure
     case VNull    => None
   }
 

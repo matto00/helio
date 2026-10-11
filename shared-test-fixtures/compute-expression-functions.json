@@ -1,5 +1,5 @@
 {
-  "comment": "HEL-1314 seam: every function name the strict compute grammar supports (ExpressionEvaluator.SupportedFunctions, alphabetical). Read by ComputeExpressionFunctionsSeamSpec (backend), computeFunctionReference.test.ts (frontend) and computeExpressionDescription.test.ts (helio-mcp).",
+  "comment": "HEL-1314/HEL-1070 seam: every function name, comparison/boolean operator and boolean literal the strict compute grammar supports (ExpressionEvaluator.SupportedFunctions alphabetical, SupportedOperators, BooleanLiterals). Read by ComputeExpressionFunctionsSeamSpec (backend), computeFunctionReference.test.ts (frontend) and computeExpressionDescription.test.ts (helio-mcp).",
   "functions": [
     "abs",
     "add_days",
@@ -8,6 +8,7 @@
     "concat",
     "date_trunc",
     "floor",
+    "if",
     "length",
     "lower",
     "mod",
@@ -15,5 +16,7 @@
     "seconds_between",
     "substring",
     "upper"
-  ]
+  ],
+  "operators": ["=", "!=", "<", "<=", ">", ">=", "and", "or", "not"],
+  "literals": ["true", "false"]
 }

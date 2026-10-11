@@ -20,6 +20,30 @@ private[engine] object ExpressionParser {
   private[engine] final case class Call(name: String, args: Vector[Expr]) extends Expr
   /** HEL-1403: prefix unary minus (strict grammar only -- the legacy parser is frozen). */
   private[engine] final case class Neg(e: Expr)               extends Expr
+  /** HEL-1070: boolean literal and the comparison / boolean operator nodes (strict grammar only). */
+  private[engine] final case class BoolLit(b: Boolean)        extends Expr
+  private[engine] final case class Cmp(op: String, l: Expr, r: Expr) extends Expr
+  private[engine] final case class And(l: Expr, r: Expr)      extends Expr
+  private[engine] final case class Or(l: Expr, r: Expr)       extends Expr
+  private[engine] final case class Not(e: Expr)               extends Expr
+
+  /** Words the strict grammar reserves (case-insensitive). The tokenizer still emits them as
+   *  `Ident`/`FnName` because the frozen `LegacyParser` shares it. */
+  private val Keywords = Set("and", "or", "not", "true", "false")
+
+  private def keywordOf(t: Token): Option[String] = t match {
+    case Token.Ident(n) if Keywords.contains(n.toLowerCase)  => Some(n.toLowerCase)
+    case Token.FnName(n) if Keywords.contains(n.toLowerCase) => Some(n.toLowerCase)
+    case _                                                   => None
+  }
+
+  private def reservedWordMsg(word: String): String =
+    s"'$word' is a reserved word (boolean operator or literal) and cannot be used as a value or column name here; " +
+      "reference columns with a '$' prefix"
+
+  private val CmpOps: Map[Token, String] = Map(
+    Token.Eq -> "=", Token.Neq -> "!=", Token.Lt -> "<", Token.Le -> "<=", Token.Gt -> ">", Token.Ge -> ">="
+  )
 
   /** Arity/known-name check for function calls — shared by the strict parser
    *  (which rejects unknown names/arity at parse time, per
@@ -30,6 +54,7 @@ private[engine] object ExpressionParser {
     case "lower" | "upper" | "length" => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
     case "floor" | "ceil" | "abs"     => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
     case "coalesce"                   => if (argc >= 2) Right(()) else Left("coalesce requires at least 2 arguments")
+    case "if"                         => if (argc == 3) Right(()) else Left("if requires 3 arguments (condition, then, else)")
     case "mod"                        => if (argc == 2) Right(()) else Left("mod requires 2 arguments")
     case "seconds_between" | "date_trunc" | "add_days" => if (argc == 2) Right(()) else Left(s"$name requires 2 arguments")
     case "round"                      => if (argc == 1 || argc == 2) Right(()) else Left("round requires 1 or 2 arguments")
@@ -59,7 +84,59 @@ private[engine] object ExpressionParser {
         else Right(expr)
       }
 
-    private def parseExpr(): Either[String, Expr] =
+    /** `expr -> orExpr`; precedence loosest to tightest: or, and, not, comparison, `+ -`, `* /`, unary `-`. */
+    private def parseExpr(): Either[String, Expr] = parseOr()
+
+    private def atKeyword(word: String): Boolean = keywordOf(peek).contains(word)
+
+    private def parseOr(): Either[String, Expr] =
+      parseAnd().flatMap { first =>
+        var acc: Either[String, Expr] = Right(first)
+        while (acc.isRight && atKeyword("or")) {
+          advance()
+          acc = acc.flatMap(l => parseAnd().map(r => Or(l, r)))
+        }
+        acc
+      }
+
+    private def parseAnd(): Either[String, Expr] =
+      parseNot().flatMap { first =>
+        var acc: Either[String, Expr] = Right(first)
+        while (acc.isRight && atKeyword("and")) {
+          advance()
+          acc = acc.flatMap(l => parseNot().map(r => And(l, r)))
+        }
+        acc
+      }
+
+    /** `notExpr -> 'not' notExpr | cmpExpr`. A bare `not` with no operand is the reserved-word error. */
+    private def parseNot(): Either[String, Expr] =
+      if (atKeyword("not")) {
+        advance()
+        if (peek == Token.EOF || peek == Token.RParen || peek == Token.Comma) Left(reservedWordMsg("not"))
+        else parseNot().map(Not(_))
+      } else parseCmp()
+
+    /** `cmpExpr -> sum (CMP sum)?`: non-associative, so a second comparison is a parse error. */
+    private def parseCmp(): Either[String, Expr] =
+      parseSum().flatMap { l =>
+        CmpOps.get(peek) match {
+          case None => Right(l)
+          case Some(op) =>
+            val opTok = peek
+            advance()
+            if (opTok == Token.Eq && peek == Token.Eq) Left("'==' is not supported; use '=' to compare")
+            else if (opTok == Token.Lt && peek == Token.Gt) Left("'<>' is not supported; use '!=' for not-equal")
+            else
+              parseSum().flatMap { r =>
+                if (CmpOps.contains(peek))
+                  Left("Comparison operators cannot be chained; parenthesise one comparison or join them with 'and'")
+                else Right(Cmp(op, l, r))
+              }
+        }
+      }
+
+    private def parseSum(): Either[String, Expr] =
       parseTerm().flatMap { first =>
         var acc: Either[String, Expr] = Right(first)
         while (acc.isRight && (peek == Token.Plus || peek == Token.Minus)) {
@@ -104,6 +181,14 @@ private[engine] object ExpressionParser {
       case Token.Num(v)  => advance(); Right(NumLit(v))
       case Token.Str(s)  => advance(); Right(StrLit(s))
       case Token.Ref(name) => advance(); Right(FieldRef(name))
+      // HEL-1070: a keyword is never a function name or column, also when written before '(' (that '(' is then
+      // an ordinary group). Not the `$`-prefix error, so `parseProblem`/`compile` never retry the legacy parser.
+      case t if keywordOf(t).isDefined =>
+        keywordOf(t).get match {
+          case "true"  => advance(); Right(BoolLit(true))
+          case "false" => advance(); Right(BoolLit(false))
+          case other   => Left(reservedWordMsg(other))
+        }
       case Token.FnName(name) =>
         advance()
         if (peek != Token.LParen) Left(s"Expected '(' after function name '$name'")
