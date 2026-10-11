@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
-import com.helio.services.sources.{DataSourceService, SourceService}
+import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
@@ -65,14 +65,17 @@ final class PipelineProposalService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
+  // Null only when no DataSourceService is wired, in which case no inline source can be created either.
+  private val inlineSourceCleanup: InlineSourceCleanup =
+    if (dataSourceService == null) null
+    else new InlineSourceCleanup(dataSourceRepo, dataSourceService, if (sourceService == null) null else sourceService.connectorRepository)
+
   /** HEL-989: `DataSourceService.delete` now refuses (409) while ANY pipeline roots on the source.
    *  Every cleanup caller here deletes the pipeline FIRST (or runs before one exists), so a refusal
-   *  means a source was left behind -- log it rather than discard the `Left`. */
-  private def cleanupSource(id: DataSourceId, user: AuthenticatedUser): Future[Unit] =
-    dataSourceService.delete(id, user).map {
-      case Left(e) => log.warn(s"proposal cleanup could not delete source ${id.value}: ${e.err.message}")
-      case Right(_) => ()
-    }
+   *  means a source was left behind -- [[InlineSourceCleanup]] logs it rather than discarding the `Left`.
+   *  HEL-1475: `implicitConnector` also removes the implicit Connector of a bare-`url` REST source this call made. */
+  private def cleanupSource(id: DataSourceId, implicitConnector: Boolean, user: AuthenticatedUser): Future[Unit] =
+    inlineSourceCleanup.deleteCallCreated(id, implicitConnector, user, "proposal cleanup").map(_ => ())
 
   /** Non-mutating structural + reference validation (HEL-662 design.md D3), required by that
    *  ticket's Hard Boundary — a `propose_pipeline` tool must never call [[apply]]. Runs the SAME
@@ -379,7 +382,7 @@ final class PipelineProposalService(
           )
           .flatMap {
             case Left(err)  => Future.successful(Left(err))
-            case Right(csr) => handleInlineCreated(csr, DataSourceKind.RestApi, source.clientId)
+            case Right(csr) => handleInlineCreated(csr, DataSourceKind.RestApi, source.clientId, implicitConnector = cfg.url.isDefined && cfg.connectorId.isEmpty)
           }
     }
 
@@ -410,7 +413,7 @@ final class PipelineProposalService(
    *  the connector's curated message is threaded onto `ResolvedSource.fetchError`
    *  so `createPipeline` can surface it as a `blocked` run's `blockedReason`
    *  instead of aborting the whole apply. */
-  private def handleInlineCreated(csr: CreateSourceResponse, kind: String, clientId: Option[String]): Future[Either[ServiceError, ResolvedSource]] = {
+  private def handleInlineCreated(csr: CreateSourceResponse, kind: String, clientId: Option[String], implicitConnector: Boolean = false): Future[Either[ServiceError, ResolvedSource]] = {
     val sourceId = DataSourceId(csr.source.id)
     Future.successful(Right(ResolvedSource(
       sourceId,
@@ -418,7 +421,8 @@ final class PipelineProposalService(
       createdByThisCall = true,
       kind              = kind,
       fetchError        = csr.fetchError,
-      clientId          = clientId
+      clientId          = clientId,
+      implicitConnector = implicitConnector
     )))
   }
 
@@ -442,7 +446,7 @@ final class PipelineProposalService(
    *  raw repository call. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
-      Future.sequence(response.sources.map(source => cleanupSource(DataSourceId(source.id), user))).map(_ => ())
+      Future.sequence(response.sources.map(source => cleanupSource(DataSourceId(source.id), implicitConnector = false, user))).map(_ => ())
     }
 
   // ── Pipeline + steps + outputs (ONE transactional call) + run, then rollback on any failure ──
@@ -565,7 +569,7 @@ final class PipelineProposalService(
    *  clean up. No-op for the `sourceId` branch (nothing was created). */
   private def rollbackSourceOnly(resolved: ResolvedSource, user: AuthenticatedUser): Future[Unit] =
     if (!resolved.createdByThisCall) Future.successful(())
-    else cleanupSource(resolved.id, user)
+    else cleanupSource(resolved.id, resolved.implicitConnector, user)
 }
 
 object PipelineProposalService {
@@ -591,6 +595,9 @@ object PipelineProposalService {
       // HEL-914: the proposal root's own `clientId`, threaded through so
       // `createPipeline` can bind it onto the create-request root and a
       // parentless step's `rootClientId` resolves against it.
-      clientId: Option[String] = None
+      clientId: Option[String] = None,
+      // HEL-1475: a bare-`url` REST root made `SourceService.createRest` synthesize an implicit "Auto:" Connector,
+      // which this call's own failure cleanup must remove with the source.
+      implicitConnector: Boolean = false
   )
 }

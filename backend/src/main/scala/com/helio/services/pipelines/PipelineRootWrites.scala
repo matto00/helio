@@ -1,13 +1,14 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
-import com.helio.services.sources.{DataSourceService, SourceService}
+import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse}
 import com.helio.api.protocols.sources.{CreateSourceRequest, SqlCreateSourceRequest, StaticDataSourceRequest}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, PipelineId, PipelineRootId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Root add/remove (`addRoot`/`removeRoot`) and the shared root-source resolution `create` also uses. Split out of `PipelineService` (HEL-1463). */
@@ -19,6 +20,7 @@ private[pipelines] final class PipelineRootWrites(
     pipelineRootRepo: PipelineRootRepository,
     sourceService: SourceService,
     dataSourceService: DataSourceService,
+    inlineSourceCleanup: InlineSourceCleanup,
     support: PipelineServiceSupport,
     requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]
 )(implicit ec: ExecutionContext) {
@@ -121,19 +123,28 @@ private[pipelines] final class PipelineRootWrites(
               resolveOneRootSourceId(req, user).flatMap {
                 case Left(err) => Future.successful(Left(err))
                 case Right(dsId) =>
-                  dataSourceRepo.findByIdOwned(dsId, user).flatMap {
-                    case None => Future.successful(Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}")))
-                    case Some(ds) =>
-                      pipelineRootRepo.add(pipelineId, dsId, user).map { root =>
-                        audit("pipeline.root.add", "pipeline", Some(pipelineId.value), user)
-                        Right(PipelineRootSummaryResponse(root.id.value, ds.id.value, ds.name))
-                      }.recover {
-                        case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
-                      }
+                  // HEL-1475: an inline root was just created and committed; every failure after this point
+                  // (a Left or a failed Future) deletes it, and the implicit Connector of a bare-url REST root.
+                  val created = ArrayBuffer.empty[(DataSourceId, Boolean)]
+                  if (req.`type`.isDefined) created += ((dsId, InlineSourceCleanup.isImplicitConnectorRoot(req)))
+                  InlineSourceCompensation.compensating(inlineSourceCleanup, created, user, "addRoot cleanup") {
+                    attachRoot(pipelineId, dsId, user)
                   }
               }
           }
       }
+
+  private def attachRoot(pipelineId: PipelineId, dsId: DataSourceId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineRootSummaryResponse]] =
+    dataSourceRepo.findByIdOwned(dsId, user).flatMap {
+      case None => Future.successful(Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}")))
+      case Some(ds) =>
+        pipelineRootRepo.add(pipelineId, dsId, user).map { root =>
+          audit("pipeline.root.add", "pipeline", Some(pipelineId.value), user)
+          Right(PipelineRootSummaryResponse(root.id.value, ds.id.value, ds.name))
+        }.recover {
+          case PipelineCycleGuard.PipelineCycleRejected(msg) => Left(ServiceError.BadRequest(msg))
+        }
+    }
 
   /** `DELETE /api/pipelines/:id/roots/:rootId` (HEL-913 task 7.4/7.5, R7) — requires Editor or
    *  Owner. **Phase 1 (refuse before touching anything):** the target root must belong to THIS

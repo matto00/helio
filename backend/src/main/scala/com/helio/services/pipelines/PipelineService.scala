@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
-import com.helio.services.sources.{DataSourceService, SourceService}
+import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, DeletePipelineStepResponse, PipelineAnalyzeProposalResponse, PipelineAnalyzeResponse, PipelineProposal, PipelineRootSummaryResponse, PipelineStepConfigCodec, RemovePipelineRootResponse, PipelineStepResponse, PipelineSummaryResponse, ReorderPipelineStepsRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse}
 import com.helio.api.protocols.pipelines.{PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
@@ -77,9 +77,15 @@ final class PipelineService(
   private val analyzeReads = new PipelineAnalyzeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, costInputGathering, support)
   private val nodeReads = new PipelineNodeReads(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)
   private val proposalAnalyze = new PipelineProposalAnalyze(dataSourceRepo, connector, sourceService, support)
-  private val rootWrites = new PipelineRootWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, pipelineRootRepo, sourceService, dataSourceService, support, requireEditorAccess)
+  // HEL-1475: the one "delete what this call created" step for inline root sources (single-call create, addRoot, and
+  // patch-set rollback via [[inlineSourceCleanup]]). Null only when no DataSourceService is wired, in which case no
+  // inline source can be created either (see `PipelineRootWrites.resolveInlineRootSourceId`).
+  private[services] val inlineSourceCleanup: InlineSourceCleanup =
+    if (dataSourceService == null) null
+    else new InlineSourceCleanup(dataSourceRepo, dataSourceService, if (sourceService == null) null else sourceService.connectorRepository)
+  private val rootWrites = new PipelineRootWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, pipelineRootRepo, sourceService, dataSourceService, inlineSourceCleanup, support, requireEditorAccess)
   private val createTransaction = new PipelineCreateTransaction(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)
-  private val createWrites = new PipelineCreateWrites(pipelineRepo, dataSourceRepo, dataSourceService, support, rootWrites, createTransaction)
+  private val createWrites = new PipelineCreateWrites(pipelineRepo, dataSourceRepo, inlineSourceCleanup, support, rootWrites, createTransaction)
   private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)
   private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)
 
