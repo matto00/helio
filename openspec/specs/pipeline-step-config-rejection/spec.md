@@ -205,14 +205,19 @@ and pipeline routes):
 - a `fillnull` configuration whose `strategy` is a non-empty value outside the supported strategies;
 - a `window` configuration whose `function` is a non-empty value outside the supported functions;
 - a `window` configuration whose `function` is `lag` or `lead` and whose `offset` is present and not positive;
+- a `window` configuration whose `function` is a `rolling_*` function and whose `frameSize` is present and not an
+  integer in 1..1000 (including a fractional value or one not representable as a 32-bit integer), whose `frameUnit` is
+  present and not `rows`/`days`, or whose `frameUnit` is `days` with an `orderBy` that is non-empty and not exactly one
+  ascending key;
 - a `pivot` configuration whose `agg` is a non-empty value outside the supported aggregations.
 
 The rejection message SHALL be the same message analyze and the run path report for that problem, naming the invalid
 value and listing the supported values. Each such problem SHALL be reported by analyze exactly once.
 
 An incomplete draft SHALL remain accepted: an absent or empty `strategy`, `function` or `agg`; a `constant` fillnull
-with no `value`; a `running_sum`, `lag` or `lead` window with no `field`; a `lag`/`lead` window with no `offset`; and
-an `offset` on a function other than `lag`/`lead`. Such drafts keep being reported by analyze and refused at run as
+with no `value`; a `running_sum`, `lag`, `lead` or `rolling_*` window with no `field`; a `lag`/`lead` window with no `offset`; a
+`rolling_*` window with no `frameSize` or an empty `orderBy`; an `offset` on a function other than `lag`/`lead`; and a
+`frameSize`/`frameUnit` on a function other than `rolling_*`. Such drafts keep being reported by analyze and refused at run as
 before.
 
 This requirement SHALL NOT introduce read-path validation: a stored step whose configuration would now be rejected
@@ -269,6 +274,13 @@ SHALL still load, still be analyzed (reporting the problem), and still fail at r
 #### Scenario: The step editors surface a rejected save
 - **WHEN** a save of a `fillnull`, `window` or `pivot` step's configuration is rejected by the server
 - **THEN** the step editor shows the server's rejection message
+
+#### Scenario: Unrepresentable or out-of-range rolling frameSize is rejected, never stored as a draft
+- **GIVEN** a pipeline owned by the caller
+- **WHEN** the caller creates a `window` step with `function` `"rolling_avg"`, a `field`, an `orderBy`, and `frameSize`
+  `0`, `1001`, `7.5` or `5000000000`
+- **THEN** the response status is 422
+- **AND** no step is created (the value is never silently dropped and stored as a draft without `frameSize`)
 
 ### Requirement: A patch-set pipelineStep create edit with a rejected config fails at resolve and preview
 

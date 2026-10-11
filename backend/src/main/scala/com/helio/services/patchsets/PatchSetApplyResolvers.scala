@@ -17,6 +17,12 @@ import scala.util.{Failure, Success, Try}
  *  before [[PatchSetApplyService]] mutates anything. A `Left` from ANY
  *  resolver fails the whole pass; nothing is mutated.
  *
+ *  This object holds the entry point (`resolveAll`), the `(kind, op)` dispatch (`resolveEdit`)
+ *  and the three `dashboard` resolvers. The other target kinds' resolvers live in
+ *  `PatchSetPanelResolvers`, `PatchSetDataSourceResolvers`, `PatchSetPipelineResolvers`,
+ *  `PatchSetPipelineStepResolvers` and `PatchSetOutputResolvers` (split out in HEL-1479); the
+ *  access/decode helpers they share are `PatchSetResolverSupport`, at the bottom of this file.
+ *
  *  Extracted from `PatchSetApplyService.scala` to keep that file within a
  *  manageable size — every function here is a pure(-ish), read-only
  *  resolver taking its collaborators via [[PatchSetApplyContext]] rather

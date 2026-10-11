@@ -68,7 +68,7 @@ object PipelineStepCatalogService {
     "chunkbytokencount"   -> "Chunk by token count",
     "datebucket"          -> "Date bucket",
     "pivot"               -> "Pivot (long → wide)",
-    "window"              -> "Window (rank / running total)",
+    "window"              -> "Window (rank / running / rolling)",
     "unpivot"             -> "Unpivot (wide → long)",
     "dedupe"              -> "Dedupe rows",
     "fillnull"            -> "Fill null / impute",

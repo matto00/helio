@@ -390,13 +390,24 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "dynamic `<values>_<value>` columns are data-dependent and do NOT appear in " +
         "analyze_pipeline's output schema — only the `index` fields do; " +
         "window → {partitionBy: string[], orderBy: [{field,direction}], " +
-        "function: 'row_number'|'rank'|'dense_rank'|'running_sum'|'lag'|'lead', field?, " +
-        "outputColumn, offset?} — partitions rows by `partitionBy`, orders each partition by " +
+        "function: 'row_number'|'rank'|'dense_rank'|'running_sum'|'lag'|'lead'|'rolling_avg'|" +
+        "'rolling_sum'|'rolling_min'|'rolling_max'|'rolling_count', field?, " +
+        "outputColumn, offset?, frameSize?, frameUnit?: 'rows'|'days'} — partitions rows by `partitionBy`, orders each partition by " +
         "`orderBy`, and appends `outputColumn` per row (row count is preserved, unlike pivot). " +
-        "`field` is required by running_sum/lag/lead (ignored by the rank family); `offset` " +
-        "(default 1) is used by lag/lead only. `outputColumn`'s type is statically knowable and " +
-        "DOES appear in analyze_pipeline's output schema — integer for row_number/rank/dense_rank, " +
-        "number for running_sum, same type as `field` for lag/lead); " +
+        "`field` is required by running_sum/lag/lead and every rolling_* function (ignored by the " +
+        "rank family); `offset` (default 1) is used by lag/lead only. The rolling_* functions " +
+        "aggregate a TRAILING frame (the current row plus earlier rows, never later ones) of " +
+        "`field` within the partition: `frameSize` (integer 1..1000, required) with `frameUnit` " +
+        "'rows' (default: the current row and the frameSize-1 rows before it) or 'days' (every " +
+        "partition row whose single ascending `orderBy` key, read as a UTC date, lies within " +
+        "[d-(frameSize-1), d]; gaps are not filled, same-date rows share one value, a null or " +
+        "unparseable date gives null). `orderBy` is required (non-empty) for rolling_*. Leading " +
+        "partial frames emit a value over the rows available; null and non-numeric values are " +
+        "skipped (not counted as 0), so avg/sum/min/max over no values is null and rolling_count " +
+        "is 0. `outputColumn`'s type is statically knowable and " +
+        "DOES appear in analyze_pipeline's output schema — integer for row_number/rank/dense_rank/" +
+        "rolling_count, float for running_sum and the other rolling_* functions, same type as " +
+        "`field` for lag/lead); " +
         "unpivot → {idVars: string[], valueVars: string[], varName?, valueName?} — the inverse of " +
         "pivot: for each input row, emits one output row per `valueVars` entry, carrying `idVars` " +
         "unchanged plus `varName` (default 'variable') = the source column's name and `valueName` " +

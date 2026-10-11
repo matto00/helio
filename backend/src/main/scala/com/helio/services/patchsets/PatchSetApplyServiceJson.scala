@@ -7,7 +7,8 @@ import com.helio.api.protocols.panels.PanelProtocol
 
 /** Spray-JSON helper surface for the `patch-set-apply-path` (HEL-406) files —
  *  mirrors `CombinedProposalServiceJson`/`PatchSetProtocol`'s own mixin list
- *  exactly, giving [[PatchSetApplyResolvers]]/[[PatchSetApplyService]]/
+ *  exactly, giving the resolver objects (`PatchSetApplyResolvers` and the per-kind
+ *  `PatchSet*Resolvers`)/[[PatchSetApplyService]]/
  *  [[PatchSetApplyRollback]] access to every existing per-resource request/
  *  response `RootJsonFormat` (decode `createPatch`, encode `priorState`/
  *  `resultingState` via each kind's EXISTING response shape) without

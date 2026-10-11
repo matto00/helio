@@ -18,6 +18,8 @@ const emptyConfig: WindowConfigValue = {
   field: "",
   outputColumn: "",
   offset: 1,
+  frameSize: null,
+  frameUnit: "rows",
 };
 
 /** Open the custom Select identified by aria-label and click the option with
@@ -52,7 +54,7 @@ describe("WindowConfig", () => {
     expect(screen.queryByRole("combobox", { name: /partition field 1/i })).not.toBeInTheDocument();
   });
 
-  it("function dropdown offers exactly the six supported functions", () => {
+  it("function dropdown offers exactly the supported functions", () => {
     render(
       <WindowConfig
         config={emptyConfig}
@@ -63,7 +65,19 @@ describe("WindowConfig", () => {
     );
     fireEvent.click(screen.getByRole("combobox", { name: /window function/i }));
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toEqual(["row_number", "rank", "dense_rank", "running_sum", "lag", "lead"]);
+    expect(options).toEqual([
+      "row_number",
+      "rank",
+      "dense_rank",
+      "running_sum",
+      "lag",
+      "lead",
+      "rolling_avg",
+      "rolling_sum",
+      "rolling_min",
+      "rolling_max",
+      "rolling_count",
+    ]);
   });
 
   // ── Field/offset visibility per function (design.md decision 4) ─────────────
@@ -293,5 +307,144 @@ describe("WindowConfig", () => {
     });
 
     expect(onChange).toHaveBeenCalledWith({ ...emptyConfig, outputColumn: "rank_in_category" });
+  });
+
+  // ── HEL-1316: rolling frame controls ────────────────────────────────────────
+
+  it("renders source field, frame size and frame unit for a rolling function, and no offset", () => {
+    const config: WindowConfigValue = { ...emptyConfig, function: "rolling_avg", frameSize: 7 };
+    render(
+      <WindowConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: /^source field$/i })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: /frame size/i })).toHaveValue(7);
+    expect(screen.getByRole("combobox", { name: /frame unit/i })).toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton", { name: /offset/i })).not.toBeInTheDocument();
+  });
+
+  it("hides the frame controls for non-rolling functions", () => {
+    render(
+      <WindowConfig
+        config={{ ...emptyConfig, function: "lag" }}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.queryByRole("spinbutton", { name: /frame size/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /frame unit/i })).not.toBeInTheDocument();
+  });
+
+  it("switching to a rolling function with no frame size fills 7 / rows", () => {
+    const onChange = jest.fn();
+    render(
+      <WindowConfig
+        config={emptyConfig}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+    chooseSelectOption("Window function", "rolling_sum");
+    expect(onChange).toHaveBeenCalledWith({
+      ...emptyConfig,
+      function: "rolling_sum",
+      frameSize: 7,
+      frameUnit: "rows",
+    });
+  });
+
+  it("does not overwrite an existing frame size when switching between rolling functions", () => {
+    const onChange = jest.fn();
+    const config: WindowConfigValue = {
+      ...emptyConfig,
+      function: "rolling_sum",
+      frameSize: 3,
+      frameUnit: "days",
+    };
+    render(
+      <WindowConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+    chooseSelectOption("Window function", "rolling_max");
+    expect(onChange).toHaveBeenCalledWith({ ...config, function: "rolling_max" });
+  });
+
+  it("shows an empty frame size for a stored rolling config without one, persisting nothing", () => {
+    const onChange = jest.fn();
+    render(
+      <WindowConfig
+        config={{ ...emptyConfig, function: "rolling_avg", frameSize: null }}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByRole("spinbutton", { name: /frame size/i })).toHaveValue(null);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("frame size input carries min 1 / max 1000, can be cleared, and ignores out-of-range or fractional values", () => {
+    const onChange = jest.fn();
+    const config: WindowConfigValue = { ...emptyConfig, function: "rolling_avg", frameSize: 7 };
+    render(
+      <WindowConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByRole("spinbutton", { name: /frame size/i });
+    expect(input).toHaveAttribute("min", "1");
+    expect(input).toHaveAttribute("max", "1000");
+    for (const value of ["0", "1001", "2.5", "-3"]) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "30" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...config, frameSize: 30 });
+    fireEvent.change(input, { target: { value: "" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...config, frameSize: null });
+  });
+
+  it("choosing a frame unit patches it in", () => {
+    const onChange = jest.fn();
+    const config: WindowConfigValue = { ...emptyConfig, function: "rolling_avg", frameSize: 7 };
+    render(
+      <WindowConfig
+        config={config}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={onChange}
+      />,
+    );
+    chooseSelectOption("Frame unit", "days");
+    expect(onChange).toHaveBeenCalledWith({ ...config, frameUnit: "days" });
+  });
+
+  it("marks the function control invalid for a rejected rolling save", () => {
+    render(
+      <WindowConfig
+        config={{ ...emptyConfig, function: "rolling_avg", frameSize: 7 }}
+        analyzeSchema={sampleSchema}
+        analyzeColumns={sampleColumns}
+        onChange={jest.fn()}
+        saveError="window function 'rolling_avg' requires 'frameSize' to be an integer in 1..1000"
+        saveErrorIsValidation
+      />,
+    );
+    const fn = screen.getByRole("combobox", { name: /window function/i });
+    expect(fn).toHaveAttribute("aria-invalid", "true");
+    expect(fn).toHaveAttribute("aria-describedby");
   });
 });

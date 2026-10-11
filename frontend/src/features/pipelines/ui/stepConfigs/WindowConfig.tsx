@@ -2,10 +2,10 @@
 // pipeline op (HEL-376). Partition-by rows mirror PivotConfig's index-field
 // rows; order-by reuses SortConfig directly (identical {field, direction}
 // shape) rather than re-implementing a second ordered-key-list editor. A
-// function dropdown selects one of the six supported functions; the field
-// dropdown (running_sum/lag/lead) and offset number input (lag/lead) render
-// conditionally per design.md decision 4 — the rank family ignores `field`
-// and `offset` entirely.
+// function dropdown selects one of the supported functions; the field
+// dropdown (running_sum/lag/lead/rolling_*), offset number input (lag/lead) and
+// frame size + unit controls (rolling_*, HEL-1316) render conditionally per
+// design.md decision 4 — the rank family ignores `field` and `offset` entirely.
 
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { useId, type ChangeEvent } from "react";
@@ -23,12 +23,40 @@ export const WINDOW_FUNCTIONS = [
   "running_sum",
   "lag",
   "lead",
+  "rolling_avg",
+  "rolling_sum",
+  "rolling_min",
+  "rolling_max",
+  "rolling_count",
 ] as const;
 
 export type WindowFunctionValue = (typeof WINDOW_FUNCTIONS)[number];
 
-/** Functions that read a source `field` (the rank family ignores it). */
-const FIELD_REQUIRED_FUNCTIONS: readonly WindowFunctionValue[] = ["running_sum", "lag", "lead"];
+/** Functions whose frame is a trailing rolling window (HEL-1316). */
+export const ROLLING_FUNCTIONS: readonly WindowFunctionValue[] = [
+  "rolling_avg",
+  "rolling_sum",
+  "rolling_min",
+  "rolling_max",
+  "rolling_count",
+];
+
+/** Functions that read a source `field` (the rank family ignores it). Also the persist rule's list. */
+export const FIELD_REQUIRED_FUNCTIONS: readonly WindowFunctionValue[] = [
+  "running_sum",
+  "lag",
+  "lead",
+  ...ROLLING_FUNCTIONS,
+];
+
+/** HEL-1316: the editor fills this when the function changes to a rolling one with no frame size. */
+const DEFAULT_FRAME_SIZE = 7;
+const MAX_FRAME_SIZE = 1000;
+
+const FRAME_UNIT_OPTIONS = [
+  { value: "rows", label: "rows" },
+  { value: "days", label: "days" },
+];
 
 /** Functions that use `offset` (only lag/lead). */
 const OFFSET_FUNCTIONS: readonly WindowFunctionValue[] = ["lag", "lead"];
@@ -42,6 +70,9 @@ export interface WindowConfigValue {
   field: string;
   outputColumn: string;
   offset: number;
+  /** HEL-1316: null when the stored config has none (shown empty, never a value that is not stored). */
+  frameSize: number | null;
+  frameUnit: "rows" | "days";
 }
 
 interface WindowConfigProps {
@@ -92,7 +123,27 @@ export function WindowConfig({
     const next = WINDOW_FUNCTIONS.includes(fn as WindowFunctionValue)
       ? (fn as WindowFunctionValue)
       : "row_number";
-    emit({ ...config, function: next });
+    const toRolling = ROLLING_FUNCTIONS.includes(next) && config.frameSize === null;
+    emit({
+      ...config,
+      function: next,
+      ...(toRolling ? { frameSize: DEFAULT_FRAME_SIZE, frameUnit: "rows" as const } : {}),
+    });
+  }
+
+  function handleFrameSizeChange(e: ChangeEvent<HTMLInputElement>) {
+    if (e.target.value === "") {
+      emit({ ...config, frameSize: null });
+      return;
+    }
+    const parsed = Number(e.target.value);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= MAX_FRAME_SIZE) {
+      emit({ ...config, frameSize: parsed });
+    }
+  }
+
+  function handleFrameUnitChange(next: string) {
+    emit({ ...config, frameUnit: next === "days" ? "days" : "rows" });
   }
 
   function handleOutputColumnChange(e: ChangeEvent<HTMLInputElement>) {
@@ -108,6 +159,7 @@ export function WindowConfig({
 
   const showField = FIELD_REQUIRED_FUNCTIONS.includes(config.function);
   const showOffset = OFFSET_FUNCTIONS.includes(config.function);
+  const showFrame = ROLLING_FUNCTIONS.includes(config.function);
 
   return (
     <div className="pipeline-detail-page__aggregate-config">
@@ -208,6 +260,37 @@ export function WindowConfig({
               aria-label="Offset"
             />
           </div>
+        )}
+
+        {showFrame && (
+          <>
+            <div className="pipeline-detail-page__compute-field">
+              <label
+                className="pipeline-detail-page__compute-label"
+                htmlFor="window-frame-size-input"
+              >
+                Frame size
+              </label>
+              <TextField
+                id="window-frame-size-input"
+                type="number"
+                min={1}
+                max={MAX_FRAME_SIZE}
+                value={config.frameSize ?? ""}
+                onChange={handleFrameSizeChange}
+                aria-label="Frame size"
+              />
+            </div>
+            <div className="pipeline-detail-page__compute-field">
+              <span className="pipeline-detail-page__compute-label">Frame unit</span>
+              <Select
+                ariaLabel="Frame unit"
+                value={config.frameUnit}
+                options={FRAME_UNIT_OPTIONS}
+                onChange={handleFrameUnitChange}
+              />
+            </div>
+          </>
         )}
 
         <div className="pipeline-detail-page__compute-field">

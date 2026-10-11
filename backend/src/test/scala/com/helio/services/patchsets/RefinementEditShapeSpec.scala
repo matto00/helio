@@ -28,7 +28,7 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
   private def parseEdit(json: String): Edit = json.parseJson.convertTo[Edit]
 
   // ── pipelineStep UPDATE path (skeptic-final-1.md, D2a's pipelineStep gap) — decodes the SAME way
-  //    `PatchSetApplyResolvers.resolvePipelineStepUpdate`/`validateEmbeddedStepReferences` do
+  //    `PatchSetPipelineStepResolvers.resolvePipelineStepUpdate`/`validateEmbeddedStepReferences` do
   //    (`UpdatePipelineStepRequest.config` -> `*Config.decode(rawJsonText)`), and — critically —
   //    asserts the decoded `groupBy`/`aggregations` are NON-EMPTY and match the example's own
   //    requested values, not just "decodes without throwing". `AggregateConfig.decode`/
@@ -231,7 +231,7 @@ class RefinementEditShapeSpec extends AnyWordSpec with Matchers with PatchSetPro
   //    target.id are never fabricated/aliased onto an unrelated real resource. Deterministic,
   //    code-level regression -- NOT a live-LLM reproduction (HEL-670's own report was 1-of-3
   //    stochastic; the fix is structural, not prompt-luck-dependent). Proves the INVARIANT the
-  //    fixed guidance text now relies on: `PatchSetProtocol`/`PatchSetApplyResolvers` never treat
+  //    fixed guidance text now relies on: `PatchSetProtocol`/`PatchSetApplyResolvers.resolveAll` (and the per-kind resolvers it dispatches to) never treat
   //    a create edit's absent target.id as aliasing onto ANY other edit in the same patch set --
   //    a follow-up edit's target.id, whatever value it carries, is always resolved as its own
   //    independent, real, pre-existing resource reference, never implicitly "the thing the create
