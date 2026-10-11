@@ -1,6 +1,4 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { psql as runPsql } from "./db.cjs";
 
 // HEL-1275 — the one thing the public API cannot do: move a stored history point back in time, so a
 // real "7 days ago" baseline exists without waiting a week. Everything else in the proof is a real
@@ -13,49 +11,8 @@ import { resolve } from "node:path";
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function readEnvFile(path: string): Record<string, string> {
-  if (!existsSync(path)) return {};
-  const out: Record<string, string> = {};
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const m = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
-    if (m) out[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
-  }
-  return out;
-}
-
-/** `DATABASE_URL`/`DB_USER`/`DB_PASSWORD` from the environment, falling back to the worktree's
- *  `backend/.env` (the file the dev backend itself loads). */
-function dbConnection(): { url: string; env: Record<string, string | undefined> } {
-  const file = readEnvFile(resolve(__dirname, "../../backend/.env"));
-  const jdbc = process.env.DATABASE_URL ?? file.DATABASE_URL;
-  if (!jdbc) {
-    throw new Error("historySeed: DATABASE_URL is unset in the environment and backend/.env");
-  }
-  const url = jdbc.replace(/^jdbc:/, "");
-  const user = process.env.DB_USER ?? file.DB_USER;
-  const password = process.env.DB_PASSWORD ?? file.DB_PASSWORD;
-  return {
-    url,
-    env: {
-      ...process.env,
-      ...(user ? { PGUSER: user } : {}),
-      ...(password ? { PGPASSWORD: password } : {}),
-    },
-  };
-}
-
 function psql(sql: string): string[] {
-  const { url, env } = dbConnection();
-  try {
-    const out = execFileSync("psql", ["-q", "-At", "-v", "ON_ERROR_STOP=1", url], {
-      input: sql,
-      env,
-      encoding: "utf8",
-    });
-    return out.split("\n").filter((l) => l !== "");
-  } catch (e) {
-    throw new Error(`historySeed: psql failed (is psql installed and the DB reachable?): ${e}`);
-  }
+  return runPsql(sql, "historySeed");
 }
 
 /** Shifts `captured_at` of every history row of `outputId` back by `interval` (e.g.

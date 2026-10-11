@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-665 (reopened composer ticket) — live verification (ticket AC5, tasks.md 6.10). Exercises
@@ -26,10 +27,11 @@ test.describe("HEL-665 message composer live verification", () => {
     const email = uniqueEmail("hel665", "composer", "example.com");
     const password = "correcthorsebattery1";
 
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-665 E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);

@@ -128,6 +128,11 @@ jobs:
       - run: npm run check:test-temp-dir-hygiene:selftest
       - run: npm run check:e2e-evidence-paths
       - run: npm run check:e2e-evidence-paths:selftest
+      # HEL-1301: every e2e user registration is recorded for the run's exact-id teardown; the core
+      # selftest proves the cleanup can only target recorded ids.
+      - run: npm run check:e2e-user-cleanup
+      - run: npm run check:e2e-user-cleanup:selftest
+      - run: npm run check:e2e-user-cleanup-core:selftest
       - run: npm run check:schemas
       # HEL-1148: keeps check:schemas's agent-facing-panel-type derivation (exclusion table +
       # wire-expressibility assertions) failable. CI-only on purpose, like the other selftests above

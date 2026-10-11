@@ -123,6 +123,9 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
           accentStrong: `ACCENT_STRONG(${accent})`,
           accent: `ACCENT(${accent})`,
           textMuted: "MUTED",
+          success: "#4cc38a",
+          warning: "#f5b944",
+          error: "#f17b67",
         };
       });
     }

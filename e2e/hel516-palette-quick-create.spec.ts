@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 
@@ -275,10 +276,11 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
     const email = `hel516-parity-${Date.now()}@example.test`;
     console.log(`[HEL-1300 e2e] throwaway user: ${email}`);
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "HEL-516 parity" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     await page.goto("/login");
     await page.fill("#email", email);
     await page.fill("#password", password);
