@@ -37,7 +37,7 @@ import { nodePath } from "../state/nodePath";
 import { GitBranch, Plus } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
-// task 3.3 — mirrors `EMPTY_ANALYZE_COLUMNS` in `usePipelineDetailPage.ts`: a
+// task 3.3 — mirrors `EMPTY_ANALYZE_COLUMNS` in `usePipelineAnalyzeLookups.ts`: a
 // step with zero Outputs gets the same stable `[]` reference on every
 // lookup, not a fresh array per render (a precondition for `StepCard`'s
 // `React.memo` to actually skip re-rendering unrelated cards -- see F-146).
