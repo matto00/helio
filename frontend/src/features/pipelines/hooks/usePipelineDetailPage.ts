@@ -152,11 +152,11 @@ export function usePipelineDetailPage() {
   // dropped once the step has its own analyze entry (or is gone) or the create fails. Consulted
   // by the schema fallback only, never by the guard or the fingerprint.
   const draftFallbackMetaRef = useRef(new Map<string, PendingDraftMeta>());
-  // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined
-  // below, before `allOutputs` itself is computed) so a completed run can
-  // re-fetch every visible Output's preview without a stale closure over an
-  // empty initial `allOutputs`. Updated on every commit (layout effect),
-  // mirroring `stepsRef` above.
+  // HEL-908 Cycle 13 -- read inside the SSE `onTerminal` closure (defined in
+  // `usePipelineRunStream.ts`, which runs before `allOutputs` itself is
+  // computed) so a completed run can re-fetch every visible Output's
+  // preview without a stale closure over an empty initial `allOutputs`.
+  // Updated on every commit (layout effect), mirroring `stepsRef` above.
   const allOutputsRef = useRef<Output[]>([]);
   const [stepsInitialized, setStepsInitialized] = useState(false);
   // HEL-1483 (design D2a) -- true once the steps fetch THIS mount issued has fulfilled. The editor

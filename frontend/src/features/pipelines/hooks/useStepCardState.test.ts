@@ -1,7 +1,7 @@
 // useStepCardState.test.ts — F-005: every step-config editor PATCHed the
 // backend on every keystroke, with no debounce and no protection against an
 // out-of-order response clobbering a newer edit. Exercises `persist` (the
-// hook's single PATCH path, shared by all 20 change handlers) directly via
+// hook's single PATCH path, shared by all 26 change handlers) directly via
 // one representative handler (`onLimitChange`) rather than every handler —
 // they all funnel through the same `persist` function.
 

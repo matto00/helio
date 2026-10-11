@@ -37,26 +37,26 @@ export function usePipelineShapeInstantiation({
   // walks the response in order, maintaining a `clientId -> real id` map:
   // - The FIRST step (no `clientId`-parent inside this response, i.e. the
   //   response's own root) is created with `parentStepId` = `anchorStepId`
-  //   (or omitted for the zero-step/new-pipeline case), with plain
-  //   trunk-continuation semantics (no `attachAsTail`). `PipelineRiverView`'s
-  //   two shape-picker triggers only ever pass an anchor that is either
-  //   `undefined` (the empty-pipeline state) or the pipeline's trunk-last
-  //   step — never a mid-trunk node — and (skeptic-final-2, round 1) the
-  //   button is now gated by `hasTail` so a trunk-last anchor that already
-  //   has a tail can never reach here in the first place. A PREVIOUS version
-  //   of this handler set `attachAsTail: true` whenever the anchor "had a
-  //   child" — which, for the only anchor this code path is ever fed
-  //   (trunk-last), can ONLY mean "already has a tail", so that branch
-  //   ALWAYS created a structurally-dead SECOND tail (reproduced live by the
-  //   skeptic: server `trunkOf` stayed `[A, B]` while the shape's chain
-  //   landed at `position >= 2` under B and was silently never executed).
-  //   The defensive `anchorHasTail` refusal below is belt-and-suspenders in
-  //   case the UI gate is ever bypassed or a future caller reintroduces a
-  //   mid-trunk anchor.
+  //   (or omitted for the zero-step/new-pipeline case) and WITHOUT
+  //   `attachAsTail`, so the backend splice-inserts it directly after the
+  //   anchor. `PipelineRiverView`'s two shape-picker triggers pass either
+  //   `undefined` (the empty-pipeline state) or the last step of root 0's
+  //   primary lane. The button is not gated on the anchor's children.
+  //   KNOWN HAZARD (HEL-1506, probed live): a splice reparents
+  //   EVERY existing child of the anchor under the new step. When the
+  //   primary lane's last step has only lane children (position >= 1, e.g.
+  //   after "+ lane" on it), applying a shape moves those lanes under the
+  //   shape's last step on the server, while the local `steps` state is not
+  //   updated for it (this handler ignores the create responses'
+  //   `reparentedStepIds`). Probed: right after apply the shape cards are
+  //   appended into the lane next to the old lane step; the server structure
+  //   only shows after a reload. No code here guards or resyncs that case.
   // - Every subsequent step resolves its `parentStepId` (a `clientId`
-  //   reference) through the map to a real id, then creates with plain
-  //   append semantics (no `attachAsTail`) — it's continuing a chain THIS
-  //   batch just created, not attaching to a pre-existing occupied node.
+  //   reference) through the map to a real id, then creates with a plain
+  //   splice (no `attachAsTail`) under a step THIS batch just created. In
+  //   the hazard case above each of these creates also reports the moved
+  //   lane in `reparentedStepIds`, since the lane is by then a child of
+  //   that just-created step.
   // - Any `outputs` entries (dormant on the shipped backend today — design.md
   //   decision 14) are created last, each `nodeStepId` resolved the same way.
   // On a mid-loop failure, stop (no further entries attempted), keep
@@ -73,24 +73,19 @@ export function usePipelineShapeInstantiation({
       const clientIdToRealId = new Map<string, string>();
       let createdCount = 0;
 
-      // HEL-912 (design.md Decision 1) — the skeptic-final-2 `anchorHasTail`
-      // refusal this used to have relied on the single-tail-per-node
-      // invariant, which is gone: a node with several children just roots
-      // several lanes now, so a shape's first step landing as another child
-      // of the anchor is a normal new lane, not a dead branch. Removed
-      // rather than adapted (design.md Risks/Trade-offs).
+      // HEL-912 (design.md Decision 1) removed the old `anchorHasTail`
+      // refusal: it relied on the single-tail-per-node invariant, which is
+      // gone. Nothing replaced it -- see the KNOWN HAZARD note above for what
+      // an anchor that already has lane children now costs.
       try {
         for (let i = 0; i < stepExpansions.length; i++) {
           const stepExpansion = stepExpansions[i];
           const parentClientId = stepExpansion.parentStepId;
           const realParentId =
             parentClientId !== undefined ? clientIdToRealId.get(parentClientId) : anchorStepId;
-          // Always plain trunk-continuation semantics (no `attachAsTail`):
-          // the only anchor this handler is ever fed (trunk-last, or none
-          // for an empty pipeline) never already has a trunk-continuation
-          // child, so there is no reparenting exposure here -- see the
-          // `anchorHasTail` refusal above for the one hazard that DOES
-          // apply to this anchor (an existing tail).
+          // Always a plain splice (no `attachAsTail`). The anchor has no
+          // continuation child, but it may have lane children, which the
+          // splice reparents -- see the KNOWN HAZARD note above.
           const persisted = await createPipelineStep(
             id,
             stepExpansion.kind,
@@ -125,16 +120,12 @@ export function usePipelineShapeInstantiation({
         });
         return;
       }
-      // CR9 audit, corrected (skeptic-final-2, round 1, CR1) — unlike
-      // `handleInsertStep`/`handleAddTailStep`/`handleAddOutputViaAggregateTail`,
-      // this loop's own creates carry no reparenting exposure: the only entry
-      // that can target a PRE-EXISTING node (`anchorStepId`) is the first,
-      // it always uses plain trunk-continuation semantics (never
-      // `attachAsTail`), and the `anchorHasTail` refusal above guarantees
-      // that anchor never already has a trunk-continuation child to
-      // reparent. Every later entry's `realParentId` is a step this same
-      // batch just created seconds earlier, which cannot yet have any other
-      // children to reparent. No resync needed here.
+      // Reparenting audit: only the FIRST create can target a pre-existing
+      // node (`anchorStepId`), and as a plain splice it reparents that
+      // anchor's existing children (see the KNOWN HAZARD note above); no
+      // resync is done here. Later entries splice under a step this batch
+      // just created; if the hazard case moved a lane under it, that splice
+      // moves the lane again (probed: the second POST also reported it).
     },
     [id, pushToast, roots, setSteps, setStepsInitialized],
   );

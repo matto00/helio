@@ -23,8 +23,9 @@ type UsePipelineOutputSheetsArgs = {
 export function usePipelineOutputSheets({ id, allOutputsRef }: UsePipelineOutputSheetsArgs) {
   // task 3.3 — one array per trunk/tail step id, memoized (see
   // `selectOutputsByStepId`'s doc comment); `EMPTY_OUTPUTS` (in
-  // `ui/LaneColumn.tsx`) mirrors the `EMPTY_ANALYZE_COLUMNS` pattern (in
-  // `usePipelineAnalyzeLookups.ts`) so a step with zero Outputs gets a
+  // `state/outputsSlice.ts`, shared by `ui/LaneColumn.tsx` and
+  // `ui/PipelineRiverView.tsx`) mirrors the `EMPTY_ANALYZE_COLUMNS` pattern
+  // (in `usePipelineAnalyzeLookups.ts`) so a step with zero Outputs gets a
   // stable `[]` reference rather than defeating `StepCard`'s `React.memo`.
   const outputsByStepId = useAppSelector((state) => selectOutputsByStepId(state, id ?? ""));
   const previewRowCountByOutputId = useAppSelector(selectPreviewRowCountByOutputId);
