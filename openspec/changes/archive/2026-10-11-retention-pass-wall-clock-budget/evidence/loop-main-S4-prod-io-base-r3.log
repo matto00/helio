@@ -1,0 +1,12 @@
+MemAvailable:   53982560 kB
+@@LOOP tag=main-S4-prod-io-base-r3 retention=on tick_ms=30000 ticks=4 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@PASS tag=main-S4-prod-io-base-r3 start_ms=206 end_ms=60418 dur_ms=60212 result=Some(488450)
+@@TICK tag=main-S4-prod-io-base-r3 n=1 start_ms=170 end_ms=60418 dur_ms=60248 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+@@PASS tag=main-S4-prod-io-base-r3 start_ms=90494 end_ms=114200 dur_ms=23706 result=Some(307800)
+@@TICK tag=main-S4-prod-io-base-r3 n=2 start_ms=90488 end_ms=114201 dur_ms=23713 due_ms=5000 fired=true fire_delay_ms=85488 runs=1
+@@PASS tag=main-S4-prod-io-base-r3 start_ms=144219 end_ms=158466 dur_ms=14247 result=Some(307901)
+@@TICK tag=main-S4-prod-io-base-r3 n=3 start_ms=144214 end_ms=158466 dur_ms=14252 due_ms=110488 fired=true fire_delay_ms=33726 runs=2
+@@PASS tag=main-S4-prod-io-base-r3 start_ms=188476 end_ms=206774 dur_ms=18298 result=Some(307900)
+@@TICK tag=main-S4-prod-io-base-r3 n=4 start_ms=188473 end_ms=206774 dur_ms=18301 due_ms=164214 fired=true fire_delay_ms=24259 runs=3
+@@RUNDUR tag=main-S4-prod-io-base-r3 run_ms=245.2,202.4,74.3
+done

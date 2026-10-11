@@ -134,24 +134,6 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     loop(startAfter, 0, 0)
   }
 
-  /** TEST-ONLY one-call form: drains a whole cycle with `limits` (every pass back to back); a lock-held skip anywhere
-   *  is `LockBusy`. Production never calls it: the scheduler runs [[thinPass]] one bounded pass per tick. */
-  def thinAndPurge(
-      now: Instant,
-      policy: HistoryThinningPolicy,
-      maxAgeByTier: Map[UserTier, Duration],
-      protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints,
-      limits: ThinBatchLimits = ThinBatchLimits.Defaults
-  ): Future[RetentionPassOutcome] = {
-    def drain(cursor: Option[String], deleted: Int): Future[RetentionPassOutcome] =
-      thinPass(now, policy, maxAgeByTier, limits, cursor, protectedNewest).flatMap {
-        case HistoryPassOutcome.Completed(d)    => Future.successful(RetentionPassOutcome.Purged(deleted + d))
-        case HistoryPassOutcome.MoreWork(d, at) => drain(Some(at), deleted + d)
-        case HistoryPassOutcome.LockHeld(_, _)  => Future.successful(RetentionPassOutcome.LockBusy)
-      }
-    drain(None, 0)
-  }
-
   /** One batch in one transaction. Another instance already purging (or a run's payload trim holding the lock
    *  shared): skip rather than contend (two multi-row DELETEs can deadlock); the service retries a lock-held
    *  skip after a short window. The xact lock releases at commit/rollback. */

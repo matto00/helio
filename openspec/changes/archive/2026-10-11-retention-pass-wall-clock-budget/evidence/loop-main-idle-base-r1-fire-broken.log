@@ -1,0 +1,14 @@
+MemAvailable:   52835068 kB
+@@LOOP tag=main-idle-base-r1 retention=off tick_ms=30000 ticks=3 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@TICK tag=main-idle-base-r1 n=1 start_ms=175 end_ms=216 dur_ms=41 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+org.postgresql.util.PSQLException: ERROR: column "metadata" is of type jsonb but expression is of type character varying
+org.postgresql.util.PSQLException: ERROR: column "truncated_reads" is of type jsonb but expression is of type character varying
+@@TICK tag=main-idle-base-r1 n=2 start_ms=30226 end_ms=30338 dur_ms=112 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+org.postgresql.util.PSQLException: ERROR: column "metadata" is of type jsonb but expression is of type character varying
+org.postgresql.util.PSQLException: ERROR: column "truncated_reads" is of type jsonb but expression is of type character varying
+@@TICK tag=main-idle-base-r1 n=3 start_ms=60346 end_ms=60410 dur_ms=64 due_ms=50226 fired=false fire_delay_ms=-1 runs=0
+Exception in thread "main" org.postgresql.util.PSQLException: ERROR: column "finished_at" does not exist
+[error] nonzero exit code returned from runner: 1
+[error] (Test / runMain) nonzero exit code returned from runner: 1
+[error] elapsed time: 63 s (0:01:03.0), cache 100%, 28 disk cache hits
+done
