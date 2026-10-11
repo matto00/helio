@@ -158,12 +158,167 @@ npm run check:schemas
       // from ci-complete's needs here -- mirrors a tag-triggered workflow
       // that blocks nothing on a PR.
       ciYamlText: ciYaml({
+        frontendRun: "      - run: true\n",
         backendRun: "      - run: npm run check:schemas\n",
         needs: "[frontend, security, e2e]",
       }),
       packageJsonScripts: PACKAGE_SCRIPTS,
     },
     /check:schemas/,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HEL-1462: ci.yml is read as parsed YAML, fail-closed.
+// ---------------------------------------------------------------------------
+
+const HOOK_SCHEMAS = `#!/usr/bin/env sh\nnpm run check:schemas\n`;
+const RAW = (jobs) => `jobs:\n${jobs}`;
+
+function caseF_commentDecoyAboveRealNeeds() {
+  // The real needs drops `frontend` (the only job running the hook's check); a comment above it lists all.
+  const ciYamlText = RAW(`  frontend:
+    steps:
+      - run: npm run check:schemas
+  backend:
+    steps:
+      - run: true
+  ci-complete:
+    # needs: [frontend, backend]
+    needs: [backend]
+    steps:
+      - run: true
+`);
+  expectFailure(
+    "(f) a comment decoy listing the full needs above a real list dropping the hook-covering job fails",
+    { hookText: HOOK_SCHEMAS, ciYamlText, packageJsonScripts: PACKAGE_SCRIPTS },
+    /check:schemas/,
+  );
+}
+
+function caseG_blockScalarContainingNeeds() {
+  const ciYamlText = RAW(`  frontend:
+    steps:
+      - run: npm run check:schemas
+  backend:
+    steps:
+      - run: |
+          echo "needs: [frontend, backend]"
+  ci-complete:
+    needs: [backend]
+    steps:
+      - run: true
+`);
+  expectFailure(
+    "(g) a block-scalar run string containing `needs: [...]` cannot stand in for the real list",
+    { hookText: HOOK_SCHEMAS, ciYamlText, packageJsonScripts: PACKAGE_SCRIPTS },
+    /check:schemas/,
+  );
+}
+
+function expectThrowsOrErrors(name, args, reasonPattern) {
+  let errors;
+  try {
+    ({ errors } = checkPrecommitCiParity(args));
+  } catch (e) {
+    errors = [String(e && e.message ? e.message : e)];
+  }
+  const matched = errors.filter((e) => reasonPattern.test(e));
+  record(
+    name,
+    matched.length > 0,
+    `expected an error matching ${reasonPattern}; got: ${errors.length === 0 ? "(no errors — check passed)" : errors.join(" | ")}`,
+  );
+}
+
+function caseH_unparseableYaml() {
+  expectThrowsOrErrors(
+    "(h) unparseable ci.yml fails closed with a parse error",
+    { hookText: HOOK_SCHEMAS, ciYamlText: "jobs: [\n", packageJsonScripts: PACKAGE_SCRIPTS },
+    /not parseable YAML/,
+  );
+}
+
+function caseI_missingCiComplete() {
+  expectThrowsOrErrors(
+    "(i) ci.yml without a ci-complete job fails closed",
+    {
+      hookText: HOOK_SCHEMAS,
+      ciYamlText: RAW("  frontend:\n    steps:\n      - run: npm run check:schemas\n"),
+      packageJsonScripts: PACKAGE_SCRIPTS,
+    },
+    /no `ci-complete` job/,
+  );
+}
+
+function caseJ_scalarNeeds() {
+  expectThrowsOrErrors(
+    "(j) a scalar ci-complete.needs fails closed",
+    {
+      hookText: HOOK_SCHEMAS,
+      ciYamlText: RAW(
+        "  frontend:\n    steps:\n      - run: npm run check:schemas\n  ci-complete:\n    needs: frontend\n    steps:\n      - run: true\n",
+      ),
+      packageJsonScripts: PACKAGE_SCRIPTS,
+    },
+    /must be a list of job ids/,
+  );
+}
+
+function caseK_commandOnlyInComment() {
+  expectFailure(
+    "(k) an `npm run` that appears only in a comment of a needed job does not count as coverage",
+    {
+      hookText: HOOK_SCHEMAS,
+      ciYamlText: ciYaml({
+        frontendRun: "      # - run: npm run check:schemas\n      - run: true\n",
+      }),
+      packageJsonScripts: PACKAGE_SCRIPTS,
+    },
+    /check:schemas/,
+  );
+}
+
+function caseL_runOnlyInCiComplete() {
+  expectPass("(l) a hook script run only by a step of ci-complete itself counts as covered", {
+    hookText: HOOK_SCHEMAS,
+    ciYamlText: RAW(`  frontend:
+    steps:
+      - run: true
+  ci-complete:
+    needs: [frontend]
+    steps:
+      - run: npm run check:schemas
+`),
+    packageJsonScripts: PACKAGE_SCRIPTS,
+  });
+}
+
+function caseM_nullStepsStillValid() {
+  expectPass(
+    "(m) a needed job with an empty (null) `steps:` is valid and contributes no commands",
+    {
+      hookText: HOOK_SCHEMAS,
+      ciYamlText: ciYaml({
+        frontendRun: "      - run: npm run check:schemas\n",
+        backendRun: "",
+      }),
+      packageJsonScripts: PACKAGE_SCRIPTS,
+    },
+  );
+}
+
+function caseN_nonListSteps() {
+  expectThrowsOrErrors(
+    "(n) a scanned job whose steps is neither null nor a list fails closed",
+    {
+      hookText: HOOK_SCHEMAS,
+      ciYamlText: RAW(
+        "  frontend:\n    steps: npm run check:schemas\n  ci-complete:\n    needs: [frontend]\n    steps:\n      - run: true\n",
+      ),
+      packageJsonScripts: PACKAGE_SCRIPTS,
+    },
+    /steps/,
   );
 }
 
@@ -174,10 +329,19 @@ function main() {
   caseC_indirectNodePathInvocationCovered();
   caseD_uncoveredHookScriptFails();
   caseE_coverageOutsideCiCompleteScopeDoesNotCount();
+  caseF_commentDecoyAboveRealNeeds();
+  caseG_blockScalarContainingNeeds();
+  caseH_unparseableYaml();
+  caseI_missingCiComplete();
+  caseJ_scalarNeeds();
+  caseK_commandOnlyInComment();
+  caseL_runOnlyInCiComplete();
+  caseM_nullStepsStillValid();
+  caseN_nonListSteps();
   const total = passed + failed;
   console.log(`\n${passed} passed, ${failed} failed, ${total} total`);
-  if (total !== 5) {
-    console.error(`check-precommit-ci-parity.selftest: expected 5 cases, ran ${total} — failing.`);
+  if (total !== 14) {
+    console.error(`check-precommit-ci-parity.selftest: expected 14 cases, ran ${total} — failing.`);
     process.exit(1);
   }
   if (failed > 0) process.exit(1);
