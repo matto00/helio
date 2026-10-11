@@ -62,12 +62,12 @@ name (e.g. after a `rename` step that stripped the prefix), not to look for a ne
 
 ## Operators
 
-| Operator | Meaning      | Type rule                                                                                                                              |
-| -------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `+`      | Add / concat | **Permissive**: numeric if both sides are numbers; string concatenation (coercing the other side to string) if either side is a string |
-| `-`      | Subtract     | **Strict**: both sides must be numbers, or it's a `TypeError`                                                                          |
-| `*`      | Multiply     | **Strict**: both sides must be numbers, or it's a `TypeError`                                                                          |
-| `/`      | Divide       | **Strict**: both sides must be numbers, or it's a `TypeError`; dividing by `0` produces a per-row `null`, not an exception             |
+| Operator | Meaning      | Type rule                                                                                                                                                                                                                    |
+| -------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `+`      | Add / concat | **Permissive**: numeric if both sides are numbers; string concatenation (coercing the other side to string) if either side is a string. A `timestamp` field is text at run time, so `$ts + 1` concatenates (`"2026-07-011"`) |
+| `-`      | Subtract     | **Strict**: both sides must be numbers, or it's a `TypeError`. Not defined on timestamps: use `seconds_between`                                                                                                              |
+| `*`      | Multiply     | **Strict**: both sides must be numbers, or it's a `TypeError`                                                                                                                                                                |
+| `/`      | Divide       | **Strict**: both sides must be numbers, or it's a `TypeError`; dividing by `0` produces a per-row `null`, not an exception                                                                                                   |
 
 Precedence and associativity follow ordinary arithmetic: `*`/`/` bind tighter than `+`/`-`, all
 left-associative, and parentheses `(...)` override precedence.
@@ -107,19 +107,22 @@ Function-call syntax is `name(arg1, arg2, ...)`. Arguments are themselves expres
 `$refs`, or nested calls) and are evaluated left-to-right. Functions bind like a single factor, so
 `concat($a, $b) + "!"` parses unambiguously (the `+` applies to the whole call's result).
 
-| Function                   | Arity  | Behavior                                                                                                                                                                                                                                                  | Errors                                                                                |
-| -------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `concat(a, b, ...)`        | ≥ 1    | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                                                                                                                                                                  | —                                                                                     |
-| `substring(s, start, end)` | 3      | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error**                                                                                                                                                  | first argument must be a string (`TypeError` otherwise)                               |
-| `lower(s)`                 | 1      | Lowercases a string                                                                                                                                                                                                                                       | non-string argument is a `TypeError`                                                  |
-| `upper(s)`                 | 1      | Uppercases a string                                                                                                                                                                                                                                       | non-string argument is a `TypeError`                                                  |
-| `length(s)`                | 1      | Character count as a number                                                                                                                                                                                                                               | non-string argument is a `TypeError`                                                  |
-| `floor(x)`                 | 1      | Rounds toward negative infinity (`floor(-2.5)` = `-3`)                                                                                                                                                                                                    | non-numeric argument is a `TypeError`                                                 |
-| `ceil(x)`                  | 1      | Rounds toward positive infinity (`ceil(-2.5)` = `-2`)                                                                                                                                                                                                     | non-numeric argument is a `TypeError`                                                 |
-| `abs(x)`                   | 1      | Absolute value                                                                                                                                                                                                                                            | non-numeric argument is a `TypeError`                                                 |
-| `round(x)` / `round(x, d)` | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(-2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, -2)` = `1200`); `d` is clamped to ±308   | non-numeric argument, or fractional `d`, is a `TypeError`                             |
-| `mod(a, b)`                | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(-7, 3)` = `2`, `mod(7, -3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                              | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/`        |
-| `coalesce(a, b, ...)`      | ≥ 2    | Returns the first argument that is not `null`, evaluating left to right and **stopping at the first non-null** (later arguments are never evaluated); all `null` → `null`. The one function exempt from null propagation. The value is returned unchanged | fewer than 2 arguments is a parse error; an error in a reached argument nulls the row |
+| Function                      | Arity  | Behavior                                                                                                                                                                                                                                                  | Errors                                                                                                                                |
+| ----------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `concat(a, b, ...)`           | ≥ 1    | Joins all arguments as strings (numbers coerced, same as `+`'s coercion)                                                                                                                                                                                  | —                                                                                                                                     |
+| `substring(s, start, end)`    | 3      | 0-indexed, `end` exclusive; **out-of-range `start`/`end` are clamped to `[0, length(s)]`, not an error**                                                                                                                                                  | first argument must be a string (`TypeError` otherwise)                                                                               |
+| `lower(s)`                    | 1      | Lowercases a string                                                                                                                                                                                                                                       | non-string argument is a `TypeError`                                                                                                  |
+| `upper(s)`                    | 1      | Uppercases a string                                                                                                                                                                                                                                       | non-string argument is a `TypeError`                                                                                                  |
+| `length(s)`                   | 1      | Character count as a number                                                                                                                                                                                                                               | non-string argument is a `TypeError`                                                                                                  |
+| `floor(x)`                    | 1      | Rounds toward negative infinity (`floor(-2.5)` = `-3`)                                                                                                                                                                                                    | non-numeric argument is a `TypeError`                                                                                                 |
+| `ceil(x)`                     | 1      | Rounds toward positive infinity (`ceil(-2.5)` = `-2`)                                                                                                                                                                                                     | non-numeric argument is a `TypeError`                                                                                                 |
+| `abs(x)`                      | 1      | Absolute value                                                                                                                                                                                                                                            | non-numeric argument is a `TypeError`                                                                                                 |
+| `round(x)` / `round(x, d)`    | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(-2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, -2)` = `1200`); `d` is clamped to ±308   | non-numeric argument, or fractional `d`, is a `TypeError`                                                                             |
+| `mod(a, b)`                   | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(-7, 3)` = `2`, `mod(7, -3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                              | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/`                                                        |
+| `coalesce(a, b, ...)`         | ≥ 2    | Returns the first argument that is not `null`, evaluating left to right and **stopping at the first non-null** (later arguments are never evaluated); all `null` → `null`. The one function exempt from null propagation. The value is returned unchanged | fewer than 2 arguments is a parse error; an error in a reached argument nulls the row                                                 |
+| `seconds_between(end, start)` | 2      | `end - start` in seconds as a float, fractions kept, unrounded; negative when `end` precedes `start`                                                                                                                                                      | an unparseable timestamp (or a `null`) gives `null` for the row, never a failure                                                      |
+| `date_trunc(unit, ts)`        | 2      | Floors `ts` to the start of the UTC `unit` bucket and returns an ISO-8601 instant string (`2026-07-01T00:00:00Z`). `unit` is a double-quoted literal: `second`, `minute`, `hour`, `day`, `week` (ISO Monday), `month`, `quarter`, `year`                  | an unknown, non-literal or bare-word unit is a **parse error** naming the units (single quotes are not string syntax in this grammar) |
+| `add_days(ts, n)`             | 2      | `ts` plus exactly `n` x 86400 seconds (whole or fractional, no calendar or DST adjustment), as an ISO-8601 instant string; no month or year addition                                                                                                      | a non-numeric `n` is a `TypeError` (row `null`); a result outside the representable range is `null`                                   |
 
 An unknown function name, or a call with the wrong number of arguments, is a **parse error**
 (caught by `validate()` before the expression is ever run against a row).
@@ -140,13 +143,34 @@ The numeric functions are numeric-strict, like `-`/`*`/`/`: a string argument �
 string such as `"3.7"` from an uncast CSV column — is a `TypeError` (row value `null`); use a `cast`
 step first. Their results are floats on the wire, so analyze-time and run-time types agree.
 
-Using a text field where a number is required (`floor($price)`, `$s - 1`, `-$s` over a string or
-boolean column) compiles but nulls every non-null row. **Analyze warns** about it
+Using a text field where a number is required (`floor($price)`, `$s - 1`, `-$s` over a string,
+boolean or `timestamp` column, or a text day count in `add_days`) compiles but nulls every non-null row. **Analyze warns** about it
 (`numeric-op-on-text-field`, non-blocking, only when the input schema's types are trusted — e.g.
 an uncast CSV column): add a `cast` step first.
 
 If any argument evaluates to `null` (e.g. an unset field), the whole call's result is `null`
 (same null-propagation as the binary operators) rather than an error. **`coalesce` is the exception.**
+
+### Dates and times
+
+`seconds_between`, `date_trunc` and `add_days` read every timestamp argument through the one shared
+parser (`TimestampParsing.parseInstant`), in **UTC**: an ISO instant or offset date-time (converted
+to UTC), a timezone-less `T`- or space-separated date-time (read as UTC, optional seconds and 0-9
+fraction digits), a bare `yyyy-MM-dd` (midnight UTC), or a whole-number epoch (seconds, or
+milliseconds above 9999999999), given as a number or a numeric string (`"1.7712864E9"` is fine).
+The datebucket step reads timestamps through the same parser. Anything else (blank, garbage,
+`2026-13-01`, a fractional epoch) is "not a timestamp" and gives `null` for that row. There is no
+`now()`/`today()` (a run must be reproducible) and `-` is not defined on timestamps.
+
+```
+seconds_between($started_at, $created_at)   // queue time in seconds, e.g. 90
+date_trunc("week", $created_at)             // "2026-03-16T00:00:00Z" (Monday) for 2026-03-19
+add_days($created_at, 7)                    // one week later
+```
+
+A `cast` to `timestamp`/`date` still also keeps values the source-schema reader accepts (such as
+`MM/dd/yyyy`), which the shared parser reads as `null`; cast keeps the original string either way.
+The Spark execution path (`SparkJobSubmitter`'s `F.expr`) does not have these functions.
 
 ### Blank CSV cells and `coalesce`
 
@@ -158,24 +182,24 @@ where either part is blank. Supply a fallback with `coalesce`:
 ## Errors
 
 Parse/validation errors surface as a human-readable message (e.g. `"Column references require a
-'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, ceil, coalesce, concat, floor, length, lower, mod, round, substring, upper"`,
+'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, add_days, ceil, coalesce, concat, date_trunc, floor, length, lower, mod, round, seconds_between, substring, upper"`,
 `"substring requires 3 arguments"`). At **analyze time** (`PipelineAnalyzeService.inferCompute`),
 this message is set on `AnalyzedStep.validationError` and rendered inline under the expression
 input in the step-card UI (`ComputeFieldConfig`). At **row-execution time**
-(`ComputeStep.apply`/`SourceService.applyComputedFields`), any evaluation failure for a given row
+(`ComputeStep.apply`), any evaluation failure for a given row
 (parse error, unknown field, division by zero, type error) yields `null` for that row rather than
 throwing — the pipeline keeps running.
 
 ## Output type inference
 
-`ExpressionEvaluator.inferType` derives the compute step's output field type (`"float"` or
-`"string"`) directly from the expression, instead of trusting a possibly-stale `type` value on the
+`ExpressionEvaluator.inferType` derives the compute step's output field type (`"float"`, `"string"` or `"timestamp"`) directly from the expression, instead of trusting a possibly-stale `type` value on the
 wire:
 
-- Numeric literals and arithmetic (`-`, `*`, `/`, unary `-`, and `+` when neither side is a string) → `float`
+- Numeric literals and arithmetic (`-`, `*`, `/`, unary `-`, and `+` when neither side is a string or timestamp) → `float`
 - String literals, `concat`, `substring`, `lower`, `upper` → `string`
-- `length`, `floor`, `ceil`, `round`, `mod`, `abs` → `float`
-- `+` → `string` if either operand infers `string`, else `float`
+- `length`, `floor`, `ceil`, `round`, `mod`, `abs`, `seconds_between` → `float`
+- `date_trunc`, `add_days` → `timestamp` (the value is an ISO-8601 string)
+- `+` → `string` if either operand infers `string` or `timestamp`, else `float`
 - A `$`-prefixed field reference inherits its type from the input schema
 - `coalesce` → the **common type of its arguments**: all the same type → that type; all numeric
   (`integer`/`float`) → `float`; no numeric argument → `string`. A **numeric/text mix**
@@ -184,6 +208,20 @@ wire:
   infers `string`). The error is analyze-only: the step still saves, and manual, scheduled and
   dataset-write runs still fire. The pipeline page's step-config-invalid notice that follows is display
   only, as for any schema-derived compute error (e.g. `Unknown field`).
+
+### Known limitation: a timestamp-typed column that carries a number
+
+The `+` rule above assumes a `timestamp`-typed column is text at run time. That holds for `cast`,
+`datebucket`, JSON/SQL schema inference (a `timestamp` type comes only from string values) and dataset
+sources. Two paths can still deliver a JSON number under a `timestamp` projection, so analyze's `+` type
+can disagree with the run there:
+
+- `fillnull` with `mean`/`median` over epoch-valued timestamp strings: the schema stays `timestamp`,
+  but the filled cells are numbers.
+- A `union` whose secondary lane has a same-named numeric field: the parent lane's `timestamp` type wins
+  on the name collision, while the rows carry numbers.
+
+Neither is handled by the compute step; the type of a column on those paths is not reliable for `+`.
 
 ## Legacy compatibility
 

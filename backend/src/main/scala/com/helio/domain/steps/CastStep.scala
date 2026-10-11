@@ -85,7 +85,7 @@ object CastStep {
       case "boolean" => Try(str.toBoolean).getOrElse(null)
       // Keep the ORIGINAL string when either platform timestamp reader accepts it, else null
       // (HEL-1436 D3, owner rulings 1 and 3). A non-String input is emitted as its string form.
-      case "date" | "timestamp" => if (isTimestampLike(str)) str else null
+      case "date" | "timestamp" => if (isTimestampLike(v, str)) str else null
       // Explicit, owner-ruled passthrough (HEL-1436 D5) for a target stored before the write
       // validator started rejecting it (`string-body`, `binary-ref`, unrecognised). The ORIGINAL
       // value is kept. Unreachable for new writes.
@@ -93,9 +93,10 @@ object CastStep {
     }
   }
 
-  /** Accepted by EITHER platform timestamp reader (HEL-1436 D3): source schema inference or `datebucket`. */
-  private def isTimestampLike(str: String): Boolean =
-    TimestampParsing.looksLikeTimestamp(str) || DateBucketStep.parsesAsDate(str)
+  /** Accepted by EITHER platform timestamp reader (HEL-1436 D3): source schema inference or the shared
+   *  instant parser. The parser gets the RAW value so a JSON-number epoch is kept, not just its string. */
+  private def isTimestampLike(raw: Any, str: String): Boolean =
+    TimestampParsing.looksLikeTimestamp(str) || TimestampParsing.parseInstant(raw).isDefined
 
   /** WRITE-only (HEL-1436 D4): names every unsupported target of the `casts` map. Never part of
    *  `validateRawConfig`, so analyze and the run gates keep admitting stored legacy targets. */

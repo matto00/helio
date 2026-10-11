@@ -76,7 +76,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.validate("reverse($name)", Set("name")) shouldBe
         Left(
           "'reverse' is not a recognized function; supported functions: " +
-            "abs, ceil, coalesce, concat, floor, length, lower, mod, round, substring, upper"
+            "abs, add_days, ceil, coalesce, concat, date_trunc, floor, length, lower, mod, round, seconds_between, substring, upper"
         )
     }
 
@@ -442,8 +442,8 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
     }
 
     // 3.7 — Source computed fields: exercised at the same call ExpressionEvaluator.evaluate
-    // that SourceService.applyComputedFields makes (obj.fields of an already-flattened row).
-    "evaluate: source computed field over a flattened row (SourceService.applyComputedFields seam)" in {
+    // that a flattened source row presents (obj.fields of an already-flattened row).
+    "evaluate: source computed field over a flattened row" in {
       val sourceRow  = JsObject("stats" -> JsObject("pts_ppr" -> JsNumber(12.0)))
       val flattened  = JsonFlattener.flattenJsObjectUnclassified(sourceRow)
       val result     = ExpressionEvaluator.evaluate("$stats.pts_ppr * 2", flattened.fields)
@@ -719,8 +719,9 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       // function cannot be added without being classified (and parity-tested) here.
       val stringFns = Set("concat", "substring", "lower", "upper", "length")
       val nullFns   = Set("coalesce") // HEL-1423: polymorphic, parity-tested separately below
+      val dateFns   = ExpressionEvaluator.DateTimeFunctions.toSet // HEL-1314: parity-tested in NumericOpOnTextFieldWarningSpec's date section
       ExpressionEvaluator.NumericFunctions.toSet shouldBe
-        (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns -- nullFns)
+        (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns -- nullFns -- dateFns)
       ExpressionEvaluator.NumericFunctions.foreach { f =>
         val exprs = (1 to 2).map(k => s"$f(${Seq("$x", "$y").take(k).mkString(", ")})")
           .filter(e => ExpressionEvaluator.validate(e, fields.keySet).isRight)
@@ -746,12 +747,14 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
 
   "ExpressionEvaluator.SupportedFunctions" should {
 
-    def accepts(name: String, argc: Int): Boolean =
-      ExpressionEvaluator.parseProblem(s"$name(${Seq.fill(argc)("1").mkString(", ")})").isEmpty
+    def accepts(name: String, argc: Int): Boolean = {
+      val args = if (argc == 0) Seq.empty else Seq("\"day\"") ++ Seq.fill(argc - 1)("1")
+      ExpressionEvaluator.parseProblem(s"$name(${args.mkString(", ")})").isEmpty
+    }
 
     "list every supported function in the unknown-function message" in {
       val msg = ExpressionEvaluator.validate("reverse($name)", Set("name")).left.toOption.get
-      ExpressionEvaluator.SupportedFunctions should have size 11
+      ExpressionEvaluator.SupportedFunctions should have size 14
       ExpressionEvaluator.SupportedFunctions.foreach(f => msg should include(f))
       Seq("floor", "ceil", "round", "mod", "abs").foreach(f => msg should include(f))
     }
@@ -767,7 +770,8 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
         "abs", "ceil", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper",
         "sqrt", "pow", "power", "sign", "trunc", "truncate", "min", "max", "coalesce", "trim", "ltrim", "rtrim",
         "replace", "reverse", "if", "iif", "nullif", "ifnull", "left", "right", "sum", "avg", "median", "exp", "ln",
-        "log", "log10", "year", "month", "day", "now", "today", "to_number", "to_string", "cast", "greatest", "least"
+        "log", "log10", "year", "month", "day", "now", "today", "to_number", "to_string", "cast", "greatest", "least",
+        "seconds_between", "date_trunc", "add_days", "date_add", "datediff", "date_diff", "add_months", "extract"
       )
       candidates.filter(c => (0 to 4).exists(accepts(c, _))).foreach { c =>
         withClue(c)(ExpressionEvaluator.SupportedFunctions should contain(c))

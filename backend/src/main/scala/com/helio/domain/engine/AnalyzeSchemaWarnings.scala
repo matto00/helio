@@ -232,11 +232,15 @@ object AnalyzeSchemaWarnings {
     Try(ComputeConfig.decode(step.config)).toOption.fold(Vector.empty[Warning]) { cfg =>
       val types = a.inputSchema.map(sf => sf.name -> sf.`type`).toMap
       ExpressionEvaluator.numericContextTextFields(cfg.expression, types).map { case (field, contexts) =>
+        // A cast cannot help a timestamp: its string does not cast to a number, so point at the date functions.
+        val fix =
+          if (types(field) == "timestamp") "use seconds_between(end, start) for a time difference or add_days(ts, n) for an offset"
+          else "add a cast step before this step to convert it to a number"
         Warning(
           step.id,
           NumericOpOnTextField,
           s"compute: field '$field' is ${types(field)} in this step's inferred input schema but is used with ${contexts.mkString(", ")}; " +
-            "every non-null row will compute null at run time -- add a cast step before this step to convert it to a number"
+            s"every non-null row will compute null at run time -- $fix"
         )
       }
     }

@@ -1,0 +1,19 @@
+{
+  "comment": "HEL-1314 seam: every function name the strict compute grammar supports (ExpressionEvaluator.SupportedFunctions, alphabetical). Read by ComputeExpressionFunctionsSeamSpec (backend), computeFunctionReference.test.ts (frontend) and computeExpressionDescription.test.ts (helio-mcp).",
+  "functions": [
+    "abs",
+    "add_days",
+    "ceil",
+    "coalesce",
+    "concat",
+    "date_trunc",
+    "floor",
+    "length",
+    "lower",
+    "mod",
+    "round",
+    "seconds_between",
+    "substring",
+    "upper"
+  ]
+}

@@ -10,7 +10,7 @@ import scala.collection.mutable
 private[engine] object ExpressionNumericContexts {
 
   /** Projected types whose run-time value is a `VStr` (`JsBoolean` evaluates as a string too). */
-  private val TextTypes: Set[String]    = Set("string", "string-body", "boolean")
+  private val TextTypes: Set[String]    = Set("string", "string-body", "boolean", "timestamp")
   private val NumericTypes: Set[String] = Set("integer", "float")
 
   /** Every field of `ast` whose type in `fieldTypes` is text-like and that sits in a numeric context
@@ -45,6 +45,7 @@ private[engine] object ExpressionNumericContexts {
       case Neg(inner) => check(inner, "-"); visit(inner)
       case Call(name, args) =>
         if (NumericFunctions.contains(name)) args.foreach(check(_, name))
+        else if (name == "add_days") args.lift(1).foreach(check(_, name))
         args.foreach(visit)
       case _ => ()
     }

@@ -31,10 +31,19 @@ private[engine] object ExpressionParser {
     case "floor" | "ceil" | "abs"     => if (argc == 1) Right(()) else Left(s"$name requires 1 argument")
     case "coalesce"                   => if (argc >= 2) Right(()) else Left("coalesce requires at least 2 arguments")
     case "mod"                        => if (argc == 2) Right(()) else Left("mod requires 2 arguments")
+    case "seconds_between" | "date_trunc" | "add_days" => if (argc == 2) Right(()) else Left(s"$name requires 2 arguments")
     case "round"                      => if (argc == 1 || argc == 2) Right(()) else Left("round requires 1 or 2 arguments")
     case other =>
       Left(s"'$other' is not a recognized function; supported functions: ${SupportedFunctions.mkString(", ")}")
   }
+
+  /** Per-call argument checks beyond arity: `date_trunc`'s unit must be a known string literal, so a
+   *  typo can never become a silent per-row null. */
+  private def checkCall(name: String, args: Vector[Expr]): Either[String, Unit] =
+    if (name == "date_trunc") args.head match {
+      case StrLit(u) if ExpressionDateTimeFunctions.TruncUnits.contains(u) => Right(())
+      case _                                                               => Left(ExpressionDateTimeFunctions.UnitsMessage)
+    } else Right(())
 
   // ── Strict parser (used by parse()/validate() — no legacy fallback) ─────────
 
@@ -78,10 +87,11 @@ private[engine] object ExpressionParser {
       if (peek == Token.Minus) { advance(); parseUnary().map(Neg(_)) }
       else parseFactor()
 
-    private def parseArgs(): Either[String, Vector[Expr]] =
+    /** `firstArgError` rewrites a failure of the FIRST argument only (see `date_trunc`'s unit). */
+    private def parseArgs(firstArgError: String => String = identity): Either[String, Vector[Expr]] =
       if (peek == Token.RParen) Right(Vector.empty)
       else
-        parseExpr().flatMap { first =>
+        parseExpr().left.map(firstArgError).flatMap { first =>
           var acc: Either[String, Vector[Expr]] = Right(Vector(first))
           while (acc.isRight && peek == Token.Comma) {
             advance()
@@ -99,11 +109,16 @@ private[engine] object ExpressionParser {
         if (peek != Token.LParen) Left(s"Expected '(' after function name '$name'")
         else {
           advance()
-          parseArgs().flatMap { args =>
+          // A bare word in date_trunc's unit position (`date_trunc(day, $ts)`, `-day`, `lower(day)`) is
+          // the units error, not the `$`-prefix one, which would send it to the legacy parser.
+          val argsE =
+            if (name == "date_trunc") parseArgs(m => if (m == DollarPrefixRequiredMsg) ExpressionDateTimeFunctions.UnitsMessage else m)
+            else parseArgs()
+          argsE.flatMap { args =>
             if (peek != Token.RParen) Left("Expected closing ')' in function call")
             else {
               advance()
-              checkArity(name, args.length).map(_ => Call(name, args))
+              checkArity(name, args.length).flatMap(_ => checkCall(name, args)).map(_ => Call(name, args))
             }
           }
         }
