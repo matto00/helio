@@ -278,6 +278,18 @@ abstract class ApplyProposalSpecBase
       sqlu"""UPDATE dashboards SET layout = $layoutJson WHERE id = $dashboardId"""
     ))
 
+  /** Re-own an existing panel row (HEL-1456): a panel on `userId`'s dashboard created by someone else, as an editor's is. */
+  protected def setPanelOwner(panelId: String, ownerId: String): Unit =
+    await(ctx.withSystemContext(sqlu"""UPDATE panels SET owner_id = $ownerId::uuid WHERE id = $panelId"""))
+
+  /** Insert a minimal divider panel row with a CHOSEN id (HEL-1456): a layout update now keeps only items of panels that
+   *  exist on the dashboard, so a spec that writes layouts for named panels needs real rows with those ids. */
+  protected def seedPanelWithId(dashboardId: String, panelId: String, ownerId: String): Unit =
+    await(ctx.withSystemContext(
+      sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
+             VALUES ($panelId, $dashboardId, 'seeded', $ownerId, now(), now(), '{}'::jsonb, 'divider', $ownerId::uuid)"""
+    ))
+
   /** The dashboard's stored layout JSON, read straight from the table (ACL-free). */
   protected def storedLayoutJson(dashboardId: String): JsObject =
     await(ctx.withSystemContext(

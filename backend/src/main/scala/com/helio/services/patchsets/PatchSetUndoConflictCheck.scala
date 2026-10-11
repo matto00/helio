@@ -1,11 +1,12 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.dashboards.DashboardResponse
+import com.helio.api.protocols.dashboards.{DashboardLayoutItemResponse, DashboardLayoutResponse, DashboardResponse}
 import com.helio.api.protocols.sources.DataSourceResponse
 import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataSourceId, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DashboardLayout, DashboardLayoutItem, DataSourceId, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.domain.steps.SecondaryInput
+import com.helio.services.panels.LayoutPolicy
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import PatchSetApplicationRepository.JournaledEdit
 import PatchSetApplyServiceJson._
@@ -116,12 +117,22 @@ private[services] object PatchSetUndoConflictCheck {
       case None => Future.successful(Some(missing(edit)))
       case Some(json) =>
         val journaled = json.convertTo[DashboardResponse]
-        ctx.dashboardRepo.findById(DashboardId(journaled.id), Some(user)).map {
-          case None => Some(changed(edit, s"dashboard ${journaled.id} no longer exists"))
+        ctx.dashboardRepo.findById(DashboardId(journaled.id), Some(user)).flatMap {
+          case None => Future.successful(Some(changed(edit, s"dashboard ${journaled.id} no longer exists")))
           case Some(liveDashboard) =>
-            val live = DashboardResponse.fromDomain(liveDashboard)
-            if (live.name == journaled.name && live.appearance == journaled.appearance && live.layout == journaled.layout) None
-            else Some(changed(edit, s"dashboard ${journaled.id} was changed since the patch set was applied"))
+            // HEL-1456 D7: deleting a panel strips its layout items, which is not a change to the
+            // dashboard the patch set left behind, so both layouts are compared over the panels
+            // that are still on it.
+            ctx.dashboardRepo.panelIdsInternal(liveDashboard.id).map { panelIds =>
+              val live = DashboardResponse.fromDomain(liveDashboard)
+              def toDomain(l: DashboardLayoutResponse) = {
+                def items(v: Vector[DashboardLayoutItemResponse]) = v.map(i => DashboardLayoutItem(PanelId(i.panelId), i.x, i.y, i.w, i.h))
+                DashboardLayout(items(l.lg), items(l.md), items(l.sm), items(l.xs))
+              }
+              def onLive(l: DashboardLayoutResponse) = LayoutPolicy.onlyPanels(toDomain(l), panelIds)
+              if (live.name == journaled.name && live.appearance == journaled.appearance && onLive(live.layout) == onLive(journaled.layout)) None
+              else Some(changed(edit, s"dashboard ${journaled.id} was changed since the patch set was applied"))
+            }
         }
     }
 
