@@ -1,6 +1,7 @@
 package com.helio.api.protocols.assistant
 
 import com.helio.domain.panels.ChartTypes
+import com.helio.domain.patchsets.PatchSetTargetKinds
 import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.infrastructure.ai.ClaudeTool
 import spray.json._
@@ -367,7 +368,7 @@ private[protocols] trait AssistantProposalToolSchemas {
   private val EditTargetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
-      "kind" -> enumSchema("panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output"),
+      "kind" -> enumSchema(PatchSetTargetKinds.All: _*),
       "id"   -> JsObject("type" -> JsString("string")),
       "parentId" -> JsObject(
         "type" -> JsString("string"),
@@ -531,7 +532,7 @@ private[protocols] trait AssistantProposalToolSchemas {
     name = "propose_patch_set",
     description =
       "Propose an ordered list of targeted edits (update/delete/create) against one or more " +
-        "EXISTING resources (panel/dashboard/dataSource/pipeline/pipelineStep). Previewed " +
+        s"EXISTING resources (${PatchSetTargetKinds.AllSlashed}). Previewed " +
         "but NEVER applied. Use when the goal is refining something that already exists rather than " +
         "creating something new.",
     inputSchema = PatchSetSchema

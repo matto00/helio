@@ -28,7 +28,7 @@ function makePreview(): PatchSetPreviewResponse {
       },
       {
         index: 1,
-        kind: "dataType",
+        kind: "output",
         op: "delete",
         before: { id: "dt-1", name: "Sales" },
         after: null,
@@ -58,7 +58,7 @@ describe("PatchSetReview", () => {
     renderReview();
     expect(screen.getByText("panel")).toBeInTheDocument();
     expect(screen.getByText("update")).toBeInTheDocument();
-    expect(screen.getByText("dataType")).toBeInTheDocument();
+    expect(screen.getByText("output")).toBeInTheDocument();
     expect(screen.getByText("delete")).toBeInTheDocument();
     expect(screen.getByText(/Panels shared by other users may be unbound/)).toBeInTheDocument();
     expect(screen.getByText(/Old title/)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe("PatchSetReview", () => {
         edits: [
           {
             index: 0,
-            kind: "dataType",
+            kind: "output",
             op: "delete",
             before: { id: "dt-1", name: "Sales" },
             after: null,
