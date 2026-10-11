@@ -233,6 +233,8 @@ export const METRIC_FORMAT_OPTIONS: SelectOption[] = [
   { value: "integer", label: "Integer" },
   { value: "currency", label: "Currency ($)" },
   { value: "percent", label: "Percent (%)" },
+  { value: "duration", label: "Duration" },
+  { value: "durationMs", label: "Duration (ms)" },
 ];
 
 interface MetricKindFieldsProps {

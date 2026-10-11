@@ -3,6 +3,7 @@ import { useId } from "react";
 import type { MappedPanelData } from "../../types/panel";
 import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import { FILTERED_NOTE, type MetricComparison } from "../../history/metricHistoryView";
+import { formatDuration } from "./formatDuration";
 import { MetricSparkline } from "./MetricSparkline";
 import { resolveRule, ruleName, type ConditionalFormatRule } from "./conditionalFormatting";
 import { ToneGlyph, ToneSrText } from "./ToneGlyph";
@@ -40,6 +41,10 @@ export function formatMetricValue(
       return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
     case "currency":
       return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n);
+    case "duration":
+      return formatDuration(n);
+    case "durationMs":
+      return formatDuration(n / 1000);
     case "percent":
       return new Intl.NumberFormat(undefined, {
         style: "percent",

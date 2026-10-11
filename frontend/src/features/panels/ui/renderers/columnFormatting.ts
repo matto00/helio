@@ -6,6 +6,7 @@
 // (`TableRenderer.tsx:243`), and that asymmetry is deliberate (design D6).
 
 import { formatCell } from "../../../../shared/ui/index";
+import { formatDuration } from "./formatDuration";
 import type { TableColumnFormatSpec } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 
 /** Test-only override — production NEVER passes this (design D4: tests pin
@@ -69,6 +70,11 @@ export function formatColumnValue(
           minimumFractionDigits: spec.decimals,
           maximumFractionDigits: spec.decimals,
         }).format(n);
+      }
+      case "duration": {
+        const n = toFiniteNumber(value);
+        if (n === undefined) return formatCell(value);
+        return formatDuration(spec.unit === "ms" ? n / 1000 : n);
       }
       case "date": {
         const d = toValidDate(value);

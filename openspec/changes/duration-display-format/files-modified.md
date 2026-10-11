@@ -1,0 +1,25 @@
+# Files modified — HEL-1308
+
+- `backend/src/main/scala/com/helio/services/pipelines/OutputConfigValidation.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/OutputFormatVocabulary.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DurationFormatSeamSpec.scala`
+- `frontend/src/features/panels/ui/editors/TableDisplayFields.tsx`
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.duration.test.tsx`
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.tsx`
+- `frontend/src/features/panels/ui/renderers/TableRenderer.duration.test.tsx`
+- `frontend/src/features/panels/ui/renderers/TableRenderer.tsx`
+- `frontend/src/features/panels/ui/renderers/columnFormatting.ts`
+- `frontend/src/features/panels/ui/renderers/formatDuration.test.ts`
+- `frontend/src/features/panels/ui/renderers/formatDuration.ts`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.duration.test.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputKindFields.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/durationFormat.seam.test.ts`
+- `frontend/src/features/pipelines/ui/outputEditor/outputConfigTypes.ts`
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputColumnFormats.ts`
+- `helio-mcp/src/tools/durationFormatSeam.test.ts`
+- `helio-mcp/src/tools/outputFormatVocabulary.ts`
+- `helio-mcp/src/tools/outputs.ts`
+- `schemas/outputs/create-output-request.schema.json`
+- `schemas/outputs/update-output-request.schema.json`
+- `schemas/pipelines/create-pipeline-transactional-output-request.schema.json`
+- `shared-test-fixtures/duration-format-seam.json`

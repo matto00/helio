@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import { CHART_TYPES_PIPE_LIST } from "./chartTypes.js";
+import { FORMAT_VOCABULARY_DOC } from "./outputFormatVocabulary.js";
 import {
   addOutputHandler,
   deleteOutputHandler,
@@ -85,7 +86,8 @@ export const OUTPUT_CONFIG_KEYS_DOC =
   "`appearance.chart`. A heatmap reads `fieldMapping` `xAxis` (columns), `series` (rows) and numeric " +
   "`yAxis` (value); a histogram bins the numeric `xAxis` field, with an optional " +
   "`chartOptions.histogram.binCount` (a whole number from 2 to 100, else automatic). " +
-  "A key already stored on an Output may be re-sent unchanged.";
+  "A key already stored on an Output may be re-sent unchanged. " +
+  FORMAT_VOCABULARY_DOC;
 
 /** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and
  *  retention mirror the backend defaults (`PayloadHistoryConfig.Defaults`); the backend is the sole
