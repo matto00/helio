@@ -219,10 +219,28 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
    *  DELETE policy (owner only) would enforce the same rule on the app pool,
    *  but withSystemContext avoids the extra policy predicate evaluation. */
   def delete(id: DashboardId): Future[Boolean] =
-    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
+    ctx.withSystemContext(lockPanelRows(Set(id.value)) andThen table.filter(_.id === id.value).delete).map(_ > 0)
 }
 
 object DashboardRepository {
+
+  /** HEL-1485: locks every panel row of the given dashboards, in id order. Run it as the FIRST write-phase
+   *  statement of any transaction that deletes a dashboard, before anything that can delete a panel or a
+   *  dashboard. A panel delete takes the panel row and then (V122, end of statement) the dashboard row; a
+   *  dashboard delete used to take the dashboard row and then (FK cascade) each panel row, so the two
+   *  could deadlock (40P01). Taking panel rows first gives them one order, "panel rows, then dashboards".
+   *
+   *  Residual, scoped out: this orders dashboard against panel only, NOT panel against panel. Other multi-panel
+   *  deleters (`replaceContents`, the output/pipeline/step FK cascades, `batchUpdate`) lock panel rows in scan
+   *  or request order, so a dashboard delete racing one of them over two or more shared panels can still
+   *  deadlock, exactly as before this change.
+   *
+   *  `FOR UPDATE` skips a row a concurrent transaction deleted and committed (READ COMMITTED recheck), so a
+   *  racing panel delete is never an error here. Under RLS only the panels the caller can see are locked;
+   *  the owner of a dashboard sees all of its panels (V36). */
+  def lockPanelRows(dashboardIds: Set[String]): DBIO[Seq[String]] =
+    TableQuery[PanelRepository.PanelTable].filter(_.dashboardId.inSet(dashboardIds)).sortBy(_.id).map(_.id).forUpdate.result
+
   implicit val instantColumnType: BaseColumnType[Instant] =
     MappedColumnType.base[Instant, Timestamp](
       instant => Timestamp.from(instant),

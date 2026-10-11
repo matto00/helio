@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/services/panels/LayoutPolicy.scala` — shared `resolveOnLive` (live-panel filter + resolve) used by apply and preview
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardWrites.scala` — applyUpdate calls the shared resolver (behaviour unchanged)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — dashboard update preview reads live panel ids and uses the shared resolver
+- `backend/src/main/scala/com/helio/services/panels/AutoLayoutService.scala` — packs against the live-panel-filtered layout; documents the HEL-1457 window
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoConflictCheck.scala` — checkDashboard filters the domain layout directly (no response round-trip)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala` — `lockPanelRows` pre-lock; `delete` uses it
+- `backend/src/main/scala/com/helio/infrastructure/persistence/workspace/WorkspaceTeardownRepository.scala` — pre-lock first in the write phase
+- `backend/src/test/scala/com/helio/infrastructure/persistence/dashboards/DashboardDeleteRacesPanelDeleteSpec.scala` — two-connection deadlock repro (red then green)
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewGhostLayoutSpec.scala` — preview vs apply ghost parity
+- `backend/src/test/scala/com/helio/api/routes/panels/AutoLayoutGhostSpec.scala` — auto-layout ghost cases

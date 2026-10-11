@@ -4,7 +4,7 @@ import com.helio.services.auth.AccessChecker
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.dashboards.AutoLayoutRequest
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayoutItem, PanelId, Page, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, PanelId, Page, ResourceAccess}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.panels.PanelPacker.PackInput
@@ -82,47 +82,63 @@ final class AutoLayoutService(
       targets: Targets,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Dashboard]] =
-    // MaxLimit-capped (Page.MaxLimit = 500): the pagination ceiling every dashboard-scoped panel
-    // listing uses; panels beyond it would be treated as "unknown" if referenced (pre-existing limit).
-    panelRepo.findAllByDashboardId(dashboardId, Some(user), Page(offset = 0, limit = Page.MaxLimit)).map { paged =>
-      val kindByPanelId = paged.items.map(p => p.id -> p.kind).toMap
-      val requestedIds  = request.items.map(item => PanelId(item.panelId))
-
-      requestedIds.find(id => !kindByPanelId.contains(id)) match {
-        case Some(unknown) =>
-          Left(ServiceError.BadRequest(s"Panel '${unknown.value}' does not belong to this dashboard"))
-        case None =>
-          val requestedSet = requestedIds.toSet
-          def packedItems(bp: String): Vector[DashboardLayoutItem] = {
-            val targetCols = LayoutBreakpointScaling.breakpointCols(bp)
-            val inputs = request.items.map { item =>
-              val w = math.max(1, math.round(item.w.toDouble * targetCols / targets.sourceCols).toInt)
-              PackInput(PanelId(item.panelId), kindByPanelId(PanelId(item.panelId)), w, item.h)
-            }
-            val kept   = LayoutPolicy.stored(existing.layout, bp).filterNot(i => requestedSet.contains(i.panelId))
-            val offset = (kept.map(i => i.y + i.h) :+ 0).max
-            kept ++ PanelPacker.pack(inputs, targetCols).map(i => i.copy(y = i.y + offset))
-          }
-          def patchFor(bp: String): Option[Vector[DashboardLayoutItem]] =
-            if (targets.breakpoints.contains(bp)) Some(packedItems(bp)) else None
-          val patch = LayoutPolicy.Patch(patchFor("lg"), patchFor("md"), patchFor("sm"), patchFor("xs"))
-          LayoutPolicy(existing.layout, patch) match {
-            case Left(msg) => Left(ServiceError.BadRequest(msg))
-            case Right(layout) =>
-              Right(existing.copy(layout = layout, meta = existing.meta.copy(lastUpdated = Instant.now())))
+    // HEL-1485: the stored layout is restricted to the dashboard's live panels (`panelIdsInternal`,
+    // privileged and unpaged, the read `DashboardWrites.applyUpdate` uses) before packing, so a ghost item
+    // in the stored row is neither kept nor written back. The read-then-write is still unlocked: a panel
+    // deleted after these reads is stripped by V122 and then written back as a ghost, the same
+    // last-write-wins window a layout PATCH has (HEL-1457), deliberately not closed here.
+    for {
+      livePanelIds <- dashboardRepo.panelIdsInternal(dashboardId)
+      // MaxLimit-capped (Page.MaxLimit = 500): the pagination ceiling every dashboard-scoped panel
+      // listing uses; panels beyond it would be treated as "unknown" if referenced (pre-existing limit).
+      paged  <- panelRepo.findAllByDashboardId(dashboardId, Some(user), Page(offset = 0, limit = Page.MaxLimit))
+      packed  = pack(LayoutPolicy.onlyPanels(existing.layout, livePanelIds), existing, paged.items.map(p => p.id -> p.kind).toMap, request, targets)
+      result <- packed match {
+        case Left(err) => Future.successful(Left(err))
+        case Right(updated) =>
+          dashboardRepo.update(updated).map {
+            case Some(d) =>
+              // HEL-477 design.md Decision 9: reuses dashboard.update — layout is a dashboard-owned field.
+              audit("dashboard.update", Some(dashboardId.value), user)
+              Right(d)
+            case None => Left(ServiceError.NotFound("Dashboard not found"))
           }
       }
-    }.flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(updated) =>
-        dashboardRepo.update(updated).map {
-          case Some(d) =>
-            // HEL-477 design.md Decision 9: reuses dashboard.update — layout is a dashboard-owned field.
-            audit("dashboard.update", Some(dashboardId.value), user)
-            Right(d)
-          case None => Left(ServiceError.NotFound("Dashboard not found"))
+    } yield result
+
+  private def pack(
+      liveLayout: DashboardLayout,
+      existing: Dashboard,
+      kindByPanelId: Map[PanelId, String],
+      request: AutoLayoutRequest,
+      targets: Targets
+  ): Either[ServiceError, Dashboard] = {
+    val requestedIds = request.items.map(item => PanelId(item.panelId))
+    requestedIds.find(id => !kindByPanelId.contains(id)) match {
+      case Some(unknown) =>
+        Left(ServiceError.BadRequest(s"Panel '${unknown.value}' does not belong to this dashboard"))
+      case None =>
+        val requestedSet = requestedIds.toSet
+        def packedItems(bp: String): Vector[DashboardLayoutItem] = {
+          val targetCols = LayoutBreakpointScaling.breakpointCols(bp)
+          val inputs = request.items.map { item =>
+            val w = math.max(1, math.round(item.w.toDouble * targetCols / targets.sourceCols).toInt)
+            PackInput(PanelId(item.panelId), kindByPanelId(PanelId(item.panelId)), w, item.h)
+          }
+          val kept   = LayoutPolicy.stored(liveLayout, bp).filterNot(i => requestedSet.contains(i.panelId))
+          val offset = (kept.map(i => i.y + i.h) :+ 0).max
+          kept ++ PanelPacker.pack(inputs, targetCols).map(i => i.copy(y = i.y + offset))
+        }
+        def patchFor(bp: String): Option[Vector[DashboardLayoutItem]] =
+          if (targets.breakpoints.contains(bp)) Some(packedItems(bp)) else None
+        val patch = LayoutPolicy.Patch(patchFor("lg"), patchFor("md"), patchFor("sm"), patchFor("xs"))
+        LayoutPolicy(liveLayout, patch) match {
+          case Left(msg) => Left(ServiceError.BadRequest(msg))
+          case Right(layout) =>
+            Right(existing.copy(layout = layout, meta = existing.meta.copy(lastUpdated = Instant.now())))
         }
     }
+  }
 
   /** Owner or editor grantee may auto-layout — mirrors
    *  `DashboardContentsService.authorizeEditor` exactly: sharing-aware
