@@ -518,7 +518,10 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
     }
 
-    "an editor-grantee-triggered real run resolves normally despite no persisted run row" in {
+    // HEL-1492 (inverts the old "resolves normally despite no persisted run row" pair): an editor grantee's run IS
+    // recorded on the pipeline owner's history, with its assertions. (This spec's pool is a superuser one; the
+    // NOBYPASSRLS proof of the same behaviour is PipelineRunEditorPersistenceSpec.)
+    "an editor-grantee-triggered real run is recorded: a succeeded run row and its assertion result" in {
       val dsId    = seedDsWithData()
       val pid     = seedPipeline(dsId)
       await(insertStep(pid, "assert", AssertConfig(Vector(passingAssertRule)), dummyUser))
@@ -527,12 +530,13 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.submit(pid, isDry = false, grantee))
       result shouldBe a[Right[_, _]]
 
-      // insertRun already silently no-ops for a non-owner (existing, tested
-      // behavior) -- no pipeline_runs row for the owner to see either.
-      await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.map(_.status) shouldBe Vector("succeeded")
+      runs.head.triggeredByUserId shouldBe Some(UUID.fromString(grantee.id.value))
+      await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runs.head.id))) should have size 1
     }
 
-    "an editor-grantee-triggered dry run resolves normally despite no persisted run row" in {
+    "an editor-grantee-triggered dry run is recorded: a dry_run row and its assertion result" in {
       val dsId    = seedDsWithData()
       val pid     = seedPipeline(dsId)
       await(insertStep(pid, "assert", AssertConfig(Vector(passingAssertRule)), dummyUser))
@@ -541,13 +545,16 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val result = await(service.submit(pid, isDry = true, grantee))
       result shouldBe a[Right[_, _]]
 
-      await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
+      val runs = await(pipelineRunRepo.listByPipeline(pid, dummyUser))
+      runs.map(_.status) shouldBe Vector("dry_run")
+      runs.head.triggeredByUserId shouldBe Some(UUID.fromString(grantee.id.value))
+      await(pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(runs.head.id))) should have size 1
     }
 
     // HEL-1488 site 7: the `case Some("editor")` grant gate in `submit`. A viewer grantee must
     // be refused with the exact 403-mapped value, before any run executes. An editor grantee's
-    // run is accepted; `insertRun`/`updateRunTerminal` are owner-only no-ops for a non-owner run,
-    // so the accept tests assert the returned `RunResultResponse` (the effect), not a persisted row.
+    // run is accepted and (HEL-1492) recorded like the owner's; the accept tests assert the returned
+    // `RunResultResponse` (the execution effect).
     "refuses a viewer grantee's real run with exactly Forbidden(\"Forbidden\") and executes nothing" in {
       val dsId    = seedDsWithData()
       val pid     = seedPipeline(dsId)
@@ -575,8 +582,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       countAssertionRows() shouldBe before
     }
 
-    // A non-owner's run persists no pipeline_runs/assertion row (existing, tested behaviour), so
-    // the observable effect of "the run executed" is the response itself: the seeded source's 2 rows.
+    // The observable effect of "the run executed" is the response itself: the seeded source's 2 rows.
     "an editor grantee's dry run executes: the response carries the source's 2 rows, not blocked" in {
       val dsId    = seedDsWithData()
       val pid     = seedPipeline(dsId)

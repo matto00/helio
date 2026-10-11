@@ -3,7 +3,9 @@
 ## Purpose
 Evaluate an `assert` step's rules against the rows flowing through it and persist the pass/fail outcome
 per run, so a pipeline run's trustworthiness is inspectable after the fact.
+
 ## Requirements
+
 ### Requirement: Assert step rules are evaluated against the rows at its position in the pipeline
 For each rule in an `assert` step's config, the engine SHALL evaluate the rule against the rows present
 at that step's position and produce one `AssertionResult` per rule (`stepId`, `kind`, `field`,
@@ -82,26 +84,6 @@ parent row exists yet for a failed one to link to.
 - **THEN** no `insertAssertions` call is attempted and no error is raised — the run fails with the same
   `ServiceError` it would have produced before this ticket
 
-### Requirement: Persisting assertion results never turns a silent no-op run into an unhandled failure
-The `insertAssertions` call SHALL NOT raise or propagate a failure when
-`PipelineRunRepository.insertRun`/`insertDryRun` has already silently no-op'd (the existing, tested
-behavior for a caller who does not own the parent pipeline — e.g. an editor grantee triggering a run via
-`POST /api/pipelines/:id/run`, per `PipelineRunRepositorySpec.scala`'s CS2 tests), even though no
-`pipeline_runs` row exists for it to reference — the run SHALL resolve with the same response shape it
-would have produced before this ticket, real or dry.
-
-#### Scenario: Editor-grantee-triggered real run resolves normally despite no persisted run row
-- **WHEN** an editor grantee (not the pipeline owner) triggers a real run on a pipeline containing an
-  `assert` step, via the ordinary run-submission path
-- **THEN** the run resolves normally (the same response the caller would have received before this
-  ticket) and no unhandled failure is raised by the new assertion-persistence path
-
-#### Scenario: Editor-grantee-triggered dry run resolves normally despite no persisted run row
-- **WHEN** an editor grantee (not the pipeline owner) triggers a dry run on a pipeline containing an
-  `assert` step, via the ordinary run-submission path
-- **THEN** the dry run resolves normally (the same response the caller would have received before this
-  ticket) and no unhandled failure is raised by the new assertion-persistence path
-
 ### Requirement: Assertion results are readable per run via a repository method, RLS-safe for owner and grantees
 `PipelineRunRepository` SHALL expose a method to list `pipeline_run_assertions` rows for a given run,
 gated by the same ownership rule as `pipeline_runs` itself (indirect via the parent pipeline's
@@ -127,3 +109,25 @@ context (`PipelineExecutionContext`), never by adding, removing, or renaming fie
 - **THEN** the returned rows are structurally identical to the input rows (same fields, same values, no
   added assertion metadata)
 
+### Requirement: Persisting assertion results never turns a missing run row into an unhandled failure
+The `insertAssertions` call SHALL NOT raise or propagate a failure when no `pipeline_runs` row exists for it to reference
+(for example a failed dry run, or an editor's dry run whose grant was revoked before its run row was written) — the run
+SHALL resolve with the same response shape it would have produced otherwise, real or dry. A run triggered by an editor
+grantee (not the pipeline owner) SHALL persist its run row and its assertion results exactly as the owner's run does (see
+`pipeline-run-execution`).
+
+#### Scenario: Editor-grantee-triggered real run persists its assertion results
+- **WHEN** an editor grantee (not the pipeline owner) triggers a real run on a pipeline containing an
+  `assert` step, via the ordinary run-submission path
+- **THEN** the run resolves normally, a `pipeline_runs` row exists for it, and its `pipeline_run_assertions` rows are
+  linked to that row
+
+#### Scenario: Editor-grantee-triggered dry run persists its assertion results
+- **WHEN** an editor grantee (not the pipeline owner) triggers a dry run on a pipeline containing an
+  `assert` step, via the ordinary run-submission path, and it succeeds
+- **THEN** the dry run resolves normally, a `pipeline_runs` row with `status = "dry_run"` exists for it, and its
+  `pipeline_run_assertions` rows are linked to that row
+
+#### Scenario: A run with no run row still resolves normally
+- **WHEN** an editor grantee's dry run has its grant revoked before its run row is written, so no `pipeline_runs` row exists
+- **THEN** the dry run resolves normally and no unhandled failure is raised by assertion persistence

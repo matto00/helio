@@ -623,17 +623,16 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       )) shouldBe ConcurrencyCapResult.Inserted
     }
 
-    // HEL-505 (skeptic-caught regression during delivery): `NotOwned` is distinct from
-    // `CapExceeded` -- a non-owner is a silent no-op (matching `insertRun`'s own pre-existing
-    // behavior; `PipelineRunServiceSpec`'s "an editor-grantee-triggered real run resolves
-    // normally despite no persisted run row" depends on this), never a 429-shaped rejection.
-    "insertRunIfUnderConcurrencyCap returns NotOwned (not CapExceeded) and inserts nothing for a non-owner (CS2 parity)" in {
+    // HEL-1492 (inverts HEL-505's `NotOwned`): `NotAuthorized` is distinct from `CapExceeded` and is never an
+    // admission -- `PipelineRunExecutor` maps it to Forbidden. An editor grantee goes through
+    // `insertGranteeRunIfUnderOwnerCap` instead (PipelineRunEditorPersistenceSpec), not this owner-scoped method.
+    "insertRunIfUnderConcurrencyCap returns NotAuthorized (not CapExceeded) and inserts nothing for a non-owner (CS2 parity)" in {
       val (owner, user) = freshOwner()
       val pid = seedPipelineFor(owner)
       val result = await(pipelineRunRepo.insertRunIfUnderConcurrencyCap(
         PipelineRunId(UUID.randomUUID().toString), pid, Instant.now(), otherUser, "manual", None, maxConcurrent = 5
       ))
-      result shouldBe ConcurrencyCapResult.NotOwned
+      result shouldBe ConcurrencyCapResult.NotAuthorized
       await(pipelineRunRepo.listByPipeline(pid, user)) shouldBe empty
     }
 

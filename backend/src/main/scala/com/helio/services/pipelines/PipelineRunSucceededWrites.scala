@@ -38,7 +38,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
   import support.truncatedReadsToJson
-  import terminal.{persistAssertions, publishTerminalAfter}
+  import terminal.{persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
 
   /** HEL-1271: the run's Output configs in ONE query (privileged read; `outputs` was already
    *  ACL-scoped by `listByPipelineInternal`), needed only by the history summary. Empty when no
@@ -60,6 +60,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
+      ownerRun:           Boolean,
       triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
@@ -226,11 +227,9 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
       // `status` on both tables.
       val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
-      val updateMeta = pipelineRepo.updateLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, truncated = Some(truncatedReads.nonEmpty)).map(_ => ())
+      val updateMeta = writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
       val updateRun =
-        if (pipelineRunRepo != null)
-          pipelineRunRepo.updateRunTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, truncatedReadsJson = Some(truncatedReadsJson)).map(_ => ())
-        else Future.successful(())
+        writeTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, ownerRun, truncatedReadsJson = Some(truncatedReadsJson))
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
       // `pipeline_runs` row exists before this real-run success path runs —
       // no ordering constraint here (unlike `PipelineRunTerminalWrites.onDryRunSuccess`).

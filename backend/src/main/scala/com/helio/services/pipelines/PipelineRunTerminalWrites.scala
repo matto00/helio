@@ -38,6 +38,27 @@ private[pipelines] final class PipelineRunTerminalWrites(
       Future.fromTry(outcome)
     }
 
+  /** HEL-1492 (design.md D4): the terminal `pipeline_runs` write for either kind of submitter. The OWNER's run keeps
+   *  the user-scoped, RLS-enforced `updateRunTerminal`; an admitted EDITOR run (`ownerRun = false`) uses
+   *  `updateRunTerminalInternal`, keyed by the server-generated run id. The editor path does not re-check the grant:
+   *  authorization happened once, at admission (the run-row insert), and a lifecycle write must always complete or the
+   *  admitted run would stay non-terminal and hold one of the OWNER's concurrency slots. */
+  private[pipelines] def writeTerminal(
+      runId: PipelineRunId, status: String, at: Instant, rowCount: Option[Int], errorLog: Option[String],
+      user: AuthenticatedUser, ownerRun: Boolean, truncatedReadsJson: Option[String]
+  ): Future[Unit] =
+    if (pipelineRunRepo == null) Future.successful(())
+    else if (ownerRun) pipelineRunRepo.updateRunTerminal(runId, status, at, rowCount, errorLog, user, truncatedReadsJson)
+    else pipelineRunRepo.updateRunTerminalInternal(runId, status, at, rowCount, errorLog, truncatedReadsJson)
+
+  /** HEL-1492 (design.md D4): the `pipelines.last_run_*` write for either kind of submitter -- see [[writeTerminal]]. */
+  private[pipelines] def writeLastRun(
+      pipelineId: PipelineId, status: String, at: Instant, rowCount: Option[Long],
+      user: AuthenticatedUser, ownerRun: Boolean, truncated: Option[Boolean]
+  ): Future[Unit] =
+    if (ownerRun) pipelineRepo.updateLastRun(pipelineId, status, at, rowCount, user, truncated)
+    else pipelineRepo.updateLastRunInternal(pipelineId, status, at, rowCount, truncated)
+
   /** The `Failure(ex)` branch of `PipelineRunExecutor.executeRun`'s original inline `transformWith`
    *  (HEL-505: factored out, unchanged in behavior, so the guard-check nesting added to `executeRun`
    *  doesn't push that method's line count past the file-size budget). */
@@ -47,6 +68,7 @@ private[pipelines] final class PipelineRunTerminalWrites(
       pidStr: String,
       isDry: Boolean,
       user: AuthenticatedUser,
+      ownerRun: Boolean,
       assertionSink: AssertionSink,
       ex: Throwable
   ): Future[Either[ServiceError, RunResultResponse]] = {
@@ -72,13 +94,11 @@ private[pipelines] final class PipelineRunTerminalWrites(
       // `insertAssertions` call below MUST stay nested inside this
       // existing `if (!isDry)` guard, never called unconditionally.
       if (!isDry) {
+        // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
         val updateRun =
-          if (pipelineRunRepo != null)
-            // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
-            pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-          else Future.successful(())
+          writeTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
         updateRun.flatMap { _ =>
-          pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
+          writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
         }.flatMap { _ =>
           persistAssertions(runId, assertionSink.results)
         }
@@ -91,12 +111,11 @@ private[pipelines] final class PipelineRunTerminalWrites(
   /** Best-effort persistence of assertion results — wrapped in `recoverWith`
    *  at every call site (design.md Decision 4a), mirroring the existing
    *  `insertRun`/`deleteOldRuns` (`PipelineRunExecutor`) and `insertDryRun`/
-   *  `deleteOldDryRuns` (`onDryRunSuccess`, below) best-effort pattern. `insertRun`/`insertDryRun`
-   *  already silently no-op for a caller who does not own the parent
-   *  pipeline (e.g. an editor grantee triggering a run via
-   *  `POST /api/pipelines/:id/run`), leaving no `pipeline_runs` row for
-   *  `insertAssertions` to FK against — without this guard, that would turn
-   *  today's silent no-op into an unhandled failed `Future`. Skips the call
+   *  `deleteOldDryRuns` (`onDryRunSuccess`, below) best-effort pattern. A run's parent
+   *  `pipeline_runs` row can legitimately be absent when `insertAssertions` runs -- an editor
+   *  grantee's dry run whose grant was revoked mid-run (`insertGranteeDryRun` re-authorizes and
+   *  writes nothing), or a pipeline deleted mid-run -- so the FK would fail; without this guard that
+   *  would turn a harmless no-op into an unhandled failed `Future`. Skips the call
    *  entirely when there is nothing to persist. */
   private[pipelines] def persistAssertions(runId: PipelineRunId, results: Vector[AssertionResult]): Future[Unit] =
     if (pipelineRunRepo != null && results.nonEmpty)
@@ -110,6 +129,7 @@ private[pipelines] final class PipelineRunTerminalWrites(
       pidStr:           String,
       rowCount:         Int,
       user:             AuthenticatedUser,
+      ownerRun:         Boolean,
       assertionResults: Vector[AssertionResult],
       // HEL-873 (evaluation-1.md CR1): persisted verbatim alongside `truncatedReads`, never
       // re-inferred from it on read -- see `truncatedReadsToJson`'s doc.
@@ -121,10 +141,16 @@ private[pipelines] final class PipelineRunTerminalWrites(
     // HEL-1366: the terminal event is published only after the dry-run record (and its assertions)
     // is durable -- `publishTerminalAfter` wraps the whole write chain below.
     def dryRunWrites(): Future[Unit] =
-      if (pipelineRunRepo != null)
-        pipelineRunRepo
-          .insertDryRun(runId, pipelineId, startAt, rowCount, user, truncatedReadsToJson(primaryAvailableRowCount, truncatedReads))
-          .flatMap(_ => pipelineRunRepo.deleteOldDryRuns(pipelineId, user))
+      if (pipelineRunRepo != null) {
+        val json = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
+        val attribution = Some(user.id.value)
+        // HEL-1492: an editor's dry-run row is inserted re-authorized in-transaction (`insertGranteeDryRun`), and its
+        // retention pass is the ACL-bypassing one -- the owner-scoped `deleteOldDryRuns` would silently no-op for it.
+        val insert =
+          if (ownerRun) pipelineRunRepo.insertDryRun(runId, pipelineId, startAt, rowCount, user, json, attribution)
+          else pipelineRunRepo.insertGranteeDryRun(runId, pipelineId, startAt, rowCount, user, json, attribution)
+        insert
+          .flatMap(_ => if (ownerRun) pipelineRunRepo.deleteOldDryRuns(pipelineId, user) else pipelineRunRepo.deleteOldDryRunsInternal(pipelineId))
           .recoverWith { case _ => Future.successful(()) }
           // HEL-509 (419-B, design.md Decision 5): insertAssertions must be
           // sequenced AFTER insertDryRun's own row insert completes — the FK
@@ -132,7 +158,7 @@ private[pipelines] final class PipelineRunTerminalWrites(
           // row is inserted above (unlike the real-run path, where insertRun
           // already ran during preExec).
           .flatMap(_ => persistAssertions(runId, assertionResults))
-      else Future.successful(())
+      } else Future.successful(())
     publishTerminalAfter(pidStr, RunStatusEvent("dry_run", rowCount = Some(rowCount), runId = Some(runId.value)), dryRunWrites())
   }
 
@@ -147,17 +173,16 @@ private[pipelines] final class PipelineRunTerminalWrites(
       runId: PipelineRunId,
       pidStr: String,
       user: AuthenticatedUser,
+      ownerRun: Boolean,
       assertionResults: Vector[AssertionResult],
       errMsg: String
   ): Future[Unit] = {
     log.error(s"Pipeline write-back failed for pipeline ${pipelineId.value}, run ${runId.value}: $errMsg")
     def writes(): Future[Unit] = {
       val updateRun =
-        if (pipelineRunRepo != null)
-          pipelineRunRepo.updateRunTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-        else Future.successful(())
+        writeTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
       updateRun.flatMap { _ =>
-        pipelineRepo.updateLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, truncated = Some(false))
+        writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
       }.flatMap { _ =>
         persistAssertions(runId, assertionResults)
       }
@@ -178,6 +203,7 @@ private[pipelines] final class PipelineRunTerminalWrites(
       runId:            PipelineRunId,
       pidStr:           String,
       user:             AuthenticatedUser,
+      ownerRun:         Boolean,
       assertionResults: Vector[AssertionResult],
       blockingFailures: Vector[AssertionResult]
   ): Future[Option[String]] = {
@@ -186,11 +212,9 @@ private[pipelines] final class PipelineRunTerminalWrites(
       val now = Instant.now()
       // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
       // NULL.
-      val updateMeta = pipelineRepo.updateLastRun(pipelineId, "failed", now, rowCount = None, user, truncated = Some(false)).map(_ => ())
+      val updateMeta = writeLastRun(pipelineId, "failed", now, rowCount = None, user, ownerRun, truncated = Some(false))
       val updateRun =
-        if (pipelineRunRepo != null)
-          pipelineRunRepo.updateRunTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson)).map(_ => ())
-        else Future.successful(())
+        writeTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
       val assertionsInsert = persistAssertions(runId, assertionResults)
         for {
           _ <- updateMeta

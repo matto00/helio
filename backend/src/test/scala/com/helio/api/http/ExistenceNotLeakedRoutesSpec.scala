@@ -527,6 +527,9 @@ object ExistenceNotLeakedRoutesSpec {
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 5,
     "PatchSetApplyResolvers.scala"   -> 4,
+    // HEL-1492: `PipelineRunExecutor`'s NotAuthorized arm -- reached only after `submit`'s `findByIdShared(.., Some(user))`
+    // + owner/editor check, so the caller already knows the pipeline exists (see the change's design.md classification).
+    "PipelineRunExecutor.scala"      -> 1,
     "PipelineRunPreview.scala"       -> 1,
     "PipelineRunService.scala"       -> 1,
     "PipelineService.scala"          -> 1
