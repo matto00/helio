@@ -20,9 +20,10 @@
  */
 
 import { z } from "zod";
+import { PATCH_SET_TARGET_KINDS } from "./patchSetTargetKinds.js";
 
 export const editTargetSchema = z.object({
-  kind: z.enum(["panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output"]),
+  kind: z.enum(PATCH_SET_TARGET_KINDS),
   id: z.string().optional(),
   /** HEL-914 task 5.1: names the parent resource a not-yet-existing CHILD resource is created
    *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`) and

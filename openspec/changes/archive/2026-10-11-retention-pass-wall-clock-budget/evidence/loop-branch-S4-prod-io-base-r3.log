@@ -1,0 +1,15 @@
+MemAvailable:   54667264 kB
+@@LOOP tag=branch-S4-prod-io-base-r3 retention=on tick_ms=30000 ticks=6 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@TICK tag=branch-S4-prod-io-base-r3 n=1 start_ms=156 end_ms=193 dur_ms=37 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+@@PASS tag=branch-S4-prod-io-base-r3 start_ms=30206 end_ms=30206 dur_ms=0 result=None
+@@TICK tag=branch-S4-prod-io-base-r3 n=2 start_ms=30202 end_ms=32847 dur_ms=2645 due_ms=5000 fired=true fire_delay_ms=25202 runs=1
+@@PASS tag=branch-S4-prod-io-base-r3 start_ms=62864 end_ms=62865 dur_ms=1 result=None
+@@TICK tag=branch-S4-prod-io-base-r3 n=3 start_ms=62861 end_ms=67639 dur_ms=4778 due_ms=50202 fired=true fire_delay_ms=12659 runs=2
+@@PASS tag=branch-S4-prod-io-base-r3 start_ms=187 end_ms=68143 dur_ms=67956 result=Some(488450)
+@@TICK tag=branch-S4-prod-io-base-r3 n=4 start_ms=97648 end_ms=97850 dur_ms=202 due_ms=82861 fired=true fire_delay_ms=14787 runs=3
+@@PASS tag=branch-S4-prod-io-base-r3 start_ms=97650 end_ms=119465 dur_ms=21815 result=Some(307800)
+@@TICK tag=branch-S4-prod-io-base-r3 n=5 start_ms=127856 end_ms=128048 dur_ms=192 due_ms=117648 fired=true fire_delay_ms=10208 runs=4
+@@PASS tag=branch-S4-prod-io-base-r3 start_ms=127858 end_ms=142137 dur_ms=14279 result=Some(307901)
+@@TICK tag=branch-S4-prod-io-base-r3 n=6 start_ms=158055 end_ms=158338 dur_ms=283 due_ms=147856 fired=true fire_delay_ms=10199 runs=5
+@@RUNDUR tag=branch-S4-prod-io-base-r3 run_ms=2513.4,4423.3,90.4,100.3,94.8
+done

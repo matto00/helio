@@ -9,6 +9,8 @@
  * the server is a thin wrapper and does not reinterpret them.
  */
 
+import type { McpPatchSetTargetKind } from "./tools/patchSetTargetKinds.js";
+
 /** `PagedResult[T]` — items + pagination envelope (PaginationProtocol). */
 export interface Paged<T> {
   items: T[];
@@ -1174,7 +1176,7 @@ export interface CombinedProposalApplyResponse {
 export interface EditTarget {
   // HEL-914: `dataType` retired outright (HEL-904 -- no DataType resource exists to target
   // anymore); `output` added (HEL-907 task 1.2's `output` update/delete op).
-  kind: "panel" | "dashboard" | "dataSource" | "pipeline" | "pipelineStep" | "output";
+  kind: McpPatchSetTargetKind;
   id?: string;
   /** HEL-914 task 5.1: names the parent resource a not-yet-existing CHILD resource is created
    *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`,

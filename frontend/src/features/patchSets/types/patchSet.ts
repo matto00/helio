@@ -3,11 +3,28 @@
  *  schemas/patch-sets/patch-set.schema.json / patch-set-preview-response.schema.json /
  *  patch-set-apply-response.schema.json field-for-field. */
 
+/** The single frontend source of the patch-set `target.kind` set (HEL-1459): mirrors the `EditTarget.kind`
+ *  enum in schemas/patch-sets/patch-set.schema.json and the backend `PatchSetTargetKinds.All`, pinned
+ *  to the schemas by `patchSetTargetKinds.guard.test.ts`. */
+export const PATCH_SET_TARGET_KINDS = [
+  "panel",
+  "dashboard",
+  "dataSource",
+  "pipeline",
+  "pipelineStep",
+  "output",
+] as const;
+
+export type PatchSetTargetKind = (typeof PATCH_SET_TARGET_KINDS)[number];
+
 /** Identifies the resource an `Edit` applies to. `id` is required for
  *  update/delete, absent for create (the resource does not yet exist). */
 export interface EditTarget {
-  kind: "panel" | "dashboard" | "dataSource" | "dataType" | "pipeline" | "pipelineStep";
+  kind: PatchSetTargetKind;
   id?: string;
+  /** Names the parent resource a not-yet-existing CHILD resource is created under -- required for a
+   *  `create` targeting a child kind (currently only `pipelineStep`), omitted for update/delete. */
+  parentId?: string;
 }
 
 /** One targeted edit. `patch`'s real shape reuses the existing per-resource

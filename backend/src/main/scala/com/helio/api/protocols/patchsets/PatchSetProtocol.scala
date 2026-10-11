@@ -4,6 +4,7 @@ import com.helio.api.protocols.dashboards.{DashboardProtocol, UpdateDashboardReq
 import com.helio.api.protocols.panels.{PanelProtocol, UpdatePanelRequest}
 import com.helio.api.protocols.pipelines.{OutputProtocol, PipelineProtocol, PipelineStepProtocol, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.sources.{DataSourceProtocol, UpdateDataSourceRequest}
+import com.helio.domain.patchsets.PatchSetTargetKinds
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
 
@@ -112,8 +113,7 @@ trait PatchSetProtocol
   // schemas/patch-sets/patch-set.schema.json's EditTarget.kind and Edit.op enums.
   // HEL-904 task 3.3: `dataType` is REMOVED outright (metric was never a
   // recognized kind here to begin with). HEL-907 task 1.2: `output` added.
-  private val recognizedKinds =
-    Set("panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output")
+  private val recognizedKinds = PatchSetTargetKinds.AllSet
   private val recognizedOps = Set("update", "delete", "create")
 
   /** Hand-written (not `jsonFormatN`) so the reader can validate `op`/
@@ -154,7 +154,7 @@ trait PatchSetProtocol
         .getOrElse(deserializationError("edit 'target' is required"))
       if (!recognizedKinds.contains(target.kind))
         deserializationError(
-          s"edit target.kind must be one of ${recognizedKinds.mkString(", ")}, got '${target.kind}'"
+          s"edit target.kind must be one of ${PatchSetTargetKinds.AllList}, got '${target.kind}'"
         )
 
       if ((op == "update" || op == "delete") && target.id.forall(_.trim.isEmpty))
