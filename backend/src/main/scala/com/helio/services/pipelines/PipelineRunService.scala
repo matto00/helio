@@ -231,7 +231,7 @@ final class PipelineRunService(
     val now   = Instant.now()
     val insertWork: Future[Unit] =
       if (pipelineRunRepo != null)
-        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource).recoverWith { case ex =>
+        pipelineRunRepo.insertRun(runId, pipelineId, now, user, triggerSource = triggerSource, triggeredByUserId = Some(user.id.value)).recoverWith { case ex =>
           log.warn(s"PipelineRunService.recordUnrunnable: insertRun failed for pipeline ${pipelineId.value}; continuing", ex)
           Future.successful(())
         }
