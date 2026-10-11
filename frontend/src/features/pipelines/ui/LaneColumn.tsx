@@ -19,9 +19,9 @@ import type { OpType, Step } from "../types/step";
 import type { AnalyzeWarning, PipelineStepConfig, SchemaField } from "../types/pipelineStep";
 import type { Output } from "../types/output";
 import type { Lane, LaneGraph } from "../state/stepTree";
+import { EMPTY_OUTPUTS } from "../state/outputsSlice";
 import { childLanesOf, laneRenderKey, stepRenderKey } from "../state/stepTree";
 
-const EMPTY_OUTPUTS: Output[] = [];
 // Stable no-op for the drag callbacks of a card that renders no drag handle (a stable reference keeps
 // the React.memo'd StepCard from re-rendering).
 const NOOP = () => {};

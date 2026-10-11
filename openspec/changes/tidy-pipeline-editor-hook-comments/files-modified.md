@@ -1,0 +1,13 @@
+- `frontend/src/features/pipelines/hooks/useStepCardState.ts`
+- `frontend/src/features/pipelines/hooks/useStepCardPersist.ts`
+- `frontend/src/features/pipelines/hooks/useStepCardState.test.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineShapeInstantiation.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineOutputSheets.ts`
+- `frontend/src/features/pipelines/state/outputsSlice.ts`
+- `frontend/src/features/pipelines/ui/LaneColumn.tsx`
+- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx`
+- `frontend/src/features/pipelines/ui/PipelineRiverView.emptyOutputs.test.tsx`
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.test.ts`
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.fixtures.ts`
