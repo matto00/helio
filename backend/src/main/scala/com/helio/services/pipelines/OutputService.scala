@@ -197,9 +197,10 @@ final class OutputService(
           case Some(existingConfig) =>
             val mergedConfig = req.config.map { patch =>
               val merged = OutputService.mergeConfig(existingConfig, patch)
-              // HEL-1409: a restore of previously captured state is written as V117 would have written
-              // it (judged on the MERGED config: a non-null live key shadows a dead one). Never for ValidateWrite.
-              if (policy == OutputConfigWritePolicy.RestorePriorStored) LegacyOutputConfigKeys.normalise(output.kind, merged) else merged
+              // HEL-1409/HEL-1441: a restore of previously captured state is written as V117 then V118 would
+              // have written it (judged on the MERGED config: a non-null live key shadows a dead one or a
+              // legacy format's unit text). Never for ValidateWrite.
+              if (policy == OutputConfigWritePolicy.RestorePriorStored) LegacyOutputFormat.normaliseRestored(output.kind, merged) else merged
             }
             // HEL-892: validate the MERGED config's fieldMapping (the shape the write will
             // actually persist), not the raw patch -- a patch that only touches an unrelated

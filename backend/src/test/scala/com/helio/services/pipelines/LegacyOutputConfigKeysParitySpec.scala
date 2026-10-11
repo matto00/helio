@@ -8,9 +8,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
-import java.sql.Connection
+import java.sql.{Connection, ResultSet}
 import scala.io.Source
-import scala.util.Random
+import scala.util.{Random, Using}
 
 /** HEL-1409 drift pin: runs V117's REAL repair (section 3's DO block, extracted verbatim from the
  *  migration file on the classpath) over a corpus of Output configs and asserts
@@ -45,8 +45,11 @@ class LegacyOutputConfigKeysParitySpec extends AnyWordSpec with Matchers with Be
     o("layout" -> JsString("grid")), o("layout" -> JsString("list")), o("layout" -> JsString("up")),
     o("layout" -> JsNull), o("layout" -> JsNumber(1)), o("sort" -> JsString("asc")), o("sort" -> JsString("desc")),
     o("sort" -> JsString("up")), o("sort" -> JsNull), o(), o("x" -> JsNumber(1), "layout" -> JsString("grid")),
-    o("x" -> JsNumber(1), "sort" -> JsString("asc")))
-  private val LiveStates: Vector[Option[JsValue]] = Vector(None, Some(JsNull), Some(JsString("keepme")))
+    o("x" -> JsNumber(1), "sort" -> JsString("asc")),
+    o("layout" -> JsString("asc")), o("layout" -> JsString("desc")), o("sort" -> JsString("grid")), o("sort" -> JsString("list")))
+  /** A live key of any non-null JSON type shadows the dead one, not only a string. */
+  private val LiveStates: Vector[Option[JsValue]] = Vector(None, Some(JsNull), Some(JsString("keepme")),
+    Some(JsNumber(7)), Some(JsTrue), Some(JsObject()), Some(JsArray()))
 
   private def single: Vector[(String, OutputKind, JsObject)] = for {
     kind  <- Kinds
@@ -89,7 +92,12 @@ class LegacyOutputConfigKeysParitySpec extends AnyWordSpec with Matchers with Be
     block
   }
 
-  private def exec(c: Connection, sql: String): Unit = { val st = c.createStatement(); try st.execute(sql) finally st.close() }
+  private def exec(c: Connection, sql: String): Unit = Using.resource(c.createStatement())(_.execute(sql))
+
+  private def query[A](c: Connection, sql: String)(read: ResultSet => A): Vector[A] =
+    Using.resource(c.createStatement()) { st =>
+      Using.resource(st.executeQuery(sql)) { rs => Iterator.continually(rs).takeWhile(_.next()).map(read).toVector }
+    }
 
   "LegacyOutputConfigKeys.normalise" should {
     "equal V117's real DO block on every corpus row" in {
@@ -103,18 +111,18 @@ class LegacyOutputConfigKeysParitySpec extends AnyWordSpec with Matchers with Be
                   | logged_at timestamptz NOT NULL DEFAULT now())""".stripMargin)
         // The DO block's unqualified relations must resolve to the TEMP tables, not anything else.
         for (rel <- Seq("outputs", "hel1387_dropped_output_config_keys")) {
-          val rs = c.createStatement().executeQuery(s"SELECT n.nspname FROM pg_class cl JOIN pg_namespace n ON n.oid = cl.relnamespace WHERE cl.oid = '$rel'::regclass")
-          rs.next() shouldBe true
-          rs.getString(1) should startWith ("pg_temp")
+          val ns = query(c, s"SELECT n.nspname FROM pg_class cl JOIN pg_namespace n ON n.oid = cl.relnamespace WHERE cl.oid = '$rel'::regclass")(_.getString(1))
+          ns should have size 1
+          ns.head should startWith ("pg_temp")
         }
-        val ins = c.prepareStatement("INSERT INTO outputs (id, kind, config) VALUES (?, ?, ?::jsonb)")
-        corpus.foreach { case (id, kind, cfg) => ins.setString(1, id); ins.setString(2, kindName(kind)); ins.setString(3, cfg.compactPrint); ins.addBatch() }
-        ins.executeBatch(); ins.close()
+        Using.resource(c.prepareStatement("INSERT INTO outputs (id, kind, config) VALUES (?, ?, ?::jsonb)")) { ins =>
+          corpus.foreach { case (id, kind, cfg) => ins.setString(1, id); ins.setString(2, kindName(kind)); ins.setString(3, cfg.compactPrint); ins.addBatch() }
+          ins.executeBatch()
+        }
 
         exec(c, doBlock)
 
-        val rs = c.createStatement().executeQuery("SELECT id, config::text FROM outputs")
-        val after = Iterator.continually(rs).takeWhile(_.next()).map(r => r.getString(1) -> r.getString(2).parseJson.asJsObject).toMap
+        val after = query(c, "SELECT id, config::text FROM outputs")(r => r.getString(1) -> r.getString(2).parseJson.asJsObject).toMap
         after.size shouldBe corpus.size
 
         val mismatches = corpus.collect { case (id, kind, cfg) if LegacyOutputConfigKeys.normalise(kind, cfg) != after(id) =>
@@ -125,8 +133,7 @@ class LegacyOutputConfigKeysParitySpec extends AnyWordSpec with Matchers with Be
         val changed = corpus.count { case (id, _, cfg) => after(id) != cfg }
         changed should be > 1500
         corpus.count { case (id, _, cfg) => after(id) == cfg } should be > 50
-        val ars = c.createStatement().executeQuery("SELECT DISTINCT action FROM hel1387_dropped_output_config_keys")
-        val actions = Iterator.continually(ars).takeWhile(_.next()).map(_.getString(1)).toSet
+        val actions = query(c, "SELECT DISTINCT action FROM hel1387_dropped_output_config_keys")(_.getString(1)).toSet
         actions shouldBe Set("kind-inapplicable", "no-live-equivalent", "null-value", "invalid-value", "shadowed-by-live", "renamed")
         // and the Scala side also changed exactly the rows SQL changed
         corpus.count { case (_, k, cfg) => LegacyOutputConfigKeys.normalise(k, cfg) != cfg } shouldBe changed
