@@ -2,7 +2,8 @@
 
 ## Purpose
 The `window` pipeline op computes per-partition ordered analytics — rank, row_number, dense_rank,
-running_sum, lag, and lead — appending one derived column per row while preserving row count, and
+running_sum, lag, lead, and the trailing rolling frames (rolling_avg, rolling_sum, rolling_min,
+rolling_max, rolling_count over N rows or N days) — appending one derived column per row while preserving row count, and
 defines the corresponding `analyze_pipeline` type inference so panels can bind to "rank within
 category", "cumulative total over time", and top-N-per-group results.
 

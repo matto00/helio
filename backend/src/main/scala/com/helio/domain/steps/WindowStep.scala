@@ -15,22 +15,27 @@ import scala.util.Try
  *  semantics; an empty `partitionBy` collapses every row into one partition,
  *  parity with `aggregate`'s empty-`groupBy` behavior). `orderBy` reuses
  *  `SortStep`'s `SortKey` shape to order rows within each partition. `function`
- *  selects one of six supported window functions (`row_number`/`rank`/
- *  `dense_rank`/`running_sum`/`lag`/`lead`); `field` is the source column
- *  required by `running_sum`/`lag`/`lead` (ignored by the rank family).
- *  `outputColumn` names the appended column. `offset` is used by `lag`/`lead`
- *  (defaults to `1` when absent; must be a positive `Int`). */
+ *  selects one of the supported window functions (`row_number`/`rank`/
+ *  `dense_rank`/`running_sum`/`lag`/`lead`, and the HEL-1316 trailing rolling
+ *  family `rolling_avg`/`rolling_sum`/`rolling_min`/`rolling_max`/`rolling_count`);
+ *  `field` is the source column required by `running_sum`/`lag`/`lead`/`rolling_*`
+ *  (ignored by the rank family). `outputColumn` names the appended column.
+ *  `offset` is used by `lag`/`lead` (defaults to `1` when absent; must be a
+ *  positive `Int`). `frameSize` (1..1000) and `frameUnit` (`rows`, the default,
+ *  or `days`) are used by the `rolling_*` functions only. */
 final case class WindowConfig(
     partitionBy: Vector[String],
     orderBy: Vector[SortKey],
     function: String,
     field: Option[String],
     outputColumn: String,
-    offset: Option[Int]
+    offset: Option[Int],
+    frameSize: Option[Int] = None,
+    frameUnit: Option[String] = None
 )
 
 object WindowConfig {
-  implicit val format: RootJsonFormat[WindowConfig] = jsonFormat6(WindowConfig.apply)
+  implicit val format: RootJsonFormat[WindowConfig] = jsonFormat8(WindowConfig.apply)
 
   def decode(raw: String): WindowConfig = {
     val obj          = StepCodecUtil.asObject(raw)
@@ -40,7 +45,9 @@ object WindowConfig {
     val field        = StepCodecUtil.strOpt(obj, "field")
     val outputColumn = StepCodecUtil.str(obj, "outputColumn", "")
     val offset       = StepCodecUtil.intOpt(obj, "offset")
-    WindowConfig(partitionBy, orderBy, function, field, outputColumn, offset)
+    val frameSize    = StepCodecUtil.intOpt(obj, "frameSize")
+    val frameUnit    = StepCodecUtil.strOpt(obj, "frameUnit")
+    WindowConfig(partitionBy, orderBy, function, field, outputColumn, offset, frameSize, frameUnit)
   }
 }
 
@@ -64,7 +71,16 @@ object WindowConfig {
  *  count, `dense_rank` never skips), `running_sum` (cumulative numeric sum
  *  of `field`, reusing `AggregateStep`'s sum coercion — non-numeric/absent
  *  values contribute `0`), `lag`/`lead` (raw, un-coerced `field` value from
- *  `offset` positions before/after; `null` at partition edges). An
+ *  `offset` positions before/after; `null` at partition edges). The
+ *  `rolling_*` functions aggregate a TRAILING frame (the current row and earlier
+ *  rows, never later ones): `frameUnit = rows` is the current row plus the
+ *  `frameSize - 1` rows before it; `days` is every partition row whose single
+ *  ascending `orderBy` key (read as a UTC date, as `datebucket` reads it) lies
+ *  in `[d - (frameSize - 1), d]` (gaps are not filled; same-date rows share one
+ *  frame; a null or unparseable key yields `null` and joins no frame). Leading
+ *  partial frames emit a value over the rows available. Null, non-numeric and
+ *  non-finite values are skipped (not counted as `0`): avg/sum/min/max over no
+ *  values is `null`, `rolling_count` is `0`. An
  *  unsupported `function`, a `running_sum`/`lag`/`lead` missing `field`, or a
  *  non-positive `offset` fails at execute time with a descriptive error
  *  (mirrors `AggregateStep`/`PivotStep`'s unsupported-function error shape). */
@@ -92,8 +108,20 @@ object WindowStep {
   val Kind: String = "window"
 
   // HEL-859 (design.md Decision 5): not `private` — see StringOpsStep.SupportedOperations.
-  val SupportedFunctions: Vector[String] = Vector("row_number", "rank", "dense_rank", "running_sum", "lag", "lead")
-  val FieldRequired: Set[String]         = Set("running_sum", "lag", "lead")
+  val RollingFunctionNames: Vector[String] =
+    Vector("rolling_avg", "rolling_sum", "rolling_min", "rolling_max", "rolling_count")
+  val RollingFunctions: Set[String]        = RollingFunctionNames.toSet
+  val SupportedFunctions: Vector[String] =
+    Vector("row_number", "rank", "dense_rank", "running_sum", "lag", "lead") ++ RollingFunctionNames
+  val FieldRequired: Set[String]         = Set("running_sum", "lag", "lead") ++ RollingFunctions
+
+  /** HEL-1316: the largest `frameSize` a rolling function accepts (bounds per-row work in `rows` mode). */
+  val MaxFrameSize: Int = 1000
+
+  val FrameUnits: Vector[String] = Vector("rows", "days")
+
+  private def frameSizeMessage(function: String, got: String): String =
+    s"window function '$function' requires 'frameSize' to be an integer in 1..$MaxFrameSize, got $got"
 
   /** The one message for an unsupported function, shared by write, analyze and run. */
   def unsupportedFunctionMessage(function: String): String =
@@ -109,7 +137,43 @@ object WindowStep {
       Vector(unsupportedFunctionMessage(cfg.function))
     else if ((cfg.function == "lag" || cfg.function == "lead") && cfg.offset.exists(_ <= 0))
       Vector(s"window function '${cfg.function}' requires a positive 'offset', got ${cfg.offset.get}")
+    else if (RollingFunctions.contains(cfg.function)) rollingFrameProblems(cfg)
     else Vector.empty
+
+  /** HEL-1316: a rolling function's explicit `frameSize` outside 1..[[MaxFrameSize]], an explicit `frameUnit` other
+   *  than `rows`/`days`, or `days` over an `orderBy` that is non-empty and not exactly one ascending key. An absent
+   *  `frameSize` and an empty `orderBy` are drafts, reported by analyze and `apply` but never rejected at write. */
+  private def rollingFrameProblems(cfg: WindowConfig): Vector[String] =
+    if (cfg.frameSize.exists(n => n < 1 || n > MaxFrameSize))
+      Vector(frameSizeMessage(cfg.function, cfg.frameSize.get.toString))
+    else if (cfg.frameUnit.exists(u => !FrameUnits.contains(u)))
+      Vector(s"window function '${cfg.function}' has unsupported frameUnit: '${cfg.frameUnit.get}'. Supported: ${FrameUnits.mkString(", ")}")
+    else if (cfg.frameUnit.contains("days") && cfg.orderBy.nonEmpty &&
+      !(cfg.orderBy.size == 1 && !cfg.orderBy.head.direction.equalsIgnoreCase("desc")))
+      Vector(s"window function '${cfg.function}' with frameUnit 'days' requires exactly one ascending 'orderBy' key")
+    else Vector.empty
+
+  /** HEL-1316 draft problems for a rolling function, in the run order after `field`: missing `frameSize`, then an
+   *  empty `orderBy`. Shared by analyze and `apply`; never a write-time rejection. */
+  def rollingDraftProblems(cfg: WindowConfig): Vector[String] =
+    if (!RollingFunctions.contains(cfg.function)) Vector.empty
+    else if (cfg.frameSize.isEmpty) Vector(s"window function '${cfg.function}' requires 'frameSize'")
+    else if (cfg.orderBy.isEmpty) Vector(s"window function '${cfg.function}' requires a non-empty 'orderBy'")
+    else Vector.empty
+
+  /** HEL-1316 design 7a: the RAW `frameSize` check. `StepCodecUtil.intOpt` maps `7.5` and `5000000000` to `None`,
+   *  which would be stored as a draft; so a present, non-null value that is not an integer in 1..[[MaxFrameSize]] is
+   *  rejected from the raw JSON, as `LimitStep` does for `count`. `null` is absent (a draft). */
+  private def rawFrameSizeProblem(raw: String): Option[String] =
+    Try(JsonParser(raw)).toOption.collect { case o: JsObject => o.fields }.flatMap { fields =>
+      val function = fields.get("function").collect { case JsString(f) => f }.getOrElse("")
+      if (!RollingFunctions.contains(function)) None
+      else
+        fields.get("frameSize").filterNot(_ == JsNull).collect {
+          case JsNumber(n) if !(n.isValidInt && n.toInt >= 1 && n.toInt <= MaxFrameSize) =>
+            frameSizeMessage(function, n.toString)
+        }
+    }
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: WindowConfig): Seq[PipelineRowJson.Row] = {
     // HEL-1422: error order is unsupported function, missing `field`, then a bad offset (the pre-HEL-1416 order,
@@ -126,7 +190,10 @@ object WindowStep {
         )
       else ""
 
-    // The function is supported here, so `enumProblems` can only report a non-positive lag/lead offset.
+    // HEL-1316: a rolling draft is reported after `field` and before the write-time rule.
+    rollingDraftProblems(cfg).headOption.foreach(msg => throw new StepConfigError(msg))
+
+    // The function is supported here, so `enumProblems` reports a non-positive lag/lead offset or a bad rolling frame.
     enumProblems(cfg).headOption.foreach(msg => throw new StepConfigError(msg))
 
     val offset =
@@ -144,18 +211,21 @@ object WindowStep {
     // Stage 2: within each partition, produce a sorted-by-orderBy view
     // (index-tie-broken) solely to compute the function value per row.
     val computed: Map[Int, Any] = partitioned.values.flatMap { groupRows =>
-      val sorted = groupRows.sorted(rowOrdering(cfg.orderBy))
-      cfg.function match {
-        case "row_number"  => computeRowNumber(sorted)
-        case "rank"         => computeRank(sorted, cfg.orderBy, dense = false)
-        case "dense_rank"   => computeRank(sorted, cfg.orderBy, dense = true)
-        case "running_sum"  => computeRunningSum(sorted, fieldName)
-        case "lag"          => computeLagLead(sorted, fieldName, offset, isLag = true)
-        case "lead"         => computeLagLead(sorted, fieldName, offset, isLag = false)
-        case other =>
-          // Unreachable: cfg.function was validated against SupportedFunctions
-          // above. Kept only so the match stays total for the compiler.
-          throw new IllegalStateException(s"Unsupported window function: '$other'")
+      if (RollingFunctions.contains(cfg.function)) WindowRolling.compute(groupRows, cfg, fieldName)
+      else {
+        val sorted = groupRows.sorted(rowOrdering(cfg.orderBy))
+        cfg.function match {
+          case "row_number" => computeRowNumber(sorted)
+          case "rank"       => computeRank(sorted, cfg.orderBy, dense = false)
+          case "dense_rank" => computeRank(sorted, cfg.orderBy, dense = true)
+          case "running_sum" => computeRunningSum(sorted, fieldName)
+          case "lag"        => computeLagLead(sorted, fieldName, offset, isLag = true)
+          case "lead"       => computeLagLead(sorted, fieldName, offset, isLag = false)
+          case other =>
+            // Unreachable: cfg.function was validated against SupportedFunctions
+            // above. Kept only so the match stays total for the compiler.
+            throw new IllegalStateException(s"Unsupported window function: '$other'")
+        }
       }
     }.toMap
 
@@ -167,13 +237,14 @@ object WindowStep {
     }
   }
 
+
   /** Total order over `(row, originalIndex)` pairs: compares each `orderBy`
    *  key in turn using the same numeric-if-both-coerce/else-string semantics
    *  as `SortStep` (nulls sort last regardless of direction), then falls
    *  back to the original index. Including the index as the final criterion
    *  makes this an explicit, total, deterministic order — the tie-break does
    *  not depend on any particular sort algorithm's behavior. */
-  private def rowOrdering(orderBy: Vector[SortKey]): Ordering[(PipelineRowJson.Row, Int)] =
+  private[steps] def rowOrdering(orderBy: Vector[SortKey]): Ordering[(PipelineRowJson.Row, Int)] =
     (a: (PipelineRowJson.Row, Int), b: (PipelineRowJson.Row, Int)) => {
       val (rowA, idxA) = a
       val (rowB, idxB) = b
@@ -268,7 +339,7 @@ object WindowStep {
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind
     override def group: Option[StepGroup]     = Some(StepGroup.Aggregate)
-    override def catalogDescription: String   = "Compute a windowed value, like a rank or running total, over ordered rows."
+    override def catalogDescription: String   = "Compute a windowed value, like a rank, running total or rolling average, over ordered rows."
     def decodeConfig(raw: String): Any    = WindowConfig.decode(raw)
     def encodeConfig(config: Any): String = config.asInstanceOf[WindowConfig].toJson.compactPrint
     def readFromWire(json: JsValue): Any  = json.convertTo[WindowConfig]
@@ -286,7 +357,7 @@ object WindowStep {
     /** HEL-1416: write-time rejection of a non-empty unknown `function` and a lag/lead `offset` <= 0 (the
      *  HEL-1310 pattern). Drafts (empty function, missing `field`) stay accepted (HEL-814 D2). */
     override def validateRawConfig(raw: String): Option[String] =
-      super.validateRawConfig(raw).orElse {
+      super.validateRawConfig(raw).orElse(rawFrameSizeProblem(raw)).orElse {
         Try(WindowConfig.decode(raw)).toOption.flatMap(enumProblems(_).headOption)
       }
   }

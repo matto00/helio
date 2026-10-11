@@ -175,8 +175,9 @@ object RefinementEditShape {
       "top-level string fields):\n" + UnpivotStepExample +
       "\n\nwindow (partitionBy is a list of plain strings; orderBy is a list of {field,direction} objects\n" +
       "— SortStep's own SortKey shape, never plain strings; function is one of\n" +
-      "row_number|rank|dense_rank|running_sum|lag|lead; field/offset are optional and only required by\n" +
-      "running_sum/lag/lead):\n" + WindowStepExample
+      "row_number|rank|dense_rank|running_sum|lag|lead|rolling_avg|rolling_sum|rolling_min|rolling_max|rolling_count;\n" +
+      "field/offset are optional and only required by running_sum/lag/lead/rolling_*; rolling_* also take\n" +
+      "frameSize 1..1000 and frameUnit rows|days):\n" + WindowStepExample
 
   // `target.kind: "panel"`, `op: "update"` — HEL-907 task 1.6/1.8: retargeted onto the Outputs
   // model. A panel is now either an `output`-kind PLACEMENT (bound to a pre-existing Output via

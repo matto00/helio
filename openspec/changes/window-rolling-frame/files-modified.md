@@ -1,0 +1,21 @@
+- `backend/src/main/scala/com/helio/domain/steps/WindowStep.scala` — rolling_* functions, frameSize/frameUnit config, raw frameSize + enum validation, scaladoc, catalog description
+- `backend/src/main/scala/com/helio/domain/steps/WindowRolling.scala` — the trailing-frame algorithm, extracted to keep WindowStep under the size budget
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineStepCatalogService.scala` — palette label now mentions rolling
+- `backend/src/main/scala/com/helio/domain/steps/DateBucketStep.scala` — parseToUtcDate widened to private[steps] for days-mode date parsing
+- `backend/src/main/scala/com/helio/domain/engine/StepConfigValidation.scala` — analyze reports rolling drafts (frameSize/orderBy) before the write-time rule
+- `backend/src/main/scala/com/helio/domain/engine/ReshapeSchemaInference.scala` — rolling_count -> integer, other rolling -> float
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementEditShape.scala` — one doc-string hunk listing rolling functions and frame keys
+- `backend/src/test/scala/com/helio/domain/steps/WindowStepRollingSpec.scala` — hand fixtures: rows/days frames, partitions, null skipping, error order
+- `backend/src/test/scala/com/helio/domain/steps/WindowRollingValidationSpec.scala` — write-time rejection/drafts, legacy codec round-trip
+- `backend/src/test/scala/com/helio/domain/engine/WindowRollingAnalyzeSpec.scala` — analyze types, apply/analyze type parity, referencedFields
+- `backend/src/test/scala/com/helio/api/routes/pipelines/WindowRollingSeamSpec.scala` — seam server half: real routes, analyze, a real run materializing Output rows (unparseable date and null value included), REST 422s
+- `shared-test-fixtures/window-rolling-seam.json` — shared client/server seam fixture
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — WindowFunction union, frameSize/frameUnit
+- `frontend/src/features/pipelines/ui/stepConfigs/WindowConfig.tsx` — rolling functions, frame size input, frame unit select, 7/rows default on switch
+- `frontend/src/features/pipelines/state/stepNarrowing.ts` — windowConfigOf frame fields; op label
+- `frontend/src/features/pipelines/hooks/stepCardFieldHandlers.ts` — persist rule uses shared field-required list, conditional spreads, frame keys for rolling only
+- `frontend/src/features/pipelines/ui/stepConfigs/WindowConfig.test.tsx` — rolling control tests
+- `frontend/src/features/pipelines/ui/stepConfigs/WindowConfig.seam.test.tsx` — seam client half (exact PATCH key set) and field-persist guard
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.test.ts` — new value fields; absent-not-undefined payload keys
+- `helio-mcp/src/tools/write.ts` — window description: rolling functions, frame keys, semantics, types
+- `openspec/specs/pipeline-window-op/spec.md` — Purpose mentions rolling frames

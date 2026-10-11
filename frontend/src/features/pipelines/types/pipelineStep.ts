@@ -101,7 +101,18 @@ export interface PivotConfig {
   values: string;
   agg: "sum" | "count" | "avg" | "min" | "max" | "first";
 }
-export type WindowFunction = "row_number" | "rank" | "dense_rank" | "running_sum" | "lag" | "lead";
+export type WindowFunction =
+  | "row_number"
+  | "rank"
+  | "dense_rank"
+  | "running_sum"
+  | "lag"
+  | "lead"
+  | "rolling_avg"
+  | "rolling_sum"
+  | "rolling_min"
+  | "rolling_max"
+  | "rolling_count";
 export interface WindowConfig {
   partitionBy: string[];
   orderBy: SortKey[];
@@ -109,6 +120,10 @@ export interface WindowConfig {
   field?: string | null;
   outputColumn: string;
   offset?: number | null;
+  /** HEL-1316: rolling_* only. An integer in 1..1000. */
+  frameSize?: number | null;
+  /** HEL-1316: rolling_* only; the server defaults an absent value to "rows". */
+  frameUnit?: "rows" | "days" | null;
 }
 export interface UnpivotConfig {
   idVars: string[];
