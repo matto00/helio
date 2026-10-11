@@ -25,6 +25,8 @@ import {
 } from "./tableFilterPredicate";
 import { resolveColumnFormatter, type FormatIntlOptions } from "./columnFormatting";
 import { LoadedScopeDisclosure } from "./LoadedScopeDisclosure";
+import type { ConditionalFormatRule } from "./conditionalFormatting";
+import { withCellRules, withRowRules } from "./tableConditionalFormats";
 
 interface TableRendererProps {
   /** Bound Output id — renamed from the pre-HEL-909 `panelId` (this always
@@ -110,6 +112,9 @@ interface TableRendererProps {
   /** HEL-1277 — an extra class for a body row (e.g. a changed-row tint), keyed by row OBJECT, so it
    *  survives the table's own sort/filter. Passed straight through to `DataGrid`. */
   rowClassName?: (row: Record<string, unknown>) => string | undefined;
+  /** HEL-1307 — the Output's `conditionalFormats` (table rules: column + cell|row target). Absent/empty →
+   *  the table renders exactly as before. */
+  conditionalFormats?: ConditionalFormatRule[];
   /** HEL-1277 — hides the pin control (a read-only history table keeps it off for every point,
    *  so it never appears and disappears while scrubbing). */
   disablePinning?: boolean;
@@ -297,6 +302,7 @@ export function TableRenderer({
   totalRowCount,
   leadingColumns,
   rowClassName,
+  conditionalFormats,
   disablePinning = false,
 }: TableRendererProps) {
   // Local-only column widths (no longer persisted — see the file's HEL-909
@@ -774,12 +780,21 @@ export function TableRenderer({
   );
 
   const hasLeading = leadingColumns != null && leadingColumns.length > 0;
+  // HEL-1307 -- rules resolve on the RAW row value (never the formatted text), per row object.
+  const ruledColumns = useMemo(
+    () => withCellRules(formattedColumns, conditionalFormats),
+    [formattedColumns, conditionalFormats],
+  );
+  const gridRowClassName = useMemo(
+    () => withRowRules(rowClassName, conditionalFormats),
+    [rowClassName, conditionalFormats],
+  );
   const gridColumns = useMemo<ColumnDef[]>(
     () =>
       hasLeading
-        ? [...leadingColumns.map((c) => ({ ...c, inert: true })), ...formattedColumns]
-        : formattedColumns,
-    [hasLeading, leadingColumns, formattedColumns],
+        ? [...leadingColumns.map((c) => ({ ...c, inert: true })), ...ruledColumns]
+        : ruledColumns,
+    [hasLeading, leadingColumns, ruledColumns],
   );
 
   if (usingPagination || usingRaw) {
@@ -789,7 +804,7 @@ export function TableRenderer({
           variant="full"
           rows={displayRows}
           columns={gridColumns}
-          rowClassName={rowClassName}
+          rowClassName={gridRowClassName}
           columnWidths={widths}
           onColumnResize={handleColumnResize}
           sort={sortState.key === UNSORTED_SENTINEL ? null : sortState}

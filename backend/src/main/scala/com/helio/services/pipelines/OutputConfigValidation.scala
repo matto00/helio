@@ -2,6 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
+import com.helio.domain.outputs.ConditionalFormats
 import com.helio.domain.panels.{ChartTypes, OutputBindingSpec}
 import com.helio.services.ServiceError
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
@@ -20,9 +21,9 @@ object OutputConfigValidation {
 
   val KnownKeys: Map[OutputKind, Set[String]] = Map(
     OutputKind.Chart      -> (Shared ++ Set("chartType", "aggregation", "chartOptions", "annotation")),
-    OutputKind.Metric     -> (Shared ++ Set("aggregation", "label", "unit", "format")),
-    OutputKind.Table      -> (Shared ++ Set("columnOrder", "columnFormats", "columnSort", "columnFilters", "pinnedColumns")),
-    OutputKind.Collection -> (Shared ++ Set("layout", "format")),
+    OutputKind.Metric     -> (Shared ++ Set("aggregation", "label", "unit", "format", "conditionalFormats")),
+    OutputKind.Table      -> (Shared ++ Set("columnOrder", "columnFormats", "columnSort", "columnFilters", "pinnedColumns", "conditionalFormats")),
+    OutputKind.Collection -> (Shared ++ Set("layout", "format", "conditionalFormats")),
     OutputKind.Timeline   -> (Shared ++ Set("sort")),
     OutputKind.Markdown   -> (Shared ++ Set("content"))
   )
@@ -45,7 +46,10 @@ object OutputConfigValidation {
       s"Every kind: ${Shared.toVector.sorted.mkString(", ")}. Per kind -- ${perKind.mkString("; ")}. " +
       "chart aggregation = { groupBy, agg, yField } (all non-empty strings; never on a scatter, heatmap or histogram chart); " +
       "metric aggregation = { agg } (field from fieldMapping.value) or { value, agg }; agg is one of count, sum, avg, min, max; " +
-      s"aggregation may be null. chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
+      "aggregation may be null. conditionalFormats (metric, table, collection) = null/[] or an ordered list (max 20, first match wins) of rules " +
+      "{ op, value, value2?, tone, label?, column?, target? }: op is one of gt, gte, lt, lte, between (numeric value; between also value2 >= value) or eq, neq (number or text value); " +
+      "tone is one of success, warning, error; label is optional text (max 60); a table rule needs column and may set target cell (default) or row; metric/collection rules take no column/target; rules compare the raw unformatted value. " +
+      s"chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
   }
 
   /** `written` = what the caller sent (create body / PATCH patch); `stored` = the pre-write config
@@ -205,10 +209,16 @@ object OutputConfigValidation {
       case OutputConfigWritePolicy.RestorePriorStored => Right(())
     }
     val merged = mergeConfig(stored, written)
+    // HEL-1307: gated like the key check -- a restored prior config is never re-judged.
+    val formatsCheck: Either[ServiceError, Unit] = policy match {
+      case OutputConfigWritePolicy.ValidateWrite      => ConditionalFormats.validateConfig(kind, merged).left.map(ServiceError.BadRequest(_))
+      case OutputConfigWritePolicy.RestorePriorStored => Right(())
+    }
     keyCheck
       .flatMap(_ => validateFieldMapping(kind, merged))
       .flatMap(_ => OutputCompare.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
       .flatMap(_ => PayloadOptIn.validateConfig(merged).left.map(ServiceError.BadRequest(_)))
+      .flatMap(_ => formatsCheck)
   }
 
   /** HEL-1239: shared with `PatchSetPreviewProjection` so an output-update preview merges exactly

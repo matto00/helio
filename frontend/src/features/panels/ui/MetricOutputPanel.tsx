@@ -134,6 +134,7 @@ export function MetricOutputPanel({
       format={cfg.format}
       comparison={comparison}
       sparkline={view.sparkline}
+      conditionalFormats={cfg.conditionalFormats}
     />
   );
 }

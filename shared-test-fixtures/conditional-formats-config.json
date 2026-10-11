@@ -1,0 +1,283 @@
+{
+  "description": "HEL-1307 seam fixture: Output config.conditionalFormats. `valid` cases are accepted by the backend (ConditionalFormats unit + real Output create/PATCH routes, read back identical) and read losslessly by the frontend tolerant reader; those with editorProducible=true are also produced byte-for-byte by the real Output editor (ConditionalFormatsField.seam.test.tsx drives each rule through the UI and compares the PATCH body). `invalid` cases are rejected 400 by the backend (message includes `fragment`) AND flagged by the frontend validateConditionalFormatRule helper (the rule at `ruleIndex`) and dropped by the tolerant reader. A key rename or rule-semantics drift on either side fails one suite.",
+  "valid": [
+    {
+      "name": "metric-threshold-ladder",
+      "kind": "metric",
+      "editorProducible": true,
+      "config": {
+        "conditionalFormats": [
+          { "op": "lt", "value": 50, "tone": "error", "label": "Failing" },
+          { "op": "lt", "value": 80, "tone": "warning" },
+          { "op": "gte", "value": 80, "tone": "success" }
+        ]
+      }
+    },
+    {
+      "name": "metric-between-inclusive",
+      "kind": "metric",
+      "editorProducible": true,
+      "config": {
+        "conditionalFormats": [{ "op": "between", "value": 0.5, "value2": 0.8, "tone": "warning" }]
+      }
+    },
+    {
+      "name": "collection-text-and-number-eq",
+      "kind": "collection",
+      "editorProducible": true,
+      "config": {
+        "conditionalFormats": [
+          { "op": "eq", "value": "failed", "tone": "error" },
+          { "op": "eq", "value": 3, "tone": "warning" },
+          { "op": "neq", "value": "ok", "tone": "warning", "label": "Not ok" }
+        ]
+      }
+    },
+    {
+      "name": "table-cell-and-row",
+      "kind": "table",
+      "editorProducible": true,
+      "config": {
+        "conditionalFormats": [
+          {
+            "op": "lt",
+            "value": 0.8,
+            "tone": "error",
+            "label": "Failing",
+            "column": "pass_rate",
+            "target": "cell"
+          },
+          { "op": "eq", "value": "failed", "tone": "error", "column": "status", "target": "row" },
+          { "op": "gt", "value": 600, "tone": "warning", "column": "duration_s", "target": "cell" }
+        ]
+      }
+    },
+    {
+      "name": "table-unknown-column-is-accepted",
+      "kind": "table",
+      "editorProducible": false,
+      "config": {
+        "conditionalFormats": [
+          {
+            "op": "gte",
+            "value": 1,
+            "tone": "success",
+            "column": "no_such_column",
+            "target": "cell"
+          }
+        ]
+      }
+    },
+    {
+      "name": "null-optional-keys-and-clear",
+      "kind": "table",
+      "editorProducible": false,
+      "config": {
+        "conditionalFormats": [
+          {
+            "op": "gt",
+            "value": 1,
+            "value2": null,
+            "tone": "success",
+            "label": null,
+            "column": "a",
+            "target": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "metric-null-column-and-target",
+      "kind": "metric",
+      "editorProducible": false,
+      "config": {
+        "conditionalFormats": [
+          { "op": "lte", "value": 3, "tone": "error", "column": null, "target": null }
+        ]
+      }
+    },
+    {
+      "name": "empty-list-clears",
+      "kind": "metric",
+      "editorProducible": false,
+      "config": { "conditionalFormats": [] }
+    },
+    {
+      "name": "null-clears",
+      "kind": "collection",
+      "editorProducible": false,
+      "config": { "conditionalFormats": null }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unknown-op",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: op must be one of",
+      "config": { "conditionalFormats": [{ "op": "contains", "value": 1, "tone": "error" }] }
+    },
+    {
+      "name": "unknown-tone",
+      "kind": "metric",
+      "ruleIndex": 1,
+      "fragment": "conditionalFormats[1]: tone must be one of",
+      "config": {
+        "conditionalFormats": [
+          { "op": "gt", "value": 1, "tone": "error" },
+          { "op": "gt", "value": 1, "tone": "purple" }
+        ]
+      }
+    },
+    {
+      "name": "gt-non-number",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value must be a finite number",
+      "config": { "conditionalFormats": [{ "op": "gt", "value": "ten", "tone": "error" }] }
+    },
+    {
+      "name": "gt-missing-value",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value must be a finite number",
+      "config": { "conditionalFormats": [{ "op": "gt", "tone": "error" }] }
+    },
+    {
+      "name": "between-missing-value2",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value2 is required",
+      "config": { "conditionalFormats": [{ "op": "between", "value": 1, "tone": "error" }] }
+    },
+    {
+      "name": "between-reversed",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value must be <= value2",
+      "config": {
+        "conditionalFormats": [{ "op": "between", "value": 9, "value2": 1, "tone": "error" }]
+      }
+    },
+    {
+      "name": "value2-on-non-between",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value2 is only allowed",
+      "config": { "conditionalFormats": [{ "op": "lt", "value": 1, "value2": 2, "tone": "error" }] }
+    },
+    {
+      "name": "unknown-rule-key",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: unknown key",
+      "config": {
+        "conditionalFormats": [{ "op": "lt", "value": 1, "tone": "error", "color": "red" }]
+      }
+    },
+    {
+      "name": "eq-whitespace-text",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value must be",
+      "config": { "conditionalFormats": [{ "op": "eq", "value": "   ", "tone": "error" }] }
+    },
+    {
+      "name": "eq-boolean",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: value must be",
+      "config": { "conditionalFormats": [{ "op": "eq", "value": true, "tone": "error" }] }
+    },
+    {
+      "name": "empty-label",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: label must be",
+      "config": {
+        "conditionalFormats": [{ "op": "lt", "value": 1, "tone": "error", "label": "  " }]
+      }
+    },
+    {
+      "name": "table-missing-column",
+      "kind": "table",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: column is required",
+      "config": { "conditionalFormats": [{ "op": "lt", "value": 1, "tone": "error" }] }
+    },
+    {
+      "name": "table-bad-target",
+      "kind": "table",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: target must be",
+      "config": {
+        "conditionalFormats": [
+          { "op": "lt", "value": 1, "tone": "error", "column": "a", "target": "column" }
+        ]
+      }
+    },
+    {
+      "name": "metric-with-column",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: column is only allowed",
+      "config": {
+        "conditionalFormats": [{ "op": "lt", "value": 1, "tone": "error", "column": "a" }]
+      }
+    },
+    {
+      "name": "collection-with-target",
+      "kind": "collection",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: target is only allowed",
+      "config": {
+        "conditionalFormats": [{ "op": "lt", "value": 1, "tone": "error", "target": "row" }]
+      }
+    },
+    {
+      "name": "rule-not-an-object",
+      "kind": "metric",
+      "ruleIndex": 0,
+      "fragment": "conditionalFormats[0]: rule must be an object",
+      "config": { "conditionalFormats": ["red"] }
+    },
+    {
+      "name": "not-an-array",
+      "kind": "metric",
+      "ruleIndex": null,
+      "fragment": "conditionalFormats must be",
+      "config": { "conditionalFormats": { "op": "lt" } }
+    },
+    {
+      "name": "too-many-rules",
+      "kind": "metric",
+      "ruleIndex": null,
+      "fragment": "at most 20",
+      "config": {
+        "conditionalFormats": [
+          { "op": "gt", "value": 0, "tone": "error" },
+          { "op": "gt", "value": 1, "tone": "error" },
+          { "op": "gt", "value": 2, "tone": "error" },
+          { "op": "gt", "value": 3, "tone": "error" },
+          { "op": "gt", "value": 4, "tone": "error" },
+          { "op": "gt", "value": 5, "tone": "error" },
+          { "op": "gt", "value": 6, "tone": "error" },
+          { "op": "gt", "value": 7, "tone": "error" },
+          { "op": "gt", "value": 8, "tone": "error" },
+          { "op": "gt", "value": 9, "tone": "error" },
+          { "op": "gt", "value": 10, "tone": "error" },
+          { "op": "gt", "value": 11, "tone": "error" },
+          { "op": "gt", "value": 12, "tone": "error" },
+          { "op": "gt", "value": 13, "tone": "error" },
+          { "op": "gt", "value": 14, "tone": "error" },
+          { "op": "gt", "value": 15, "tone": "error" },
+          { "op": "gt", "value": 16, "tone": "error" },
+          { "op": "gt", "value": 17, "tone": "error" },
+          { "op": "gt", "value": 18, "tone": "error" },
+          { "op": "gt", "value": 19, "tone": "error" },
+          { "op": "gt", "value": 20, "tone": "error" }
+        ]
+      }
+    }
+  ]
+}

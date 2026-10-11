@@ -46,6 +46,9 @@ export interface ColumnDef {
   /** HEL-1277 — a render-only column (e.g. a derived "Change" marker): no sort control, no
    *  per-column filter input and no resize handle, so it can never be mistaken for data. */
   inert?: boolean;
+  /** HEL-1307 -- an optional class for this column's body `<td>` (per row), e.g. a conditional-format tone.
+   *  Additive: absent keeps the `<td>` exactly as before. */
+  cellClassName?: (row: Record<string, unknown>) => string | undefined;
 }
 
 type DataGridVariant = "full" | "preview";
@@ -1250,9 +1253,14 @@ export function DataGrid({
                       <td
                         key={col.key}
                         className={
-                          isPinned
-                            ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
-                            : undefined
+                          [
+                            isPinned
+                              ? `ui-data-grid__pinned-cell${isLastPinned ? " ui-data-grid__pinned-cell--last" : ""}`
+                              : null,
+                            col.cellClassName?.(row),
+                          ]
+                            .filter(Boolean)
+                            .join(" ") || undefined
                         }
                         style={{
                           ...(col.align ? { textAlign: col.align } : undefined),

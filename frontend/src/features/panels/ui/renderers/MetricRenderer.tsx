@@ -4,6 +4,8 @@ import type { MappedPanelData } from "../../types/panel";
 import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import { FILTERED_NOTE, type MetricComparison } from "../../history/metricHistoryView";
 import { MetricSparkline } from "./MetricSparkline";
+import { resolveRule, ruleName, type ConditionalFormatRule } from "./conditionalFormatting";
+import { ToneGlyph, ToneSrText } from "./ToneGlyph";
 
 interface MetricRendererProps {
   data?: MappedPanelData | null;
@@ -15,6 +17,9 @@ interface MetricRendererProps {
   comparison?: MetricComparison | null;
   /** HEL-1275 — values oldest to newest; rendered only with at least two. */
   sparkline?: number[] | null;
+  /** HEL-1307 -- threshold rules (first match wins) evaluated against the RAW `data.value`. `undefined`,
+   *  `null` and `[]` render exactly as before. */
+  conditionalFormats?: ConditionalFormatRule[] | null;
 }
 
 /** Cap the metric value slot's rendered decimal precision at 2 fraction digits (no thousands
@@ -98,7 +103,13 @@ function ComparisonLine({
   );
 }
 
-export function MetricRenderer({ data, format, comparison, sparkline }: MetricRendererProps) {
+export function MetricRenderer({
+  data,
+  format,
+  comparison,
+  sparkline,
+  conditionalFormats,
+}: MetricRendererProps) {
   const trend = data?.trend;
   const trendDirectionClass = trend
     ? trend.startsWith("+")
@@ -115,11 +126,26 @@ export function MetricRenderer({ data, format, comparison, sparkline }: MetricRe
   // than resolved from a bound column) is out of scope for this ticket; see the sibling
   // config-depth ticket under HEL-291.
   const hasValue = !!data?.value;
+  const matched = resolveRule(conditionalFormats, data?.value);
+  const valueText = formatMetricValue(data?.value, format) || "--";
 
   return (
     <div className="panel-content panel-content--metric">
       <span className="panel-content__metric-value">
-        {formatMetricValue(data?.value, format) || "--"}
+        {matched ? (
+          // The tone class wraps ONLY the glyph, the value text and the sr text. The unit stays a sibling
+          // outside it so it keeps inheriting the panel colour (`--panel-text-override`) exactly as today.
+          <span
+            className={`panel-content__metric-figure panel-content__metric-figure--tone-${matched.tone}`}
+            title={ruleName(matched)}
+          >
+            <ToneGlyph tone={matched.tone} size="lg" />
+            {valueText}
+            <ToneSrText rule={matched} />
+          </span>
+        ) : (
+          valueText
+        )}
         {data?.unit && <span className="panel-content__metric-unit">{data.unit}</span>}
       </span>
       {/* The "No data" fallback is keyed on value presence, not label presence — a missing

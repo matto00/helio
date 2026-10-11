@@ -121,3 +121,95 @@
     min-height: 44px;
   }
 }
+
+/* HEL-1307 conditional formatting -- table rows and cells. Tokens only (--app-<tone>, --app-<tone>-surface),
+   so both themes follow. Exactly ONE wash per cell:
+   - a row rule paints its <td>s, never the <tr>; unpinned cells take the plain translucent surface;
+   - a pinned (sticky, opaque) cell layers the surface over the panel surface so the wash is visible and not
+     doubled, and out-ranks `.ui-data-grid__table tbody td.ui-data-grid__pinned-cell` (0,2,2);
+   - a cell-rule class REPLACES the row wash on its cell (higher specificity, same property), pinned or not.
+   `:where()` keeps the row selectors at the lowest specificity that still beats the pinned base rule. */
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-success) td {
+  background: var(--app-success-surface);
+}
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-success) td.ui-data-grid__pinned-cell {
+  background:
+    linear-gradient(var(--app-success-surface), var(--app-success-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-success {
+  color: var(--app-success);
+  background: var(--app-success-surface);
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__pinned-cell.ui-data-grid__cell--tone-success {
+  background:
+    linear-gradient(var(--app-success-surface), var(--app-success-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__tone-mark--success {
+  color: var(--app-success);
+}
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-warning) td {
+  background: var(--app-warning-surface);
+}
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-warning) td.ui-data-grid__pinned-cell {
+  background:
+    linear-gradient(var(--app-warning-surface), var(--app-warning-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-warning {
+  color: var(--app-warning);
+  background: var(--app-warning-surface);
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__pinned-cell.ui-data-grid__cell--tone-warning {
+  background:
+    linear-gradient(var(--app-warning-surface), var(--app-warning-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__tone-mark--warning {
+  color: var(--app-warning);
+}
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-error) td {
+  background: var(--app-error-surface);
+}
+
+.ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-error) td.ui-data-grid__pinned-cell {
+  background:
+    linear-gradient(var(--app-error-surface), var(--app-error-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-error {
+  color: var(--app-error);
+  background: var(--app-error-surface);
+}
+
+.ui-data-grid__table tbody tr td.ui-data-grid__pinned-cell.ui-data-grid__cell--tone-error {
+  background:
+    linear-gradient(var(--app-error-surface), var(--app-error-surface)),
+    var(--panel-surface-override, var(--app-surface));
+}
+
+.ui-data-grid__tone-mark--error {
+  color: var(--app-error);
+}
+
+/* The mark stays INLINE (no block/flex) so the td's ellipsis truncation keeps working. */
+.ui-data-grid__tone-mark {
+  margin-right: var(--space-1);
+}
+
+.ui-data-grid__tone-mark .tone-glyph {
+  vertical-align: text-bottom;
+}

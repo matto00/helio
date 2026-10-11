@@ -9,6 +9,7 @@ import type { ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { BoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
 import type { AggregateConfig } from "../../types/pipelineStep";
 import type { NodeCapabilities, OutputKind } from "../../types/output";
+import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import {
   isAggFn,
   isMetricFormat,
@@ -57,6 +58,19 @@ export interface BuildOutputConfigParams {
   collectionFieldMapping: Record<string, string>;
   collectionFormat: string;
   timelineFieldMapping: Record<string, string>;
+  // HEL-1307 -- metric / collection / table threshold rules. Emitted only when there are rules or the stored
+  // config already had the key (`conditionalFormatsStored`, then `[]` clears -- an omitted key would keep
+  // the old rules through the shallow config merge), so Outputs without rules build byte-identical configs.
+  conditionalFormats?: ConditionalFormatRule[];
+  conditionalFormatsStored?: boolean;
+}
+
+/** HEL-1307 -- the `conditionalFormats` entry of a kind's config, or nothing. */
+function conditionalFormatsEntry(
+  params: Pick<BuildOutputConfigParams, "conditionalFormats" | "conditionalFormatsStored">,
+): { conditionalFormats?: ConditionalFormatRule[] } {
+  const rules = params.conditionalFormats ?? [];
+  return rules.length > 0 || params.conditionalFormatsStored ? { conditionalFormats: rules } : {};
 }
 
 /** HEL-1275 design.md D7 — `"none"` becomes a literal `null`, never an omitted key: `PATCH
@@ -114,6 +128,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
         fieldMapping: params.tableFieldMapping,
         columnOrder: params.tableColumnOrder,
         columnFormats: params.tableColumnFormats,
+        ...conditionalFormatsEntry(params),
       };
     case "metric":
       return {
@@ -136,6 +151,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
         unit: literalOrNull(params.metricUnitState),
         format: readFormatOrNull(params.metricFormat),
         compare: compareOrNull(params.compare),
+        ...conditionalFormatsEntry(params),
       };
     case "markdown":
       // Literal-only: `OutputBindingSpec.Markdown` has no fieldMapping slots (HEL-1139).
@@ -145,6 +161,7 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
         fieldMapping: params.collectionFieldMapping,
         layout: "grid",
         format: readFormatOrNull(params.collectionFormat),
+        ...conditionalFormatsEntry(params),
       };
     case "timeline":
       return { fieldMapping: params.timelineFieldMapping, sort: "asc" };
@@ -200,6 +217,8 @@ export function buildAggregateTailConfigs(
     | "metricUnitState"
     | "metricFormat"
     | "compare"
+    | "conditionalFormats"
+    | "conditionalFormatsStored"
   >,
   capabilities: NodeCapabilities | undefined,
 ): { aggregateConfig: AggregateConfig; outputConfig: Record<string, unknown> } | null {
@@ -247,6 +266,7 @@ export function buildAggregateTailConfigs(
         params.metricUnitState.mode === "literal" ? params.metricUnitState.literalValue : undefined,
       format: readFormatOrNull(params.metricFormat),
       compare: compareOrNull(params.compare),
+      ...conditionalFormatsEntry(params),
     },
   };
 }
