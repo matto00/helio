@@ -33,7 +33,8 @@ object EvaluationError {
  *     than `*`/`/`, repeatable, strict grammar only); `-`/`*`/`/` are numeric-strict,
  *     `+` is coercion-permissive (string concatenation if either side is a string)
  *   - Function calls: `concat`, `substring`, `lower`, `upper`, `length`, and the numeric
- *     `floor`, `ceil`, `round(x[, digits])`, `mod`, `abs` (strict numeric, null-propagating)
+ *     `floor`, `ceil`, `round(x[, digits])`, `mod`, `abs` (strict numeric, null-propagating), `coalesce`, and the UTC date/time
+ *     `seconds_between(end, start)`, `date_trunc("unit", ts)`, `add_days(ts, n)` (HEL-1314; see `ExpressionDateTimeFunctions`)
  *   - Parenthesised sub-expressions
  *   - No external library dependencies
  *
@@ -52,8 +53,7 @@ object EvaluationError {
  * `$`-required grammar for anyone asking "is this well-formed" — including brand-new
  * user input, not just legacy data.
  *
- * `evaluate()` (row-execution, used by `ComputeStep.apply` and
- * `SourceService.applyComputedFields`) and `validateTolerant()` (its sole production caller,
+ * `evaluate()` (row-execution, one-shot; `ComputeStep.apply` uses `compile`) and `validateTolerant()` (its sole production caller,
  * `DataTypeService`, was retired outright by HEL-904 — no callers remain in
  * `backend/src/main`, though `ExpressionEvaluatorSpec` still exercises it directly; kept for
  * the strict/legacy-tolerant contract this file documents) retry via a
@@ -68,11 +68,17 @@ object ExpressionEvaluator {
   /** Every function name `checkArity`/`applyFn` accepts, alphabetical. Drives the unknown-function
    *  message; `ExpressionEvaluatorSpec` probes it against the dispatcher in both directions. */
   private[engine] val SupportedFunctions: Vector[String] =
-    Vector("abs", "ceil", "coalesce", "concat", "floor", "length", "lower", "mod", "round", "substring", "upper")
+    Vector(
+      "abs", "add_days", "ceil", "coalesce", "concat", "date_trunc", "floor", "length", "lower", "mod", "round",
+      "seconds_between", "substring", "upper"
+    )
 
   /** The numeric-in/numeric-out subset of `SupportedFunctions` (all infer `"float"`); the infer/apply
    *  parity test iterates it, so a new numeric function must be classified here. */
   private[engine] val NumericFunctions: Vector[String] = Vector("abs", "ceil", "floor", "mod", "round")
+
+  /** The date/time subset of `SupportedFunctions` (HEL-1314); the infer/apply parity test iterates it. */
+  private[engine] val DateTimeFunctions: Vector[String] = Vector("seconds_between", "date_trunc", "add_days")
 
   /** HEL-888 design.md Decision 1. The write/run-path static predicate:
    *  is `expr` parseable at all — under the same strict-then-legacy grammar
@@ -221,8 +227,7 @@ object ExpressionEvaluator {
    * producing their pre-change output (design.md Decision 4).
    *
    * Implemented as `compile` + `eval` (HEL-888 D6); kept as a one-shot
-   * convenience entry point for callers (`SourceService.applyComputedFields`,
-   * tests) that evaluate an expression against a single row and have no
+   * convenience entry point for callers (tests, ad-hoc single-row use) that evaluate an expression against a single row and have no
    * reason to hold onto a `CompiledExpression`. `parseProblem` above is this
    * same parse arm with evaluation removed — a change to one's parse
    * behavior belongs in both.

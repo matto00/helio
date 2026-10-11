@@ -6,6 +6,8 @@ import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit}
 // Static result-type inference over the parsed AST.
 private[engine] object ExpressionTypeInference {
 
+  private val TextLike = Set("string", "timestamp")
+
   private[engine] def inferTypeOf(expr: Expr, fieldTypes: Map[String, String]): Either[String, String] =
     expr match {
       case NumLit(_) => Right("float")
@@ -17,8 +19,9 @@ private[engine] object ExpressionTypeInference {
           lt <- inferTypeOf(l, fieldTypes)
           rt <- inferTypeOf(r, fieldTypes)
         } yield {
-          if (op == '+' && (lt == "string" || rt == "string")) "string"
-          else if (op == '+') "float"
+          // A timestamp value is text at evaluation time (cast keeps the string, SQL timestamps are
+          // stringified), so `+` with one concatenates rather than adds.
+          if (op == '+' && (TextLike(lt) || TextLike(rt))) "string"
           else "float"
         }
       // Same rule as binary `-`: always numeric, whatever the operand (an unknown field still fails).
@@ -32,6 +35,8 @@ private[engine] object ExpressionTypeInference {
             name match {
               case "coalesce"                                         => coalesceType(ts)
               case n if n == "length" || NumericFunctions.contains(n) => Right("float")
+              case "seconds_between"                                  => Right("float")
+              case "date_trunc" | "add_days"                          => Right("timestamp")
               case _ => Right("string") // concat, substring, lower, upper
             }
           }

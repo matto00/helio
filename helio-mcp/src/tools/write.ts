@@ -7,6 +7,7 @@
  * validation.
  */
 
+import { COMPUTE_EXPRESSION_DOC } from "./computeExpression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -381,6 +382,9 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "groupBy/cast/select/limit/sort/aggregate/datebucket/pivot/window/unpivot/dedupe/fillnull/" +
         "stringops/union/lookup/assert/upsertsource/convertformat/analyzewithai/generatetext; `config` shape is " +
         "keyed by `type` (e.g. limit → {count}, select → {fields:[…]}, sort → {sortBy:[{field,direction}]}, " +
+        "compute → " +
+        COMPUTE_EXPRESSION_DOC +
+        "; " +
         "datebucket → {field, granularity: 'day'|'week'|'month'|'quarter'|'year', outputColumn?} " +
         "— floors `field` to the start of the granularity bucket in UTC, writing the result to " +
         "`outputColumn` if given, else overwriting `field` in place; " +

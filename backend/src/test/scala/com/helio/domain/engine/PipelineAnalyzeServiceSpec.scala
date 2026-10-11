@@ -306,7 +306,7 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       val cfg    = """{"column":"r","expression":"reverse($order_id)","type":"string"}"""
       val result = analyze(Vector(step("compute", cfg)), baseSchema)
 
-      result(0).validationError.get should include("supported functions: abs, ceil, coalesce, concat, floor")
+      result(0).validationError.get should include("supported functions: abs, add_days, ceil, coalesce, concat, date_trunc, floor")
       result(0).outputSchema shouldBe baseSchema
     }
 

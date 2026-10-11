@@ -21,6 +21,7 @@
  * that module's docstring for the TS2589 reasoning).
  */
 
+import { COMPUTE_EXPRESSION_DOC } from "./computeExpression.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -131,6 +132,9 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "an ordered list of `{clientId, type, config, parentStepId?}` steps (parentStepId, when " +
         "present, must be an EARLIER step's clientId in this same proposal — branches off that step; " +
         "absent extends the trunk) — may be empty to bind the raw source schema unchanged. " +
+        "A `compute` step's config is " +
+        COMPUTE_EXPRESSION_DOC +
+        ". " +
         "`outputs` (optional, empty by default) is a list of `{kind, name, nodeStepClientId?}` " +
         "Outputs; nodeStepClientId resolves against steps[].clientId, absent means the pipeline's " +
         "raw source. " +
@@ -174,6 +178,9 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "(field-not-in-input-schema, join-key-type-mismatch -- join OR lookup keys --, join-column-renamed, numeric-op-on-text-field) computed from " +
         "the inferred schemas; they never set a validationError, they do NOT affect canRun (or block apply/run), and are distinct from " +
         "propose_pipeline's warnings strings (which drive applyReady) and from run warnings. " +
+        "A `compute` step's config is " +
+        COMPUTE_EXPRESSION_DOC +
+        ". " +
         OUTPUT_CONFIG_KEYS_DOC,
       inputSchema: pipelineProposalInputSchema,
     },
