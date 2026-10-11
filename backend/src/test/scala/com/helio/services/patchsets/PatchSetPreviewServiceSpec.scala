@@ -501,7 +501,7 @@ class PatchSetPreviewServiceSpec
     // HEL-671 skeptic-final-1.md CR-2: proves the ticket's CENTRAL claim as a tested fact, not a
     // code-read inference — a wrong-shape `join` edit (missing `joinKey`, decodes silently to
     // `joinKey = ""` per `JoinConfig.decode`/`RefinementEditShapeSpec`'s negative-control test)
-    // passes `preview` (i.e. `PatchSetApplyResolvers.validateEmbeddedStepReferences`'s
+    // passes `preview` (i.e. `PatchSetApplyResolvers.validateEmbeddedStepReferences`'s [now `PatchSetPipelineStepResolvers.validateEmbeddedStepReferences`]
     // `case Success(jc: JoinConfig) => ... findByIdOwned check ...`) because that check only
     // validates `rightDataSourceId` referentially — it never inspects `joinKey`/`joinType` at all.
     // CHARACTERIZATION-TEST WARNING (added post skeptic-final-2.md CONFIRM): this test
