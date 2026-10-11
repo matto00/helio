@@ -82,6 +82,30 @@ object LayoutPolicy {
     Patch(keep(patch.lg), keep(patch.md), keep(patch.sm), keep(patch.xs))
   }
 
+  /** The one live-panel layout resolution a dashboard update write AND its patch-set preview both run, so
+   *  they cannot drift apart (HEL-1485): `stored` and the supplied breakpoints are restricted to `panelIds`,
+   *  then the patch is resolved under `policy`. Returns the live stored layout (what an update that supplies
+   *  no layout writes back) and the resolved patched layout (`Right(None)` when no patch was supplied).
+   *  A rename-only update writes just the name and returns the stored row, layout unfiltered, on purpose;
+   *  that branch never reaches this function, so do not "fix" it on one side only. */
+  def resolveOnLive(
+      stored: DashboardLayout,
+      patchOpt: Option[Patch],
+      panelIds: Set[PanelId],
+      policy: LayoutWritePolicy
+  ): (DashboardLayout, Either[String, Option[DashboardLayout]]) = {
+    val live = onlyPanels(stored, panelIds)
+    val resolved = patchOpt.map(onlyPanels(_, panelIds)) match {
+      case None => Right(None)
+      case Some(patch) =>
+        policy match {
+          case LayoutWritePolicy.Validate           => apply(live, patch).map(Some(_))
+          case LayoutWritePolicy.RestorePriorStored => Right(Some(applyUnvalidated(live, patch)))
+        }
+    }
+    (live, resolved)
+  }
+
   /** Merge `patch` into `existing`: absent and identical breakpoints keep the stored value (and
    *  stored order); changed ones must be valid, else `Left(message)` and nothing should be saved. */
   def apply(existing: DashboardLayout, patch: Patch): Either[String, DashboardLayout] = {
