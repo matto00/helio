@@ -6,6 +6,7 @@ import type { ChartClickSelection } from "../../../../utils/chartClickSelection"
 import type { ChartAggregationSpec, ChartOverlay } from "../../history/chartOverlay";
 import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
+import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import { binHistogram } from "../../../../utils/histogramBins";
 
 // HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
@@ -41,6 +42,8 @@ interface ChartRendererProps {
    *  the CSS shows it and visually hides (never removes) the full sentence, so the note fits one
    *  line and leaves the chart canvas more room; absent renders the full sentence alone. */
   truncationNoteShort?: string | null;
+  /** HEL-1305: forwarded to `ChartPanel` — field name -> declared schema type (time x axis). */
+  fieldTypes?: ChartFieldTypes | null;
   /** HEL-301: forwarded to `ChartPanel` — see its `compact` prop. */
   compact?: boolean;
   /** HEL-572: forwarded to `ChartPanel` — see its `onDataPointSelect` prop. */
@@ -66,6 +69,7 @@ export function ChartRenderer({
   annotation,
   truncationNote,
   truncationNoteShort,
+  fieldTypes,
   compact,
   onDataPointSelect,
 }: ChartRendererProps) {
@@ -97,6 +101,7 @@ export function ChartRenderer({
             chartOptions={chartOptions}
             overlay={overlay}
             referenceMarks={referenceMarks}
+            fieldTypes={fieldTypes}
             compact={compact}
             onDataPointSelect={onDataPointSelect}
           />

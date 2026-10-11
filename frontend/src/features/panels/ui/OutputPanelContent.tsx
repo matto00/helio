@@ -168,6 +168,7 @@ export function OutputPanelContent({
         outputId={outputId}
         pipelineId={"pipelineId" in output ? output.pipelineId : undefined}
         config={output.config}
+        schema={output.schema}
         appearance={appearance}
         rawRows={filteredRawRows}
         headers={headers}
