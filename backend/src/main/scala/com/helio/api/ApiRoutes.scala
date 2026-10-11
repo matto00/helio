@@ -355,10 +355,22 @@ final class ApiRoutes(
   private val productEventService = new ProductEventService(new ProductEventRepository(dbContext), SystemClock)
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService))
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
+  // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
+  // constructed early (before sourceService) so SourceService.createRest's legacy-url
+  // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
+  // through; reused (not re-constructed) at connectorEntityServiceOpt's site below.
+  // HEL-1497: declared BEFORE `dataSourceService`, which takes it; a `private val` read before its initializer has
+  // run is `null` (no compile error), which would silently disable the source-delete Connector cleanup.
+  private val connectorRepo: ConnectorRepository = {
+    val masterKeyProvider = new EnvMasterKeyProvider()
+    val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
+    val connectorCredentialRepo = new ConnectorCredentialRepository(dbContext, secretBackend)
+    new ConnectorRepository(dbContext, connectorCredentialRepo)
+  }
   // HEL-1087: constructed ahead of `panelService` (moved up from its former position below
   // `autoLayoutService`) so `panelService` can wire it in for `submitForm` — no behavior change
   // to `dataSourceService` itself, only its construction ORDER.
-  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService, autoRunTriggerServiceOpt.orNull)
+  private val dataSourceService = new DataSourceService(dataSourceRepo, fileSystem, dataSourceUrlResolveHost, dataSourceUrlIsBlocked, auditService, autoRunTriggerServiceOpt.orNull, connectorRepo)
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
@@ -374,16 +386,6 @@ final class ApiRoutes(
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
-  // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
-  // constructed early (before sourceService) so SourceService.createRest's legacy-url
-  // dual-support path (task 1.2a) has a repository to synthesize an implicit Connector
-  // through; reused (not re-constructed) at connectorEntityServiceOpt's site below.
-  private val connectorRepo: ConnectorRepository = {
-    val masterKeyProvider = new EnvMasterKeyProvider()
-    val secretBackend     = new EncryptedSecretBackend(masterKeyProvider)
-    val connectorCredentialRepo = new ConnectorCredentialRepository(dbContext, secretBackend)
-    new ConnectorRepository(dbContext, connectorCredentialRepo)
-  }
   private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepo, sqlUrlResolveHost, sqlUrlIsBlocked)
   // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
   // DataTypes no longer exist.

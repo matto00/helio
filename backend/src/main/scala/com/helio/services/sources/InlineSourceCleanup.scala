@@ -1,9 +1,11 @@
 package com.helio.services.sources
 
 import com.helio.api.protocols.pipelines.CreatePipelineRootRequest
+import com.helio.domain.connectors.ConnectorAuthShape
 import com.helio.domain.model.{AuthenticatedUser, ConnectorId, DataSourceId, DataSourceKind, RestSource}
 import com.helio.services.ServiceError
 import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository, DataSourceRepository}
+import org.postgresql.util.PSQLException
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,10 +43,45 @@ private[services] final class ImplicitConnectorCleanup(
       log.warn(s"$context failed to delete implicit connector ${connectorId.value}: ${ex.getMessage}")
       false
     }
+
+  /** HEL-1497: removes the Connector a deleted `rest_api` source pointed at, only when it is an UNADOPTED
+   *  auto-created one: the server-owned `config.implicit` flag is true AND the name still starts with `Auto: `
+   *  (a rename adopts it), and the REAL referencing-source count is zero. Owner-scoped (`findByIdOwned`, and the
+   *  repository's `delete` re-checks it). The source must already be deleted, or the dependents guard refuses.
+   *
+   *  Never throws and never logs a message, config or credential: failures log the connector id, the context, the
+   *  exception class and (for a database error) the SQLSTATE only. Returns `false` only on a failure. */
+  def deleteIfUnadoptedImplicit(connectorId: ConnectorId, user: AuthenticatedUser, context: String): Future[Boolean] =
+    Future.unit.flatMap(_ => connectorRepo.findByIdOwned(connectorId, user)).flatMap {
+      case None => Future.successful(true)
+      case Some(connector) =>
+        val implicitFlag = ConnectorAuthShape.parse(connector.config).`implicit`
+        val autoNamed    = connector.name.startsWith(ImplicitConnectorCleanup.AutoPrefix)
+        if (!implicitFlag || !autoNamed) {
+          log.info(s"$context kept connector ${connectorId.value}: not an unadopted auto-created connector (implicit=$implicitFlag, autoNamed=$autoNamed)")
+          Future.successful(true)
+        } else
+          connectorRepo.delete(connectorId, user, id => dataSourceRepo.countRestSourcesReferencing(id)).map {
+            case Right(_) => true
+            case Left(ConnectorHasDependents) =>
+              log.info(s"$context kept connector ${connectorId.value}: another source still references it")
+              true
+          }
+    }.recover { case ex =>
+      val sqlState = ex match {
+        case p: PSQLException => s" sqlstate=${p.getSQLState}"
+        case _                => ""
+      }
+      log.warn(s"$context failed to delete unadopted connector ${connectorId.value}: ${ex.getClass.getSimpleName}$sqlState")
+      false
+    }
 }
 
 private[services] object ImplicitConnectorCleanup {
-  def autoName(sourceName: String): String = s"Auto: $sourceName"
+  /** The name prefix `SourceService.createRest` gives a synthesized Connector (HEL-822). */
+  val AutoPrefix: String = "Auto: "
+
+  def autoName(sourceName: String): String = s"$AutoPrefix$sourceName"
 }
 
 /** The shared "delete what this call created" step for an inline pipeline-root source (HEL-1475): deletes the source
