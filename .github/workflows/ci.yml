@@ -139,8 +139,8 @@ jobs:
       # actually runs, so the hook and CI cannot silently diverge again.
       - run: npm run check:precommit-ci-parity
       - run: npm run check:precommit-ci-parity:selftest
-      # HEL-1428: every ci.yml job must be in ci-complete.needs (fail-closed). The hook runs the check; the selftest is CI-only.
-      - run: npm run check:ci-complete-needs
+      # HEL-1428: every ci.yml job must be in ci-complete.needs (fail-closed). The hook runs the check, and in CI the
+      # `ci-complete` job itself does (HEL-1462: not here, or dropping `frontend` from needs would disarm it); the selftest is CI-only.
       - run: npm run check:ci-complete-needs:selftest
       # HEL-1299: cache-budget tooling. CI-only on purpose, like the other selftests above that avoid touching
       # `.husky/**`; check:precommit-ci-parity only requires hook checks to appear here, not the reverse.
@@ -693,8 +693,9 @@ jobs:
     if: always()
     needs: [frontend, backend, security, e2e, docker-image]
     runs-on: ubuntu-latest
-    # HEL-1287 D11: measured 2-4 s of execution; 2 min leaves runner start-up jitter.
-    timeout-minutes: 2
+    # HEL-1287 D11: 2-4 s of execution for the results step; HEL-1462 adds checkout + root `npm ci` + the needs guard
+    # (estimated well under a minute from the npm cache), so 6 min leaves headroom.
+    timeout-minutes: 6
     steps:
       - name: Verify no job failed or was cancelled
         run: |
@@ -707,3 +708,14 @@ jobs:
             echo "A required CI job was cancelled." >&2; exit 1
           fi
           echo "All CI jobs succeeded or were skipped."
+      # HEL-1462: run the needs guard inside the required job itself (no step-level `if:`). Hosted in `frontend` it was
+      # only awaited via `ci-complete.needs`, so dropping `frontend` from needs disarmed it. The guard also fails if
+      # this step is removed. Root `npm ci` only: js-yaml is a root devDependency.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run check:ci-complete-needs
