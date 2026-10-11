@@ -14,7 +14,8 @@ import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
-import PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
+import PatchSetApplicationRepository.{JournaledEdit, JournaledInlineSource, PatchSetApplicationRecord}
+import org.slf4j.LoggerFactory
 import spray.json.JsValue
 
 import java.time.Instant
@@ -65,6 +66,8 @@ final class PatchSetApplyService(
     outputRepo: OutputRepository,
     outputService: OutputService = null
 )(implicit ec: ExecutionContext) {
+
+  private val log = LoggerFactory.getLogger(getClass)
 
   private[services] val context: PatchSetApplyContext =
     PatchSetApplyContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
@@ -144,6 +147,26 @@ final class PatchSetApplyService(
       case _ => Future.successful(None)
     }
 
+  /** HEL-1493: the inline root sources a `pipeline` `create` edit made, journaled so undo can remove them. `None` for
+   *  every other edit, and for a create whose roots cannot be lined up with the created pipeline's (nothing is
+   *  recorded rather than guessed, so undo keeps today's behaviour). An inline root without a reported id is left
+   *  out with a warning, as rollback does. */
+  private def journaledInlineSources(edit: ResolvedEdit, outcome: EditOutcome): Option[Vector[JournaledInlineSource]] =
+    edit.action match {
+      case ResolvedAction.PipelineCreate(request) =>
+        InlineRootPairing.pair(request, outcome.resultingState) match {
+          case InlineRootPairing.NoInlineRoots => Some(Vector.empty)
+          case InlineRootPairing.CountMismatch(requestRoots, summaryRoots) =>
+            log.warn(s"edit ${edit.index} journals no inline sources: the request has $requestRoots roots but the created pipeline reported $summaryRoots")
+            None
+          case InlineRootPairing.Paired(targets, unpaired) =>
+            if (unpaired > 0)
+              log.warn(s"edit ${edit.index}: $unpaired inline root(s) had no dataSourceId in the created pipeline's summary and are not journaled")
+            Some(targets.map { case (id, implicitConnector) => JournaledInlineSource(id.value, implicitConnector) })
+        }
+      case _ => None
+    }
+
   /** design.md D2: journals the application ONLY once every edit has
    *  applied cleanly (this method is only ever reached from the loop's
    *  success branch) — a partially-rolled-back apply never reaches here.
@@ -163,7 +186,8 @@ final class PatchSetApplyService(
         priorState         = outcome.priorState,
         resultingState     = outcome.resultingState,
         newId              = outcome.newId,
-        rawResultingConfig = rawConfigs.get(edit.index)
+        rawResultingConfig = rawConfigs.get(edit.index),
+        inlineSources      = journaledInlineSources(edit, outcome)
       )
     }
     val now = Instant.now()

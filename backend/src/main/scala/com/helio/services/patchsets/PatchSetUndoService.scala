@@ -115,7 +115,7 @@ final class PatchSetUndoService(
       // unaffected by whether the failure carried a structured conflict.
       case ("dataSource", "create")   => restoreCreateUndo(edit, id => dataSourceService.delete(DataSourceId(id), user).map(_.left.map(_.err)))
       case ("pipeline", "update")     => restorePipelineUpdate(edit, user)
-      case ("pipeline", "create")     => restoreCreateUndo(edit, id => pipelineService.delete(PipelineId(id), user))
+      case ("pipeline", "create")     => restorePipelineCreateUndo(edit, user)
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
       case ("pipelineStep", "delete") => restorePipelineStepDelete(edit, user)
       case ("pipelineStep", "create") => restorePipelineStepCreate(edit, user)
@@ -153,6 +153,22 @@ final class PatchSetUndoService(
         }
     }
 
+
+  /** HEL-1493 (owner option B): deletes the pipeline exactly as `restoreCreateUndo` does, then removes each inline root
+   *  source the apply journaled, when nothing references it, and reports each one. The edit is `restored` whatever those
+   *  per-source results are, because the pipeline undo itself succeeded; the outcome carries `inlineSources` only when
+   *  the journal recorded at least one (a legacy row records none and keeps today's behaviour: the source survives). */
+  private def restorePipelineCreateUndo(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
+    restoreCreateUndo(edit, id => pipelineService.delete(PipelineId(id), user)).flatMap {
+      case Right(restored) =>
+        edit.inlineSources.filter(_.nonEmpty) match {
+          case None => Future.successful(Right(restored))
+          case Some(sources) =>
+            PatchSetUndoInlineSources.cleanup(sources, pipelineService.inlineSourceCleanup, user, s"undo of edit ${edit.index}")
+              .map(outcomes => Right(restored.copy(inlineSources = Some(outcomes))))
+        }
+      case left => Future.successful(left)
+    }
 
   private def restorePanelUpdate(edit: JournaledEdit, user: AuthenticatedUser): Future[Either[String, EditUndoOutcome]] =
     edit.priorState match {

@@ -213,35 +213,23 @@ private[services] object PatchSetApplyRollback {
       user: AuthenticatedUser,
       services: PatchSetApplyServices
   )(implicit ec: ExecutionContext): Future[EditOutcome] = {
-    val summaryRoots: Vector[JsValue] = forwardOutcome.resultingState match {
-      case Some(o: JsObject) => o.fields.get("roots").collect { case JsArray(els) => els }.getOrElse(Vector.empty)
-      case _                 => Vector.empty
-    }
-    val inlineRoots = request.roots.zipWithIndex.filter(_._1.`type`.isDefined)
-    if (inlineRoots.isEmpty) Future.successful(edit.toOutcome("rolledBack"))
-    else if (summaryRoots.size != request.roots.size) {
-      log.warn(s"rollback of edit ${edit.index} deletes no inline root source: the request has ${request.roots.size} roots but the created pipeline reported ${summaryRoots.size}")
-      Future.successful(edit.toOutcome("unrecoverable"))
-    } else {
-      val cleanup = services.pipelineService.inlineSourceCleanup
-      if (cleanup == null) {
-        logFailure(edit, "no inline-source cleanup is wired")
+    InlineRootPairing.pair(request, forwardOutcome.resultingState) match {
+      case InlineRootPairing.NoInlineRoots => Future.successful(edit.toOutcome("rolledBack"))
+      case InlineRootPairing.CountMismatch(requestRoots, summaryRoots) =>
+        log.warn(s"rollback of edit ${edit.index} deletes no inline root source: the request has $requestRoots roots but the created pipeline reported $summaryRoots")
         Future.successful(edit.toOutcome("unrecoverable"))
-      } else {
-        val targets: Vector[(DataSourceId, Boolean)] = inlineRoots.flatMap { case (root, idx) =>
-          summaryRoots(idx) match {
-            case JsObject(fields) =>
-              fields.get("dataSourceId").collect { case JsString(id) => (DataSourceId(id), InlineSourceCleanup.isImplicitConnectorRoot(root)) }
-            case _ => None
-          }
+      case InlineRootPairing.Paired(targets, missing) =>
+        val cleanup = services.pipelineService.inlineSourceCleanup
+        if (cleanup == null) {
+          logFailure(edit, "no inline-source cleanup is wired")
+          Future.successful(edit.toOutcome("unrecoverable"))
+        } else {
+          if (missing > 0)
+            log.warn(s"rollback of edit ${edit.index}: $missing inline root(s) had no dataSourceId in the created pipeline's summary and were skipped")
+          targets.foldLeft(Future.successful(true)) { (accF, target) =>
+            accF.flatMap(ok => cleanup.deleteCallCreated(target._1, target._2, user, s"rollback of edit ${edit.index}").map(ok && _))
+          }.map(ok => if (ok && missing == 0) edit.toOutcome("rolledBack") else edit.toOutcome("unrecoverable"))
         }
-        val missing = inlineRoots.size - targets.size
-        if (missing > 0)
-          log.warn(s"rollback of edit ${edit.index}: $missing inline root(s) had no dataSourceId in the created pipeline's summary and were skipped")
-        targets.foldLeft(Future.successful(true)) { (accF, target) =>
-          accF.flatMap(ok => cleanup.deleteCallCreated(target._1, target._2, user, s"rollback of edit ${edit.index}").map(ok && _))
-        }.map(ok => if (ok && missing == 0) edit.toOutcome("rolledBack") else edit.toOutcome("unrecoverable"))
-      }
     }
   }
 

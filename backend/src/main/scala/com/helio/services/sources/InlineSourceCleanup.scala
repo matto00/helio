@@ -2,6 +2,7 @@ package com.helio.services.sources
 
 import com.helio.api.protocols.pipelines.CreatePipelineRootRequest
 import com.helio.domain.model.{AuthenticatedUser, ConnectorId, DataSourceId, DataSourceKind, RestSource}
+import com.helio.services.ServiceError
 import com.helio.infrastructure.persistence.sources.{ConnectorHasDependents, ConnectorRepository, DataSourceRepository}
 import org.slf4j.LoggerFactory
 
@@ -88,6 +89,47 @@ private[services] final class InlineSourceCleanup(
       }
     }
 
+  /** Undo of an applied pipeline create (HEL-1493): removes the source the apply created if nothing references it, then
+   *  its implicit Connector, and says which of the four things happened. The reference guard is
+   *  `DataSourceService.delete`'s own 409, so a source bound to anything since the apply is kept. A Connector that
+   *  cannot be deleted is logged and does not undo the source's removal. Never throws. */
+  def deleteIfUnreferenced(id: DataSourceId, implicitConnector: Boolean, user: AuthenticatedUser, context: String): Future[InlineSourceDeleteResult] = {
+    val outcome = Future.unit.flatMap(_ => dataSourceRepo.findByIdOwned(id, user)).flatMap {
+      case None => Future.successful(InlineSourceDeleteResult.AlreadyGone)
+      case Some(source) =>
+        val name = Some(source.name)
+        val captured: Option[(ConnectorId, String)] = source match {
+          case r: RestSource if implicitConnector && connectorCleanup != null => Some((ConnectorId(r.config.connectorId), r.name))
+          case _                                                              => None
+        }
+        if (implicitConnector && connectorCleanup == null)
+          log.warn(s"$context cannot delete the implicit connector of source ${id.value}: no connector repository configured")
+        dataSourceService.delete(id, user).flatMap {
+          case Left(e) =>
+            e.conflict match {
+              case Some(conflict) => Future.successful(InlineSourceDeleteResult.KeptReferenced(name, InlineSourceCleanup.inUseReason(conflict)))
+              case None if e.err.isInstanceOf[ServiceError.NotFound] => Future.successful(InlineSourceDeleteResult.AlreadyGone)
+              case None =>
+                log.warn(s"$context could not delete inline source ${id.value}: ${e.err.message}")
+                Future.successful(InlineSourceDeleteResult.Failed(name))
+            }
+          case Right(_) =>
+            val connectorStep = captured match {
+              case Some((connectorId, sourceName)) => connectorCleanup.deleteIfAuto(connectorId, sourceName, user, context)
+              case None                            => Future.successful(true)
+            }
+            connectorStep.map(_ => InlineSourceDeleteResult.Removed(name))
+        }.recover { case ex =>
+          log.warn(s"$context failed to delete inline source ${id.value}: ${ex.getMessage}")
+          InlineSourceDeleteResult.Failed(name)
+        }
+    }
+    outcome.recover { case ex =>
+      log.warn(s"$context failed to delete inline source ${id.value}: ${ex.getMessage}")
+      InlineSourceDeleteResult.Failed(None)
+    }
+  }
+
   private def captureImplicitConnector(id: DataSourceId, implicitConnector: Boolean, user: AuthenticatedUser, context: String): Future[Option[(ConnectorId, String)]] =
     if (!implicitConnector) Future.successful(None)
     else if (connectorCleanup == null) {
@@ -103,7 +145,35 @@ private[services] final class InlineSourceCleanup(
       }
 }
 
+/** What [[InlineSourceCleanup.deleteIfUnreferenced]] did. `name` is the source's name when it could be read first. */
+private[services] sealed trait InlineSourceDeleteResult
+
+private[services] object InlineSourceDeleteResult {
+  final case class Removed(name: Option[String])                       extends InlineSourceDeleteResult
+  /** Kept because something still references it; `reason` is UI-safe text built by [[InlineSourceCleanup.inUseReason]]. */
+  final case class KeptReferenced(name: Option[String], reason: String) extends InlineSourceDeleteResult
+  case object AlreadyGone                                              extends InlineSourceDeleteResult
+  final case class Failed(name: Option[String])                        extends InlineSourceDeleteResult
+}
+
 private[services] object InlineSourceCleanup {
+
+  /** Most referencers named in a [[inUseReason]]; the rest are summed into "N more". */
+  private val MaxNamedReferencers = 3
+
+  /** UI-safe text for a source kept because it is still referenced (HEL-1493): the visible referencers by name, the
+   *  ones the caller cannot see as counts only (HEL-1252), no id, and none of the delete flow's "remove each
+   *  reference first" advice, which would tell the user to dismantle what they built since the apply. The 409's own
+   *  `reason` is agent-oriented and is deliberately not reused. */
+  def inUseReason(conflict: DataSourceDeleteConflict): String = {
+    val named  = conflict.pipelines.map(p => s"""pipeline "${p.name}"""") ++ conflict.panels.map(p => s"""form panel "${p.title}"""")
+    val hidden = conflict.hiddenPipelineCount + conflict.hiddenPanelCount
+    val shown  = named.take(MaxNamedReferencers)
+    val more   = named.size - shown.size
+    val parts  = shown ++ (if (more > 0) Vector(s"$more more") else Vector.empty) ++
+      (if (hidden > 0) Vector(s"$hidden you cannot access") else Vector.empty)
+    if (parts.isEmpty) "still in use." else s"still used by ${parts.mkString(", ")}."
+  }
 
   /** True for an inline `rest_api` root given as a bare `url` with no `connectorId`: the one request shape for which
    *  `SourceService.createRest` always synthesizes a new implicit Connector. */

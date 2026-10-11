@@ -89,7 +89,9 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
    *  `Edit` (needed to pick the right per-kind inverse once detached from the request that
    *  produced this record); `priorState`/`resultingState`/`newId` are `EditOutcome`'s own fields,
    *  reused verbatim; `rawResultingConfig` is design.md D2a's panel-update-only raw config
-   *  snapshot — `None` for every other kind/op. */
+   *  snapshot — `None` for every other kind/op. `inlineSources` (HEL-1493) is set only for a `pipeline`
+   *  `create` edit: the inline root sources that apply created (empty when it created none), or `None` when they
+   *  could not be recorded and for every row journaled before it existed (an absent field reads as `None`). */
   final case class JournaledEdit(
       index: Int,
       targetKind: String,
@@ -97,10 +99,18 @@ object PatchSetApplicationRepository extends DefaultJsonProtocol {
       priorState: Option[JsValue],
       resultingState: Option[JsValue],
       newId: Option[String],
-      rawResultingConfig: Option[JsValue]
+      rawResultingConfig: Option[JsValue],
+      inlineSources: Option[Vector[JournaledInlineSource]] = None
   )
 
-  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat7(JournaledEdit.apply)
+  /** An inline root source a `pipeline` `create` edit created (HEL-1493): its id, and whether creating it also made an
+   *  implicit "Auto:" Connector (a bare-`url` REST root). */
+  final case class JournaledInlineSource(id: String, implicitConnector: Boolean)
+
+  // Declared before `journaledEditFormat`, which uses it: a later declaration reads as null at runtime.
+  implicit val journaledInlineSourceFormat: RootJsonFormat[JournaledInlineSource] = jsonFormat2(JournaledInlineSource.apply)
+
+  implicit val journaledEditFormat: RootJsonFormat[JournaledEdit] = jsonFormat8(JournaledEdit.apply)
 
   implicit val journaledEditsColumnType: BaseColumnType[Vector[JournaledEdit]] =
     MappedColumnType.base[Vector[JournaledEdit], String](

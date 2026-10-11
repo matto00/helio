@@ -9,6 +9,7 @@ import { isAxiosError } from "axios";
 import { dashboardRemoved, dashboardUpserted } from "../../dashboards/state/dashboardsSlice";
 import type { Dashboard } from "../../dashboards/types/dashboard";
 import { fetchPanels, markDashboardPanelsStale } from "../../panels/state/panelsSlice";
+import { fetchSourceReferences, fetchSources } from "../../sources/state/sourcesSlice";
 import type { RootState } from "../../../store/store";
 import {
   applyPatchSet as applyPatchSetRequest,
@@ -90,6 +91,8 @@ interface OutcomeLike {
   newId?: string | null;
   resultingState?: Record<string, unknown> | null;
   priorState?: Record<string, unknown> | null;
+  /** HEL-1493: only an undo outcome carries it; an apply outcome simply has none. */
+  inlineSources?: { result: string }[] | null;
 }
 
 function readStringField(
@@ -166,8 +169,16 @@ export function invalidateAffectedState(
   getState: () => RootState,
 ): void {
   const touchedPanelDashboardIds = new Set<string>();
+  // HEL-1493: undoing a pipeline create removes the inline sources it made, so the cached source list is stale.
+  let sourcesRemoved = false;
+  // ...and every inline source it listed (removed OR kept) lost the references the deleted pipeline held.
+  let sourceReferencesChanged = false;
 
   edits.forEach((outcome) => {
+    if (outcome.inlineSources?.some((s) => s.result === "removed" || s.result === "alreadyGone")) {
+      sourcesRemoved = true;
+    }
+    if (outcome.inlineSources?.length) sourceReferencesChanged = true;
     const edit = patchSet.edits[outcome.index];
     if (!edit) return;
 
@@ -204,6 +215,9 @@ export function invalidateAffectedState(
       }
     }
   });
+
+  if (sourcesRemoved) dispatch(fetchSources());
+  if (sourceReferencesChanged) dispatch(fetchSourceReferences());
 
   touchedPanelDashboardIds.forEach((dashboardId) => {
     // Read BEFORE dispatching `markDashboardPanelsStale` — that action
