@@ -29,7 +29,8 @@ private[pipelines] final class PipelineCreateTransaction(
   /** The single-call transactional path (`PipelineCreateWrites.create` delegates here only when `steps`/
    *  `outputs` are non-empty). `dataSources` is EVERY root's already-ACL-checked
    *  `(DataSourceId, DataSource)` pair, in request order (`create` resolves and authorizes every
-   *  root via `resolveRootDataSources` before this is ever called) -- HEL-907 fix, see
+   *  root via `PipelineRootWrites.resolveOneRootSourceId` (shape, blank id -> 400) and
+   *  `PipelineCreateWrites.lookupOwnedRoots` (unowned -> 404) before this is ever called) -- HEL-907 fix, see
    *  `validateStepCrossOwnerRefs` for every join/union/lookup step's cross-referenced source)
    *  runs OUTSIDE the transaction -- read-only ACL/existence checks, not writes, so they don't
    *  need to share the write transaction's atomicity.

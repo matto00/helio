@@ -27,7 +27,7 @@ private[pipelines] final class PipelineRootWrites(
 
   /** HEL-913 task 7.1a (R6 "one shape, not two"): resolves ONE `CreatePipelineRootRequest` --
    *  either branch -- down to a `DataSourceId` the caller now owns. Shared by the transactional
-   *  create path (`resolveRootDataSources`), the simple create path (`create`), and `addRoot`,
+   *  create path (`PipelineCreateWrites.create`'s root pass), the simple create path (`create`), and `addRoot`,
    *  so `roots[]` and `add_root` can never diverge in what they accept (the exact hazard R6
    *  names). Mirrors `PipelineProposalService.resolveSource`'s D1-style mutual-exclusivity
    *  check and its per-kind dispatch, but returns just the id (not a `ResolvedSource`) since

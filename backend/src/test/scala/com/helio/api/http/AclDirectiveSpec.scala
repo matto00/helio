@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.domain.model.{AuthenticatedUser, ResourcePermission, Role, UserId}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.services.sharing.ShareTokenValidator
 import com.helio.testkit.HelioRouteTest
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -245,6 +246,35 @@ class AclDirectiveSpec
       }
       Get("/") ~> route ~> check {
         status shouldBe StatusCodes.InternalServerError
+      }
+    }
+  }
+
+  // HEL-1488 site 5: the anonymous, no-public-grant, share-token-authorized arm of
+  // `authorizeResourceWithSharing`. A valid token reads as exactly Viewer (never Editor: a share link is
+  // read-only); a token the validator refuses falls back to the plain absent-resource 404.
+  "AclDirective.authorizeResourceWithSharing for an anonymous caller with a share token" should {
+
+    def validator(authorizes: Boolean): ShareTokenValidator =
+      (_: String, _: String, _: String) => Future.successful(authorizes)
+
+    def routeWith(authorizes: Boolean) =
+      new AclDirective(makePermRepo(hasPublicGrant = false), ownerRegistry, Some(validator(authorizes)))
+        .authorizeResourceWithSharing(resourceType, resourceId, None, "Dashboard not found", Some("share-token")) {
+          access => complete(StatusCodes.OK, access.toString)
+        }
+
+    "provide exactly Viewer when the token authorizes" in {
+      Get("/") ~> routeWith(authorizes = true) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] shouldBe "Viewer"
+      }
+    }
+
+    "return the exact absent-resource 404 when the token is refused" in {
+      Get("/") ~> routeWith(authorizes = false) ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[ErrorResponse] shouldBe ErrorResponse("Dashboard not found")
       }
     }
   }
