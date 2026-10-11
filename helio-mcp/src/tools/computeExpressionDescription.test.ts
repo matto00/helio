@@ -13,12 +13,12 @@ import { COMPUTE_EXPRESSION_DOC } from "./computeExpression.js";
 import { registerPipelineProposalTools } from "./pipelineProposal.js";
 import { registerWriteTools } from "./write.js";
 
-const { functions } = JSON.parse(
+const { functions, operators, literals } = JSON.parse(
   readFileSync(
     join(__dirname, "../../../shared-test-fixtures/compute-expression-functions.json"),
     "utf8",
   ),
-) as { functions: string[] };
+) as { functions: string[]; operators: string[]; literals: string[] };
 
 function descriptions(register: (server: never, api: HelioApi) => void): Record<string, string> {
   const out: Record<string, string> = {};
@@ -44,6 +44,15 @@ describe("compute expression description (MCP side)", () => {
 
   it("names exactly the functions in the shared fixture, in both directions", () => {
     expect([...listed()].sort()).toEqual([...functions].sort());
+  });
+
+  it("names every comparison and boolean operator and literal in the shared fixture", () => {
+    for (const word of [...operators, ...literals]) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(COMPUTE_EXPRESSION_DOC).toMatch(new RegExp(`(^|[\\s,(])${escaped}([\\s,).]|$)`));
+    }
+    expect(COMPUTE_EXPRESSION_DOC).toContain("if(cond,then,else)");
+    expect(COMPUTE_EXPRESSION_DOC).toContain("three-valued");
   });
 
   it("documents the date functions' units, UTC semantics and the absence of now()", () => {

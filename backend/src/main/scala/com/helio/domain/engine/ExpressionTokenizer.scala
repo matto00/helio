@@ -19,6 +19,14 @@ private[engine] object ExpressionTokenizer {
     case object Slash  extends Token
     case object LParen extends Token
     case object RParen extends Token
+    // HEL-1070: comparison operators. Keywords (`and`/`or`/`not`/`true`/`false`) are deliberately NOT tokens:
+    // the tokenizer is shared with the frozen `LegacyParser`, so only `StrictParser` recognises them.
+    case object Eq  extends Token
+    case object Neq extends Token
+    case object Lt  extends Token
+    case object Le  extends Token
+    case object Gt  extends Token
+    case object Ge  extends Token
     case object EOF    extends Token
   }
 
@@ -41,6 +49,12 @@ private[engine] object ExpressionTokenizer {
         case '(' => buf += Token.LParen; i += 1
         case ')' => buf += Token.RParen; i += 1
         case ',' => buf += Token.Comma;  i += 1
+        case '=' => buf += Token.Eq;     i += 1
+        case '!' if i + 1 < s.length && s(i + 1) == '=' => buf += Token.Neq; i += 2
+        case '<' if i + 1 < s.length && s(i + 1) == '=' => buf += Token.Le;  i += 2
+        case '<' => buf += Token.Lt;     i += 1
+        case '>' if i + 1 < s.length && s(i + 1) == '=' => buf += Token.Ge;  i += 2
+        case '>' => buf += Token.Gt;     i += 1
 
         case '"' =>
           // Double-quoted string literal with basic escape support

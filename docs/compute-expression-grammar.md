@@ -17,6 +17,7 @@ describe.
 | Numeric constant | digits, optional single `.`                | `1.05`, `100` |
 | Negative number  | unary `-` before a numeric constant        | `-5`, `-0.5`  |
 | String literal   | double-quoted, `\"`/`\\`/`\n`/`\t` escapes | `"Total: "`   |
+| Boolean literal  | `true`, `false` (reserved words)           | `true`        |
 
 ## Column references — `$` required
 
@@ -70,7 +71,10 @@ name (e.g. after a `rename` step that stripped the prefix), not to look for a ne
 | `/`      | Divide       | **Strict**: both sides must be numbers, or it's a `TypeError`; dividing by `0` produces a per-row `null`, not an exception                                                                                                   |
 
 Precedence and associativity follow ordinary arithmetic: `*`/`/` bind tighter than `+`/`-`, all
-left-associative, and parentheses `(...)` override precedence.
+left-associative, and parentheses `(...)` override precedence. The comparison and boolean operators
+below sit looser than arithmetic; the full table is under "Comparison, boolean and conditional logic".
+`+` with a boolean operand concatenates its text (`true`/`false`), exactly as it did when a boolean
+column was read as text: `$flag + 1` is `"true1"`.
 
 ```
 $a + $b * $c        // multiplication happens first
@@ -101,6 +105,117 @@ mod(-7, 3)          // 2
 round(1234, -2)     // 1200
 ```
 
+## Comparison, boolean and conditional logic
+
+HEL-1070. Strict grammar only; the frozen legacy bare-identifier grammar gains nothing.
+
+### Comparison operators
+
+`=`, `!=`, `<`, `<=`, `>`, `>=` compare two values and produce a **boolean** (a JSON `true`/`false`,
+inferred type `boolean`). `==` and `<>` are parse errors that name the right operator (`=`, `!=`).
+
+| Operands                                                      | Result                                                                                        |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| number, number                                                | numeric comparison                                                                            |
+| text, text (string, string-body, timestamp, text functions)   | exact comparison by UTF-16 code unit: case matters, `"B" < "a"`. A timestamp compares as text |
+| boolean, boolean                                              | `=` and `!=` only; `<`, `<=`, `>`, `>=` on booleans is a type error                           |
+| any other pairing (number/text, boolean/number, boolean/text) | **type error**, never a silent `true`/`false`                                                 |
+| either side `null`                                            | `null`                                                                                        |
+
+At analyze time a mismatched comparison is an **inference error** (the step's `validationError`; the step still
+saves). A number-vs-text message tells you to add a cast step to convert the text field to a number, and when the
+text side is a timestamp, to compare instants with `seconds_between(a, b)` instead. At run time a type error nulls
+that row like every other evaluation error.
+
+Comparisons are **non-associative**: `1 < $x < 5` is a parse error; write `$x > 1 and $x < 5`.
+
+### Boolean operators
+
+`and`, `or`, `not` (case-insensitive) and the literals `true`, `false` are **reserved words** in the strict grammar,
+including directly before `(` (`$a and($b)`, `not($x)`). A reserved word where a value is expected (`$a = and`, a
+bare `not`) is a parse error that names the word as reserved; it is never reported as a missing `$` prefix and never
+falls back to the legacy grammar.
+
+Precedence, loosest to tightest:
+
+| Level | Construct                  |
+| ----- | -------------------------- |
+| 1     | `or` (left-associative)    |
+| 2     | `and` (left-associative)   |
+| 3     | `not` (prefix, repeatable) |
+| 4     | `=` `!=` `<` `<=` `>` `>=` |
+| 5     | `+` `-`                    |
+| 6     | `*` `/`                    |
+| 7     | unary `-`                  |
+
+So `$a or $b and $c` is `$a or ($b and $c)`, `not $a = $b` is `not ($a = $b)`, and
+`$a + 1 > $b * 2` compares two arithmetic results. Parentheses override.
+
+Operands of `and`/`or`/`not` must be booleans (or `null`); any other value is a type error. A boolean **column**
+is a boolean in expressions (see below), so `$flag and not $other` works.
+
+**Null follows SQL three-valued logic:**
+
+| `a`     | `b`     | `a and b` | `a or b` | `not a` |
+| ------- | ------- | --------- | -------- | ------- |
+| `true`  | `null`  | `null`    | `true`   | `false` |
+| `false` | `null`  | `false`   | `null`   | `true`  |
+| `null`  | `true`  | `null`    | `true`   | `null`  |
+| `null`  | `false` | `false`   | `null`   | `null`  |
+| `null`  | `null`  | `null`    | `null`   | `null`  |
+
+`and` does not evaluate its right operand when the left is `false`, and `or` does not when the left is `true`, so
+`false and floor($s) > 1` is `false` rather than an error.
+
+### `if(cond, then, else)`
+
+Exactly three arguments. `cond` is evaluated, then **only the chosen branch**: `then` when `cond` is `true`, `else`
+when it is `false` **or `null`**. An error in the unchosen branch never happens: `if($b = 0, 0, $a / $b)` is `0`
+when `$b` is `0`. A non-boolean, non-null `cond` is a type error. The chosen value is returned unchanged. Nest `if`
+for several cases:
+
+```
+if($n < 10, "low", if($n < 100, "mid", "high"))
+```
+
+Branch types follow the `coalesce` rule (see "Output type inference"): the same type, or numbers mixed (`float`);
+any other mix is an analyze-time error.
+
+### Boolean columns
+
+A JSON boolean cell referenced as `$flag` is a **boolean** (before HEL-1070 it read as the text `"true"`, although
+analyze already reported `boolean`). So a bare `$flag`, `coalesce($flag, false)` or `if(c, $flag, false)` now
+produces a JSON boolean, and `$flag` works as an `if` condition. Everything that treated it as text still does:
+`+`/`concat` concatenate `true`/`false`, and `length`/`upper`/`lower`/`substring` read it as text
+(`length($flag)` is `4`). Used where a number is required it is still a type error, and a boolean given to
+`seconds_between`/`date_trunc`/`add_days` is "not a timestamp" (row `null`, never a run failure).
+
+A boolean-valued expression other than a bare column (`($s = "Done") * 1`, `floor($a > 1)`) used as a number is an
+**analyze-time error** suggesting `if(cond, 1, 0)`, because it would null every row. `($s = "Done") + 1` is legal but
+concatenates (`"true1"`, typed `string`).
+
+### Recipe: conditional count and sum
+
+A single pipeline can count or sum conditionally: add a compute column, then aggregate it.
+
+```
+compute  is_done = if($status = "Done", 1, 0)         // 1 / 0 per row (a null status takes the else branch)
+compute  done_points = if($status = "Done", $points, 0)
+aggregate sum(is_done) AS done, count(status) AS total, sum(done_points) AS done_points
+```
+
+The percentage is a further compute step: `if($total = 0, 0, $done / $total * 100)`.
+
+### Legacy expressions and the reserved words
+
+A legacy (`$`-less) expression changes behaviour only when its strict parse no longer ends in the `$`-prefix
+error, i.e. when the strict parser now succeeds or stops on another error before it reaches a non-reserved bare
+name: an expression made only of `true`/`false` bare words (`true` is the literal; `true * 2` is a per-row type
+error), or one that misuses a reserved word as a value first (`and + 1`, `not`, `not + price`, now parse errors).
+Expressions that reach another bare name first (`price * and`, `true + price`, `True + price`) fall back and behave
+exactly as before. A column literally named `and`, `or`, `not`, `true` or `false` therefore cannot be referenced
+without `$`; `$and` etc. work.
+
 ## Functions
 
 Function-call syntax is `name(arg1, arg2, ...)`. Arguments are themselves expressions (literals,
@@ -119,6 +234,7 @@ Function-call syntax is `name(arg1, arg2, ...)`. Arguments are themselves expres
 | `abs(x)`                      | 1      | Absolute value                                                                                                                                                                                                                                            | non-numeric argument is a `TypeError`                                                                                                 |
 | `round(x)` / `round(x, d)`    | 1 or 2 | Rounds half **away from zero** on the value's decimal form: `round(2.5)` = `3`, `round(-2.5)` = `-3`, `round(2.675, 2)` = `2.68`. `d` must be a whole number; negative `d` rounds to tens/hundreds (`round(1234, -2)` = `1200`); `d` is clamped to ±308   | non-numeric argument, or fractional `d`, is a `TypeError`                                                                             |
 | `mod(a, b)`                   | 2      | **Floored** remainder, sign follows the divisor `b`: `mod(7, 3)` = `1`, `mod(-7, 3)` = `2`, `mod(7, -3)` = `-2`, `mod(5.5, 2)` = `1.5` (differs from SQL/Java truncated `%`)                                                                              | non-numeric argument is a `TypeError`; `b` = `0` is a per-row `null`, like `/`                                                        |
+| `if(cond, then, else)`        | 3      | Evaluates `cond`, then only the chosen branch: `then` when `true`, `else` when `false` or `null`. See "Comparison, boolean and conditional logic"                                                                                                         | non-boolean `cond` is a `TypeError`; wrong arity is a parse error                                                                     |
 | `coalesce(a, b, ...)`         | ≥ 2    | Returns the first argument that is not `null`, evaluating left to right and **stopping at the first non-null** (later arguments are never evaluated); all `null` → `null`. The one function exempt from null propagation. The value is returned unchanged | fewer than 2 arguments is a parse error; an error in a reached argument nulls the row                                                 |
 | `seconds_between(end, start)` | 2      | `end - start` in seconds as a float, fractions kept, unrounded; negative when `end` precedes `start`                                                                                                                                                      | an unparseable timestamp (or a `null`) gives `null` for the row, never a failure                                                      |
 | `date_trunc(unit, ts)`        | 2      | Floors `ts` to the start of the UTC `unit` bucket and returns an ISO-8601 instant string (`2026-07-01T00:00:00Z`). `unit` is a double-quoted literal: `second`, `minute`, `hour`, `day`, `week` (ISO Monday), `month`, `quarter`, `year`                  | an unknown, non-literal or bare-word unit is a **parse error** naming the units (single quotes are not string syntax in this grammar) |
@@ -177,12 +293,12 @@ The Spark execution path (`SparkJobSubmitter`'s `F.expr`) does not have these fu
 A blank CSV cell loads as `null` (HEL-1408), so `concat($first, " ", $last)` is `null` for a row
 where either part is blank. Supply a fallback with `coalesce`:
 `concat(coalesce($first, ""), " ", coalesce($last, ""))` turns rows `Ada,Lovelace`, `Grace,` and
-`,Hopper` into `"Ada Lovelace"`, `"Grace "` and `" Hopper"`. Conditionals are not available (HEL-1070).
+`,Hopper` into `"Ada Lovelace"`, `"Grace "` and `" Hopper"`.
 
 ## Errors
 
 Parse/validation errors surface as a human-readable message (e.g. `"Column references require a
-'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, add_days, ceil, coalesce, concat, date_trunc, floor, length, lower, mod, round, seconds_between, substring, upper"`,
+'$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, add_days, ceil, coalesce, concat, date_trunc, floor, if, length, lower, mod, round, seconds_between, substring, upper"`,
 `"substring requires 3 arguments"`). At **analyze time** (`PipelineAnalyzeService.inferCompute`),
 this message is set on `AnalyzedStep.validationError` and rendered inline under the expression
 input in the step-card UI (`ComputeFieldConfig`). At **row-execution time**
@@ -192,17 +308,24 @@ throwing — the pipeline keeps running.
 
 ## Output type inference
 
-`ExpressionEvaluator.inferType` derives the compute step's output field type (`"float"`, `"string"` or `"timestamp"`) directly from the expression, instead of trusting a possibly-stale `type` value on the
+`ExpressionEvaluator.inferType` derives the compute step's output field type (`"float"`, `"string"`, `"timestamp"` or `"boolean"`) directly from the expression, instead of trusting a possibly-stale `type` value on the
 wire:
 
 - Numeric literals and arithmetic (`-`, `*`, `/`, unary `-`, and `+` when neither side is a string or timestamp) → `float`
 - String literals, `concat`, `substring`, `lower`, `upper` → `string`
 - `length`, `floor`, `ceil`, `round`, `mod`, `abs`, `seconds_between` → `float`
 - `date_trunc`, `add_days` → `timestamp` (the value is an ISO-8601 string)
-- `+` → `string` if either operand infers `string` or `timestamp`, else `float`
+- `+` → `string` if either operand infers `string`, `timestamp` or `boolean`, else `float`
+- `true`, `false`, comparisons, `and`, `or`, `not` → `boolean`; a boolean column referenced alone → `boolean`
+- `if` → `boolean`-condition required (else an error naming `if`); its result is the **common type of its two
+  branches**, by the `coalesce` rule below
+- A comparison whose operands are different kinds (numeric; text = `string`/`string-body`/`timestamp`; boolean),
+  an ordering comparison of booleans, a `binary-ref` operand, a non-boolean `and`/`or`/`not` operand, and a
+  boolean expression used as a number (see "Boolean columns") are **analyze-time errors** naming the operator
 - A `$`-prefixed field reference inherits its type from the input schema
 - `coalesce` → the **common type of its arguments**: all the same type → that type; all numeric
-  (`integer`/`float`) → `float`; no numeric argument → `string`. A **numeric/text mix**
+  (`integer`/`float`) → `float`; no numeric and no boolean argument → `string`. A **boolean/non-boolean mix**
+  (`coalesce($flag, "x")`) is an analyze-time error too. A **numeric/text mix**
   (`coalesce($n, "n/a")` with `n` numeric) has no truthful type and is an **analyze-time error** on the
   step (`validationError`, naming `coalesce` and suggesting `concat(...)`: `coalesce(concat($n), "n/a")`
   infers `string`). The error is analyze-only: the step still saves, and manual, scheduled and
@@ -241,7 +364,7 @@ for this change (see the `compute-step-expression-rework` OpenSpec change's desi
 
 ## Known limitations (non-goals)
 
-- No boolean/comparison operators, conditionals (HEL-1070; `coalesce` covers only null fallbacks), or aggregate functions.
+- No `case when`, ternary, `&&`/`||`/`!`, `null` literal or `is null`, instant-aware (timestamp) comparison, or aggregate functions (aggregate in a following `aggregate` step).
 - No autocomplete for column references (stretch goal, not implemented).
 - No member-access/property-traversal operator — a dot is only ever part of a literal column
   name, never an operator, and no quoted/bracketed reference syntax exists for column names
@@ -249,6 +372,8 @@ for this change (see the `compute-step-expression-rework` OpenSpec change's desi
 - Pre-existing, out of scope: the Spark execution path (`SparkJobSubmitter`) hands the same
   stored expression string to Spark SQL's `F.expr`, a different grammar where `$` is not a
   column sigil and a dotted name means struct access unless backtick-quoted. This divergence
-  predates dotted references and is unaffected (not fixed) by this grammar change. Unary minus
+  predates dotted references and is unaffected (not fixed) by this grammar change. The comparison and boolean
+  syntax is likewise not Spark-compatible (`=`/`and` happen to parse there, `if` is a different function, and the
+  three-valued/typing rules differ). Unary minus
   itself exists in Spark SQL with the same precedence, but `--` begins a SQL line comment there, so
   `2--3` / `--$x` would differ; every `$`-reference expression already diverges on that path.
