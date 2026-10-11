@@ -31,9 +31,12 @@ class CastStepSpec extends AnyWordSpec with Matchers {
       cast("timestamp", 1751371200L) shouldBe "1751371200"
       cast("date", 1751371200L) shouldBe "1751371200"
     }
-    "RED: a Double epoch (a JSON epoch number) yields null, as datebucket already does" in {
-      (cast("timestamp", 1.7513712E9) == null) shouldBe true
-      (cast("date", 1.7513712E9) == null) shouldBe true
+    "a whole Double epoch (a JSON epoch number) is kept as its string form, as datebucket now parses it" in {
+      cast("timestamp", 1.7513712E9) shouldBe "1.7513712E9"
+      cast("date", 1.7513712E9) shouldBe "1.7513712E9"
+    }
+    "a fractional Double epoch yields null" in {
+      (cast("timestamp", 1.7513712005E9) == null) shouldBe true
     }
     for (target <- Seq("timestamp", "date"); junk <- Seq("tomorrow", "abc"))
       s"RED: $target of '$junk' yields null" in { (cast(target, junk) == null) shouldBe true }

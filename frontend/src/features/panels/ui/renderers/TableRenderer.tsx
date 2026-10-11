@@ -386,7 +386,10 @@ export function TableRenderer({
       const base: ColumnDef = spec
         ? {
             ...col,
-            align: spec.type === "number" || spec.type === "currency" ? "right" : col.align,
+            align:
+              spec.type === "number" || spec.type === "currency" || spec.type === "duration"
+                ? "right"
+                : col.align,
             render: (_row: Record<string, unknown>, value: unknown) => formatters[col.key](value),
           }
         : col;

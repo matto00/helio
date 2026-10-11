@@ -49,7 +49,8 @@ object OutputConfigValidation {
       "aggregation may be null. conditionalFormats (metric, table, collection) = null/[] or an ordered list (max 20, first match wins) of rules " +
       "{ op, value, value2?, tone, label?, column?, target? }: op is one of gt, gte, lt, lte, between (numeric value; between also value2 >= value) or eq, neq (number or text value); " +
       "tone is one of success, warning, error; label is optional text (max 60); a table rule needs column and may set target cell (default) or row; metric/collection rules take no column/target; rules compare the raw unformatted value. " +
-      s"chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. ${ChartReferenceMarks.Doc} Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
+      s"chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. ${ChartReferenceMarks.Doc} Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart. " +
+      OutputFormatVocabulary.Doc
   }
 
   /** `written` = what the caller sent (create body / PATCH patch); `stored` = the pre-write config
