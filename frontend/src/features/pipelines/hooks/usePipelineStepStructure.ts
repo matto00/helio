@@ -25,6 +25,7 @@ type UsePipelineStepStructureArgs = {
   setStepsInitialized: Dispatch<SetStateAction<boolean>>;
   pushToast: ReturnType<typeof useToast>["push"];
   pendingDraftMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
+  setPendingDraftIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   draftFallbackMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
 };
 
@@ -41,6 +42,7 @@ export function usePipelineStepStructure({
   setStepsInitialized,
   pushToast,
   pendingDraftMetaRef,
+  setPendingDraftIds,
   draftFallbackMetaRef,
 }: UsePipelineStepStructureArgs) {
   // evaluation-2.md CR9 — any create call that passes a `parentStepId` without
@@ -87,6 +89,7 @@ export function usePipelineStepStructure({
     syncStepsFromServer,
     pushToast,
     pendingDraftMetaRef,
+    setPendingDraftIds,
     draftFallbackMetaRef,
   });
 

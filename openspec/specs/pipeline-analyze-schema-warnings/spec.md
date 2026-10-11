@@ -63,7 +63,7 @@ For an enabled `join` step with no `validationError` whose secondary input schem
 - **WHEN** both sides declare the join key with the same type
 - **THEN** no `join-key-type-mismatch` warning is emitted
 
-#### Scenario: Lookup string source key against integer lookup key
+#### Scenario: Lookup string match field against integer reference match field
 - **WHEN** a lookup's input declares `sourceKey` `customer_id` as `string` and its secondary (lane or source) declares `lookupKey` `id` as `integer`
 - **THEN** analyze returns a `join-key-type-mismatch` warning for the lookup whose message starts with `lookup:` and names `customer_id`, `id`, `string` and `integer`
 

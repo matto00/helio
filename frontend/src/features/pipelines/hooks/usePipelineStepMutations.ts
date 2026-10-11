@@ -151,7 +151,7 @@ export function usePipelineStepMutations({
       // EVERY root's trunk lane). Every UI caller -- Move up/down and drag, in any root's lane -- goes
       // through `reorderLane`, which carries `rootId` with a lane's head, so a UI move can never empty
       // a trunk (`stepTree.test.ts` asserts this over every (from, to) pair of a two-root graph). The
-      // only imaginable skew is `stepsRef` (assigned in render) vs the lane owner's graph ref (assigned
+      // only imaginable skew is `stepsRef` (assigned in a layout effect) vs the lane owner's graph ref (assigned
       // in a passive effect), and React flushes passive effects before the next discrete event, so no
       // click can observe them out of step. Directly unit-tested as a defensive branch with a
       // hand-built `newOrder` (`PipelineDetailPage.reorderGuard.test.tsx`) -- that pins the refusal
