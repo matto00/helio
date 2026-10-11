@@ -8,7 +8,7 @@ import OutputHistoryRetentionService.PartResult
 import org.slf4j.LoggerFactory
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -26,7 +26,10 @@ import scala.util.control.NonFatal
  *  HEL-1276: after the summary thin/purge, in the same gate, the node-payload retention pass runs
  *  (tier age/count caps, downgraded tiers, payloads no surviving point references). Its failure is
  *  logged and never undoes or fails the summary purge. The payload repo/config are deliberately NOT
- *  defaulted so `Main` cannot compile without wiring them. */
+ *  defaulted so `Main` cannot compile without wiring them.
+ *
+ *  HEL-1477: the scheduler tick starts a pass but does not await it, so at most one pass runs per process,
+ *  enforced by an in-flight guard rather than by the tick's await (see [[purgeIfDue]]). */
 class OutputHistoryRetentionService(
     repo: OutputHistoryRepository,
     config: OutputHistoryRetentionConfig,
@@ -46,6 +49,9 @@ class OutputHistoryRetentionService(
    *  the lock-held shortening is a reference-equality compare-and-set on that instance. */
   private val nextDue = new AtomicReference[Option[Instant]](None)
 
+  /** True while a pass (history AND payload part, through the `nextDue` rewrite) is running in this process. */
+  private val inFlight = new AtomicBoolean(false)
+
   def tick(): Future[Unit] = tickAt(clock.now())
 
   def tickAt(now: Instant): Future[Unit] = purgeIfDue(now).map(_ => ())
@@ -57,52 +63,72 @@ class OutputHistoryRetentionService(
    *  Next-due PRECEDENCE over every part of the pass (HEL-1435): any part failed, the full `purgeInterval`
    *  (HEL-1343); else any part lock-held, `lockRetry`; else the thin budget exhausted with Outputs remaining,
    *  the next scheduler tick; else (cycle complete) `purgeInterval` and the cursor resets. The cursor
-   *  (last Output thinned this cycle) is in-process, like `nextDue`; a restart restarts the cycle (idempotent). */
+   *  (last Output thinned this cycle) is in-process, like `nextDue`; a restart restarts the cycle (idempotent).
+   *
+   *  HEL-1477 in-flight guard: the tick no longer awaits a pass, so a pass longer than `purgeInterval` could
+   *  otherwise be joined by a second one over the same cursor range. The order is fixed: take the guard first (busy:
+   *  `None`, `nextDue` untouched), then claim; every exit that starts no pass releases it before returning; a started
+   *  pass releases it only when its WHOLE future (history, payload, `nextDue` rewrite) has completed, and the returned
+   *  future is the one that releases, so a caller that has observed completion also observes the released guard. */
   def purgeIfDue(now: Instant): Future[Option[Int]] =
-    claim(now) match {
-      case None => Future.successful(None)
-      case Some(claimed) =>
-        Future.delegate(repo.thinPass(now, config.policy, config.maxAgeByTier, config.thinLimits, cursor.get(), protectedNewest))
-          .map { outcome =>
-            outcome match {
-              case HistoryPassOutcome.Completed(deleted) =>
-                cursor.set(None)
-                logDeleted(deleted)
-                (PartResult.Ran(Option(deleted), moreWork = false): PartResult)
-              case HistoryPassOutcome.MoreWork(deleted, at) =>
-                cursor.set(Some(at))
-                logDeleted(deleted)
-                PartResult.Ran(Option(deleted), moreWork = true)
-              case HistoryPassOutcome.LockHeld(_, at) =>
-                cursor.set(at)
-                PartResult.Busy
-            }
+    if (!inFlight.compareAndSet(false, true)) Future.successful(None)
+    else
+      try
+        claim(now) match {
+          case None =>
+            inFlight.set(false)
+            Future.successful(None)
+          case Some(claimed) => runPass(now, claimed).andThen { case _ => inFlight.set(false) }
+        }
+      catch {
+        // Defensive: `claim` is pure atomics and `runPass` builds inside `Future.delegate`, so this should be unreachable;
+        // it keeps a surprise synchronous throw from wedging the guard.
+        case NonFatal(e) =>
+          inFlight.set(false)
+          throw e
+      }
+
+  private def runPass(now: Instant, claimed: Some[Instant]): Future[Option[Int]] =
+    Future.delegate(repo.thinPass(now, config.policy, config.maxAgeByTier, config.thinLimits, cursor.get(), protectedNewest))
+      .map { outcome =>
+        outcome match {
+          case HistoryPassOutcome.Completed(deleted) =>
+            cursor.set(None)
+            logDeleted(deleted)
+            (PartResult.Ran(Option(deleted), moreWork = false): PartResult)
+          case HistoryPassOutcome.MoreWork(deleted, at) =>
+            cursor.set(Some(at))
+            logDeleted(deleted)
+            PartResult.Ran(Option(deleted), moreWork = true)
+          case HistoryPassOutcome.LockHeld(_, at) =>
+            cursor.set(at)
+            PartResult.Busy
+        }
+      }
+      .recover { case NonFatal(e) =>
+        log.error("Output history retention purge failed", e)
+        PartResult.Failed
+      }
+      .flatMap { history =>
+        purgePayloads(now).map { payload =>
+          val failed = history == PartResult.Failed || payload == PartResult.Failed
+          val busy   = history == PartResult.Busy || payload == PartResult.Busy
+          val more   = history match {
+            case PartResult.Ran(_, moreWork) => moreWork
+            case _                           => false
           }
-          .recover { case NonFatal(e) =>
-            log.error("Output history retention purge failed", e)
-            PartResult.Failed
+          if (busy && !failed) {
+            log.debug("Output history retention skipped (lock held); retrying in {}", config.lockRetry)
+            nextDue.compareAndSet(claimed, Some(now.plus(config.lockRetry)))
+          } else if (more && !failed) {
+            nextDue.compareAndSet(claimed, Some(now))
           }
-          .flatMap { history =>
-            purgePayloads(now).map { payload =>
-              val failed = history == PartResult.Failed || payload == PartResult.Failed
-              val busy   = history == PartResult.Busy || payload == PartResult.Busy
-              val more   = history match {
-                case PartResult.Ran(_, moreWork) => moreWork
-                case _                           => false
-              }
-              if (busy && !failed) {
-                log.debug("Output history retention skipped (lock held); retrying in {}", config.lockRetry)
-                nextDue.compareAndSet(claimed, Some(now.plus(config.lockRetry)))
-              } else if (more && !failed) {
-                nextDue.compareAndSet(claimed, Some(now))
-              }
-              history match {
-                case PartResult.Ran(result, _) => result
-                case _                         => None
-              }
-            }
+          history match {
+            case PartResult.Ran(result, _) => result
+            case _                         => None
           }
-    }
+        }
+      }
 
   private def logDeleted(deleted: Int): Unit =
     if (deleted > 0) log.info("Output history retention deleted {} point(s)", deleted)

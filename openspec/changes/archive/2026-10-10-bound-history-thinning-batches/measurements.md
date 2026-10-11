@@ -43,7 +43,9 @@ that proxy can be trusted.
   per table.
 - **Settings.** `work_mem` 4 MB (default), `shared_buffers` 128 MB except where stated, `max_parallel_workers_per_gather` 2,
   `auto_explain` (analyze, buffers, nested statements) off for timed runs, on for EXPLAIN runs. Data inserted in `captured_at`
-  order (heap order roughly time order, as live ingest produces).
+  order (heap order roughly time order, as live ingest produces). `SET LOCAL work_mem` for the batch transactions was not
+  needed: at the default R=25,000 no batch spilled (spill 0 in every scenario and profile, section 6.1), and the spills at
+  R=100,000 and above are the reason R=25,000 is the default.
 
 ## 3. The prod-class proxy: what it is, sources, assumptions, sensitivity
 
@@ -318,7 +320,7 @@ worst case about 2x on the deep backlog:
 
 So M=20 stays at or below the old tick everywhere, but on the S4 deep backlog on the prod-class proxy only with a thin margin
 (worst 20 consecutive batches 96.7 s = 88% of the old 109.6 s, and below the 120 s lock-retry window); elsewhere it is 16-35% of
-the old tick. These figures are warm-to-first-touch drains on clones (the first clone of each pair was the colder run); under the
+the old tick. These figures are warm-to-first-touch drains on clones; under the
 cold strict-IO model they do not hold (section 6.2). For comparison the M=60 passes reached 147 s, longer than the old tick.
 A per-pass wall-clock budget (stop starting batches after T) would bound it
 independently of data shape and is the better design if the cold strict model matters: there a single batch is 25-172 s (section
