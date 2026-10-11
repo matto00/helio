@@ -104,7 +104,11 @@ export function mapChartClickToSelection(
     const colorColName = scatterOptions?.colorField;
     const grouped = !!colorColName && headers.indexOf(colorColName) !== -1;
     const series = grouped ? (params.seriesName ?? "") : yCol !== -1 ? headers[yCol] : "";
-    return { dimension, value: String(params.value[0]), series };
+    // HEL-1305 — a time-axis point carries its row's raw x as `name` (its `value[0]` is epoch
+    // millis); a plain scatter point has no name, so this is a no-op there.
+    const value =
+      typeof params.name === "string" && params.name !== "" ? params.name : String(params.value[0]);
+    return { dimension, value, series };
   }
 
   if (chartType === "pie") {
@@ -186,8 +190,15 @@ export function filterRowsForSelection(
     // scatter bullet) — compare numerically rather than as raw strings, or
     // formatting differences (e.g. "3" vs "3.0") could mismatch.
     const target = parseFloat(selection.value);
+    // HEL-1305 — a time-axis scatter selects on the raw x text (a date is not a number), so a
+    // non-numeric value matches the cell literally instead of through `parseFloat("2026-10-01")`.
+    const literal = Number.isNaN(Number(selection.value));
     return rawRows.filter((row) => {
-      if (parseFloat(row[xCol] ?? "") !== target) return false;
+      if (
+        literal ? (row[xCol] ?? "") !== selection.value : parseFloat(row[xCol] ?? "") !== target
+      ) {
+        return false;
+      }
       return colorCol === -1 || (row[colorCol] ?? "") === selection.series;
     });
   }

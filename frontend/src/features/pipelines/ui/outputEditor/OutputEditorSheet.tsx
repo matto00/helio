@@ -15,6 +15,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
+import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import {
   createOutput,
   deleteOutput,
@@ -125,6 +126,11 @@ export function OutputEditorSheet({
     if (!open) return;
     void dispatch(fetchNodeCapabilities({ pipelineId, stepId: nodeStepId }));
   }, [open, dispatch, pipelineId, nodeStepId]);
+
+  const previewFieldTypes = useMemo(
+    () => toChartFieldTypes(capabilities?.columns.map((c) => ({ name: c.name, type: c.dataType }))),
+    [capabilities],
+  );
 
   const { placements, neverMaterialized } = useOutputSavedStatus(open, isCreate, output);
 
@@ -377,6 +383,7 @@ export function OutputEditorSheet({
         kindState={kindState}
         rows={previewEntry.result}
         neverMaterialized={neverMaterialized}
+        fieldTypes={previewFieldTypes}
         onRunPipeline={onRunPipeline}
       />
 

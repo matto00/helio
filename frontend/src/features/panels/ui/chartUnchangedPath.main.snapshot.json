@@ -1,0 +1,4029 @@
+{
+  "line single": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line auto-detect": {
+    "legend": {
+      "data": ["amount", "size"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "line",
+        "name": "size",
+        "data": [3, 4, 5],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line multi gapless": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "A",
+        "data": [1, 3],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "line",
+        "name": "B",
+        "data": [2, 4],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line smooth area": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "smooth": true,
+        "areaStyle": {},
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line overlay": {
+    "legend": {
+      "data": ["amount", "vs prev"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "line",
+        "name": "vs prev",
+        "data": [4, 3, null],
+        "z": 1,
+        "symbol": "none",
+        "lineStyle": {
+          "type": "dashed",
+          "color": "#778899",
+          "width": 2
+        },
+        "itemStyle": {
+          "color": "#778899"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line reference marks": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      },
+      "dataMin": 0,
+      "dataMax": 5
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "id": "__helio_reference_marks__",
+        "type": "line",
+        "data": [],
+        "silent": true,
+        "tooltip": {
+          "show": false
+        },
+        "emphasis": {
+          "disabled": true
+        },
+        "markLine": {
+          "silent": true,
+          "symbol": "none",
+          "animation": true,
+          "data": [
+            {
+              "yAxis": 5,
+              "lineStyle": {
+                "color": "#778899",
+                "type": "solid",
+                "width": 1.5
+              },
+              "label": {
+                "fontFamily": "Inter, sans-serif",
+                "fontSize": 11,
+                "color": "#778899",
+                "textBorderColor": "#1a1d24",
+                "textBorderWidth": 3,
+                "position": "insideEndTop",
+                "formatter": "target"
+              }
+            }
+          ],
+          "blur": {
+            "lineStyle": {
+              "opacity": 1
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        },
+        "markArea": {
+          "silent": true,
+          "animation": true,
+          "data": [
+            [
+              {
+                "yAxis": 0,
+                "itemStyle": {
+                  "color": "#778899",
+                  "opacity": 0.12
+                }
+              },
+              {
+                "yAxis": 2
+              }
+            ]
+          ],
+          "blur": {
+            "itemStyle": {
+              "opacity": 0.12
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line overlay + reference marks": {
+    "legend": {
+      "data": ["amount", "vs prev"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      },
+      "dataMin": 0,
+      "dataMax": 5
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "line",
+        "name": "vs prev",
+        "data": [4, 3, null],
+        "z": 1,
+        "symbol": "none",
+        "lineStyle": {
+          "type": "dashed",
+          "color": "#778899",
+          "width": 2
+        },
+        "itemStyle": {
+          "color": "#778899"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "id": "__helio_reference_marks__",
+        "type": "line",
+        "data": [],
+        "silent": true,
+        "tooltip": {
+          "show": false
+        },
+        "emphasis": {
+          "disabled": true
+        },
+        "markLine": {
+          "silent": true,
+          "symbol": "none",
+          "animation": true,
+          "data": [
+            {
+              "yAxis": 5,
+              "lineStyle": {
+                "color": "#778899",
+                "type": "solid",
+                "width": 1.5
+              },
+              "label": {
+                "fontFamily": "Inter, sans-serif",
+                "fontSize": 11,
+                "color": "#778899",
+                "textBorderColor": "#1a1d24",
+                "textBorderWidth": 3,
+                "position": "insideEndTop",
+                "formatter": "target"
+              }
+            }
+          ],
+          "blur": {
+            "lineStyle": {
+              "opacity": 1
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        },
+        "markArea": {
+          "silent": true,
+          "animation": true,
+          "data": [
+            [
+              {
+                "yAxis": 0,
+                "itemStyle": {
+                  "color": "#778899",
+                  "opacity": 0.12
+                }
+              },
+              {
+                "yAxis": 2
+              }
+            ]
+          ],
+          "blur": {
+            "itemStyle": {
+              "opacity": 0.12
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "line multi with a gap (ruling 2: 0 becomes null)": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02", "2026-10-09"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "A",
+        "data": [1, 3, 5],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "line",
+        "name": "B",
+        "data": [2, 4, 0],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar single": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar multi gapless": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "A",
+        "data": [1, 3],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "B",
+        "data": [2, 4],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar stacked": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "A",
+        "data": [1, 3],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "B",
+        "data": [2, 4],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar normalized": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "{value}%",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      },
+      "max": 100
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "A",
+        "data": [33.33333333333333, 42.857142857142854],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "B",
+        "data": [66.66666666666666, 57.14285714285714],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar horizontal": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar overlay": {
+    "legend": {
+      "data": ["amount", "vs prev"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "vs prev",
+        "data": [4, 3, null],
+        "z": 1,
+        "itemStyle": {
+          "color": "rgba(119, 136, 153, 0.45)",
+          "borderColor": "#778899",
+          "borderWidth": 1
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar reference marks": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      },
+      "dataMin": 0,
+      "dataMax": 5
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "id": "__helio_reference_marks__",
+        "type": "line",
+        "data": [],
+        "silent": true,
+        "tooltip": {
+          "show": false
+        },
+        "emphasis": {
+          "disabled": true
+        },
+        "markLine": {
+          "silent": true,
+          "symbol": "none",
+          "animation": true,
+          "data": [
+            {
+              "yAxis": 5,
+              "lineStyle": {
+                "color": "#778899",
+                "type": "solid",
+                "width": 1.5
+              },
+              "label": {
+                "fontFamily": "Inter, sans-serif",
+                "fontSize": 11,
+                "color": "#778899",
+                "textBorderColor": "#1a1d24",
+                "textBorderWidth": 3,
+                "position": "insideEndTop",
+                "formatter": "target"
+              }
+            }
+          ],
+          "blur": {
+            "lineStyle": {
+              "opacity": 1
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        },
+        "markArea": {
+          "silent": true,
+          "animation": true,
+          "data": [
+            [
+              {
+                "yAxis": 0,
+                "itemStyle": {
+                  "color": "#778899",
+                  "opacity": 0.12
+                }
+              },
+              {
+                "yAxis": 2
+              }
+            ]
+          ],
+          "blur": {
+            "itemStyle": {
+              "opacity": 0.12
+            },
+            "label": {
+              "opacity": 1
+            }
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "bar multi with a gap (ruling 2: 0 becomes null)": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02", "2026-10-09"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "A",
+        "data": [1, 3, 5],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "B",
+        "data": [2, 4, 0],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "scatter": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "scatter",
+        "data": [
+          [2026, 9],
+          [2026, 1],
+          [2026, 2]
+        ],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "scatter size + colour": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "scatter",
+        "name": "A",
+        "data": [
+          [2026, 9, 3],
+          [2026, 1, 4]
+        ],
+        "symbolSize": "__fn__",
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "scatter",
+        "name": "B",
+        "data": [[2026, 2, 5]],
+        "symbolSize": "__fn__",
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "pie": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "pie",
+        "data": [
+          {
+            "name": "2026-10-09",
+            "value": 9
+          },
+          {
+            "name": "2026-10-01",
+            "value": 1
+          },
+          {
+            "name": "2026-10-02",
+            "value": 2
+          }
+        ],
+        "cursor": "pointer",
+        "label": {
+          "color": "#abcdef"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "heatmap": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "histogram": {
+    "legend": {
+      "data": [],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["1 to 3.67", "3.67 to 6.33", "6.33 to 9"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "Count",
+        "data": [2, 0, 1],
+        "barCategoryGap": 0,
+        "cursor": "default",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "aggregate bar": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["east", "null", "west"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "sum(amount)",
+        "data": [1, 2, 3],
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "aggregate line": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["east", "null", "west"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "name": "sum(amount)",
+        "data": [1, 2, 3],
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "aggregate pie": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "pie",
+        "data": [
+          {
+            "name": "east",
+            "value": 1
+          },
+          {
+            "name": "null",
+            "value": 2
+          },
+          {
+            "name": "west",
+            "value": 3
+          }
+        ],
+        "label": {
+          "color": "#abcdef"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "aggregate bar with no groupBy": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["east", "null", "west"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "sum(amount)",
+        "data": [1, 2, 3],
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "aggregate bar grouped by a non-timestamp field of a timestamp schema": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["east", "null", "west"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "sum(amount)",
+        "data": [1, 2, 3],
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: pie": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "pie",
+        "data": [
+          {
+            "name": "2026-10-09",
+            "value": 9
+          },
+          {
+            "name": "2026-10-01",
+            "value": 1
+          },
+          {
+            "name": "2026-10-02",
+            "value": 2
+          }
+        ],
+        "cursor": "pointer",
+        "label": {
+          "color": "#abcdef"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: heatmap": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "line",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: histogram": {
+    "legend": {
+      "data": [],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "category",
+      "data": ["2026"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "Count",
+        "data": [3],
+        "barCategoryGap": 0,
+        "cursor": "default",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: horizontal bar": {
+    "legend": {
+      "data": ["amount"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "category",
+      "data": ["2026-10-09", "2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "amount",
+        "data": [9, 1, 2],
+        "cursor": "pointer",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: horizontal stacked bar": {
+    "legend": {
+      "data": ["A", "B"],
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "xAxis": {
+      "type": "value",
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "formatter": "__fn__",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "yAxis": {
+      "type": "category",
+      "data": ["2026-10-01", "2026-10-02"],
+      "axisLabel": {
+        "show": true,
+        "fontFamily": "ui-monospace, monospace",
+        "color": "#abcdef"
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "axisTick": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "splitLine": {
+        "lineStyle": {
+          "color": "#d0d5dd"
+        }
+      },
+      "nameTextStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "bar",
+        "name": "A",
+        "data": [1, 3],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      },
+      {
+        "type": "bar",
+        "name": "B",
+        "data": [2, 4],
+        "cursor": "pointer",
+        "stack": "total",
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;",
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "shadow"
+      }
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  },
+  "timestamp x: aggregate pie": {
+    "legend": {
+      "show": true,
+      "orient": "horizontal",
+      "top": 0,
+      "left": "center",
+      "textStyle": {
+        "fontFamily": "Inter, sans-serif",
+        "color": "#abcdef"
+      }
+    },
+    "series": [
+      {
+        "type": "pie",
+        "data": [
+          {
+            "name": "east",
+            "value": 1
+          },
+          {
+            "name": "null",
+            "value": 2
+          },
+          {
+            "name": "west",
+            "value": 3
+          }
+        ],
+        "label": {
+          "color": "#abcdef"
+        },
+        "emphasis": {
+          "focus": "series",
+          "itemStyle": {
+            "borderColor": "#ea580c",
+            "borderWidth": 2
+          },
+          "lineStyle": {
+            "color": "#ea580c",
+            "width": 3
+          }
+        }
+      }
+    ],
+    "tooltip": {
+      "show": true,
+      "className": "chart-tooltip",
+      "backgroundColor": "#1a1d24",
+      "borderColor": "#d0d5dd",
+      "borderWidth": 1,
+      "textStyle": {
+        "color": "#abcdef",
+        "fontFamily": "ui-monospace, monospace"
+      },
+      "valueFormatter": "__fn__",
+      "extraCssText": "box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 8px;"
+    },
+    "textStyle": {
+      "fontFamily": "Inter, sans-serif",
+      "color": "#abcdef"
+    },
+    "color": [
+      "#5470c6",
+      "#91cc75",
+      "#fac858",
+      "#ee6666",
+      "#73c0de",
+      "#3ba272",
+      "#fc8452",
+      "#9a60b4"
+    ],
+    "backgroundColor": "transparent"
+  }
+}

@@ -5,6 +5,7 @@ import { formatCapturePair } from "../../../panels/history/formatCaptureTime";
 import { selectPointOverlay } from "../../../panels/history/chartOverlay";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
+import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { Output } from "../../types/output";
 import { readChartConfig } from "../outputEditor/outputConfigTypes";
 
@@ -38,6 +39,7 @@ export function HistoryChart({ output, selected, comparison }: HistoryChartProps
         : null,
     [series, comparison, selected.capturedAt],
   );
+  const fieldTypes = useMemo(() => toChartFieldTypes(output.schema), [output.schema]);
   const appearance = useMemo(
     () => ({
       ...defaultPanelAppearance,
@@ -66,6 +68,7 @@ export function HistoryChart({ output, selected, comparison }: HistoryChartProps
         fieldMapping={{ xAxis: series.x, yAxis: series.y }}
         chartOptions={cfg.chartOptions}
         overlay={overlay}
+        fieldTypes={fieldTypes}
       />
     </div>
   );

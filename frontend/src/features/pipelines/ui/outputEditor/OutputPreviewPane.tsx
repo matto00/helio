@@ -26,6 +26,7 @@ import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import type { MappedPanelData, ChartTypeOptionsMap } from "../../../panels/types/panel";
+import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import type { RunResult } from "../../types/output";
 import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
@@ -43,6 +44,8 @@ interface OutputPreviewPaneProps {
   chartOptions?: ChartTypeOptionsMap | null;
   chartAnnotation?: string | null;
   referenceMarks?: ReferenceMarks;
+  /** HEL-1305 -- the node's column types (editor capabilities); a `timestamp` x plots on a time axis. */
+  chartFieldTypes?: ChartFieldTypes | null;
   // Table
   tableColumns?: string[];
   // Metric
@@ -78,6 +81,7 @@ export function OutputPreviewPane({
   chartOptions,
   chartAnnotation,
   referenceMarks,
+  chartFieldTypes,
   tableColumns,
   metricField,
   metricAggFn,
@@ -101,6 +105,7 @@ export function OutputPreviewPane({
     return {
       ...groupAndAggregate(rawRowData, spec.groupBy, spec.agg, spec.yField),
       seriesName: aggregateSeriesName(spec),
+      groupBy: spec.groupBy,
     };
   }, [kind, chartType, chartGroupBy, chartYField, chartAggFn, rawRowData]);
 
@@ -130,6 +135,7 @@ export function OutputPreviewPane({
           chartAggregate={chartAggregate}
           chartOptions={chartOptions}
           referenceMarks={referenceMarks}
+          fieldTypes={chartFieldTypes}
           annotation={chartAnnotation}
           compact
         />

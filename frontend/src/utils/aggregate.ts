@@ -92,6 +92,9 @@ export interface GroupedAggregate {
   /** HEL-1351 design D4a — the plotted series' name (`<agg>(<yField>)`), so a shown legend and the
    *  tooltip name the primary series. Absent → the series is unnamed. */
   seriesName?: string;
+  /** HEL-1305 — the field the rows were grouped by, so the chart can tell a timestamp-typed group key
+   *  (time axis) from a string one. Absent → category axis. */
+  groupBy?: string;
 }
 
 /** Group `rows` by `groupBy` and compute one `agg(yField)` per group, using
