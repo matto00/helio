@@ -166,9 +166,11 @@ async function advance(ms: number) {
 
 // Measured on the pre-change base (T3). The first two are right after the open's seed re-render and
 // right after the edit's synchronous act; `settled` includes the analyze dispatch's own status renders.
-const RENDERS_AFTER_OPEN = 5;
-const RENDERS_AFTER_EDIT = 6;
-const RENDERS_SETTLED = 8;
+// HEL-1483: +1 from the render that records "this mount's steps fetch fulfilled" (the seed gate), and
+// +1 from the render-phase update that keeps this mount's own pipeline when the fetch replaces it.
+const RENDERS_AFTER_OPEN = 7;
+const RENDERS_AFTER_EDIT = 8;
+const RENDERS_SETTLED = 10;
 
 const generateText = OP_TYPES.find((op) => op.id === "generatetext")!;
 const completeAiConfig = { inputField: "a", instruction: "Summarize", outputField: "summary" };
@@ -197,8 +199,11 @@ describe("usePipelineDetailPage analyze dispatch / render count / run-completion
   // `PipelineDetailPage.test.tsx` "fires analyzePipeline exactly once on open".)
   it("T2 F-105 seed-at-mount: steps already in Redux at first render give exactly one analyze over 1s", async () => {
     const { result } = renderPage({ preloadSteps: true });
-    expect(result.current.steps).toHaveLength(2);
+    // HEL-1483 (design D2a): a cache entry that pre-dates the mount is never seeded from -- the
+    // editor waits for the steps fetch this mount issued, so a revisit can't show pre-edit steps.
+    expect(result.current.steps).toHaveLength(0);
     await advance(0);
+    expect(result.current.steps).toHaveLength(2);
     expect(analyzeMock).toHaveBeenCalledTimes(1);
     await advance(1000);
     expect(analyzeMock).toHaveBeenCalledTimes(1);

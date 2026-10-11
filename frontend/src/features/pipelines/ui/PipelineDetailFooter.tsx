@@ -45,7 +45,8 @@ interface PipelineDetailFooterProps {
   pipelineName: string;
   setOutputName: (v: string) => void;
   setEditingOutputName: (v: boolean) => void;
-  stepCount: number;
+  /** `null` while the steps are still loading (no count to show yet). */
+  stepCount: number | null;
   /** The pipeline's real final-step output schema (HEL-404's
    *  `getAnalyzeOutputSchema`, keyed to the last step) — `[]` while the
    *  pipeline has no steps or /analyze hasn't returned yet. */
@@ -214,9 +215,11 @@ export function PipelineDetailFooter({
           )}
         </div>
         <div className="pipeline-detail-page__footer-right">
-          <span className="pipeline-detail-page__footer-stats">
-            {stepCount} step{stepCount !== 1 ? "s" : ""}
-          </span>
+          {stepCount !== null && (
+            <span className="pipeline-detail-page__footer-stats">
+              {stepCount} step{stepCount !== 1 ? "s" : ""}
+            </span>
+          )}
           {(sseData.status !== null || runStatus !== null) &&
             (() => {
               const displayStatus = sseData.status ?? runStatus;

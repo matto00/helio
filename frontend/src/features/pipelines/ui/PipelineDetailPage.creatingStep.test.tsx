@@ -187,6 +187,14 @@ function renderPage(store = makeStore()) {
   );
 }
 
+/** `renderPage`, then lets the mount\'s own steps fetch settle (HEL-1483: until it lands the steps
+ *  area shows a loading skeleton, not the editor / empty state). */
+async function renderPageSettled(store = makeStore()) {
+  const result = renderPage(store);
+  await act(async () => {});
+  return result;
+}
+
 /** HEL-1345 — the create-immediately paths no longer issue a post-create steps GET (they apply the
  *  create response's delta), so the in-flight window is the CREATE request itself: hold it on a
  *  deferred promise and release it with the persisted step. */
@@ -235,7 +243,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
   it("disables the toggle and opens no editor until the create lands, then edits PATCH the real id", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     const create = holdCreate();
-    renderPage();
+    await renderPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
@@ -273,7 +281,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
         rejectCreate = reject;
       }),
     );
-    renderPage();
+    await renderPageSettled();
 
     await addFilterStep();
     expect(screen.getByRole("button", { name: /Filter rows/i })).toBeDisabled();
@@ -288,7 +296,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
 
   it("an AI draft (no create request) stays expandable", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
-    renderPage();
+    await renderPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Analyze with AI/i }));
@@ -303,7 +311,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
   it("a lane-add step is not expandable while its create is in flight", async () => {
     getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
     const create = holdCreate();
-    renderPage();
+    await renderPageSettled();
     await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
     fireEvent.click(screen.getByRole("button", { name: /Branch this step into a new lane/i }));
