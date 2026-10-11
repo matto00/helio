@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-908, Cycle 8 — live proof for the "+ tail" create affordance restored
@@ -21,6 +22,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
       data: { email, password, displayName: "HEL-908 Tail Attach E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {
@@ -130,6 +132,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
       data: { email, password, displayName: "HEL-908 CR9 E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {
@@ -204,6 +207,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
       data: { email, password, displayName: "HEL-908 CR10 E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {
@@ -288,6 +292,7 @@ test.describe("HEL-908 tail-attach live verification", () => {
       data: { email, password, displayName: "HEL-908 CR11 E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {

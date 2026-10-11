@@ -5,6 +5,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 import { isolateLivePage } from "./support/isolateLivePage";
 
@@ -56,6 +57,8 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     ]);
 
     expect(response.status()).toBe(201);
+    // HEL-1301: the UI signup created a real user; record it for the run's teardown.
+    await recordRegisteredUser(response);
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).not.toHaveProperty("token");
     expect(JSON.stringify(body)).not.toContain('"token"');
@@ -82,10 +85,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     const email = uniqueEmail("hel287", "login", "example.com");
     const password = "correcthorsebattery1";
     // Bootstrap the account directly via the API (UI registration is already covered above).
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password, displayName: "E2E Login User" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -164,10 +168,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
   }) => {
     const email = uniqueEmail("hel287", "getdash", "example.com");
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -187,10 +192,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
   }) => {
     const email = uniqueEmail("hel287", "csrf", "example.com");
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -223,10 +229,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     // the account — `page.request` shares the browser context's cookie jar,
     // which would authenticate the page itself and make PublicOnlyRoute
     // redirect away from /login before the form can be filled.
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -253,10 +260,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
   }) => {
     const email = uniqueEmail("hel287", "pat", "example.com");
     const password = "correcthorsebattery1";
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);
@@ -301,10 +309,11 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     const password = "correcthorsebattery1";
     // See the logout test above for why this must be the isolated `request`
     // fixture, not `page.request`.
-    await request.post("/api/auth/register", {
+    const registerRes = await request.post("/api/auth/register", {
       data: { email, password },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
 
     await page.goto("/login");
     await page.fill("#email", email);

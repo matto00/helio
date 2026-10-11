@@ -31,6 +31,11 @@ function localWorkers(): number {
 
 export default defineConfig({
   testDir: "./e2e",
+  // HEL-1301 — every e2e user registration is recorded in a per-run registry (globalSetup creates it),
+  // and the global teardown deletes exactly those users by recorded id (e2e/support/userCleanup.ts).
+  // playwright.regression.config.ts spreads this config, so it inherits both hooks.
+  globalSetup: "./e2e/support/userRegistry.globalSetup.ts",
+  globalTeardown: "./e2e/support/userRegistry.globalTeardown.ts",
   // Quarantine register (HEL-951) — the single exclusion list for both a
   // bare `npm run e2e` and CI's glob (`.github/workflows/ci.yml`'s `e2e`
   // job). Every entry below carries a comment naming its reason; a

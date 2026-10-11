@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-908, Cycle 9 — the human's evidence bar for the trunk-reorder fix
@@ -26,6 +27,7 @@ test.describe("HEL-908 trunk-to-trunk reorder — real drag gesture", () => {
       data: { email, password, displayName: "HEL-908 Drag Reorder E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {
