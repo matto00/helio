@@ -1,0 +1,8 @@
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — reduced to resolveAll, resolveEdit dispatch, dashboard resolvers, plus second top-level object PatchSetResolverSupport (shared helpers, producers and requireAccess calls stay here)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPanelResolvers.scala` — new: panel resolvers moved byte-identical
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetDataSourceResolvers.scala` — new: dataSource resolvers moved byte-identical
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineResolvers.scala` — new: pipeline resolvers moved byte-identical
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineStepResolvers.scala` — new: pipelineStep resolvers moved byte-identical
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetOutputResolvers.scala` — new: output resolvers moved byte-identical
+- `backend/src/main/scala/com/helio/services/patchsets/README.md` — "Holds" list gains the five new objects and `PatchSetResolverSupport`
+- `openspec/changes/split-patchset-apply-resolvers/` — tasks.md ticked; evidence: move-evidence.md, api-evidence.md, mutation-evidence.md, test-count-evidence.md, guard-evidence.txt, move-check/ (gen.py, check.py, javap.sh, suites.py, mutate.py, guard-mutate.py, gate-mutate.py, grep-guards.sh, spec.json, outputs; superseded-6d298d5f8/)

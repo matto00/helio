@@ -1,0 +1,35 @@
+## BASE=55b53be4a
+## RED 1: one token changed inside a moved body (PatchSetOutputResolvers: first "NotFound(" -> "Conflict(")
+27c27
+<       case None                                     => Left(ServiceError.NotFound("Output not found"))
+---
+>       case None                                     => Left(ServiceError.Conflict("Output not found"))
+BASE=55b53be4a (854 lines)
+PatchSetApplyResolvers.scala: 233 lines :: moved/kept verbatim=193, scaffold:imports=8, scaffold:member-import=6, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=5
+PatchSetPanelResolvers.scala: 131 lines :: moved/kept verbatim=106, scaffold:imports=8, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetDataSourceResolvers.scala: 77 lines :: moved/kept verbatim=56, scaffold:imports=6, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetPipelineResolvers.scala: 142 lines :: moved/kept verbatim=117, scaffold:imports=8, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetPipelineStepResolvers.scala: 264 lines :: moved/kept verbatim=237, scaffold:imports=9, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetOutputResolvers.scala: 85 lines :: moved/kept verbatim=64, scaffold:imports=6, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=2
+blocks: 36; base non-blank lines 20..854: 792; unclaimed 0; multiply-claimed 0
+FAIL
+ - PatchSetOutputResolvers.scala:27: member findOwnedOutput base line 796 mismatch
+    expected: '      case None                                     => Left(ServiceError.NotFound("Output not found"))'
+    actual:   '      case None                                     => Left(ServiceError.Conflict("Output not found"))'
+exit=1
+
+## RED 2: duplicated closing brace line inserted before the final brace of PatchSetPanelResolvers
+130a131
+>     }
+BASE=55b53be4a (854 lines)
+PatchSetApplyResolvers.scala: 233 lines :: moved/kept verbatim=193, scaffold:imports=8, scaffold:member-import=6, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=5
+PatchSetPanelResolvers.scala: 132 lines :: moved/kept verbatim=106, scaffold:imports=8, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetDataSourceResolvers.scala: 77 lines :: moved/kept verbatim=56, scaffold:imports=6, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetPipelineResolvers.scala: 142 lines :: moved/kept verbatim=117, scaffold:imports=8, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetPipelineStepResolvers.scala: 264 lines :: moved/kept verbatim=237, scaffold:imports=9, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=3
+PatchSetOutputResolvers.scala: 85 lines :: moved/kept verbatim=64, scaffold:imports=6, scaffold:member-import=1, scaffold:object-doc=1, scaffold:object-scaffold=2, scaffold:package=1, visibility-subst=2
+blocks: 36; base non-blank lines 20..854: 792; unclaimed 0; multiply-claimed 0
+FAIL
+ - PatchSetPanelResolvers.scala:131: scaffold [object-scaffold] expected '}' got '    }'
+ - PatchSetPanelResolvers.scala:132: UNACCOUNTED line(s) from here on: '}' (+0 more)
+exit=1

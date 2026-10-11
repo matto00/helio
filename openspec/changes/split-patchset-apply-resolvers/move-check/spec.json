@@ -1,0 +1,660 @@
+{
+ "PatchSetApplyResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, PipelineId, ResourceAccess}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.JsonReader",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success, Try}",
+   "cat": "imports"
+  },
+  {
+   "member": "object-doc-and-header",
+   "range": [
+    20,
+    32
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.{requireTargetId, decodeCreatePatch}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import PatchSetPanelResolvers.{resolvePanelUpdate, resolvePanelDelete, resolvePanelCreate}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import PatchSetDataSourceResolvers.{resolveDataSourceUpdate, resolveDataSourceDelete, resolveDataSourceCreate}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import PatchSetPipelineResolvers.{resolvePipelineUpdate, resolvePipelineDelete, resolvePipelineCreate}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import PatchSetPipelineStepResolvers.{resolvePipelineStepUpdate, resolvePipelineStepDelete, resolvePipelineStepCreate}",
+   "cat": "member-import"
+  },
+  {
+   "scaffold": "  import PatchSetOutputResolvers.{resolveOutputUpdate, resolveOutputDelete}",
+   "cat": "member-import"
+  },
+  {
+   "member": "resolveAll",
+   "range": [
+    34,
+    49
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveEdit",
+   "range": [
+    51,
+    92
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveDashboardUpdate",
+   "range": [
+    340,
+    361
+   ],
+   "subst": {}
+  },
+  {
+   "member": "buildDashboardUpdateResolved",
+   "range": [
+    363,
+    372
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveDashboardDelete",
+   "range": [
+    374,
+    397
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveDashboardCreate",
+   "range": [
+    399,
+    414
+   ],
+   "subst": {}
+  },
+  {
+   "member": "object-close",
+   "range": [
+    854,
+    854
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "/** Access/decode helpers shared by the patch-set resolvers. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetResolverSupport {",
+   "cat": "object-scaffold"
+  },
+  {
+   "member": "requireTargetId",
+   "range": [
+    95,
+    99
+   ],
+   "subst": {
+    "95": "  private[patchsets] def requireTargetId(edit: Edit, index: Int): Either[ServiceError, String] ="
+   }
+  },
+  {
+   "member": "authorizeEditorOnDashboard",
+   "range": [
+    101,
+    110
+   ],
+   "subst": {
+    "101": "  private[patchsets] def authorizeEditorOnDashboard("
+   }
+  },
+  {
+   "member": "authorizeEditorOrOwnerOnPipeline",
+   "range": [
+    112,
+    128
+   ],
+   "subst": {
+    "115": "  private[patchsets] def authorizeEditorOrOwnerOnPipeline("
+   }
+  },
+  {
+   "member": "requireVisibleStep",
+   "range": [
+    130,
+    142
+   ],
+   "subst": {
+    "133": "  private[patchsets] def requireVisibleStep("
+   }
+  },
+  {
+   "member": "decodeCreatePatch",
+   "range": [
+    144,
+    152
+   ],
+   "subst": {
+    "144": "  private[patchsets] def decodeCreatePatch[T](edit: Edit, index: Int)(implicit reader: JsonReader[T]): Either[ServiceError, T] ="
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ],
+ "PatchSetPanelResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.domain.panels.PanelConfigCodec",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.panels.{FormBindingValidator, PanelServiceHelpers}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, PanelId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Panel-target resolvers for the patch-set pre-validation pass. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetPanelResolvers {",
+   "cat": "object-scaffold"
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.{requireTargetId, authorizeEditorOnDashboard, decodeCreatePatch}",
+   "cat": "member-import"
+  },
+  {
+   "member": "standalone-HEL-904-comment",
+   "range": [
+    169,
+    173
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolvePanelUpdate",
+   "range": [
+    231,
+    258
+   ],
+   "subst": {
+    "231": "  private[patchsets] def resolvePanelUpdate("
+   }
+  },
+  {
+   "member": "resolvePanelDelete",
+   "range": [
+    260,
+    283
+   ],
+   "subst": {
+    "260": "  private[patchsets] def resolvePanelDelete("
+   }
+  },
+  {
+   "member": "resolvePanelCreate",
+   "range": [
+    285,
+    310
+   ],
+   "subst": {
+    "285": "  private[patchsets] def resolvePanelCreate("
+   }
+  },
+  {
+   "member": "rejectUnboundOrBadlyBoundForm",
+   "range": [
+    313,
+    338
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ],
+ "PatchSetDataSourceResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Data-source-target resolvers for the patch-set pre-validation pass. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetDataSourceResolvers {",
+   "cat": "object-scaffold"
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.{requireTargetId, decodeCreatePatch}",
+   "cat": "member-import"
+  },
+  {
+   "member": "resolveDataSourceUpdate",
+   "range": [
+    417,
+    440
+   ],
+   "subst": {
+    "417": "  private[patchsets] def resolveDataSourceUpdate("
+   }
+  },
+  {
+   "member": "resolveDataSourceDelete",
+   "range": [
+    442,
+    461
+   ],
+   "subst": {
+    "442": "  private[patchsets] def resolveDataSourceDelete("
+   }
+  },
+  {
+   "member": "resolveDataSourceCreate",
+   "range": [
+    463,
+    477
+   ],
+   "subst": {
+    "463": "  private[patchsets] def resolveDataSourceCreate("
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ],
+ "PatchSetPipelineResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineSummaryResponse}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.services.pipelines.PipelineCreatePreflight",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Pipeline-target resolvers for the patch-set pre-validation pass. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetPipelineResolvers {",
+   "cat": "object-scaffold"
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.{requireTargetId, decodeCreatePatch}",
+   "cat": "member-import"
+  },
+  {
+   "member": "pipelineSummaryResponse",
+   "range": [
+    154,
+    166
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolvePipelineUpdate",
+   "range": [
+    482,
+    512
+   ],
+   "subst": {
+    "482": "  private[patchsets] def resolvePipelineUpdate("
+   }
+  },
+  {
+   "member": "resolvePipelineDelete",
+   "range": [
+    514,
+    537
+   ],
+   "subst": {
+    "514": "  private[patchsets] def resolvePipelineDelete("
+   }
+  },
+  {
+   "member": "prefixedWithEdit",
+   "range": [
+    539,
+    543
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolvePipelineCreate",
+   "range": [
+    545,
+    591
+   ],
+   "subst": {
+    "545": "  private[patchsets] def resolvePipelineCreate("
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ],
+ "PatchSetPipelineStepResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.panels.PanelResponse",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, PipelineStepResponse, UpdatePipelineStepRequest}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.{JsArray, JsObject, JsValue}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.util.{Failure, Success}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Pipeline-step-target resolvers for the patch-set pre-validation pass. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetPipelineStepResolvers {",
+   "cat": "object-scaffold"
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.{requireTargetId, authorizeEditorOrOwnerOnPipeline, requireVisibleStep, decodeCreatePatch}",
+   "cat": "member-import"
+  },
+  {
+   "member": "validateEmbeddedStepReferences",
+   "range": [
+    175,
+    228
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolvePipelineStepUpdate",
+   "range": [
+    594,
+    633
+   ],
+   "subst": {
+    "594": "  private[patchsets] def resolvePipelineStepUpdate("
+   }
+  },
+  {
+   "member": "resolvePipelineStepDelete",
+   "range": [
+    635,
+    670
+   ],
+   "subst": {
+    "635": "  private[patchsets] def resolvePipelineStepDelete("
+   }
+  },
+  {
+   "member": "buildPipelineStepDeletePriorState",
+   "range": [
+    672,
+    702
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolvePipelineStepCreate",
+   "range": [
+    704,
+    754
+   ],
+   "subst": {
+    "722": "  private[patchsets] def resolvePipelineStepCreate("
+   }
+  },
+  {
+   "member": "authorizeSecondSourceForCreate",
+   "range": [
+    756,
+    783
+   ],
+   "subst": {}
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ],
+ "PatchSetOutputResolvers.scala": [
+  {
+   "scaffold": "package com.helio.services.patchsets",
+   "cat": "package"
+  },
+  {
+   "scaffold": "import com.helio.services.ServiceError",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.api.protocols.patchsets.Edit",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import com.helio.domain.model.{AuthenticatedUser, Output, OutputId}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import PatchSetApplyServiceJson._",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import spray.json.JsObject",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "import scala.concurrent.{ExecutionContext, Future}",
+   "cat": "imports"
+  },
+  {
+   "scaffold": "/** Output-target resolvers for the patch-set pre-validation pass. Split out of `PatchSetApplyResolvers` (HEL-1479). */",
+   "cat": "object-doc"
+  },
+  {
+   "scaffold": "private[patchsets] object PatchSetOutputResolvers {",
+   "cat": "object-scaffold"
+  },
+  {
+   "scaffold": "  import PatchSetResolverSupport.requireTargetId",
+   "cat": "member-import"
+  },
+  {
+   "member": "standalone-output-section-comment",
+   "range": [
+    785,
+    785
+   ],
+   "subst": {}
+  },
+  {
+   "member": "findOwnedOutput",
+   "range": [
+    787,
+    799
+   ],
+   "subst": {}
+  },
+  {
+   "member": "resolveOutputUpdate",
+   "range": [
+    801,
+    828
+   ],
+   "subst": {
+    "801": "  private[patchsets] def resolveOutputUpdate("
+   }
+  },
+  {
+   "member": "resolveOutputDelete",
+   "range": [
+    830,
+    853
+   ],
+   "subst": {
+    "830": "  private[patchsets] def resolveOutputDelete("
+   }
+  },
+  {
+   "scaffold": "}",
+   "cat": "object-scaffold"
+  }
+ ]
+}
