@@ -62,11 +62,12 @@ Saving SHALL write `config.compare` as an explicit JSON `null` for None (never a
 `7d`, `30d`; an existing `custom:` value SHALL be shown as a selectable option and kept unchanged on save. When a
 chart Output is created as an aggregate tail, its Output config SHALL carry the selector's value. The selector SHALL
 have fixed help text, programmatically associated with it, stating that the "vs" overlay does not show for Outputs
-with more than 200 rows, a panel under a viewer filter or cross-filter, or pie, scatter, multi-series, 100%-stacked or
-horizontal-bar charts; it SHALL NOT claim that aggregated Outputs never show the overlay. When a compare value other
+with more than 200 rows, a panel under a viewer filter or cross-filter, or pie, scatter, heatmap, histogram, multi-series,
+100%-stacked or horizontal-bar charts; it SHALL NOT claim that aggregated Outputs never show the overlay. When a compare value other
 than None is selected and the editor's current config already rules the overlay out — for a non-aggregated config,
 `fieldMapping.series` set or `fieldMapping.xAxis` or `fieldMapping.yAxis` absent; for any config, bar `chartOptions`
-with `orientation: "horizontal"` or `stacking: "normalized"` — the editor SHALL additionally show a specific note naming
+with `orientation: "horizontal"` or `stacking: "normalized"`; for any config, `chartType` `heatmap` or `histogram` — the
+editor SHALL additionally show a specific note naming
 that reason. An aggregated config SHALL NOT produce a note on account of its aggregation, its `fieldMapping.series`, or
 absent `fieldMapping.xAxis`/`yAxis`. The note SHALL be derived from the same Output-level conditions the dashboard
 overlay applies.
@@ -100,6 +101,10 @@ overlay applies.
 - **WHEN** an author sets "7 days" in the editor on a raw-rows line chart Output with a matching 7-day-old baseline
   and opens a dashboard showing it
 - **THEN** the chart panel shows a legend entry "vs 7d" without a page reload
+
+#### Scenario: Histogram chart type gets a specific note
+- **WHEN** a chart Output's `chartType` is `histogram` and "7 days" is selected
+- **THEN** the picker shows the general help text plus a note that the overlay does not show for histogram charts
 
 ### Requirement: Dashboard chart panels render config.aggregation
 A dashboard chart panel bound to an aggregated chart Output (its `config.chartType` is not `scatter` and
@@ -174,3 +179,11 @@ Saving the panel detail modal SHALL NOT write `appearance.chart`.
 #### Scenario: Detail modal save does not freeze the type
 - **WHEN** an author opens the detail modal on that no-stored-type bar panel and saves
 - **THEN** the save payload carries no `appearance.chart` and the panel keeps rendering the Output's type
+
+### Requirement: Heatmap and histogram never draw the "vs" overlay
+A chart panel, Output editor preview or History view whose resolved chart type is `heatmap` or `histogram` SHALL NOT
+draw the "vs" overlay series, whatever the Output's `config.compare` and history hold.
+
+#### Scenario: Compare set on a histogram Output
+- **WHEN** a histogram Output with `compare: "7d"` and a matching baseline is shown on a dashboard
+- **THEN** the panel draws only the histogram bars and no "vs 7d" legend entry
