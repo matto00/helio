@@ -32,11 +32,22 @@ function withoutMediaBlocks(source: string): string {
   return out;
 }
 
+/** The declaration block of the always-on rule whose selector is exactly `selector` (no RegExp is
+ *  built from the selector, so there is nothing to escape). */
 function baseRule(selector: string): string {
   const base = withoutMediaBlocks(css).replace(/\/\*[\s\S]*?\*\//g, "");
-  const match = base.match(new RegExp(`${selector.replace(/[.]/g, "\\.")}\\s*\\{([^}]*)\\}`));
-  if (!match) throw new Error(`no always-on rule for ${selector}`);
-  return match[1];
+  let from = 0;
+  for (;;) {
+    const at = base.indexOf(selector, from);
+    if (at === -1) throw new Error(`no always-on rule for ${selector}`);
+    from = at + selector.length;
+    const open = base.slice(from).match(/^\s*\{/);
+    const startsRule = at === 0 || /[\s}]/.test(base[at - 1]);
+    if (open && startsRule) {
+      const bodyStart = from + open[0].length;
+      return base.slice(bodyStart, base.indexOf("}", bodyStart));
+    }
+  }
 }
 
 describe("TableDisplayFields.css shrink rules apply at every width (HEL-1464)", () => {
