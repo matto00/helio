@@ -35,6 +35,7 @@ export function OutputSheetPreviewCard({
     metricUnitState,
     metricFormat,
     markdownContent,
+    conditionalFormats,
   } = kindState;
   return (
     <div className="output-editor-sheet__group output-editor-sheet__group--card">
@@ -85,6 +86,9 @@ export function OutputSheetPreviewCard({
         metricUnit={metricUnitState.mode === "literal" ? metricUnitState.literalValue : undefined}
         metricFormat={metricFormat}
         markdownContent={markdownContent}
+        metricConditionalFormats={
+          kind === "metric" ? conditionalFormats.validRulesFor("metric") : undefined
+        }
       />
     </div>
   );

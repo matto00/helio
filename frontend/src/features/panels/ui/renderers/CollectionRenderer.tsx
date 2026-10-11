@@ -2,6 +2,7 @@ import "./CollectionRenderer.css";
 import type { MappedPanelData } from "../../types/panel";
 import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import { MetricRenderer } from "./MetricRenderer";
+import type { ConditionalFormatRule } from "./conditionalFormatting";
 
 interface CollectionRendererProps {
   /** Bound-column mapping from the Output's `CollectionOutputConfig`. */
@@ -16,6 +17,8 @@ interface CollectionRendererProps {
   rawRows?: string[][] | null;
   /** Column names aligned to each `rawRows` row. */
   headers?: string[] | null;
+  /** HEL-1307 -- threshold rules; each item evaluates them against its own raw value. */
+  conditionalFormats?: ConditionalFormatRule[] | null;
 }
 
 /** Map one fetched row to a metric item's `MappedPanelData` (HEL-247 D4).
@@ -49,6 +52,7 @@ export function CollectionRenderer({
   format,
   rawRows,
   headers,
+  conditionalFormats,
 }: CollectionRendererProps) {
   // Bound but no rows → "No data" state rather than an empty body.
   if (!rawRows || rawRows.length === 0 || !headers) {
@@ -66,6 +70,7 @@ export function CollectionRenderer({
           <MetricRenderer
             data={buildMetricItem(row, headers, fieldMapping, metricOptions)}
             format={format}
+            conditionalFormats={conditionalFormats}
           />
         </div>
       ))}

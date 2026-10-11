@@ -41,6 +41,31 @@
   margin-left: var(--space-1);
 }
 
+/* HEL-1307 conditional formatting -- the tone colour lives on this inner span only (glyph + value text +
+   sr text). The unit is a sibling OUTSIDE it, so it keeps inheriting the panel colour
+   (`--panel-text-override`) and its own 60% mix exactly as with no rules. Tokens only, both themes. */
+.panel-content__metric-figure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.panel-content__metric-figure--tone-success {
+  color: var(--app-success);
+}
+
+.panel-content__metric-figure--tone-warning {
+  color: var(--app-warning);
+}
+
+.panel-content__metric-figure--tone-error {
+  color: var(--app-error);
+}
+
+.tone-glyph {
+  flex: none;
+}
+
 /* F-038 — shared scroll-affordance recipe: see the full rationale comment above
    `.panel-content--collection` in `renderers/CollectionRenderer.css` (that
    file's own copy is a third instance of the same recipe, unavoidably

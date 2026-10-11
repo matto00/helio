@@ -3,6 +3,7 @@ package com.helio.services.pipelines
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineStepConfigCodec}
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.{OutputKind, PipelineStep, PipelineStepKind}
+import com.helio.domain.outputs.ConditionalFormats
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
 import spray.json.JsObject
@@ -205,5 +206,6 @@ private[services] object PipelineCreatePreflight {
     OutputConfigValidation.validate(kind, config, JsObject.empty)
       .flatMap(_ => OutputCompare.validateConfig(config))
       .flatMap(_ => PayloadOptIn.validateConfig(config))
+      .flatMap(_ => ConditionalFormats.validateConfig(kind, config))
       .left.map(msg => ServiceError.BadRequest(msg))
 }

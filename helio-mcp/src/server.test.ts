@@ -345,6 +345,7 @@ describe("control tool copy states the observed status codes (HEL-1193 C2)", () 
       "columnOrder",
       "columnFormats",
       "pinnedColumns",
+      "conditionalFormats",
       "layout",
       "sort",
       "content",
@@ -357,6 +358,35 @@ describe("control tool copy states the observed status codes (HEL-1193 C2)", () 
     expect(description).toContain("rejected with a 400");
     expect(description).not.toContain("merges one level deep");
   });
+
+  // HEL-1307: add_output / update_output document the rule shape so an agent can write a valid list.
+  it.each(["add_output", "update_output"])(
+    "%s documents the conditionalFormats rule shape",
+    async (name) => {
+      const tools = await listRegisteredTools();
+      const description = tools.find((t) => t.name === name)?.description ?? "";
+
+      for (const word of [
+        "`gt`",
+        "`gte`",
+        "`lt`",
+        "`lte`",
+        "`between`",
+        "`eq`",
+        "`neq`",
+        "`success`",
+        "`warning`",
+        "`error`",
+        "first matching rule wins",
+        "`column`",
+        "`target`",
+        "raw (unformatted) value",
+        "`[]`",
+      ]) {
+        expect(description).toContain(word);
+      }
+    },
+  );
 
   it.each([
     "propose_dashboard",
