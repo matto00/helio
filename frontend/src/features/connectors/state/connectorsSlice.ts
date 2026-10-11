@@ -9,6 +9,7 @@ import {
   updateConnector as updateConnectorRequest,
 } from "../services/connectorEntityService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
+import { deleteSource } from "../../sources/state/sourcesSlice";
 import type {
   Connector,
   CreateConnectorRequest,
@@ -178,6 +179,11 @@ const connectorsSlice = createSlice({
         if (action.payload) {
           state.deleteConflict[action.payload.id] = action.payload.message;
         }
+      })
+      // HEL-1497: deleting a REST source can remove its unadopted auto-created Connector server-side. The client
+      // cannot tell whether one was removed, so reset to "idle" and let the Connectors page refetch.
+      .addCase(deleteSource.fulfilled, (state) => {
+        state.status = "idle";
       });
   },
 });
