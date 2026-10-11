@@ -136,6 +136,8 @@ export function OutputEditorSheet({
 
   const fieldOptions = columnOptions(capabilities);
   const aggFieldOptions = aggColumnOptions(capabilities);
+  // HEL-1311 -- the server's own "numeric for a chart value" list (the `yAxis` slot's eligibility).
+  const numericColumns = capabilities?.capabilities.chart?.eligibleColumns.yAxis ?? [];
 
   // task 5.5 -- live preview, saved vs. unsaved arm (design.md decision 6a).
   const savedPreview = useOutputPreview(pipelineId, output?.id ?? "");
@@ -288,6 +290,7 @@ export function OutputEditorSheet({
           canAddTailWithAggregate={canAddTailWithAggregate}
           onAddTailWithAggregate={() => void handleAddTailWithAggregate()}
           onSave={() => void handleSave()}
+          saveBlocked={kind === "chart" && kindState.binCountInvalid}
         />
       }
     >
@@ -346,6 +349,7 @@ export function OutputEditorSheet({
         kindState={kindState}
         aggFieldOptions={aggFieldOptions}
         fieldOptions={fieldOptions}
+        numericColumns={numericColumns}
       />
 
       {!isCreate && (

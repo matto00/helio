@@ -2,9 +2,9 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
-import com.helio.domain.panels.OutputBindingSpec
+import com.helio.domain.panels.{ChartTypes, OutputBindingSpec}
 import com.helio.services.ServiceError
-import spray.json.{JsNull, JsObject, JsString, JsValue}
+import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
 /** HEL-1313: write-time validation of an Output's free-form `config` against a per-kind known-key
  *  set, plus the `aggregation` / `chartType` shape rules. Pure; no I/O.
@@ -28,7 +28,8 @@ object OutputConfigValidation {
   )
 
   private val Aggs       = Set("count", "sum", "avg", "min", "max")
-  private val ChartTypes = Set("bar", "line", "pie", "scatter")
+  private val HistogramBinMin = 2
+  private val HistogramBinMax = 100
 
   private val Renames = Map("metricLabel" -> "label", "metricUnit" -> "unit", "chartAnnotation" -> "annotation")
   private val DeadStyling = Set("legend", "tooltip", "seriesColors", "axisLabels")
@@ -42,9 +43,9 @@ object OutputConfigValidation {
     }
     "Output config accepts only these top-level keys (anything else is rejected with 400 naming the key). " +
       s"Every kind: ${Shared.toVector.sorted.mkString(", ")}. Per kind -- ${perKind.mkString("; ")}. " +
-      "chart aggregation = { groupBy, agg, yField } (all non-empty strings; never on a scatter chart); " +
+      "chart aggregation = { groupBy, agg, yField } (all non-empty strings; never on a scatter, heatmap or histogram chart); " +
       "metric aggregation = { agg } (field from fieldMapping.value) or { value, agg }; agg is one of count, sum, avg, min, max; " +
-      "aggregation may be null. chartType is one of bar, line, pie, scatter. Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
+      s"aggregation may be null. chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
   }
 
   /** `written` = what the caller sent (create body / PATCH patch); `stored` = the pre-write config
@@ -59,7 +60,7 @@ object OutputConfigValidation {
       val described = offending.map(k => describe(kind, kindName, known, k)).mkString("; ")
       Left(s"Unknown config key${if (offending.size > 1) "s" else ""} for a $kindName Output: $described. Valid keys: ${known.toVector.sorted.mkString(", ")}")
     } else
-      validateChartType(written, stored).flatMap(_ => validateAggregation(kind, written, stored))
+      validateChartType(written, stored).flatMap(_ => validateBinCount(written, stored)).flatMap(_ => validateAggregation(kind, written, stored))
   }
 
   private def tolerated(stored: JsObject, key: String, value: JsValue): Boolean =
@@ -97,9 +98,23 @@ object OutputConfigValidation {
 
   private def validateChartType(written: JsObject, stored: JsObject): Either[String, Unit] =
     changed(written, stored, "chartType") match {
-      case Some(JsString(s)) if ChartTypes.contains(s) => Right(())
-      case Some(JsNull) | None                         => Right(())
-      case Some(_) => Left(s"chartType must be one of ${ChartTypes.toVector.sorted.mkString(", ")} (or null)")
+      case Some(JsString(s)) if ChartTypes.AllSet.contains(s) => Right(())
+      case Some(JsNull) | None                                => Right(())
+      case Some(_) => Left(s"chartType must be one of ${ChartTypes.All.sorted.mkString(", ")} (or null)")
+    }
+
+  private def binCountOf(config: JsObject): Option[JsValue] =
+    config.fields.get("chartOptions").collect { case o: JsObject => o }
+      .flatMap(_.fields.get("histogram")).collect { case o: JsObject => o }
+      .flatMap(_.fields.get("binCount"))
+
+  /** HEL-1311: `chartOptions.histogram.binCount` is a whole number from 2 to 100 (or absent/null); judged only
+   *  when the write changes it from the stored value (tolerance rule). `chartOptions` stays otherwise free-form. */
+  private def validateBinCount(written: JsObject, stored: JsObject): Either[String, Unit] =
+    binCountOf(written).filter(v => !binCountOf(stored).contains(v)) match {
+      case None | Some(JsNull) => Right(())
+      case Some(JsNumber(n)) if n.isWhole && n >= HistogramBinMin && n <= HistogramBinMax => Right(())
+      case Some(_) => Left(s"binCount must be a whole number from $HistogramBinMin to $HistogramBinMax (or null)")
     }
 
   private def nonEmpty(o: JsObject, key: String): Option[String] =
@@ -108,16 +123,18 @@ object OutputConfigValidation {
   private def validateAggregation(kind: OutputKind, written: JsObject, stored: JsObject): Either[String, Unit] = {
     val merged = JsObject(stored.fields ++ written.fields)
     val aggChange = changed(written, stored, "aggregation")
-    val scatterCheck: Either[String, Unit] =
+    val nonAggregatingCheck: Either[String, Unit] =
       if (kind == OutputKind.Chart && (aggChange.isDefined || changed(written, stored, "chartType").isDefined)) {
-        val scatter = merged.fields.get("chartType").contains(JsString("scatter"))
+        val nonAgg  = merged.fields.get("chartType").collect { case JsString(t) if ChartTypes.NonAggregating.contains(t) => t }
         val hasAgg  = merged.fields.get("aggregation").exists(_ != JsNull)
-        if (scatter && hasAgg) Left("aggregation is not supported on a scatter chart (a scatter chart never aggregates); set aggregation to null or change chartType")
-        else Right(())
+        nonAgg match {
+          case Some(t) if hasAgg => Left(s"aggregation is not supported on a $t chart (a $t chart never aggregates); set aggregation to null or change chartType")
+          case _                 => Right(())
+        }
       } else Right(())
     aggChange match {
-      case None | Some(JsNull) => scatterCheck
-      case Some(agg: JsObject) if kind == OutputKind.Chart  => chartShape(agg).flatMap(_ => scatterCheck)
+      case None | Some(JsNull) => nonAggregatingCheck
+      case Some(agg: JsObject) if kind == OutputKind.Chart  => chartShape(agg).flatMap(_ => nonAggregatingCheck)
       case Some(agg: JsObject) if kind == OutputKind.Metric => metricShape(agg, merged)
       case Some(_) =>
         Left(

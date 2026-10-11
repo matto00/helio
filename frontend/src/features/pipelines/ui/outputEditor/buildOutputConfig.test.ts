@@ -69,6 +69,27 @@ describe("buildOutputConfig", () => {
     expect(config.chartType).toBe("scatter");
   });
 
+  // HEL-1311 (red first): heatmap/histogram never aggregate either; the seam to the server's
+  // non-aggregating chart-type set.
+  it.each(["heatmap", "histogram"])(
+    "writes %s with aggregation: null even when groupBy/yField/aggFn are set",
+    (type) => {
+      const config = buildOutputConfig(
+        baseParams({
+          kind: "chart",
+          chartType: type as string as BuildOutputConfigParams["chartType"],
+          groupBy: "region",
+          chartAggFn: "sum",
+          yField: "revenue",
+          chartFieldMapping: { xAxis: "day" },
+        }),
+      );
+      expect(config.chartType).toBe(type);
+      expect(config.aggregation).toBeNull();
+      expect(config.fieldMapping).toEqual({ xAxis: "day" });
+    },
+  );
+
   it("omits chart aggregation when any of groupBy/yField/aggFn is missing", () => {
     const config = buildOutputConfig(baseParams({ kind: "chart", groupBy: "region" }));
     expect(config.aggregation).toBeNull();

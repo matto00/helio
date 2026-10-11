@@ -33,6 +33,7 @@ import { HelioApiError } from "../httpClient.js";
 import type { ProposalPanel } from "../types.js";
 import { proposalControlSchema } from "./controlSchemas.js";
 import { proposeDashboardHandler } from "./proposalHandlers.js";
+import { CHART_TYPES } from "./chartTypes.js";
 
 // No `divider`: excluded for a stated product-scope reason (purely presentational layout chrome),
 // mirroring create_panel (scripts/lib/agentFacingPanelTypes.mjs holds the reasoned exclusion table
@@ -71,7 +72,7 @@ export const panelSchema = z.object({
   content: z.string().optional(),
   url: z.string().optional(),
   orientation: z.enum(["horizontal", "vertical"]).optional(),
-  chartType: z.enum(["bar", "line", "pie", "scatter"]).optional(),
+  chartType: z.enum(CHART_TYPES).optional(),
   xAxisLabel: z.string().optional(),
   yAxisLabel: z.string().optional(),
   seriesColors: z.array(z.string()).optional(),

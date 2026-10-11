@@ -1,0 +1,284 @@
+{
+  "description": "Shared client/server seam fixture for a layout PATCH from a store layout that still holds a deleted panel's ghost item (HEL-1456). Jest (layoutGhostWriteSeam.test.ts) asserts buildLayoutPatch(local, stored, resolved) deep-equals patch, and that the fulfilled reducer adopts expectedStored and clears pending. ScalaTest (DashboardLayoutGhostSeamSpec) creates panels a and b, seeds `stored` (ghost g is never a panel) by SQL, PATCHes `patch`, and asserts 200, a ghost-free response layout deep-equal to expectedStored, and the same layout in the table. Panel ids are placeholders mapped to real ids by name; g stays a ghost id.",
+  "panels": ["a", "b"],
+  "ghost": "g",
+  "stored": {
+    "lg": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      }
+    ],
+    "md": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 5,
+        "h": 4
+      }
+    ],
+    "sm": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      }
+    ],
+    "xs": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 0,
+        "y": 4,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 8,
+        "w": 2,
+        "h": 4
+      }
+    ]
+  },
+  "local": {
+    "lg": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      }
+    ],
+    "md": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 5,
+        "h": 4
+      }
+    ],
+    "sm": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 3,
+        "h": 4
+      }
+    ],
+    "xs": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 0,
+        "y": 4,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 8,
+        "w": 2,
+        "h": 4
+      }
+    ]
+  },
+  "patch": {
+    "lg": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "g",
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      }
+    ]
+  },
+  "expectedStored": {
+    "lg": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      }
+    ],
+    "md": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      }
+    ],
+    "sm": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      }
+    ],
+    "xs": [
+      {
+        "panelId": "a",
+        "x": 0,
+        "y": 0,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "panelId": "b",
+        "x": 0,
+        "y": 4,
+        "w": 2,
+        "h": 4
+      }
+    ]
+  }
+}

@@ -45,6 +45,15 @@ export function HistoryChart({ output, selected, comparison }: HistoryChartProps
     }),
     [cfg.chartType],
   );
+  // HEL-1311 -- the stored summary is a 2-column series, which cannot draw a heatmap's matrix or a
+  // histogram's bins; say so rather than draw a misleading bar/line.
+  if (cfg.chartType === "heatmap" || cfg.chartType === "histogram") {
+    return (
+      <p className="output-history__muted">
+        A history chart isn&apos;t drawn for heatmap or histogram Outputs.
+      </p>
+    );
+  }
   if (!series || !rawRows || rawRows.length === 0) {
     return <p className="output-history__muted">No chart series was stored for this run.</p>;
   }

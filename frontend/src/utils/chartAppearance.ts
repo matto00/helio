@@ -2,7 +2,12 @@ import type { EChartsOption } from "echarts";
 
 import type { ChartAppearance } from "../features/panels/types/panel";
 import { prefersReducedMotion } from "./prefersReducedMotion";
-export type ChartType = "bar" | "line" | "pie" | "scatter";
+// HEL-1311 — the chart-type set lives in its own tiny module so the eagerly-bundled code (overlay,
+// Inspect, the Output editor) can read it without pulling this file into the main chunk.
+import { CHART_TYPES, isChartType, isNonAggregatingChartType } from "./chartTypes";
+import type { ChartType } from "./chartTypes";
+export { CHART_TYPES, isChartType, isNonAggregatingChartType };
+export type { ChartType };
 
 export interface AppearanceResult {
   option: EChartsOption;
@@ -30,6 +35,9 @@ export interface ChartThemeTokens {
   accentStrong: string;
   /** HEL-1277: `--app-text-muted`, the subordinate colour of the "vs" comparison overlay series. */
   textMuted: string;
+  /** HEL-1311: `--app-accent` (a plain hex, unlike the `color-mix()` `accentStrong`), the heatmap colour
+   *  scale's hue. Passed through only when it is a colour zrender can parse (hex or rgb[a]). */
+  accent: string;
 }
 
 /** Dark-theme literal fallbacks (`theme.css`'s `:root[data-theme="dark"]`
@@ -52,7 +60,17 @@ const FALLBACK_CHART_THEME: ChartThemeTokens = {
   radiusMd: "9px",
   accentStrong: "#fa9249",
   textMuted: "#aaa49c",
+  accent: "#f97316",
 };
+
+/** Hex / rgb[a] only. `getComputedStyle` hands an unresolved `color-mix(...)` back verbatim, which
+ *  zrender rejects (the visualMap would fall back to black), so anything else uses the fallback. A
+ *  regex rather than zrender's `parse` keeps echarts out of the main bundle. */
+const PARSEABLE_COLOR = /^(#[0-9a-f]{3,8}|rgba?\([^)]*\))$/i;
+
+function parseableOr(value: string, fallback: string): string {
+  return PARSEABLE_COLOR.test(value) ? value : fallback;
+}
 
 /** Reads the app's current theme tokens straight off the document root's
  *  computed style, so ECharts chrome tracks the live light/dark theme (and
@@ -74,6 +92,10 @@ export function resolveChartTheme(): ChartThemeTokens {
     radiusMd: read("--app-radius-md", FALLBACK_CHART_THEME.radiusMd),
     accentStrong: read("--app-accent-strong", FALLBACK_CHART_THEME.accentStrong),
     textMuted: read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
+    accent: parseableOr(
+      read("--app-accent", FALLBACK_CHART_THEME.accent),
+      FALLBACK_CHART_THEME.accent,
+    ),
   };
 }
 

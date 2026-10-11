@@ -17,6 +17,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
+import { CHART_TYPES_PIPE_LIST } from "./chartTypes.js";
 import {
   addOutputHandler,
   deleteOutputHandler,
@@ -70,15 +71,20 @@ export const COMPARE_CONFIG_DOC =
 export const OUTPUT_CONFIG_KEYS_DOC =
   "Output `config` accepts ONLY these top-level keys (anything else is rejected with a 400 " +
   "naming the key and a did-you-mean hint; this tool does not validate it): every kind: " +
-  "`fieldMapping`, `compare`, `historyPayloads`; chart: `chartType` (bar|line|pie|scatter), " +
+  "`fieldMapping`, `compare`, `historyPayloads`; chart: `chartType` (" +
+  CHART_TYPES_PIPE_LIST +
+  "), " +
   "`aggregation`, `chartOptions`, `annotation`; metric: `aggregation`, `label`, `unit`, " +
   "`format`; table: `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, " +
   "`pinnedColumns`; collection: `layout`, `format`; timeline: `sort`; markdown: `content`. " +
-  "`aggregation` is null, `{ groupBy, agg, yField }` on a chart (never on a scatter chart), " +
+  "`aggregation` is null, `{ groupBy, agg, yField }` on a chart (never on a scatter, heatmap or histogram chart), " +
   "or `{ agg }` (the field comes from `fieldMapping.value`) / `{ value, agg }` on a metric; " +
   "`agg` is one of count|sum|avg|min|max and every named field a non-empty string. Chart " +
   "styling (legend, tooltip, colors) is not Output config: it lives on the panel's " +
-  "`appearance.chart`. A key already stored on an Output may be re-sent unchanged.";
+  "`appearance.chart`. A heatmap reads `fieldMapping` `xAxis` (columns), `series` (rows) and numeric " +
+  "`yAxis` (value); a histogram bins the numeric `xAxis` field, with an optional " +
+  "`chartOptions.histogram.binCount` (a whole number from 2 to 100, else automatic). " +
+  "A key already stored on an Output may be re-sent unchanged.";
 
 /** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and
  *  retention mirror the backend defaults (`PayloadHistoryConfig.Defaults`); the backend is the sole

@@ -2,20 +2,21 @@ import { useCallback, useRef, useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
-import { createPipelineStep, updatePipelineStep } from "../services/pipelineService";
+import { createPipelineStep } from "../services/pipelineService";
 import type { CreatedPipelineStep } from "../services/pipelineService";
 import { applyCreatedStep } from "../state/applyCreatedStep";
 import { computeInsertAnchor, insertWireArgs } from "../state/insertAnchor";
 import type { InsertAnchor } from "../state/insertAnchor";
 import {
   defaultConfigFor,
-  isCompleteAiStepConfig,
   makeStep,
   requiresCompleteConfigForCreate,
 } from "../state/stepNarrowing";
-import type { PipelineRoot, PipelineStepConfig, PipelineStepKind } from "../types/pipelineStep";
+import type { PipelineRoot, PipelineStepKind } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import type { useToast } from "../../toasts/hooks/useToast";
+import { usePipelineDraftCreate } from "./usePipelineDraftCreate";
+import { usePipelineLaneStepCreation } from "./usePipelineLaneStepCreation";
 
 /** Metadata for a deferred (draft) create, keyed by the draft's temp id in the page hook's ref. */
 export type PendingDraftMeta = {
@@ -36,8 +37,10 @@ type UsePipelineStepCreationArgs = {
   setStepsInitialized: Dispatch<SetStateAction<boolean>>;
   syncStepsFromServer: () => Promise<void>;
   pushToast: ReturnType<typeof useToast>["push"];
-  // Created by the page hook because `stepsFingerprint` reads it during render.
+  // Created by the page hook, which mirrors its key set into `pendingDraftIds` state (via
+  // `setPendingDraftIds`, called after every mutation of the ref, here and in `usePipelineLaneStepCreation` / `usePipelineDraftCreate`) for `stepsFingerprint`.
   pendingDraftMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
+  setPendingDraftIds: Dispatch<SetStateAction<ReadonlySet<string>>>;
   // HEL-1340 — sent drafts' anchor meta for the schema fallback (see the page hook).
   draftFallbackMetaRef: MutableRefObject<Map<string, PendingDraftMeta>>;
 };
@@ -55,6 +58,7 @@ export function usePipelineStepCreation({
   setStepsInitialized,
   pushToast,
   pendingDraftMetaRef,
+  setPendingDraftIds,
   draftFallbackMetaRef,
 }: UsePipelineStepCreationArgs) {
   // Guards against firing a second create for the same draft while the
@@ -109,6 +113,13 @@ export function usePipelineStepCreation({
     [setSteps],
   );
 
+  // HEL-1478 -- publishes `pendingDraftMetaRef`'s current key set to the page hook's state. Called
+  // right after every mutation of the ref, each of which sits in the same synchronous batch as a
+  // setState that already re-renders the page (`setSteps` / `setDraftCreateErrors`).
+  const syncPendingDraftIds = useCallback(() => {
+    setPendingDraftIds(new Set(pendingDraftMetaRef.current.keys()));
+  }, [setPendingDraftIds, pendingDraftMetaRef]);
+
   const clearDraftCreateError = useCallback((stepId: string) => {
     setDraftCreateErrors((prev) => {
       if (!(stepId in prev)) return prev;
@@ -153,6 +164,7 @@ export function usePipelineStepCreation({
           anchor,
           rootId: roots[0]?.id,
         });
+        syncPendingDraftIds();
         return;
       }
       markCreating(tempStep.id, true);
@@ -202,6 +214,7 @@ export function usePipelineStepCreation({
       setSteps,
       setStepsInitialized,
       pendingDraftMetaRef,
+      syncPendingDraftIds,
     ],
   );
 
@@ -212,169 +225,28 @@ export function usePipelineStepCreation({
     [handleInsertStep, stepsRef],
   );
 
-  // HEL-912 task 4.2 — "+ lane" create affordance (generalizes HEL-908's
-  // "+ tail"): every step gets this affordance UNCONDITIONALLY now (design.md
-  // Decision 1 removed the single-tail-per-node invariant this used to be
-  // gated on — a node with several children just roots several lanes).
-  // Still passes `attachAsTail = true` so the backend's `attachTailInternal`
-  // primitive attaches this as a genuine NEW sibling (no reparenting of the
-  // anchor's other children) — the same wire call HEL-908 built, just no
-  // longer gated by `hasTail`.
-  const handleAddLaneStep = useCallback(
-    async (opType: OpType, parentStepId: string) => {
-      if (!id) return;
-      setStepsInitialized(true);
-      const baseStep = makeStep(opType, parentStepId);
-      // HEL-1321 D2b — a draft (only) gets a provisional non-zero `position` so
-      // `buildLaneGraph` renders it as the head of its OWN lane from the first render (a sole
-      // position-less child would render inside the anchor's lane, then hop to a new
-      // `LaneColumn` once the server assigns position >= 1). Mirrors the server's
-      // `attachTail` rule (max sibling position + 1). Never sent: the create passes
-      // `attachAsTail`, not a position. The create-immediately branch keeps the plain step.
-      const tempStep = requiresCompleteConfigForCreate(opType.id)
-        ? {
-            ...baseStep,
-            position:
-              stepsRef.current
-                .filter((s) => s.parentStepId === parentStepId)
-                .reduce((max, s) => Math.max(max, s.position ?? 0), 0) + 1,
-          }
-        : baseStep;
-      // Must land IMMEDIATELY after the anchor in the flat array —
-      // `buildLaneGraph` derives lane membership from `parentStepId` and
-      // `position`, not array order, but `executionOrder` still emits a
-      // node's child-lanes directly after it, so this keeps optimistic
-      // local state byte-shaped like what a resync would return.
-      const anchorIndex = stepsRef.current.findIndex((s) => s.id === parentStepId);
-      const insertIndex = anchorIndex === -1 ? stepsRef.current.length : anchorIndex + 1;
-      setSteps((prev) => {
-        const next = [...prev];
-        next.splice(insertIndex, 0, tempStep);
-        return next;
-      });
-      // design.md D3 — same deferred-create rule as `handleInsertStep` above.
-      if (requiresCompleteConfigForCreate(opType.id)) {
-        // evaluation-1.md CR2(c) — carries the anchor's own `rootId` through
-        // so `getDraftFallbackSchema`'s last-resort root-source fallback
-        // (reached only if the anchor itself has no analyze entry yet)
-        // matches the correct root on a multi-root pipeline, not always
-        // `sourceSchemas[0]`.
-        const anchorStep = stepsRef.current.find((s) => s.id === parentStepId);
-        pendingDraftMetaRef.current.set(tempStep.id, {
-          parentStepId,
-          attachAsTail: true,
-          rootId: anchorStep?.rootId,
-        });
-        return;
-      }
-      markCreating(tempStep.id, true);
-      try {
-        const initialConfig = defaultConfigFor(opType.id);
-        const created = await createPipelineStep(
-          id,
-          opType.id as PipelineStepKind,
-          initialConfig,
-          undefined,
-          parentStepId,
-          true,
-        );
-        // HEL-1345 D5 — a tail attach reports no reparented ids; this swaps the temp for the
-        // persisted step in place (the wholesale resync it replaces would drop local-only drafts).
-        applyCreated(tempStep.id, created);
-      } catch (err: unknown) {
-        const message = extractErrorMessage(err, "Failed to add lane step.");
-        pushToast({
-          variant: "error",
-          message: `Failed to add ${opType.label.toLowerCase()} lane: ${message}`,
-        });
-      } finally {
-        markCreating(tempStep.id, false);
-      }
-    },
-    [
-      id,
-      pushToast,
-      markCreating,
-      applyCreated,
-      stepsRef,
-      setSteps,
-      setStepsInitialized,
-      pendingDraftMetaRef,
-    ],
-  );
+  const handleAddLaneStep = usePipelineLaneStepCreation({
+    id,
+    pushToast,
+    markCreating,
+    applyCreated,
+    stepsRef,
+    setSteps,
+    setStepsInitialized,
+    pendingDraftMetaRef,
+    syncPendingDraftIds,
+  });
 
-  // HEL-1109 (design.md D3) — a draft AI step (still carrying its makeStep-minted temp id) whose
-  // LOCAL config has just become complete is created exactly once, here, rather than at add-time.
-  const createDraftIfComplete = useCallback(
-    (stepId: string, config: PipelineStepConfig) => {
-      const meta = pendingDraftMetaRef.current.get(stepId);
-      if (!meta) return;
-      const step = stepsRef.current.find((s) => s.id === stepId);
-      if (!step || !requiresCompleteConfigForCreate(step.opType.id)) return;
-      if (!isCompleteAiStepConfig(step.opType.id, config)) return;
-      if (creatingDraftIdsRef.current.has(stepId)) return;
-      if (!id) return;
-      creatingDraftIdsRef.current.add(stepId);
-      pendingDraftMetaRef.current.delete(stepId);
-      draftFallbackMetaRef.current.set(stepId, meta);
-      // A lane draft (`meta.parentStepId`) sends its own anchor; a trunk draft builds the wire
-      // call from its click-time anchor NOW (and on every retry), so a trunk that changed in
-      // between never turns a stale index into a permanent 422 (HEL-1345 D11).
-      const wire =
-        meta.parentStepId !== undefined
-          ? { parentStepId: meta.parentStepId, rootId: meta.rootId }
-          : insertWireArgs(
-              meta.anchor,
-              (stepId) => stepsRef.current.some((s) => s.id === stepId),
-              meta.rootId,
-            );
-      void createPipelineStep(
-        id,
-        step.opType.id as PipelineStepKind,
-        config,
-        wire.position,
-        wire.parentStepId,
-        meta.attachAsTail,
-        wire.rootId,
-      )
-        .then((persisted) => {
-          // HEL-1321 D3 — `stepsRef` still holds the PRE-swap list here, so look the draft up by
-          // its temp id. Every edit replaces `config` with a new object, so reference
-          // inequality with the POSTed config means the user edited while the create was in
-          // flight; that edit was never sent (the create carried the older config, and a
-          // temp-id PATCH is skipped), so flush it to the persisted id once.
-          // HEL-1340 — keep the schema fallback alive across the id swap.
-          draftFallbackMetaRef.current.delete(stepId);
-          draftFallbackMetaRef.current.set(persisted.id, meta);
-          const latest = stepsRef.current.find((s) => s.id === stepId);
-          const editedInFlight = latest !== undefined && latest.config !== config;
-          // HEL-1321 D2 — the temp id becomes the stable render key (set once), so the open
-          // card and its lane are not remounted by the id swap. HEL-1345 D5 — the same swap also
-          // applies the response's reparented ids.
-          applyCreated(stepId, persisted, stepId);
-          if (editedInFlight) {
-            updatePipelineStep(persisted.id, latest.config).catch((err: unknown) => {
-              const message = extractErrorMessage(
-                err,
-                "Failed to save your latest edit — try editing again.",
-              );
-              setDraftCreateErrors((prev) => ({ ...prev, [persisted.id]: message }));
-            });
-          }
-        })
-        .catch((err: unknown) => {
-          const message = extractErrorMessage(err, "Failed to save this step — try again.");
-          setDraftCreateErrors((prev) => ({ ...prev, [stepId]: message }));
-          draftFallbackMetaRef.current.delete(stepId);
-          // Restore the pending meta so a subsequent completing edit retries the create.
-          pendingDraftMetaRef.current.set(stepId, meta);
-        })
-        .finally(() => {
-          creatingDraftIdsRef.current.delete(stepId);
-        });
-    },
-    [id, stepsRef, applyCreated, pendingDraftMetaRef, draftFallbackMetaRef],
-  );
+  const createDraftIfComplete = usePipelineDraftCreate({
+    id,
+    stepsRef,
+    applyCreated,
+    pendingDraftMetaRef,
+    draftFallbackMetaRef,
+    syncPendingDraftIds,
+    creatingDraftIdsRef,
+    setDraftCreateErrors,
+  });
 
   return {
     draftCreateErrors,

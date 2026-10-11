@@ -1,6 +1,7 @@
 package com.helio.api.http
 
 import com.helio.api.protocols.auth.{CreateApiTokenRequest, LoginRequest, RedeemInviteCodeRequest, RegisterRequest}
+import com.helio.domain.panels.ChartTypes
 
 object RequestValidation {
 
@@ -80,13 +81,11 @@ object RequestValidation {
       case Some(o) => Left(s"Invalid dividerOrientation value: '$o'. Valid values: horizontal, vertical")
     }
 
-  private val ValidChartTypeValues = Set("bar", "line", "pie", "scatter")
-
   def validateChartType(chartType: Option[String]): Either[String, Option[String]] =
     chartType match {
       case None                                          => Right(None)
-      case Some(t) if ValidChartTypeValues.contains(t)  => Right(Some(t))
-      case Some(t) => Left(s"Invalid chartType value: '$t'. Valid values: bar, line, pie, scatter")
+      case Some(t) if ChartTypes.AllSet.contains(t)  => Right(Some(t))
+      case Some(t) => Left(s"Invalid chartType value: '$t'. Valid values: ${ChartTypes.AllList}")
     }
 
   val ValidTableDensityValues = Set("condensed", "normal", "spacious")

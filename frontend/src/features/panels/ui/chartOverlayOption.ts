@@ -9,7 +9,7 @@ import type { ChartOverlay } from "../history/chartOverlay";
 export const OVERLAY_BAR_OPACITY = 0.45;
 
 /** `#rgb`/`#rrggbb`/`rgb()`/`rgba()` with its alpha replaced; any other form is returned as is. */
-function withAlpha(colour: string, alpha: number): string {
+export function withAlpha(colour: string, alpha: number): string {
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(colour.trim());
   if (hex) {
     const h = hex[1].length === 3 ? hex[1].replace(/./g, (c) => c + c) : hex[1];
