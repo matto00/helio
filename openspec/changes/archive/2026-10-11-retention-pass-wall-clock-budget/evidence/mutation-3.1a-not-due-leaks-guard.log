@@ -1,0 +1,226 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477/backend/)
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] OutputHistoryRetentionInFlightSpec:
+05:16:50,998 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+05:16:50,998 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3e94846c - No custom configurators were discovered as a service.
+05:16:50,998 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3e94846c - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+05:16:50,998 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3e94846c - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+05:16:51,000 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+05:16:51,002 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+05:16:51,035 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+05:16:51,037 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@306c8d64 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+05:16:51,037 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+05:16:51,042 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+05:16:51,043 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@306c8d64 - value "plain" substituted for "${LOG_APPENDER}"
+05:16:51,044 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+05:16:51,044 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+05:16:51,044 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+05:16:51,046 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+05:16:51,062 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+05:16:51,062 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+05:16:51,062 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+05:16:51,063 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@306c8d64 - value "INFO" substituted for "${LOG_LEVEL}"
+05:16:51,063 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+05:16:51,063 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@306c8d64 - value "plain" substituted for "${LOG_APPENDER}"
+05:16:51,063 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+05:16:51,063 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@3a9ffca0 - End of configuration.
+05:16:51,063 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@6167f8f7 - Registering current configuration as safe fallback point
+05:16:51,065 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3e94846c - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 65 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+05:16:51.072 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+05:16:51.083 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+05:16:51.084 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+05:16:51.111 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg5514882104730555312 ... ok
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+05:16:51.117 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+05:16:51.123 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+05:16:51.132 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+05:16:51.138 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+05:16:51.138 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+05:16:51.197 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+05:16:51.385 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg5514882104730555312 -l logfile start
+05:16:51.390 INFO  [initdb:pid(501071)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+05:16:51.390 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 5893fa6b-c49c-4bda-9b55-1c0b70a94e42 initdb completed in 00:00:00.279
+05:16:51.394 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 5893fa6b-c49c-4bda-9b55-1c0b70a94e42 postmaster started as Process[pid=501100, exitValue="not exited"] on port 42957.  Waiting up to PT10S for server startup to finish.
+05:16:51.409 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-10-11 05:16:51.409 PDT [501103] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+05:16:51.409 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:16:51.409 PDT [501103] LOG:  listening on IPv6 address "::1", port 42957
+05:16:51.409 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:16:51.409 PDT [501103] LOG:  listening on IPv4 address "127.0.0.1", port 42957
+05:16:51.409 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:16:51.409 PDT [501103] LOG:  listening on Unix socket "/tmp/.s.PGSQL.42957"
+05:16:51.410 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:16:51.410 PDT [501104] LOG:  database system was shut down at 2026-10-11 05:16:51 PDT
+05:16:51.412 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:16:51.412 PDT [501103] LOG:  database system is ready to accept connections
+05:16:51.498 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+05:16:51.498 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+05:16:51.542 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 5893fa6b-c49c-4bda-9b55-1c0b70a94e42 postmaster startup finished in 00:00:00.149
+[info] OutputHistoryRetentionService in-flight guard (HEL-1477)
+05:16:51.583 INFO  [scala-execution-context-global-42] c.h.s.p.OutputHistoryRetentionService - Output history retention deleted 5 point(s)
+05:16:51.584 INFO  [scala-execution-context-global-44] c.h.s.p.OutputHistoryRetentionService - Output history retention deleted 5 point(s)
+[info] - should not start a second pass while one is running, and leave the next-due time where the running pass put it
+05:16:51.591 ERROR [scala-execution-context-global-47] c.h.s.p.OutputHistoryRetentionService - Output history retention purge failed
+java.lang.IllegalStateException: boom-future
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.$anonfun$new$4(OutputHistoryRetentionInFlightSpec.scala:97)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.org$scalatest$BeforeAndAfterAll$$super$run(OutputHistoryRetentionInFlightSpec.scala:25)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.run(OutputHistoryRetentionInFlightSpec.scala:25)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.internal.worker1.ForkTestMain$Run.lambda$runTest$1(ForkTestMain.java:436)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+05:16:51.592 ERROR [scala-execution-context-global-44] c.h.s.p.OutputHistoryRetentionService - Output history retention purge failed
+java.lang.IllegalStateException: boom-future
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.$anonfun$new$4(OutputHistoryRetentionInFlightSpec.scala:97)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.org$scalatest$BeforeAndAfterAll$$super$run(OutputHistoryRetentionInFlightSpec.scala:25)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.run(OutputHistoryRetentionInFlightSpec.scala:25)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.internal.worker1.ForkTestMain$Run.lambda$runTest$1(ForkTestMain.java:436)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should release the guard when the history part fails with a future, then run the next due pass
+05:16:51.594 ERROR [scala-execution-context-global-46] c.h.s.p.OutputHistoryRetentionService - Output history retention purge failed
+java.lang.IllegalStateException: boom-sync
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.$anonfun$new$7(OutputHistoryRetentionInFlightSpec.scala:104)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.$anonfun$new$7$adapted(OutputHistoryRetentionInFlightSpec.scala:104)
+	at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec$HeldRepos$$anon$2.thinPass(OutputHistoryRetentionInFlightSpec.scala:57)
+	at com.helio.services.pipelines.OutputHistoryRetentionService.$anonfun$runPass$1(OutputHistoryRetentionService.scala:89)
+	at scala.concurrent.Future$.$anonfun$delegate$1(Future.scala:707)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at java.base/java.util.concurrent.ForkJoinTask$RunnableExecuteAction.exec(ForkJoinTask.java:1423)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should release the guard when the repository throws synchronously, then run the next due pass
+05:16:51.595 INFO  [scala-execution-context-global-46] c.h.s.p.OutputHistoryRetentionService - Output history retention deleted 3 point(s)
+05:16:51.595 INFO  [scala-execution-context-global-46] c.h.s.p.OutputHistoryRetentionService - Output history retention deleted 3 point(s)
+[info] - should hold the guard until the payload part has finished, not only the history part
+[info] - should not wedge the guard through a not-due call (3.1a) *** FAILED ***
+[info]   java.util.concurrent.TimeoutException: Future timed out after [10 seconds]
+[info]   at scala.concurrent.impl.Promise$DefaultPromise.tryAwait0(Promise.scala:248)
+[info]   at scala.concurrent.impl.Promise$DefaultPromise.result(Promise.scala:261)
+[info]   at scala.concurrent.Await$.$anonfun$result$1(package.scala:201)
+[info]   at scala.concurrent.BlockContext$DefaultBlockContext$.blockOn(BlockContext.scala:62)
+[info]   at scala.concurrent.Await$.result(package.scala:124)
+[info]   at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.await(OutputHistoryRetentionInFlightSpec.scala:45)
+[info]   at com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec.$anonfun$new$11(OutputHistoryRetentionInFlightSpec.scala:137)
+[info]   at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+[info]   at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+[info]   at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+[info]   ...
+05:17:01.603 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:17:01.603 PDT [501103] LOG:  received fast shutdown request
+05:17:01.603 INFO  [postgres:pid(501100)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-11 05:17:01.603 PDT [501103] LOG:  aborting any active transactions
+05:17:01.704 INFO  [pg_ctl:pid(501902)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+05:17:01.704 INFO  [pg_ctl:pid(501902)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+05:17:01.704 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 5893fa6b-c49c-4bda-9b55-1c0b70a94e42 shut down postmaster in 00:00:00.102
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 11 seconds, 376 milliseconds.
+[info] Total number of tests run: 5
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 4, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.OutputHistoryRetentionInFlightSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 12 s, cache 93%, 27 disk cache hits, 2 onsite tasks

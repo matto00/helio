@@ -1,0 +1,2 @@
+profile=prod-io-base cpus=0.5 mem=1.7g shared_buffers=128MB io=--device-write-bps /dev/nvme0n1:240mb --device-read-bps /dev/nvme0n1:240mb --device-write-iops /dev/nvme0n1:6000 --device-read-iops /dev/nvme0n1:6000
+CREATE DATABASE

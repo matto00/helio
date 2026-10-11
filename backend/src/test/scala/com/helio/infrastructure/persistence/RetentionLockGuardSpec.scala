@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.testsupport.RetentionDrain._
 import com.helio.domain.history.{PayloadHistoryConfig, PayloadTierLimit}
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, RetentionPassOutcome}

@@ -1,0 +1,7 @@
+MemAvailable:   54715824 kB
+@@LOOP tag=main-idle-base-r2 retention=off tick_ms=30000 ticks=3 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@TICK tag=main-idle-base-r2 n=1 start_ms=156 end_ms=191 dur_ms=35 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+@@TICK tag=main-idle-base-r2 n=2 start_ms=30199 end_ms=30368 dur_ms=169 due_ms=5000 fired=true fire_delay_ms=25199 runs=1
+@@TICK tag=main-idle-base-r2 n=3 start_ms=60376 end_ms=60478 dur_ms=102 due_ms=50199 fired=true fire_delay_ms=10177 runs=2
+@@RUNDUR tag=main-idle-base-r2 run_ms=62.5,39.7
+done

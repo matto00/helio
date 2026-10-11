@@ -99,6 +99,10 @@ export function WindowConfig({
   saveErrorIsValidation = false,
 }: WindowConfigProps) {
   const errorId = useId();
+  const baseId = useId();
+  const offsetId = `${baseId}-offset`;
+  const frameSizeId = `${baseId}-frame-size`;
+  const outputColumnId = `${baseId}-output-column`;
   const functionInvalid = Boolean(saveError) && saveErrorIsValidation;
   function emit(next: WindowConfigValue) {
     onChange(next);
@@ -248,11 +252,11 @@ export function WindowConfig({
 
         {showOffset && (
           <div className="pipeline-detail-page__compute-field">
-            <label className="pipeline-detail-page__compute-label" htmlFor="window-offset-input">
+            <label className="pipeline-detail-page__compute-label" htmlFor={offsetId}>
               Offset
             </label>
             <TextField
-              id="window-offset-input"
+              id={offsetId}
               type="number"
               min={1}
               value={config.offset}
@@ -265,14 +269,11 @@ export function WindowConfig({
         {showFrame && (
           <>
             <div className="pipeline-detail-page__compute-field">
-              <label
-                className="pipeline-detail-page__compute-label"
-                htmlFor="window-frame-size-input"
-              >
+              <label className="pipeline-detail-page__compute-label" htmlFor={frameSizeId}>
                 Frame size
               </label>
               <TextField
-                id="window-frame-size-input"
+                id={frameSizeId}
                 type="number"
                 min={1}
                 max={MAX_FRAME_SIZE}
@@ -294,11 +295,11 @@ export function WindowConfig({
         )}
 
         <div className="pipeline-detail-page__compute-field">
-          <label className="pipeline-detail-page__compute-label" htmlFor="window-output-column">
+          <label className="pipeline-detail-page__compute-label" htmlFor={outputColumnId}>
             Output column
           </label>
           <TextField
-            id="window-output-column"
+            id={outputColumnId}
             placeholder="e.g. rank_in_category"
             value={config.outputColumn}
             onChange={handleOutputColumnChange}

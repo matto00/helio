@@ -1,0 +1,21 @@
+MemAvailable:   53476672 kB
+@@LOOP tag=main-S4-prod-io-base-r1 retention=on tick_ms=30000 ticks=4 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@PASS tag=main-S4-prod-io-base-r1 start_ms=185 end_ms=62986 dur_ms=62801 result=Some(488450)
+@@TICK tag=main-S4-prod-io-base-r1 n=1 start_ms=155 end_ms=62986 dur_ms=62831 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+org.postgresql.util.PSQLException: ERROR: column "metadata" is of type jsonb but expression is of type character varying
+org.postgresql.util.PSQLException: ERROR: column "truncated_reads" is of type jsonb but expression is of type character varying
+@@PASS tag=main-S4-prod-io-base-r1 start_ms=93015 end_ms=116986 dur_ms=23971 result=Some(307800)
+@@TICK tag=main-S4-prod-io-base-r1 n=2 start_ms=93011 end_ms=116986 dur_ms=23975 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+org.postgresql.util.PSQLException: ERROR: column "metadata" is of type jsonb but expression is of type character varying
+org.postgresql.util.PSQLException: ERROR: column "truncated_reads" is of type jsonb but expression is of type character varying
+@@PASS tag=main-S4-prod-io-base-r1 start_ms=146997 end_ms=164053 dur_ms=17056 result=Some(307901)
+@@TICK tag=main-S4-prod-io-base-r1 n=3 start_ms=146994 end_ms=164053 dur_ms=17059 due_ms=113011 fired=false fire_delay_ms=-1 runs=0
+org.postgresql.util.PSQLException: ERROR: column "metadata" is of type jsonb but expression is of type character varying
+org.postgresql.util.PSQLException: ERROR: column "truncated_reads" is of type jsonb but expression is of type character varying
+@@PASS tag=main-S4-prod-io-base-r1 start_ms=194065 end_ms=211450 dur_ms=17385 result=Some(307900)
+@@TICK tag=main-S4-prod-io-base-r1 n=4 start_ms=194062 end_ms=211450 dur_ms=17388 due_ms=166994 fired=false fire_delay_ms=-1 runs=0
+Exception in thread "main" org.postgresql.util.PSQLException: ERROR: column "finished_at" does not exist
+[error] nonzero exit code returned from runner: 1
+[error] (Test / runMain) nonzero exit code returned from runner: 1
+[error] elapsed time: 213 s (0:03:33.0), cache 100%, 28 disk cache hits
+done
