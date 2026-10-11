@@ -33,6 +33,8 @@ class ResourcePermissionRepository(ctx: DbContext)(implicit ec: ExecutionContext
       resourceType = row.resourceType,
       resourceId   = row.resourceId,
       granteeId    = row.granteeId.map(id => UserId(id.toString)),
+      // Fail-closed default: a stored role string the code does not know reads as the least-privileged Viewer.
+      // Unreachable under V16's CHECK (role IN ('viewer', 'editor')); pinned by ResourcePermissionRoleFallbackSpec.
       role         = Role.fromString(row.role).getOrElse(Role.Viewer),
       createdAt    = row.createdAt
     )

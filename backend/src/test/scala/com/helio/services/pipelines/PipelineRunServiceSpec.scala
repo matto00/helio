@@ -543,6 +543,61 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
 
       await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
     }
+
+    // HEL-1488 site 7: the `case Some("editor")` grant gate in `submit`. A viewer grantee must
+    // be refused with the exact 403-mapped value, before any run executes. An editor grantee's
+    // run is accepted; `insertRun`/`updateRunTerminal` are owner-only no-ops for a non-owner run,
+    // so the accept tests assert the returned `RunResultResponse` (the effect), not a persisted row.
+    "refuses a viewer grantee's real run with exactly Forbidden(\"Forbidden\") and executes nothing" in {
+      val dsId    = seedDsWithData()
+      val pid     = seedPipeline(dsId)
+      await(insertStep(pid, "assert", AssertConfig(Vector(passingAssertRule)), dummyUser))
+      val grantee = seedGrantee(pid, "viewer")
+      val before  = countAssertionRows()
+
+      val result = await(service.submit(pid, isDry = false, grantee))
+      result shouldBe Left(ServiceError.Forbidden("Forbidden"))
+
+      countAssertionRows() shouldBe before
+      await(pipelineRunRepo.listByPipeline(pid, dummyUser)) shouldBe empty
+    }
+
+    "refuses a viewer grantee's dry run with exactly Forbidden(\"Forbidden\") and executes nothing" in {
+      val dsId    = seedDsWithData()
+      val pid     = seedPipeline(dsId)
+      await(insertStep(pid, "assert", AssertConfig(Vector(passingAssertRule)), dummyUser))
+      val grantee = seedGrantee(pid, "viewer")
+      val before  = countAssertionRows()
+
+      val result = await(service.submit(pid, isDry = true, grantee))
+      result shouldBe Left(ServiceError.Forbidden("Forbidden"))
+
+      countAssertionRows() shouldBe before
+    }
+
+    // A non-owner's run persists no pipeline_runs/assertion row (existing, tested behaviour), so
+    // the observable effect of "the run executed" is the response itself: the seeded source's 2 rows.
+    "an editor grantee's dry run executes: the response carries the source's 2 rows, not blocked" in {
+      val dsId    = seedDsWithData()
+      val pid     = seedPipeline(dsId)
+      val grantee = seedGrantee(pid, "editor")
+
+      val response = await(service.submit(pid, isDry = true, grantee)).getOrElse(fail("expected an editor grantee's run to be accepted"))
+      response.rowCount shouldBe 2
+      response.sourceRowCount shouldBe 2L
+      response.blocked shouldBe false
+    }
+
+    "an editor grantee's real run executes: the response carries the source's 2 rows, not blocked" in {
+      val dsId    = seedDsWithData()
+      val pid     = seedPipeline(dsId)
+      val grantee = seedGrantee(pid, "editor")
+
+      val response = await(service.submit(pid, isDry = false, grantee)).getOrElse(fail("expected an editor grantee's run to be accepted"))
+      response.rowCount shouldBe 2
+      response.sourceRowCount shouldBe 2L
+      response.blocked shouldBe false
+    }
   }
 
   "PipelineRunService.submit -> PipelineRunExecutor.onRunSuccess (HEL-570 assert fail-policy)" should {
