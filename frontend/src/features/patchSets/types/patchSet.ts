@@ -99,6 +99,16 @@ export interface EditUndoOutcome {
   status: "restored" | "recreated" | "failed" | "notAttempted";
   newId?: string | null;
   resultingState?: Record<string, unknown> | null;
+  /** HEL-1493: for a pipeline create-undo, what happened to each inline root source the apply created. */
+  inlineSources?: InlineSourceUndoOutcome[];
+}
+
+/** What undoing a pipeline create did to one inline root source (HEL-1493). `reason` is set for `kept`. */
+export interface InlineSourceUndoOutcome {
+  id: string;
+  name?: string | null;
+  result: "removed" | "kept" | "alreadyGone";
+  reason?: string | null;
 }
 
 /** Response of `POST /api/patch-sets/:id/undo`. */

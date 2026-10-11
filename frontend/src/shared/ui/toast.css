@@ -108,6 +108,8 @@
 
 .toast__message {
   margin: 0;
+  /* HEL-1493: a message may carry several lines separated by "\n"; single-line messages are unaffected. */
+  white-space: pre-line;
 }
 
 .toast__action {
