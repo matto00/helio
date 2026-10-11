@@ -1,0 +1,235 @@
+{
+  "limits": {
+    "maxLines": 5,
+    "maxBands": 3,
+    "maxLabel": 60,
+    "tones": ["neutral", "success", "warning", "error"]
+  },
+  "editorState": {
+    "referenceLines": [
+      {
+        "value": "95",
+        "label": "  SLO  ",
+        "tone": "warning"
+      },
+      {
+        "value": "10",
+        "label": "",
+        "tone": "neutral"
+      }
+    ],
+    "referenceBands": [
+      {
+        "from": "0",
+        "to": "50",
+        "label": "OK",
+        "tone": "success"
+      }
+    ]
+  },
+  "validConfig": {
+    "chartType": "bar",
+    "referenceLines": [
+      {
+        "value": 95,
+        "label": "SLO",
+        "tone": "warning"
+      },
+      {
+        "value": 10
+      }
+    ],
+    "referenceBands": [
+      {
+        "from": 0,
+        "to": 50,
+        "label": "OK",
+        "tone": "success"
+      }
+    ]
+  },
+  "schemaRejects": [
+    {
+      "name": "string value",
+      "config": {
+        "referenceLines": [
+          {
+            "value": "95"
+          }
+        ]
+      },
+      "message": "referenceLines[0].value must be a finite number"
+    },
+    {
+      "name": "six lines",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1
+          },
+          {
+            "value": 2
+          },
+          {
+            "value": 3
+          },
+          {
+            "value": 4
+          },
+          {
+            "value": 5
+          },
+          {
+            "value": 6
+          }
+        ]
+      },
+      "message": "referenceLines allows at most 5 lines"
+    },
+    {
+      "name": "four bands",
+      "config": {
+        "referenceBands": [
+          {
+            "from": 0,
+            "to": 1
+          },
+          {
+            "from": 1,
+            "to": 2
+          },
+          {
+            "from": 2,
+            "to": 3
+          },
+          {
+            "from": 3,
+            "to": 4
+          }
+        ]
+      },
+      "message": "referenceBands allows at most 3 bands"
+    },
+    {
+      "name": "unknown tone",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "tone": "red"
+          }
+        ]
+      },
+      "message": "referenceLines[0].tone must be one of neutral, success, warning, error"
+    },
+    {
+      "name": "label over 60 characters",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "label": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "message": "referenceLines[0].label must be 1 to 60 characters"
+    },
+    {
+      "name": "whitespace-only label",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "label": "   "
+          }
+        ]
+      },
+      "message": "referenceLines[0].label must be 1 to 60 characters"
+    },
+    {
+      "name": "extra item key",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "color": "#ff0000"
+          }
+        ]
+      },
+      "message": "referenceLines[0] has unknown key(s): color"
+    },
+    {
+      "name": "not an array",
+      "config": {
+        "referenceBands": {
+          "from": 0,
+          "to": 1
+        }
+      },
+      "message": "referenceBands must be an array"
+    },
+    {
+      "name": "61 emoji label",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+          }
+        ]
+      },
+      "message": "referenceLines[0].label must be 1 to 60 characters"
+    }
+  ],
+  "serverOnly": [
+    {
+      "name": "band from not less than to",
+      "kind": "chart",
+      "config": {
+        "referenceBands": [
+          {
+            "from": 5,
+            "to": 5
+          }
+        ]
+      },
+      "message": "referenceBands[0]: from must be less than to"
+    },
+    {
+      "name": "metric Output carrying referenceLines",
+      "kind": "metric",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1
+          }
+        ]
+      },
+      "message": "not a metric config key"
+    }
+  ],
+  "schemaAccepts": [
+    {
+      "name": "31 emoji label (62 UTF-16 units, 31 code points)",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+          }
+        ]
+      }
+    },
+    {
+      "name": "60 emoji label",
+      "config": {
+        "referenceLines": [
+          {
+            "value": 1,
+            "label": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+          }
+        ]
+      }
+    }
+  ]
+}

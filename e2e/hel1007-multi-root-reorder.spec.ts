@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 
 // HEL-1007 — the editor wired Move up/down + drag-reorder for root 0 only; every other root's lane
 // rendered permanently-disabled Move buttons. Driven through the real running UI against the live
@@ -55,6 +56,7 @@ test.describe("HEL-1007 reorder every root's lane", () => {
       data: { email, password: PASSWORD, displayName: "HEL-1007" },
       headers: CSRF,
     });
+    await recordRegisteredUser(reg);
     expect(reg.status()).toBe(201);
 
     try {

@@ -164,6 +164,9 @@ function mockResolveChartThemeFromLiveDom() {
       accentStrong: "ACCENT",
       accent: "ACCENT_BASE",
       textMuted: "MUTED",
+      success: "#4cc38a",
+      warning: "#f5b944",
+      error: "#f17b67",
     };
   });
 }

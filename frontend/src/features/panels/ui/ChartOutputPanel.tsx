@@ -9,6 +9,7 @@ import { defaultChartAppearance } from "../../../theme/appearance";
 import { chartAggregationSpec, selectChartOverlay } from "../history/chartOverlay";
 import { configCompare } from "../history/metricHistoryView";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
+import { sanitizeReferenceMarks } from "../../../utils/referenceMarks";
 import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 import { resolvePanelChartType } from "./resolvePanelChartType";
 import { ChartRenderer } from "./renderers/ChartRenderer";
@@ -62,6 +63,11 @@ export function ChartOutputPanel({
 }: ChartOutputPanelProps) {
   const cfg = readChartConfig(config);
   const compare = configCompare(config);
+  // Keyed on the stored values: `readChartConfig` re-sanitizes into fresh arrays on every render.
+  const referenceMarks = useMemo(
+    () => sanitizeReferenceMarks(config.referenceLines, config.referenceBands),
+    [config.referenceLines, config.referenceBands],
+  );
   const history = useOutputHistory(
     outputId,
     panelId,
@@ -136,6 +142,7 @@ export function ChartOutputPanel({
       chartOptions={cfg.chartOptions}
       annotation={cfg.annotation ?? null}
       overlay={overlay}
+      referenceMarks={referenceMarks}
       truncationNote={truncationNote}
       truncationNoteShort={truncationNoteShort}
       compact={compact}

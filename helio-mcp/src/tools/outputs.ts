@@ -74,7 +74,7 @@ export const OUTPUT_CONFIG_KEYS_DOC =
   "`fieldMapping`, `compare`, `historyPayloads`; chart: `chartType` (" +
   CHART_TYPES_PIPE_LIST +
   "), " +
-  "`aggregation`, `chartOptions`, `annotation`; metric: `aggregation`, `label`, `unit`, " +
+  "`aggregation`, `chartOptions`, `annotation`, `referenceLines`, `referenceBands`; metric: `aggregation`, `label`, `unit`, " +
   "`format`, `conditionalFormats`; table: `columnOrder`, `columnFormats`, `columnSort`, " +
   "`columnFilters`, `pinnedColumns`, `conditionalFormats`; collection: `layout`, `format`, " +
   "`conditionalFormats`; timeline: `sort`; markdown: `content`. " +
@@ -85,6 +85,10 @@ export const OUTPUT_CONFIG_KEYS_DOC =
   "`appearance.chart`. A heatmap reads `fieldMapping` `xAxis` (columns), `series` (rows) and numeric " +
   "`yAxis` (value); a histogram bins the numeric `xAxis` field, with an optional " +
   "`chartOptions.histogram.binCount` (a whole number from 2 to 100, else automatic). " +
+  "`referenceLines` (HEL-1306) is null or at most 5 `{ value, label?, tone? }` and `referenceBands` null or at " +
+  "most 3 `{ from, to, label?, tone? }` with `from` less than `to` (static lines/bands on a bar, line, scatter or " +
+  "histogram chart's value axis; not drawn on pie, heatmap or 100% stacked bars): `value`/`from`/`to` finite " +
+  "numbers, `label` 1 to 60 characters (not blank), `tone` neutral|success|warning|error; a violation is a 400. " +
   "A key already stored on an Output may be re-sent unchanged.";
 
 /** `config.historyPayloads` documentation (HEL-1331), appended to `update_output`. The caps and

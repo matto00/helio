@@ -61,6 +61,9 @@ describe("buildChartOption chart-less vs explicitly-defaulted (HEL-1178)", () =>
     accentStrong: "#ea580c",
     accent: "#ea580c",
     textMuted: "#aaa49c",
+    success: "#4cc38a",
+    warning: "#f5b944",
+    error: "#f17b67",
   };
   const darkTokens: ChartThemeTokens = {
     ...lightTokens,

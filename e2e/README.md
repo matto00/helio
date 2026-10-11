@@ -143,3 +143,27 @@ one call, for new specs.
 measured population). `focus-presence-guard` runs: register -> cookie -> `/` -> `isolateLivePage` -> seed ->
 `goto("/")` -> theme `evaluate` -> `goto(route)`. `state-surface-contrast-guard` seeds before its first `goto` and
 sets the theme with `addInitScript` (there is no live app page to `evaluate` on).
+
+## Throwaway-user cleanup (HEL-1301)
+
+Every e2e run deletes the users it registered, by exact recorded id. There is no product-side
+delete route for this: it is a test-harness database path only (`psql`, connection resolved from the
+environment or `backend/.env` exactly like `support/historySeed.ts`; nothing about it is ever printed).
+
+- `playwright.config.ts` wires a `globalSetup` that creates a fresh gitignored registry directory
+  `.e2e-user-registry/<runId>/` and exports its path in `E2E_USER_REGISTRY_DIR`, and a `globalTeardown`
+  that deletes the recorded users. `playwright.regression.config.ts` inherits both.
+- Every registration records the created user's `{id, email}` (from the 201 response body) with
+  `recordRegisteredUser(response)` / `recordCreatedUser(...)` from `support/userCleanup.ts`. The shared
+  `registerUser`/`registerAndLogin` helper does it for you; a spec that posts to `/api/auth/register`
+  itself, or drives the signup form, must call it right after the 201. `npm run check:e2e-user-cleanup`
+  fails (naming file and line) when one does not, and recording with no registry set throws.
+- Teardown runs one transaction (`support/userCleanupCore.cjs`): it aborts, deleting nothing, unless every
+  recorded id exists with exactly its recorded email (and an e2e throwaway domain, never the owner or system
+  user); it then deletes the rows the users own that would block the delete and the users themselves, and
+  asserts the deleted count. It never uses a pattern, name or time-window predicate and reads only its own
+  run directory. `npm run check:e2e-user-cleanup-core:selftest` proves the refusals.
+- A run that is killed before teardown (SIGKILL, CI timeout) leaves its `.e2e-user-registry/<runId>/*.jsonl`
+  on disk: the exact ids to delete by hand with the same builder. Do not sweep other runs' directories
+  automatically - a concurrently running run in the same worktree owns its own. Residue from before this
+  change is not covered; it goes through the exact-id dev-DB residue procedure.
