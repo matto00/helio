@@ -7,6 +7,8 @@ import type { ChartType } from "../../../../utils/chartAppearance";
 import { isNonAggregatingChartType } from "../../../../utils/chartTypes";
 import type { ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { BoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
+import type { ReferenceBand, ReferenceLine } from "../../../../utils/referenceMarks";
+import { marksOrNull } from "./referenceMarksDraft";
 import type { AggregateConfig } from "../../types/pipelineStep";
 import type { NodeCapabilities, OutputKind } from "../../types/output";
 import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
@@ -34,6 +36,9 @@ export interface BuildOutputConfigParams {
   yField: string;
   chartOptionsState: ChartTypeOptionsMap;
   annotationState: BoundOrLiteralValue;
+  // HEL-1306 -- validated reference lines/bands (the field commits only a fully valid set).
+  referenceLines: ReferenceLine[];
+  referenceBands: ReferenceBand[];
   // Table
   tableFieldMapping: Record<string, string>;
   tableColumnOrder: string[] | undefined;
@@ -121,6 +126,9 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
           params.annotationState.mode === "literal" && params.annotationState.literalValue.trim()
             ? params.annotationState.literalValue
             : null,
+        // An explicit null (never an omitted key) clears: the PATCH shallow-merges config.
+        referenceLines: marksOrNull(params.referenceLines),
+        referenceBands: marksOrNull(params.referenceBands),
         compare: compareOrNull(params.compare),
       };
     case "table":
@@ -211,6 +219,8 @@ export function buildAggregateTailConfigs(
     | "chartType"
     | "chartOptionsState"
     | "annotationState"
+    | "referenceLines"
+    | "referenceBands"
     | "metricField"
     | "metricAggFn"
     | "metricLabelState"
@@ -242,6 +252,8 @@ export function buildAggregateTailConfigs(
           params.annotationState.mode === "literal" && params.annotationState.literalValue.trim()
             ? params.annotationState.literalValue
             : null,
+        referenceLines: marksOrNull(params.referenceLines),
+        referenceBands: marksOrNull(params.referenceBands),
         compare: compareOrNull(params.compare),
       },
     };

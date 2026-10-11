@@ -349,6 +349,14 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
   );
 }
 
+/** `renderDetailPage`, then lets the mount\'s own steps fetch settle (HEL-1483: until it lands the
+ *  steps area shows a loading skeleton, not the editor / empty state). */
+async function renderDetailPageSettled(id = "pipe-1", store = makeStore()) {
+  const result = renderDetailPage(id, store);
+  await act(async () => {});
+  return result;
+}
+
 /** The page's single actions menu, in the header. Holds "Edit source"/"Edit
  *  type"/"Edit schedule"/"Set schedule" (design.md D5) AND "Run history"/
  *  "Preview"/"Share" — the latter three moved here from the footer's former
@@ -547,13 +555,13 @@ describe("PipelineDetailPage", () => {
     expect(screen.queryByText("Test Source")).not.toBeInTheDocument();
   });
 
-  it("empty state shows 'Add your first transformation step' when steps is empty", () => {
-    renderDetailPage();
+  it("empty state shows 'Add your first transformation step' when steps is empty", async () => {
+    await renderDetailPageSettled();
     expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
   });
 
   it("adding a step adds a card to the river view", async () => {
-    renderDetailPage();
+    await renderDetailPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
@@ -568,7 +576,7 @@ describe("PipelineDetailPage", () => {
   it("a failed add-step POST pushes an error toast", async () => {
     createPipelineStepMock.mockRejectedValueOnce(new Error("Request failed with status code 404"));
     const store = makeStore();
-    renderDetailPage("pipe-1", store);
+    await renderDetailPageSettled("pipe-1", store);
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
@@ -586,7 +594,7 @@ describe("PipelineDetailPage", () => {
     // (temp) step this test removes is the failed-create one: the create rejects and the kept
     // local step becomes expandable again (its Remove button is the way out).
     createPipelineStepMock.mockRejectedValueOnce(new Error("Request failed with status code 500"));
-    renderDetailPage();
+    await renderDetailPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
@@ -610,7 +618,7 @@ describe("PipelineDetailPage", () => {
     }
 
     it("adding an analyzewithai step issues no create request and renders as an editable draft", async () => {
-      renderDetailPage();
+      await renderDetailPageSettled();
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Analyze with AI/i }));
@@ -630,7 +638,7 @@ describe("PipelineDetailPage", () => {
         createdAt: "",
         updatedAt: "",
       });
-      renderDetailPage();
+      await renderDetailPageSettled();
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Convert format/i }));
@@ -667,7 +675,7 @@ describe("PipelineDetailPage", () => {
         createdAt: "",
         updatedAt: "",
       });
-      renderDetailPage();
+      await renderDetailPageSettled();
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
@@ -713,7 +721,7 @@ describe("PipelineDetailPage", () => {
       createPipelineStepMock.mockRejectedValueOnce(
         new Error("Request failed with status code 422"),
       );
-      renderDetailPage();
+      await renderDetailPageSettled();
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalledTimes(1));
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
@@ -2053,7 +2061,7 @@ describe("PipelineDetailPage", () => {
     it("a failed insert keeps the optimistic temp step in place and surfaces an error toast", async () => {
       createPipelineStepMock.mockRejectedValueOnce(new Error("Conflict"));
       const store = makeStore();
-      const { container } = renderDetailPage("pipe-1", store);
+      const { container } = await renderDetailPageSettled("pipe-1", store);
       await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
       const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
@@ -3861,7 +3869,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
       createdAt: "",
       updatedAt: "",
     });
-    renderDetailPage();
+    await renderDetailPageSettled();
 
     fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));
@@ -3916,7 +3924,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
       createdAt: "",
       updatedAt: "",
     });
-    renderDetailPage();
+    await renderDetailPageSettled();
 
     // Wait for the pre-existing step to render first — this ensures the
     // river view has settled into its non-empty layout before interacting
@@ -3964,7 +3972,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
       .mockRejectedValueOnce(new Error("Request failed with status code 500"));
 
     const store = makeStore();
-    renderDetailPage("pipe-1", store);
+    await renderDetailPageSettled("pipe-1", store);
 
     fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
     fireEvent.click(await screen.findByText("Single row"));

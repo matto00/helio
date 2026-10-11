@@ -92,6 +92,10 @@ interface PipelinesState {
   runHistoryLoadedOpenId: Record<string, number>;
   currentPipeline: PipelineSummary | null;
   currentPipelineStatus: "idle" | "loading" | "succeeded" | "failed";
+  // HEL-1483: the pipeline id the singleton `currentPipeline*` status/error describe — the id of
+  // the LATEST `fetchPipelineById` request. A status or error belongs to the page only when this
+  // equals the page's id, and a response for any other id is ignored (a late A can't land on B).
+  currentPipelineRequestedId: string | null;
   currentPipelineError: string | null;
   currentPipelineErrorKind: RequestErrorKind | null;
   steps: Record<string, PipelineStep[]>;
@@ -105,6 +109,9 @@ interface PipelinesState {
   // sourceRowCount is the input row count to the first step.
   runStepRowCounts: Record<string, number>;
   runSourceRowCount: number | null;
+  // HEL-1483: the pipeline the current run state belongs to (set by `submitPipelineRun.pending`,
+  // cleared by `clearRunState`). A run fulfilment/rejection for any other pipeline is ignored.
+  runPipelineId: string | null;
   // HEL-861: truncation reporting from the last run — see RunResult's doc comments.
   runSourceTruncated: boolean;
   runSourceAvailableRowCount: number | null;
@@ -146,6 +153,7 @@ const initialState: PipelinesState = {
   runHistoryLoadedOpenId: {},
   currentPipeline: null,
   currentPipelineStatus: "idle",
+  currentPipelineRequestedId: null,
   currentPipelineError: null,
   currentPipelineErrorKind: null,
   steps: {},
@@ -156,6 +164,7 @@ const initialState: PipelinesState = {
   runResult: null,
   runStepRowCounts: {},
   runSourceRowCount: null,
+  runPipelineId: null,
   runSourceTruncated: false,
   runSourceAvailableRowCount: null,
   runTruncationNotice: null,
@@ -403,6 +412,17 @@ export const deletePipelineSchedule = createAsyncThunk<
   }
 });
 
+/** HEL-1483: true when `pipelineId` is not the latest `fetchPipelineById` request (a null latest
+ *  — nothing requested yet — never marks a response stale). */
+function isStaleCurrentPipelineResponse(
+  state: Pick<PipelinesState, "currentPipelineRequestedId">,
+  pipelineId: string,
+): boolean {
+  return (
+    state.currentPipelineRequestedId !== null && state.currentPipelineRequestedId !== pipelineId
+  );
+}
+
 const pipelinesSlice = createSlice({
   name: "pipelines",
   initialState,
@@ -413,6 +433,11 @@ const pipelinesSlice = createSlice({
       state.runError = null;
       state.runIsDry = null;
       state.runResult = null;
+      // HEL-1483: the two row-count fields were also missed here, and a cleared run state owns no
+      // pipeline, so an in-flight run for the pipeline just left is ignored when it resolves.
+      state.runStepRowCounts = {};
+      state.runSourceRowCount = null;
+      state.runPipelineId = null;
       // HEL-861 (skeptic-final-1): these three were added alongside the other run-scoped
       // fields above but were missed here — without this, navigating from a truncated
       // pipeline's run to a different pipeline left the truncation banner showing the
@@ -456,19 +481,31 @@ const pipelinesSlice = createSlice({
         state.error = action.payload?.message ?? "Failed to load pipelines.";
         state.errorKind = action.payload?.kind ?? "error";
       })
-      .addCase(fetchPipelineById.pending, (state) => {
+      .addCase(fetchPipelineById.pending, (state, action) => {
+        // HEL-1483: a request for a DIFFERENT pipeline than the one the error describes drops
+        // that error (it must never show on the new pipeline's page); the same pipeline's
+        // re-fetch still preserves it.
+        if (state.currentPipelineRequestedId !== action.meta.arg) {
+          state.currentPipelineError = null;
+          state.currentPipelineErrorKind = null;
+        }
+        state.currentPipelineRequestedId = action.meta.arg;
         state.currentPipelineStatus = "loading";
-        // Preserve currentPipelineError/currentPipelineErrorKind so the UI can
-        // keep showing it during a re-fetch (D1a) — cleared on success or
+        // Same-pipeline re-fetch: preserve currentPipelineError/currentPipelineErrorKind so the UI
+        // can keep showing it during a re-fetch (D1a) — cleared on success or
         // replaced by a new error.
       })
       .addCase(fetchPipelineById.fulfilled, (state, action) => {
+        // HEL-1483: only the latest-requested pipeline's response lands; the status is left
+        // "loading" for the request that IS latest, which settles it itself.
+        if (isStaleCurrentPipelineResponse(state, action.meta.arg)) return;
         state.currentPipeline = action.payload;
         state.currentPipelineStatus = "succeeded";
         state.currentPipelineError = null;
         state.currentPipelineErrorKind = null;
       })
       .addCase(fetchPipelineById.rejected, (state, action) => {
+        if (isStaleCurrentPipelineResponse(state, action.meta.arg)) return;
         state.currentPipeline = null;
         state.currentPipelineStatus = "failed";
         state.currentPipelineError = action.payload?.message ?? "Failed to load pipeline.";
@@ -495,7 +532,10 @@ const pipelinesSlice = createSlice({
         state.updateError = null;
       })
       .addCase(updatePipeline.fulfilled, (state, action) => {
-        state.currentPipeline = action.payload;
+        // HEL-1483: a rename resolving after a switch must not replace the page's other pipeline.
+        if (state.currentPipeline === null || state.currentPipeline.id === action.payload.id) {
+          state.currentPipeline = action.payload;
+        }
         state.updateStatus = "succeeded";
         state.updateError = null;
       })
@@ -551,6 +591,7 @@ const pipelinesSlice = createSlice({
         state.runStatus = "queued";
         state.runError = null;
         state.runIsDry = action.meta.arg.dryRun ?? false;
+        state.runPipelineId = action.meta.arg.pipelineId;
         // HEL-861: reset truncation state alongside the rest of the run state so a stale
         // notice from a previous run never lingers on screen during a new run.
         state.runSourceTruncated = false;
@@ -558,6 +599,8 @@ const pipelinesSlice = createSlice({
         state.runTruncationNotice = null;
       })
       .addCase(submitPipelineRun.fulfilled, (state, action) => {
+        // HEL-1483: ignore a run that no longer owns the run state (cleared on leaving it).
+        if (state.runPipelineId !== action.meta.arg.pipelineId) return;
         state.runId = null;
         state.runStatus = "succeeded";
         state.runResult = action.payload.rows;
@@ -568,6 +611,7 @@ const pipelinesSlice = createSlice({
         state.runTruncationNotice = action.payload.truncationNotice ?? null;
       })
       .addCase(submitPipelineRun.rejected, (state, action) => {
+        if (state.runPipelineId !== action.meta.arg.pipelineId) return;
         state.runId = null;
         state.runStatus = null;
         state.runIsDry = null;

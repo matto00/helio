@@ -16,9 +16,13 @@ type UsePipelinePageLoadArgs = {
   id: string | undefined;
   dispatch: ReturnType<typeof useAppDispatch>;
   currentPipeline: PipelineSummary | null;
+  /** Whether the shared `currentPipeline` singleton currently holds THIS page's pipeline. */
+  singletonIsOwn: boolean;
   currentPipelineStatus: "idle" | "loading" | "succeeded" | "failed";
   sourcesStatus: "idle" | "loading" | "succeeded" | "failed";
   loadRunHistoryWhenTruncated: ReturnType<typeof useRunHistory>["loadRunHistoryWhenTruncated"];
+  /** HEL-1483: called once the steps fetch this mount dispatched settles (`ok` = fulfilled). */
+  onStepsSettled: (ok: boolean) => void;
 };
 
 /**
@@ -30,9 +34,11 @@ export function usePipelinePageLoad({
   id,
   dispatch,
   currentPipeline,
+  singletonIsOwn,
   currentPipelineStatus,
   sourcesStatus,
   loadRunHistoryWhenTruncated,
+  onStepsSettled,
 }: UsePipelinePageLoadArgs) {
   // 3.1 Fetch pipeline and steps on mount / id change.
   // Use a ref to prevent re-dispatching for the same id (avoids loops).
@@ -47,14 +53,41 @@ export function usePipelinePageLoad({
     if (lastFetchedIdRef.current === id) return;
     lastFetchedIdRef.current = id;
     loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
-    void dispatch(fetchPipelineSteps(id));
+    void dispatch(fetchPipelineSteps(id)).then((action) => {
+      onStepsSettled(fetchPipelineSteps.fulfilled.match(action));
+    });
     void dispatch(analyzePipeline(id));
     void dispatch(fetchPipelineSchedule(id));
     // task 3.3 / design.md decision 2 — fetched alongside the pipeline
     // detail/steps fetch, NOT embedded in `PipelineSummaryResponse` (verified:
     // that response carries no `outputs` field).
     void dispatch(fetchOutputs({ pipelineId: id }));
-  }, [dispatch, id, currentPipelineStatus, currentPipelineId, loadRunHistoryWhenTruncated]);
+  }, [
+    dispatch,
+    id,
+    currentPipelineStatus,
+    currentPipelineId,
+    loadRunHistoryWhenTruncated,
+    onStepsSettled,
+  ]);
+
+  // HEL-1483 -- the page for `id` must converge to `id`'s pipeline whichever stale request lands
+  // when. `currentPipeline` and its status are slice singletons, so a request for ANOTHER id (e.g. the
+  // unmounted previous page's root add/remove continuation refetching it) can supersede this page's
+  // own in-flight fetch and replace the singleton. The hook then reads the page's pipeline as
+  // missing with an "idle" status; once this page has itself requested its pipeline (`requestedRef`)
+  // that state means "lost to another request", so re-request it. Each loss needs a fresh foreign
+  // request, so this cannot loop on its own.
+  const requestedRef = useRef(false);
+  useEffect(() => {
+    if (!id) return;
+    if (currentPipelineStatus !== "idle") {
+      requestedRef.current = true;
+      return;
+    }
+    if (!requestedRef.current || singletonIsOwn) return;
+    loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
+  }, [dispatch, id, singletonIsOwn, currentPipelineStatus, loadRunHistoryWhenTruncated]);
 
   // HEL-1354: the status stays "idle" until the thunk's `pending` lands, so React StrictMode's
   // dev-only effect double-invoke saw "idle" twice and issued two `GET /api/data-sources`. A

@@ -28,6 +28,8 @@ import type {
 import type { ChartCompareBlocker } from "../../../panels/history/chartOverlay";
 import { ChartCompareField } from "./ChartCompareField";
 import { ChartSlotFields } from "./ChartSlotFields";
+import { ReferenceMarksField } from "./ReferenceMarksField";
+import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import { HistogramBinCountField } from "./HistogramBinCountField";
 import { METRIC_COMPARE_OPTIONS, compareOptions } from "./compareOptions";
 import type { TableColumnRow } from "./useOutputTableColumns";
@@ -76,7 +78,15 @@ interface ChartKindFieldsProps {
   onCompareChange: (v: string) => void;
   /** HEL-1350 — what in THIS Output's config rules the dashboard "vs" overlay out, if anything. */
   compareBlocker: ChartCompareBlocker | null;
+  /** HEL-1306 -- the committed reference lines/bands and the draft-validity callback (blocks Save). */
+  referenceMarks: ReferenceMarks;
+  onReferenceMarksChange: (marks: ReferenceMarks) => void;
+  onReferenceMarksInvalidChange: (invalid: boolean) => void;
+  normalizedStack: boolean;
 }
+
+/** Chart types that draw reference lines/bands (pie and heatmap have no value axis to mark). */
+const REFERENCE_MARK_CHART_TYPES: ChartType[] = ["bar", "line", "scatter", "histogram"];
 
 export function ChartKindFields({
   fieldOptions,
@@ -106,6 +116,10 @@ export function ChartKindFields({
   compareValue,
   onCompareChange,
   compareBlocker,
+  referenceMarks,
+  onReferenceMarksChange,
+  onReferenceMarksInvalidChange,
+  normalizedStack,
 }: ChartKindFieldsProps) {
   return (
     <>
@@ -173,6 +187,14 @@ export function ChartKindFields({
         isBound={fieldOptions.length > 0}
         annotationState={annotationState}
       />
+      {REFERENCE_MARK_CHART_TYPES.includes(chartType) ? (
+        <ReferenceMarksField
+          marks={referenceMarks}
+          onChange={onReferenceMarksChange}
+          onInvalidChange={onReferenceMarksInvalidChange}
+          normalizedStack={chartType === "bar" && normalizedStack}
+        />
+      ) : null}
       <ChartCompareField
         value={compareValue}
         onChange={onCompareChange}

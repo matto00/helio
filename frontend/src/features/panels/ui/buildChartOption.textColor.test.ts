@@ -19,6 +19,9 @@ const themeTokens: ChartThemeTokens = {
   accentStrong: "#ea580c",
   accent: "#ea580c",
   textMuted: "#aaa49c",
+  success: "#4cc38a",
+  warning: "#f5b944",
+  error: "#f17b67",
 };
 
 const rows = [

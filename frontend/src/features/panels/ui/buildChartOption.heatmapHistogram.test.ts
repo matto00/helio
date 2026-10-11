@@ -23,6 +23,9 @@ const themeTokens: ChartThemeTokens = {
   accentStrong: "#ea580c",
   accent: "#ea580c",
   textMuted: "#778899",
+  success: "#4cc38a",
+  warning: "#f5b944",
+  error: "#f17b67",
 };
 
 const headers = ["day", "test", "failures", "ms"];

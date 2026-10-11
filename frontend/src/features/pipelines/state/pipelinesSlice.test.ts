@@ -121,6 +121,7 @@ describe("pipelinesSlice", () => {
       runHistoryLoadedOpenId: {},
       currentPipeline: null,
       currentPipelineStatus: "idle" as const,
+      currentPipelineRequestedId: null,
       currentPipelineError: null,
       currentPipelineErrorKind: null,
       steps: {},
@@ -131,6 +132,7 @@ describe("pipelinesSlice", () => {
       runResult: null,
       runStepRowCounts: {},
       runSourceRowCount: null,
+      runPipelineId: null,
       runSourceTruncated: false,
       runSourceAvailableRowCount: null,
       runTruncationNotice: null,
@@ -315,8 +317,13 @@ describe("submitPipelineRun reducer", () => {
 
   it("sets runResult and runStatus when submitPipelineRun fulfills", () => {
     const rows = [{ col_a: 1, col_b: "x" }];
-    const nextState = pipelinesReducer(
+    // HEL-1483: a fulfilment only lands on a run that owns the run state, so it follows its pending.
+    const pending = pipelinesReducer(
       undefined,
+      submitPipelineRun.pending("req-1", { pipelineId: "p-1" }),
+    );
+    const nextState = pipelinesReducer(
+      pending,
       submitPipelineRun.fulfilled(
         { rowCount: 1, rows, stepRowCounts: {}, sourceRowCount: 0 },
         "req-1",
@@ -329,8 +336,12 @@ describe("submitPipelineRun reducer", () => {
   });
 
   it("clears runId and sets runError when submitPipelineRun rejects", () => {
-    const nextState = pipelinesReducer(
+    const pending = pipelinesReducer(
       undefined,
+      submitPipelineRun.pending("req-1", { pipelineId: "p-1" }),
+    );
+    const nextState = pipelinesReducer(
+      pending,
       submitPipelineRun.rejected(
         null,
         "req-1",
@@ -350,7 +361,7 @@ describe("clearRunState reducer (HEL-861 skeptic-final-1: stale banner-across-pi
     // different pipeline — PipelineDetailPage's id-keyed effect cleanup dispatches
     // clearRunState() on every pipeline switch (PipelineDetailPage.tsx:229-234).
     const stateWithTruncation = pipelinesReducer(
-      undefined,
+      pipelinesReducer(undefined, submitPipelineRun.pending("req-1", { pipelineId: "p-1" })),
       submitPipelineRun.fulfilled(
         {
           rowCount: 1000,
@@ -1298,5 +1309,108 @@ describe("applyPipelineProposal thunk", () => {
     );
     expect(rejectedCall).toBeDefined();
     expect(rejectedCall?.[0].payload).toBe("Failed to apply the pipeline proposal.");
+  });
+});
+
+describe("pipeline-switch guards (HEL-1483)", () => {
+  const summary = (id: string): PipelineSummary => ({ ...samplePipelineSummary, id });
+  const fetchFulfilled = (id: string) => fetchPipelineById.fulfilled(summary(id), "req", id);
+
+  it("a run resolving after clearRunState (leaving its pipeline) does not write run state", () => {
+    let state = pipelinesReducer(undefined, submitPipelineRun.pending("r", { pipelineId: "A" }));
+    state = pipelinesReducer(state, clearRunState());
+    const arg = { pipelineId: "A" };
+    state = pipelinesReducer(
+      state,
+      submitPipelineRun.fulfilled(
+        { rowCount: 1, rows: [{ x: 1 }], stepRowCounts: { a1: 1 }, sourceRowCount: 1 },
+        "r",
+        arg,
+      ),
+    );
+    expect(state.runStatus).toBeNull();
+    expect(state.runResult).toBeNull();
+    expect(state.runStepRowCounts).toEqual({});
+    state = pipelinesReducer(state, submitPipelineRun.rejected(null, "r", arg, "boom"));
+    expect(state.runError).toBeNull();
+  });
+
+  it("a run for A is ignored while B owns the run state", () => {
+    let state = pipelinesReducer(undefined, submitPipelineRun.pending("rb", { pipelineId: "B" }));
+    state = pipelinesReducer(
+      state,
+      submitPipelineRun.fulfilled(
+        { rowCount: 1, rows: [{ x: 1 }], stepRowCounts: {}, sourceRowCount: 1 },
+        "ra",
+        { pipelineId: "A" },
+      ),
+    );
+    expect(state.runStatus).toBe("queued");
+    expect(state.runResult).toBeNull();
+  });
+
+  it("clearRunState also resets the per-step and source row counts", () => {
+    let state = pipelinesReducer(undefined, submitPipelineRun.pending("r", { pipelineId: "A" }));
+    state = pipelinesReducer(
+      state,
+      submitPipelineRun.fulfilled(
+        { rowCount: 1, rows: [], stepRowCounts: { a1: 4 }, sourceRowCount: 9 },
+        "r",
+        { pipelineId: "A" },
+      ),
+    );
+    expect(state.runSourceRowCount).toBe(9);
+    state = pipelinesReducer(state, clearRunState());
+    expect(state.runStepRowCounts).toEqual({});
+    expect(state.runSourceRowCount).toBeNull();
+    expect(state.runPipelineId).toBeNull();
+  });
+
+  it("a fetchPipelineById response for a superseded pipeline is ignored and never strands status at loading", () => {
+    let state = pipelinesReducer(undefined, fetchPipelineById.pending("ra", "A"));
+    state = pipelinesReducer(state, fetchPipelineById.pending("rb", "B"));
+    state = pipelinesReducer(state, fetchFulfilled("A"));
+    expect(state.currentPipeline).toBeNull();
+    expect(state.currentPipelineStatus).toBe("loading");
+    state = pipelinesReducer(state, fetchFulfilled("B"));
+    expect(state.currentPipeline?.id).toBe("B");
+    expect(state.currentPipelineStatus).toBe("succeeded");
+  });
+
+  it("a late rejection for A does not fail or null out B", () => {
+    let state = pipelinesReducer(undefined, fetchPipelineById.pending("ra", "A"));
+    state = pipelinesReducer(state, fetchPipelineById.pending("rb", "B"));
+    state = pipelinesReducer(state, fetchFulfilled("B"));
+    state = pipelinesReducer(
+      state,
+      fetchPipelineById.rejected(null, "ra", "A", { message: "nope", kind: "not-found" }),
+    );
+    expect(state.currentPipeline?.id).toBe("B");
+    expect(state.currentPipelineStatus).toBe("succeeded");
+    expect(state.currentPipelineError).toBeNull();
+  });
+
+  it("requesting a different pipeline drops the previous pipeline's error; the same one keeps it", () => {
+    let state = pipelinesReducer(undefined, fetchPipelineById.pending("ra", "A"));
+    state = pipelinesReducer(
+      state,
+      fetchPipelineById.rejected(null, "ra", "A", { message: "nope", kind: "not-found" }),
+    );
+    expect(state.currentPipelineError).toBe("nope");
+    const retry = pipelinesReducer(state, fetchPipelineById.pending("ra2", "A"));
+    expect(retry.currentPipelineError).toBe("nope");
+    const other = pipelinesReducer(state, fetchPipelineById.pending("rb", "B"));
+    expect(other.currentPipelineError).toBeNull();
+    expect(other.currentPipelineErrorKind).toBeNull();
+  });
+
+  it("a rename of A resolving while B is current does not replace currentPipeline", () => {
+    let state = pipelinesReducer(undefined, fetchPipelineById.pending("rb", "B"));
+    state = pipelinesReducer(state, fetchFulfilled("B"));
+    state = pipelinesReducer(
+      state,
+      updatePipeline.fulfilled(summary("A"), "u", { id: "A", name: "x" }),
+    );
+    expect(state.currentPipeline?.id).toBe("B");
   });
 });

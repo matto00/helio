@@ -68,6 +68,8 @@ export function openingParams(
       chart.fieldMapping.annotation ?? "",
       chart.annotation ?? "",
     ),
+    referenceLines: chart.referenceLines,
+    referenceBands: chart.referenceBands,
     tableFieldMapping: table.fieldMapping,
     tableColumnOrder: deriveColumnOrder(
       buildOutputColumns(fieldKeys, table.columnOrder),

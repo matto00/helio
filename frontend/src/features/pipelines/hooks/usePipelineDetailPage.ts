@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import type { DataSource } from "../../sources/types/dataSource";
@@ -56,14 +56,39 @@ export function usePipelineDetailPage() {
     runSourceRowCount,
     runSourceTruncated,
     runTruncationNotice,
-    currentPipeline,
-    currentPipelineStatus,
-    currentPipelineError,
-    currentPipelineErrorKind,
+    currentPipeline: storedPipeline,
+    currentPipelineStatus: storedPipelineStatus,
+    currentPipelineError: storedPipelineError,
+    currentPipelineErrorKind: storedPipelineErrorKind,
+    currentPipelineRequestedId,
     updateStatus,
     updateError,
     steps: reduxSteps,
   } = useAppSelector((state) => state.pipelines);
+  // HEL-1483 -- `currentPipeline` and its status/error are singletons in the slice, so right after an
+  // in-app switch they still describe the PREVIOUS pipeline. Expose them only for the page's own id:
+  // another id's pipeline reads as "not loaded" (loading skeleton, never A's name or header) and
+  // another id's status/error as idle/none (so B's load is never skipped by A's failed latch, and
+  // A's "couldn't load" never shows on B).
+  // Once THIS mount has seen its own pipeline it keeps it (`ownPipeline`, only ever this mount's id)
+  // while another id's late request holds the singleton, so a loaded editor is never swapped for the
+  // page skeleton -- which would unmount its cards and drop a pending debounced edit -- during the
+  // convergence refetch below.
+  const singletonIsOwn = storedPipeline?.id === id;
+  const [ownPipeline, setOwnPipeline] = useState<typeof storedPipeline>(() =>
+    singletonIsOwn ? storedPipeline : null,
+  );
+  if (singletonIsOwn && storedPipeline !== ownPipeline) setOwnPipeline(storedPipeline);
+  // (Not once this page's own request has failed: the error view must replace the kept editor.)
+  const ownRequestFailed =
+    (!currentPipelineRequestedId || currentPipelineRequestedId === id) &&
+    storedPipelineStatus === "failed";
+  const currentPipeline = singletonIsOwn ? storedPipeline : ownRequestFailed ? null : ownPipeline;
+  // (`null` = nothing requested yet, so there is no other pipeline's status to disown.)
+  const ownsPipelineStatus = !currentPipelineRequestedId || currentPipelineRequestedId === id;
+  const currentPipelineStatus = ownsPipelineStatus ? storedPipelineStatus : "idle";
+  const currentPipelineError = ownsPipelineStatus ? storedPipelineError : null;
+  const currentPipelineErrorKind = ownsPipelineStatus ? storedPipelineErrorKind : null;
 
   // Per-pipeline analyze result (schema-inferred fields per step).
   const analyzeResult = useAppSelector((state) =>
@@ -134,6 +159,13 @@ export function usePipelineDetailPage() {
   // mirroring `stepsRef` above.
   const allOutputsRef = useRef<Output[]>([]);
   const [stepsInitialized, setStepsInitialized] = useState(false);
+  // HEL-1483 (design D2a) -- true once the steps fetch THIS mount issued has fulfilled. The editor
+  // seeds `steps` only then, never from a `reduxSteps[id]` entry that pre-dates the mount (a revisit
+  // would otherwise seed the cached, pre-edit steps and `stepsInitialized` would block the reseed).
+  // "pending" until it settles; "failed" shows what a base cold open shows (the empty editor).
+  const [stepsFetch, setStepsFetch] = useState<"pending" | "fulfilled" | "failed">("pending");
+  const stepsFetchedThisMount = stepsFetch === "fulfilled";
+  const stepsLoading = stepsFetch === "pending";
   // F-105 — bumped (in the derived-state block below, batched into the same re-render as
   // `stepsInitialized`) the one time `steps` is seeded from `persistedSteps`. The debounced
   // re-analyze effect compares it with `consumedSeedTokenRef` (written only in that effect) so the
@@ -225,7 +257,7 @@ export function usePipelineDetailPage() {
     setOutputName(currentPipeline.name);
   }
   // Initialize local steps from persisted Redux data on first load.
-  if (!stepsInitialized && persistedSteps.length > 0) {
+  if (!stepsInitialized && stepsFetchedThisMount && persistedSteps.length > 0) {
     setStepsInitialized(true);
     setSteps(persistedSteps.map(pipelineStepToStep));
     // F-105 — this transition changes `stepsFingerprint` below from "" to a
@@ -237,13 +269,19 @@ export function usePipelineDetailPage() {
     setSeedToken((token) => token + 1);
   }
 
+  const onStepsSettled = useCallback(
+    (ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"),
+    [],
+  );
   const { retryPipelineLoad } = usePipelinePageLoad({
     id,
     dispatch,
     currentPipeline,
+    singletonIsOwn,
     currentPipelineStatus,
     sourcesStatus,
     loadRunHistoryWhenTruncated,
+    onStepsSettled,
   });
 
   // Re-run /analyze whenever the steps change (add / remove / config edit) so
@@ -456,6 +494,7 @@ export function usePipelineDetailPage() {
   });
 
   return {
+    stepsLoading,
     id,
     dispatch,
     steps,

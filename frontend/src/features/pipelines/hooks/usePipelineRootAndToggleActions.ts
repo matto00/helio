@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
@@ -42,6 +42,16 @@ export function usePipelineRootAndToggleActions({
   // the pipeline afterward so `currentPipeline.roots` (and this hook's own
   // `roots`/`laneGraph`) reflect the new root without a page reload -- the
   // new root has no steps yet, so no `syncStepsFromServer()` is needed.
+  // HEL-1483: the continuations below refetch AFTER an await; once the issuing page has unmounted
+  // (an in-app switch) that refetch is for a pipeline nobody is looking at.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const handleAddRoot = useCallback(
     async (sourceId: string) => {
       if (!id) return;
@@ -51,7 +61,7 @@ export function usePipelineRootAndToggleActions({
       if (!sourceId) return;
       try {
         await addPipelineRoot(id, { sourceId });
-        void dispatch(fetchPipelineById(id));
+        if (mountedRef.current) void dispatch(fetchPipelineById(id));
       } catch (err: unknown) {
         const message = extractErrorMessage(err, "the request could not be completed.");
         pushToast({ variant: "error", message: `Failed to add source: ${message}` });
@@ -73,7 +83,9 @@ export function usePipelineRootAndToggleActions({
       if (!id) return;
       try {
         const result = await removePipelineRoot(id, rootId);
-        await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
+        if (mountedRef.current) {
+          await Promise.all([dispatch(fetchPipelineById(id)), syncStepsFromServer()]);
+        }
         pushToast({
           variant: "success",
           message: `Source removed: ${result.removedStepCount} step${

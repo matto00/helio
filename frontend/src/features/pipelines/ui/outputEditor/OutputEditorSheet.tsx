@@ -296,7 +296,9 @@ export function OutputEditorSheet({
           onAddTailWithAggregate={() => void handleAddTailWithAggregate()}
           onSave={() => void handleSave()}
           saveDisabled={rulesInvalid}
-          saveBlocked={kind === "chart" && kindState.binCountInvalid}
+          saveBlocked={
+            kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid)
+          }
         />
       }
     >

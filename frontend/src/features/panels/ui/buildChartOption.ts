@@ -16,6 +16,8 @@ import type { GroupedAggregate } from "../../../utils/aggregate";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
 import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
+import type { ReferenceMarks } from "../../../utils/referenceMarks";
+import { applyReferenceMarks } from "./referenceMarksOption";
 import {
   applyHeatmapTheme,
   compactHeatmapVisualMap,
@@ -87,6 +89,8 @@ export interface BuildChartOptionParams {
   /** HEL-1277: a labelled "vs" comparison series (single-series line/bar with a category x axis
    *  only; see `applyChartOverlay` for every ignore rule). */
   overlay?: ChartOverlay | null;
+  /** HEL-1306: the Output's static reference lines and bands (see `applyReferenceMarks`). */
+  referenceMarks?: ReferenceMarks | null;
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
@@ -105,6 +109,7 @@ export function buildChartOption({
   chartAggregate,
   chartOptions,
   overlay,
+  referenceMarks,
   effectiveCompact,
   measuredPieLegendOverlap,
   themeTokens,
@@ -260,6 +265,18 @@ export function buildChartOption({
   // Decision 3).
   built = applyAxisTriggerTooltip(built, chartType);
   built = applyHoverEmphasis(built, themeTokens, prefersReducedMotion());
+
+  // HEL-1306 -- the reference marks' carrier series joins LAST among the series passes, so the overlay,
+  // the tooltip trigger and hover emphasis above see exactly the series they always have.
+  built = applyReferenceMarks(
+    built,
+    chartType,
+    chartOptions,
+    referenceMarks,
+    themeTokens,
+    textColor,
+    !effectiveCompact,
+  );
 
   // F-026 — a pie's own outer data-labels extend well outside its donut
   // radius, so a top/bottom legend collides with them at a *taller*
