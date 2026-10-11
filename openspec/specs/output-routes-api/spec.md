@@ -444,8 +444,9 @@ Every write that persists an Output's `config` (Output create, Output update, si
 grounding of a pipeline proposal's Outputs, and the patch-set preview and apply of an Output update) SHALL accept only
 top-level keys in the Output kind's known-key set. Every kind SHALL accept `fieldMapping`, `compare` and
 `historyPayloads`; additionally chart SHALL accept `chartType`, `aggregation`, `chartOptions`, `annotation`, `referenceLines`, `referenceBands`; metric
-SHALL accept `aggregation`, `label`, `unit`, `format`; table SHALL accept `columnOrder`, `columnFormats`, `columnSort`,
-`columnFilters`, `pinnedColumns`; collection SHALL accept `layout`, `format`; timeline SHALL accept `sort`; markdown
+SHALL accept `aggregation`, `label`, `unit`, `format`, `conditionalFormats`; table SHALL accept `columnOrder`, `columnFormats`, `columnSort`,
+`columnFilters`, `pinnedColumns`, `conditionalFormats`; collection SHALL accept `layout`, `format`,
+`conditionalFormats`; timeline SHALL accept `sort`; markdown
 SHALL accept `content`. A write that introduces a key outside that set, or changes the stored value of one, SHALL be
 rejected with 400 whose message names every offending key and, where one exists, a did-you-mean suggestion; nothing
 SHALL be persisted. On an update, an unknown key whose value equals the value already stored under that key SHALL be
@@ -477,6 +478,14 @@ stored legacy keys never block an update or a read-modify-write round trip. Rest
 #### Scenario: Single-call create and proposal grounding
 - **WHEN** a single-call pipeline create names an Output with an unknown config key, or a pipeline proposal does
 - **THEN** the create is 400 naming the key, and the proposal's Output carries a `validationError` naming the key
+
+#### Scenario: conditionalFormats is accepted on metric, table and collection
+- **WHEN** a metric, table or collection Output is created with a valid `conditionalFormats` list
+- **THEN** the write succeeds
+
+#### Scenario: conditionalFormats is rejected on chart, timeline and markdown
+- **WHEN** a chart, timeline or markdown Output is created with `conditionalFormats`
+- **THEN** the response is 400 naming `conditionalFormats` as not a config key of that kind
 
 ### Requirement: Output config writes validate aggregation and chartType
 Every Output config write listed above (except restoring journaled prior config) SHALL, when the written

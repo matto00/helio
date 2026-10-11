@@ -24,6 +24,7 @@ import { aggregateSeriesName } from "../../../../utils/chartClickSelection";
 import { chartAggregationSpec } from "../../../panels/history/chartOverlay";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
+import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import type { MappedPanelData, ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import type { RunResult } from "../../types/output";
@@ -50,6 +51,8 @@ interface OutputPreviewPaneProps {
   metricLabel?: string;
   metricUnit?: string;
   metricFormat?: string;
+  /** HEL-1307 -- the editor's UNSAVED, valid threshold rules; the metric preview applies them live. */
+  metricConditionalFormats?: ConditionalFormatRule[];
   // Markdown
   markdownContent?: string;
 }
@@ -81,6 +84,7 @@ export function OutputPreviewPane({
   metricLabel,
   metricUnit,
   metricFormat,
+  metricConditionalFormats,
   markdownContent,
 }: OutputPreviewPaneProps) {
   const metricFormatValue: MetricFormat | null = isMetricFormat(metricFormat) ? metricFormat : null;
@@ -146,7 +150,13 @@ export function OutputPreviewPane({
       label: metricLabel ?? "",
       unit: metricUnit ?? "",
     };
-    return <MetricRenderer data={data} format={metricFormatValue} />;
+    return (
+      <MetricRenderer
+        data={data}
+        format={metricFormatValue}
+        conditionalFormats={metricConditionalFormats}
+      />
+    );
   }
 
   if (kind === "markdown") {

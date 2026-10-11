@@ -203,6 +203,7 @@ export function OutputPanelContent({
         columnFilters={cfg.columnFilters}
         columnFormats={cfg.columnFormats}
         pinnedColumns={cfg.pinnedColumns}
+        conditionalFormats={cfg.conditionalFormats}
         // HEL-1027 design.md D2/D3 (task 4.5) — this Output's OWN declared schema (already
         // resolved by this component's existing `useOutputMeta` call above, no new fetch), so
         // `TableRenderer` can gate each column's sort/filter control on its Structured/Content
@@ -246,6 +247,7 @@ export function OutputPanelContent({
         format={cfg.format}
         rawRows={filteredRawRows}
         headers={headers}
+        conditionalFormats={cfg.conditionalFormats}
       />
     );
   } else if (kind === "timeline") {

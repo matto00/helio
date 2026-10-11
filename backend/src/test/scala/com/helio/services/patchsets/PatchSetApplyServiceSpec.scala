@@ -1126,6 +1126,38 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
       response.edits.head.resultingState.map(_.convertTo[OutputResponse].name) shouldBe Some("Renamed output")
     }
 
+    // HEL-1307 task 4.2: apply forwards through OutputService.update's write validation, so an invalid
+    // `conditionalFormats` list is refused and nothing is persisted; a valid list is stored.
+    "reject an output update edit carrying an invalid conditionalFormats list, leaving the stored config unchanged (HEL-1307)" in {
+      val sourceId = seedDatasetSource(userA, "Output-1307 source")
+      val pipeline = seedPipeline(userA, sourceId, "Output-1307 pipeline")
+      val output   = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "CF output", OutputKind.Metric, explicitRootId = None))
+      val badRules  = """[{"op":"lt","value":50,"tone":"error"},{"op":"lt","value":"x","tone":"warning"}]""".parseJson
+      val goodRules = """[{"op":"lt","value":50,"tone":"error","label":"Low"}]""".parseJson
+      def edit(rules: JsValue) = Edit(EditTarget("output", Some(output.id.value)), "update",
+        None, None, None, None, None, None,
+        Some(UpdateOutputRequest(name = None, config = Some(JsObject("conditionalFormats" -> rules)))))
+      def stored = await(outputRepo.findConfigsByIdsInternal(Vector(output.id.value)))(output.id.value)
+      val before = stored
+
+      val rejected = await(service.apply(PatchSet(None, Vector(edit(badRules))), userA))
+      val reason = rejected match {
+        case Left(ServiceError.BadRequest(msg)) => msg
+        case Right(r)                           => r.failure.getOrElse(fail(s"expected a failure, got $r"))
+        case other                              => fail(s"expected a rejection, got $other")
+      }
+      reason should include("conditionalFormats[1]")
+      stored shouldBe before
+      stored.fields.get("conditionalFormats") shouldBe None
+
+      val accepted = await(service.apply(PatchSet(None, Vector(edit(goodRules))), userA)) match {
+        case Right(r)  => r
+        case Left(err) => fail(s"expected success, got $err")
+      }
+      accepted.failure shouldBe None
+      stored.fields("conditionalFormats") shouldBe goodRules
+    }
+
     "reject an output update edit from a non-owner (viewer grantee), leaving it unchanged (task 1.2)" in {
       val sourceId = seedDatasetSource(userA, "Output-acl source")
       val pipeline = seedPipeline(userA, sourceId, "Output-acl pipeline")

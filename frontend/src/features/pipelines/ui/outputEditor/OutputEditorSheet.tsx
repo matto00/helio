@@ -132,7 +132,12 @@ export function OutputEditorSheet({
   const kindState = useOutputKindState(
     config,
     capabilities ? capabilities.columns.map((c) => c.name) : [],
+    (output?.kind as OutputKind) ?? "chart",
   );
+  // HEL-1307 -- a rule the server would reject blocks Save (the editor mirrors the server's checks).
+  const rulesInvalid =
+    (kind === "metric" || kind === "collection" || kind === "table") &&
+    kindState.conditionalFormats.hasErrors(kind);
 
   const fieldOptions = columnOptions(capabilities);
   const aggFieldOptions = aggColumnOptions(capabilities);
@@ -290,6 +295,7 @@ export function OutputEditorSheet({
           canAddTailWithAggregate={canAddTailWithAggregate}
           onAddTailWithAggregate={() => void handleAddTailWithAggregate()}
           onSave={() => void handleSave()}
+          saveDisabled={rulesInvalid}
           saveBlocked={
             kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid)
           }

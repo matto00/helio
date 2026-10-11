@@ -17,6 +17,11 @@ import type { OutputKind } from "../../types/output";
 import type { BuildOutputConfigParams } from "./buildOutputConfig";
 import { openingParams } from "./configPatch";
 import { readTableConfig } from "./outputConfigTypes";
+import type { ConditionalFormatKind } from "../../../panels/ui/renderers/conditionalFormatting";
+import {
+  useOutputConditionalFormats,
+  type OutputConditionalFormatsState,
+} from "./useOutputConditionalFormats";
 import { useOutputColumnFormats, type OutputColumnFormatsState } from "./useOutputColumnFormats";
 import { useOutputTableColumns, type OutputTableColumnsState } from "./useOutputTableColumns";
 
@@ -59,6 +64,8 @@ export interface OutputKindState {
   setMetricFormat: (v: string) => void;
   compare: string;
   setCompare: (v: string) => void;
+  // Metric / collection / table threshold rules (HEL-1307)
+  conditionalFormats: OutputConditionalFormatsState;
   // Markdown
   markdownContent: string;
   setMarkdownContent: (v: string) => void;
@@ -77,11 +84,18 @@ export interface OutputKindState {
   params: (kind: OutputKind) => BuildOutputConfigParams;
 }
 
+function isFormatKind(kind: OutputKind): kind is ConditionalFormatKind {
+  return kind === "metric" || kind === "collection" || kind === "table";
+}
+
 /** `capabilityKeys` are the node's column names; they load after mount, so the table columns hook
  *  (unlike every other field) follows them rather than being seeded once. */
 export function useOutputKindState(
   config: Record<string, unknown>,
   capabilityKeys: string[],
+  /** The Output's kind when editing (seeds the kind-specific `conditionalFormats` read); create mode has no
+   *  config, so the default is immaterial there. */
+  kind: OutputKind = "chart",
 ): OutputKindState {
   // Only the kind-independent fields are read from the seed, so the kind argument is immaterial.
   const seed = useMemo(() => openingParams("chart", config, []), [config]);
@@ -137,6 +151,11 @@ export function useOutputKindState(
   const [metricFormat, setMetricFormat] = useState<string>(seed.metricFormat);
   const [compare, setCompare] = useState<string>(seed.compare);
 
+  // Threshold rules (HEL-1307) -- the tolerant read depends on the kind (a table rule needs a column).
+  const conditionalFormats = useOutputConditionalFormats(
+    useMemo(() => openingParams(kind, config, []).conditionalFormats, [kind, config]),
+  );
+
   // Markdown
   // Literal-only (HEL-1139): a legacy `fieldMapping.content` is ignored on open;
   // an edit Save leaves it stored unless the user changes the content (HEL-1389).
@@ -180,6 +199,7 @@ export function useOutputKindState(
     setMetricFormat,
     compare,
     setCompare,
+    conditionalFormats,
     markdownContent,
     setMarkdownContent,
     collectionFieldMapping,
@@ -212,6 +232,8 @@ export function useOutputKindState(
       collectionFieldMapping,
       collectionFormat,
       timelineFieldMapping,
+      conditionalFormats: isFormatKind(kind) ? conditionalFormats.rulesFor(kind) : undefined,
+      conditionalFormatsStored: conditionalFormats.storedKey,
     }),
   };
 }

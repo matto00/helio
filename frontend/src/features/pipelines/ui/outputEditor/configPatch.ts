@@ -95,6 +95,19 @@ export function openingParams(
     collectionFieldMapping: collection.fieldMapping,
     collectionFormat: collection.format ?? "number",
     timelineFieldMapping: timeline.fieldMapping,
+    // HEL-1307 -- the three kinds read the same flat key, so the per-kind reader is immaterial.
+    conditionalFormats:
+      kind === "table"
+        ? table.conditionalFormats
+        : kind === "collection"
+          ? collection.conditionalFormats
+          : metric.conditionalFormats,
+    conditionalFormatsStored:
+      (kind === "table"
+        ? table.conditionalFormats
+        : kind === "collection"
+          ? collection.conditionalFormats
+          : metric.conditionalFormats) !== undefined,
   };
 }
 

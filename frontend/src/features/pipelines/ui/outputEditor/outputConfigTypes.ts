@@ -19,6 +19,10 @@ import type { CapabilityColumn, NodeCapabilities } from "../../types/output";
 import type { SelectOption } from "../../../../shared/ui/index";
 import type { SortState } from "../../../../shared/ui/useSortedRows";
 import {
+  readConditionalFormats,
+  type ConditionalFormatRule,
+} from "../../../panels/ui/renderers/conditionalFormatting";
+import {
   sanitizeReferenceMarks,
   type ReferenceBand,
   type ReferenceLine,
@@ -108,6 +112,9 @@ export interface TableOutputConfig {
    *  other field here. Clearing MUST write `[]`, never omit the key
    *  (design.md Decision 6). */
   pinnedColumns?: string[];
+  /** HEL-1307 -- ordered threshold rules (first match wins); flat sibling like every key here. A clear MUST
+   *  write `[]`, never omit the key (shallow merge). */
+  conditionalFormats?: ConditionalFormatRule[];
 }
 
 /** Numeric display style for `metric`/`collection baseType: metric` renderers
@@ -129,6 +136,9 @@ export interface MetricOutputConfig {
   /** HEL-1275 — `config.compare` (`previous_run | 1d | 7d | 30d | custom:<ISO-8601 duration>`);
    *  `null`/absent means no comparison. */
   compare?: string | null;
+  /** HEL-1307 -- ordered threshold rules (first match wins); flat sibling like every key here. A clear MUST
+   *  write `[]`, never omit the key (shallow merge). */
+  conditionalFormats?: ConditionalFormatRule[];
 }
 
 export interface MarkdownOutputConfig {
@@ -143,6 +153,9 @@ export interface CollectionOutputConfig {
    *  semantics/values as `MetricOutputConfig.format`, applied per-item via
    *  `CollectionRenderer`'s `MetricRenderer` reuse. */
   format?: MetricFormat | null;
+  /** HEL-1307 -- ordered threshold rules (first match wins); flat sibling like every key here. A clear MUST
+   *  write `[]`, never omit the key (shallow merge). */
+  conditionalFormats?: ConditionalFormatRule[];
 }
 
 export interface TimelineOutputConfig {
@@ -275,6 +288,16 @@ function readPinnedColumns(value: unknown): string[] | undefined {
   return value.filter((v): v is string => typeof v === "string");
 }
 
+/** The `conditionalFormats` key is present on a read config only when the stored value is an array, so a
+ *  config without rules reads exactly as it did before HEL-1307. */
+function formatsField(
+  value: unknown,
+  kind: "metric" | "collection" | "table",
+): { conditionalFormats?: ConditionalFormatRule[] } {
+  const rules = readConditionalFormats(value, kind);
+  return rules === undefined ? {} : { conditionalFormats: rules };
+}
+
 export function readTableConfig(config: Record<string, unknown>): TableOutputConfig {
   return {
     fieldMapping: safeRecord(config.fieldMapping),
@@ -283,6 +306,7 @@ export function readTableConfig(config: Record<string, unknown>): TableOutputCon
     columnFilters: readColumnFilters(config.columnFilters),
     columnFormats: readColumnFormats(config.columnFormats),
     pinnedColumns: readPinnedColumns(config.pinnedColumns),
+    ...formatsField(config.conditionalFormats, "table"),
   };
 }
 
@@ -294,6 +318,7 @@ export function readMetricConfig(config: Record<string, unknown>): MetricOutputC
     unit: typeof config.unit === "string" ? config.unit : undefined,
     format: isMetricFormat(config.format) ? config.format : null,
     compare: typeof config.compare === "string" ? config.compare : null,
+    ...formatsField(config.conditionalFormats, "metric"),
   };
 }
 
@@ -309,6 +334,7 @@ export function readCollectionConfig(config: Record<string, unknown>): Collectio
     fieldMapping: safeRecord(config.fieldMapping),
     layout: config.layout === "list" ? "list" : "grid",
     format: isMetricFormat(config.format) ? config.format : null,
+    ...formatsField(config.conditionalFormats, "collection"),
   };
 }
 

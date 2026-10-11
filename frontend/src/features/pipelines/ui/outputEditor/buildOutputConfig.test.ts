@@ -287,3 +287,31 @@ describe("buildOutputConfig -- reference marks (HEL-1306)", () => {
     expect(config).not.toHaveProperty("referenceLines");
   });
 });
+
+// HEL-1307 -- the aggregate-tail variant must carry the editor's conditional-format rules too.
+describe("buildAggregateTailConfigs conditionalFormats (HEL-1307)", () => {
+  const rules = [{ op: "lt" as const, value: 80, tone: "error" as const, label: "Low" }];
+  const metricTail = (overrides: Partial<BuildOutputConfigParams>) =>
+    buildAggregateTailConfigs(
+      baseParams({ kind: "metric", metricField: "signups", metricAggFn: "sum", ...overrides }),
+      undefined,
+    );
+
+  it("emits the rules on the metric tail's output config", () => {
+    expect(metricTail({ conditionalFormats: rules })?.outputConfig.conditionalFormats).toEqual(
+      rules,
+    );
+  });
+
+  it("emits no key when there are no rules and none were stored", () => {
+    expect(metricTail({})?.outputConfig).not.toHaveProperty("conditionalFormats");
+  });
+
+  it("emits [] when stored rules were all removed", () => {
+    const outputConfig = metricTail({
+      conditionalFormats: [],
+      conditionalFormatsStored: true,
+    })?.outputConfig;
+    expect(outputConfig?.conditionalFormats).toEqual([]);
+  });
+});

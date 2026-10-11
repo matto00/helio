@@ -138,6 +138,63 @@
   text-decoration: underline;
 }
 
+/* HEL-1307 -- conditional formatting rules. Tokens only; each rule is a bordered row that wraps on a
+   375px phone so no control is clipped. */
+.conditional-formats {
+  gap: var(--space-3);
+}
+
+.conditional-formats__rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  padding: var(--space-2) var(--space-3);
+}
+
+.conditional-formats__controls {
+  display: flex;
+  flex: 1 1 18rem;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.conditional-formats__controls > * {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+/* Every control in a rule row is the same height (a Select trigger otherwise sits a few px taller than a
+   TextField); the move/remove buttons align with the control row, below each control's visible label. */
+.conditional-formats__controls .ui-input,
+.conditional-formats__controls .ui-select__trigger {
+  box-sizing: border-box;
+  height: var(--control-md);
+}
+
+/* Mobile: the shared Select trigger lifts to the 44px touch floor (inputs.css, same gate); lift the row's
+   text inputs to that same floor so every control in the row stays the same height on touch. */
+@media (max-width: 768px), (pointer: coarse) {
+  .conditional-formats__controls .ui-input {
+    min-height: 44px;
+  }
+}
+
+.conditional-formats__actions {
+  display: flex;
+  gap: var(--space-1);
+  align-self: flex-end;
+}
+
+.conditional-formats__error {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
 /* HEL-1311: the histogram bin-count input meets the 44px tap floor on touch, as the shared Select
    triggers beside it do (`shared/ui/inputs.css`). Touch gate, not a width gate -- see
    `shared/ui/tapTarget.css`. */

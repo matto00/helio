@@ -11,6 +11,7 @@ import type {
 } from "../../../panels/types/panel";
 import { chartCompareBlocker } from "../../../panels/history/chartOverlay";
 import type { OutputKind } from "../../types/output";
+import { ConditionalFormatsField } from "./ConditionalFormatsField";
 import { buildOutputConfig } from "./buildOutputConfig";
 import {
   ChartKindFields,
@@ -77,6 +78,7 @@ export function OutputKindConfigCard({
     setCollectionFormat,
     timelineFieldMapping,
     setTimelineFieldMapping,
+    conditionalFormats,
   } = kindState;
   return (
     <div className="output-editor-sheet__group output-editor-sheet__group--card">
@@ -143,6 +145,13 @@ export function OutputKindConfigCard({
           onFormatChange={tableFormats.setFormat}
         />
       )}
+      {kind === "table" && (
+        <ConditionalFormatsField
+          kind="table"
+          state={conditionalFormats}
+          columnOptions={fieldOptions}
+        />
+      )}
       {kind === "metric" && (
         <MetricKindFields
           fieldOptions={aggFieldOptions}
@@ -156,6 +165,13 @@ export function OutputKindConfigCard({
           onFormatChange={setMetricFormat}
           compareValue={compare}
           onCompareChange={setCompare}
+        />
+      )}
+      {kind === "metric" && (
+        <ConditionalFormatsField
+          kind="metric"
+          state={conditionalFormats}
+          columnOptions={fieldOptions}
         />
       )}
       {kind === "markdown" && (
@@ -186,6 +202,11 @@ export function OutputKindConfigCard({
               options={METRIC_FORMAT_OPTIONS}
             />
           </div>
+          <ConditionalFormatsField
+            kind="collection"
+            state={conditionalFormats}
+            columnOptions={fieldOptions}
+          />
         </>
       )}
       {kind === "timeline" && (

@@ -75,8 +75,9 @@ export const OUTPUT_CONFIG_KEYS_DOC =
   CHART_TYPES_PIPE_LIST +
   "), " +
   "`aggregation`, `chartOptions`, `annotation`, `referenceLines`, `referenceBands`; metric: `aggregation`, `label`, `unit`, " +
-  "`format`; table: `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, " +
-  "`pinnedColumns`; collection: `layout`, `format`; timeline: `sort`; markdown: `content`. " +
+  "`format`, `conditionalFormats`; table: `columnOrder`, `columnFormats`, `columnSort`, " +
+  "`columnFilters`, `pinnedColumns`, `conditionalFormats`; collection: `layout`, `format`, " +
+  "`conditionalFormats`; timeline: `sort`; markdown: `content`. " +
   "`aggregation` is null, `{ groupBy, agg, yField }` on a chart (never on a scatter, heatmap or histogram chart), " +
   "or `{ agg }` (the field comes from `fieldMapping.value`) / `{ value, agg }` on a metric; " +
   "`agg` is one of count|sum|avg|min|max and every named field a non-empty string. Chart " +
@@ -105,6 +106,21 @@ export const HISTORY_PAYLOADS_CONFIG_DOC =
   "Setting it to false stops storing rows but does not purge: rows already kept expire on the " +
   "normal schedule. Omit the key to leave the stored value unchanged.";
 
+/** `config.conditionalFormats` documentation (HEL-1307), appended to `add_output`/`update_output`. The backend
+ *  (`ConditionalFormats`) is the sole validator: an invalid list is a 400 naming the rule index. */
+export const CONDITIONAL_FORMATS_CONFIG_DOC =
+  "Optional `config.conditionalFormats` (metric, table, collection) colours values by threshold: an " +
+  "ordered list (at most 20) of rules `{ op, value, value2?, tone, label?, column?, target? }`; the " +
+  "first matching rule wins. `op` is one of `gt`, `gte`, `lt`, `lte`, `between` (numeric `value`; " +
+  "`between` also needs `value2` >= `value`, inclusive) or `eq`, `neq` (a number or text `value`, " +
+  "text compared case-insensitively after trimming). `tone` is one of `success`, `warning`, `error` " +
+  "(the app's intent colours, never a free colour). `label` is optional text (max 60) used as the " +
+  "tooltip and accessible name; every styled value also gets a shape glyph. On a table every rule " +
+  "needs a `column` and may set `target` to `cell` (default, tints that cell) or `row` (tints the " +
+  "whole row); metric and collection rules take no `column` or `target`. Rules compare the raw " +
+  "(unformatted) value, so `format: percent` on 0.75 is compared as 0.75. Send `[]` or null to " +
+  "clear all rules; an invalid list is a 400 naming the rule index.";
+
 export function registerOutputTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "add_output",
@@ -127,6 +143,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         COMPARE_CONFIG_DOC +
         " " +
         OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        CONDITIONAL_FORMATS_CONFIG_DOC +
         " Returns the created Output.",
       inputSchema: {
         pipelineId: z.string().min(1),
@@ -153,6 +171,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         COMPARE_CONFIG_DOC +
         " " +
         OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        CONDITIONAL_FORMATS_CONFIG_DOC +
         " " +
         HISTORY_PAYLOADS_CONFIG_DOC +
         " Absent fields are left unchanged. Returns the updated Output.",
