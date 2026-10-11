@@ -54,6 +54,9 @@ export function OutputKindConfigCard({
     chartOptionsState,
     setChartOptionsState,
     annotationState,
+    referenceMarks,
+    setReferenceMarks,
+    setReferenceMarksInvalid,
     compare,
     setCompare,
     tableCols,
@@ -122,6 +125,10 @@ export function OutputKindConfigCard({
           compareValue={compare}
           onCompareChange={setCompare}
           compareBlocker={chartCompareBlocker(buildOutputConfig(kindState.params(kind)))}
+          referenceMarks={referenceMarks}
+          onReferenceMarksChange={setReferenceMarks}
+          onReferenceMarksInvalidChange={setReferenceMarksInvalid}
+          normalizedStack={chartOptionsState.bar?.stacking === "normalized"}
         />
       )}
       {kind === "table" && (

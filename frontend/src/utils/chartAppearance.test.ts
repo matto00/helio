@@ -339,3 +339,33 @@ describe("applyHoverEmphasis", () => {
     expect(option.series).toBeUndefined();
   });
 });
+
+// HEL-1306 -- the reference line/band tone colours reach ECharts only as parseable hex/rgb (C1).
+describe("resolveChartTheme -- tone tokens (HEL-1306)", () => {
+  afterEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("falls back to the dark-theme hex literals when the tokens are unset", () => {
+    const theme = resolveChartTheme();
+    expect([theme.success, theme.warning, theme.error]).toEqual(["#4cc38a", "#f5b944", "#f17b67"]);
+  });
+
+  it("reads the live --app-success/warning/error hex values", () => {
+    const root = document.documentElement.style;
+    root.setProperty("--app-success", "#166d43");
+    root.setProperty("--app-warning", "#85551a");
+    root.setProperty("--app-error", "#af3325");
+    const theme = resolveChartTheme();
+    expect([theme.success, theme.warning, theme.error]).toEqual(["#166d43", "#85551a", "#af3325"]);
+  });
+
+  it("never passes a color-mix() value through (zrender cannot parse it)", () => {
+    const root = document.documentElement.style;
+    root.setProperty("--app-success", "color-mix(in srgb, #4cc38a 20%, transparent)");
+    root.setProperty("--app-text-muted", "color-mix(in srgb, #aaa49c 50%, transparent)");
+    const theme = resolveChartTheme();
+    expect(theme.success).toBe("#4cc38a");
+    expect(theme.textMuted).toBe("#aaa49c");
+  });
+});

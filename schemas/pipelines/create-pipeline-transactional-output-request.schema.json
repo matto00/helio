@@ -19,7 +19,7 @@
     },
     "config": {
       "type": "object",
-      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400. `historyPayloads` (HEL-1276) opts this Output's node into storing each real run's full row payload (boolean, default off; absent/null/false store none): kept only for beta (10 runs / 7 days) and owner (30 runs / 30 days) pipeline owners, never for free, and a node over 1000 rows or 1 MiB stores none. Any non-boolean is a 400. Known top-level `config` keys per kind (HEL-1313; every other key is a 400 naming it, with a did-you-mean hint): every kind - `fieldMapping`, `compare`, `historyPayloads`; chart - `chartType`, `aggregation`, `chartOptions`, `annotation`; metric - `aggregation`, `label`, `unit`, `format`; table - `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, `pinnedColumns`; collection - `layout`, `format`; timeline - `sort`; markdown - `content`. A key already stored on the Output (a legacy key such as `metricLabel`) may be re-sent with its stored value unchanged, or cleared with null; introducing or changing any other unknown key is rejected, so `additionalProperties` is deliberately not false here. `aggregation` is null, `{groupBy, agg, yField}` on a chart (never on a scatter, heatmap or histogram chart), or `{agg}` (field from `fieldMapping.value`) / `{value, agg}` on a metric; `agg` is count|sum|avg|min|max and every named field a non-empty string; any other kind or shape is a 400. `chartType` is bar|line|pie|scatter|heatmap|histogram or null. `chartOptions.histogram.binCount`, when written, is null/absent or a whole number from 2 to 100, else a 400 naming `binCount`; a heatmap reads Columns/Rows/Value from `fieldMapping` `xAxis`/`series`/`yAxis` and a histogram its numeric field from `xAxis`.",
+      "description": "Output config. `compare` (HEL-1273) selects the history comparison: absent/null (none), `previous_run`, `1d`, `7d`, `30d`, or `custom:<d>` where <d> is a positive ISO-8601 duration in days/hours/minutes/seconds (PnDTnHnMnS, at most 365 days; week/month/year and lowercase/signed forms are rejected). Anything else is a 400. `historyPayloads` (HEL-1276) opts this Output's node into storing each real run's full row payload (boolean, default off; absent/null/false store none): kept only for beta (10 runs / 7 days) and owner (30 runs / 30 days) pipeline owners, never for free, and a node over 1000 rows or 1 MiB stores none. Any non-boolean is a 400. Known top-level `config` keys per kind (HEL-1313; every other key is a 400 naming it, with a did-you-mean hint): every kind - `fieldMapping`, `compare`, `historyPayloads`; chart - `chartType`, `aggregation`, `chartOptions`, `annotation`, `referenceLines`, `referenceBands`; metric - `aggregation`, `label`, `unit`, `format`; table - `columnOrder`, `columnFormats`, `columnSort`, `columnFilters`, `pinnedColumns`; collection - `layout`, `format`; timeline - `sort`; markdown - `content`. A key already stored on the Output (a legacy key such as `metricLabel`) may be re-sent with its stored value unchanged, or cleared with null; introducing or changing any other unknown key is rejected, so `additionalProperties` is deliberately not false here. `aggregation` is null, `{groupBy, agg, yField}` on a chart (never on a scatter, heatmap or histogram chart), or `{agg}` (field from `fieldMapping.value`) / `{value, agg}` on a metric; `agg` is count|sum|avg|min|max and every named field a non-empty string; any other kind or shape is a 400. `chartType` is bar|line|pie|scatter|heatmap|histogram or null. `chartOptions.histogram.binCount`, when written, is null/absent or a whole number from 2 to 100, else a 400 naming `binCount`; a heatmap reads Columns/Rows/Value from `fieldMapping` `xAxis`/`series`/`yAxis` and a histogram its numeric field from `xAxis`. `referenceLines` (HEL-1306) is null or at most 5 objects `{value, label?, tone?}` and `referenceBands` null or at most 3 objects `{from, to, label?, tone?}` with `from` less than `to`; `value`/`from`/`to` are finite numbers, `label` is 1 to 60 characters with at least one non-whitespace character, `tone` is neutral|success|warning|error (default neutral), no other item keys; a violation is a 400 naming the key and item index.",
       "properties": {
         "fieldMapping": {
           "type": "object",
@@ -85,6 +85,59 @@
         },
         "annotation": {
           "description": "Chart kind only."
+        },
+        "referenceLines": {
+          "type": ["array", "null"],
+          "maxItems": 5,
+          "description": "Chart only (bar, line, scatter, histogram): static horizontal reference lines on the value axis (the count axis on a histogram), at most 5. Not drawn on a pie, heatmap or 100% stacked bar (stored values are kept). `null` or `[]` clears.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value"],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60,
+                "pattern": "\\S"
+              },
+              "tone": {
+                "type": "string",
+                "enum": ["neutral", "success", "warning", "error"]
+              }
+            }
+          }
+        },
+        "referenceBands": {
+          "type": ["array", "null"],
+          "maxItems": 3,
+          "description": "Chart only (bar, line, scatter, histogram): static translucent bands on the value axis, at most 3; `from` must be less than `to` (a 400 otherwise; JSON Schema cannot express it). `null` or `[]` clears.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from", "to"],
+            "properties": {
+              "from": {
+                "type": "number"
+              },
+              "to": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60,
+                "pattern": "\\S"
+              },
+              "tone": {
+                "type": "string",
+                "enum": ["neutral", "success", "warning", "error"]
+              }
+            }
+          }
         },
         "label": {
           "description": "Metric kind only."

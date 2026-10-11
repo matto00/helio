@@ -15,6 +15,9 @@ const themeTokens = {
   accentStrong: "#ea580c",
   accent: "#ea580c",
   textMuted: "#778899",
+  success: "#4cc38a",
+  warning: "#f5b944",
+  error: "#f17b67",
 };
 
 describe("heatmap/histogram never draw the vs overlay (HEL-1311)", () => {

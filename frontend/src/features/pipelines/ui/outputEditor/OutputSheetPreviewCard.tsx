@@ -28,6 +28,7 @@ export function OutputSheetPreviewCard({
     yField,
     chartOptionsState,
     annotationState,
+    referenceMarks,
     tableCols,
     metricField,
     metricAggFn,
@@ -73,6 +74,7 @@ export function OutputSheetPreviewCard({
         chartAggFn={chartAggFn}
         chartYField={yField}
         chartOptions={chartOptionsState}
+        referenceMarks={referenceMarks}
         chartAnnotation={
           annotationState.mode === "literal" ? annotationState.literalValue : undefined
         }

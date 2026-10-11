@@ -18,6 +18,11 @@ import type { ChartType } from "../../../../utils/chartAppearance";
 import type { CapabilityColumn, NodeCapabilities } from "../../types/output";
 import type { SelectOption } from "../../../../shared/ui/index";
 import type { SortState } from "../../../../shared/ui/useSortedRows";
+import {
+  sanitizeReferenceMarks,
+  type ReferenceBand,
+  type ReferenceLine,
+} from "../../../../utils/referenceMarks";
 
 export interface ChartOutputConfig {
   chartType: ChartType;
@@ -25,6 +30,9 @@ export interface ChartOutputConfig {
   aggregation?: ChartAggregation | null;
   chartOptions?: ChartTypeOptionsMap | null;
   annotation?: string | null;
+  /** HEL-1306: sanitized (`sanitizeReferenceMarks`) -- always arrays, [] when none. */
+  referenceLines: ReferenceLine[];
+  referenceBands: ReferenceBand[];
 }
 
 /** HEL-451 design D1 — `columnFilters` is itself a small object (`quick` +
@@ -189,12 +197,15 @@ function sanitizeChartOptions(raw: unknown): ChartTypeOptionsMap | null {
 }
 
 export function readChartConfig(config: Record<string, unknown>): ChartOutputConfig {
+  const marks = sanitizeReferenceMarks(config.referenceLines, config.referenceBands);
   return {
     chartType: (safeString(config.chartType, "line") as ChartType) || "line",
     fieldMapping: safeRecord(config.fieldMapping),
     aggregation: (config.aggregation as ChartAggregation | null | undefined) ?? null,
     chartOptions: sanitizeChartOptions(config.chartOptions),
     annotation: (config.annotation as string | null | undefined) ?? null,
+    referenceLines: marks.lines,
+    referenceBands: marks.bands,
   };
 }
 

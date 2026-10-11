@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
-import com.helio.domain.panels.{ChartTypes, OutputBindingSpec}
+import com.helio.domain.panels.{ChartReferenceMarks, ChartTypes, OutputBindingSpec}
 import com.helio.services.ServiceError
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
@@ -19,7 +19,7 @@ object OutputConfigValidation {
   private val Shared = Set("fieldMapping", "compare", "historyPayloads")
 
   val KnownKeys: Map[OutputKind, Set[String]] = Map(
-    OutputKind.Chart      -> (Shared ++ Set("chartType", "aggregation", "chartOptions", "annotation")),
+    OutputKind.Chart      -> (Shared ++ Set("chartType", "aggregation", "chartOptions", "annotation", ChartReferenceMarks.LinesKey, ChartReferenceMarks.BandsKey)),
     OutputKind.Metric     -> (Shared ++ Set("aggregation", "label", "unit", "format")),
     OutputKind.Table      -> (Shared ++ Set("columnOrder", "columnFormats", "columnSort", "columnFilters", "pinnedColumns")),
     OutputKind.Collection -> (Shared ++ Set("layout", "format")),
@@ -45,7 +45,7 @@ object OutputConfigValidation {
       s"Every kind: ${Shared.toVector.sorted.mkString(", ")}. Per kind -- ${perKind.mkString("; ")}. " +
       "chart aggregation = { groupBy, agg, yField } (all non-empty strings; never on a scatter, heatmap or histogram chart); " +
       "metric aggregation = { agg } (field from fieldMapping.value) or { value, agg }; agg is one of count, sum, avg, min, max; " +
-      s"aggregation may be null. chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
+      s"aggregation may be null. chartType is one of ${ChartTypes.AllList}. chartOptions.histogram.binCount, when set, is a whole number from $HistogramBinMin to $HistogramBinMax. ${ChartReferenceMarks.Doc} Chart styling (legend, tooltip, colors) is not Output config: it lives on the panel's appearance.chart."
   }
 
   /** `written` = what the caller sent (create body / PATCH patch); `stored` = the pre-write config
@@ -60,7 +60,7 @@ object OutputConfigValidation {
       val described = offending.map(k => describe(kind, kindName, known, k)).mkString("; ")
       Left(s"Unknown config key${if (offending.size > 1) "s" else ""} for a $kindName Output: $described. Valid keys: ${known.toVector.sorted.mkString(", ")}")
     } else
-      validateChartType(written, stored).flatMap(_ => validateBinCount(written, stored)).flatMap(_ => validateAggregation(kind, written, stored))
+      validateChartType(written, stored).flatMap(_ => validateBinCount(written, stored)).flatMap(_ => ChartReferenceMarks.validate(written, stored)).flatMap(_ => validateAggregation(kind, written, stored))
   }
 
   private def tolerated(stored: JsObject, key: String, value: JsValue): Boolean =

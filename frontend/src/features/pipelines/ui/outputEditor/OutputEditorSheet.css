@@ -146,3 +146,34 @@
     min-height: 44px;
   }
 }
+
+/* HEL-1306: reference-line / band rows. Inputs and Selects share a wrapping row so four controls fit
+   a narrow sheet; text inputs meet the 44px tap floor on touch, as the bin-count input does. */
+.output-editor-sheet__mark-block {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.output-editor-sheet__mark-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.output-editor-sheet__mark-row > .output-editor-sheet__mark-input,
+.output-editor-sheet__mark-row > .ui-select {
+  flex: 1 1 96px;
+  min-width: 0;
+}
+
+/* The section is a grid, which would stretch the buttons to full width. */
+.output-editor-sheet__mark-add {
+  justify-self: start;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .output-editor-sheet__mark-input {
+    min-height: 44px;
+  }
+}

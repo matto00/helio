@@ -12,6 +12,7 @@ import {
   useBoundOrLiteralState,
   type BoundOrLiteralState,
 } from "../../../panels/ui/editors/useBoundOrLiteralState";
+import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import type { OutputKind } from "../../types/output";
 import type { BuildOutputConfigParams } from "./buildOutputConfig";
 import { openingParams } from "./configPatch";
@@ -38,6 +39,11 @@ export interface OutputKindState {
   chartOptionsState: ChartTypeOptionsMap;
   setChartOptionsState: (updater: (prev: ChartTypeOptionsMap) => ChartTypeOptionsMap) => void;
   annotationState: BoundOrLiteralState;
+  /** HEL-1306: the committed (valid) reference lines/bands, and whether a draft is unusable (blocks Save). */
+  referenceMarks: ReferenceMarks;
+  setReferenceMarks: (marks: ReferenceMarks) => void;
+  referenceMarksInvalid: boolean;
+  setReferenceMarksInvalid: (invalid: boolean) => void;
   // Table
   tableFieldMapping: Record<string, string>;
   tableCols: OutputTableColumnsState;
@@ -102,6 +108,12 @@ export function useOutputKindState(
     seed.annotationState.literalValue,
   );
 
+  const [referenceMarks, setReferenceMarks] = useState<ReferenceMarks>({
+    lines: seed.referenceLines,
+    bands: seed.referenceBands,
+  });
+  const [referenceMarksInvalid, setReferenceMarksInvalid] = useState(false);
+
   // Table
   const [tableFieldMapping] = useState(seed.tableFieldMapping);
   const tableCols = useOutputTableColumns(capabilityKeys, tableColumnOrder);
@@ -151,6 +163,10 @@ export function useOutputKindState(
     chartOptionsState,
     setChartOptionsState,
     annotationState,
+    referenceMarks,
+    setReferenceMarks,
+    referenceMarksInvalid,
+    setReferenceMarksInvalid,
     tableFieldMapping,
     tableCols,
     tableFormats,
@@ -181,6 +197,8 @@ export function useOutputKindState(
       yField,
       chartOptionsState,
       annotationState,
+      referenceLines: referenceMarks.lines,
+      referenceBands: referenceMarks.bands,
       tableFieldMapping,
       tableColumnOrder: tableCols.columnOrder,
       tableColumnFormats: tableFormats.columnFormats,

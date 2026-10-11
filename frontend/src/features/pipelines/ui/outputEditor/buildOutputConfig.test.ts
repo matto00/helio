@@ -30,6 +30,8 @@ function baseParams(overrides: Partial<BuildOutputConfigParams> = {}): BuildOutp
     yField: "",
     chartOptionsState: {},
     annotationState: boundOrLiteral(),
+    referenceLines: [],
+    referenceBands: [],
     tableFieldMapping: {},
     tableColumnOrder: undefined,
     tableColumnFormats: {},
@@ -253,5 +255,35 @@ describe("buildAggregateTailConfigs (HEL-1390)", () => {
     const fieldMapping = result?.outputConfig.fieldMapping as Record<string, string>;
     expect(fieldMapping).toEqual({ value: "sum_signups" });
     for (const key of Object.keys(fieldMapping)) expect(METRIC_SLOTS).toContain(key);
+  });
+});
+
+describe("buildOutputConfig -- reference marks (HEL-1306)", () => {
+  it("emits explicit nulls when there are none, so a clear overwrites the stored value", () => {
+    const config = buildOutputConfig(baseParams());
+    expect(config.referenceLines).toBeNull();
+    expect(config.referenceBands).toBeNull();
+  });
+
+  it("emits the lines and bands, dropping an explicit neutral tone", () => {
+    const config = buildOutputConfig(
+      baseParams({
+        referenceLines: [
+          { value: 95, label: "SLO", tone: "warning" },
+          { value: 1, tone: "neutral" },
+        ],
+        referenceBands: [{ from: 0, to: 5 }],
+      }),
+    );
+    expect(config.referenceLines).toEqual([
+      { value: 95, label: "SLO", tone: "warning" },
+      { value: 1 },
+    ]);
+    expect(config.referenceBands).toEqual([{ from: 0, to: 5 }]);
+  });
+
+  it("emits no reference keys for a non-chart kind", () => {
+    const config = buildOutputConfig(baseParams({ kind: "table", referenceLines: [{ value: 1 }] }));
+    expect(config).not.toHaveProperty("referenceLines");
   });
 });
