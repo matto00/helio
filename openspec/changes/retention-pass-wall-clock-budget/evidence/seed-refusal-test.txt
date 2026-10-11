@@ -1,0 +1,2 @@
+psql:scripts/perf/hel1477-history-seed.sql:26: ERROR:  refusing: this script only runs in helio_hel1477_scratch, not postgres
+CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE

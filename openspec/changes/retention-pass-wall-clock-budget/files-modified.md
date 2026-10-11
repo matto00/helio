@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryRetentionService.scala` — in-flight guard (CAS before claim; released on the whole pass future, after the nextDue rewrite)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineSchedulerService.scala` — tick starts the retention pass detached and no longer awaits it
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryRepository.scala` — removed test-only `thinAndPurge`
+- `backend/src/test/scala/com/helio/testsupport/RetentionDrain.scala` — `thinAndPurge` drain moved here (built on `thinPass`)
+- `backend/src/test/scala/com/helio/services/pipelines/OutputHistoryRetentionInFlightSpec.scala` — new: guard behaviour (Promise-held passes)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceDetachedRetentionSpec.scala` — new: tick completes and fires while a pass never ends
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceMaintenanceHooksSpec.scala` — observe the detached pass via a capturing service
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryBatchedThinSpec.scala` — exact batch composition for the row-limit split test
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RetentionLockGuardSpec.scala`, `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryRepositorySpec.scala`, `backend/src/test/scala/com/helio/services/pipelines/HistoryBaselineAfterThinningSpec.scala` — import the moved drain
+- `backend/src/test/scala/com/helio/services/pipelines/RetentionTickMeasure.scala` — hand-run measurement driver (scratch DB only)
+- `backend/scripts/perf/hel1477-container.sh`, `backend/scripts/perf/hel1477-history-seed.sql` — hel1477-named copies of the HEL-1435 harness
+- `CLAUDE.md` — `OUTPUT_HISTORY_THIN_MAX_BATCHES_PER_PASS` row no longer claims a pass stalls the tick
+- `openspec/changes/archive/2026-10-10-bound-history-thinning-batches/measurements.md` — work_mem sentence; dropped the uncited "colder clone" claim
+- `openspec/changes/retention-pass-wall-clock-budget/measurements.md` and `evidence/` — before/after numbers and raw logs
