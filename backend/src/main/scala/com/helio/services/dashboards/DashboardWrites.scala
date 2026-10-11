@@ -40,29 +40,35 @@ private[dashboards] final class DashboardWrites(
       appearanceOpt: Option[DashboardAppearance],
       layoutPatchOpt: Option[LayoutPolicy.Patch],
       layoutPolicy: LayoutWritePolicy
-  ): Future[Either[ServiceError, Dashboard]] = {
-    // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
-    // the rename below — so a rejected layout saves nothing.
-    val layoutResolved: Either[String, Option[DashboardLayout]] = layoutPatchOpt match {
-      case None => Right(None)
-      case Some(patch) =>
-        layoutPolicy match {
-          case LayoutWritePolicy.Validate           => LayoutPolicy(existing.layout, patch).map(Some(_))
-          case LayoutWritePolicy.RestorePriorStored => Right(Some(LayoutPolicy.applyUnvalidated(existing.layout, patch)))
-        }
+  ): Future[Either[ServiceError, Dashboard]] =
+    // HEL-1456 D5: every layout this write can store, the supplied breakpoints AND the stored ones it
+    // writes back (the full layout column is rewritten), is first restricted to the dashboard's live
+    // panels, so no update of any kind stores an item for a panel that is not on the dashboard.
+    dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
+      val live = existing.copy(layout = LayoutPolicy.onlyPanels(existing.layout, panelIds))
+      // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
+      // the rename below — so a rejected layout saves nothing.
+      val layoutResolved: Either[String, Option[DashboardLayout]] = layoutPatchOpt.map(LayoutPolicy.onlyPanels(_, panelIds)) match {
+        case None => Right(None)
+        case Some(patch) =>
+          layoutPolicy match {
+            case LayoutWritePolicy.Validate           => LayoutPolicy(live.layout, patch).map(Some(_))
+            case LayoutWritePolicy.RestorePriorStored => Right(Some(LayoutPolicy.applyUnvalidated(live.layout, patch)))
+          }
+      }
+      layoutResolved match {
+        case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
+        case Right(layoutOpt) => writeUpdate(dashboardId, live, nameOpt, appearanceOpt, layoutOpt, panelIds)
+      }
     }
-    layoutResolved match {
-      case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
-      case Right(layoutOpt) => writeUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt)
-    }
-  }
 
   private def writeUpdate(
       dashboardId: DashboardId,
       existing: Dashboard,
       nameOpt: Option[String],
       appearanceOpt: Option[DashboardAppearance],
-      layoutOpt: Option[DashboardLayout]
+      layoutOpt: Option[DashboardLayout],
+      panelIds: Set[PanelId]
   ): Future[Either[ServiceError, Dashboard]] = {
     val now = Instant.now()
     nameOpt match {
@@ -75,7 +81,7 @@ private[dashboards] final class DashboardWrites(
             } else {
               val updated = renamed.copy(
                 appearance = appearanceOpt.getOrElse(renamed.appearance),
-                layout     = layoutOpt.getOrElse(renamed.layout),
+                layout     = layoutOpt.getOrElse(LayoutPolicy.onlyPanels(renamed.layout, panelIds)),
                 meta       = renamed.meta.copy(lastUpdated = now)
               )
               dashboardRepo.update(updated).map {

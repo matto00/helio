@@ -1,6 +1,6 @@
 package com.helio.services.panels
 
-import com.helio.domain.model.{DashboardLayout, DashboardLayoutItem}
+import com.helio.domain.model.{DashboardLayout, DashboardLayoutItem, PanelId}
 
 /** The single layout write policy (HEL-1071, design D2/D3). A caller-supplied breakpoint is
  *  validated only when it differs from the stored one: a breakpoint identical to stored
@@ -66,6 +66,20 @@ object LayoutPolicy {
     val shown = vs.take(MaxReported).map { case (bp, v) => s"breakpoint '$bp': ${LayoutValidator.describe(v)}" }
     val more  = if (vs.size > MaxReported) s"; and ${vs.size - MaxReported} more" else ""
     "Layout rejected: " + shown.mkString("; ") + more
+  }
+
+  /** `layout` without the items of any panel not in `panelIds`, stored order kept (HEL-1456 D5). A ghost
+   *  is an item for a panel that is no longer on the dashboard; the filter removes nothing else. */
+  def onlyPanels(layout: DashboardLayout, panelIds: Set[PanelId]): DashboardLayout =
+    DashboardLayout(
+      layout.lg.filter(i => panelIds(i.panelId)), layout.md.filter(i => panelIds(i.panelId)),
+      layout.sm.filter(i => panelIds(i.panelId)), layout.xs.filter(i => panelIds(i.panelId))
+    )
+
+  /** The supplied breakpoints of `patch`, filtered like [[onlyPanels]]; absent ones stay absent. */
+  def onlyPanels(patch: Patch, panelIds: Set[PanelId]): Patch = {
+    def keep(items: Option[Vector[DashboardLayoutItem]]) = items.map(_.filter(i => panelIds(i.panelId)))
+    Patch(keep(patch.lg), keep(patch.md), keep(patch.sm), keep(patch.xs))
   }
 
   /** Merge `patch` into `existing`: absent and identical breakpoints keep the stored value (and
