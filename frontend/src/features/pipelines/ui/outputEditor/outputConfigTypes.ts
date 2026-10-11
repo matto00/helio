@@ -59,10 +59,25 @@ export interface TableColumnFilters {
  *  can be a date; a metric can be a percent), but the two NAMES that
  *  overlap (`number`, `currency`) are reused verbatim so the surfaces do
  *  not drift into synonyms. Do NOT rename or re-point `MetricFormat`. */
-export type TableColumnFormatType = "number" | "currency" | "date" | "text";
+export const TABLE_COLUMN_FORMAT_TYPES = [
+  "number",
+  "currency",
+  "date",
+  "text",
+  "duration",
+] as const;
+export type TableColumnFormatType = (typeof TABLE_COLUMN_FORMAT_TYPES)[number];
 
 export function isTableColumnFormatType(value: unknown): value is TableColumnFormatType {
-  return value === "number" || value === "currency" || value === "date" || value === "text";
+  return TABLE_COLUMN_FORMAT_TYPES.some((t) => t === value);
+}
+
+/** HEL-1308 -- the input unit of a `duration` column; absent = seconds. */
+export const TABLE_DURATION_UNITS = ["s", "ms"] as const;
+export type TableDurationUnit = (typeof TABLE_DURATION_UNITS)[number];
+
+function isTableDurationUnit(value: unknown): value is TableDurationUnit {
+  return TABLE_DURATION_UNITS.some((u) => u === value);
 }
 
 /** One column's format spec. `decimals` (number) and `currency`/`decimals`
@@ -79,6 +94,8 @@ export interface TableColumnFormatSpec {
   /** `date` — one of `Intl.DateTimeFormatOptions.dateStyle`'s values.
    *  Absent → `"medium"`. */
   datePattern?: "short" | "medium" | "long" | "full";
+  /** `duration` -- the unit of the stored value (HEL-1308); absent = seconds. */
+  unit?: TableDurationUnit;
 }
 
 /** Keyed by column name, one entry per formatted column. Columns with no
@@ -121,10 +138,18 @@ export interface TableOutputConfig {
  *  (HEL-876). `undefined`/absent behaves exactly like the pre-HEL-876 default
  *  (2 max fraction digits, no thousands grouping) — this is a purely additive
  *  config field, no existing Output loses its current rendering. */
-export type MetricFormat = "number" | "integer" | "currency" | "percent";
+export const METRIC_FORMATS = [
+  "number",
+  "integer",
+  "currency",
+  "percent",
+  "duration",
+  "durationMs",
+] as const;
+export type MetricFormat = (typeof METRIC_FORMATS)[number];
 
 export function isMetricFormat(value: unknown): value is MetricFormat {
-  return value === "number" || value === "integer" || value === "currency" || value === "percent";
+  return METRIC_FORMATS.some((f) => f === value);
 }
 
 export interface MetricOutputConfig {
@@ -275,6 +300,7 @@ function readColumnFormats(value: unknown): TableColumnFormats | undefined {
     ) {
       spec.datePattern = candidate.datePattern;
     }
+    if (spec.type === "duration" && isTableDurationUnit(candidate.unit)) spec.unit = candidate.unit;
     out[key] = spec;
   }
   return out;

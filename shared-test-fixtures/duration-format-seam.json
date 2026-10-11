@@ -1,0 +1,37 @@
+{
+  "description": "HEL-1308 seam fixture: the duration display format vocabulary. `lists` are the exact ordered vocabularies the frontend readers, the backend OutputFormatVocabulary and helio-mcp must all expose. `vocabularyDoc` is the exact sentence appended to the backend KeysDoc and helio-mcp OUTPUT_CONFIG_KEYS_DOC; `schemaDescriptions` are the exact `format` / `columnFormats` property descriptions of the three Output request schemas. `configs` are accepted and stored unchanged by the backend and read losslessly by the frontend. `valueCases` pin the displayed text.",
+  "lists": {
+    "metricFormats": ["number", "integer", "currency", "percent", "duration", "durationMs"],
+    "columnFormatTypes": ["number", "currency", "date", "text", "duration"],
+    "columnDurationUnits": ["s", "ms"]
+  },
+  "vocabularyDoc": "Display formats: a metric or collection `format` is one of number, integer, currency, percent, duration, durationMs (duration reads seconds, durationMs reads milliseconds); a table `columnFormats` entry is { type, decimals?, currency?, datePattern?, unit? } where type is one of number, currency, date, text, duration, and unit (duration only) is one of s, ms (default s).",
+  "schemaDescriptions": {
+    "format": "Metric and collection kinds. One of number, integer, currency, percent, duration, durationMs (duration reads seconds, durationMs reads milliseconds).",
+    "columnFormats": "Table kind only. Column name -> { type, decimals?, currency?, datePattern?, unit? }; type is one of number, currency, date, text, duration; unit (duration only) is one of s, ms (default s)."
+  },
+  "configs": {
+    "metric": { "kind": "metric", "config": { "format": "duration" } },
+    "collection": { "kind": "collection", "config": { "format": "durationMs" } },
+    "tableColumn": {
+      "kind": "table",
+      "config": { "columnFormats": { "elapsed": { "type": "duration", "unit": "ms" } } }
+    }
+  },
+  "valueCases": [
+    { "unit": "s", "value": 330, "text": "5m 30s" },
+    { "unit": "s", "value": 0, "text": "0s" },
+    { "unit": "s", "value": 45, "text": "45s" },
+    { "unit": "s", "value": 45.6, "text": "46s" },
+    { "unit": "s", "value": 0.25, "text": "250ms" },
+    { "unit": "s", "value": 3600, "text": "1h" },
+    { "unit": "s", "value": 3725, "text": "1h 2m" },
+    { "unit": "s", "value": 3755, "text": "1h 3m" },
+    { "unit": "s", "value": 90061, "text": "1d 1h" },
+    { "unit": "s", "value": 59.6, "text": "1m" },
+    { "unit": "s", "value": 3599.7, "text": "1h" },
+    { "unit": "s", "value": -330, "text": "-5m 30s" },
+    { "unit": "ms", "value": 330000, "text": "5m 30s" },
+    { "unit": "ms", "value": 1500, "text": "2s" }
+  ]
+}

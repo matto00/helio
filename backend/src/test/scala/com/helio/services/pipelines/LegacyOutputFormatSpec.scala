@@ -52,6 +52,13 @@ class LegacyOutputFormatSpec extends AnyWordSpec with Matchers {
       metric("""{"label":"x"}""") shouldBe j("""{"label":"x"}""")
       n(OutputKind.Chart, """{"format":{"unit":"kg"}}""") shouldBe j("""{"format":{"unit":"kg"}}""")
     }
+    // HEL-1308 GUARD (passes on base behaviour: only an OBJECT format is rewritten). Mutation that turns it red:
+    // make `normalise` rewrite a string `duration` format.
+    "leave the duration string formats and a unit unchanged (HEL-1308)" in {
+      metric("""{"format":"duration","unit":"s"}""") shouldBe j("""{"format":"duration","unit":"s"}""")
+      n(OutputKind.Collection, """{"format":"durationMs"}""") shouldBe j("""{"format":"durationMs"}""")
+      LegacyOutputFormat.normaliseRestored(OutputKind.Metric, j("""{"format":"duration"}""")) shouldBe j("""{"format":"duration"}""")
+    }
   }
 
   "LegacyOutputFormat.normaliseRestored" should {

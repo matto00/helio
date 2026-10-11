@@ -28,8 +28,14 @@ import type {
 } from "./outputConfigTypes";
 
 /** `"none"` is the UI's own "no format" sentinel — never persisted; a
- *  column selected `"none"` has no entry in `specs` at all. */
-export type ColumnFormatSelection = TableColumnFormatType | "none";
+ *  column selected `"none"` has no entry in `specs` at all. `"durationMs"` is
+ *  likewise UI-only (HEL-1308): it persists as `{ type: "duration", unit: "ms" }`,
+ *  while `"duration"` persists as `{ type: "duration" }` with no `unit`. */
+export type ColumnFormatSelection = TableColumnFormatType | "none" | "durationMs";
+
+function selectionOf(spec: TableColumnFormatSpec): ColumnFormatSelection {
+  return spec.type === "duration" && spec.unit === "ms" ? "durationMs" : spec.type;
+}
 
 export interface OutputColumnFormatsState {
   /** Keyed by column name; a column with no entry is treated as `"none"`.
@@ -56,9 +62,9 @@ export function useOutputColumnFormats(
   // user actually edited.
   const [specs, setSpecs] = useState<TableColumnFormats>(() => ({ ...(initial ?? {}) }));
 
-  const setFormat = (key: string, type: ColumnFormatSelection) =>
+  const setFormat = (key: string, selection: ColumnFormatSelection) =>
     setSpecs((prev) => {
-      if (type === "none") {
+      if (selection === "none") {
         if (!(key in prev)) return prev;
         const next = { ...prev };
         delete next[key];
@@ -71,13 +77,19 @@ export function useOutputColumnFormats(
       // `currency: "EUR"` even if the user switches it to `"number"` (the
       // formatter simply ignores a field its type doesn't use — see
       // `columnFormatting.ts`).
-      const existing = prev[key];
-      const nextSpec: TableColumnFormatSpec = existing ? { ...existing, type } : { type };
+      //
+      // `unit` is the one field written explicitly (HEL-1308): `durationMs` sets
+      // it, every other selection drops it, so ms -> Duration (s) and
+      // ms -> Number -> Duration (s) never leave a stale `unit` behind.
+      const type: TableColumnFormatType = selection === "durationMs" ? "duration" : selection;
+      const { unit: _staleUnit, ...rest } = prev[key] ?? { type };
+      const nextSpec: TableColumnFormatSpec =
+        selection === "durationMs" ? { ...rest, type, unit: "ms" } : { ...rest, type };
       return { ...prev, [key]: nextSpec };
     });
 
   const selections: Record<string, ColumnFormatSelection> = {};
-  for (const [key, spec] of Object.entries(specs)) selections[key] = spec.type;
+  for (const [key, spec] of Object.entries(specs)) selections[key] = selectionOf(spec);
 
   return { selections, setFormat, columnFormats: specs };
 }

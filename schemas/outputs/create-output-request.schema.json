@@ -149,13 +149,13 @@
           "description": "Metric kind only."
         },
         "format": {
-          "description": "Metric and collection kinds."
+          "description": "Metric and collection kinds. One of number, integer, currency, percent, duration, durationMs (duration reads seconds, durationMs reads milliseconds)."
         },
         "columnOrder": {
           "description": "Table kind only."
         },
         "columnFormats": {
-          "description": "Table kind only."
+          "description": "Table kind only. Column name -> { type, decimals?, currency?, datePattern?, unit? }; type is one of number, currency, date, text, duration; unit (duration only) is one of s, ms (default s)."
         },
         "columnSort": {
           "description": "Table kind only."

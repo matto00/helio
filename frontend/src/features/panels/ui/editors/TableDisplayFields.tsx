@@ -32,6 +32,8 @@ const COLUMN_FORMAT_OPTIONS: SelectOption[] = [
   { value: "currency", label: "Currency ($)" },
   { value: "date", label: "Date" },
   { value: "text", label: "Text" },
+  { value: "duration", label: "Duration (s)" },
+  { value: "durationMs", label: "Duration (ms)" },
 ];
 
 function isColumnFormatSelection(value: string): value is ColumnFormatSelection {
@@ -40,7 +42,9 @@ function isColumnFormatSelection(value: string): value is ColumnFormatSelection 
     value === "number" ||
     value === "currency" ||
     value === "date" ||
-    value === "text"
+    value === "text" ||
+    value === "duration" ||
+    value === "durationMs"
   );
 }
 
