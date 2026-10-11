@@ -50,3 +50,13 @@ Mutation evidence (drop a value from each side's list; drop/add one schema enum 
 - [Merge with HEL-1485] → disjoint files; re-sync with origin/main before PR.
 
 **D7 — Schema-drift check reads the backend list.** `scripts/check-schema-drift.mjs` extracts the tool-schema kind enum by text (`enumSchema("...")`); once D1 made that call `enumSchema(PatchSetTargetKinds.All: _*)` it found no literals and failed. The script now resolves `PatchSetTargetKinds.All` from `PatchSetTargetKinds.scala` (and throws if that declaration's shape stops matching). Not a `scripts/concertino/` render target, so editing it here is allowed.
+
+## Gate-Chain Implications Checklist
+
+`scripts/check-schema-drift.mjs` is invoked by `.husky/pre-commit` (`npm run check:schemas`), so the D7 edit touches the commit-gate chain.
+
+- **What does it execute?** Only `node scripts/check-schema-drift.mjs`. The edit adds one `readFileSync` of `backend/src/main/scala/com/helio/domain/patchsets/PatchSetTargetKinds.scala` and a regex over its text, when an `enumSchema(...)` argument names `PatchSetTargetKinds.All`. No subprocess, no git command, no network.
+- **What environment does it inherit, and from where?** The Husky hook's environment (cwd = repo/worktree root, inherited `GIT_*` vars from git's hook invocation). The script ignores environment variables; it resolves files relative to its own `repoRoot` (derived from the script location), so the inherited `GIT_DIR`/`GIT_INDEX_FILE` are never read.
+- **Does it write anything outside its own sandbox?** No. The script is read-only before and after this change: it reads schema JSON and Scala sources and prints a report/exit code; it writes no files.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. `repoRoot` is computed from the script's own path, so in a linked worktree it reads that worktree's files; it never touches `.git`. Verified by `test-gate-in-isolation.sh` (linked-worktree hook-shaped env): PASS, transcript in the run evidence dir.
+- **What happens on its first run?** The same as every run: it reads the files and compares enums. If `PatchSetTargetKinds.scala` lost the `val All: Vector[String] = Vector(...)` shape it throws with a named error (fail-closed), never skips silently.
