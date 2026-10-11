@@ -48,17 +48,17 @@ class OutputHistoryRetentionInFlightSpec extends AnyWordSpec with Matchers with 
   private class HeldRepos(history: Int => Future[HistoryPassOutcome], payload: Int => Future[RetentionPassOutcome]) {
     val historyCalls = new AtomicInteger(0)
     val payloadCalls = new AtomicInteger(0)
-    /** Completed the first time each part is entered: the deterministic hand-off (the pass starts on the pool). */
+    /** Completed the first time each part is entered, AFTER its counter is incremented: the deterministic hand-off (the pass starts on the pool). */
     val historyReached = Promise[Unit]()
     val payloadReached = Promise[Unit]()
     private val ctx = new DbContext(db, db)
     private val historyRepo: OutputHistoryRepository = new OutputHistoryRepository(ctx) {
       override def thinPass(n: Instant, p: HistoryThinningPolicy, caps: Map[UserTier, Duration], limits: ThinBatchLimits, startAfter: Option[String], protectedNewest: Int): Future[HistoryPassOutcome] =
-        { historyReached.trySuccess(()); history(historyCalls.incrementAndGet()) }
+        { val n = historyCalls.incrementAndGet(); historyReached.trySuccess(()); history(n) }
     }
     private val payloadRepo: NodePayloadHistoryRepository = new NodePayloadHistoryRepository(ctx) {
       override def purge(n: Instant, cfg: PayloadHistoryConfig): Future[RetentionPassOutcome] =
-        { payloadReached.trySuccess(()); payload(payloadCalls.incrementAndGet()) }
+        { val n = payloadCalls.incrementAndGet(); payloadReached.trySuccess(()); payload(n) }
     }
     val service = new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fixedClock, payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0)
   }
