@@ -43,11 +43,11 @@ export function usePipelineRunAndSaveActions({
   // "Run status" label already falls back to this thunk's own status the
   // moment it resolves (`sseData.status ?? runStatus`) rather than waiting
   // on an SSE terminal event. A probe run confirmed the SSE `onTerminal`
-  // callback (below, in `usePipelineRunEvents`'s options) can fire well
+  // callback (in `usePipelineRunStream.ts`) can fire well
   // after this thunk already resolved, or not at all within a normal dry
   // run's lifetime in dev -- so it alone is not a reliable trigger for
   // refreshing rail-chip previews. This dispatches the refresh right where
-  // the run is actually known to be done; the SSE `onTerminal` handler below
+  // the run is actually known to be done; the SSE `onTerminal` handler (in `usePipelineRunStream.ts`)
   // still does the same thing too, for the one case this can't cover (a run
   // that was already in flight when the page mounted, submitted from
   // elsewhere).

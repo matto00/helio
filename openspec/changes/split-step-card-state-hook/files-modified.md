@@ -1,0 +1,17 @@
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.test.ts` — new characterization test (return shape, 26 handler payloads/error capture/local echo, emitOrPersist, 26-op resync table + opType row, accumulating handlers); committed green on SPLIT_BASE first
+- `frontend/src/features/pipelines/hooks/useStepCardState.ts` — host: keeps name/signature/54-key return object; calls the four extracted modules in place (602 -> 211 lines)
+- `frontend/src/features/pipelines/hooks/stepCardStateTypes.ts` — StepCardStateHandlers interface moved verbatim (re-exported from the host)
+- `frontend/src/features/pipelines/hooks/useStepCardEditorState.ts` — contiguous editor-state + saveError pair + during-render resync region, verbatim
+- `frontend/src/features/pipelines/hooks/useStepCardPersist.ts` — debounce const, refs, cleanup effect, persist, emitOrPersist, verbatim
+- `frontend/src/features/pipelines/hooks/stepCardFieldHandlers.ts` — buildStepCardFieldHandlers: onFieldToggle..onWindowChange, verbatim (plain builder, no hook primitives)
+- `frontend/src/features/pipelines/hooks/stepCardOpHandlers.ts` — buildStepCardOpHandlers: onUnpivotChange..onGenerateTextChange, verbatim (plain builder, no hook primitives)
+- `frontend/src/features/pipelines/hooks/usePipelineStepStructure.ts` — handleInstantiateShape moved out, called in place (274 -> 171 lines)
+- `frontend/src/features/pipelines/hooks/usePipelineShapeInstantiation.ts` — handleInstantiateShape comment + useCallback moved verbatim, deps unchanged
+- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts` — handleAddLaneStep and createDraftIfComplete moved out, called in place (405 -> 261 lines); one args-type comment pointer fixed
+- `frontend/src/features/pipelines/hooks/usePipelineLaneStepCreation.ts` — handleAddLaneStep comment + useCallback verbatim, deps unchanged
+- `frontend/src/features/pipelines/hooks/usePipelineDraftCreate.ts` — createDraftIfComplete verbatim; deps = base + creatingDraftIdsRef, setDraftCreateErrors
+- `frontend/src/features/pipelines/hooks/usePipelineOutputSheets.ts` — D7 comment-only pointer fixes
+- `frontend/src/features/pipelines/hooks/usePipelineDebouncedAnalyze.ts` — D7 comment-only pointer fix
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.ts` — D7 comment-only pointer fixes
+- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx` — D7 comment-only pointer fix
+- D7 also touched comment lines in useStepCardEditorState, stepCardStateTypes, stepCardOpHandlers, usePipelineLaneStepCreation and usePipelineStepCreation (declared above).
