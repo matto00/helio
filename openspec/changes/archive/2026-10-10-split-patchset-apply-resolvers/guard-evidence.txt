@@ -1,0 +1,33 @@
+## D6c grep guards (HEAD 46c0ba9b4 + working tree; BASE=55b53be4a)
+-- new files: Forbidden( producers / access-helper calls (expect none)
+(end)
+-- kept file producer code lines (expect 4):
+4
+111:              case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+143:          case Some(existing) if existing.ownerId != user.id => Left(ServiceError.Forbidden())
+188:      case Right(ResourceAccess.Viewer) => Left(ServiceError.Forbidden())
+206:          case _              => Left(ServiceError.Forbidden())
+-- kept file requireAccess( code lines (expect 2):
+2
+-- kept file dispatch case ("kind","op") lines (expect 18):
+18
+-- BASE dispatch lines (expect 18):
+18
+-- inline FQN scan outside import/package lines in the six files (expect none):
+(end)
+-- BASE inline FQN in non-comment, non-import lines for comparison:
+(end)
+-- file sizes:
+  233 backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala
+  131 backend/src/main/scala/com/helio/services/patchsets/PatchSetPanelResolvers.scala
+   77 backend/src/main/scala/com/helio/services/patchsets/PatchSetDataSourceResolvers.scala
+  142 backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineResolvers.scala
+  264 backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineStepResolvers.scala
+   85 backend/src/main/scala/com/helio/services/patchsets/PatchSetOutputResolvers.scala
+  932 total
+-- npm run check:scala-quality
+  backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala is 463 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/testkit/EmbeddedPostgresStartGuardSpec.scala is 402 lines (soft budget 250); consider splitting
+
+Scala code-quality check: clean (231 soft warning(s))
+exit=0

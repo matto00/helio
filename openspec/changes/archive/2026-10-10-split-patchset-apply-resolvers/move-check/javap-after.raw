@@ -1,0 +1,18 @@
+=== PatchSetApplyResolvers
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers {
+  public static scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+}
+=== PatchSetApplyResolvers$
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers$ {
+  public static final com.helio.services.patchsets.PatchSetApplyResolvers$ MODULE$;
+  public static {};
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+  public static final scala.concurrent.Future $anonfun$resolveAll$1(com.helio.services.patchsets.PatchSetApplyResolvers$, scala.collection.immutable.Vector, scala.collection.immutable.Vector, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.util.Either);
+  public static final boolean $anonfun$resolveEdit$1(java.lang.String);
+  public static final scala.util.Either $anonfun$resolveDashboardUpdate$2(com.helio.api.protocols.patchsets.Edit, int, com.helio.domain.model.Dashboard, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolveDashboardUpdate$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.api.protocols.patchsets.Edit, com.helio.services.patchsets.PatchSetApplyContext, java.lang.String, scala.concurrent.ExecutionContext, scala.Option);
+  public static final scala.util.Either $anonfun$resolveDashboardDelete$1(int, com.helio.domain.model.AuthenticatedUser, java.lang.String, scala.Option);
+  public static final java.lang.Object $anonfun$resolveEdit$1$adapted(java.lang.String);
+}

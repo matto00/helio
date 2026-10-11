@@ -1,0 +1,78 @@
+=== PatchSetApplyResolvers
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers {
+  public static scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+}
+=== PatchSetApplyResolvers$
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers$ {
+  public static final com.helio.services.patchsets.PatchSetApplyResolvers$ MODULE$;
+  public static {};
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+  public static final scala.concurrent.Future $anonfun$resolveAll$1(com.helio.services.patchsets.PatchSetApplyResolvers$, scala.collection.immutable.Vector, scala.collection.immutable.Vector, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.util.Either);
+  public static final boolean $anonfun$resolveEdit$1(java.lang.String);
+  public static final java.lang.String $anonfun$requireTargetId$1(java.lang.String);
+  public static final boolean $anonfun$requireTargetId$2(java.lang.String);
+  public static final scala.util.Either $anonfun$authorizeEditorOnDashboard$1(scala.util.Either);
+  public static final scala.util.Either $anonfun$authorizeEditorOrOwnerOnPipeline$2(scala.Option);
+  public static final scala.concurrent.Future $anonfun$authorizeEditorOrOwnerOnPipeline$1(com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.Option);
+  public static final scala.concurrent.Future $anonfun$requireVisibleStep$1(int, java.lang.String, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.Option);
+  public static final java.lang.Object $anonfun$decodeCreatePatch$1(spray.json.JsonReader, spray.json.JsValue);
+  public static final com.helio.api.protocols.pipelines.PipelineRootSummaryResponse $anonfun$pipelineSummaryResponse$1(com.helio.infrastructure.persistence.pipelines.PipelineRepository$PipelineRootSummary);
+  public static final scala.util.Either $anonfun$validateEmbeddedStepReferences$1(int, java.lang.String, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolvePanelUpdate$2(com.helio.api.protocols.patchsets.Edit, int, com.helio.domain.model.Panel, java.lang.String, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePanelUpdate$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, com.helio.api.protocols.patchsets.Edit, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$resolvePanelDelete$2(int, com.helio.domain.model.Panel, java.lang.String, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePanelDelete$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$resolvePanelCreate$2(int, com.helio.api.protocols.panels.CreatePanelRequest, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePanelCreate$1(com.helio.api.protocols.panels.CreatePanelRequest, int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.util.Either);
+  public static final scala.util.Either $anonfun$rejectUnboundOrBadlyBoundForm$1(int, scala.util.Either);
+  public static final scala.util.Either $anonfun$resolveDashboardUpdate$2(com.helio.api.protocols.patchsets.Edit, int, com.helio.domain.model.Dashboard, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolveDashboardUpdate$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.api.protocols.patchsets.Edit, com.helio.services.patchsets.PatchSetApplyContext, java.lang.String, scala.concurrent.ExecutionContext, scala.Option);
+  public static final scala.util.Either $anonfun$resolveDashboardDelete$1(int, com.helio.domain.model.AuthenticatedUser, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$resolveDataSourceUpdate$1(int, com.helio.api.protocols.patchsets.Edit, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$resolveDataSourceDelete$1(int, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$resolvePipelineUpdate$2(int, com.helio.api.protocols.patchsets.Edit, java.lang.String, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineUpdate$1(int, com.helio.services.patchsets.PatchSetApplyContext, java.lang.String, com.helio.domain.model.AuthenticatedUser, com.helio.api.protocols.patchsets.Edit, scala.concurrent.ExecutionContext, scala.Option);
+  public static final scala.util.Either $anonfun$resolvePipelineDelete$2(int, java.lang.String, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineDelete$1(int, com.helio.services.patchsets.PatchSetApplyContext, java.lang.String, com.helio.domain.model.AuthenticatedUser, scala.concurrent.ExecutionContext, scala.Option);
+  public static final java.lang.String $anonfun$resolvePipelineCreate$1(java.lang.String);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineCreate$2(com.helio.services.patchsets.PatchSetApplyResolvers$, int, java.lang.String, scala.collection.immutable.List, com.helio.services.patchsets.PatchSetApplyContext, com.helio.domain.model.AuthenticatedUser, scala.concurrent.ExecutionContext, scala.Option);
+  public static final com.helio.services.ServiceError $anonfun$resolvePipelineCreate$4(int, com.helio.services.ServiceError);
+  public static final com.helio.services.patchsets.ResolvedEdit $anonfun$resolvePipelineCreate$5(int, com.helio.api.protocols.pipelines.CreatePipelineRequest, com.helio.services.pipelines.PipelineCreatePreflight$RootIndices);
+  public static final scala.util.Either $anonfun$resolvePipelineCreate$3(com.helio.api.protocols.pipelines.CreatePipelineRequest, int, scala.util.Either);
+  public static final scala.Tuple2 $anonfun$resolvePipelineStepUpdate$5(com.helio.domain.model.PipelineStep, java.lang.String);
+  public static final scala.util.Right $anonfun$resolvePipelineStepUpdate$4(int, com.helio.domain.model.PipelineStep, java.lang.String, com.helio.api.protocols.pipelines.UpdatePipelineStepRequest, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepUpdate$3(com.helio.services.patchsets.PatchSetApplyContext, com.helio.domain.model.PipelineStep, int, java.lang.String, com.helio.api.protocols.pipelines.UpdatePipelineStepRequest, scala.concurrent.ExecutionContext, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepUpdate$2(com.helio.api.protocols.patchsets.Edit, int, com.helio.domain.model.PipelineStep, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, java.lang.String, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepUpdate$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, com.helio.api.protocols.patchsets.Edit, java.lang.String, scala.Option);
+  public static final scala.util.Right $anonfun$resolvePipelineStepDelete$4(int, java.lang.String, com.helio.domain.model.PipelineStep, spray.json.JsValue);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepDelete$3(com.helio.domain.model.PipelineStep, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, int, java.lang.String, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepDelete$2(com.helio.services.patchsets.PatchSetApplyContext, com.helio.domain.model.PipelineStep, scala.concurrent.ExecutionContext, int, java.lang.String, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepDelete$1(int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, java.lang.String, scala.Option);
+  public static final scala.Tuple2 $anonfun$buildPipelineStepDeletePriorState$1(com.helio.domain.model.PipelineStep, java.lang.String);
+  public static final boolean $anonfun$buildPipelineStepDeletePriorState$3(com.helio.domain.model.PipelineStep, com.helio.domain.model.Output);
+  public static final java.lang.String $anonfun$buildPipelineStepDeletePriorState$4(com.helio.domain.model.Output);
+  public static final spray.json.JsObject $anonfun$buildPipelineStepDeletePriorState$8();
+  public static final spray.json.JsValue $anonfun$buildPipelineStepDeletePriorState$9(com.helio.domain.model.Panel);
+  public static final spray.json.JsObject $anonfun$buildPipelineStepDeletePriorState$7(com.helio.domain.model.Output, scala.collection.immutable.Map, scala.collection.immutable.Vector);
+  public static final scala.concurrent.Future $anonfun$buildPipelineStepDeletePriorState$6(com.helio.services.patchsets.PatchSetApplyContext, scala.collection.immutable.Map, scala.concurrent.ExecutionContext, com.helio.domain.model.Output);
+  public static final spray.json.JsObject $anonfun$buildPipelineStepDeletePriorState$10(spray.json.JsValue, scala.collection.immutable.Vector);
+  public static final scala.concurrent.Future $anonfun$buildPipelineStepDeletePriorState$5(scala.collection.immutable.Vector, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, spray.json.JsValue, scala.collection.immutable.Map);
+  public static final scala.concurrent.Future $anonfun$buildPipelineStepDeletePriorState$2(com.helio.domain.model.PipelineStep, spray.json.JsValue, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, scala.collection.immutable.Vector);
+  public static final java.lang.String $anonfun$resolvePipelineStepCreate$1(java.lang.String);
+  public static final boolean $anonfun$resolvePipelineStepCreate$2(java.lang.String);
+  public static final scala.util.Either $anonfun$resolvePipelineStepCreate$4(int, java.lang.String, com.helio.api.protocols.pipelines.CreatePipelineStepRequest, scala.util.Either);
+  public static final scala.concurrent.Future $anonfun$resolvePipelineStepCreate$3(com.helio.api.protocols.patchsets.Edit, int, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext, java.lang.String, scala.util.Either);
+  public static final scala.util.Either $anonfun$authorizeSecondSourceForCreate$1(int, java.lang.String, scala.Option);
+  public static final scala.util.Either $anonfun$findOwnedOutput$1(com.helio.domain.model.AuthenticatedUser, scala.Option);
+  public static final scala.util.Either $anonfun$resolveOutputUpdate$2(int, com.helio.api.protocols.patchsets.Edit, com.helio.domain.model.Output, java.lang.String, scala.Option);
+  public static final scala.concurrent.Future $anonfun$resolveOutputUpdate$1(com.helio.services.patchsets.PatchSetApplyContext, java.lang.String, com.helio.domain.model.AuthenticatedUser, int, com.helio.api.protocols.patchsets.Edit, scala.concurrent.ExecutionContext, scala.util.Either);
+  public static final scala.util.Either $anonfun$resolveOutputDelete$1(int, java.lang.String, scala.util.Either);
+  public static final java.lang.Object $anonfun$resolveEdit$1$adapted(java.lang.String);
+  public static final java.lang.Object $anonfun$requireTargetId$2$adapted(java.lang.String);
+  public static final scala.Tuple2 $anonfun$buildPipelineStepDeletePriorState$1$adapted(com.helio.domain.model.PipelineStep, java.lang.Object);
+  public static final java.lang.Object $anonfun$resolvePipelineStepCreate$2$adapted(java.lang.String);
+  public static final scala.Tuple2 $anonfun$resolvePipelineStepUpdate$5$adapted(com.helio.domain.model.PipelineStep, java.lang.Object);
+  public static final java.lang.Object $anonfun$buildPipelineStepDeletePriorState$3$adapted(com.helio.domain.model.PipelineStep, com.helio.domain.model.Output);
+}

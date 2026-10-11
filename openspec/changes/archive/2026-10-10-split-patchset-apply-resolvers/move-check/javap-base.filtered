@@ -1,0 +1,12 @@
+=== PatchSetApplyResolvers
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers {
+  public static scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+}
+=== PatchSetApplyResolvers$
+Compiled from "PatchSetApplyResolvers.scala"
+public final class com.helio.services.patchsets.PatchSetApplyResolvers$ {
+  public static final com.helio.services.patchsets.PatchSetApplyResolvers$ MODULE$;
+  public static {};
+  public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+}

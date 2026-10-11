@@ -1,0 +1,218 @@
+{
+ "resolveAll": {
+  "start": 34,
+  "end": 49,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "resolveEdit": {
+  "start": 51,
+  "end": 92,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "requireTargetId": {
+  "start": 95,
+  "end": 99,
+  "dest": "PatchSetResolverSupport",
+  "widen": true
+ },
+ "authorizeEditorOnDashboard": {
+  "start": 101,
+  "end": 110,
+  "dest": "PatchSetResolverSupport",
+  "widen": true
+ },
+ "authorizeEditorOrOwnerOnPipeline": {
+  "start": 112,
+  "end": 128,
+  "dest": "PatchSetResolverSupport",
+  "widen": true
+ },
+ "requireVisibleStep": {
+  "start": 130,
+  "end": 142,
+  "dest": "PatchSetResolverSupport",
+  "widen": true
+ },
+ "decodeCreatePatch": {
+  "start": 144,
+  "end": 152,
+  "dest": "PatchSetResolverSupport",
+  "widen": true
+ },
+ "pipelineSummaryResponse": {
+  "start": 154,
+  "end": 166,
+  "dest": "PatchSetPipelineResolvers",
+  "widen": false
+ },
+ "validateEmbeddedStepReferences": {
+  "start": 175,
+  "end": 228,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": false
+ },
+ "resolvePanelUpdate": {
+  "start": 231,
+  "end": 258,
+  "dest": "PatchSetPanelResolvers",
+  "widen": true
+ },
+ "resolvePanelDelete": {
+  "start": 260,
+  "end": 283,
+  "dest": "PatchSetPanelResolvers",
+  "widen": true
+ },
+ "resolvePanelCreate": {
+  "start": 285,
+  "end": 310,
+  "dest": "PatchSetPanelResolvers",
+  "widen": true
+ },
+ "rejectUnboundOrBadlyBoundForm": {
+  "start": 313,
+  "end": 338,
+  "dest": "PatchSetPanelResolvers",
+  "widen": false
+ },
+ "resolveDashboardUpdate": {
+  "start": 340,
+  "end": 361,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "buildDashboardUpdateResolved": {
+  "start": 363,
+  "end": 372,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "resolveDashboardDelete": {
+  "start": 374,
+  "end": 397,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "resolveDashboardCreate": {
+  "start": 399,
+  "end": 414,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "resolveDataSourceUpdate": {
+  "start": 417,
+  "end": 440,
+  "dest": "PatchSetDataSourceResolvers",
+  "widen": true
+ },
+ "resolveDataSourceDelete": {
+  "start": 442,
+  "end": 461,
+  "dest": "PatchSetDataSourceResolvers",
+  "widen": true
+ },
+ "resolveDataSourceCreate": {
+  "start": 463,
+  "end": 477,
+  "dest": "PatchSetDataSourceResolvers",
+  "widen": true
+ },
+ "resolvePipelineUpdate": {
+  "start": 482,
+  "end": 512,
+  "dest": "PatchSetPipelineResolvers",
+  "widen": true
+ },
+ "resolvePipelineDelete": {
+  "start": 514,
+  "end": 537,
+  "dest": "PatchSetPipelineResolvers",
+  "widen": true
+ },
+ "prefixedWithEdit": {
+  "start": 539,
+  "end": 543,
+  "dest": "PatchSetPipelineResolvers",
+  "widen": false
+ },
+ "resolvePipelineCreate": {
+  "start": 545,
+  "end": 591,
+  "dest": "PatchSetPipelineResolvers",
+  "widen": true
+ },
+ "resolvePipelineStepUpdate": {
+  "start": 594,
+  "end": 633,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": true
+ },
+ "resolvePipelineStepDelete": {
+  "start": 635,
+  "end": 670,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": true
+ },
+ "buildPipelineStepDeletePriorState": {
+  "start": 672,
+  "end": 702,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": false
+ },
+ "resolvePipelineStepCreate": {
+  "start": 704,
+  "end": 754,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": true
+ },
+ "authorizeSecondSourceForCreate": {
+  "start": 756,
+  "end": 783,
+  "dest": "PatchSetPipelineStepResolvers",
+  "widen": false
+ },
+ "findOwnedOutput": {
+  "start": 787,
+  "end": 799,
+  "dest": "PatchSetOutputResolvers",
+  "widen": false
+ },
+ "resolveOutputUpdate": {
+  "start": 801,
+  "end": 828,
+  "dest": "PatchSetOutputResolvers",
+  "widen": true
+ },
+ "resolveOutputDelete": {
+  "start": 830,
+  "end": 853,
+  "dest": "PatchSetOutputResolvers",
+  "widen": true
+ },
+ "object-doc-and-header": {
+  "start": 20,
+  "end": 32,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ },
+ "standalone-HEL-904-comment": {
+  "start": 169,
+  "end": 173,
+  "dest": "PatchSetPanelResolvers",
+  "widen": false
+ },
+ "standalone-output-section-comment": {
+  "start": 785,
+  "end": 785,
+  "dest": "PatchSetOutputResolvers",
+  "widen": false
+ },
+ "object-close": {
+  "start": 854,
+  "end": 854,
+  "dest": "PatchSetApplyResolvers",
+  "widen": false
+ }
+}

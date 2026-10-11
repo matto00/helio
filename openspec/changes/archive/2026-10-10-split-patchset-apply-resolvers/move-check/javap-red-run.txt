@@ -1,0 +1,12 @@
+## BASE=55b53be4a  RED: trailing defaulted param 'redProbe: Boolean = false' added to resolveAll (compiled OK), then diff base.filtered vs red.filtered
+4c4,5
+<   public static scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+---
+>   public static boolean resolveAll$default$4();
+>   public static scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, boolean, scala.concurrent.ExecutionContext);
+11c12,13
+<   public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, scala.concurrent.ExecutionContext);
+---
+>   public scala.concurrent.Future<scala.util.Either<com.helio.services.ServiceError, scala.collection.immutable.Vector<com.helio.services.patchsets.ResolvedEdit>>> resolveAll(scala.collection.immutable.Vector<com.helio.api.protocols.patchsets.Edit>, com.helio.domain.model.AuthenticatedUser, com.helio.services.patchsets.PatchSetApplyContext, boolean, scala.concurrent.ExecutionContext);
+>   public boolean resolveAll$default$4();
+diff exit=1
