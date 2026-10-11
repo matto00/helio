@@ -22,8 +22,9 @@ type UsePipelineOutputSheetsArgs = {
  */
 export function usePipelineOutputSheets({ id, allOutputsRef }: UsePipelineOutputSheetsArgs) {
   // task 3.3 — one array per trunk/tail step id, memoized (see
-  // `selectOutputsByStepId`'s doc comment); `EMPTY_OUTPUTS` mirrors the
-  // `EMPTY_ANALYZE_COLUMNS` pattern above so a step with zero Outputs gets a
+  // `selectOutputsByStepId`'s doc comment); `EMPTY_OUTPUTS` (in
+  // `ui/LaneColumn.tsx`) mirrors the `EMPTY_ANALYZE_COLUMNS` pattern (in
+  // `usePipelineAnalyzeLookups.ts`) so a step with zero Outputs gets a
   // stable `[]` reference rather than defeating `StepCard`'s `React.memo`.
   const outputsByStepId = useAppSelector((state) => selectOutputsByStepId(state, id ?? ""));
   const previewRowCountByOutputId = useAppSelector(selectPreviewRowCountByOutputId);
@@ -64,7 +65,7 @@ export function usePipelineOutputSheets({ id, allOutputsRef }: UsePipelineOutput
   // param afterward so a later manual close doesn't immediately reopen it.
   //
   // HEL-1478 D1d — the open is a render-time state adjustment (like the derived-state block
-  // above), not an effect-driven `setOutputSheet`, which `react-hooks/set-state-in-effect`
+  // in `usePipelineDetailPage.ts`), not an effect-driven `setOutputSheet`, which `react-hooks/set-state-in-effect`
   // rejects. `deepLinkSeen` holds the (searchParams, allOutputs) pair the sheet was last opened
   // at. It MUST start at the `null` sentinel: seeding it with the current pair would skip the
   // open when the Outputs are already in Redux at mount. State is set only when the id is present

@@ -94,7 +94,7 @@ export function usePipelineDebouncedAnalyze({
           pendingAnalyzeRef.current = true;
           // HEL-972 final-gate CR1 — a stuck guard (SSE stream that never
           // opens/drops/misses its terminal event -- see `pendingSinceRef`'s
-          // comment above) would otherwise suppress this edit's analyze,
+          // comment in `usePipelineDetailPage.ts`) would otherwise suppress this edit's analyze,
           // and every later edit's, for the rest of the page's lifetime.
           // Start the clock on the FIRST defer for this fingerprint only
           // (don't restart it on every re-entry while still blocked).
