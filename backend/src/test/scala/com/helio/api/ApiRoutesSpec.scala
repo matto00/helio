@@ -11,6 +11,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, Cookie, OAuth2BearerToken, RawHeader, `Set-Cookie`}
 import com.helio.domain.model.{AuthenticatedUser, ChartAppearance, ChartAxisLabel, ChartAxisLabels, ChartLegend, ChartTooltip, DashboardId, Page, PagedResult, PanelId, User, UserId, UserSession}
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.panels.ChartTypes
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.api.protocols.agents.{CreateAgentMemoryRequest, PutAgentPreferencesRequest, PutMemoryEnabledRequest}
 import com.helio.api.protocols.auth.RedeemInviteCodeRequest
@@ -2018,6 +2019,33 @@ class ApiRoutesSpec
         val chart = responseAs[UpdatePanelsBatchResponse].panels.head.appearance.chart.get
         chart.chartType shouldBe Some("scatter")
         chart.legend shouldBe ChartLegend(show = true, position = "bottom")
+      }
+    }
+
+    "PATCH /api/panels/:id stores heatmap and histogram chart types and rejects an unknown one (HEL-1311)" in {
+      cleanDb()
+
+      var dashboardId = ""
+      var panelId     = ""
+      Post("/api/dashboards", CreateDashboardRequest(Some("New Chart Types"))) ~> routes() ~> check {
+        dashboardId = responseAs[DashboardResponse].id
+      }
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Panel"), Some("divider"), None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
+      }
+      def patchChartType(t: String) =
+        Patch(s"/api/panels/$panelId", UpdatePanelRequest(None, Some(JsObject("chart" -> JsObject("chartType" -> JsString(t)))), None, None)) ~> routes()
+
+      Seq("heatmap", "histogram").foreach { t =>
+        patchChartType(t) ~> check {
+          status shouldBe StatusCodes.OK
+          responseAs[PanelResponse].appearance.chart.flatMap(_.chartType) shouldBe Some(t)
+        }
+      }
+      patchChartType("area") ~> check {
+        status shouldBe StatusCodes.BadRequest
+        val body = responseAs[String]
+        ChartTypes.All.foreach(t => body should include(t))
       }
     }
 

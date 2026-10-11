@@ -13,6 +13,7 @@ import type { PanelDataResult } from "./usePanelData";
 import type { Panel } from "../types/panel";
 import { resolvePanelChartType } from "../ui/resolvePanelChartType";
 import { chartAggregationSpec } from "../history/chartOverlay";
+import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 import type { ChartClickSelection, ChartInspectConfig } from "../../../utils/chartClickSelection";
 
 /** The inspect + cross-filter-derivation wiring of the desktop `PanelCard` (extracted from it by
@@ -46,7 +47,7 @@ export function usePanelCardInspect(
       scatterOptions: cfg.chartOptions?.scatter,
       // Only while the chart actually plots the grouped aggregate (it needs the loaded records).
       aggregation:
-        chartType === "scatter" || !panelData.paginationRows
+        isNonAggregatingChartType(chartType) || !panelData.paginationRows
           ? null
           : chartAggregationSpec(output.config),
       // HEL-1394 -- orders Inspect's columns; from the Output already held here (no extra fetch).

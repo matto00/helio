@@ -11,6 +11,7 @@
 
 import { Select, Textarea, type SelectOption } from "../../../../shared/ui/index";
 import type { ChartType } from "../../../../utils/chartAppearance";
+import { isNonAggregatingChartType } from "../../../../utils/chartTypes";
 import { ChartAggregationFields } from "../../../panels/ui/editors/ChartAggregationFields";
 import { ChartDisplayFields } from "../../../panels/ui/editors/ChartDisplayFields";
 import { TableDisplayFields } from "../../../panels/ui/editors/TableDisplayFields";
@@ -22,9 +23,12 @@ import type {
   LineChartOptions,
   PieChartOptions,
   ScatterChartOptions,
+  HistogramChartOptions,
 } from "../../../panels/types/panel";
 import type { ChartCompareBlocker } from "../../../panels/history/chartOverlay";
 import { ChartCompareField } from "./ChartCompareField";
+import { ChartSlotFields } from "./ChartSlotFields";
+import { HistogramBinCountField } from "./HistogramBinCountField";
 import { METRIC_COMPARE_OPTIONS, compareOptions } from "./compareOptions";
 import type { TableColumnRow } from "./useOutputTableColumns";
 import type { ColumnFormatSelection } from "./useOutputColumnFormats";
@@ -36,6 +40,8 @@ const CHART_TYPE_OPTIONS: SelectOption[] = [
   { value: "bar", label: "Bar" },
   { value: "pie", label: "Pie" },
   { value: "scatter", label: "Scatter" },
+  { value: "heatmap", label: "Heatmap" },
+  { value: "histogram", label: "Histogram" },
 ];
 
 interface ChartKindFieldsProps {
@@ -56,6 +62,14 @@ interface ChartKindFieldsProps {
   onPieChange: (patch: Partial<PieChartOptions>) => void;
   scatter: ScatterChartOptions;
   onScatterChange: (patch: Partial<ScatterChartOptions>) => void;
+  /** HEL-1311: the stored `fieldMapping` and its setter (heatmap / histogram slot pickers only). */
+  chartFieldMapping: Record<string, string>;
+  onChartFieldChange: (slot: string, value: string) => void;
+  /** Columns the server reports eligible for a chart `yAxis` (numeric), from capabilities-at-node. */
+  numericColumns: string[];
+  onBinCountInvalidChange: (invalid: boolean) => void;
+  histogram: HistogramChartOptions;
+  onHistogramChange: (patch: Partial<HistogramChartOptions>) => void;
   annotationState: BoundOrLiteralState;
   /** HEL-1350 — `"none"` or a `config.compare` token. */
   compareValue: string;
@@ -82,6 +96,12 @@ export function ChartKindFields({
   onPieChange,
   scatter,
   onScatterChange,
+  chartFieldMapping,
+  onChartFieldChange,
+  numericColumns,
+  onBinCountInvalidChange,
+  histogram,
+  onHistogramChange,
   annotationState,
   compareValue,
   onCompareChange,
@@ -101,11 +121,24 @@ export function ChartKindFields({
           options={CHART_TYPE_OPTIONS}
         />
       </div>
-      {chartType === "scatter" ? (
+      {chartType === "heatmap" || chartType === "histogram" ? (
+        <ChartSlotFields
+          chartType={chartType}
+          fieldMapping={chartFieldMapping}
+          onFieldChange={onChartFieldChange}
+          allColumns={fieldOptions.filter((o) => o.value !== "")}
+          numericColumns={numericColumns}
+        />
+      ) : null}
+      {isNonAggregatingChartType(chartType) ? (
         <div className="output-editor-sheet__data-section">
           <span className="output-editor-sheet__data-label">Aggregation</span>
           <p className="output-editor-sheet__type-hint">
-            Aggregation isn&apos;t available for scatter — each point plots a raw row.
+            {chartType === "scatter"
+              ? "Aggregation isn't available for scatter — each point plots a raw row."
+              : chartType === "histogram"
+                ? "Aggregation isn't available for histogram — it counts the rows into bins."
+                : "Aggregation isn't available for heatmap — it plots the rows as they are."}
           </p>
         </div>
       ) : (
@@ -119,6 +152,13 @@ export function ChartKindFields({
           onAggFnChange={onAggFnChange}
         />
       )}
+      {chartType === "histogram" ? (
+        <HistogramBinCountField
+          binCount={histogram.binCount}
+          onChange={(binCount) => onHistogramChange({ binCount })}
+          onInvalidChange={onBinCountInvalidChange}
+        />
+      ) : null}
       <ChartDisplayFields
         chartType={chartType}
         line={line}
@@ -133,7 +173,12 @@ export function ChartKindFields({
         isBound={fieldOptions.length > 0}
         annotationState={annotationState}
       />
-      <ChartCompareField value={compareValue} onChange={onCompareChange} blocker={compareBlocker} />
+      <ChartCompareField
+        value={compareValue}
+        onChange={onCompareChange}
+        blocker={compareBlocker}
+        chartType={chartType}
+      />
     </>
   );
 }

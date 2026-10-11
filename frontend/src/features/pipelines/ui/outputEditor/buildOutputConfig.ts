@@ -4,6 +4,7 @@
 // (`outputConfigTypes.ts`).
 
 import type { ChartType } from "../../../../utils/chartAppearance";
+import { isNonAggregatingChartType } from "../../../../utils/chartTypes";
 import type { ChartTypeOptionsMap } from "../../../panels/types/panel";
 import type { BoundOrLiteralState } from "../../../panels/ui/editors/useBoundOrLiteralState";
 import type { AggregateConfig } from "../../types/pipelineStep";
@@ -92,10 +93,10 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
             ? { annotation: params.annotationState.fieldValue }
             : {}),
         },
-        // A scatter chart never aggregates and the server rejects the pair (HEL-1313), so the
+        // A scatter/heatmap/histogram never aggregates and the server rejects the pair (HEL-1313), so the
         // editor writes null however the (hidden) aggregation fields were last left.
         aggregation:
-          params.chartType !== "scatter" &&
+          !isNonAggregatingChartType(params.chartType) &&
           params.groupBy &&
           params.yField &&
           isAggFn(params.chartAggFn)
@@ -159,9 +160,12 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
  *  four kinds have no aggregation slot, so the affordance is n/a for them. */
 export function canAddAsTailWithAggregate(
   params: Pick<BuildOutputConfigParams, "kind" | "groupBy" | "chartAggFn" | "yField"> &
-    Pick<BuildOutputConfigParams, "metricField" | "metricAggFn">,
+    Pick<BuildOutputConfigParams, "metricField" | "metricAggFn"> &
+    Partial<Pick<BuildOutputConfigParams, "chartType">>,
 ): boolean {
   if (params.kind === "chart") {
+    // A scatter / heatmap / histogram never aggregates, so there is nothing to attach a tail for.
+    if (isNonAggregatingChartType(params.chartType)) return false;
     return Boolean(params.groupBy && params.yField && isAggFn(params.chartAggFn));
   }
   if (params.kind === "metric") {

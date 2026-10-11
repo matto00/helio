@@ -1,4 +1,4 @@
-import { readTableConfig } from "./outputConfigTypes";
+import { readChartConfig, readTableConfig } from "./outputConfigTypes";
 
 // HEL-448 CR1 (evaluation-1.md): task 3.6 requires real coverage of
 // `readTableConfig`'s tolerant `columnSort` parse, not just a component test
@@ -264,4 +264,23 @@ describe("readTableConfig — pinnedColumns (HEL-465)", () => {
     expect(cfg.pinnedColumns).toEqual(["amount"]);
     expect(cfg.columnOrder).toEqual(["amount", "id"]);
   });
+});
+
+describe("readChartConfig — histogram binCount (HEL-1311)", () => {
+  it.each([2, 12, 100])("keeps a valid binCount of %s", (binCount) => {
+    const cfg = readChartConfig({ chartOptions: { histogram: { binCount } } });
+    expect(cfg.chartOptions?.histogram?.binCount).toBe(binCount);
+  });
+
+  it.each([1, 101, 2.5, "10", null])(
+    "drops an out-of-range binCount of %p (renders Automatic)",
+    (binCount) => {
+      const cfg = readChartConfig({
+        chartOptions: { histogram: { binCount }, bar: { orientation: "horizontal" } },
+      });
+      expect(cfg.chartOptions?.histogram).toBeUndefined();
+      // Other chart options pass through untouched.
+      expect(cfg.chartOptions?.bar).toEqual({ orientation: "horizontal" });
+    },
+  );
 });

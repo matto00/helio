@@ -8,6 +8,7 @@
 // imports this same module for its click handler.
 
 import type { ChartType } from "./chartAppearance";
+import { isSelectableChartType } from "./chartTypes";
 import type { ScatterChartOptions } from "../features/panels/types/panel";
 import type { ChartAggregationSpec } from "../features/panels/history/chartOverlay";
 import type { InspectColumnOrderHint } from "../features/panels/ui/inspectColumnOrder";
@@ -93,7 +94,7 @@ export function mapChartClickToSelection(
   rawRows: string[][],
   scatterOptions?: ScatterChartOptions,
 ): ChartClickSelection | null {
-  if (headers.length === 0) return null;
+  if (headers.length === 0 || !isSelectableChartType(chartType)) return null;
   const { xCol, yCol } = resolveDataColumns(headers, fieldMapping);
   if (xCol === -1) return null;
   const dimension = headers[xCol];

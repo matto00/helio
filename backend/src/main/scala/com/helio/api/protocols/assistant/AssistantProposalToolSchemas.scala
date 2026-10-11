@@ -1,5 +1,6 @@
 package com.helio.api.protocols.assistant
 
+import com.helio.domain.panels.ChartTypes
 import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.infrastructure.ai.ClaudeTool
 import spray.json._
@@ -75,7 +76,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "content"      -> JsObject("type" -> JsString("string")),
       "url"          -> JsObject("type" -> JsString("string")),
       "orientation"  -> enumSchema("horizontal", "vertical"),
-      "chartType"    -> enumSchema("bar", "line", "pie", "scatter"),
+      "chartType"    -> enumSchema(ChartTypes.All: _*),
       "xAxisLabel"   -> JsObject("type" -> JsString("string")),
       "yAxisLabel"   -> JsObject("type" -> JsString("string")),
       "seriesColors" -> JsObject("type" -> JsString("array"), "items" -> JsObject("type" -> JsString("string"))),

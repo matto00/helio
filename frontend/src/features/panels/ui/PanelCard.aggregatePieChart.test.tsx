@@ -162,6 +162,7 @@ function mockResolveChartThemeFromLiveDom() {
       shadowSoft: isDark ? "DARK_SHADOW" : "LIGHT_SHADOW",
       radiusMd: "9px",
       accentStrong: "ACCENT",
+      accent: "ACCENT_BASE",
       textMuted: "MUTED",
     };
   });

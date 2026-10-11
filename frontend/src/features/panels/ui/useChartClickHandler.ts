@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import { resolveChartType } from "../../../utils/chartAppearance";
+import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 // HEL-572 — kept as a SEPARATE, echarts-import-free module (see its own
 // header comment) so `usePanelCardInspect.ts`/`PanelFullscreenOverlay.tsx` can reuse
 // the row-filter half without pulling this file's lazy-loaded echarts chunk
@@ -75,8 +76,10 @@ export function useChartClickHandler({
       params.event?.event?.stopPropagation?.();
       if (!onDataPointSelect || !rawRows || !headers || headers.length === 0) return;
       const chartType = resolveChartType(appearance?.chart);
+      // HEL-1311 -- a heatmap cell / histogram bar maps to no selection (`mapChartClickToSelection`),
+      // but the stop above still keeps the click from opening Customize.
       const selection =
-        aggregationSpec && chartType !== "scatter"
+        aggregationSpec && !isNonAggregatingChartType(chartType)
           ? mapAggregateClickToSelection(params, aggregationSpec)
           : mapChartClickToSelection(
               params,

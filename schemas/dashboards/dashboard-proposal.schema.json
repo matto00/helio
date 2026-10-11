@@ -65,7 +65,7 @@
         },
         "chartType": {
           "type": "string",
-          "enum": ["bar", "line", "pie", "scatter"],
+          "enum": ["bar", "line", "pie", "scatter", "heatmap", "histogram"],
           "description": "Legacy field, decoded but never applied: the chart panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "xAxisLabel": {

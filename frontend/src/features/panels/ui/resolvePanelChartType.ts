@@ -1,8 +1,6 @@
 import type { ChartAppearance } from "../types/panel";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
-import type { ChartType } from "../../../utils/chartAppearance";
-
-const CHART_TYPES: readonly string[] = ["bar", "line", "pie", "scatter"];
+import { isChartType, type ChartType } from "../../../utils/chartAppearance";
 
 /** HEL-1351 design D7 — the ONE chart-type resolver for a dashboard chart panel: the panel's own
  *  stored `appearance.chart.chartType`, else the bound Output's `config.chartType` (what the
@@ -15,5 +13,5 @@ export function resolvePanelChartType(
 ): ChartType {
   if (chart?.chartType) return chart.chartType as ChartType;
   const fromOutput = readChartConfig(outputConfig).chartType;
-  return CHART_TYPES.includes(fromOutput) ? fromOutput : "line";
+  return isChartType(fromOutput) ? fromOutput : "line";
 }

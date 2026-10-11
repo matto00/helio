@@ -16,6 +16,12 @@ import type { GroupedAggregate } from "../../../utils/aggregate";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
 import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
+import {
+  applyHeatmapTheme,
+  compactHeatmapVisualMap,
+  HEATMAP_COMPACT_CLEARANCE_PX,
+  mergeHeatmapYAxis,
+} from "./heatmapHistogramOptions";
 
 // `type`/`data` only — no placeholder `name` (unlike the persisted-appearance
 // default, `defaultChartAppearance` in theme/appearance.ts, this is never
@@ -118,7 +124,14 @@ export function buildChartOption({
   const dataOption = useAggregate
     ? buildAggregateDataOption(chartAggregate, chartType)
     : rawRows && rawRows.length > 0 && headers && headers.length > 0
-      ? buildDataOption(rawRows, headers, fieldMapping, chartType, chartOptions?.scatter)
+      ? buildDataOption(
+          rawRows,
+          headers,
+          fieldMapping,
+          chartType,
+          chartOptions?.scatter,
+          chartOptions?.histogram,
+        )
       : {};
 
   const isPie = chartType === "pie";
@@ -133,6 +146,14 @@ export function buildChartOption({
   // rendering in ECharts' canvas-default font instead of the app's).
   const baseTextStyle = (appearanceOption.textStyle as object | undefined) ?? {};
   const textStyle = { ...baseTextStyle, ...textStyleOverride };
+
+  // HEL-1311: a heatmap's y axis is the data option's category axis, not the appearance's value axis.
+  const yAxisBase = mergeHeatmapYAxis(
+    chartType,
+    dataOption,
+    defaultOption.yAxis as object,
+    appearanceOption.yAxis as object,
+  ) as { axisLabel?: object };
 
   let built: EChartsOption;
   if (isPie) {
@@ -171,13 +192,9 @@ export function buildChartOption({
         },
       },
       yAxis: {
-        ...(defaultOption.yAxis as object),
-        ...(appearanceOption.yAxis as object),
+        ...yAxisBase,
         nameTextStyle: textStyle,
-        axisLabel: {
-          ...(appearanceOption.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
-          color: textColor,
-        },
+        axisLabel: { ...yAxisBase.axisLabel, color: textColor },
       },
       legend: {
         ...(dataOption.legend as object),
@@ -196,6 +213,18 @@ export function buildChartOption({
   // after appearance merge and before the mobile `compact` pass, so `compact`
   // (HEL-301) stays the last transform and is unchanged.
   built = applyChartTypeOptions(built, chartType, chartOptions);
+
+  // HEL-1311 — the heatmap's colour scale (visualMap) takes its hue from the accent token.
+  if (chartType === "heatmap") {
+    built = applyHeatmapTheme(built, themeTokens, textColor);
+    // The appearance tooltip (spread over the data option above) would drop the cell formatter.
+    if (dataOption.tooltip) {
+      built = {
+        ...built,
+        tooltip: { ...(built.tooltip as object), ...(dataOption.tooltip as object) },
+      };
+    }
+  }
 
   // HEL-1277 — the labelled "vs" overlay joins the series array here so the axis-trigger tooltip
   // and hover-emphasis passes below see it.
@@ -275,6 +304,11 @@ export function buildChartOption({
         : COMPACT_LEGEND_CLEARANCE_HORIZONTAL_PX;
     const inset = (edge: typeof side) =>
       COMPACT_GRID_INSET_PX + (compactLegendShown && side === edge ? clearance : 0);
+    // The heatmap's colour scale sits under the grid; keep its room in compact mode too.
+    const bottomInset = chartType === "heatmap" ? HEATMAP_COMPACT_CLEARANCE_PX : inset("bottom");
+    if (chartType === "heatmap") {
+      built = compactHeatmapVisualMap(built, COMPACT_AXIS_LABEL_FONT_SIZE);
+    }
     built = {
       ...built,
       // F-028 — an explicit small inset + `containLabel` so ECharts
@@ -286,7 +320,7 @@ export function buildChartOption({
         ...(built.grid as object),
         top: inset("top"),
         right: inset("right"),
-        bottom: inset("bottom"),
+        bottom: bottomInset,
         left: inset("left"),
         containLabel: true,
       },

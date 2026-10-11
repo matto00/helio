@@ -3,6 +3,7 @@ import { formatCaptureTime } from "./formatCaptureTime";
 import type { HistorySeries, OutputHistory } from "./outputHistoryService";
 import { isAggFn } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import type { AggFn } from "../types/panel";
+import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 
 /** HEL-1277 — a labelled "vs" series handed to `buildChartOption`: x/y points of a comparison. */
 export interface ChartOverlay {
@@ -44,7 +45,7 @@ export interface ChartAggregationSpec {
 }
 
 export function chartAggregationSpec(config: Record<string, unknown>): ChartAggregationSpec | null {
-  if (config.chartType === "scatter") return null;
+  if (isNonAggregatingChartType(config.chartType)) return null;
   const agg = asRecord(config.aggregation);
   const { groupBy, yField } = agg;
   if (!nonEmptyString(groupBy) || !nonEmptyString(yField)) return null;
@@ -56,7 +57,7 @@ export function chartAggregationSpec(config: Record<string, unknown>): ChartAggr
  *  out. A conservative superset of the runtime rules; bar-option blockers apply whatever the
  *  Output's chartType is. An aggregated Output (see `chartAggregationSpec`) overlays its grouped
  *  baseline, so it never blocks on aggregation, series or unmapped x/y. */
-export type ChartCompareBlocker = "series" | "unmapped" | "horizontal" | "normalized";
+export type ChartCompareBlocker = "chartType" | "series" | "unmapped" | "horizontal" | "normalized";
 
 function nonEmptyString(v: unknown): boolean {
   return typeof v === "string" && v !== "";
@@ -69,6 +70,8 @@ function asRecord(v: unknown): Record<string, unknown> {
 export function chartCompareBlocker(config: Record<string, unknown>): ChartCompareBlocker | null {
   const mapping = asRecord(config.fieldMapping);
   const bar = asRecord(asRecord(config.chartOptions).bar);
+  // HEL-1311 -- checked FIRST: a heatmap always maps `series`, and the note must name the chart type.
+  if (config.chartType === "heatmap" || config.chartType === "histogram") return "chartType";
   if (chartAggregationSpec(config) === null) {
     if (nonEmptyString(mapping.series)) return "series";
     if (!nonEmptyString(mapping.xAxis) || !nonEmptyString(mapping.yAxis)) return "unmapped";
@@ -88,6 +91,8 @@ export function selectChartOverlay(
 ): ChartOverlay | null {
   const compare = configCompare(config);
   if (compare === null || !history || (history.compare ?? null) !== compare) return null;
+  // HEL-1311 -- a heatmap/histogram plots neither the raw series nor a grouped one.
+  if (chartCompareBlocker(config) === "chartType") return null;
   if (ctx.filterActive || ctx.rowsTruncated !== false) return null;
   const baseline = history.baseline;
   const series = baseline?.series;

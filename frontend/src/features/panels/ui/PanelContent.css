@@ -397,6 +397,12 @@
   padding-top: 0;
 }
 
+/* HEL-1311: the histogram's skipped-values note is a second footnote (same rule as the truncation
+ * note); it stacks directly under a preceding note. */
+.chart-panel__truncation-note + .chart-panel__skipped-note {
+  padding-top: 0;
+}
+
 /* HEL-1398: the truncation note's short form ("200 of 1,234 rows.") is hidden by default; the narrow
  * query below swaps it in. These target the inner spans, never a standalone note rule (the style
  * guard test pins that the note shares the annotation's rule). */

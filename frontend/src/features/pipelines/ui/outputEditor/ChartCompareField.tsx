@@ -8,8 +8,8 @@ import { CHART_COMPARE_OPTIONS, compareOptions } from "./compareOptions";
 const CHART_COMPARE_HELP_ID = "output-chart-compare-help";
 const CHART_COMPARE_NOTE_ID = "output-chart-compare-note";
 const CHART_COMPARE_HELP =
-  "Adds a “vs” line or bars to dashboard charts. It doesn't show for pie or scatter panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied.";
-const CHART_COMPARE_NOTES: Record<ChartCompareBlocker, string> = {
+  "Adds a “vs” line or bars to dashboard charts. It doesn't show for pie, scatter, heatmap or histogram panels, multi-series charts, horizontal or 100% stacked bars, Outputs with more than 200 rows, or while a filter is applied.";
+const CHART_COMPARE_NOTES: Record<Exclude<ChartCompareBlocker, "chartType">, string> = {
   series: "This Output splits into several series, so dashboards won't show the comparison.",
   unmapped: "This Output doesn't name x and y fields, so dashboards won't show the comparison.",
   horizontal: "Horizontal bars don't show the comparison on bar panels.",
@@ -21,10 +21,18 @@ interface ChartCompareFieldProps {
   value: string;
   onChange: (v: string) => void;
   blocker: ChartCompareBlocker | null;
+  /** Names the chart type in the `"chartType"` blocker's note (HEL-1311). */
+  chartType: string;
 }
 
-export function ChartCompareField({ value, onChange, blocker }: ChartCompareFieldProps) {
-  const note = value !== "none" && blocker ? CHART_COMPARE_NOTES[blocker] : null;
+export function ChartCompareField({ value, onChange, blocker, chartType }: ChartCompareFieldProps) {
+  const blockerNote =
+    blocker === "chartType"
+      ? `The vs overlay doesn't show for ${chartType} charts.`
+      : blocker
+        ? CHART_COMPARE_NOTES[blocker]
+        : null;
+  const note = value !== "none" ? blockerNote : null;
   const describedBy = note
     ? `${CHART_COMPARE_HELP_ID} ${CHART_COMPARE_NOTE_ID}`
     : CHART_COMPARE_HELP_ID;
