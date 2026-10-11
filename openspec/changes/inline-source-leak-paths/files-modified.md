@@ -1,0 +1,17 @@
+- `backend/src/main/scala/com/helio/services/sources/InlineSourceCleanup.scala` — new: shared "delete what this call created" helper (source via DataSourceService, then the guarded, name-checked implicit Connector delete) plus ImplicitConnectorCleanup; crash-atomicity risk documented here
+- `backend/src/main/scala/com/helio/services/pipelines/InlineSourceCompensation.scala` — new: the Left/failed-Future compensation wrapper generalized out of PipelineCreateWrites, shared by create and addRoot
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreateWrites.scala` — uses the shared compensation/cleanup and tracks the implicit-Connector flag per created id
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRootWrites.scala` — addRoot compensates an inline root it created on any later Left/failure
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala` — builds the InlineSourceCleanup and wires it to root/create writes; exposes it package-privately for patch-set rollback
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala` — internal apply-failure cleanup removes the implicit Connector via a flag on ResolvedSource; public rollback(response) unchanged
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyRollback.scala` — deleteInlineRootSources warns, deletes nothing on a root-count mismatch, skips+warns on a missing dataSourceId, reports unrecoverable; uses the shared helper
+- `backend/src/main/scala/com/helio/services/sources/SourceService.scala` — createSql/createRest delete their inserted row on a post-insert failure; bare-url createRest also deletes the implicit Connector; exposes connectorRepository package-privately
+- `backend/src/test/scala/com/helio/api/routes/pipelines/InlineSourceLeakPathsRoutesSpec.scala` — new: addRoot, cycle-guard (not a leak), bare-url Connector, explicit-connector and dependents guards
+- `backend/src/test/scala/com/helio/api/InlineSourceLeakApiRoutesWiringSpec.scala` — new: bare-url Connector cleanup through production ApiRoutes wiring
+- `backend/src/test/scala/com/helio/services/sources/SourceCreatePostInsertCleanupSpec.scala` — new: createSql/createRest post-insert failure, bare-url insert failure, fetch-error guard
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetInlineRootRollbackSpec.scala` — new: rollback Connector removal, count mismatch, missing id, pipeline-delete-fails
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineProposalImplicitConnectorCleanupSpec.scala` — new: proposal-apply rollback removes the implicit Connector
+- `backend/src/test/scala/com/helio/services/sources/InlineSourceOrphanCountQueriesSpec.scala` — new: runs the read-only prod count queries on the embedded schema
+- `openspec/changes/inline-source-leak-paths/red-evidence.md` — pre-fix red measurements and the two verified not-a-leak findings
+- `openspec/changes/inline-source-leak-paths/prod-count-queries.md` — read-only orphan count queries for the PR body (query b labelled an upper bound)
+- `openspec/changes/inline-source-leak-paths/tasks.md` — task checkboxes

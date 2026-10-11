@@ -4,6 +4,7 @@ import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineS
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelAppearancePayload, PanelResponse, UpdatePanelRequest}
 import com.helio.services.panels.LayoutWritePolicy
 import com.helio.services.pipelines.OutputConfigWritePolicy
+import com.helio.services.sources.InlineSourceCleanup
 import com.helio.api.protocols.dashboards.{DashboardAppearancePayload, DashboardLayoutItemPayload, DashboardLayoutPatchPayload, DashboardResponse, UpdateDashboardRequest}
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
@@ -196,8 +197,15 @@ private[services] object PatchSetApplyRollback {
         Future.successful(edit.toOutcome("unrecoverable"))
     }
 
-  /** HEL-1469: the roots of a rolled-back pipeline create whose request root was INLINE (`type` defined),
-   *  identified by position in the forward outcome's summary (`roots` preserves request order). */
+  /** HEL-1469 / HEL-1475: after a rolled-back pipeline create, deletes the inline root sources it made (and the implicit
+   *  Connector of a bare-`url` REST root) through the shared [[InlineSourceCleanup]].
+   *
+   *  Request roots are matched to the forward outcome's summary roots BY POSITION (`roots` preserves request order),
+   *  so the match is only trusted when the counts agree. A mismatch deletes NOTHING -- a mispaired position could
+   *  delete a source the user already had, and then its explicit Connector -- and reports the edit `unrecoverable`
+   *  with a warning. When the counts agree but an inline root's summary entry carries no string `dataSourceId`, that
+   *  one source is skipped with a warning, the others are still deleted, and the edit is `unrecoverable`. A request
+   *  with no inline root has nothing to delete and no count to compare. */
   private def deleteInlineRootSources(
       edit: ResolvedEdit,
       request: CreatePipelineRequest,
@@ -209,18 +217,32 @@ private[services] object PatchSetApplyRollback {
       case Some(o: JsObject) => o.fields.get("roots").collect { case JsArray(els) => els }.getOrElse(Vector.empty)
       case _                 => Vector.empty
     }
-    val inlineIds: Vector[DataSourceId] = request.roots.zip(summaryRoots).collect {
-      case (root, JsObject(fields)) if root.`type`.isDefined =>
-        fields.get("dataSourceId").collect { case JsString(id) => DataSourceId(id) }
-    }.flatten
-    inlineIds.foldLeft(Future.successful(true)) { (accF, id) =>
-      accF.flatMap { ok =>
-        services.dataSourceService.delete(id, user).map {
-          case Right(_)  => ok
-          case Left(err) => logFailure(edit, err.err.message); false
+    val inlineRoots = request.roots.zipWithIndex.filter(_._1.`type`.isDefined)
+    if (inlineRoots.isEmpty) Future.successful(edit.toOutcome("rolledBack"))
+    else if (summaryRoots.size != request.roots.size) {
+      log.warn(s"rollback of edit ${edit.index} deletes no inline root source: the request has ${request.roots.size} roots but the created pipeline reported ${summaryRoots.size}")
+      Future.successful(edit.toOutcome("unrecoverable"))
+    } else {
+      val cleanup = services.pipelineService.inlineSourceCleanup
+      if (cleanup == null) {
+        logFailure(edit, "no inline-source cleanup is wired")
+        Future.successful(edit.toOutcome("unrecoverable"))
+      } else {
+        val targets: Vector[(DataSourceId, Boolean)] = inlineRoots.flatMap { case (root, idx) =>
+          summaryRoots(idx) match {
+            case JsObject(fields) =>
+              fields.get("dataSourceId").collect { case JsString(id) => (DataSourceId(id), InlineSourceCleanup.isImplicitConnectorRoot(root)) }
+            case _ => None
+          }
         }
+        val missing = inlineRoots.size - targets.size
+        if (missing > 0)
+          log.warn(s"rollback of edit ${edit.index}: $missing inline root(s) had no dataSourceId in the created pipeline's summary and were skipped")
+        targets.foldLeft(Future.successful(true)) { (accF, target) =>
+          accF.flatMap(ok => cleanup.deleteCallCreated(target._1, target._2, user, s"rollback of edit ${edit.index}").map(ok && _))
+        }.map(ok => if (ok && missing == 0) edit.toOutcome("rolledBack") else edit.toOutcome("unrecoverable"))
       }
-    }.map(ok => if (ok) edit.toOutcome("rolledBack") else edit.toOutcome("unrecoverable"))
+    }
   }
 
   /** design.md D3a: recreate via `addStep`, then `updateStep(position=...)`
