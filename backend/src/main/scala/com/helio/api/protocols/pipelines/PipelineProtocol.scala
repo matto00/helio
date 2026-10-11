@@ -57,7 +57,7 @@ final case class CreatePipelineTransactionalOutputRequest(
  *  `PipelineProposalService.resolveSource`'s own documented gap: no bytes channel exists in a
  *  JSON body for the upload path), `name` for the new source, and exactly one of
  *  `sqlConfig`/`restConfig`/`staticConfig` populated matching `type`. Exactly one of `sourceId`
- *  or `type` must be given (`PipelineService.resolveInlineOrExistingRoot`'s D1-style mutual-
+ *  or `type` must be given (`PipelineRootWrites.resolveOneRootSourceId`'s D1-style mutual-
  *  exclusivity check); neither or both is a named 400. `clientId` (R13) is OPTIONAL and lets a
  *  `steps[]`/`outputs[]` entry in the SAME request name this root via `rootClientId`. */
 final case class CreatePipelineRootRequest(

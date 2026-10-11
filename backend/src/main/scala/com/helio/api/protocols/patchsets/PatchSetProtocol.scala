@@ -88,7 +88,7 @@ trait PatchSetProtocol
   /** Hand-written (not `jsonFormatN`) so `parentId` is TOLERATED absent at the wire level
    *  (task 6b.4d) — every update/delete target omits it, and decoding must not fail just
    *  because it's missing. Whether `parentId` is REQUIRED (a `create` targeting a child kind)
-   *  is a validation-time concern enforced by `PatchSetApplyResolvers`, never a decode failure
+   *  is a validation-time concern enforced by the resolver (`PatchSetPipelineStepResolvers.resolvePipelineStepCreate`), never a decode failure
    *  here. The writer omits an absent `parentId` rather than emitting `null`, mirroring `id`'s
    *  own existing `Option` write convention on this same type. */
   implicit val editTargetFormat: RootJsonFormat[EditTarget] = new RootJsonFormat[EditTarget] {

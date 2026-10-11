@@ -437,13 +437,13 @@ object ExistenceNotLeakedRoutesSpec {
     Row("POST patch-set apply: pipelineStep create", HttpMethods.POST, "/api/patch-sets/apply", Pipeline, Set("PatchSetApplyResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"pipelineStep","parentId":"{id}"},"op":"create","patch":{"type":"cast","config":{}}}]}"""), ownerControl = false, patchKinds = Set("pipelineStep:create")),
     // outputs (HEL-1239): id is an OUTPUT id; owner-only, single `Output not found` for foreign AND absent
-    Row("POST patch-set apply: output update", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetApplyResolvers.scala"),
+    Row("POST patch-set apply: output update", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetOutputResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"update","patch":{"name":"renamed"}}]}"""), patchKinds = Set("output:update")),
-    Row("POST patch-set apply: output delete", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetApplyResolvers.scala"),
+    Row("POST patch-set apply: output delete", HttpMethods.POST, "/api/patch-sets/apply", OutputT, Set("PatchSetOutputResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("output:delete")),
-    Row("POST patch-set preview: output update", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetApplyResolvers.scala"),
+    Row("POST patch-set preview: output update", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetOutputResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"update","patch":{"name":"renamed"}}]}"""), patchKinds = Set("output:update")),
-    Row("POST patch-set preview: output delete", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetApplyResolvers.scala"),
+    Row("POST patch-set preview: output delete", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetOutputResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("output:delete")),
     // pipeline-scoped
     Row("GET pipeline outputs", HttpMethods.GET, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala")),

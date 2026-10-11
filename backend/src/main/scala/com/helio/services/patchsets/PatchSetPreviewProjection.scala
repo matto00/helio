@@ -352,7 +352,7 @@ private[services] object PatchSetPreviewProjection {
       }
   }
 
-  /** Trivial field-echo -- `PatchSetApplyResolvers.pipelineSummaryResponse`
+  /** Trivial field-echo -- `PatchSetPipelineResolvers.pipelineSummaryResponse`
    *  is `private` to that object, not `private[services]`, so this mirrors
    *  its 1:1 field mapping rather than reaching across the object boundary. */
   private def toPipelineSummaryResponse(s: PipelineSummary): PipelineSummaryResponse =

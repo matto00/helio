@@ -102,8 +102,9 @@ private[patchsets] object PatchSetPipelineResolvers {
       case Left(err) => Future.successful(Left(err))
       case Right(request) =>
         // HEL-913 task 7.6: `roots` replaces the scalar `sourceDataSourceId` -- R8's per-root
-        // ACL/blank-id validation, mirroring `PipelineService.resolveRootDataSources`'s own
-        // rules (blank id: 400 with NO ownership lookup; unresolvable id: 404). This is a
+        // ACL/blank-id validation, mirroring `PipelineRootWrites.resolveOneRootSourceId`'s
+        // blank-id rule (400 with NO ownership lookup) and `PipelineCreateWrites.lookupOwnedRoots`'s
+        // unresolvable/unowned-id rule (404). This is a
         // preview-time pre-check only -- `PatchSetApplyForward`'s real apply calls
         // `pipelineService.create` itself, which re-validates authoritatively; this exists so a
         // resolve-time 404/400 doesn't wait until apply to surface.

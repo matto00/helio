@@ -242,7 +242,7 @@ final class PatchSetUndoService(
   /** HEL-914 task 5.8 (patch-set-lane-edits spec, "Removing a lane by patch set and undoing it
    *  restores its Outputs and placements"): the journaled `priorState` for a `pipelineStep`
    *  delete is `{"step": <PipelineStepResponse>, "boundOutputs": [{"output": <OutputResponse>,
-   *  "placements": [<PanelResponse>, ...]}, ...]}` (`PatchSetApplyResolvers
+   *  "placements": [<PanelResponse>, ...]}, ...]}` (`PatchSetPipelineStepResolvers
    *  .buildPipelineStepDeletePriorState`) -- unwrapped here, tolerating a LEGACY journal entry
    *  that predates this fix (the bare step JSON, no `"boundOutputs"` key) by treating the whole
    *  value as the step JSON in that case. Recreates the step first (unchanged from before), then
