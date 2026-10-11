@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId}
+import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
@@ -10,6 +11,9 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Persistence layer for `pipeline_runs`.
+ *
+ *  HEL-1492: an editor grantee's run is persisted too, through [[insertGranteeRunIfUnderOwnerCap]] /
+ *  [[insertGranteeDryRun]] (re-authorized in-transaction) and the `*Internal` lifecycle writes.
  *
  *  HEL-265 CS2: all reads and writes are gated by the parent pipeline's
  *  `owner_id`. Runs inherit ACL from their parent pipeline (no separate
@@ -29,6 +33,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private val runsTable       = TableQuery[PipelineRunTable]
   private val pipelinesTable  = TableQuery[PipelineRepository.PipelineTable]
   private val assertionsTable = TableQuery[PipelineRunAssertionTable]
+  private val permTable       = TableQuery[ResourcePermissionRepository.ResourcePermissionTable]
 
   private def pipelineOwnedAction(pipelineId: PipelineId, user: AuthenticatedUser) = {
     val ownerUuid = UUID.fromString(user.id.value)
@@ -48,11 +53,12 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       startedAt: Instant,
       user: AuthenticatedUser,
       triggerSource: String = "manual",
-      triggeredByTokenId: Option[String] = None
+      triggeredByTokenId: Option[String] = None,
+      triggeredByUserId: Option[String] = None
   ): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
-      case true  => insertRunInternal(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId)
+      case true  => insertRunInternal(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId)
     }
 
   /** ACL-bypassing insertRun for the privileged Spark driver path.
@@ -65,9 +71,10 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       pipelineId: PipelineId,
       startedAt: Instant,
       triggerSource: String = "manual",
-      triggeredByTokenId: Option[String] = None
+      triggeredByTokenId: Option[String] = None,
+      triggeredByUserId: Option[String] = None
   ): Future[Unit] =
-    ctx.withSystemContext(insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId)).map(_ => ())
+    ctx.withSystemContext(insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId)).map(_ => ())
 
   /** The queued-row insert as a plain `DBIO`, factored out of [[insertRunInternal]] so
     * [[insertRunIfUnderConcurrencyCap]] (HEL-505) can compose it into the SAME `DBIO` chain as the
@@ -77,7 +84,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       pipelineId: PipelineId,
       startedAt: Instant,
       triggerSource: String,
-      triggeredByTokenId: Option[String]
+      triggeredByTokenId: Option[String],
+      triggeredByUserId: Option[String]
   ): DBIO[Unit] = {
     val row = PipelineRunRow(
       id                 = runId.value,
@@ -89,6 +97,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       errorLog           = None,
       triggerSource      = triggerSource,
       triggeredByTokenId = triggeredByTokenId.map(UUID.fromString),
+      triggeredByUserId  = triggeredByUserId.map(UUID.fromString),
       // HEL-873 (design.md Decision 2a): a queued row's truncation facts do not exist yet -- it
       // has not reached a terminal status and persists no row count, so NULL here is the one
       // decided, non-escalation exception to "every terminal row is non-null" (task 2.7).
@@ -121,11 +130,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * own already-terminal row from an entirely different call site, `onDryRunSuccess`, reached
     * only after the dry run has already executed.
     *
-    * Returns [[PipelineRunRepository.ConcurrencyCapResult]]: `NotOwned` (silent no-op, mirroring
-    * `insertRun`'s own pre-existing non-owner semantics -- NOT a cap rejection; an
-    * editor-grantee-triggered run has always resolved normally despite no persisted run row, and
-    * this method must not change that) is distinguished from `CapExceeded` (a real rejection,
-    * `executeRun` returns `TooManyRequests`) precisely so the caller can tell them apart. */
+    * Returns [[PipelineRunRepository.ConcurrencyCapResult]]: `NotAuthorized` (the caller does not own
+    * the pipeline -- e.g. it was deleted mid-submit) is distinguished from `CapExceeded` so the caller
+    * can map it to `Forbidden` rather than a 429. It is NEVER an admission: only `Inserted` admits a
+    * run (HEL-1492 retired the former `NotOwned` arm that executed the run without recording it).
+    * An editor grantee's submit goes through [[insertGranteeRunIfUnderOwnerCap]] instead. */
   def insertRunIfUnderConcurrencyCap(
       runId: PipelineRunId,
       pipelineId: PipelineId,
@@ -133,29 +142,92 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       user: AuthenticatedUser,
       triggerSource: String,
       triggeredByTokenId: Option[String],
-      maxConcurrent: Int
+      maxConcurrent: Int,
+      triggeredByUserId: Option[String] = None
   ): Future[PipelineRunRepository.ConcurrencyCapResult] = {
     import PipelineRunRepository.ConcurrencyCapResult._
-    val ownerUuid = UUID.fromString(user.id.value)
-    val nonTerminalCountAction: DBIO[Int] = {
-      val query = for {
-        run      <- runsTable if run.status =!= "succeeded" && run.status =!= "failed" && run.status =!= "dry_run"
-        pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
-      } yield run.id
-      query.length.result
-    }
     val action: DBIO[PipelineRunRepository.ConcurrencyCapResult] =
       for {
         _      <- concurrencyLockAction(user.id.value)
         owned  <- pipelineOwnedAction(pipelineId, user)
-        result <- if (!owned) DBIO.successful(NotOwned)
-                  else nonTerminalCountAction.flatMap { count =>
-                    if (count < maxConcurrent)
-                      insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId).map(_ => Inserted)
-                    else DBIO.successful(CapExceeded)
-                  }
+        result <- if (!owned) DBIO.successful(NotAuthorized)
+                  else countAndInsertAction(UUID.fromString(user.id.value), runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId, maxConcurrent)
       } yield result
     ctx.withUserContext(user.id.value)(action)
+  }
+
+  /** The owner's live count of non-terminal REAL runs across every pipeline they own, then the queued-row
+    * insert when under `maxConcurrent`. Shared by the owner path and the grantee path so both count the
+    * same thing: the PIPELINE OWNER's runs, whoever submitted them. */
+  private def countAndInsertAction(
+      ownerUuid: UUID,
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      triggerSource: String,
+      triggeredByTokenId: Option[String],
+      triggeredByUserId: Option[String],
+      maxConcurrent: Int
+  ): DBIO[PipelineRunRepository.ConcurrencyCapResult] = {
+    import PipelineRunRepository.ConcurrencyCapResult._
+    val query = for {
+      run      <- runsTable if run.status =!= "succeeded" && run.status =!= "failed" && run.status =!= "dry_run"
+      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+    } yield run.id
+    query.length.result.flatMap { count =>
+      if (count < maxConcurrent)
+        insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId).map(_ => Inserted)
+      else DBIO.successful(CapExceeded)
+    }
+  }
+
+  /** HEL-1492 (design.md D2): the privileged counterpart of [[insertRunIfUnderConcurrencyCap]] for an EDITOR
+    * grantee's submit -- RLS (V35 `pipeline_runs_owner`) would reject the grantee's own insert (42501), so the
+    * write runs in system context, but never blind. ONE transaction: (1) the pipeline's owner id is read,
+    * (2) the SAME advisory lock the owner's own submits take (keyed by OWNER id, so owner and editor submits for
+    * one owner serialize against each other), (3) the submitter is re-verified as the pipeline owner or an
+    * `editor` row in `resource_permissions` (the `findGrantRole` predicate) -- a grant revoked since `submit`'s
+    * check, or a pipeline deleted since, yields `NotAuthorized` and writes nothing, (4) the OWNER's
+    * non-terminal count and the insert, exactly as the owner path. Authorization is checked here, at admission;
+    * every later lifecycle write for the admitted run goes through the `*Internal` methods unconditionally so an
+    * admitted run can never stay non-terminal and hold one of the owner's slots. */
+  def insertGranteeRunIfUnderOwnerCap(
+      runId: PipelineRunId,
+      pipelineId: PipelineId,
+      startedAt: Instant,
+      submitter: AuthenticatedUser,
+      triggerSource: String,
+      triggeredByTokenId: Option[String],
+      maxConcurrent: Int,
+      triggeredByUserId: Option[String]
+  ): Future[PipelineRunRepository.ConcurrencyCapResult] = {
+    import PipelineRunRepository.ConcurrencyCapResult._
+    val action: DBIO[PipelineRunRepository.ConcurrencyCapResult] =
+      pipelinesTable.filter(_.id === pipelineId.value).map(_.ownerId).result.headOption.flatMap {
+        case None => DBIO.successful(NotAuthorized)
+        case Some(ownerUuid) =>
+          for {
+            _          <- concurrencyLockAction(ownerUuid.toString)
+            authorized <- submitterMayRunAction(pipelineId, ownerUuid, submitter)
+            result     <- if (!authorized) DBIO.successful(NotAuthorized)
+                          else countAndInsertAction(ownerUuid, runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId, maxConcurrent)
+          } yield result
+      }
+    // withSystemContext: the editor is not the pipeline owner, so V35 pipeline_runs_owner RLS would refuse this
+    // INSERT; bypass is correct because the same transaction re-verifies owner-or-editor (HEL-1492 Q5).
+    ctx.withSystemContext(action)
+  }
+
+  /** The submitter is the pipeline's owner, or holds an `editor` grant on it (same predicate as
+    * `PipelineRepository.findGrantRole`, evaluated in the caller's transaction). */
+  private def submitterMayRunAction(pipelineId: PipelineId, ownerUuid: UUID, submitter: AuthenticatedUser): DBIO[Boolean] = {
+    val submitterUuid = UUID.fromString(submitter.id.value)
+    if (submitterUuid == ownerUuid) DBIO.successful(true)
+    else
+      permTable
+        .filter(p => p.resourceType === "pipeline" && p.resourceId === pipelineId.value && p.granteeId === submitterUuid && p.role === "editor")
+        .exists
+        .result
   }
 
   /** Transaction-scoped advisory lock keyed by owner id (design.md Decision 3), mirroring
@@ -218,14 +290,36 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * Decision 2a): a dry run inserts an already-terminal row in one
     * statement, so it must never leave this NULL, unlike `insertRunInternal`'s
     * queued row. */
-  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser, truncatedReadsJson: String): Future[Unit] =
+  def insertDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, user: AuthenticatedUser, truncatedReadsJson: String, triggeredByUserId: Option[String] = None): Future[Unit] =
     ctx.withUserContext(user.id.value)(pipelineOwnedAction(pipelineId, user)).flatMap {
       case false => Future.successful(())
-      case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount, truncatedReadsJson)
+      case true  => insertDryRunInternal(runId, pipelineId, startedAt, rowCount, truncatedReadsJson, triggeredByUserId)
     }
 
+  /** HEL-1492: an EDITOR grantee's dry-run insert -- the privileged counterpart of [[insertDryRun]]. A dry run has
+    * no preceding authorized row to key on, so the owner-or-editor predicate is evaluated in the SAME transaction
+    * as the insert; a submitter who is neither (grant revoked mid-run, pipeline deleted) writes nothing, silently,
+    * like [[insertDryRun]]'s non-owner no-op. */
+  def insertGranteeDryRun(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, submitter: AuthenticatedUser, truncatedReadsJson: String, triggeredByUserId: Option[String]): Future[Unit] = {
+    val action: DBIO[Unit] =
+      pipelinesTable.filter(_.id === pipelineId.value).map(_.ownerId).result.headOption.flatMap {
+        case None => DBIO.successful(())
+        case Some(ownerUuid) =>
+          submitterMayRunAction(pipelineId, ownerUuid, submitter).flatMap {
+            case false => DBIO.successful(())
+            case true  => dryRunRowAction(runId, pipelineId, startedAt, rowCount, truncatedReadsJson, triggeredByUserId)
+          }
+      }
+    // withSystemContext: the editor is not the pipeline owner, so V35 pipeline_runs_owner RLS would refuse this
+    // INSERT; bypass is correct because the same transaction re-verifies owner-or-editor (HEL-1492 Q5).
+    ctx.withSystemContext(action)
+  }
+
   /** ACL-bypassing dry-run insert for the privileged Spark driver path. */
-  def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, truncatedReadsJson: String): Future[Unit] = {
+  def insertDryRunInternal(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, truncatedReadsJson: String, triggeredByUserId: Option[String] = None): Future[Unit] =
+    ctx.withSystemContext(dryRunRowAction(runId, pipelineId, startedAt, rowCount, truncatedReadsJson, triggeredByUserId))
+
+  private def dryRunRowAction(runId: PipelineRunId, pipelineId: PipelineId, startedAt: Instant, rowCount: Int, truncatedReadsJson: String, triggeredByUserId: Option[String]): DBIO[Unit] = {
     val row = PipelineRunRow(
       id             = runId.value,
       pipelineId     = pipelineId.value,
@@ -235,9 +329,10 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rowCount       = Some(rowCount),
       errorLog       = None,
       triggerSource  = "manual",
-      truncatedReads = Some(truncatedReadsJson)
+      truncatedReads = Some(truncatedReadsJson),
+      triggeredByUserId = triggeredByUserId.map(UUID.fromString)
     )
-    ctx.withSystemContext(runsTable += row).map(_ => ())
+    (runsTable += row).map(_ => ())
   }
 
   /**
@@ -440,16 +535,16 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
 object PipelineRunRepository {
 
-  /** The three outcomes of [[PipelineRunRepository.insertRunIfUnderConcurrencyCap]] (HEL-505).
-   *  `NotOwned` is deliberately distinct from `CapExceeded` -- collapsing them into one `Boolean`
-   *  would turn a non-owner's pre-existing silent-no-op-but-still-executes semantics (an
-   *  editor-grantee-triggered run has always resolved normally despite no persisted run row) into
-   *  an incorrect 429 rejection. */
+  /** The outcomes of [[PipelineRunRepository.insertRunIfUnderConcurrencyCap]] and
+   *  [[PipelineRunRepository.insertGranteeRunIfUnderOwnerCap]] (HEL-505, HEL-1492). Only `Inserted` admits a
+   *  run. `NotAuthorized` (the submitter is not the pipeline's owner or an editor -- a revoked grant, or the
+   *  pipeline deleted mid-submit) is deliberately distinct from `CapExceeded`: it maps to `Forbidden`, not a
+   *  429. */
   sealed trait ConcurrencyCapResult
   object ConcurrencyCapResult {
     case object Inserted extends ConcurrencyCapResult
     case object CapExceeded extends ConcurrencyCapResult
-    case object NotOwned extends ConcurrencyCapResult
+    case object NotAuthorized extends ConcurrencyCapResult
   }
 
   case class PipelineRunRow(
@@ -477,7 +572,10 @@ object PipelineRunRepository {
       // way, per CR4). Raw JSON text at this layer -- decoded to a `RunTruncationRecord` at the
       // service boundary, mirroring every other `jsonbStringType`-mapped column in this codebase
       // (see `PanelRepository`/`AlertRuleRepository`).
-      truncatedReads: Option[String] = None
+      truncatedReads: Option[String] = None,
+      // HEL-1492: the user who submitted the run (owner, editor grantee, the scheduler's synthetic owner, a hook
+      // token's user). NULL on rows written before V124 and on the dormant SparkJobSubmitter path.
+      triggeredByUserId: Option[UUID] = None
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
@@ -496,7 +594,9 @@ object PipelineRunRepository {
     // anyway (it exists purely to document the column's JSONB-backed intent).
     def truncatedReads     = column[Option[String]]("truncated_reads")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads).mapTo[PipelineRunRow]
+    def triggeredByUserId  = column[Option[UUID]]("triggered_by_user_id")
+
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads, triggeredByUserId).mapTo[PipelineRunRow]
   }
 
 

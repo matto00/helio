@@ -99,6 +99,11 @@ private[pipelines] final class PipelineRunExecutor(
     val runId          = PipelineRunId(UUID.randomUUID().toString)
     val startAt        = Instant.now()
     val pidStr         = pipelineId.value
+    // HEL-1492 (design.md D1): the pipeline OWNER is the one persistence principal; the submitter is only an
+    // attribution. `submit` admits just the owner or an editor grantee, so `!ownerRun` means an editor: its writes
+    // go through the privileged, in-transaction re-authorized paths instead of the owner-scoped ones.
+    val ownerRun       = pipeline.ownerId.value == user.id.value
+    val submitterId    = Some(user.id.value)
     // HEL-509 (419-B): caller-supplied output parameter every `assert` step's
     // evaluated results are recorded into (design.md Decision 4) — constructed
     // here, before the engine call, so a mid-pipeline failure still leaves
@@ -142,23 +147,29 @@ private[pipelines] final class PipelineRunExecutor(
         // ever calling `backend.execute` -- hence `preExec`'s short-circuiting
         // `Future[Either[ServiceError, Unit]]` shape (was `Future[Unit]` pre-HEL-505).
         val preExec: Future[Either[ServiceError, Unit]] =
-          if (!isDry && pipelineRunRepo != null)
-            pipelineRunRepo
-              .insertRunIfUnderConcurrencyCap(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId, guardConfig.maxConcurrent)
-              .flatMap {
-                // HEL-505 (skeptic-caught regression during delivery): `NotOwned` mirrors the
-                // pre-existing `insertRun` no-op-for-a-non-owner behavior -- an editor-grantee-
-                // triggered run has always resolved normally despite no persisted run row, and
-                // must keep doing so. Only `CapExceeded` is a real rejection.
-                case PipelineRunRepository.ConcurrencyCapResult.Inserted | PipelineRunRepository.ConcurrencyCapResult.NotOwned =>
-                  pipelineRunRepo
-                    .deleteOldRuns(pipelineId, user, keepN = 10)
-                    .recoverWith { case _ => Future.successful(()) }
-                    .map(_ => Right(()))
-                case PipelineRunRepository.ConcurrencyCapResult.CapExceeded =>
-                  Future.successful(Left(ServiceError.TooManyRequests(guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded")))
-              }
-          else Future.successful(Right(()))
+          if (!isDry && pipelineRunRepo != null) {
+            val admission =
+              if (ownerRun)
+                pipelineRunRepo.insertRunIfUnderConcurrencyCap(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId, guardConfig.maxConcurrent, submitterId)
+              else
+                // HEL-1492: an editor's real run counts against the pipeline OWNER's budget (owner-keyed lock + count).
+                pipelineRunRepo.insertGranteeRunIfUnderOwnerCap(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId, guardConfig.maxConcurrent, submitterId)
+            admission.flatMap {
+              // The ONLY admitting arm. HEL-1492 retired `NotOwned`, which used to run the pipeline without recording it.
+              case PipelineRunRepository.ConcurrencyCapResult.Inserted =>
+                val retention =
+                  if (ownerRun) pipelineRunRepo.deleteOldRuns(pipelineId, user, keepN = 10)
+                  else pipelineRunRepo.deleteOldRunsInternal(pipelineId, keepN = 10)
+                retention
+                  .recoverWith { case _ => Future.successful(()) }
+                  .map(_ => Right(()))
+              case PipelineRunRepository.ConcurrencyCapResult.CapExceeded =>
+                Future.successful(Left(ServiceError.TooManyRequests(guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded")))
+              // Not the owner/editor (grant revoked since `submit`'s check, or the pipeline deleted mid-submit): never executed.
+              case PipelineRunRepository.ConcurrencyCapResult.NotAuthorized =>
+                Future.successful(Left(ServiceError.Forbidden("Forbidden")))
+            }
+          } else Future.successful(Right(()))
 
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
@@ -187,10 +198,10 @@ private[pipelines] final class PipelineRunExecutor(
 
             runFuture.transformWith {
               case Failure(ex) =>
-                executeRunFailure(pipelineId, runId, pidStr, isDry, user, assertionSink, ex)
+                executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
               case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
                 executeRunSuccess(
-                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, triggerSource, assertionSink, truncationSink, writeBackSink,
+                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
                   resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
                 )
             }
@@ -209,6 +220,7 @@ private[pipelines] final class PipelineRunExecutor(
       pidStr: String,
       isDry: Boolean,
       user: AuthenticatedUser,
+      ownerRun: Boolean,
       triggerSource: String,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
@@ -239,10 +251,10 @@ private[pipelines] final class PipelineRunExecutor(
         val (truncated, availableRowCount, notice, truncatedReads) =
           truncationFields(roots.head._2.name, sourceCount, primaryStats, truncationSink)
         val followUp: Future[Either[ServiceError, Option[String]]] =
-          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, assertionSink.results, availableRowCount, truncatedReads).map(_ => Right(None))
+          if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, ownerRun, assertionSink.results, availableRowCount, truncatedReads).map(_ => Right(None))
           else
             onRunSuccess(
-              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, triggerSource,
+              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource,
               assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId
             )
         followUp.map {
@@ -278,6 +290,7 @@ private[pipelines] final class PipelineRunExecutor(
       jsRows:             Vector[JsObject],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
+      ownerRun:           Boolean,
       triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
@@ -293,21 +306,21 @@ private[pipelines] final class PipelineRunExecutor(
     if (blockingFailures.nonEmpty)
       // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
       // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
-      onBlockedRun(pipelineId, runId, pidStr, user, assertionResults, blockingFailures).map(Right(_))
+      onBlockedRun(pipelineId, runId, pidStr, user, ownerRun, assertionResults, blockingFailures).map(Right(_))
     else Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
       // record it and publish the one terminal `failed`, then re-fail with the original exception
       // (even if that bookkeeping fails) so every `submit` caller sees the outcome it always did.
       case NonFatal(ex) =>
         log.error(s"Pipeline write-back threw for pipeline ${pipelineId.value}, run ${runId.value}", ex)
-        onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, "Step (upsertsource): write-back failed")
+        onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, "Step (upsertsource): write-back failed")
           .transformWith(_ => Future.failed(ex))
     }.flatMap {
       case Left(reason) =>
         val errMsg = s"Step (upsertsource): $reason"
-        onWriteBackFailure(pipelineId, runId, pidStr, user, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
+        onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
     }
   }
 

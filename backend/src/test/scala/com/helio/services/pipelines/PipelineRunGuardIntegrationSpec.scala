@@ -26,6 +26,7 @@ import java.nio.file.Paths
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.Success
@@ -367,22 +368,40 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
       await(realSubmissions) // drain, so this test doesn't leak a dangling Future
     }
 
-    "a non-owner (editor grantee) real run still resolves normally, NEVER as a 429 (regression guard)" in {
+    // HEL-1492 (inverts HEL-505's "NEVER as a 429" regression guard): an editor's real run is counted against the
+    // pipeline OWNER's budget, so it IS rejected 429 when the owner's slot is genuinely held. `submit` resolves only
+    // once a run is terminal, so a sequential owner submit never fills a cap -- the slot is held by a run gated
+    // in-flight (`queued`) instead.
+    "an editor grantee's real run is rejected 429 (Retry-After, no execution) while the OWNER's slot is held by an in-flight run" in {
+      val owner   = freshOwner()
+      val grantee = freshOwner()
+      val pid     = seedPipelineFor(owner.id)
+      grantAccess(pid, grantee.id, "editor")
+      val cfg      = PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 1, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30)
+      val gate     = Promise[Unit]()
+      val admitted = Promise[Unit]()
+      val holder   = newGatedService(cfg, gate.future, () => { admitted.trySuccess(()); () }).submit(pid, isDry = false, owner)
+      await(admitted.future)
+
+      val editorBackendEntered = new AtomicBoolean(false)
+      val editorService = newGatedService(cfg, Future.unit, () => editorBackendEntered.set(true))
+      val rejected = tooManyRequests(await(editorService.submit(pid, isDry = false, grantee)))
+      rejected.retryAfterSeconds shouldBe 15L
+      editorBackendEntered.get shouldBe false
+
+      gate.success(())
+      await(holder) shouldBe a[Right[_, _]]
+    }
+
+    "an editor grantee's real run is admitted (and recorded) once the OWNER's slot is free again" in {
       val owner   = freshOwner()
       val grantee = freshOwner()
       val pid     = seedPipelineFor(owner.id)
       grantAccess(pid, grantee.id, "editor")
       val service = newService(PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 1, concurrencyRetryAfterSeconds = 15, sourceFetchRateLimitPerWindow = 30))
-
-      // Fill the OWNER's own cap first.
       await(service.submit(pid, isDry = false, owner)) shouldBe a[Right[_, _]]
-
-      // The grantee-triggered run is a NotOwned no-op at the repository layer (PipelineRunRepository
-      // .ConcurrencyCapResult.NotOwned), not a CapExceeded rejection -- it must still resolve
-      // normally, exactly like every other editor-grantee-triggered run (PipelineRunServiceSpec's
-      // own "an editor-grantee-triggered real run resolves normally despite no persisted run row").
-      val result = await(service.submit(pid, isDry = false, grantee))
-      result shouldBe a[Right[_, _]]
+      await(service.submit(pid, isDry = false, grantee)) shouldBe a[Right[_, _]]
+      await(pipelineRunRepo.listByPipelineInternal(pid)).map(_.status) shouldBe Vector("succeeded", "succeeded")
     }
   }
 }
