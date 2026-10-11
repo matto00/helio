@@ -24,7 +24,7 @@
 - [x] 2.5 Fix every comment D1 falsifies (design D5 list) in the same commit; verify: grep for "in render"/"during render" about these refs is clean. (host/step-creation/step-mutations comments already fixed in D1a-c; the watchdog docblock is fixed with D2, task 3.2)
 - [x] 2.7 D1d (owner ruling rewrite-deep-link): commit deep-link characterization cases (i)-(vi) green on base 744c37720 (scratch worktree per D1d) AND current head; outputSwap test reused unchanged, each with a named red mutation; verify: transcripts.
 - [x] 2.8 D1d code: null-initialised stored pair, set only when the id resolves and the pair changed; param clear stays in the effect; cases (i)-(vi) + outputSwap + T1-T4 (T3 counts) green, tests untouched; then redo the D1 lint proof (complete JSON = one base-equal warning); verify: full JSON saved.
-- [ ] 2.6 Any STOP condition: halt and return ESCALATION with the site and evidence (the orchestrator files the follow-up); verify: n/a unless triggered.
+- [x] 2.6 (not triggered: no STOP site) Any STOP condition: halt and return ESCALATION with the site and evidence (the orchestrator files the follow-up); verify: n/a unless triggered.
 
 ## 3. D2 move the debounced effect (split commit)
 
