@@ -1,7 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.services.dashboards.DashboardServiceValidation
-import com.helio.services.panels.{LayoutPolicy, PanelServiceHelpers}
+import com.helio.services.panels.{LayoutPolicy, LayoutWritePolicy, PanelServiceHelpers}
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.OutputService
 import com.helio.domain.engine.ExpressionEvaluator
@@ -80,7 +80,7 @@ private[services] object PatchSetPreviewProjection {
         Future.successful(Right(Some(panelCreateAfter(request, user))))
 
       case ResolvedAction.DashboardUpdate(_, request, prior) =>
-        Future.successful(dashboardUpdateAfter(request, prior))
+        dashboardUpdateAfter(request, prior, ctx)
       case ResolvedAction.DashboardDelete(_, _) =>
         Future.successful(Right(None))
       case ResolvedAction.DashboardCreate(request) =>
@@ -209,28 +209,34 @@ private[services] object PatchSetPreviewProjection {
   }
 
 
-  private def dashboardUpdateAfter(request: UpdateDashboardRequest, prior: Dashboard): Either[ServiceError, Option[JsValue]] =
+  private def dashboardUpdateAfter(
+      request: UpdateDashboardRequest,
+      prior: Dashboard,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
     DashboardServiceValidation.validateDashboardUpdateRequest(request) match {
-      case Left(err) => Left(ServiceError.BadRequest(err))
+      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
       case Right((nameOpt, appearanceOpt, layoutPatchOpt)) =>
-        // HEL-1071: the same layout policy `DashboardService.update` applies, so a preview of an
-        // invalid layout 400s exactly like the apply would.
-        val layoutResolved = layoutPatchOpt match {
-          case None        => Right(prior.layout)
-          case Some(patch) => LayoutPolicy(prior.layout, patch)
-        }
-        layoutResolved match {
-          case Left(msg) => Left(ServiceError.BadRequest(msg))
-          case Right(layout) =>
-            // design.md D3's corrected three-field mirror of DashboardService.applyUpdate --
-            // name/appearance/layout only, `meta` deliberately left at `prior`'s value (D3's
-            // timestamp exclusion).
-            val updated = prior.copy(
-              name       = nameOpt.getOrElse(prior.name),
-              appearance = appearanceOpt.getOrElse(prior.appearance),
-              layout     = layout
-            )
-            Right(Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(updated))))
+        // HEL-1456 D5 / HEL-1485: the same live-panel layout resolution `DashboardWrites.applyUpdate`
+        // runs (shared `LayoutPolicy.resolveOnLive`), so a preview drops ghost items exactly as apply
+        // does and 400s only where apply would. A rename-only update returns the stored row, layout
+        // unfiltered, like apply's `updateName` branch.
+        ctx.dashboardRepo.panelIdsInternal(prior.id).map { panelIds =>
+          val renameOnly = nameOpt.isDefined && appearanceOpt.isEmpty && layoutPatchOpt.isEmpty
+          val (liveLayout, layoutResolved) = LayoutPolicy.resolveOnLive(prior.layout, layoutPatchOpt, panelIds, LayoutWritePolicy.Validate)
+          layoutResolved match {
+            case Left(msg) => Left(ServiceError.BadRequest(msg))
+            case Right(patched) =>
+              // design.md D3's corrected three-field mirror of DashboardService.applyUpdate --
+              // name/appearance/layout only, `meta` deliberately left at `prior`'s value (D3's
+              // timestamp exclusion).
+              val updated = prior.copy(
+                name       = nameOpt.getOrElse(prior.name),
+                appearance = appearanceOpt.getOrElse(prior.appearance),
+                layout     = if (renameOnly) prior.layout else patched.getOrElse(liveLayout)
+              )
+              Right(Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(updated))))
+          }
         }
     }
 

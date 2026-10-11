@@ -215,12 +215,12 @@ object WindowStep {
       else {
         val sorted = groupRows.sorted(rowOrdering(cfg.orderBy))
         cfg.function match {
-          case "row_number" => computeRowNumber(sorted)
-          case "rank"       => computeRank(sorted, cfg.orderBy, dense = false)
-          case "dense_rank" => computeRank(sorted, cfg.orderBy, dense = true)
+          case "row_number"  => computeRowNumber(sorted)
+          case "rank"        => computeRank(sorted, cfg.orderBy, dense = false)
+          case "dense_rank"  => computeRank(sorted, cfg.orderBy, dense = true)
           case "running_sum" => computeRunningSum(sorted, fieldName)
-          case "lag"        => computeLagLead(sorted, fieldName, offset, isLag = true)
-          case "lead"       => computeLagLead(sorted, fieldName, offset, isLag = false)
+          case "lag"         => computeLagLead(sorted, fieldName, offset, isLag = true)
+          case "lead"        => computeLagLead(sorted, fieldName, offset, isLag = false)
           case other =>
             // Unreachable: cfg.function was validated against SupportedFunctions
             // above. Kept only so the match stays total for the compiler.

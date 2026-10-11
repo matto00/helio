@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.testsupport.RetentionDrain._
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}

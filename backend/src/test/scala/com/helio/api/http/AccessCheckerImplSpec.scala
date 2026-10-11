@@ -28,8 +28,16 @@ class AccessCheckerImplSpec extends AnyWordSpec with Matchers {
     override def hasPublicViewerGrant(rt: String, rid: String): Future[Boolean] = Future.successful(false)
   }
 
+  /** Same grants as [[permRepo]] but the resource has a public viewer grant (the anonymous-read path). */
+  private val publicPermRepo = new ResourcePermissionRepository(null) {
+    override def hasPublicViewerGrant(rt: String, rid: String): Future[Boolean] = Future.successful(true)
+  }
+
   private def checker(ownerOf: Option[String]) =
     new AccessCheckerImpl(permRepo, new ResourceTypeRegistry(ResourceType("dashboard", _ => Future.successful(ownerOf))))
+
+  private def publicChecker(ownerOf: Option[String]) =
+    new AccessCheckerImpl(publicPermRepo, new ResourceTypeRegistry(ResourceType("dashboard", _ => Future.successful(ownerOf))))
 
   private def await[T](f: Future[T]): T = Await.result(f, 5.seconds)
 
@@ -62,6 +70,18 @@ class AccessCheckerImplSpec extends AnyWordSpec with Matchers {
       await(present.requireAccess("dashboard", "d1", Some(viewer), msg)) shouldBe Right(ResourceAccess.Viewer)
       await(present.requireAccess("dashboard", "d1", Some(editor), msg)) shouldBe Right(ResourceAccess.Editor)
       await(present.requireAccess("dashboard", "d1", Some(owner), msg)) shouldBe Right(ResourceAccess.Owner)
+    }
+  }
+
+  // HEL-1488 site 4: the anonymous (`userOpt = None`) arm. A public viewer grant yields exactly Viewer
+  // (never Editor: anonymous access is read-only); no public grant yields exactly the absent-resource NotFound.
+  "requireAccess for an anonymous caller" should {
+    "return exactly Viewer when the resource has a public viewer grant" in {
+      await(publicChecker(Some("owner")).requireAccess("dashboard", "d1", None, msg)) shouldBe Right(ResourceAccess.Viewer)
+    }
+    "return exactly the absent-resource NotFound when it has no public viewer grant" in {
+      await(present.requireAccess("dashboard", "d1", None, msg)) shouldBe Left(ServiceError.NotFound(msg))
+      await(present.requireAccess("dashboard", "d1", None, msg)) shouldBe await(absent.requireAccess("dashboard", "d1", None, msg))
     }
   }
 }

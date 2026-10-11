@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.testsupport.RetentionDrain._
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.testsupport.OutputHistoryFixtures

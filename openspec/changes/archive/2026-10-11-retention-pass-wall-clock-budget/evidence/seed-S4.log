@@ -1,0 +1,74 @@
+DO
+MARKER_AFTER_GUARD
+SET
+SET
+SET
+psql:scripts/perf/hel1477-history-seed.sql:54: NOTICE:  table "perf_anchor" does not exist, skipping
+DROP TABLE
+SELECT 1
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "dashboards"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "panels"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "user_sessions"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "resource_permissions"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "user_dashboard_zoom"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_steps"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_runs"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "api_tokens"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "binary_refs"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "image_uploads"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "alert_rules"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "alert_events"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_schedules"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "authoring_conversations"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "patch_set_applications"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "assistant_conversations"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "agent_preferences"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "agent_memory"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "assistant_daily_usage"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "user_mfa"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "mfa_backup_codes"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "mfa_login_challenges"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "invite_codes"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "connector_credentials"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "connectors"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "share_tokens"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "connector_completion_tokens"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "dataset_rows"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_run_rate_window"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_auto_run_debounce"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "product_events"
+psql:scripts/perf/hel1477-history-seed.sql:56: NOTICE:  truncate cascades to table "pipeline_run_assertions"
+TRUNCATE TABLE
+psql:scripts/perf/hel1477-history-seed.sql:57: NOTICE:  index "perf_osh_captured_at" does not exist, skipping
+DROP INDEX
+psql:scripts/perf/hel1477-history-seed.sql:58: NOTICE:  index "perf_osh_pipeline_captured" does not exist, skipping
+DROP INDEX
+psql:scripts/perf/hel1477-history-seed.sql:59: NOTICE:  index "perf_nph_captured_at" does not exist, skipping
+DROP INDEX
+psql:scripts/perf/hel1477-history-seed.sql:60: NOTICE:  index "perf_nph_pipeline_captured" does not exist, skipping
+DROP INDEX
+SELECT 300
+ALTER TABLE
+ALTER TABLE
+UPDATE 300
+UPDATE 300
+INSERT 0 50
+INSERT 0 100
+INSERT 0 1
+INSERT 0 100
+INSERT 0 300
+SELECT 53
+ALTER TABLE
+ALTER TABLE
+UPDATE 53
+INSERT 0 53
+UPDATE 53
+CREATE VIEW
+INSERT 0 5533209
+RESET
+VACUUM
+
+real	3m9.937s
+user	0m0.003s
+sys	0m0.003s
+VACUUM

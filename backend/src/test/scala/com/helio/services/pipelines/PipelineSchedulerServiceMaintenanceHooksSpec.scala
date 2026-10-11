@@ -12,15 +12,29 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.jdk.CollectionConverters._
 
 import java.time.{Duration, Instant}
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 
 /** HEL-1272 (split out by HEL-1286): the output-history retention hook on
  *  `PipelineSchedulerService.tick` — a retention-purge failure, thrown or
  *  returned as a failed future, never fails the tick nor blocks its other
- *  work. Fixture shared through `PipelineSchedulerServiceFixture`. */
+ *  work. HEL-1477: the pass is detached from the tick, so the pass is observed
+ *  through the future the service returned (captured below), never by sleeping.
+ *  Fixture shared through `PipelineSchedulerServiceFixture`. */
 class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matchers with PipelineSchedulerServiceFixture {
 
   "PipelineSchedulerService.tick" should {
+
+    /** The real service, plus the future of the pass the tick started (the tick does not wait for it). */
+    class CapturingRetention(repo: OutputHistoryRepository)
+        extends OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults) {
+      private val started = Promise[Future[Option[Int]]]()
+      override def purgeIfDue(now: Instant): Future[Option[Int]] = {
+        val pass = super.purgeIfDue(now)
+        started.trySuccess(pass)
+        pass
+      }
+      def pass(): Future[Option[Int]] = started.future.flatMap(identity)
+    }
 
     // HEL-1272: a retention-purge failure never fails the tick nor blocks its other work.
     def historyFailureCase(name: String, failing: => OutputHistoryRepository): Unit =
@@ -29,16 +43,17 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
         val pid = seedStaticPipeline()
         fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
         seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-        val retention = new OutputHistoryRetentionService(failing, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults)
+        val retention = new CapturingRetention(failing)
         val svc = new PipelineSchedulerService(
           scheduleRepo, pipelineRepo, pipelineStepRepo, runRepo, runServiceForHistory, fakeClock, outputHistoryRetentionService = retention
         )
         val appender = new ListAppender[ILoggingEvent]()
-        val logger   = LoggerFactory.getLogger(classOf[OutputHistoryRetentionService]).asInstanceOf[LogbackLogger]
+        val logger   = LoggerFactory.getLogger(retention.getClass).asInstanceOf[LogbackLogger]
         appender.start(); logger.addAppender(appender)
         try {
           noException should be thrownBy await(svc.tick())
           await(runRepo.listByPipelineInternal(pid)) should have size 1
+          await(retention.pass()) shouldBe None // the detached pass ended (it logs before it completes)
           appender.list.asScala.exists(e => e.getLevel == Level.ERROR && e.getFormattedMessage.contains("Output history retention purge failed")) shouldBe true
         } finally logger.detachAppender(appender)
       }

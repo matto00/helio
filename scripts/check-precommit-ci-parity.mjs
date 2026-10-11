@@ -27,9 +27,14 @@
 //
 // CI is scanned scoped to what actually gates a merge: only
 // `.github/workflows/ci.yml`'s own jobs named in its `ci-complete` job's
-// `needs:` array are scanned for `run:` blocks. A check living solely in a
-// tag-triggered workflow (e.g. cd-backend.yml) blocks nothing on a PR, so
-// counting it as "covered" would recreate the exact hole this ticket closes.
+// `needs:` list, plus `ci-complete` itself, are scanned -- and only their
+// parsed `steps[].run` strings (HEL-1462). ci.yml is read through the same
+// js-yaml structural reader as check-ci-complete-needs.mjs (one parser of the
+// file, fail-closed): a comment or string containing `needs: [...]` can never
+// stand in for the real list, and a command named only in a comment is not
+// coverage. A check living solely in a tag-triggered workflow (e.g.
+// cd-backend.yml) blocks nothing on a PR, so counting it as "covered" would
+// recreate the exact hole this ticket closes.
 //
 // Usage: node check-precommit-ci-parity.mjs [repoRoot]
 
@@ -37,29 +42,12 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const NPM_RUN_RE = /npm(?:\s+--prefix\s+\S+)?\s+run\s+([\w:.-]+)/g;
-const NPM_BARE_ALIAS_RE = /npm(?:\s+--prefix\s+\S+)?\s+(test|start)\b(?!\S)/g;
-const NODE_PATH_RE = /\bnode\s+(\S+\.m?js)\b/g;
-
-/** Extract every `npm run <script>` and bare-alias (`npm test`/`npm start`) name from a text blob. */
-function extractNpmScriptInvocations(text) {
-  const names = new Set();
-  let m;
-  NPM_RUN_RE.lastIndex = 0;
-  while ((m = NPM_RUN_RE.exec(text))) names.add(m[1]);
-  NPM_BARE_ALIAS_RE.lastIndex = 0;
-  while ((m = NPM_BARE_ALIAS_RE.exec(text))) names.add(m[1]);
-  return names;
-}
-
-/** Extract every direct `node <path>` invocation from a text blob. */
-function extractNodePaths(text) {
-  const paths = new Set();
-  let m;
-  NODE_PATH_RE.lastIndex = 0;
-  while ((m = NODE_PATH_RE.exec(text))) paths.add(m[1]);
-  return paths;
-}
+import {
+  readCiTopology,
+  jobRunCommands,
+  extractNpmScriptInvocations,
+  extractNodePaths,
+} from "./check-ci-complete-needs.mjs";
 
 /** Parse `.husky/pre-commit` into the resolved set of npm script names it invokes. */
 export function parseHookScripts(hookText) {
@@ -87,38 +75,6 @@ export function resolveUnderlyingPaths(scriptNames, packageJsonScripts) {
 }
 
 /**
- * Parse the top-level job names in `ci-complete`'s `needs:` array from
- * `ci.yml`'s raw text. Deliberately a narrow, purpose-built scan (not a full
- * YAML parser) matching this file's own established convention
- * (check-dependabot-groups.mjs) for CI-adjacent config files.
- */
-export function parseCiCompleteNeeds(ciYamlText) {
-  const jobBlockMatch = /^ {2}ci-complete:\n([\s\S]*?)(?=^ {2}\S|Z$)/m.exec(ciYamlText + "\nZ");
-  const jobBlock = jobBlockMatch ? jobBlockMatch[1] : ciYamlText;
-  const needsMatch = /needs:\s*\[([^\]]*)\]/.exec(jobBlock);
-  if (!needsMatch) return [];
-  return needsMatch[1]
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s !== "");
-}
-
-/**
- * Extract, for each job name in `jobNames`, the raw text of that job's block
- * from `ci.yml`'s top-level `jobs:` mapping (each job is a `  <name>:` line
- * at 2-space indent under `jobs:`, ending at the next 2-space-indented key).
- */
-export function extractJobBlocks(ciYamlText, jobNames) {
-  const blocks = {};
-  for (const name of jobNames) {
-    const re = new RegExp(`^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}\\S|Z$)`, "m");
-    const m = re.exec(ciYamlText + "\nZ");
-    if (m) blocks[name] = m[1];
-  }
-  return blocks;
-}
-
-/**
  * Compare the hook's resolved script set against what's actually reachable
  * from a merge-blocking `ci-complete` dependency.
  *
@@ -132,17 +88,29 @@ export function checkPrecommitCiParity({ hookText, ciYamlText, packageJsonScript
   const hookScripts = parseHookScripts(hookText);
   const underlyingPaths = resolveUnderlyingPaths(hookScripts, packageJsonScripts);
 
-  const neededJobs = parseCiCompleteNeeds(ciYamlText);
-  const jobBlocks = extractJobBlocks(ciYamlText, neededJobs);
-
-  const ciScriptNames = new Set();
-  const ciNodePaths = new Set();
-  for (const block of Object.values(jobBlocks)) {
-    for (const name of extractNpmScriptInvocations(block)) ciScriptNames.add(name);
-    for (const path of extractNodePaths(block)) ciNodePaths.add(path);
+  // Fail closed: any structural problem with ci.yml is an error, never an empty covered set.
+  const topology = readCiTopology(ciYamlText);
+  if (topology.errors.length > 0) {
+    return { errors: topology.errors, hookScripts: [...hookScripts].sort(), coveredScripts: [] };
   }
+  const neededJobs = topology.needs;
+  const scannedJobs = [...new Set([...neededJobs, "ci-complete"])];
 
   const errors = [];
+  const ciScriptNames = new Set();
+  const ciNodePaths = new Set();
+  for (const job of scannedJobs) {
+    const { commands, error } = jobRunCommands(topology.doc, job);
+    if (error) errors.push(error);
+    for (const command of commands) {
+      for (const name of extractNpmScriptInvocations(command)) ciScriptNames.add(name);
+      for (const path of extractNodePaths(command)) ciNodePaths.add(path);
+    }
+  }
+  if (errors.length > 0) {
+    return { errors, hookScripts: [...hookScripts].sort(), coveredScripts: [] };
+  }
+
   const covered = [];
   const uncovered = [];
   for (const name of hookScripts) {
@@ -159,7 +127,7 @@ export function checkPrecommitCiParity({ hookText, ciYamlText, packageJsonScript
   if (uncovered.length > 0) {
     errors.push(
       `${uncovered.length} hook script(s) run in .husky/pre-commit but are not reachable from ` +
-        `ci-complete's needs (${neededJobs.join(", ")}): ${uncovered.sort().join(", ")}`,
+        `ci-complete's needs or ci-complete itself (${scannedJobs.join(", ")}): ${uncovered.sort().join(", ")}`,
     );
   }
 

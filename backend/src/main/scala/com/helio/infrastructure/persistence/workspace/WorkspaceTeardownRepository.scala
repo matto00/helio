@@ -157,7 +157,13 @@ class WorkspaceTeardownRepository(
           // (see the constructor-site comment above) -- deleted alongside
           // the other two, panels cascade via their own pre-existing FK.
           val deleteDashboards = dashboardsTable.filter(_.id.inSet(dashboardIds)).delete
-          (deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
+          // HEL-1485: the panel-row pre-lock must precede deletePipelines, not deleteDashboards: the
+          // pipeline cascade (outputs -> panels, V94) already fires V122, which locks each affected dashboard.
+          // Under the owner's RLS context this covers every panel of a tagged dashboard (V36 panel policies).
+          // Not covered: an untagged dashboard holding panels bound to a tagged pipeline's outputs is
+          // locked by V122 mid-transaction, so a later statement needing a panel row there is still
+          // dashboard-then-panel (pre-existing, outside the dashboard-delete race).
+          (DashboardRepository.lockPanelRows(dashboardIds) andThen deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
         }
     } yield TeardownOutcome(
       blocked = conflicts.nonEmpty,
