@@ -1,0 +1,4 @@
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Tests: succeeded 6813, failed 0, canceled 4, ignored 0, pending 0
+[success] elapsed time: 641 s (0:10:41.0), cache 100%, 535 disk cache hits
+EXIT=0

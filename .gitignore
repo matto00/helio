@@ -108,3 +108,6 @@ scripts/concertino/.instrumentation-manifest.json
 
 # HEL-1442: jest cache moved off tmpfs /tmp to the checkout (local only)
 .jest-cache/
+
+# E2E throwaway-user registry (HEL-1301): per-run exact ids written by e2e/support/userCleanup.ts
+/.e2e-user-registry/

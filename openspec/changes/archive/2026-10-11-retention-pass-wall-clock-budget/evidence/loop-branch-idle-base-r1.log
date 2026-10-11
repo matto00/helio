@@ -1,0 +1,7 @@
+MemAvailable:   53247088 kB
+@@LOOP tag=branch-idle-base-r1 retention=off tick_ms=30000 ticks=3 due_offset_ms=5000 interval=20s anchor=2026-10-11T11:00:00Z
+@@TICK tag=branch-idle-base-r1 n=1 start_ms=169 end_ms=207 dur_ms=38 due_ms=5000 fired=false fire_delay_ms=-1 runs=0
+@@TICK tag=branch-idle-base-r1 n=2 start_ms=30216 end_ms=30378 dur_ms=162 due_ms=5000 fired=true fire_delay_ms=25216 runs=1
+@@TICK tag=branch-idle-base-r1 n=3 start_ms=60386 end_ms=60487 dur_ms=101 due_ms=50216 fired=true fire_delay_ms=10170 runs=2
+@@RUNDUR tag=branch-idle-base-r1 run_ms=60.7,28.5
+done

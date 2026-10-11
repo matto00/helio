@@ -1,0 +1,8 @@
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+Exception in thread "main" java.lang.IllegalArgumentException: requirement failed: refusing: url must be exactly jdbc:postgresql://127.0.0.1:55477/helio_hel1477_scratch
+	at scala.Predef$.require(Predef.scala:337)
+	at com.helio.services.pipelines.RetentionTickMeasure$.main(RetentionTickMeasure.scala:56)
+	at com.helio.services.pipelines.RetentionTickMeasure.main(RetentionTickMeasure.scala)
+[error] nonzero exit code returned from runner: 1
+[error] (Test / runMain) nonzero exit code returned from runner: 1
+[error] elapsed time: 2 s, cache 96%, 27 disk cache hits, 1 onsite task

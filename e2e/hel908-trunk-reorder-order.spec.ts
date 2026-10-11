@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-908, Cycle 8 — closes a real coverage gap flagged by Cycle 6/the human:
@@ -32,6 +33,7 @@ test.describe("HEL-908 trunk-to-trunk reorder — real order assertion", () => {
       data: { email, password, displayName: "HEL-908 Reorder E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {

@@ -30,8 +30,9 @@ const yaml = ({
   needsLine = "    needs: [a, b]",
   jobsA = JOB("a"),
   jobsB = JOB("b"),
+  gateSteps = "      - run: npm run check:ci-complete-needs\n",
 } = {}) =>
-  `name: ci\non:\n  push:\njobs:\n${jobsA}${between}${jobsB}  ci-complete:\n    runs-on: ubuntu-latest\n${needsLine}\n    steps:\n      - run: true\n`;
+  `name: ci\non:\n  push:\njobs:\n${jobsA}${between}${jobsB}  ci-complete:\n    runs-on: ubuntu-latest\n${needsLine}\n    steps:\n${gateSteps}`;
 
 // Green baselines.
 assert(checkCiCompleteNeeds(yaml()).errors.length === 0, "valid file passes");
@@ -129,6 +130,39 @@ expectError(
   "REGRESSION cycle 3: fake `zz:` key inside the gate's own quoted scalar hiding the real needs",
   'on: push\njobs:\n  a:\n    runs-on: x\n  b:\n    runs-on: x\n  ci-complete:\n    name: "x\n    needs: [a, b, zz]\n  zz:\n    y"\n    needs: [a]\n',
   'job "b" is missing',
+);
+
+// HEL-1462 D5: the guard anchors itself in ci-complete's own steps (exact tokens, never a substring).
+const ANCHOR = "must run the guard";
+expectError(
+  "ci-complete without the guard step",
+  yaml({ gateSteps: "      - run: true\n" }),
+  ANCHOR,
+);
+expectError(
+  "ci-complete running only the :selftest script does not satisfy the anchor",
+  yaml({ gateSteps: "      - run: npm run check:ci-complete-needs:selftest\n" }),
+  ANCHOR,
+);
+expectError(
+  "ci-complete with a step lacking run (uses only) does not satisfy the anchor",
+  yaml({ gateSteps: "      - uses: actions/checkout@v7\n" }),
+  ANCHOR,
+);
+expectError(
+  "guard step named only in a comment does not satisfy the anchor",
+  yaml({ gateSteps: "      # - run: npm run check:ci-complete-needs\n      - run: true\n" }),
+  ANCHOR,
+);
+assert(
+  checkCiCompleteNeeds(
+    yaml({ gateSteps: "      - run: node scripts/check-ci-complete-needs.mjs\n" }),
+  ).errors.length === 0,
+  "node scripts/check-ci-complete-needs.mjs also satisfies the anchor",
+);
+assert(
+  !checkCiCompleteNeeds(yaml({ needsLine: "    needs: a" })).errors.some((e) => e.includes(ANCHOR)),
+  "structural errors return before the anchor runs",
 );
 
 // Real ci.yml.

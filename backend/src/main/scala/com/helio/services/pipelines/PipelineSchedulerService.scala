@@ -117,14 +117,16 @@ final class PipelineSchedulerService(
     val telemetryWork =
       if (productEventRollupService != null) productEventRollupService.tickAt(now) else Future.successful(())
     // HEL-1272: Output-history thinning/purge, interval-gated inside the service; never fails the tick.
-    val historyWork =
-      if (outputHistoryRetentionService != null)
-        Future.delegate(outputHistoryRetentionService.purgeIfDue(now)).map(_ => ()).recover { case ex =>
-          log.error("PipelineSchedulerService: output history retention failed", ex)
-          ()
-        }
-      else Future.successful(())
-    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).zip(historyWork).map(_ => ())
+    // HEL-1477: STARTED here but not awaited -- the actor arms the next tick only when this one completes, so awaiting
+    // a pass (up to minutes on a deep backlog) delayed every scheduled fire. The service's in-flight guard keeps at
+    // most one pass running; a failure is logged by the recover below and cannot reach the tick.
+    if (outputHistoryRetentionService != null) {
+      val _ = Future.delegate(outputHistoryRetentionService.purgeIfDue(now)).recover { case ex =>
+        log.error("PipelineSchedulerService: output history retention failed", ex)
+        None
+      }
+    }
+    candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).map(_ => ())
   }
 
   private def processCandidate(schedule: PipelineSchedule, now: Instant): Future[Unit] =

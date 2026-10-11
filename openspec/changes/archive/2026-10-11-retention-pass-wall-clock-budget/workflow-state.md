@@ -1,0 +1,32 @@
+# Workflow State — HEL-1477
+TICKET_ID: HEL-1477
+CHANGE_NAME: retention-pass-wall-clock-budget
+WORKTREE_PATH: /home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477
+BRANCH: task/retention-pass-wall-clock-budget/HEL-1477
+REVIEW_BASE_BRANCH: main
+REVIEW_BASE_REMOTE: origin
+PHASE: Delivery
+CYCLE: 2
+DEV_PORT: 6909
+BACKEND_PORT: 9816
+EXECUTOR_AGENT_ID: ac8ea148cf8ce9577
+EVALUATOR_AGENT_ID: af2298be70570f203
+LAST_EVAL_VERDICT: PASS
+LAST_EVAL_REPORT: /home/matt/Development/helio/.claude/worktrees/task/retention-pass-wall-clock-budget/HEL-1477/openspec/changes/retention-pass-wall-clock-budget/evaluation-3.md
+SKEPTIC_CYCLE: 1
+LAST_SKEPTIC_VERDICT: CONFIRM
+AGENT_MERGE: true
+TICKET_TYPE: feature
+DESIGN_QUESTIONS: null
+SPEED: default
+EXECUTION_CYCLES: 3
+SKEPTIC_DESIGN_ROUNDS: 5
+SKEPTIC_FINAL_ROUNDS: 2
+DEBUG_ATTEMPTS: 2
+MODELS: {"orchestrator":"opus","executor":"sonnet","evaluator":"opus","skeptic":"opus","auditor":"sonnet"}
+SECOND_FINAL_GATE_SKEPTIC: false
+EVALUATOR_CLEAN_WORKTREE: false
+PENDING_ESCALATION: null
+CONSTRAINTS: [{"id":"C1","text":"No test-only members in production code","agreed_at":"planning","retired":false},{"id":"C2","text":"Deterministic tests use Promise/clock seams; no sleeps or real-time eventually","agreed_at":"planning","retired":false},{"id":"C3","text":"Measurements on hel1477-* scratch containers only, nice -n 19, MemAvailable>=15GB, exact-name teardown; never backend/.env, dev DB or prod","agreed_at":"planning","retired":false},{"id":"C4","text":"No retention default changes; any is a flagged product call","agreed_at":"planning","retired":false},{"id":"C5","text":"New specs use VerifiedEmbeddedPostgres.start; [hel1468-guard] in every sbt run; no inline FQNs; <=2 sbt testFull machine-wide","agreed_at":"planning","retired":false},{"id":"C6","text":"Red first, recorded on unfixed code","agreed_at":"planning","retired":false},{"id":"C7","text":"In-flight guard released only after the WHOLE pass (history + payload) and after the nextDue rewrite; tests observe nextDue via behaviour, no test-only accessor","agreed_at":"design-gate","retired":false}]
+CONSTRAINT_REVIEWS: [{"gate":"planning","round":1,"verdict":"n/a","promoted":["C1","C2","C3","C4","C5","C6"]},{"verdict_seq":1,"gate":"design","round":1,"verdict":"REFUTE","promoted":[]},{"verdict_seq":2,"gate":"design","round":2,"verdict":"CONFIRM","promoted":["C7"]},{"verdict_seq":3,"gate":"final","round":1,"verdict":"CONFIRM","promoted":[]}]
+SKEPTIC_VERDICTS_TOTAL: 3
