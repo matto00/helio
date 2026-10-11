@@ -194,6 +194,14 @@ function renderPage(store = makeStore()) {
   );
 }
 
+/** `renderPage`, then lets the mount's own steps fetch settle (HEL-1483: until it lands the steps
+ *  area shows a loading skeleton, not the editor / empty state). */
+async function renderPageSettled(store = makeStore()) {
+  const result = renderPage(store);
+  await act(async () => {});
+  return result;
+}
+
 function aiPersisted(
   id: string,
   position: number,
@@ -300,7 +308,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("keeps the open trunk draft expanded when its create resolves", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
@@ -317,7 +325,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
   it("keeps a lane-add draft on a childless anchor expanded and as its own lane head", async () => {
     getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addLaneDraft();
     const laneOf = () => generateToggle().closest(".pipeline-detail-page__lane");
     const laneBefore = laneOf();
@@ -335,7 +343,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("saves an edit made while the create was in flight to the persisted step", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
 
@@ -353,7 +361,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("does not issue a flush PATCH when nothing was edited in flight", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
@@ -365,7 +373,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("an edit after the swap PATCHes the persisted id, with the card still open", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
@@ -391,7 +399,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
       } as never),
     );
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
 
@@ -404,7 +412,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("a later full resync keeps the created draft's card open", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
@@ -437,7 +445,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
       enabled: false,
     });
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
@@ -466,7 +474,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
       { ...persisted("f-1", "filter", 0), parentStepId: "ai-1" },
     ]);
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
     const gaps = screen.getAllByRole("button", { name: "Insert step here" });
     fireEvent.click(gaps[gaps.length - 1]);
@@ -502,7 +510,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("keeps the chosen input field shown while the draft's create is in flight", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
 
@@ -513,7 +521,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
   it("keeps the chosen input field shown after the create, before its own analyze lands", async () => {
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     // Hold every later /analyze (the post-swap debounced one) unresolved.
@@ -560,7 +568,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
       ],
     });
     const create = deferredCreate();
-    renderPage();
+    await renderPageSettled();
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: /Rename column/i })).toHaveLength(2),
     );

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 
 import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
@@ -6,6 +7,7 @@ import { PipelineRiverView } from "./PipelineRiverView";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
+import { Skeleton } from "../../../shared/ui/Skeleton";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { OutputsGalleryTab } from "./OutputsGalleryTab";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
@@ -24,9 +26,24 @@ type DetailTab = "steps" | "outputs";
 // pipelines/hooks/usePipelineDetailPage.ts). Split is strictly
 // behavior-preserving — see that hook's F-146/F-105 comments for the
 // ref/memo-identity invariants carried over unchanged.
+//
+// HEL-1483 -- the router reuses this component instance when only `:id` changes (list/sidebar,
+// command palette, recents, back/forward all navigate `/pipelines/A` -> `/pipelines/B` in place), so
+// the page is keyed by the route id: a pipeline switch becomes "leave A, open B", the same unmount
+// -> mount every other navigation already is. That drops everything pipeline-local at once -- the
+// seeded/edited step list, unsaved AI drafts, pending debounced step saves (the StepCards' timers
+// clear on unmount), the analyze fingerprint/defer watchdog, the SSE subscription, the run-history
+// modal, the share/schedule dialogs, the Output sheet/history, the output-name field and the
+// Steps/Outputs tab -- instead of a reset effect that must name every one of them.
 export function PipelineDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  return <PipelineDetailPageContent key={id} />;
+}
+
+function PipelineDetailPageContent() {
   const {
     id,
+    stepsLoading,
     steps,
     dropdownOpenAt,
     setDropdownOpenAt,
@@ -263,47 +280,59 @@ export function PipelineDetailPage() {
           aria-labelledby="pipeline-detail-page__tab-steps"
           className="pipeline-detail-page__tabpanel"
         >
-          <PipelineRiverView
-            steps={steps}
-            isOwner={isOwner}
-            laneGraph={laneGraph}
-            roots={roots}
-            onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
-            pipelineId={id ?? ""}
-            dropdownOpen={dropdownOpenAt === "bottom"}
-            openDropdown={() => setDropdownOpenAt("bottom")}
-            closeDropdown={() => setDropdownOpenAt(null)}
-            onAddStep={handleAddStep}
-            onInsertStep={(opType, index) => void handleInsertStep(opType, index)}
-            onAddLaneStep={(opType, parentStepId) => void handleAddLaneStep(opType, parentStepId)}
-            onRemoveStep={handleRemoveStep}
-            getAnalyzeColumns={getAnalyzeColumns}
-            getAnalyzeSchema={getAnalyzeSchema}
-            getAnalyzeOutputSchema={getAnalyzeOutputSchema}
-            hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
-            getAnalyzeValidationError={getAnalyzeValidationError}
-            getAnalyzeWarnings={getAnalyzeWarnings}
-            estimatedRows={estimatedRows}
-            draftCreateErrors={draftCreateErrors}
-            onStepConfigChange={handleStepConfigChange}
-            runStepRowCounts={runStepRowCounts}
-            onInstantiateShape={handleInstantiateShape}
-            // F-146 — passed directly (not `(newOrder) => void handleX(newOrder)`):
-            // that wrapper allocated a fresh function every render, which — since
-            // `onReorderSteps`/`onToggleStepEnabled`/`onDuplicateStep` feed
-            // `StepCard` props (the latter two directly; `onReorderSteps` via
-            // `PipelineRiverView`'s own `onMoveUp`/`onMoveDown`) — defeated
-            // `StepCard`'s `React.memo` regardless of the `useCallback` above.
-            onReorderSteps={handleReorderSteps}
-            onToggleStepEnabled={handleToggleStepEnabled}
-            onDuplicateStep={handleDuplicateStep}
-            duplicatingStepIds={duplicatingStepIds}
-            creatingStepIds={creatingStepIds}
-            outputsByStepId={outputsByStepId}
-            previewRowCountByOutputId={previewRowCountByOutputId}
-            onOpenOutput={handleOpenOutput}
-            onAddOutput={handleAddOutput}
-          />
+          {stepsLoading ? (
+            // HEL-1483 (D2a): this mount's steps fetch hasn't landed, so "No steps yet" (and its
+            // live Add buttons) would be false. Same placeholder the page-level load shows.
+            <div className="pipeline-detail-page__river" role="status" aria-label="Loading steps">
+              <div className="pipeline-detail-page__river-inner pipeline-detail-page__river-inner--skeleton">
+                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
+                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
+                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
+              </div>
+            </div>
+          ) : (
+            <PipelineRiverView
+              steps={steps}
+              isOwner={isOwner}
+              laneGraph={laneGraph}
+              roots={roots}
+              onRemoveRoot={(rootId) => void handleRemoveRoot(rootId)}
+              pipelineId={id ?? ""}
+              dropdownOpen={dropdownOpenAt === "bottom"}
+              openDropdown={() => setDropdownOpenAt("bottom")}
+              closeDropdown={() => setDropdownOpenAt(null)}
+              onAddStep={handleAddStep}
+              onInsertStep={(opType, index) => void handleInsertStep(opType, index)}
+              onAddLaneStep={(opType, parentStepId) => void handleAddLaneStep(opType, parentStepId)}
+              onRemoveStep={handleRemoveStep}
+              getAnalyzeColumns={getAnalyzeColumns}
+              getAnalyzeSchema={getAnalyzeSchema}
+              getAnalyzeOutputSchema={getAnalyzeOutputSchema}
+              hasOwnAnalyzeEntry={hasOwnAnalyzeEntry}
+              getAnalyzeValidationError={getAnalyzeValidationError}
+              getAnalyzeWarnings={getAnalyzeWarnings}
+              estimatedRows={estimatedRows}
+              draftCreateErrors={draftCreateErrors}
+              onStepConfigChange={handleStepConfigChange}
+              runStepRowCounts={runStepRowCounts}
+              onInstantiateShape={handleInstantiateShape}
+              // F-146 — passed directly (not `(newOrder) => void handleX(newOrder)`):
+              // that wrapper allocated a fresh function every render, which — since
+              // `onReorderSteps`/`onToggleStepEnabled`/`onDuplicateStep` feed
+              // `StepCard` props (the latter two directly; `onReorderSteps` via
+              // `PipelineRiverView`'s own `onMoveUp`/`onMoveDown`) — defeated
+              // `StepCard`'s `React.memo` regardless of the `useCallback` above.
+              onReorderSteps={handleReorderSteps}
+              onToggleStepEnabled={handleToggleStepEnabled}
+              onDuplicateStep={handleDuplicateStep}
+              duplicatingStepIds={duplicatingStepIds}
+              creatingStepIds={creatingStepIds}
+              outputsByStepId={outputsByStepId}
+              previewRowCountByOutputId={previewRowCountByOutputId}
+              onOpenOutput={handleOpenOutput}
+              onAddOutput={handleAddOutput}
+            />
+          )}
         </div>
       ) : (
         <div
@@ -364,7 +393,7 @@ export function PipelineDetailPage() {
         pipelineName={pipelineName}
         setOutputName={setOutputName}
         setEditingOutputName={setEditingOutputName}
-        stepCount={steps.length}
+        stepCount={stepsLoading ? null : steps.length}
         outputSchema={steps.length > 0 ? getAnalyzeOutputSchema(steps[steps.length - 1].id) : []}
         sseData={sseData}
         runStatus={runStatus}

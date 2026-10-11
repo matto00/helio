@@ -1,0 +1,13 @@
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — exported page now keys an inner content component by the route `:id` (pipeline switch == leave and re-enter)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — scopes currentPipeline/status/error to the page id; seeds steps only after this mount's own steps fetch fulfilled
+- `frontend/src/features/pipelines/hooks/usePipelinePageLoad.ts` — reports this mount's steps fetch fulfilling (seed gate)
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts` — currentPipelineRequestedId / runPipelineId guards: late A responses (fetch, rename, run) never land on B; clearRunState resets row counts
+- `frontend/src/features/pipelines/state/pipelinesSlice.test.ts` — reducer tests for the guards; existing run tests now dispatch pending first
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.analyze.test.tsx` — seed-at-mount test updated for D2a; render-count baselines +1
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.switch.test.tsx` — new in-app A->B switch regression tests (red on base)
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx` — stepCount may be null (hidden) while steps load
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — tests that act on the editor await the mount's steps fetch (skeleton until then)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx` — tests that act on the editor await the mount's steps fetch (skeleton until then)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx` — tests that act on the editor await the mount's steps fetch (skeleton until then)
+- `frontend/src/features/pipelines/hooks/usePipelinePageLoad.ts` — also re-requests the page's pipeline when another id's request supersedes it (convergence)
+- `frontend/src/features/pipelines/hooks/usePipelineRootAndToggleActions.ts` — root add/remove continuations skip their refetch once the issuing page has unmounted
