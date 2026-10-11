@@ -14,6 +14,7 @@ import type { ChangeEvent } from "react";
 
 import { TextField } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
+import { ComputeFunctionReference } from "./ComputeFunctionReference";
 
 export interface ComputeConfigValue {
   column: string;
@@ -82,6 +83,7 @@ export function ComputeFieldConfig({
           aria-label="Expression"
         />
         <InlineError error={validationError ?? null} />
+        <ComputeFunctionReference />
       </div>
 
       {analyzeColumns.length > 0 && (

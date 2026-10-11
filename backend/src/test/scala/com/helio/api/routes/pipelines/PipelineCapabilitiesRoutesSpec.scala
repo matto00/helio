@@ -255,6 +255,25 @@ class PipelineCapabilitiesRoutesSpec
       }
     }
 
+    "valid = false naming the supported units for a date_trunc with an unknown or bare unit (HEL-1314)" in {
+      val pipelineId = newSharedPipeline()
+      Seq("""date_trunc("fortnight", $amount)""", "date_trunc(day, $amount)").foreach { expr =>
+        Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest(expr)) ~> routesFor(owner) ~> check {
+          status shouldBe StatusCodes.OK
+          val resp = responseAs[ExpressionValidationResponse]
+          withClue(expr)(resp.valid shouldBe false)
+          resp.error.get should include("one of: second, minute, hour, day, week, month, quarter, year")
+        }
+      }
+    }
+
+    "valid = true for a well-formed date_trunc (HEL-1314)" in {
+      val pipelineId = newSharedPipeline()
+      Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest("""date_trunc("day", $amount)""")) ~> routesFor(owner) ~> check {
+        responseAs[ExpressionValidationResponse].valid shouldBe true
+      }
+    }
+
     "404 an unknown stepId" in {
       val pipelineId = newSharedPipeline()
       Post(s"/pipelines/${pipelineId.value}/validate-expression?stepId=${UUID.randomUUID()}", ValidateExpressionRequest("$amount")) ~> routesFor(owner) ~> check {

@@ -1,16 +1,13 @@
 package com.helio.domain.steps
 
 import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
-import com.helio.domain.engine.PipelineRowJson
+import com.helio.domain.engine.{PipelineRowJson, TimestampParsing}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-import java.time.format.DateTimeFormatterBuilder
-import java.time.temporal.{ChronoField, TemporalAdjusters}
-import java.time.{DayOfWeek, Instant, LocalDate, LocalDateTime, OffsetDateTime, ZoneOffset}
-import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.{DayOfWeek, Instant, LocalDate, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 /** Typed config for the `datebucket` step (HEL-378). `granularity` selects
  *  the bucket width (`day`/`week`/`month`/`quarter`/`year`); `outputColumn`
@@ -127,61 +124,18 @@ object DateBucketStep {
    *  this op reads). */
   def parsesAsDate(value: Any): Boolean = parseToUtcDate(value).isDefined
 
-  /** Space-separated tz-less timestamp formatter (`2026-07-01 12:00:00`,
-   *  `2026-07-01 12:00`, with an optional **variable-length** (0-9 digit)
-   *  fractional-seconds component). Built via `DateTimeFormatterBuilder`
-   *  with `appendFraction(NANO_OF_SECOND, 0, 9, true)` rather than a fixed
-   *  `[.SSS]` literal pattern — a fixed pattern requires exactly 3 digits
-   *  and silently rejects both 1-digit and 6-digit (microsecond, the
-   *  Postgres/pandas default) widths, reintroducing this bug's all-null
-   *  failure mode for the most common real-world width (design.md decision 1,
-   *  skeptic round-1 correction). */
-  private val SpaceSeparatedFormatter = new DateTimeFormatterBuilder()
-    .appendPattern("yyyy-MM-dd HH:mm[:ss]")
-    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-    .toFormatter()
-
-  /** Parse a row value into a UTC `LocalDate`, or `None` if it doesn't match
-   *  any of the tolerated input shapes (design.md decision 1):
-   *   - a numeric epoch value — treated as epoch **milliseconds** if its
-   *     magnitude exceeds 10 digits, else epoch **seconds**
-   *   - an ISO-8601 instant/offset string (`Instant.parse` / `OffsetDateTime.parse`)
-   *   - a T-separated tz-less local-datetime string (`ISO_LOCAL_DATE_TIME`,
-   *     e.g. `2026-03-14T22:08:39`, optionally with fractional seconds),
-   *     interpreted as UTC
-   *   - a space-separated tz-less local-datetime string (e.g.
-   *     `2026-07-01 12:00:00`, with an optional variable-length
-   *     fractional-seconds component), interpreted as UTC
-   *   - a bare `yyyy-MM-dd` `LocalDate` string
-   *  Both tz-less `LocalDateTime` forms are tried after the offset-bearing
-   *  branches (so already-correct offset/`Z` input is unaffected) and before
-   *  the bare-`LocalDate` fallback (so `2026-03-14` still matches
-   *  `LocalDate.parse` rather than being short-circuited).
-   *  Unparseable input (including `null`/absent/blank) returns `None`, which
-   *  the caller maps to a `null` output value — no row is dropped. */
-  private[steps] def parseToUtcDate(value: Any): Option[LocalDate] = {
-    if (value == null) return None
-    val str = value.toString.trim
-    if (str.isEmpty) return None
-
-    val epochDate: Option[LocalDate] = Try(str.toLong).toOption.map { epoch =>
-      val instant =
-        if (math.abs(epoch) > 9999999999L) Instant.ofEpochMilli(epoch) else Instant.ofEpochSecond(epoch)
-      instant.atZone(ZoneOffset.UTC).toLocalDate
-    }
-
-    epochDate.orElse(parseNonEpochDate(str))
-  }
+  /** The UTC `LocalDate` of a row value, read through the shared [[TimestampParsing.parseInstant]]
+   *  (the single definition of the accepted input shapes). Unparseable input (including
+   *  `null`/absent/blank) returns `None`, which the caller maps to a `null` output value -- no row is
+   *  dropped. `WindowRolling` reads its day-based frames through this too. */
+  private[steps] def parseToUtcDate(value: Any): Option[LocalDate] =
+    TimestampParsing.parseInstant(value).map(_.atZone(ZoneOffset.UTC).toLocalDate)
 
   /** Every accepted input shape except a bare epoch number. Shared with the first-run builder's
    *  date-like column test (HEL-1209) so "looks like a date" can never drift from what
    *  `datebucket` would actually bucket. */
   def parseNonEpochDate(str: String): Option[LocalDate] =
-    Try(Instant.parse(str).atZone(ZoneOffset.UTC).toLocalDate).toOption
-      .orElse(Try(OffsetDateTime.parse(str).atZoneSameInstant(ZoneOffset.UTC).toLocalDate).toOption)
-      .orElse(Try(LocalDateTime.parse(str, DateTimeFormatter.ISO_LOCAL_DATE_TIME).atZone(ZoneOffset.UTC).toLocalDate).toOption)
-      .orElse(Try(LocalDateTime.parse(str, SpaceSeparatedFormatter).atZone(ZoneOffset.UTC).toLocalDate).toOption)
-      .orElse(Try(LocalDate.parse(str)).toOption)
+    TimestampParsing.parseNonEpochInstant(str).map(_.atZone(ZoneOffset.UTC).toLocalDate)
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind

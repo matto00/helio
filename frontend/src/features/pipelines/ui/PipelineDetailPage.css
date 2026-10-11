@@ -2057,3 +2057,76 @@
   opacity: 0.6;
   cursor: progress;
 }
+
+/* ── Step config: compute function reference (HEL-1314) ─────────────────── */
+.pipeline-detail-page__compute-functions {
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page__compute-functions-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  border-radius: var(--app-radius-sm);
+}
+
+/* An explicit chevron: `display: inline-flex` removes the native summary marker. */
+.pipeline-detail-page__compute-functions-summary::before {
+  content: "";
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-right: var(--space-2);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.pipeline-detail-page__compute-functions[open]
+  > .pipeline-detail-page__compute-functions-summary::before {
+  transform: rotate(45deg);
+}
+
+.pipeline-detail-page__compute-functions-summary:hover {
+  color: var(--app-text);
+}
+
+.pipeline-detail-page__compute-functions-summary:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.pipeline-detail-page__compute-functions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pipeline-detail-page__compute-functions-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.pipeline-detail-page__compute-functions-signature {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text);
+}
+
+/* The 44px touch expander on the summary overhangs it by 8px. Measured with a dense real-touch sweep:
+ * unless at least 12px is clear between the Expression input and the expander, the browser's touch
+ * adjustment snaps taps on the input's bottom-left rounded corner to the summary and opens the list
+ * instead of focusing the input. The field's 4px gap plus this 16px margin (--space-4) gives 20px
+ * between the boxes, so 12px stays clear after the 8px overhang. */
+@media (max-width: 768px), (pointer: coarse) {
+  .pipeline-detail-page__compute-functions {
+    margin-top: var(--space-4);
+  }
+}

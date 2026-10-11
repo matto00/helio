@@ -2,6 +2,7 @@ package com.helio.domain.engine
 
 import spray.json._
 
+import ExpressionEvaluator.DateTimeFunctions
 import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit}
 
 // Row evaluation and function dispatch over the parsed AST.
@@ -9,9 +10,9 @@ private[engine] object ExpressionInterpreter {
 
   /** Intermediate value type used during evaluation. */
   private[engine] sealed trait Val
-  private final case class VNum(v: Double) extends Val
-  private final case class VStr(s: String) extends Val
-  private case object VNull extends Val
+  private[engine] final case class VNum(v: Double) extends Val
+  private[engine] final case class VStr(s: String) extends Val
+  private[engine] case object VNull extends Val
 
   private[engine] def evalExpr(expr: Expr, row: Map[String, JsValue]): Either[EvaluationError, Val] =
     expr match {
@@ -122,6 +123,8 @@ private[engine] object ExpressionInterpreter {
             case other   => Left(EvaluationError.TypeError(s"length requires a string argument, got ${typeName(other)}"))
           }
 
+        case n if DateTimeFunctions.contains(n) => ExpressionDateTimeFunctions(n, args)
+
         case "floor" => numericUnary(name, args.head)(math.floor)
         case "ceil"  => numericUnary(name, args.head)(math.ceil)
         case "abs"   => numericUnary(name, args.head)(math.abs)
@@ -176,7 +179,7 @@ private[engine] object ExpressionInterpreter {
   private def numStr(v: Double): String =
     if (v.isWhole) v.toLong.toString else v.toString
 
-  private def typeName(v: Val): String = v match {
+  private[engine] def typeName(v: Val): String = v match {
     case VNum(_) => "number"
     case VStr(_) => "string"
     case VNull   => "null"

@@ -123,4 +123,25 @@ describe("ComputeFieldConfig", () => {
     render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
     expect(screen.queryByText(/prefix|Unknown field/)).not.toBeInTheDocument();
   });
+
+  describe("function reference disclosure", () => {
+    it("is collapsed by default behind a reachable 'Functions' control", () => {
+      render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
+      const details = screen.getByText("Functions").closest("details");
+      expect(details).not.toBeNull();
+      expect(details).not.toHaveAttribute("open");
+      expect(screen.getByText("Functions").tagName).toBe("SUMMARY");
+    });
+
+    it("lists the date/time functions once toggled open", () => {
+      render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
+      fireEvent.click(screen.getByText("Functions"));
+      const details = screen.getByText("Functions").closest("details");
+      expect(details).toHaveAttribute("open");
+      const list = screen.getByRole("list", { name: "Expression functions" });
+      expect(list).toHaveTextContent("seconds_between(end, start)");
+      expect(list).toHaveTextContent('date_trunc("unit", ts)');
+      expect(list).toHaveTextContent("add_days(ts, n)");
+    });
+  });
 });
