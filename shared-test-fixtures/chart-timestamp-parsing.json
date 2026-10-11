@@ -1,0 +1,248 @@
+[
+  {
+    "input": "2026-10-01",
+    "epochMillis": 1790812800000,
+    "backendParseInstant": true,
+    "note": "bare date is midnight UTC"
+  },
+  {
+    "input": "2024-02-29",
+    "epochMillis": 1709164800000,
+    "backendParseInstant": true,
+    "note": "leap day"
+  },
+  {
+    "input": " 2026-10-01 ",
+    "epochMillis": 1790812800000,
+    "backendParseInstant": true,
+    "note": "surrounding whitespace is trimmed"
+  },
+  {
+    "input": "2026-10-01T12:00",
+    "epochMillis": 1790856000000,
+    "backendParseInstant": true,
+    "note": "T-separated local, no seconds, read as UTC"
+  },
+  {
+    "input": "2026-10-01T12:00:30",
+    "epochMillis": 1790856030000,
+    "backendParseInstant": true,
+    "note": "T-separated local with seconds"
+  },
+  {
+    "input": "2026-10-01 12:00",
+    "epochMillis": 1790856000000,
+    "backendParseInstant": true,
+    "note": "space-separated local, no seconds"
+  },
+  {
+    "input": "2026-10-01 12:00:00",
+    "epochMillis": 1790856000000,
+    "backendParseInstant": true,
+    "note": "space-separated local with seconds"
+  },
+  {
+    "input": "2026-10-01 12:00:00.5",
+    "epochMillis": 1790856000500,
+    "backendParseInstant": true,
+    "note": "1-digit fraction"
+  },
+  {
+    "input": "2026-10-01 12:00:00.123",
+    "epochMillis": 1790856000123,
+    "backendParseInstant": true,
+    "note": "3-digit fraction"
+  },
+  {
+    "input": "2026-10-01 12:00:00.123456",
+    "epochMillis": 1790856000123,
+    "backendParseInstant": true,
+    "note": "6-digit fraction"
+  },
+  {
+    "input": "2026-10-01T12:00:00.123456789",
+    "epochMillis": 1790856000123,
+    "backendParseInstant": true,
+    "note": "9-digit fraction"
+  },
+  {
+    "input": "2026-10-01T12:00:00Z",
+    "epochMillis": 1790856000000,
+    "backendParseInstant": true,
+    "note": "ISO instant"
+  },
+  {
+    "input": "2026-10-01T12:00:00.123Z",
+    "epochMillis": 1790856000123,
+    "backendParseInstant": true,
+    "note": "ISO instant with fraction"
+  },
+  {
+    "input": "2026-10-01t12:00:00z",
+    "epochMillis": 1790856000000,
+    "backendParseInstant": true,
+    "note": "lowercase t and z"
+  },
+  {
+    "input": "2026-10-01T12:00:00+02:00",
+    "epochMillis": 1790848800000,
+    "backendParseInstant": true,
+    "note": "positive offset"
+  },
+  {
+    "input": "2026-10-01T12:00:00-05:30",
+    "epochMillis": 1790875800000,
+    "backendParseInstant": true,
+    "note": "negative offset with minutes"
+  },
+  {
+    "input": "2026-10-01T12:00+02:00",
+    "epochMillis": 1790848800000,
+    "backendParseInstant": true,
+    "note": "offset date-time without seconds"
+  },
+  {
+    "input": "1759276800",
+    "epochMillis": 1759276800000,
+    "backendParseInstant": true,
+    "note": "epoch seconds"
+  },
+  {
+    "input": "1759276800000",
+    "epochMillis": 1759276800000,
+    "backendParseInstant": true,
+    "note": "epoch millis"
+  },
+  {
+    "input": "+1759276800",
+    "epochMillis": 1759276800000,
+    "backendParseInstant": true,
+    "note": "leading plus on an epoch string"
+  },
+  {
+    "input": "1759276800.0",
+    "epochMillis": 1759276800000,
+    "backendParseInstant": true,
+    "note": "whole decimal epoch seconds"
+  },
+  {
+    "input": "1.7592768E9",
+    "epochMillis": 1759276800000,
+    "backendParseInstant": true,
+    "note": "scientific epoch seconds"
+  },
+  {
+    "input": "1759276800.5",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "non-whole decimal is no instant"
+  },
+  {
+    "input": "9999999999",
+    "epochMillis": 9999999999000,
+    "backendParseInstant": true,
+    "note": "largest epoch read as seconds"
+  },
+  {
+    "input": "10000000000",
+    "epochMillis": 10000000000,
+    "backendParseInstant": true,
+    "note": "smallest epoch read as millis"
+  },
+  {
+    "input": "-9999999999",
+    "epochMillis": -9999999999000,
+    "backendParseInstant": true,
+    "note": "negative epoch at the seconds threshold"
+  },
+  {
+    "input": "-10000000000",
+    "epochMillis": -10000000000,
+    "backendParseInstant": true,
+    "note": "negative epoch beyond the threshold is millis"
+  },
+  {
+    "input": "0",
+    "epochMillis": 0,
+    "backendParseInstant": true,
+    "note": "zero epoch"
+  },
+  {
+    "input": "20261001",
+    "epochMillis": 20261001000,
+    "backendParseInstant": true,
+    "note": "a yyyyMMdd digit string is an epoch, not a date"
+  },
+  {
+    "input": "10/01/2026",
+    "epochMillis": 1790812800000,
+    "backendParseInstant": false,
+    "note": "MM/dd/yyyy: frontend extension, backend parseInstant rejects it"
+  },
+  {
+    "input": "12/31/2025",
+    "epochMillis": 1767139200000,
+    "backendParseInstant": false,
+    "note": "MM/dd/yyyy: frontend extension"
+  },
+  {
+    "input": "13/01/2026",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "month 13 is no instant"
+  },
+  {
+    "input": "2026-02-30",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "impossible date"
+  },
+  {
+    "input": "2026-10-01T25:00",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "hour 25"
+  },
+  {
+    "input": "2026-10-01 12:00:00Z",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "space-separated with a zone is rejected"
+  },
+  {
+    "input": "2026-10-01T12:00:00[Europe/Paris]",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "region-id zone is rejected"
+  },
+  {
+    "input": "",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "empty"
+  },
+  {
+    "input": "   ",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "whitespace only"
+  },
+  {
+    "input": "null",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "the string null"
+  },
+  {
+    "input": "garbage",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "not a date"
+  },
+  {
+    "input": "1.5",
+    "epochMillis": null,
+    "backendParseInstant": true,
+    "note": "non-whole decimal"
+  }
+]

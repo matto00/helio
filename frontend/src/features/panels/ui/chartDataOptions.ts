@@ -10,6 +10,15 @@ import type { GroupedAggregate } from "../../../utils/aggregate";
 // into the main bundle (HEL-512).
 import { resolveDataColumns, resolvePieValueColumn } from "../../../utils/chartClickSelection";
 import { buildHeatmapDataOption, buildHistogramDataOption } from "./heatmapHistogramOptions";
+import {
+  buildTimeAggregate,
+  buildTimeAutoSeries,
+  buildTimeMultiSeries,
+  buildTimeScatter,
+  buildTimeSingleSeries,
+  wantsTimeAxis,
+} from "./chartTimeDataOptions";
+import type { TimeAxisContext } from "./chartTimeDataOptions";
 
 /** HEL-572 design.md D6 — merges `cursor: "pointer"` onto every series entry
  *  a `buildDataOption` branch returns, applied here (a single post-process
@@ -38,6 +47,7 @@ export function buildDataOption(
   chartType: ChartType,
   scatterOptions?: ScatterChartOptions,
   histogramOptions?: HistogramChartOptions,
+  timeCtx?: TimeAxisContext,
 ): Partial<EChartsOption> {
   return withPointerCursor(
     buildDataOptionCore(
@@ -47,6 +57,7 @@ export function buildDataOption(
       chartType,
       scatterOptions,
       histogramOptions,
+      timeCtx,
     ),
     chartType,
   );
@@ -59,6 +70,7 @@ export function buildDataOptionCore(
   chartType: ChartType,
   scatterOptions?: ScatterChartOptions,
   histogramOptions?: HistogramChartOptions,
+  timeCtx?: TimeAxisContext,
 ): Partial<EChartsOption> {
   if (rawRows.length === 0 || headers.length === 0) return {};
 
@@ -75,10 +87,15 @@ export function buildDataOptionCore(
 
   if (xCol === -1) return {};
 
+  // HEL-1305 — a timestamp x field (declared in the Output's schema) plots on a time axis; every
+  // other case keeps the category-axis branches below untouched.
+  const timeX = wantsTimeAxis(chartType, timeCtx, headers[xCol]);
+
   // Scatter: coordinate pairs [[x, y], ...], optionally with a third `size`
   // dimension (`sizeField` → bubble sizing) and/or grouped into one series per
   // distinct `colorField` value (legend entry per group). HEL-248.
   if (chartType === "scatter" && yCol !== -1) {
+    if (timeX) return buildTimeScatter(rawRows, headers, xCol, yCol, scatterOptions);
     const sizeCol = scatterOptions?.sizeField ? headers.indexOf(scatterOptions.sizeField) : -1;
     const colorCol = scatterOptions?.colorField ? headers.indexOf(scatterOptions.colorField) : -1;
 
@@ -143,6 +160,7 @@ export function buildDataOptionCore(
   }
 
   if (seriesCol !== -1 && yCol !== -1) {
+    if (timeX) return buildTimeMultiSeries(rawRows, xCol, yCol, seriesCol, chartType);
     // Group rows by unique series-column values, x-values are shared categories
     const allX = [...new Set(rawRows.map((r) => r[xCol] ?? ""))];
     const groups = [...new Set(rawRows.map((r) => r[seriesCol] ?? ""))];
@@ -162,12 +180,14 @@ export function buildDataOptionCore(
       series: groups.map((g) => ({
         type: chartType,
         name: g,
-        data: allX.map((x) => lookup[g]?.[x] ?? 0),
+        // HEL-1305 — no value for this series at this x is a gap, not a real zero.
+        data: allX.map((x) => lookup[g]?.[x] ?? null),
       })),
     };
   }
 
   if (yCol !== -1) {
+    if (timeX) return buildTimeSingleSeries(rawRows, headers, xCol, yCol, chartType);
     // Single series: x categories from xCol, y values from yCol
     const categories = rawRows.map((r) => r[xCol] ?? "");
     const values = rawRows.map((r) => {
@@ -182,6 +202,7 @@ export function buildDataOptionCore(
   }
 
   // No y mapping — auto-detect numeric columns (skipping xCol)
+  if (timeX) return buildTimeAutoSeries(rawRows, headers, xCol, chartType);
   const categories = rawRows.map((r) => r[xCol] ?? "");
   const autoSeries: Array<{ name: string; data: number[] }> = [];
   for (let col = 0; col < headers.length; col++) {
@@ -207,7 +228,14 @@ export function buildDataOptionCore(
 export function buildAggregateDataOption(
   aggregate: GroupedAggregate,
   chartType: ChartType,
+  timeCtx?: TimeAxisContext,
 ): Partial<EChartsOption> {
+  if (
+    (chartType === "line" || chartType === "bar") &&
+    wantsTimeAxis(chartType, timeCtx, aggregate.groupBy)
+  ) {
+    return buildTimeAggregate(aggregate, chartType);
+  }
   if (chartType === "pie") {
     return {
       series: [

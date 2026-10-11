@@ -18,6 +18,8 @@ import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
 import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { applyReferenceMarks } from "./referenceMarksOption";
+import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
+import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
 import {
   applyHeatmapTheme,
   compactHeatmapVisualMap,
@@ -91,6 +93,9 @@ export interface BuildChartOptionParams {
   overlay?: ChartOverlay | null;
   /** HEL-1306: the Output's static reference lines and bands (see `applyReferenceMarks`). */
   referenceMarks?: ReferenceMarks | null;
+  /** HEL-1305: field name -> declared schema type. A `timestamp` x field plots on a time axis
+   *  (line, scatter, vertical bar); absent -> every chart keeps its category axis. */
+  fieldTypes?: ChartFieldTypes | null;
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
@@ -110,6 +115,7 @@ export function buildChartOption({
   chartOptions,
   overlay,
   referenceMarks,
+  fieldTypes,
   effectiveCompact,
   measuredPieLegendOverlap,
   themeTokens,
@@ -126,8 +132,12 @@ export function buildChartOption({
   const useAggregate =
     chartAggregate != null && (chartType === "bar" || chartType === "line" || chartType === "pie");
 
+  const timeCtx = {
+    fieldTypes,
+    horizontalBar: chartType === "bar" && chartOptions?.bar?.orientation === "horizontal",
+  };
   const dataOption = useAggregate
-    ? buildAggregateDataOption(chartAggregate, chartType)
+    ? buildAggregateDataOption(chartAggregate, chartType, timeCtx)
     : rawRows && rawRows.length > 0 && headers && headers.length > 0
       ? buildDataOption(
           rawRows,
@@ -136,8 +146,11 @@ export function buildChartOption({
           chartType,
           chartOptions?.scatter,
           chartOptions?.histogram,
+          timeCtx,
         )
       : {};
+  // The primary plotted instants, read before any overlay joins (it can never change the tooltip).
+  const timeInstants = plottedInstants(dataOption);
 
   const isPie = chartType === "pie";
 
@@ -190,10 +203,15 @@ export function buildChartOption({
       xAxis: {
         ...(dataOption.xAxis as object),
         ...(appearanceOption.xAxis as object),
+        // HEL-1305 — the appearance's category type must not clobber the data builder's time axis.
+        ...(timeInstants ? { type: "time" } : {}),
         nameTextStyle: textStyle,
         axisLabel: {
           ...(appearanceOption.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
           color: textColor,
+          // A time axis has no `interval: auto` thinning like a category axis, so narrow charts
+          // would run adjacent labels together.
+          ...(timeInstants ? { hideOverlap: true } : {}),
         },
       },
       yAxis: {
@@ -264,6 +282,7 @@ export function buildChartOption({
   // — which runs before `dataOption`'s real series are known (design.md
   // Decision 3).
   built = applyAxisTriggerTooltip(built, chartType);
+  if (timeInstants) built = applyTimeAxisTooltip(built, timeInstants);
   built = applyHoverEmphasis(built, themeTokens, prefersReducedMotion());
 
   // HEL-1306 -- the reference marks' carrier series joins LAST among the series passes, so the overlay,

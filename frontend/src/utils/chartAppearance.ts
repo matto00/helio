@@ -135,6 +135,17 @@ export function formatChartNumber(value: unknown): string {
   return Number.isFinite(n) ? chartNumberFormat.format(n) : String(value);
 }
 
+/** The text a tooltip shows where a series has no value (a gap), never `0` or `undefined`. */
+export const NO_VALUE_MARK = "—";
+
+/** Tooltip `valueFormatter`: a missing value (a multi-series gap, an unmatched overlay point) reads
+ *  `—`; everything else is `formatChartNumber`. HEL-1305 (owner ruling 2). */
+export function formatChartTooltipValue(value: unknown): string {
+  if (value === null || value === undefined) return NO_VALUE_MARK;
+  if (typeof value === "number" && !Number.isFinite(value)) return NO_VALUE_MARK;
+  return formatChartNumber(value);
+}
+
 /** HEL-572 — the chart type of an APPEARANCE: `appearance.chart.chartType`,
  *  defaulting `"line"` when unset. This reads the panel appearance ONLY. It is
  *  not the dashboard's precedence: `ChartOutputPanel` and `PanelCard` resolve
@@ -196,7 +207,7 @@ export function appearanceToEChartsOption(
       borderColor: themeTokens.borderSubtle,
       borderWidth: 1,
       textStyle: { color: themeTokens.text, fontFamily: themeTokens.fontMono },
-      valueFormatter: formatChartNumber,
+      valueFormatter: formatChartTooltipValue,
       extraCssText: `box-shadow: ${themeTokens.shadowSoft}; border-radius: ${themeTokens.radiusMd};`,
     },
     // F-196: canvas text never set fontFamily, so it rendered in the

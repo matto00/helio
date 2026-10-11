@@ -82,6 +82,7 @@ describe("ChartOutputPanel aggregation (HEL-1351)", () => {
     expect(last.chartAggregate).toEqual({
       categories: ["east", "null", "west"],
       values: [15, 2, 7],
+      groupBy: "region",
       seriesName: "sum(amount)",
     });
     expect(last.aggregationSpec).toEqual({ ...AGG, groupHasNull: true });
