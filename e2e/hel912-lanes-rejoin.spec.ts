@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-912 task 8.1 — AC1's only guard: add a lane off a filter, add an
@@ -46,6 +47,7 @@ test.describe("HEL-912 parallel lanes: add lane, aggregate each lane, union rejo
       data: { email, password, displayName: "HEL-912 Lanes Rejoin E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     const sourceRes = await page.request.post("/api/data-sources", {

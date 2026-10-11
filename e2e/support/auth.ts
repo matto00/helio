@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage, uiLogin } from "./isolateLivePage";
+import { recordRegisteredUser } from "./userCleanup";
 
 // HEL-1330 — the one shared "register a throwaway user, then (optionally) log in through the UI"
 // helper. It replaces the ~32 near-identical local `registerAndLogin` copies the e2e specs grew;
@@ -60,6 +61,8 @@ export async function registerUser(
     headers: { [CSRF_HEADER]: "1" },
   });
   expect(res.status()).toBe(201);
+  // HEL-1301: record the created user so the run's global teardown deletes exactly it.
+  await recordRegisteredUser(res);
   return { email, password };
 }
 

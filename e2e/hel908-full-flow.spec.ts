@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
 
 // HEL-908, task 9.3 — the end-to-end flow the resume brief asked for: a
@@ -35,6 +36,7 @@ test.describe("HEL-908 full flow: filter -> aggregate-tail metric Output -> char
       data: { email, password, displayName: "HEL-908 Full Flow E2E" },
       headers: { [CSRF_HEADER]: "1" },
     });
+    await recordRegisteredUser(registerRes);
     expect(registerRes.status()).toBe(201);
 
     // Source creation matches the paste-table ("static") shape a real

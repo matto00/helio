@@ -21,6 +21,9 @@ npm run check:test-temp-dir-hygiene
 npm run check:test-temp-dir-hygiene:selftest
 npm run check:e2e-evidence-paths
 npm run check:e2e-evidence-paths:selftest
+npm run check:e2e-user-cleanup
+npm run check:e2e-user-cleanup:selftest
+npm run check:e2e-user-cleanup-core:selftest
 npm run check:no-credential-leak
 npm run check:no-credential-leak:selftest
 npm run check:eslint-ts-rules
