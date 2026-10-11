@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import { CollectionRenderer } from "./CollectionRenderer";
-import { MetricRenderer, formatMetricValue } from "./MetricRenderer";
+import { MetricRenderer, formatMetricValue, metricBaselineText } from "./MetricRenderer";
 import type { ConditionalFormatRule } from "./conditionalFormatting";
 import type { MetricComparison } from "../../history/metricHistoryView";
 
@@ -71,5 +71,61 @@ describe("CollectionRenderer -- duration", () => {
       />,
     );
     expect(screen.getByText("1m 30s")).toBeInTheDocument();
+  });
+});
+
+// HEL-1308 owner ruling on P6: the metric `unit` suffix is HIDDEN for a duration-formatted value (the stored
+// `unit` config is untouched; this is a display rule). "5m 30s s" must never render.
+describe("duration format hides the unit suffix", () => {
+  it.each(["duration", "durationMs"] as const)(
+    "metric format %s renders no unit element",
+    (format) => {
+      const value = format === "duration" ? "330" : "330000";
+      const { container } = render(<MetricRenderer data={{ value, unit: "s" }} format={format} />);
+      expect(container.querySelector(".panel-content__metric-unit")).toBeNull();
+      expect(container.querySelector(".panel-content__metric-value")).toHaveTextContent(/^5m 30s$/);
+    },
+  );
+
+  it("keeps the unit for a non-duration format (guard: unchanged behaviour)", () => {
+    const { container } = render(
+      <MetricRenderer data={{ value: "330", unit: "s" }} format="number" />,
+    );
+    expect(container.querySelector(".panel-content__metric-unit")).toHaveTextContent("s");
+  });
+
+  it("collection items with a unit render no unit for duration", () => {
+    const { container } = render(
+      <CollectionRenderer
+        fieldMapping={{ value: "d", label: "name" }}
+        layout="grid"
+        format="duration"
+        metricOptions={{ unit: "s" }}
+        rawRows={[["job", "90"]]}
+        headers={["name", "d"]}
+      />,
+    );
+    expect(container.querySelector(".panel-content__metric-unit")).toBeNull();
+    expect(screen.getByText("1m 30s")).toBeInTheDocument();
+  });
+
+  it("a unit column bound through fieldMapping is hidden too", () => {
+    const { container } = render(
+      <CollectionRenderer
+        fieldMapping={{ value: "d", label: "name", unit: "u" }}
+        layout="grid"
+        format="durationMs"
+        rawRows={[["job", "90000", "ms"]]}
+        headers={["name", "d", "u"]}
+      />,
+    );
+    expect(container.querySelector(".panel-content__metric-unit")).toBeNull();
+  });
+
+  it("the history baseline text drops the unit for duration and keeps it otherwise", () => {
+    expect(metricBaselineText(330, "duration", "s")).toBe("5m 30s");
+    expect(metricBaselineText(330000, "durationMs", "ms")).toBe("5m 30s");
+    expect(metricBaselineText(330, "number", "s")).toBe("330 s");
+    expect(metricBaselineText(330, null, undefined)).toBe("330");
   });
 });

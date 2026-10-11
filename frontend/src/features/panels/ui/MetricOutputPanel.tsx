@@ -4,7 +4,7 @@ import type { MappedPanelData } from "../types/panel";
 import type { FilteredMetric } from "../../pipelines/services/outputService";
 import { readMetricConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { computeAggregate } from "../../../utils/aggregate";
-import { MetricRenderer, formatMetricValue } from "./renderers/MetricRenderer";
+import { MetricRenderer, metricBaselineText } from "./renderers/MetricRenderer";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
 import {
   configCompare,
@@ -114,9 +114,7 @@ export function MetricOutputPanel({
   const baselineAt = comparison?.kind === "delta" ? comparison.baselineAt : null;
   const baselineValue = comparison?.kind === "delta" ? comparison.baselineValue : null;
   const baselineText =
-    baselineValue === null
-      ? null
-      : `${formatMetricValue(String(baselineValue), cfg.format) ?? ""}${cfg.unit ? ` ${cfg.unit}` : ""}`;
+    baselineValue === null ? null : metricBaselineText(baselineValue, cfg.format, cfg.unit);
   const storeKey = comparisonStoreKey(historySource ? "public" : "authenticated", panelId);
   useEffect(() => {
     const publisher = Symbol(storeKey);

@@ -59,6 +59,22 @@ export function formatMetricValue(
   }
 }
 
+/** A duration-formatted value already carries its unit words (`5m 30s`), so the metric `unit` suffix is hidden
+ *  for it (HEL-1308, owner ruling on P6). A display rule only: the stored `unit` config is never rewritten. */
+export function isDurationFormat(format: MetricFormat | null | undefined): boolean {
+  return format === "duration" || format === "durationMs";
+}
+
+/** The history baseline as shown beside the headline: formatted value plus the unit, if any. */
+export function metricBaselineText(
+  baselineValue: number,
+  format: MetricFormat | null | undefined,
+  unit: string | undefined,
+): string {
+  const shownUnit = isDurationFormat(format) ? undefined : unit;
+  return `${formatMetricValue(String(baselineValue), format) ?? ""}${shownUnit ? ` ${shownUnit}` : ""}`;
+}
+
 const GLYPHS = { up: "\u25B2", down: "\u25BC", flat: "\u25AC" } as const;
 
 function ComparisonLine({
@@ -151,7 +167,9 @@ export function MetricRenderer({
         ) : (
           valueText
         )}
-        {data?.unit && <span className="panel-content__metric-unit">{data.unit}</span>}
+        {data?.unit && !isDurationFormat(format) && (
+          <span className="panel-content__metric-unit">{data.unit}</span>
+        )}
       </span>
       {/* The "No data" fallback is keyed on value presence, not label presence — a missing
           label alone should not present as a data-availability problem. */}

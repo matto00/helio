@@ -90,7 +90,9 @@ All reversible display choices taken by the orchestrator under the overnight rul
 - P3 Largest unit days (no weeks); smallest `ms` (below 1 s only).
 - P4 At most two units, second omitted when zero; rounded to the smallest shown unit, half away from zero.
 - P5 Negative: leading `-` (`-5m 30s`).
-- P6 Metric `unit` suffix is still appended if the author set one (not suppressed for duration).
+- P6 (OWNER RULING 2026-10-11, changed from the assumed call) The metric `unit` suffix is HIDDEN whenever the value is
+  duration-formatted (`duration` or `durationMs`), on the value, collection items, baseline text and editor preview. The
+  stored `unit` config is untouched; it is a display rule. Approved: P1-P5 and P7.
 - P7 No backend value validation; vocabulary documented instead.
 
 ## Risks / Trade-offs

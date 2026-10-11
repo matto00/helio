@@ -69,6 +69,26 @@ text. Conditional-format rules SHALL keep comparing the raw value.
 - **WHEN** a duration metric's comparison has an absolute delta of 65 and no percentage
 - **THEN** the delta renders `1m 5s`
 
+### Requirement: Metric unit suffix hidden for duration
+
+A metric or collection value displayed with the `duration` or `durationMs` format SHALL NOT render the Output's
+`unit` beside the value, because the duration text already carries its unit words. This SHALL apply to the value, the
+collection items, the comparison baseline text and the editor preview, and no accessible name SHALL read the unit.
+The stored `unit` config SHALL be left untouched (a display rule, not a config rewrite); every other format keeps
+rendering its unit.
+
+#### Scenario: Unit set beside a duration metric
+- **WHEN** a metric with format `duration` and `unit` `s` has value 330
+- **THEN** it renders `5m 30s` with no unit element, and the stored `unit` is still `s`
+
+#### Scenario: Unit set on a duration collection
+- **WHEN** a collection with format `durationMs` and `unit` `ms` shows an item with value 90000
+- **THEN** the item renders `1m 30s` with no unit element
+
+#### Scenario: Other formats keep the unit
+- **WHEN** a metric with format `number` and `unit` `s` has value 330
+- **THEN** it renders `330` followed by the unit `s`
+
 ### Requirement: Fallback for unusable values
 
 A null, absent, empty, non-numeric or non-finite value displayed with the duration format SHALL render exactly as the
