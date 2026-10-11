@@ -1,0 +1,1 @@
+- `backend/src/test/scala/com/helio/services/pipelines/OutputHistoryRetentionInFlightSpec.scala` — increment call counters before completing the *Reached hand-off promises (fixes signal-before-increment race)
