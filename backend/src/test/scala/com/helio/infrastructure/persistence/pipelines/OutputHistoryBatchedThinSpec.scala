@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.testsupport.RetentionDrain._
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.{DbContext, RetentionLockKey}
 import com.helio.testkit.VerifiedEmbeddedPostgres
@@ -16,6 +17,7 @@ import java.sql.Timestamp
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future}
+import scala.annotation.tailrec
 import scala.util.Random
 
 private final case class Captured(ids: Set[String]) extends Exception
@@ -138,34 +140,36 @@ class OutputHistoryBatchedThinSpec extends AnyWordSpec with Matchers with Before
 
     "split batches on the row limit and keep a single oversized Output as a batch of its own" in {
       clear()
-      val (oidA, pidA) = fixtureOutputs(0)
-      val (oidB, pidB) = fixtureOutputs(1)
-      val (oidC, pidC) = fixtureOutputs(2)
-      // Row counts 30 / 30 / 5: with a 40-row limit A (30) is admitted, B (30) would exceed -> next batch.
-      Seq((oidA, pidA, 30), (oidB, pidB, 30), (oidC, pidC, 5)).foreach { case (o, p, n) =>
-        awaitDb(ctx.withSystemContext(repo.insertAction((0 until n).map(i => historyEntry(o, p, now.minusSeconds(3600L * 24 * 2 + 3600L * i)))))) // hourly: nothing thinnable
+      val seeded = fixtureOutputs.take(3).map { case (o, p) => (o, p) }.sortBy(_._1)
+      // Row counts by SORTED Output id: 30 / 30 / 5. Nothing is thinnable (hourly points, no age cap).
+      val counts = Seq(30, 30, 5)
+      seeded.zip(counts).foreach { case ((o, p), n) =>
+        awaitDb(ctx.withSystemContext(repo.insertAction((0 until n).map(i => historyEntry(o, p, now.minusSeconds(3600L * 24 * 2 + 3600L * i))))))
       }
-      val ids    = Seq(oidA, oidB, oidC).sorted
-      val limits = ThinBatchLimits(batchOutputs = 100, batchRows = 40, maxBatches = 1)
-      // Candidate order is by id over ALL Outputs (fixtureOutputs has 8, five empty); with one batch per pass,
-      // follow the cursor until it passes every seeded Output and count the passes that reached a seeded Output.
-      var cursor: Option[String] = None
-      var batchesWithRows = 0
-      var done = false
-      while (!done) {
-        awaitDb(repo.thinPass(now, policy, Map.empty, limits, cursor, 0)) match {
-          case HistoryPassOutcome.MoreWork(_, at) =>
-            val seededInBatch = ids.filter(i => i > cursor.getOrElse("") && i <= at)
-            if (seededInBatch.nonEmpty) batchesWithRows += 1
-            cursor = Some(at)
-          case HistoryPassOutcome.Completed(_) =>
-            if (ids.exists(_ > cursor.getOrElse(""))) batchesWithRows += 1
-            done = true
-          case other => fail(s"unexpected $other")
-        }
+      val Seq(s1, s2, s3) = seeded.map(_._1)
+
+      // Candidate order is by id over ALL Outputs (fixtureOutputs has 8, five empty). One batch per pass; the seeded
+      // Outputs each pass carried are those in (cursor, at], and a pass that carries none is dropped (empty Outputs only).
+      def seededPerPass(limits: ThinBatchLimits): Vector[Vector[String]] = {
+        val ids = Set(s1, s2, s3)
+        @tailrec
+        def go(cursor: Option[String], acc: Vector[Vector[String]]): Vector[Vector[String]] =
+          awaitDb(repo.thinPass(now, policy, Map.empty, limits, cursor, 0)) match {
+            case HistoryPassOutcome.MoreWork(_, at) =>
+              go(Some(at), acc :+ ids.filter(i => i > cursor.getOrElse("") && i <= at).toVector.sorted)
+            case HistoryPassOutcome.Completed(_) =>
+              acc :+ ids.filter(_ > cursor.getOrElse("")).toVector.sorted
+            case other => fail(s"unexpected $other")
+          }
+        go(None, Vector.empty).filter(_.nonEmpty)
       }
-      // 65 rows cannot fit one 40-row batch: at least two batches carried seeded Outputs.
-      batchesWithRows should be >= 2
+
+      // Limit 40: s1 (30) is admitted, s2 (30) would reach 60 -> next batch; s3 (5) joins s2 (35).
+      seededPerPass(ThinBatchLimits(batchOutputs = 100, batchRows = 40, maxBatches = 1)) shouldBe Vector(Vector(s1), Vector(s2, s3))
+      // Limit 20: each of s1 and s2 alone exceeds it, so each is a batch of its own; s3 cannot join s2's batch (30 + 5).
+      seededPerPass(ThinBatchLimits(batchOutputs = 100, batchRows = 20, maxBatches = 1)) shouldBe Vector(Vector(s1), Vector(s2), Vector(s3))
+      // Splitting thins nothing here: all 65 rows survive.
+      survivorIds().size shouldBe 65
     }
 
     "keep committed batches and resume at the cursor when the lock is taken between passes" in {
