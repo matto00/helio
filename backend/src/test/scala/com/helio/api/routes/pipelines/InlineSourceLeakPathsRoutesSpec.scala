@@ -83,7 +83,7 @@ class InlineSourceLeakPathsRoutesSpec
       pipelineRepo, new PipelineStepRepository(ctx)(routeEc), dataSourceRepo,
       outputRepo = new OutputRepository(ctx)(routeEc), pipelineRootRepo = rootRepo,
       sourceService = new SourceService(dataSourceRepo, rest, connectorRepo = connectorRepo),
-      dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(newTempDir("inline-source-leak-paths-routes-spec")))
+      dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(newTempDir("inline-source-leak-paths-routes-spec")), connectorRepo = connectorRepo)
     )(routeEc)
     route = Route.seal(new PipelineRoutes(service, owner).routes)
     val id = owner.id.value
@@ -206,6 +206,21 @@ class InlineSourceLeakPathsRoutesSpec
       sources() shouldBe sourcesBefore
       connectors() shouldBe connectorsBefore
       await(connectorRepo.findByIdOwned(explicit.id, owner)) should not be empty
+    }
+
+    // HEL-1497 (owner Q3, narrowing HEL-1475's "explicit Connector is never removed"): an UNREFERENCED, unadopted
+    // Auto Connector named by connectorId is removed with the compensated source; a user-created one is not (above).
+    "remove an unreferenced, unadopted Auto Connector named by connectorId when its inline source is compensated (HEL-1497)" in {
+      val (cname, cfg, plain, credName) = ImplicitConnectorConfig.forLegacySource(s"Auto: leftover-${UUID.randomUUID()}", "http://example.invalid", RestApiAuth.NoAuth)
+      val leftover = await(connectorRepo.create(owner.id, cname, DataSourceKind.RestApi, "http://example.invalid", cfg, plain, credName))
+      val named = CreatePipelineRootRequest(
+        `type` = Some("rest_api"), name = Some(s"named-${UUID.randomUUID()}"),
+        restConfig = Some(RestApiConfigPayload(connectorId = Some(leftover.id.value), endpoint = Some("/data"), method = Some("GET")))
+      )
+      val sourcesBefore = sources()
+      Post("/pipelines", CreatePipelineRequest("p", Vector(named), outputs = Vector(badMappingOutput))) ~> route ~> check { status shouldBe StatusCodes.BadRequest }
+      sources() shouldBe sourcesBefore
+      await(connectorRepo.findByIdOwned(leftover.id, owner)) shouldBe empty
     }
 
     // Red before the fix on the source count (addRoot never compensated); the Connector assertion is the dependents guard.
