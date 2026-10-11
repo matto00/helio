@@ -10,6 +10,8 @@
 // `useRestSourceForm` (design.md Decision 5); this component is purely
 // presentational over that hook's return value.
 
+import { useId } from "react";
+
 import { TextField } from "../../../../shared/ui/TextField";
 import { Textarea } from "../../../../shared/ui/Textarea";
 import { Select } from "../../../../shared/ui/Select";
@@ -27,6 +29,7 @@ interface RestApiFormProps {
 }
 
 export function RestApiForm({ form }: RestApiFormProps) {
+  const methodId = useId();
   const {
     connector,
     setConnector,
@@ -75,10 +78,11 @@ export function RestApiForm({ form }: RestApiFormProps) {
       </div>
 
       <div className="add-source-modal__field">
-        <label className="add-source-modal__label" htmlFor="source-method">
+        <label className="add-source-modal__label" htmlFor={methodId}>
           Method
         </label>
         <Select
+          id={methodId}
           value={method}
           options={METHOD_SELECT_OPTIONS}
           onChange={setMethod}

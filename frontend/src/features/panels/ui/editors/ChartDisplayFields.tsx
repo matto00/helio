@@ -268,7 +268,7 @@ export function ChartDisplayFields({
                 </label>
                 <Select
                   id="scatter-color-field"
-                  ariaLabel="Scatter color-by field"
+                  ariaLabel="Scatter color by field"
                   value={scatter.colorField ?? ""}
                   onChange={(value) => onScatterChange({ colorField: value || undefined })}
                   placeholder="— None —"

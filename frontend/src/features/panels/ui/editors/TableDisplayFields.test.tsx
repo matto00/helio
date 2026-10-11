@@ -113,3 +113,20 @@ describe("TableDisplayFields (HEL-255)", () => {
     expect(screen.getByLabelText("Move col8 to bottom")).toBeDisabled();
   });
 });
+
+// HEL-1464 — a long column name ellipsizes at every width, so the full text must stay reachable.
+describe("TableDisplayFields long column names (HEL-1464)", () => {
+  const LONG = "very_long_column_name_".repeat(4).slice(0, 86);
+
+  it("exposes the full column name as the key span's title", () => {
+    renderFields({ columns: [{ key: LONG, visible: true }] });
+    const span = screen.getByText(LONG);
+    expect(span).toHaveAttribute("title", LONG);
+    expect(span).toHaveClass("table-display-fields__column-key");
+  });
+
+  it("keeps the full name in the checkbox's accessible name (title does not replace it)", () => {
+    renderFields({ columns: [{ key: LONG, visible: true }] });
+    expect(screen.getByRole("checkbox", { name: LONG })).toBeInTheDocument();
+  });
+});

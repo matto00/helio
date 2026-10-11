@@ -186,7 +186,7 @@ describe("OutputEditorSheet -- Histogram (HEL-1311)", () => {
     renderSheet(chartOutput(AGG_BAR));
     await choose("Chart type", "Histogram");
     await choose("Histogram field", "duration");
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Bin count" }), {
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Histogram bins" }), {
       target: { value: "12" },
     });
     const config = await save();
@@ -204,7 +204,7 @@ describe("OutputEditorSheet -- Histogram (HEL-1311)", () => {
         chartOptions: { histogram: { binCount: 12 } },
       }),
     );
-    fireEvent.change(await screen.findByRole("spinbutton", { name: "Bin count" }), {
+    fireEvent.change(await screen.findByRole("spinbutton", { name: "Histogram bins" }), {
       target: { value: "" },
     });
     const config = await save();
@@ -219,7 +219,7 @@ describe("OutputEditorSheet -- Histogram (HEL-1311)", () => {
         chartOptions: { histogram: { binCount: 12 } },
       }),
     );
-    const input = await screen.findByRole("spinbutton", { name: "Bin count" });
+    const input = await screen.findByRole("spinbutton", { name: "Histogram bins" });
     fireEvent.change(input, { target: { value: "1" } });
     expect(screen.getByRole("alert")).toHaveTextContent("whole number from 2 to 100");
     const saveButton = screen.getByRole("button", { name: "Save" });
@@ -234,7 +234,7 @@ describe("OutputEditorSheet -- Histogram (HEL-1311)", () => {
 
   it("blocks Save for an invalid draft typed from Automatic", async () => {
     renderSheet(chartOutput({ chartType: "histogram", fieldMapping: { xAxis: "failures" } }));
-    fireEvent.change(await screen.findByRole("spinbutton", { name: "Bin count" }), {
+    fireEvent.change(await screen.findByRole("spinbutton", { name: "Histogram bins" }), {
       target: { value: "101" },
     });
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -248,7 +248,7 @@ describe("OutputEditorSheet -- Histogram (HEL-1311)", () => {
         chartOptions: { histogram: { binCount: 1000 } },
       }),
     );
-    expect(await screen.findByRole("spinbutton", { name: "Bin count" })).toHaveValue(null);
+    expect(await screen.findByRole("spinbutton", { name: "Histogram bins" })).toHaveValue(null);
   });
 
   it("names the chart type in the Compare note", async () => {
