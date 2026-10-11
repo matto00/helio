@@ -26,6 +26,7 @@ import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import type { MappedPanelData, ChartTypeOptionsMap } from "../../../panels/types/panel";
+import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import type { RunResult } from "../../types/output";
 import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
 
@@ -41,6 +42,7 @@ interface OutputPreviewPaneProps {
   chartYField?: string;
   chartOptions?: ChartTypeOptionsMap | null;
   chartAnnotation?: string | null;
+  referenceMarks?: ReferenceMarks;
   // Table
   tableColumns?: string[];
   // Metric
@@ -75,6 +77,7 @@ export function OutputPreviewPane({
   chartYField,
   chartOptions,
   chartAnnotation,
+  referenceMarks,
   tableColumns,
   metricField,
   metricAggFn,
@@ -126,6 +129,7 @@ export function OutputPreviewPane({
           fieldMapping={chartFieldMapping}
           chartAggregate={chartAggregate}
           chartOptions={chartOptions}
+          referenceMarks={referenceMarks}
           annotation={chartAnnotation}
           compact
         />

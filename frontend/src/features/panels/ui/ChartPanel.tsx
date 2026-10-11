@@ -16,6 +16,7 @@ import {
   useMeasuredChartHeight,
 } from "./useChartCompact";
 import type { ChartAggregationSpec, ChartOverlay } from "../history/chartOverlay";
+import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
 import { useHeatmapDefaultCursor } from "./useHeatmapDefaultCursor";
@@ -40,6 +41,8 @@ export interface ChartPanelProps {
   chartOptions?: ChartTypeOptionsMap | null;
   /** HEL-1277: a labelled "vs" comparison series (see `buildChartOption`'s `overlay`). */
   overlay?: ChartOverlay | null;
+  /** HEL-1306: static reference lines/bands on the value axis (see `applyReferenceMarks`). */
+  referenceMarks?: ReferenceMarks | null;
   /** HEL-301: true when rendered in the phone stack, where there is no room
    *  for a legend and full-size axis labels overflow. Hides the legend and
    *  shrinks axis label font via ECharts config — "fix via ECharts config,
@@ -68,6 +71,7 @@ export function ChartPanel({
   aggregationSpec,
   chartOptions,
   overlay,
+  referenceMarks,
   compact = false,
   onDataPointSelect,
 }: ChartPanelProps = {}) {
@@ -86,6 +90,7 @@ export function ChartPanel({
     chartAggregate,
     chartOptions,
     overlay,
+    referenceMarks,
     effectiveCompact,
     measuredPieLegendOverlap,
   });

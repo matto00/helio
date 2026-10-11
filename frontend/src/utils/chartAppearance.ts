@@ -38,6 +38,11 @@ export interface ChartThemeTokens {
   /** HEL-1311: `--app-accent` (a plain hex, unlike the `color-mix()` `accentStrong`), the heatmap colour
    *  scale's hue. Passed through only when it is a colour zrender can parse (hex or rgb[a]). */
   accent: string;
+  /** HEL-1306: `--app-success|warning|error`, the reference line/band tones (hex in both themes). Passed
+   *  through `parseableOr` like `accent`; never a `-surface` token (`color-mix()`). */
+  success: string;
+  warning: string;
+  error: string;
 }
 
 /** Dark-theme literal fallbacks (`theme.css`'s `:root[data-theme="dark"]`
@@ -61,6 +66,9 @@ const FALLBACK_CHART_THEME: ChartThemeTokens = {
   accentStrong: "#fa9249",
   textMuted: "#aaa49c",
   accent: "#f97316",
+  success: "#4cc38a",
+  warning: "#f5b944",
+  error: "#f17b67",
 };
 
 /** Hex / rgb[a] only. `getComputedStyle` hands an unresolved `color-mix(...)` back verbatim, which
@@ -91,11 +99,23 @@ export function resolveChartTheme(): ChartThemeTokens {
     shadowSoft: read("--app-shadow-soft", FALLBACK_CHART_THEME.shadowSoft),
     radiusMd: read("--app-radius-md", FALLBACK_CHART_THEME.radiusMd),
     accentStrong: read("--app-accent-strong", FALLBACK_CHART_THEME.accentStrong),
-    textMuted: read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
+    textMuted: parseableOr(
+      read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
+      FALLBACK_CHART_THEME.textMuted,
+    ),
     accent: parseableOr(
       read("--app-accent", FALLBACK_CHART_THEME.accent),
       FALLBACK_CHART_THEME.accent,
     ),
+    success: parseableOr(
+      read("--app-success", FALLBACK_CHART_THEME.success),
+      FALLBACK_CHART_THEME.success,
+    ),
+    warning: parseableOr(
+      read("--app-warning", FALLBACK_CHART_THEME.warning),
+      FALLBACK_CHART_THEME.warning,
+    ),
+    error: parseableOr(read("--app-error", FALLBACK_CHART_THEME.error), FALLBACK_CHART_THEME.error),
   };
 }
 

@@ -24,10 +24,21 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
   "known keys" should {
     "accept every kind's full known set (string-valued placeholders where no shape is checked)" in {
       OutputConfigValidation.KnownKeys.foreach { case (kind, keys) =>
-        val written = JsObject(keys.filterNot(Set("aggregation", "chartType", "fieldMapping", "compare", "historyPayloads")).map(_ -> s("x")).toMap)
+        val written = JsObject(keys.filterNot(Set("aggregation", "chartType", "fieldMapping", "compare", "historyPayloads", "referenceLines", "referenceBands")).map(_ -> s("x")).toMap)
         withClue(kind.toString)(ok(kind, written))
       }
       ok(OutputKind.Chart, obj("chartType" -> s("bar"), "aggregation" -> chartAgg, "compare" -> s("7d"), "historyPayloads" -> JsTrue))
+    }
+
+    "accept referenceLines and referenceBands on a chart only, and list them in KeysDoc" in {
+      val marks = obj("referenceLines" -> JsArray(obj("value" -> JsNumber(95))), "referenceBands" -> JsArray(obj("from" -> JsNumber(0), "to" -> JsNumber(5))))
+      ok(OutputKind.Chart, marks)
+      rejected(OutputKind.Metric, marks) should include("`referenceBands` (not a metric config key)")
+      OutputConfigValidation.KeysDoc should (include("referenceLines") and include("referenceBands") and include("at most 5") and include("at most 3"))
+    }
+
+    "name referenceLines when its shape is invalid" in {
+      rejected(OutputKind.Chart, obj("referenceLines" -> JsArray(obj("value" -> s("95"))))) should include("referenceLines[0].value")
     }
 
     "reject a typo'd key per kind, naming it with a did-you-mean hint" in {

@@ -6,6 +6,7 @@ import { resolveChartTheme } from "../../../utils/chartAppearance";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { useTheme } from "../../../theme/ThemeProvider";
 import type { ChartOverlay } from "../history/chartOverlay";
+import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { buildChartOption } from "./buildChartOption";
 
 export interface UseChartOptionParams {
@@ -16,6 +17,7 @@ export interface UseChartOptionParams {
   chartAggregate?: GroupedAggregate | null;
   chartOptions?: ChartTypeOptionsMap | null;
   overlay?: ChartOverlay | null;
+  referenceMarks?: ReferenceMarks | null;
   effectiveCompact: boolean;
   measuredPieLegendOverlap: boolean;
 }
@@ -33,6 +35,7 @@ export function useChartOption({
   chartAggregate,
   chartOptions,
   overlay,
+  referenceMarks,
   effectiveCompact,
   measuredPieLegendOverlap,
 }: UseChartOptionParams): EChartsOption {
@@ -95,6 +98,7 @@ export function useChartOption({
       chartAggregate,
       chartOptions,
       overlay,
+      referenceMarks,
       effectiveCompact,
       measuredPieLegendOverlap,
       themeTokens,
@@ -108,6 +112,7 @@ export function useChartOption({
     chartAggregate,
     chartOptions,
     overlay,
+    referenceMarks,
     effectiveCompact,
     measuredPieLegendOverlap,
     theme,

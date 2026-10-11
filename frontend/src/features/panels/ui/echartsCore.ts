@@ -19,6 +19,8 @@ import { BarChart, HeatmapChart, LineChart, PieChart, ScatterChart } from "echar
 import {
   GridComponent,
   LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
@@ -40,6 +42,9 @@ echarts.use([
   TooltipComponent,
   // HEL-1311: the heatmap's colour-scale legend (`visualMap`, continuous).
   VisualMapComponent,
+  // HEL-1306: `markLine` / `markArea`, the reference lines and bands (`referenceMarksOption.ts`).
+  MarkLineComponent,
+  MarkAreaComponent,
   // Only renderer `ChartPanel` needs; SVGRenderer is never opted into.
   CanvasRenderer,
 ]);

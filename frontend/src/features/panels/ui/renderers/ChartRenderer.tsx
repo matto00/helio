@@ -4,6 +4,7 @@ import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../../utils/chartClickSelection";
 import type { ChartAggregationSpec, ChartOverlay } from "../../history/chartOverlay";
+import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 import { binHistogram } from "../../../../utils/histogramBins";
 
@@ -27,6 +28,8 @@ interface ChartRendererProps {
   chartOptions?: ChartTypeOptionsMap | null;
   /** HEL-1277: forwarded to `ChartPanel` — a labelled "vs" comparison series. */
   overlay?: ChartOverlay | null;
+  /** HEL-1306: forwarded to `ChartPanel` -- static reference lines/bands. */
+  referenceMarks?: ReferenceMarks | null;
   /** HEL-318: optional static subtitle/footnote rendered beneath the chart
    *  canvas. Absent/blank renders nothing. */
   annotation?: string | null;
@@ -59,6 +62,7 @@ export function ChartRenderer({
   aggregationSpec,
   chartOptions,
   overlay,
+  referenceMarks,
   annotation,
   truncationNote,
   truncationNoteShort,
@@ -92,6 +96,7 @@ export function ChartRenderer({
             aggregationSpec={aggregationSpec}
             chartOptions={chartOptions}
             overlay={overlay}
+            referenceMarks={referenceMarks}
             compact={compact}
             onDataPointSelect={onDataPointSelect}
           />
