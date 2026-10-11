@@ -1,5 +1,0 @@
-- `scripts/check-ci-complete-needs.mjs` — exports shared js-yaml topology reader (`readCiTopology`, `jobRunCommands`, token extractors); adds D5 self-anchor requiring a ci-complete step to run the guard
-- `scripts/check-ci-complete-needs.selftest.mjs` — fixture helper includes guard step; new anchor cases (missing, :selftest only, uses-only, comment-only, node form, structural-early-return)
-- `scripts/check-precommit-ci-parity.mjs` — regex YAML scanning removed; reads needs and steps[].run via the shared reader; scans needs + ci-complete; fail-closed
-- `scripts/check-precommit-ci-parity.selftest.mjs` — 9 new cases (decoy, block scalar, unparseable, no ci-complete, scalar needs, comment-only command, ci-complete-only coverage, null steps, non-list steps); case (e) fixture gained a valid frontend steps list; total 14
-- `.github/workflows/ci.yml` — ci-complete runs checkout/setup-node/npm ci/check:ci-complete-needs (timeout 6); frontend keeps only the selftest
