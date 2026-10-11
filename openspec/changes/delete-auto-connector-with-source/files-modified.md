@@ -1,9 +1,0 @@
-- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`
-- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala`
-- `backend/src/main/scala/com/helio/services/sources/InlineSourceCleanup.scala`
-- `backend/src/test/scala/com/helio/api/routes/pipelines/InlineSourceLeakPathsRoutesSpec.scala`
-- `backend/src/test/scala/com/helio/api/routes/sources/DataSourceDeleteAutoConnectorRoutesSpec.scala`
-- `backend/src/test/scala/com/helio/services/sources/DataSourceDeleteAutoConnectorSpec.scala`
-- `frontend/src/features/connectors/state/connectorsSlice.ts`
-- `frontend/src/features/connectors/state/connectorsSlice.test.ts`
-- `openspec/changes/delete-auto-connector-with-source/red-evidence.md`
