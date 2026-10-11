@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.api.protocols.dashboards.{DashboardLayoutItemResponse, DashboardLayoutResponse, DashboardResponse}
+import com.helio.api.protocols.dashboards.{DashboardLayoutItemResponse, DashboardAppearanceResponse, DashboardLayoutResponse, DashboardResponse}
 import com.helio.api.protocols.sources.DataSourceResponse
 import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.api.protocols.panels.PanelResponse
@@ -124,13 +124,13 @@ private[services] object PatchSetUndoConflictCheck {
             // dashboard the patch set left behind, so both layouts are compared over the panels
             // that are still on it.
             ctx.dashboardRepo.panelIdsInternal(liveDashboard.id).map { panelIds =>
-              val live = DashboardResponse.fromDomain(liveDashboard)
               def toDomain(l: DashboardLayoutResponse) = {
                 def items(v: Vector[DashboardLayoutItemResponse]) = v.map(i => DashboardLayoutItem(PanelId(i.panelId), i.x, i.y, i.w, i.h))
                 DashboardLayout(items(l.lg), items(l.md), items(l.sm), items(l.xs))
               }
-              def onLive(l: DashboardLayoutResponse) = LayoutPolicy.onlyPanels(toDomain(l), panelIds)
-              if (live.name == journaled.name && live.appearance == journaled.appearance && onLive(live.layout) == onLive(journaled.layout)) None
+              val liveAppearance = DashboardAppearanceResponse.fromDomain(liveDashboard.appearance)
+              if (liveDashboard.name == journaled.name && liveAppearance == journaled.appearance &&
+                  LayoutPolicy.onlyPanels(liveDashboard.layout, panelIds) == LayoutPolicy.onlyPanels(toDomain(journaled.layout), panelIds)) None
               else Some(changed(edit, s"dashboard ${journaled.id} was changed since the patch set was applied"))
             }
         }

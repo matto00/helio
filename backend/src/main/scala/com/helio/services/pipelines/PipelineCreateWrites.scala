@@ -1,29 +1,24 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
-import com.helio.services.sources.DataSourceService
+import com.helio.services.sources.InlineSourceCleanup
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineSummaryResponse}
 import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, DataSourceKind}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
-import org.slf4j.LoggerFactory
-
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** The create path of `PipelineService.create`: request-only root checks, inline-root creation with compensation. Split out of `PipelineService` (HEL-1463). */
 private[pipelines] final class PipelineCreateWrites(
     pipelineRepo: PipelineRepository,
     dataSourceRepo: DataSourceRepository,
-    dataSourceService: DataSourceService,
+    inlineSourceCleanup: InlineSourceCleanup,
     support: PipelineServiceSupport,
     rootWrites: PipelineRootWrites,
     createTransaction: PipelineCreateTransaction
 )(implicit ec: ExecutionContext) {
-
-  private val log = LoggerFactory.getLogger(classOf[PipelineService])
 
   import support.{audit, toSummaryResponse}
   import rootWrites.resolveOneRootSourceId
@@ -46,7 +41,7 @@ private[pipelines] final class PipelineCreateWrites(
    *  transaction, and it has been deleted, not patched). HEL-1469's one exception: INLINE ROOT SOURCES
    *  are created by `SourceService`/`DataSourceService` as their own committed writes (with network
    *  I/O after the insert), so they cannot join that transaction; they are created only after every
-   *  request-only check has passed and are deleted by [[compensatingInlineSources]] if a later
+   *  request-only check has passed and are deleted by [[InlineSourceCompensation.compensating]] if a later
    *  step fails. A validation failure partway
    *  through is signalled by throwing `PipelineCreateValidationFailure` from inside the composed
    *  `DBIO` chain (`DBIO.failed`) -- Slick's `.transactionally` rolls back the ENTIRE transaction
@@ -73,7 +68,7 @@ private[pipelines] final class PipelineCreateWrites(
    *  existing-`sourceId` ownership; (2) transactional path only -- [[PipelineCreatePreflight.run]] and the
    *  ownership half of `validateStepCrossOwnerRefs`; (3) only then are inline root sources created, and from
    *  there every `Left` or failed Future deletes the inline sources this call created
-   *  ([[compensatingInlineSources]]). */
+   *  ([[InlineSourceCompensation.compensating]]). */
   private def checkedCreate(req: CreatePipelineRequest, tag: Option[String], user: AuthenticatedUser): Future[Either[ServiceError, PipelineSummaryResponse]] = {
     val transactional = req.steps.nonEmpty || req.outputs.nonEmpty
     checkRootsReadOnly(req.roots, user).flatMap {
@@ -141,15 +136,15 @@ private[pipelines] final class PipelineCreateWrites(
         }
     }
 
-  /** Root pass (b) and everything after it, under [[compensatingInlineSources]]. */
+  /** Root pass (b) and everything after it, under [[InlineSourceCompensation.compensating]]. */
   private def createWithInlineRoots(
       req: CreatePipelineRequest,
       indices: Option[PipelineCreatePreflight.RootIndices],
       tag: Option[String],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PipelineSummaryResponse]] = {
-    val created = ArrayBuffer.empty[DataSourceId]
-    compensatingInlineSources(created, user) {
+    val created = ArrayBuffer.empty[(DataSourceId, Boolean)]
+    InlineSourceCompensation.compensating(inlineSourceCleanup, created, user, "create cleanup") {
       createRootSources(req.roots, user, created).flatMap {
         case Left(err) => Future.successful(Left(err))
         case Right(dsIds) =>
@@ -179,14 +174,14 @@ private[pipelines] final class PipelineCreateWrites(
   private def createRootSources(
       roots: Vector[CreatePipelineRootRequest],
       user: AuthenticatedUser,
-      created: ArrayBuffer[DataSourceId]
+      created: ArrayBuffer[(DataSourceId, Boolean)]
   ): Future[Either[ServiceError, Vector[DataSourceId]]] =
     roots.foldLeft(Future.successful[Either[ServiceError, Vector[DataSourceId]]](Right(Vector.empty))) { (accF, root) =>
       accF.flatMap {
         case Left(err) => Future.successful(Left(err))
         case Right(acc) =>
           resolveOneRootSourceId(root, user).map(_.map { dsId =>
-            if (root.`type`.isDefined) created += dsId
+            if (root.`type`.isDefined) created += ((dsId, InlineSourceCleanup.isImplicitConnectorRoot(root)))
             acc :+ dsId
           })
       }
@@ -201,32 +196,6 @@ private[pipelines] final class PipelineCreateWrites(
             case None     => Left(ServiceError.NotFound(s"Data source not found: ${dsId.value}"))
             case Some(ds) => Right(acc :+ ((dsId, ds)))
           }
-      }
-    }
-
-  /** HEL-1469: inline root sources are created by `SourceService`/`DataSourceService` as their own committed
-   *  writes, outside the pipeline's Slick transaction, so a failure after creation cannot roll them back. On a
-   *  `Left` or a failed Future from `body`, delete every id in `created` (through `DataSourceService.delete`,
-   *  as the user -- C3) BEFORE returning the ORIGINAL `Left` or re-raising the ORIGINAL exception. A cleanup
-   *  failure is logged and never replaces the original error. Not crash-atomic: a process death between
-   *  creation and the delete leaves the source behind (see design.md Risks). */
-  private def compensatingInlineSources[T](
-      created: ArrayBuffer[DataSourceId],
-      user: AuthenticatedUser
-  )(body: => Future[Either[ServiceError, T]]): Future[Either[ServiceError, T]] =
-    Future.unit.flatMap(_ => body).transformWith {
-      case Success(right @ Right(_)) => Future.successful(right)
-      case Success(left)             => deleteInlineSources(created.toVector, user).map(_ => left)
-      case Failure(ex)               => deleteInlineSources(created.toVector, user).flatMap(_ => Future.failed(ex))
-    }
-
-  private def deleteInlineSources(ids: Vector[DataSourceId], user: AuthenticatedUser): Future[Unit] =
-    ids.foldLeft(Future.unit) { (accF, id) =>
-      accF.flatMap { _ =>
-        Future.unit.flatMap(_ => dataSourceService.delete(id, user)).map {
-          case Left(e)  => log.warn(s"create cleanup could not delete inline source ${id.value}: ${e.err.message}")
-          case Right(_) => ()
-        }.recover { case ex => log.warn(s"create cleanup failed to delete inline source ${id.value}: ${ex.getMessage}") }
       }
     }
 }

@@ -13,8 +13,10 @@ import spray.json._
 import java.net.InetAddress
 import java.time.Instant
 import java.util.UUID
+import org.slf4j.LoggerFactory
+
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Business logic for REST + SQL data sources.
  *
@@ -55,6 +57,26 @@ final class SourceService(
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, JsObject.empty)
 
 
+  private val log = LoggerFactory.getLogger(classOf[SourceService])
+
+  /** HEL-1475: lets `PipelineService` build its [[InlineSourceCleanup]] over the SAME connector repository this service
+   *  synthesizes implicit Connectors through. */
+  private[services] def connectorRepository: ConnectorRepository = connectorRepo
+
+  /** HEL-1475: `body` runs after `dataSourceRepo.insert` committed and the new id has not reached any caller, so a
+   *  failed Future leaves a row nothing can ever clean up. Deletes it (repository-level, as the user -- nothing can
+   *  reference an id that was never returned) and re-raises the ORIGINAL failure; a cleanup failure is logged and
+   *  never replaces it. A `Left`/`fetchError` result is a success, not a failure, and keeps the source. */
+  private def cleaningUpOnFailure[T](inserted: DataSource, user: AuthenticatedUser)(body: => Future[T]): Future[T] =
+    Future.unit.flatMap(_ => body).transformWith {
+      case Success(value) => Future.successful(value)
+      case Failure(ex) =>
+        Future.unit.flatMap(_ => dataSourceRepo.delete(inserted.id, user)).transform { cleanup =>
+          cleanup.failed.foreach(e => log.warn(s"create cleanup failed to delete source ${inserted.id.value}: ${e.getMessage}"))
+          Failure(ex)
+        }
+    }
+
   def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
     SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig)) match {
@@ -79,9 +101,11 @@ final class SourceService(
               config    = sqlConfig
             )
             dataSourceRepo.insert(source, user).flatMap { inserted =>
-              CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user, resolveHost = sqlResolveHost, isBlocked = sqlIsBlocked).map { response =>
-                audit(Some(inserted.id.value), user)
-                Right(response)
+              cleaningUpOnFailure(inserted, user) {
+                CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user, resolveHost = sqlResolveHost, isBlocked = sqlIsBlocked).map { response =>
+                  audit(Some(inserted.id.value), user)
+                  Right(response)
+                }
               }
             }
         }
@@ -148,6 +172,9 @@ final class SourceService(
                     credentialName      = credentialName
                   )
                   .flatMap { createdConnector =>
+                    // HEL-1475: the Connector is committed BEFORE the source insert, so any failure from here on
+                    // (the insert itself, or createRestWithConfig's own post-insert cleanup having already removed
+                    // the source) must also remove the Connector this call made. Source first, then Connector.
                     // HEL-844 design.md D6a: the pairs `splitUrl` pulled off the bare URL's own
                     // query string are carried through here (concatenated with any explicit
                     // `request.config.queryParams`) — previously discarded outright, the fourth
@@ -168,7 +195,13 @@ final class SourceService(
                       // the persisted source dead on arrival at the unresolved-variable guard.
                       parameters      = request.config.parameters.getOrElse(Map.empty)
                     )
-                    createRestWithConfig(request, restConfig, user)
+                    Future.unit.flatMap(_ => createRestWithConfig(request, restConfig, user)).transformWith {
+                      case Success(result) => Future.successful(result)
+                      case Failure(ex) =>
+                        new ImplicitConnectorCleanup(dataSourceRepo, connectorRepo)
+                          .deleteIfAuto(createdConnector.id, request.name, user, "createRest cleanup")
+                          .transform(_ => Failure(ex))
+                    }
                   }
             }
       }
@@ -220,10 +253,12 @@ final class SourceService(
       config    = restConfig
     )
     dataSourceRepo.insert(source, user).flatMap { inserted =>
-      val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
-      CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataSourceRepo, user, overridesMap).map { response =>
-        audit(Some(inserted.id.value), user)
-        Right(response)
+      cleaningUpOnFailure(inserted, user) {
+        val overridesMap = request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap
+        CreateSourceEnvelope.build(connector, restConfig, inserted, now, dataSourceRepo, user, overridesMap).map { response =>
+          audit(Some(inserted.id.value), user)
+          Right(response)
+        }
       }
     }
   }

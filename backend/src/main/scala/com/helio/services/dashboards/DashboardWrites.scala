@@ -45,17 +45,10 @@ private[dashboards] final class DashboardWrites(
     // writes back (the full layout column is rewritten), is first restricted to the dashboard's live
     // panels, so no update of any kind stores an item for a panel that is not on the dashboard.
     dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
-      val live = existing.copy(layout = LayoutPolicy.onlyPanels(existing.layout, panelIds))
       // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
       // the rename below — so a rejected layout saves nothing.
-      val layoutResolved: Either[String, Option[DashboardLayout]] = layoutPatchOpt.map(LayoutPolicy.onlyPanels(_, panelIds)) match {
-        case None => Right(None)
-        case Some(patch) =>
-          layoutPolicy match {
-            case LayoutWritePolicy.Validate           => LayoutPolicy(live.layout, patch).map(Some(_))
-            case LayoutWritePolicy.RestorePriorStored => Right(Some(LayoutPolicy.applyUnvalidated(live.layout, patch)))
-          }
-      }
+      val (liveLayout, layoutResolved) = LayoutPolicy.resolveOnLive(existing.layout, layoutPatchOpt, panelIds, layoutPolicy)
+      val live                         = existing.copy(layout = liveLayout)
       layoutResolved match {
         case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
         case Right(layoutOpt) => writeUpdate(dashboardId, live, nameOpt, appearanceOpt, layoutOpt, panelIds)
