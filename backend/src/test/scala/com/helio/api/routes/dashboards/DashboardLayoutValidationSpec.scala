@@ -17,11 +17,26 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
     s"""{"panelId":"$id","x":$x,"y":$y,"w":$w,"h":$h}"""
   private def arr(items: String*): String = items.mkString("[", ",", "]")
 
-  /** lg is valid; xs is stored-bad (two panels in one cell). */
-  private val storedBadLayout: String =
-    s"""{"lg":${arr(item("p1", 0, 0, 6), item("p2", 6, 0, 6))},"md":[],"sm":[],"xs":${arr(item("p1", 0, 0), item("p2", 0, 0))}}"""
+  // HEL-1456: a layout write keeps only items of panels that are on the dashboard, so the named panels are real rows.
+  private def p1(dashboardId: String): String = s"$dashboardId-p1"
+  private def p2(dashboardId: String): String = s"$dashboardId-p2"
 
-  private def seedStoredBad(name: String): String = seedDashboardWithLayout(name, userId, storedBadLayout)
+  private def seedDashboardWithPanels(name: String): String = {
+    val id = seedDashboardWithLayout(name, userId, """{"lg":[],"md":[],"sm":[],"xs":[]}""")
+    seedPanelWithId(id, p1(id), userId)
+    seedPanelWithId(id, p2(id), userId)
+    id
+  }
+
+  /** lg is valid; xs is stored-bad (two panels in one cell). */
+  private def storedBadLayout(id: String): String =
+    s"""{"lg":${arr(item(p1(id), 0, 0, 6), item(p2(id), 6, 0, 6))},"md":[],"sm":[],"xs":${arr(item(p1(id), 0, 0), item(p2(id), 0, 0))}}"""
+
+  private def seedStoredBad(name: String): String = {
+    val id = seedDashboardWithPanels(name)
+    overwriteStoredLayout(id, storedBadLayout(id))
+    id
+  }
 
   private val routesUnderTest: Seq[(String, (String, String) => HttpRequest)] = Seq(
     "PATCH /api/dashboards/:id" -> { (id: String, layoutBody: String) =>
@@ -62,29 +77,29 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
       "reject an overlapping xs with 400 naming the breakpoint and both panel ids, saving nothing" in {
         val id     = seedStoredBad("overlap-xs-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        build(id, s"""{"xs":${arr(item("p1", 0, 0), item("p2", 0, 1))}, "lg":${arr(item("p1", 0, 4, 6), item("p2", 6, 4, 6))}}""") ~> routes ~> check {
+        build(id, s"""{"xs":${arr(item(p1(id), 0, 0), item(p2(id), 0, 1))}, "lg":${arr(item(p1(id), 0, 4, 6), item(p2(id), 6, 4, 6))}}""") ~> routes ~> check {
           status shouldBe StatusCodes.BadRequest
           message should include("breakpoint 'xs'")
-          message should include("'p1'")
-          message should include("'p2'")
+          message should include(s"'${p1(id)}'")
+          message should include(s"'${p2(id)}'")
         }
         storedLayoutJson(id) shouldBe before // the valid lg change was not saved either
       }
 
       "reject an out-of-bounds xs (x=1, w=2) with 400 and save nothing" in {
-        val id     = seedDashboardWithLayout("oob-xs-" + routeName.hashCode, userId, """{"lg":[],"md":[],"sm":[],"xs":[]}""")
+        val id     = seedDashboardWithPanels("oob-xs-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        build(id, s"""{"xs":${arr(item("p1", 1, 0, 2))}}""") ~> routes ~> check {
+        build(id, s"""{"xs":${arr(item(p1(id), 1, 0, 2))}}""") ~> routes ~> check {
           status shouldBe StatusCodes.BadRequest
           message should include("breakpoint 'xs'")
-          message should include("panel 'p1' is out of bounds")
+          message should include(s"panel '${p1(id)}' is out of bounds")
         }
         storedLayoutJson(id) shouldBe before
       }
 
       "reject a negative coordinate instead of clamping it" in {
-        val id = seedDashboardWithLayout("neg-" + routeName.hashCode, userId, """{"lg":[],"md":[],"sm":[],"xs":[]}""")
-        build(id, s"""{"lg":${arr(item("p1", -1, 0, 2))}}""") ~> routes ~> check {
+        val id = seedDashboardWithPanels("neg-" + routeName.hashCode)
+        build(id, s"""{"lg":${arr(item(p1(id), -1, 0, 2))}}""") ~> routes ~> check {
           status shouldBe StatusCodes.BadRequest
           message should include("breakpoint 'lg'")
         }
@@ -99,7 +114,7 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
       "preserve the other breakpoints on a partial PATCH that sets only xs" in {
         val id     = seedStoredBad("partial-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        build(id, s"""{"xs":${arr(item("p1", 0, 0), item("p2", 1, 0))}}""") ~> routes ~> check {
+        build(id, s"""{"xs":${arr(item(p1(id), 0, 0), item(p2(id), 1, 0))}}""") ~> routes ~> check {
           status shouldBe StatusCodes.OK
         }
         val after = storedLayoutJson(id)
@@ -112,7 +127,7 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
       "accept an lg edit while a stored-bad xs rides along reordered, leaving xs byte-identical" in {
         val id     = seedStoredBad("grandfather-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        val body   = s"""{"lg":${arr(item("p1", 0, 4, 6), item("p2", 6, 4, 6))},"md":[],"sm":[],"xs":${arr(item("p2", 0, 0), item("p1", 0, 0))}}"""
+        val body   = s"""{"lg":${arr(item(p1(id), 0, 4, 6), item(p2(id), 6, 4, 6))},"md":[],"sm":[],"xs":${arr(item(p2(id), 0, 0), item(p1(id), 0, 0))}}"""
         build(id, body) ~> routes ~> check { status shouldBe StatusCodes.OK }
         val after = storedLayoutJson(id)
         after.fields("xs") shouldBe before.fields("xs") // same elements, stored order kept
@@ -122,14 +137,14 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
       "treat a whitespace-padded but otherwise identical panelId as unchanged, not as a change" in {
         val id     = seedStoredBad("ws-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        build(id, s"""{"xs":${arr(item(" p1 ", 0, 0), item("p2 ", 0, 0))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+        build(id, s"""{"xs":${arr(item(s" ${p1(id)} ", 0, 0), item(s"${p2(id)} ", 0, 0))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
         storedLayoutJson(id).fields("xs") shouldBe before.fields("xs")
       }
 
       "still reject a stored-bad xs that is changed but still overlapping" in {
         val id     = seedStoredBad("still-bad-" + routeName.hashCode)
         val before = storedLayoutJson(id)
-        build(id, s"""{"xs":${arr(item("p1", 0, 0), item("p2", 0, 1))}}""") ~> routes ~> check {
+        build(id, s"""{"xs":${arr(item(p1(id), 0, 0), item(p2(id), 0, 1))}}""") ~> routes ~> check {
           status shouldBe StatusCodes.BadRequest
           message should include("breakpoint 'xs'")
         }
@@ -138,7 +153,7 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
 
       "accept the repaired xs" in {
         val id = seedStoredBad("repair-" + routeName.hashCode)
-        build(id, s"""{"xs":${arr(item("p1", 0, 0), item("p2", 1, 0))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+        build(id, s"""{"xs":${arr(item(p1(id), 0, 0), item(p2(id), 1, 0))}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
         bp(storedLayoutJson(id), "xs") should have size 2
       }
     }
@@ -190,14 +205,14 @@ class DashboardLayoutValidationSpec extends ApplyProposalSpecBase {
 
     "be accepted for undo-after-repair on a stored-bad xs, and reject the raw stale snapshot the client no longer sends" in {
       val id = seedStoredBad("seam-undo-after-repair")
-      val repaired = arr(item("p1", 0, 0), item("p2", 1, 0))
+      val repaired = arr(item(p1(id), 0, 0), item(p2(id), 1, 0))
       // 1. the user repairs xs by dragging
       routesUnderTest.head._2(id, s"""{"xs":$repaired}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
       // 2. undo restores the stored-bad snapshot locally; sent AS-IS it differs from stored and is invalid
-      val staleBad = arr(item("p1", 0, 0), item("p2", 0, 0))
+      val staleBad = arr(item(p1(id), 0, 0), item(p2(id), 0, 0))
       routesUnderTest.head._2(id, s"""{"xs":$staleBad}""") ~> routes ~> check { status shouldBe StatusCodes.BadRequest }
       // 3. the client instead sends what the user sees (the resolved breakpoint): accepted
-      val resolved = arr(item("p1", 0, 0), item("p2", 0, 2))
+      val resolved = arr(item(p1(id), 0, 0), item(p2(id), 0, 2))
       routesUnderTest.head._2(id, s"""{"xs":$resolved}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
       bp(storedLayoutJson(id), "xs").map(_.asJsObject.fields("y")) shouldBe Vector(JsNumber(0), JsNumber(2))
     }

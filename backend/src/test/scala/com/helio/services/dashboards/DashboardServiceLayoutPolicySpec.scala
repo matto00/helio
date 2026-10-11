@@ -41,6 +41,8 @@ class DashboardServiceLayoutPolicySpec extends AnyWordSpec with Matchers {
     val repo = mock(classOf[DashboardRepository])
     val dashboard = Dashboard(id, "D", ResourceMeta(owner.id.value, now, now), DashboardAppearance.Default, layout, owner.id)
     when(repo.findById(id, Some(owner))).thenReturn(Future.successful(Some(dashboard)))
+    // HEL-1456: a layout write keeps only items of panels on the dashboard; `a` and `b` are the live ones here.
+    when(repo.panelIdsInternal(id)).thenReturn(Future.successful(Set(PanelId("a"), PanelId("b"))))
     val captor = ArgumentCaptor.forClass(classOf[Dashboard])
     when(repo.update(captor.capture())).thenAnswer(inv => Future.successful(Some(inv.getArgument[Dashboard](0))))
     (new DashboardService(repo, mock(classOf[AccessChecker]), outputRepo = mock(classOf[OutputRepository])), captor, repo)

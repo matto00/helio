@@ -431,11 +431,17 @@ class ApiRoutesSpec
       cleanDb()
       var dashboardId  = ""
       var originalMeta = ""
+      var panelId      = ""
 
       Post("/api/dashboards", CreateDashboardRequest(Some("Operations"))) ~> routes() ~> check {
         val r = responseAs[DashboardResponse]
         dashboardId  = r.id
         originalMeta = r.meta.lastUpdated
+      }
+
+      // HEL-1456: a layout write keeps only items of panels that exist on the dashboard.
+      Post("/api/panels", CreatePanelRequest(Some(dashboardId), Some("Layout panel"), None, None)) ~> routes() ~> check {
+        panelId = responseAs[PanelResponse].id
       }
 
       Patch(
@@ -444,22 +450,22 @@ class ApiRoutesSpec
           name       = None,
           appearance = None,
           layout = Some(DashboardLayoutPatchPayload.full(DashboardLayoutPayload(
-            lg = Vector(DashboardLayoutItemPayload("panel-a", x = 1, y = 2, w = 5, h = 6)),
-            md = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 1, w = 4, h = 5)),
-            sm = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 3, h = 5)),
-            xs = Vector(DashboardLayoutItemPayload("panel-a", x = 0, y = 0, w = 2, h = 5))
+            lg = Vector(DashboardLayoutItemPayload(panelId, x = 1, y = 2, w = 5, h = 6)),
+            md = Vector(DashboardLayoutItemPayload(panelId, x = 0, y = 1, w = 4, h = 5)),
+            sm = Vector(DashboardLayoutItemPayload(panelId, x = 0, y = 0, w = 3, h = 5)),
+            xs = Vector(DashboardLayoutItemPayload(panelId, x = 0, y = 0, w = 2, h = 5))
           )))
         )
       ) ~> routes() ~> check {
         status shouldBe StatusCodes.OK
         val response = responseAs[DashboardResponse]
-        response.layout.lg should contain only DashboardLayoutItemResponse("panel-a", 1, 2, 5, 6)
+        response.layout.lg should contain only DashboardLayoutItemResponse(panelId, 1, 2, 5, 6)
         response.meta.lastUpdated should not be originalMeta
       }
 
       Get("/api/dashboards") ~> routes() ~> check {
         val items = responseAs[PagedResult[DashboardResponse]].items
-        items.head.layout.md should contain only DashboardLayoutItemResponse("panel-a", 0, 1, 4, 5)
+        items.head.layout.md should contain only DashboardLayoutItemResponse(panelId, 0, 1, 4, 5)
       }
     }
 
