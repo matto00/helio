@@ -7,7 +7,11 @@ import type { FilterConfigValue } from "../ui/stepConfigs/FilterConfig";
 import type { PivotConfigValue } from "../ui/stepConfigs/PivotConfig";
 import type { SortKey } from "../ui/stepConfigs/SortConfig";
 import type { SplitTextConfigValue } from "../ui/stepConfigs/SplitTextConfig";
-import type { WindowConfigValue } from "../ui/stepConfigs/WindowConfig";
+import {
+  FIELD_REQUIRED_FUNCTIONS,
+  ROLLING_FUNCTIONS,
+  type WindowConfigValue,
+} from "../ui/stepConfigs/WindowConfig";
 import type { useStepCardEditorState } from "./useStepCardEditorState";
 import type { useStepCardPersist } from "./useStepCardPersist";
 
@@ -137,23 +141,28 @@ export function buildStepCardFieldHandlers({
 
   function onWindowChange(newConfig: WindowConfigValue) {
     setWindowConfig(newConfig);
-    // `field` is only meaningful for running_sum/lag/lead (ignored by the
-    // rank family); `offset` only for lag/lead. Omit them from the
-    // persisted config when the selected function doesn't use them, rather
-    // than persisting a stale value from a previously-selected function.
-    const usesField =
-      newConfig.function === "running_sum" ||
-      newConfig.function === "lag" ||
-      newConfig.function === "lead";
-    const usesOffset = newConfig.function === "lag" || newConfig.function === "lead";
+    // `field` is only meaningful for the field-required functions (running_sum/lag/lead/rolling_*; ignored
+    // by the rank family); `offset` only for lag/lead; `frameSize`/`frameUnit` only for rolling_*. Omit the
+    // keys (not undefined-valued) when the selected function doesn't use them, rather than persisting a stale
+    // value from a previously-selected function.
+    const fn = newConfig.function;
+    const usesField = FIELD_REQUIRED_FUNCTIONS.includes(fn);
+    const usesOffset = fn === "lag" || fn === "lead";
+    const usesFrame = ROLLING_FUNCTIONS.includes(fn);
     persist(
       {
         partitionBy: newConfig.partitionBy,
         orderBy: newConfig.orderBy,
-        function: newConfig.function,
-        field: usesField && newConfig.field ? newConfig.field : undefined,
+        function: fn,
+        ...(usesField && newConfig.field ? { field: newConfig.field } : {}),
         outputColumn: newConfig.outputColumn,
-        offset: usesOffset ? newConfig.offset : undefined,
+        ...(usesOffset ? { offset: newConfig.offset } : {}),
+        ...(usesFrame
+          ? {
+              ...(newConfig.frameSize !== null ? { frameSize: newConfig.frameSize } : {}),
+              frameUnit: newConfig.frameUnit,
+            }
+          : {}),
       },
       true,
     );

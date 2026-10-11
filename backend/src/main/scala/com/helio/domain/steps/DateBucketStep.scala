@@ -159,7 +159,7 @@ object DateBucketStep {
    *  `LocalDate.parse` rather than being short-circuited).
    *  Unparseable input (including `null`/absent/blank) returns `None`, which
    *  the caller maps to a `null` output value — no row is dropped. */
-  private def parseToUtcDate(value: Any): Option[LocalDate] = {
+  private[steps] def parseToUtcDate(value: Any): Option[LocalDate] = {
     if (value == null) return None
     val str = value.toString.trim
     if (str.isEmpty) return None

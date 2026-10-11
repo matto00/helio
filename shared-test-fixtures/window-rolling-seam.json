@@ -1,0 +1,44 @@
+{
+  "description": "HEL-1316 seam fixture: the exact config the window step editor persists (the PATCH body's config) for a rolling window, plus a gappy dated input and the outputs it must produce. Read by frontend WindowConfig.seam.test.tsx (drives the real editor, asserts its PATCH body config equals `config` with an exact key set) and backend WindowRollingSeamSpec (creates the step through the real step route, analyzes it, submits a real run with an Output on the step over `input` and asserts the materialized Output rows equal `expected` (an unparseable date and a null value are included)). A key renamed on either side fails one of them.",
+  "config": {
+    "partitionBy": ["team"],
+    "orderBy": [
+      {
+        "field": "date",
+        "direction": "asc"
+      }
+    ],
+    "function": "rolling_sum",
+    "field": "v",
+    "outputColumn": "rolling_v",
+    "frameSize": 3,
+    "frameUnit": "days"
+  },
+  "columns": [
+    {
+      "name": "team",
+      "type": "string"
+    },
+    {
+      "name": "date",
+      "type": "string"
+    },
+    {
+      "name": "v",
+      "type": "double"
+    }
+  ],
+  "input": [
+    ["a", "2026-01-01", 1],
+    ["a", "2026-01-02", 2],
+    ["b", "2026-01-02", 10],
+    ["a", "2026-01-02", 3],
+    ["a", "2026-01-05", 4],
+    ["a", "2026-01-06", 5],
+    ["b", "2026-01-03", 20],
+    ["a", "nope", 100],
+    ["a", "2026-01-07", null]
+  ],
+  "expected": [1, 6, 10, 6, 4, 9, 30, null, 9],
+  "expectedType": "float"
+}

@@ -85,8 +85,8 @@ private[engine] object ReshapeSchemaInference {
       val field        = json.fields.get("field").collect { case JsString(s) => s }
       val outputColumn = json.fields("outputColumn").convertTo[String]
       val outputType = function match {
-        case "row_number" | "rank" | "dense_rank" => "integer"
-        case "running_sum"                        => "float"
+        case "row_number" | "rank" | "dense_rank" | "rolling_count" => "integer"
+        case "running_sum" | "rolling_avg" | "rolling_sum" | "rolling_min" | "rolling_max" => "float"
         case "lag" | "lead" =>
           field.flatMap(f => inputSchema.find(_.name == f)).map(_.`type`).getOrElse("string")
         case _ => "string"

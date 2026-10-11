@@ -118,7 +118,7 @@ export const OP_TYPES: OpType[] = [
   { id: "chunkbytokencount", label: "Chunk by token count", icon: Layers },
   { id: "datebucket", label: "Date bucket", icon: CalendarDays },
   { id: "pivot", label: "Pivot (long → wide)", icon: Table2 },
-  { id: "window", label: "Window (rank / running total)", icon: Award },
+  { id: "window", label: "Window (rank / running / rolling)", icon: Award },
   { id: "unpivot", label: "Unpivot (wide → long)", icon: List },
   { id: "dedupe", label: "Dedupe rows", icon: Files },
   { id: "fillnull", label: "Fill null / impute", icon: PaintBucket },
@@ -702,6 +702,8 @@ export function windowConfigOf(step: Step): WindowConfigValue {
     field: "",
     outputColumn: "",
     offset: 1,
+    frameSize: null,
+    frameUnit: "rows",
   };
   if (step.opType.id !== "window") return empty;
   const cfg = step.config as WindowConfigType;
@@ -715,6 +717,8 @@ export function windowConfigOf(step: Step): WindowConfigValue {
     field: cfg.field ?? "",
     outputColumn: cfg.outputColumn ?? "",
     offset: typeof cfg.offset === "number" && cfg.offset > 0 ? cfg.offset : 1,
+    frameSize: typeof cfg.frameSize === "number" && cfg.frameSize > 0 ? cfg.frameSize : null,
+    frameUnit: cfg.frameUnit === "days" ? "days" : "rows",
   };
 }
 

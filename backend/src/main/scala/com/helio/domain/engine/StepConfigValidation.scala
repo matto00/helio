@@ -103,7 +103,11 @@ private[engine] object StepConfigValidation {
         if (WindowStep.FieldRequired.contains(cfg.function) && cfg.field.isEmpty)
           Some(s"window function '${cfg.function}' requires 'field'")
         else None
-      fieldProblem.toVector ++ WindowStep.enumProblems(cfg)
+      if (fieldProblem.isDefined) fieldProblem.toVector
+      else {
+        val drafts = WindowStep.rollingDraftProblems(cfg)
+        if (drafts.nonEmpty) drafts else WindowStep.enumProblems(cfg)
+      }
     }
   }
 
