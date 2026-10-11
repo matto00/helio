@@ -137,3 +137,12 @@
   font-weight: var(--weight-semibold);
   text-decoration: underline;
 }
+
+/* HEL-1311: the histogram bin-count input meets the 44px tap floor on touch, as the shared Select
+   triggers beside it do (`shared/ui/inputs.css`). Touch gate, not a width gate -- see
+   `shared/ui/tapTarget.css`. */
+@media (max-width: 768px), (pointer: coarse) {
+  .output-editor-sheet__bin-count {
+    min-height: 44px;
+  }
+}

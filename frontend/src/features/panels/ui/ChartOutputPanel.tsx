@@ -9,6 +9,7 @@ import { defaultChartAppearance } from "../../../theme/appearance";
 import { chartAggregationSpec, selectChartOverlay } from "../history/chartOverlay";
 import { configCompare } from "../history/metricHistoryView";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
+import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 import { resolvePanelChartType } from "./resolvePanelChartType";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 
@@ -85,7 +86,7 @@ export function ChartOutputPanel({
   // with the SAME function and condition the editor preview uses. A panel whose resolved type is
   // scatter renders raw rows (scatter never aggregates), so it neither groups nor re-keys clicks.
   const aggregationSpec = useMemo(
-    () => (chartType === "scatter" ? null : chartAggregationSpec(config)),
+    () => (isNonAggregatingChartType(chartType) ? null : chartAggregationSpec(config)),
     [chartType, config],
   );
   // HEL-1408 design D10a -- null detection reads the typed records (never the null-to-"" `rawRows`),

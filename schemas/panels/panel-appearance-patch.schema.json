@@ -88,7 +88,7 @@
         },
         "chartType": {
           "type": ["string", "null"],
-          "enum": ["bar", "line", "pie", "scatter", null]
+          "enum": ["bar", "line", "pie", "scatter", "heatmap", "histogram", null]
         }
       },
       "additionalProperties": false

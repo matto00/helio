@@ -74,8 +74,8 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
   }
 
   "chartType" should {
-    "accept bar/line/pie/scatter/null and reject anything else" in {
-      Seq("bar", "line", "pie", "scatter").foreach(t => ok(OutputKind.Chart, obj("chartType" -> s(t))))
+    "accept bar/line/pie/scatter/heatmap/histogram/null and reject anything else" in {
+      Seq("bar", "line", "pie", "scatter", "heatmap", "histogram").foreach(t => ok(OutputKind.Chart, obj("chartType" -> s(t))))
       ok(OutputKind.Chart, obj("chartType" -> JsNull))
       rejected(OutputKind.Chart, obj("chartType" -> s("area"))) should include("chartType")
       rejected(OutputKind.Chart, obj("chartType" -> JsNumber(1))) should include("chartType")
@@ -105,6 +105,14 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
       rejected(OutputKind.Chart, obj("aggregation" -> chartAgg), obj("chartType" -> s("scatter"))) should include("scatter")
       rejected(OutputKind.Chart, obj("chartType" -> s("scatter")), obj("aggregation" -> chartAgg)) should include("scatter")
       ok(OutputKind.Chart, obj("chartType" -> s("scatter"), "aggregation" -> JsNull))
+    }
+
+    "reject a non-null aggregation on a heatmap or histogram, naming the actual chart type" in {
+      Seq("heatmap", "histogram").foreach { t =>
+        rejected(OutputKind.Chart, obj("chartType" -> s(t), "aggregation" -> chartAgg)) should (include("aggregation") and include(t))
+        rejected(OutputKind.Chart, obj("chartType" -> s(t)), obj("aggregation" -> chartAgg)) should include(t)
+        ok(OutputKind.Chart, obj("chartType" -> s(t), "aggregation" -> JsNull))
+      }
     }
 
     "not re-validate a stored malformed aggregation on an unrelated write" in {

@@ -2,6 +2,7 @@ package com.helio.domain.history
 
 import com.helio.domain.history.JsSemantics.{coerceNumber, isFinite, jsString, jsTrim}
 import com.helio.domain.model.OutputKind
+import com.helio.domain.panels.ChartTypes
 import spray.json._
 
 import java.lang.{Math => JMath}
@@ -113,7 +114,7 @@ object OutputSummaryReducer {
     val x         = stringField(config, "fieldMapping", "xAxis")
     val y         = stringField(config, "fieldMapping", "yAxis")
     (groupBy, agg, yField, x, y) match {
-      case (Some(g), Some(a), Some(yf), _, _) if chartType != "scatter" =>
+      case (Some(g), Some(a), Some(yf), _, _) if !ChartTypes.NonAggregating.contains(chartType) =>
         val (cats, vals) = groupAndAggregate(rows, g, a, yf)
         seriesJson("grouped", g, yf, Some(a), cats.zip(vals).map { case (c, v) => JsArray(truncate(JsString(c)), num(Some(v))) })
       case (_, _, _, Some(xf), Some(yf)) =>

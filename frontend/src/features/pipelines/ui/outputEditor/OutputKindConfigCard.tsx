@@ -7,6 +7,7 @@ import type {
   LineChartOptions,
   PieChartOptions,
   ScatterChartOptions,
+  HistogramChartOptions,
 } from "../../../panels/types/panel";
 import { chartCompareBlocker } from "../../../panels/history/chartOverlay";
 import type { OutputKind } from "../../types/output";
@@ -27,6 +28,8 @@ interface OutputKindConfigCardProps {
   /** Column options with a leading "None" (aggregation / metric value pickers). */
   aggFieldOptions: SelectOption[];
   fieldOptions: SelectOption[];
+  /** HEL-1311: columns the server reports eligible for a chart `yAxis` (numeric) at this node. */
+  numericColumns: string[];
 }
 
 export function OutputKindConfigCard({
@@ -34,10 +37,14 @@ export function OutputKindConfigCard({
   kindState,
   aggFieldOptions,
   fieldOptions,
+  numericColumns,
 }: OutputKindConfigCardProps) {
   const {
     chartType,
     setChartType,
+    chartFieldMapping,
+    setChartFieldSlot,
+    setBinCountInvalid,
     groupBy,
     setGroupBy,
     yField,
@@ -97,6 +104,19 @@ export function OutputKindConfigCard({
           scatter={chartOptionsState.scatter ?? ({} as ScatterChartOptions)}
           onScatterChange={(patch) =>
             setChartOptionsState((prev) => ({ ...prev, scatter: { ...prev.scatter, ...patch } }))
+          }
+          chartFieldMapping={chartFieldMapping}
+          onChartFieldChange={setChartFieldSlot}
+          numericColumns={numericColumns}
+          onBinCountInvalidChange={setBinCountInvalid}
+          histogram={chartOptionsState.histogram ?? ({} as HistogramChartOptions)}
+          onHistogramChange={(patch) =>
+            setChartOptionsState((prev) => {
+              const merged = { ...prev.histogram, ...patch };
+              // "Automatic" stores no binCount (and no empty histogram entry).
+              const { histogram: _histogram, ...rest } = prev;
+              return merged.binCount === undefined ? rest : { ...rest, histogram: merged };
+            })
           }
           annotationState={annotationState}
           compareValue={compare}

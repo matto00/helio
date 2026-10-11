@@ -18,6 +18,8 @@ import {
 import type { ChartAggregationSpec, ChartOverlay } from "../history/chartOverlay";
 import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
+import { useHeatmapDefaultCursor } from "./useHeatmapDefaultCursor";
+import { resolveChartType } from "../../../utils/chartAppearance";
 import echarts from "./echartsCore";
 
 export interface ChartPanelProps {
@@ -98,9 +100,13 @@ export function ChartPanel({
     onDataPointSelect,
   });
 
+  // HEL-1311 -- a heatmap cell is not clickable, so the canvas must not show a pointer over it.
+  const onChartReady = useHeatmapDefaultCursor(resolveChartType(appearance?.chart) === "heatmap");
+
   return (
     <div ref={wrapperRef} style={{ height: "100%", width: "100%" }}>
       <ReactECharts
+        onChartReady={onChartReady}
         echarts={echarts}
         option={option}
         onEvents={chartOnEvents}

@@ -1,7 +1,7 @@
 # chart-type-selector Specification
 
 ## Purpose
-Controls the chart rendering type (bar, line, pie, scatter) for chart panels. The chart type is chosen on the bound Output (`config.chartType`); a chart type stored on the panel's own appearance still takes precedence, and the effective type resolves panel, then Output, then `line`. The panel detail modal shows no chart type selector.
+Controls the chart rendering type (bar, line, pie, scatter, heatmap, histogram) for chart panels. The chart type is chosen on the bound Output (`config.chartType`); a chart type stored on the panel's own appearance still takes precedence, and the effective type resolves panel, then Output, then `line`. The panel detail modal shows no chart type selector.
 
 ## Requirements
 

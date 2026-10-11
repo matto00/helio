@@ -12,6 +12,8 @@ interface OutputEditorFooterProps {
   canAddTailWithAggregate: boolean;
   onAddTailWithAggregate: () => void;
   onSave: () => void;
+  /** An unusable field value blocks Save (HEL-1311: histogram bin-count draft). */
+  saveBlocked?: boolean;
 }
 
 export function OutputEditorFooter({
@@ -24,6 +26,7 @@ export function OutputEditorFooter({
   canAddTailWithAggregate,
   onAddTailWithAggregate,
   onSave,
+  saveBlocked = false,
 }: OutputEditorFooterProps) {
   return (
     <div className="output-editor-sheet__footer">
@@ -61,7 +64,7 @@ export function OutputEditorFooter({
         type="button"
         className="ui-modal-btn ui-modal-btn--primary"
         onClick={onSave}
-        disabled={saving}
+        disabled={saving || saveBlocked}
       >
         {saving ? "Saving…" : "Save"}
       </button>

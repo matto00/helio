@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 
 import type { ChartTypeOptionsMap, PanelAppearance } from "../../types/panel";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../../utils/chartClickSelection";
 import type { ChartAggregationSpec, ChartOverlay } from "../../history/chartOverlay";
 import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
+import { binHistogram } from "../../../../utils/histogramBins";
 
 // HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
 // dynamic `import()` so its module graph lands in a separate, non-entry chunk instead of the
@@ -43,6 +44,12 @@ interface ChartRendererProps {
   onDataPointSelect?: (selection: ChartClickSelection) => void;
 }
 
+/** HEL-1311 design D5 -- "3 non-numeric values skipped." (histogram only; null when nothing was skipped). */
+export function histogramSkippedNote(skipped: number): string | null {
+  if (skipped <= 0) return null;
+  return `${skipped} non-numeric ${skipped === 1 ? "value" : "values"} skipped.`;
+}
+
 export function ChartRenderer({
   appearance,
   rawRows,
@@ -59,6 +66,19 @@ export function ChartRenderer({
   onDataPointSelect,
 }: ChartRendererProps) {
   const trimmedAnnotation = annotation?.trim();
+  // `buildDataOption` cannot render DOM, so the histogram's skipped-cell count is derived here (the
+  // same `binHistogram` parse) and shown in the footnote slot beside the truncation note.
+  const isHistogram = appearance?.chart?.chartType === "histogram";
+  const skippedNote = useMemo(() => {
+    const xCol = fieldMapping?.xAxis && headers ? headers.indexOf(fieldMapping.xAxis) : -1;
+    if (!isHistogram || !rawRows || xCol === -1) return null;
+    return histogramSkippedNote(
+      binHistogram(
+        rawRows.map((r) => r[xCol] ?? ""),
+        chartOptions?.histogram?.binCount,
+      ).skipped,
+    );
+  }, [isHistogram, rawRows, headers, fieldMapping, chartOptions]);
   return (
     <div className="panel-content panel-content--chart">
       <div className="chart-panel__canvas">
@@ -94,6 +114,11 @@ export function ChartRenderer({
           ) : (
             truncationNote
           )}
+        </p>
+      ) : null}
+      {skippedNote ? (
+        <p className="chart-panel__truncation-note chart-panel__skipped-note" title={skippedNote}>
+          {skippedNote}
         </p>
       ) : null}
     </div>

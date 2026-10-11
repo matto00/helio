@@ -2,7 +2,7 @@
 // does `import * as echarts from 'echarts'`: the full library (1.12 MB min /
 // 369 KB gzip), auto-registering every chart type and component it ships as
 // a side effect, so bundlers can't tree-shake any of it away even though
-// `ChartPanel` only ever renders bar/line/pie/scatter (`ChartType` in
+// `ChartPanel` only ever renders every `ChartType` value (`CHART_TYPES` in
 // `utils/chartAppearance.ts`) with a plain category/value grid, legend, and
 // tooltip (`appearanceToEChartsOption`) — no dataZoom, toolbox, geo, etc.
 //
@@ -15,8 +15,13 @@
 // the chart-type/component list lives next to a comment explaining why each
 // entry is there, instead of buried in the component file.
 import * as echarts from "echarts/core";
-import { BarChart, LineChart, PieChart, ScatterChart } from "echarts/charts";
-import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
+import { BarChart, HeatmapChart, LineChart, PieChart, ScatterChart } from "echarts/charts";
+import {
+  GridComponent,
+  LegendComponent,
+  TooltipComponent,
+  VisualMapComponent,
+} from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([
@@ -25,12 +30,16 @@ echarts.use([
   LineChart,
   PieChart,
   ScatterChart,
+  // HEL-1311: `heatmap` (a category x category matrix). `histogram` renders as a BarChart series.
+  HeatmapChart,
   // Cartesian grid (xAxis/yAxis) — `appearanceToEChartsOption` always sets both.
   GridComponent,
   // `chart.legend` (`appearanceToEChartsOption`).
   LegendComponent,
   // `chart.tooltip` (`appearanceToEChartsOption`).
   TooltipComponent,
+  // HEL-1311: the heatmap's colour-scale legend (`visualMap`, continuous).
+  VisualMapComponent,
   // Only renderer `ChartPanel` needs; SVGRenderer is never opted into.
   CanvasRenderer,
 ]);

@@ -24,6 +24,11 @@ export interface OutputKindState {
   chartType: ChartType;
   setChartType: (t: ChartType) => void;
   chartFieldMapping: Record<string, string>;
+  /** HEL-1311: sets (or, for `""`, removes) one chart `fieldMapping` slot -- heatmap / histogram pickers. */
+  setChartFieldSlot: (slot: string, value: string) => void;
+  /** HEL-1311: the histogram bin-count draft is unusable; Save is blocked while true. */
+  binCountInvalid: boolean;
+  setBinCountInvalid: (invalid: boolean) => void;
   groupBy: string;
   setGroupBy: (v: string) => void;
   chartAggFn: string;
@@ -78,7 +83,13 @@ export function useOutputKindState(
 
   // Chart
   const [chartType, setChartType] = useState<ChartType>(seed.chartType);
-  const [chartFieldMapping] = useState(seed.chartFieldMapping);
+  const [chartFieldMapping, setChartFieldMapping] = useState(seed.chartFieldMapping);
+  const [binCountInvalid, setBinCountInvalid] = useState(false);
+  const setChartFieldSlot = (slot: string, value: string) =>
+    setChartFieldMapping((prev) => {
+      const { [slot]: _removed, ...rest } = prev;
+      return value ? { ...rest, [slot]: value } : rest;
+    });
   const [groupBy, setGroupBy] = useState(seed.groupBy);
   const [chartAggFn, setChartAggFn] = useState<string>(seed.chartAggFn);
   const [yField, setYField] = useState(seed.yField);
@@ -128,6 +139,9 @@ export function useOutputKindState(
     chartType,
     setChartType,
     chartFieldMapping,
+    setChartFieldSlot,
+    binCountInvalid,
+    setBinCountInvalid,
     groupBy,
     setGroupBy,
     chartAggFn,

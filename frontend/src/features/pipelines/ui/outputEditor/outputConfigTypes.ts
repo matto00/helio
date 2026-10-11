@@ -174,12 +174,26 @@ function safeRecord(value: unknown): Record<string, string> {
   return {};
 }
 
+/** HEL-1311 -- a stored `histogram.binCount` outside the server's whole 2-100 range is dropped (the
+ *  chart then bins automatically and the editor shows Automatic); every other option passes through. */
+function sanitizeChartOptions(raw: unknown): ChartTypeOptionsMap | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const options = raw as ChartTypeOptionsMap;
+  const binCount = (options.histogram as { binCount?: unknown } | undefined)?.binCount;
+  if (binCount === undefined) return options;
+  const valid =
+    Number.isInteger(binCount) && (binCount as number) >= 2 && (binCount as number) <= 100;
+  if (valid) return options;
+  const { histogram: _histogram, ...rest } = options;
+  return rest;
+}
+
 export function readChartConfig(config: Record<string, unknown>): ChartOutputConfig {
   return {
     chartType: (safeString(config.chartType, "line") as ChartType) || "line",
     fieldMapping: safeRecord(config.fieldMapping),
     aggregation: (config.aggregation as ChartAggregation | null | undefined) ?? null,
-    chartOptions: (config.chartOptions as ChartTypeOptionsMap | null | undefined) ?? null,
+    chartOptions: sanitizeChartOptions(config.chartOptions),
     annotation: (config.annotation as string | null | undefined) ?? null,
   };
 }

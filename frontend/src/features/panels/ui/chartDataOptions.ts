@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts";
 
-import type { ScatterChartOptions } from "../types/panel";
+import type { HistogramChartOptions, ScatterChartOptions } from "../types/panel";
 import type { ChartType } from "../../../utils/chartAppearance";
 import { makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
@@ -9,6 +9,7 @@ import type { GroupedAggregate } from "../../../utils/aggregate";
 // the row-filter half without pulling this file's lazy-loaded echarts chunk
 // into the main bundle (HEL-512).
 import { resolveDataColumns, resolvePieValueColumn } from "../../../utils/chartClickSelection";
+import { buildHeatmapDataOption, buildHistogramDataOption } from "./heatmapHistogramOptions";
 
 /** HEL-572 design.md D6 — merges `cursor: "pointer"` onto every series entry
  *  a `buildDataOption` branch returns, applied here (a single post-process
@@ -18,10 +19,16 @@ import { resolveDataColumns, resolvePieValueColumn } from "../../../utils/chartC
  *  `appearance`-derived half, which is what closes the HEL-1178 hazard (a
  *  chart panel with no stored `appearance.chart` still gets a clickable
  *  cursor, since this runs unconditionally regardless of `appearance`). */
-export function withPointerCursor(dataOption: Partial<EChartsOption>): Partial<EChartsOption> {
+export function withPointerCursor(
+  dataOption: Partial<EChartsOption>,
+  chartType?: ChartType,
+): Partial<EChartsOption> {
   const series = dataOption.series;
   if (!Array.isArray(series) || series.length === 0) return dataOption;
-  return { ...dataOption, series: series.map((s) => ({ ...(s as object), cursor: "pointer" })) };
+  // HEL-1311 — a histogram bar is not clickable, so it must not advertise itself as one. (A heatmap
+  // view ignores `cursor`; `ChartPanel` sets the canvas cursor for it instead.)
+  const cursor = chartType === "histogram" ? "default" : "pointer";
+  return { ...dataOption, series: series.map((s) => ({ ...(s as object), cursor })) };
 }
 
 export function buildDataOption(
@@ -30,9 +37,18 @@ export function buildDataOption(
   fieldMapping: Record<string, string> | null | undefined,
   chartType: ChartType,
   scatterOptions?: ScatterChartOptions,
+  histogramOptions?: HistogramChartOptions,
 ): Partial<EChartsOption> {
   return withPointerCursor(
-    buildDataOptionCore(rawRows, headers, fieldMapping, chartType, scatterOptions),
+    buildDataOptionCore(
+      rawRows,
+      headers,
+      fieldMapping,
+      chartType,
+      scatterOptions,
+      histogramOptions,
+    ),
+    chartType,
   );
 }
 
@@ -42,8 +58,15 @@ export function buildDataOptionCore(
   fieldMapping: Record<string, string> | null | undefined,
   chartType: ChartType,
   scatterOptions?: ScatterChartOptions,
+  histogramOptions?: HistogramChartOptions,
 ): Partial<EChartsOption> {
   if (rawRows.length === 0 || headers.length === 0) return {};
+
+  // HEL-1311 — checked before `resolveDataColumns`, whose unmapped-x fallback is column 0.
+  if (chartType === "heatmap") return buildHeatmapDataOption(rawRows, headers, fieldMapping);
+  if (chartType === "histogram") {
+    return buildHistogramDataOption(rawRows, headers, fieldMapping, histogramOptions);
+  }
 
   // HEL-572 tasks.md 2.1 / design.md D4 — extracted so `mapChartClickToSelection`/
   // `filterRowsForSelection` (chartClickSelection.ts) can never resolve a
@@ -200,7 +223,8 @@ export function buildAggregateDataOption(
     xAxis: { type: "category", data: aggregate.categories },
     series: [
       {
-        type: chartType,
+        // Aggregate rendering is bar/line/pie only (`useAggregate` in `buildChartOption`).
+        type: chartType as "bar" | "line",
         ...(aggregate.seriesName ? { name: aggregate.seriesName } : {}),
         data: aggregate.values,
       },

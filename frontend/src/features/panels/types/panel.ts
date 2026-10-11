@@ -19,6 +19,7 @@
 
 import type { ResourceMeta } from "../../../types/models";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
+import type { ChartType } from "../../../utils/chartAppearance";
 import type {
   FilteredMetric,
   OutputRowsFilter,
@@ -51,7 +52,7 @@ export interface ChartAppearance {
   legend: ChartLegend;
   tooltip: ChartTooltip;
   axisLabels: ChartAxisLabels;
-  chartType?: "bar" | "line" | "pie" | "scatter";
+  chartType?: ChartType;
 }
 
 export interface PanelAppearance {
@@ -124,11 +125,17 @@ export interface ScatterChartOptions {
   colorField?: string;
 }
 
+export interface HistogramChartOptions {
+  /** Fixed bin count (whole number 2-100); absent = automatic (Sturges, clamped 1-50). */
+  binCount?: number;
+}
+
 export interface ChartTypeOptionsMap {
   line?: LineChartOptions;
   bar?: BarChartOptions;
   pie?: PieChartOptions;
   scatter?: ScatterChartOptions;
+  histogram?: HistogramChartOptions;
 }
 
 //
