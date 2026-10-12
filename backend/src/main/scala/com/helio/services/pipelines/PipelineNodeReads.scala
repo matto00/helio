@@ -7,7 +7,7 @@ import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
 import com.helio.api.protocols.panels.{PanelCapabilityColumnResponse, PanelCapabilityResponse}
 import com.helio.domain.panels.OutputBindingSpec
 import com.helio.domain.model.{AuthenticatedUser, DataFieldType, DataSourceId, Output, OutputKind, Pipeline, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
-import com.helio.domain.engine.{ExpressionEvaluator, PipelineAnalyzeService, RuntimeGraphPath, SchemaField}
+import com.helio.domain.engine.{PipelineAnalyzeService, RuntimeGraphPath, SchemaField}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 
@@ -155,10 +155,11 @@ private[pipelines] final class PipelineNodeReads(
         }
     }
 
-  /** `POST /api/pipelines/:id/validate-expression?stepId=` (HEL-906 cycle 7): delegates to
-   *  the SAME `ExpressionEvaluator.validate` the `compute` step's own analyze-time hook uses
-   *  (`PipelineAnalyzeService.inferCompute`), against the node's projected schema field names
-   *  -- reuses `capabilitiesAtNode`'s node-resolution machinery (`projectedSchemaAtNode`)
+  /** `POST /api/pipelines/:id/validate-expression?stepId=` (HEL-906 cycle 7, HEL-1437): answers with
+   *  the exact `validationError` analyze gives an enabled `compute` step with that expression
+   *  (`PipelineAnalyzeService.computeExpressionProblem`: config check, unknown fields AND type
+   *  errors), against the node's projected schema -- `valid:false` means analyze would flag it, not
+   *  that save rejects it (compute save is parse-only). Reuses `capabilitiesAtNode`'s node-resolution machinery (`projectedSchemaAtNode`)
    *  rather than a second schema-projection codepath. `stepId` absent means the pipeline's
    *  raw source schema. An unknown `stepId` is a 404, matching `capabilitiesAtNode`'s own
    *  convention. */
@@ -175,10 +176,9 @@ private[pipelines] final class PipelineNodeReads(
           case None =>
             Left(ServiceError.NotFound(s"Unknown stepId: ${stepId.map(_.value).getOrElse("")}"))
           case Some(schema) =>
-            val fieldNames = schema.map(_.name).toSet
-            ExpressionEvaluator.validate(expression, fieldNames) match {
-              case Right(())  => Right(ExpressionValidationResponse(valid = true, error = None))
-              case Left(msg)  => Right(ExpressionValidationResponse(valid = false, error = Some(msg)))
+            PipelineAnalyzeService.computeExpressionProblem(expression, schema) match {
+              case None      => Right(ExpressionValidationResponse(valid = true, error = None))
+              case Some(msg) => Right(ExpressionValidationResponse(valid = false, error = Some(msg)))
             }
         }
     }

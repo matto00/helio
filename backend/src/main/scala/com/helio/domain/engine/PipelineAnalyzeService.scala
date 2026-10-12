@@ -25,6 +25,30 @@ object PipelineAnalyzeService {
    *  never a schema, so it cannot inherit the stored-inferred-schema false positives of HEL-1280. */
   def stepConfigProblem(op: String, rawConfig: String): Option[String] = StepConfigValidation.validateStepConfig(op, rawConfig)
 
+  /** The ONE composition of analyze's per-step check for an ENABLED step: the schema-independent
+   *  config validator first, and only when it passes the per-kind inference (whose own error is the
+   *  step's `validationError`). On a config failure the output schema is the input (identity).
+   *  Shared by `analyze`, `analyzeNodes` and `computeExpressionProblem` so they cannot drift. */
+  private def checkEnabledStep(
+      op:              String,
+      config:          String,
+      inputSchema:     Vector[SchemaField],
+      secondarySchema: Option[Vector[SchemaField]]
+  ): (Vector[SchemaField], Option[String]) =
+    validateStepConfig(op, config) match {
+      case Some(msg) => (inputSchema, Some(msg))
+      case None      => inferOutputSchema(op, config, inputSchema, secondarySchema)
+    }
+
+  /** HEL-1437: the `validationError` analyze reports for an enabled `compute` step that has
+   *  `expression` (and a non-empty column) over `inputSchema` -- `None` when analyze would not flag
+   *  it. Backs `POST /api/pipelines/:id/validate-expression`, so the endpoint and analyze answer
+   *  identically by construction. The column name is a fixed synthetic one; no message embeds it. */
+  def computeExpressionProblem(expression: String, inputSchema: Vector[SchemaField]): Option[String] = {
+    val config = JsObject("column" -> JsString("__validate_expression__"), "expression" -> JsString(expression)).compactPrint
+    checkEnabledStep("compute", config, inputSchema, None)._2
+  }
+
   /** JSON codec for `SchemaField` (design D2's `{name, type}` shape) — shared
     * by `PipelineRunService` (serializing the run-success baseline into
     * `pipelines.last_source_schema`) and `PipelineService` (tolerant-parsing
@@ -117,10 +141,7 @@ object PipelineAnalyzeService {
       // error from infer* itself already used) and infer* is never called
       // for this step — validation and inference are deliberately kept
       // separate (inference stays tolerant, validation is strict).
-      val (output, err) = validateStepConfig(step.op, step.config) match {
-        case Some(msg) => (currentSchema, Some(msg))
-        case None      => inferOutputSchema(step.op, step.config, currentSchema)
-      }
+      val (output, err) = checkEnabledStep(step.op, step.config, currentSchema, None)
       val analyzed = AnalyzedStep(
         id              = step.id,
         position        = step.position,
@@ -283,10 +304,7 @@ object PipelineAnalyzeService {
       // disabled-node handling, design.md Decision 7 / HEL-905).
       val (output, err) =
         if (!step.enabled) (inputSchema, None)
-        else validateStepConfig(step.op, step.config) match {
-          case Some(msg) => (inputSchema, Some(msg))
-          case None      => inferOutputSchema(step.op, step.config, inputSchema, secondarySchema)
-        }
+        else checkEnabledStep(step.op, step.config, inputSchema, secondarySchema)
       results(step.id) = AnalyzedStep(
         id              = step.id,
         position        = step.position,

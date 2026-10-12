@@ -53,9 +53,15 @@ describe("denyReasonCopy coverage (HEL-1096 design.md D6)", () => {
 });
 
 describe("denyReasonCopy step-config-invalid (HEL-1266)", () => {
-  it("says a step is misconfigured and the pipeline cannot run until it is fixed", () => {
+  it("says a step has a problem and results may be wrong or missing until it is fixed", () => {
     expect(denyReasonCopy({ code: "step-config-invalid", detail: "x", stepId: "s1" })).toBe(
-      "A step in this pipeline is misconfigured, so it can't run until that step is fixed.",
+      "A step in this pipeline has a problem, so its results may be wrong or missing until that step is fixed.",
+    );
+  });
+
+  it("does not claim the pipeline cannot run (HEL-1437: analyze-only errors still run)", () => {
+    expect(denyReasonCopy({ code: "step-config-invalid", detail: "x", stepId: "s1" })).not.toMatch(
+      /can.?t run|cannot run/i,
     );
   });
 });
