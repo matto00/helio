@@ -51,15 +51,15 @@
 }
 
 .panel-content__metric-figure--tone-success {
-  color: var(--app-success);
+  color: var(--panel-tone-success, var(--app-success));
 }
 
 .panel-content__metric-figure--tone-warning {
-  color: var(--app-warning);
+  color: var(--panel-tone-warning, var(--app-warning));
 }
 
 .panel-content__metric-figure--tone-error {
-  color: var(--app-error);
+  color: var(--panel-tone-error, var(--app-error));
 }
 
 .tone-glyph {
@@ -268,15 +268,15 @@
 }
 
 .panel-content__metric-trend--up {
-  color: var(--app-success);
+  color: var(--panel-tone-success, var(--app-success));
 }
 
 .panel-content__metric-trend--down {
-  color: var(--app-error);
+  color: var(--panel-tone-error, var(--app-error));
 }
 
 .panel-content__metric-trend--flat {
-  color: var(--app-text-muted);
+  color: var(--panel-tone-muted, var(--app-text-muted));
 }
 
 /* HEL-1275 — available-from / filtered-state note, muted like a trend flat state. */

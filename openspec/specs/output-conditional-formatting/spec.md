@@ -78,8 +78,10 @@ styling. A raw value is numeric when, after trimming, it is non-empty and parses
 - **THEN** that cell renders with the `error` tone
 
 ### Requirement: Rendering per Output kind
-The tone colour SHALL come only from `--app-success`, `--app-warning`, `--app-error` and their `-surface` washes, in
-both light and dark themes.
+The tone colour SHALL come from `--app-success`, `--app-warning`, `--app-error` and their `-surface` washes, in
+both light and dark themes. On a panel with a custom background colour, a tone's TEXT colour SHALL instead be a
+readable variant of that token whenever the token would measure below 4.5:1 against the panel's resolved surface or
+against any tone's wash over that surface (see "Tone text stays readable on a custom panel background").
 - A metric Output's value SHALL render in the matched tone's text colour; its unit SHALL keep exactly the colour it
   has with no rules, including on a panel with a custom text/background colour.
 - Each collection item SHALL evaluate the rules against its own value and render that value in the matched tone's
@@ -94,7 +96,7 @@ both light and dark themes.
   paths.
 
 #### Scenario: Metric renders in the token colour in both themes
-- **WHEN** a metric's rules match its value with tone `warning`
+- **WHEN** a metric's rules match its value with tone `warning` on a panel with no custom background
 - **THEN** its value's computed colour equals `--app-warning` in the light theme and in the dark theme
 
 #### Scenario: Row and cell rules apply per column and per row
@@ -108,8 +110,9 @@ both light and dark themes.
 - **THEN** the value renders in the error tone and the delta line keeps its up/down/flat colour
 
 #### Scenario: Public dashboards render the same styling
-- **WHEN** a shared dashboard shows a panel bound to an Output with rules
-- **THEN** the public viewer renders the same tones as the authenticated dashboard
+- **WHEN** a shared dashboard shows a panel with no custom background bound to an Output with rules
+- **THEN** the public viewer renders the same tones as the authenticated dashboard (the public viewer does not apply
+  custom panel backgrounds, so it always shows the theme tokens)
 
 ### Requirement: Colour is not the only signal
 Every value styled by a rule SHALL also render a glyph whose shape differs per tone (and from the delta direction
@@ -181,3 +184,24 @@ Output with no rules SHALL render the history rows exactly as before.
 #### Scenario: No rules, no change
 - **WHEN** an Output has no `conditionalFormats`
 - **THEN** the history rows table renders identically to before this change
+
+### Requirement: Tone text stays readable on a custom panel background
+On a panel whose appearance has a custom (non-transparent) background, each tone's text colour (metric and collection
+figure, table cell text) and table tone mark SHALL measure at least 4.5:1 against the panel's resolved surface and
+against every tone's `-surface` wash over it (a row-rule mark can sit on another tone's cell wash), in both themes. When the tone token already clears the implementation's internal target (4.55:1, a
+rounding margin over the 4.5:1 contract), the token SHALL be used unchanged; otherwise a darker or lighter step of the same tone colour SHALL be used automatically. No editor warning
+SHALL be shown. The tone glyph and the screen-reader label SHALL be unchanged. A panel with no custom background SHALL
+render the tone tokens exactly as before.
+
+#### Scenario: Tone text auto-adjusts on a saturated light-theme background
+- **WHEN** a table cell rule matches with tone `error` on a light-theme panel whose background is `#ff0000`
+- **THEN** the cell's text measures at least 4.5:1 against its washed background, its hue stays in the error family,
+  and the glyph and sr-only label are the same as on a default panel
+
+#### Scenario: A token that already passes is kept
+- **WHEN** a metric matches tone `success` on a light-theme panel whose background is `#ffffff`
+- **THEN** the value's computed colour equals `--app-success`
+
+#### Scenario: Default panels are unchanged
+- **WHEN** a panel has background `transparent`
+- **THEN** no per-panel tone override is set and every tone renders in its theme token

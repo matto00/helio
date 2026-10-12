@@ -141,7 +141,7 @@
 }
 
 .ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-success {
-  color: var(--app-success);
+  color: var(--panel-tone-success, var(--app-success));
   background: var(--app-success-surface);
 }
 
@@ -152,7 +152,7 @@
 }
 
 .ui-data-grid__tone-mark--success {
-  color: var(--app-success);
+  color: var(--panel-tone-success, var(--app-success));
 }
 
 .ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-warning) td {
@@ -166,7 +166,7 @@
 }
 
 .ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-warning {
-  color: var(--app-warning);
+  color: var(--panel-tone-warning, var(--app-warning));
   background: var(--app-warning-surface);
 }
 
@@ -177,7 +177,7 @@
 }
 
 .ui-data-grid__tone-mark--warning {
-  color: var(--app-warning);
+  color: var(--panel-tone-warning, var(--app-warning));
 }
 
 .ui-data-grid__table tbody tr:where(.ui-data-grid__row--tone-error) td {
@@ -191,7 +191,7 @@
 }
 
 .ui-data-grid__table tbody tr td.ui-data-grid__cell--tone-error {
-  color: var(--app-error);
+  color: var(--panel-tone-error, var(--app-error));
   background: var(--app-error-surface);
 }
 
@@ -202,7 +202,7 @@
 }
 
 .ui-data-grid__tone-mark--error {
-  color: var(--app-error);
+  color: var(--panel-tone-error, var(--app-error));
 }
 
 /* The mark stays INLINE (no block/flex) so the td's ellipsis truncation keeps working. */
