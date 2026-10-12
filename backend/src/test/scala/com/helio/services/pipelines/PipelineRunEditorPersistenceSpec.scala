@@ -424,11 +424,11 @@ class PipelineRunEditorPersistenceSpec extends AnyWordSpec with Matchers with Be
       runs(p) shouldBe empty
     }
 
-    "answer NotAuthorized for a pipeline that no longer exists, on both the grantee and the owner path" in {
+    "answer PipelineGone (HEL-1503: not NotAuthorized) for a pipeline that no longer exists, on both the grantee and the owner path" in {
       val gone = PipelineId(UUID.randomUUID().toString)
       val ed   = AuthenticatedUser(UserId(seedUser()))
-      admit(gone, ed) shouldBe ConcurrencyCapResult.NotAuthorized
-      await(runRepo.insertRunIfUnderConcurrencyCap(PipelineRunId(UUID.randomUUID().toString), gone, Instant.now(), owner, "manual", None, 5)) shouldBe ConcurrencyCapResult.NotAuthorized
+      admit(gone, ed) shouldBe ConcurrencyCapResult.PipelineGone
+      await(runRepo.insertRunIfUnderConcurrencyCap(PipelineRunId(UUID.randomUUID().toString), gone, Instant.now(), owner, "manual", None, 5)) shouldBe ConcurrencyCapResult.PipelineGone
     }
 
     "count against the OWNER's cap, not the submitter's" in {
