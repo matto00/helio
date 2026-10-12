@@ -1,6 +1,11 @@
 // laneLayout.test.ts — HEL-912 task 2.3.
 
-import { computeAncestorIds, computeLaneLayout, laneOutputSubtitle } from "./laneLayout";
+import {
+  computeAncestorIds,
+  computeDependentIds,
+  computeLaneLayout,
+  laneOutputSubtitle,
+} from "./laneLayout";
 import { buildLaneGraph } from "./stepTree";
 import type { LaneGraphRoot } from "./stepTree";
 import { OP_TYPES } from "./stepNarrowing";
@@ -185,5 +190,36 @@ describe("computeLaneLayout — multi-root column grouping (D2)", () => {
     const root1Cols = [a.id, aBranch.id].map((id) => layout.slotOfStepId[id].lane);
     const root2Col = layout.slotOfStepId[x.id].lane;
     expect(Math.max(...root1Cols)).toBeLessThan(root2Col);
+  });
+});
+
+describe("computeDependentIds (HEL-1515)", () => {
+  it("includes descendants via parentStepId, excludes the step itself and unrelated steps", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const c = step("c", "b");
+    const d = step("d", "a");
+    const dependents = computeDependentIds([a, b, c, d], "b");
+    expect([...dependents].sort()).toEqual(["c"]);
+  });
+
+  it("includes a step that reaches it only through a lane link, and what depends on that step", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const c = step("c", "b");
+    const x = unionStep("x", "a", { kind: "lane", stepId: "c" });
+    const y = step("y", "x");
+    const dependents = computeDependentIds([a, b, c, x, y], "b");
+    expect([...dependents].sort()).toEqual(["c", "x", "y"]);
+  });
+
+  it("is the mirror of computeAncestorIds: no step is both", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const c = step("c", "b");
+    const x = unionStep("x", "a", { kind: "lane", stepId: "c" });
+    const steps = [a, b, c, x];
+    const ancestors = computeAncestorIds(steps, "b");
+    for (const id of computeDependentIds(steps, "b")) expect(ancestors.has(id)).toBe(false);
   });
 });

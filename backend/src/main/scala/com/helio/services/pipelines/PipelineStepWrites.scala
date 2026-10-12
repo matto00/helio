@@ -2,8 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{DeletePipelineStepResponse, PipelineStepConfigCodec, PipelineStepResponse, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Pipeline, PipelineId, PipelineStep, PipelineStepId}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.domain.model.{AuthenticatedUser, Pipeline, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -15,14 +14,14 @@ import scala.util.{Failure, Success}
 private[pipelines] final class PipelineStepWrites(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
-    dataSourceRepo: DataSourceRepository,
     support: PipelineServiceSupport,
+    refChecks: StepReferenceChecks,
     requireEditorAccess: (PipelineId, AuthenticatedUser) => Future[Either[ServiceError, Unit]]
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineService])
 
-  import support.{audit, stepResponseWithRoot, upsertOwnershipCheckF}
+  import support.{audit, stepResponseWithRoot}
 
   /** Step update — requires Editor or Owner. Viewer grantees get 403. */
   def updateStep(stepId: PipelineStepId, req: UpdatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] = {
@@ -81,56 +80,31 @@ private[pipelines] final class PipelineStepWrites(
                               s"Invalid '${existing.kind}' config"
                             )))
                           case Success(typedConfig) =>
-                            // Pre-flight ACL: the second, separately-owned DataSource a
-                            // join/union/lookup config references must be caller-owned
-                            // (HEL-278/HEL-384/HEL-386). An EMPTY second-source id is an
-                            // incomplete draft, not a security violation — see the
-                            // identical guard + rationale in `PipelineStepCreate.addStepReporting` (HEL-620,
-                            // HEL-950: one shared extractor replacing three hand-copied
-                            // per-op blocks).
-                            val aclCheckF: Future[Either[ServiceError, Unit]] =
-                              PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-                                case Some(id) =>
-                                  dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
-                                    case None    => Left(ServiceError.NotFound(s"Data source not found: $id"))
-                                    case Some(_) => Right(())
-                                  }
-                                case None => Future.successful(Right(()))
+                            // HEL-1515: ownership -> lane -> upsert target run in the ONE shared chain
+                            // (`StepReferenceChecks.referenceChecksF`) create and duplicate use. HEL-911: the lane
+                            // check runs against the EXISTING step's actual parent chain and its own id (a step
+                            // cannot reference itself).
+                            val laneScopeF: Future[LaneScope] =
+                              pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
+                                // HEL-1515: a lane to a step that already depends on this one -- a descendant, or anything
+                                // reaching it through parent or lane links -- could never be scheduled.
+                                val dependents = StepPlacement.dependentStepIds(Set(existing.id.value), current) - existing.id.value
+                                LaneScope(current, PipelineService.ancestorChainOf(existing.parentStepId, current), dependents, selfId = Some(existing.id.value))
                               }
-                            // HEL-911 (design.md Engine contract items 6a/7, write-time arm):
-                            // same check as `addStep`, but against the EXISTING step's actual
-                            // parent chain and its own id (a step cannot reference itself).
-                            val laneCheckF: Future[Either[ServiceError, Unit]] =
-                              PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
-                                case None => Future.successful(Right(()))
-                                case Some(_) =>
-                                  pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
-                                    val ancestors = PipelineService.ancestorChainOf(existing.parentStepId, current)
-                                    PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = Some(existing.id.value))
-                                  }
-                              }
-                            aclCheckF.flatMap {
+                            refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
                               case Left(err) => Future.successful(Left(err))
                               case Right(_)  =>
-                                laneCheckF.flatMap {
-                                  case Left(err) => Future.successful(Left(err))
-                                  case Right(_)  =>
-                                    upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user).flatMap {
-                                    case Left(err) => Future.successful(Left(err))
-                                    case Right(_)  =>
-                                    // Safe: editor/owner access confirmed. Use internal update.
-                                    // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE
-                                    // OWNER, not the caller -- see persistNewStep's matching doc.
-                                    pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
-                                      .flatMap {
-                                        case Some(step) =>
-                                          audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
-                                          stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
-                                        case None       => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
-                                      }
-                                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
-                                    }
-                                }
+                                // Safe: editor/owner access confirmed. Use internal update.
+                                // HEL-1100 (design.md Decision 1): actingUserId is the PIPELINE
+                                // OWNER, not the caller -- see persistNewStep's matching doc.
+                                pipelineStepRepo.updateInternal(stepId, config = Some(typedConfig), position = req.position, enabled = req.enabled, actingUserId = pipeline.ownerId.value)
+                                  .flatMap {
+                                    case Some(step) =>
+                                      audit("pipeline.step.update", "pipeline_step", Some(step.id.value), user)
+                                      stepResponseWithRoot(existing.pipelineId, step).map(resp => Right(resp))
+                                    case None       => Future.successful(Left(ServiceError.NotFound(s"Pipeline step not found: ${stepId.value}")))
+                                  }
+                                  .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
                             }
                         }
                     }
@@ -277,7 +251,15 @@ private[pipelines] final class PipelineStepWrites(
                       // see spliceInsertAtInternal's doc for why.
                       // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
                       // same as every other parentStepId-anchored call site (task 7.3e).
-                      duplicateReferenceChecksF(typedConfig, existing, pipeline, user).flatMap {
+                      // HEL-1514/HEL-1515: create's reference checks, run through the shared chain against the clone's
+                      // prospective position (directly after `existing`, so its ancestors are `existing` plus
+                      // `existing`'s own chain). The clone takes over ALL of `existing`'s children, so a reference
+                      // into them is already a cycle on `existing` itself: no dependents to add here.
+                      val laneScopeF: Future[LaneScope] =
+                        pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
+                          LaneScope(current, PipelineService.ancestorChainOf(Some(existing.id), current), Set.empty, selfId = None)
+                        }
+                      refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
                         case Left(err) => Future.successful(Left(err))
                         case Right(_)  =>
                           pipelineStepRepo
@@ -301,42 +283,4 @@ private[pipelines] final class PipelineStepWrites(
             }
         }
     }
-
-  /** HEL-1514: create's reference checks, run against the clone's prospective position (directly after
-   *  `existing`, so its ancestors are `existing` plus `existing`'s own chain), in create's order: the
-   *  secondary-source ownership check (CALLER identity), the lane-reference check, then the upsert-target
-   *  check (PIPELINE OWNER identity). Same statuses and messages as `PipelineStepCreate.addStepReporting`. */
-  private def duplicateReferenceChecksF(
-      typedConfig: Any,
-      existing:    PipelineStep,
-      pipeline:    Pipeline,
-      user:        AuthenticatedUser
-  ): Future[Either[ServiceError, Unit]] = {
-    val aclCheckF: Future[Either[ServiceError, Unit]] =
-      PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-        case Some(id) =>
-          dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
-            case None    => Left(ServiceError.NotFound(s"Data source not found: $id"))
-            case Some(_) => Right(())
-          }
-        case None => Future.successful(Right(()))
-      }
-    val laneCheckF: Future[Either[ServiceError, Unit]] =
-      PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
-        case None => Future.successful(Right(()))
-        case Some(_) =>
-          pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
-            val ancestors = PipelineService.ancestorChainOf(Some(existing.id), current)
-            PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = None)
-          }
-      }
-    aclCheckF.flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(_)  =>
-        laneCheckF.flatMap {
-          case Left(err) => Future.successful(Left(err))
-          case Right(_)  => upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user)
-        }
-    }
-  }
 }

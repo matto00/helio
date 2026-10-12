@@ -176,12 +176,14 @@ trait PatchSetUndoServiceFixture extends AnyWordSpec with Matchers with HelioRou
       kind: String,
       config: JsObject,
       enabled: Option[Boolean] = None,
-      parentStepId: Option[String] = None
+      parentStepId: Option[String] = None,
+      // HEL-1515: `Some(true)` attaches a new sibling instead of splicing (re-parenting the anchor's children).
+      attachAsTail: Option[Boolean] = None
   ): PipelineStepResponse =
     await(
       pipelineService.addStep(
         pipelineId,
-        CreatePipelineStepRequest(kind, config, enabled = enabled, parentStepId = parentStepId),
+        CreatePipelineStepRequest(kind, config, enabled = enabled, parentStepId = parentStepId, attachAsTail = attachAsTail),
         owner
       )
     ) match {

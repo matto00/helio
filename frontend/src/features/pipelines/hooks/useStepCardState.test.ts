@@ -571,3 +571,54 @@ describe("useStepCardState — saveError (HEL-1102 task 2.4)", () => {
     expect(result.current.saveError).toBeNull();
   });
 });
+
+// HEL-1515 -- the backend now answers a lane reference to a step that depends on this one with a 400. The
+// union/lookup/join handlers opt INTO `saveError`, so that rejection reaches the card instead of the edit
+// being silently lost.
+describe("useStepCardState -- lane rejection reaches saveError (HEL-1515)", () => {
+  const CYCLE = "Lane reference 'g' would create a cycle (it depends on this step).";
+  const lane = { kind: "lane" as const, stepId: "g" };
+  const cases = [
+    {
+      op: "union",
+      config: { secondaryInput: { kind: "source", dataSourceId: "" }, mode: "byPosition" },
+      change: (r: ReturnType<typeof useStepCardState>) =>
+        r.onUnionChange({ secondary: lane, mode: "byPosition" }),
+    },
+    {
+      op: "lookup",
+      config: {
+        secondaryInput: { kind: "source", dataSourceId: "" },
+        sourceKey: "",
+        lookupKey: "",
+        columns: [],
+      },
+      change: (r: ReturnType<typeof useStepCardState>) =>
+        r.onLookupChange({ secondary: lane, sourceKey: "", lookupKey: "", columns: [] }),
+    },
+    {
+      op: "join",
+      config: {
+        secondaryInput: { kind: "source", dataSourceId: "" },
+        joinKey: "",
+        joinType: "inner",
+      },
+      change: (r: ReturnType<typeof useStepCardState>) =>
+        r.onJoinChange({ secondary: lane, joinKey: "", joinType: "inner" }),
+    },
+  ];
+
+  it.each(cases)("$op shows the backend's rejection message", async ({ op, config, change }) => {
+    updatePipelineStepMock.mockRejectedValueOnce(makeAxiosError({ message: CYCLE }));
+    const opType = OP_TYPES.find((o) => o.id === op)!;
+    const step = makeStep({ opType, label: op, config: config as Step["config"] });
+    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
+
+    await act(async () => {
+      change(result.current);
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(result.current.saveError).toBe(CYCLE);
+  });
+});

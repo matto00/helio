@@ -119,7 +119,7 @@ object InProcessPipelineEngine {
    *  `RuntimeGraphPath` (HEL-914) read the identical mapping. On the companion object (pure,
    *  no instance state) so `RuntimeGraphPath` — which has no engine instance to call through —
    *  can call it too. */
-  private[engine] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
+  private[helio] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
     case j: JoinStep   => j.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
     case u: UnionStep  => u.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
     case l: LookupStep => l.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }

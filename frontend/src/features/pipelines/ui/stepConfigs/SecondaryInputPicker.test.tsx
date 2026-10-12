@@ -156,3 +156,65 @@ describe("SecondaryInputPicker — eligibility as a PROPERTY (task 5.5)", () => 
     expect(onChange).toHaveBeenCalledWith({ kind: "lane", stepId: "f" });
   });
 });
+
+// HEL-1515 -- the backend rejects a lane reference to a step that depends on the configuring step, so the
+// picker must not offer one as a live option.
+describe("SecondaryInputPicker — dependents are disabled with a cycle reason (HEL-1515)", () => {
+  function renderWithDependents() {
+    // "current" has a child "g" (descendant), and "x" (a sibling branch) lanes into "g", so "x" depends on
+    // "current" only through a lane link.
+    const steps = [
+      ...buildSteps(),
+      plainStep("g", "Filter G", "current"),
+      unionStep("x", "Union X", "f", { kind: "lane", stepId: "g" }),
+    ];
+    renderWithStore(
+      <SecondaryInputPicker
+        label="Other source"
+        value={{ kind: "source", dataSourceId: "" }}
+        allSteps={steps}
+        currentStepId="current"
+        onChange={jest.fn()}
+      />,
+      { sources: { items: [], status: "succeeded" } },
+    );
+    openPicker();
+  }
+
+  it("a descendant is present but disabled with visible cycle text", () => {
+    renderWithDependents();
+    const option = screen.getByRole("option", { name: /Filter G/ });
+    expect(option).toHaveTextContent("would create a cycle");
+    expect(option).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("a step reaching the configuring step only through a lane link is disabled too", () => {
+    renderWithDependents();
+    const option = screen.getByRole("option", { name: /Union X/ });
+    expect(option).toHaveTextContent("would create a cycle");
+    expect(option).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("an unrelated sibling lane stays selectable", () => {
+    renderWithDependents();
+    expect(screen.getByRole("option", { name: /Filter F/ })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("renders the backend's rejection message when one is passed", () => {
+    renderWithStore(
+      <SecondaryInputPicker
+        label="Other source"
+        value={{ kind: "source", dataSourceId: "" }}
+        allSteps={buildSteps()}
+        currentStepId="current"
+        onChange={jest.fn()}
+        saveError="Lane reference 'g' would create a cycle (it depends on this step)."
+      />,
+      { sources: { items: [], status: "succeeded" } },
+    );
+    expect(screen.getByText(/it depends on this step/)).toBeInTheDocument();
+  });
+});
