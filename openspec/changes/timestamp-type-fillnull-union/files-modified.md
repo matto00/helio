@@ -1,9 +1,0 @@
-- `backend/src/main/scala/com/helio/domain/steps/FillNullStep.scala` — shared numeric-strategy set and timestamp-fill message
-- `backend/src/main/scala/com/helio/domain/engine/StepSchemaInference.scala` — new inferFillNull arm (flags mean/median over timestamp columns)
-- `backend/src/main/scala/com/helio/domain/engine/MultiInputSchemaInference.scala` — inferUnion flags timestamp vs integer/float collision, projection unchanged
-- `backend/src/test/scala/com/helio/domain/engine/TimestampNumberParitySpec.scala` — red parity tests plus guards
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineServiceCanRunSpec.scala` — analyze-response step-config-invalid / canRun=false test
-- `docs/compute-expression-grammar.md` — honest rewrite of the known-limitation section
-- `openspec/changes/timestamp-type-fillnull-union/tasks.md` — tasks ticked
-- `openspec/changes/timestamp-type-fillnull-union/red-evidence.md` — pre-fix failing output
-- `openspec/changes/timestamp-type-fillnull-union/mutations.md` — recorded guard mutations
