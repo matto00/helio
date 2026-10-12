@@ -439,13 +439,20 @@ final class PipelineProposalService(
    *
    *  Deleting the pipeline cascades its steps, its Outputs, AND every
    *  Output's placements (V23/V94 `ON DELETE CASCADE`, see this class's own
-   *  scaladoc) — no separate Output delete is issued. Then, if
-   *  `response.source` is defined (meaning this proposal's own `apply`
-   *  created it inline), the source is deleted too. Composed entirely
-   *  through `pipelineService.delete`/`dataSourceService.delete` — never a
-   *  raw repository call. */
+   *  scaladoc) — no separate Output delete is issued. Then every source in
+   *  `response.sources` (the ones this proposal's own `apply` created inline)
+   *  is deleted too. Composed entirely through
+   *  `pipelineService.delete`/`dataSourceService.delete` — never a raw
+   *  repository call.
+   *
+   *  The response cannot say whether a REST source's Connector was
+   *  call-created, so no per-source Connector flag is passed below.
+   *  `DataSourceService.delete` (HEL-1497) removes a deleted REST source's
+   *  unadopted "Auto:" Connector itself; a Connector the user made
+   *  explicitly is kept. */
   def rollback(response: PipelineProposalApplyResponse, user: AuthenticatedUser): Future[Unit] =
     pipelineService.delete(PipelineId(response.pipeline.id), user).flatMap { _ =>
+      // false: the response cannot carry the flag; DataSourceService.delete removes the Auto Connector anyway (HEL-1497).
       Future.sequence(response.sources.map(source => cleanupSource(DataSourceId(source.id), implicitConnector = false, user))).map(_ => ())
     }
 
