@@ -329,8 +329,20 @@ wire:
   (`coalesce($n, "n/a")` with `n` numeric) has no truthful type and is an **analyze-time error** on the
   step (`validationError`, naming `coalesce` and suggesting `concat(...)`: `coalesce(concat($n), "n/a")`
   infers `string`). The error is analyze-only: the step still saves, and manual, scheduled and
-  dataset-write runs still fire. The pipeline page's step-config-invalid notice that follows is display
-  only, as for any schema-derived compute error (e.g. `Unknown field`).
+  dataset-write runs still fire, though the column's values may be wrong. The pipeline page shows its
+  step-config-invalid notice ("A step in this pipeline has a problem, so its results may be wrong or missing
+  until that step is fixed.") for it, as for any schema-derived compute error (e.g. `Unknown field`); the
+  notice is display only and does not stop a run.
+
+### Checking an expression with `validate-expression`
+
+`POST /api/pipelines/:id/validate-expression?stepId=` answers with the same verdict analyze gives an
+enabled `compute` step with that expression at that node: `{"valid": true}` or `{"valid": false, "error":
+"..."}`, where `error` is analyze's message verbatim. That includes type errors (mixed-type `coalesce`,
+number-vs-text comparisons, mismatched `if()` branches, date-function argument types), not just syntax and
+unknown fields. `valid: false` means analyze would flag the expression; it does **not** mean saving a step
+with that expression is rejected (compute save only checks that it parses). Analyze's non-blocking
+warnings are not reported by this endpoint.
 
 ### Known limitation: a timestamp-typed column that carries a number
 
