@@ -68,8 +68,10 @@ table of available column names derived from the analyze endpoint's `inputSchema
 Each row SHALL show the source field name and a target-type dropdown. If the user selects
 "— keep as is —" for a field, that field SHALL be removed from the `casts` map in the persisted
 config. If the analyze response returns an empty `inputSchema`, the UI SHALL render an empty table
-(no prompt to run the pipeline first). The dropdown SHALL offer the types: `string`, `integer`,
-`long`, `double`, `boolean`.
+(no prompt to run the pipeline first). The dropdown SHALL offer exactly the cast targets the backend accepts on write:
+`string`, `integer`, `long`, `float`, `double`, `number`, `boolean`, `date`, `timestamp`. When a stored config names a
+target outside that set, the dropdown for that field SHALL show the stored target itself, marked as unsupported, rather
+than showing "— keep as is —"; it SHALL NOT be offered for selection on any other field.
 
 #### Scenario: Table shows columns from analyze inputSchema
 - **WHEN** a cast step card is expanded and the analyze response contains an `inputSchema` with
@@ -92,6 +94,15 @@ config. If the analyze response returns an empty `inputSchema`, the UI SHALL ren
 #### Scenario: Config is hydrated from persisted step on reload
 - **WHEN** a pipeline step with `op: "cast"` and persisted config `{"casts": {"qty": "integer"}}` is loaded
 - **THEN** the `qty` dropdown shows `integer` as the selected type
+
+#### Scenario: Dropdown offers every supported target
+- **WHEN** a cast step card is expanded with a column `when`
+- **THEN** the `when` dropdown offers "— keep as is —" plus `string`, `integer`, `long`, `float`, `double`, `number`,
+  `boolean`, `date` and `timestamp`, and selecting `timestamp` patches the config with `{"casts": {"when": "timestamp"}}`
+
+#### Scenario: Stored unsupported target is shown as itself
+- **WHEN** a pipeline step with `op: "cast"` and persisted config `{"casts": {"doc": "binary-ref"}}` is loaded
+- **THEN** the `doc` dropdown shows `binary-ref` marked as unsupported, not "— keep as is —"
 
 ### Requirement: Cast targets outside the supported set are rejected at write and passed through when already stored
 Creating or updating a `cast` step (including through a single-call pipeline create or an applied
