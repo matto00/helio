@@ -30,7 +30,8 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
    *  `GREATEST` makes the push-forward monotonic even under out-of-order delivery across
    *  instances (two near-simultaneous writes computing slightly different `now` can never move
    *  `fire_at` backward). Resetting `claimed_at = NULL` on EVERY write (not just the first) is
-   *  what makes a write arriving mid-fire correct -- see [[releaseClaim]]'s doc. */
+   *  what makes a write arriving mid-fire correct -- see [[releaseClaim]]'s doc. HEL-1504: it also
+   *  resets `guard_retry_count` to 0 -- a fresh write is a new obligation with a new retry allowance. */
   def upsertDebounce(pipelineId: PipelineId, fireAt: Instant): Future[Unit] = {
     val fireAtTs = Timestamp.from(fireAt)
     ctx.withSystemContext(
@@ -38,7 +39,8 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
              VALUES (${pipelineId.value}, $fireAtTs, NULL)
              ON CONFLICT (pipeline_id) DO UPDATE
                SET fire_at    = GREATEST(pipeline_auto_run_debounce.fire_at, EXCLUDED.fire_at),
-                   claimed_at = NULL"""
+                   claimed_at = NULL,
+                   guard_retry_count = 0"""
     ).map(_ => ())
   }
 
@@ -67,11 +69,68 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
    *  DELETE matches zero rows and the fresh pending write survives this tick's cleanup instead of
    *  being silently discarded (design.md Decision 3 step 4). Always called by the caller
    *  regardless of whether the claimed pipeline actually fired, was skipped for overlap, or was
-   *  guard-rejected. */
+   *  guard-rejected -- EXCEPT (HEL-1504) an active-run skip, which [[unclaim]]s, and a guard rejection,
+   *  which [[rearmAfterGuardRejection]]s: both keep the pending write instead of discarding it. */
   def releaseClaim(pipelineId: PipelineId, claimedAt: Instant): Future[Unit] = {
     val claimedTs = Timestamp.from(claimedAt)
     ctx.withSystemContext(
       sqlu"""DELETE FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value} AND claimed_at = $claimedTs"""
     ).map(_ => ())
   }
+
+  /** HEL-1504 (design.md D1): hands a claim back WITHOUT deleting the row -- `claimed_at` returns to
+   *  `NULL`, `fire_at` and `guard_retry_count` are untouched, so the next tick re-claims the (still
+   *  due) row. Used when the pipeline already has an active run: the write stays pending until that
+   *  run completes. Compare-on-token like [[releaseClaim]]: if a fresh write already reset
+   *  `claimed_at`, this matches zero rows, harmlessly. */
+  def unclaim(pipelineId: PipelineId, claimedAt: Instant): Future[Unit] = {
+    val claimedTs = Timestamp.from(claimedAt)
+    ctx.withSystemContext(
+      sqlu"""UPDATE pipeline_auto_run_debounce SET claimed_at = NULL
+             WHERE pipeline_id = ${pipelineId.value} AND claimed_at = $claimedTs"""
+    ).map(_ => ())
+  }
+
+  /** HEL-1504 (design.md D2): after a pipeline-run guard rejection, ONE compare-on-token statement
+   *  either re-arms the row (`fire_at = fireAt`, `claimed_at = NULL`, `guard_retry_count + 1`) while
+   *  `guard_retry_count < maxRetries`, or deletes it once the allowance is spent. A token mismatch
+   *  (a fresh write took over the row) changes nothing and reports [[RearmOutcome.Superseded]]. */
+  def rearmAfterGuardRejection(
+      pipelineId: PipelineId,
+      claimedAt: Instant,
+      fireAt: Instant,
+      maxRetries: Int
+  ): Future[RearmOutcome] = {
+    val claimedTs = Timestamp.from(claimedAt)
+    val fireAtTs  = Timestamp.from(fireAt)
+    val rearm =
+      sql"""UPDATE pipeline_auto_run_debounce
+            SET fire_at = $fireAtTs, claimed_at = NULL, guard_retry_count = guard_retry_count + 1
+            WHERE pipeline_id = ${pipelineId.value} AND claimed_at = $claimedTs AND guard_retry_count < $maxRetries
+            RETURNING guard_retry_count""".as[Int].headOption
+    val exhaust =
+      sql"""DELETE FROM pipeline_auto_run_debounce
+            WHERE pipeline_id = ${pipelineId.value} AND claimed_at = $claimedTs
+            RETURNING guard_retry_count""".as[Int].headOption
+    ctx.withSystemContext(
+      rearm.flatMap {
+        case Some(attempt) => DBIO.successful(RearmOutcome.Rearmed(attempt))
+        case None          => exhaust.map {
+          case Some(count) => RearmOutcome.Exhausted(count)
+          case None        => RearmOutcome.Superseded
+        }
+      }
+    )
+  }
+}
+
+/** The outcome of [[PipelineAutoRunDebounceRepository.rearmAfterGuardRejection]] (HEL-1504). */
+sealed trait RearmOutcome
+object RearmOutcome {
+  /** Re-armed; `attempt` is the new `guard_retry_count` (1-based count of re-arms so far). */
+  final case class Rearmed(attempt: Int) extends RearmOutcome
+  /** The allowance was spent: the row was deleted after `attempts` re-arms. */
+  final case class Exhausted(attempts: Int) extends RearmOutcome
+  /** A fresh write superseded the claim; nothing was changed. */
+  case object Superseded extends RearmOutcome
 }

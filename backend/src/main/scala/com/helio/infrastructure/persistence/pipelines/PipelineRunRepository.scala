@@ -1,7 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, PipelineId, PipelineRunId, UserId}
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
@@ -156,6 +156,23 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(action)
   }
 
+  /** The ONE definition of the concurrency cap's count: the run ids of an owner's non-terminal REAL runs
+    * (`status NOT IN ('succeeded', 'failed', 'dry_run')`) across every pipeline they own. Shared by
+    * [[countAndInsertAction]] (the authoritative cap) and [[countOwnerInFlightRealRunsInternal]]
+    * (HEL-1504's read-only pre-flight), so the two can never disagree about what "in flight" means. */
+  private def ownerInFlightRealRunsQuery(ownerUuid: UUID) =
+    for {
+      run      <- runsTable if run.status =!= "succeeded" && run.status =!= "failed" && run.status =!= "dry_run"
+      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
+    } yield run.id
+
+  /** HEL-1504 (design.md D2a): read-only, system-context count of the owner's in-flight real runs --
+    * the same predicate as the concurrency cap, with no lock and no insert. The auto-run firer uses it
+    * to hold an auto-run back BEFORE `submit` when the owner is already at the cap (a rejection inside
+    * `submit` would first consume a rate slot). Never an admission: `submit` stays authoritative. */
+  def countOwnerInFlightRealRunsInternal(ownerId: UserId): Future[Int] =
+    ctx.withSystemContext(ownerInFlightRealRunsQuery(UUID.fromString(ownerId.value)).length.result)
+
   /** The owner's live count of non-terminal REAL runs across every pipeline they own, then the queued-row
     * insert when under `maxConcurrent`. Shared by the owner path and the grantee path so both count the
     * same thing: the PIPELINE OWNER's runs, whoever submitted them. */
@@ -170,11 +187,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       maxConcurrent: Int
   ): DBIO[PipelineRunRepository.ConcurrencyCapResult] = {
     import PipelineRunRepository.ConcurrencyCapResult._
-    val query = for {
-      run      <- runsTable if run.status =!= "succeeded" && run.status =!= "failed" && run.status =!= "dry_run"
-      pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
-    } yield run.id
-    query.length.result.flatMap { count =>
+    ownerInFlightRealRunsQuery(ownerUuid).length.result.flatMap { count =>
       if (count < maxConcurrent)
         insertRunRowAction(runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId).map(_ => Inserted)
       else DBIO.successful(CapExceeded)
