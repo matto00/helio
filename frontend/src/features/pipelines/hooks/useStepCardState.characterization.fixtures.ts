@@ -128,7 +128,7 @@ export const HANDLER_CASES: HandlerCase[] = [
     handler: "onCastChange",
     args: ["a", "int"],
     payload: { casts: { a: "int" } },
-    captures: false,
+    captures: true, // HEL-1514: a stored legacy target makes every full-map save a 422 that must show
     valueKey: "casts",
     local: { a: "int" },
   },
