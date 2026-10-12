@@ -1,7 +1,7 @@
 // HEL-1084 design.md D5/D7 — the form builder container: dataset picker, schema fetch,
 // field list, issue summary, save. Mounted from `PanelDetailModal`'s two if-chains.
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 
 import "./FormEditor.css";
 import { IconButton, Select, Skeleton } from "../../../../shared/ui/index";
@@ -42,6 +42,7 @@ export const FormEditor = forwardRef<PanelEditorHandle, FormEditorProps>(functio
   const datasetSources = sources.filter((s) => s.type === "dataset");
 
   const editor = useFormEditorState(panel.config);
+  const datasetId = useId();
   const [schema, setSchema] = useState<DatasetFieldResponse[] | null>(null);
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -193,10 +194,11 @@ export const FormEditor = forwardRef<PanelEditorHandle, FormEditorProps>(functio
     <>
       <h3 className="panel-detail-modal__edit-section-heading">Form</h3>
       <div className="form-editor__dataset">
-        <label className="panel-detail-modal__data-label" htmlFor="form-editor-dataset">
+        <label className="panel-detail-modal__data-label" htmlFor={datasetId}>
           Dataset
         </label>
         <Select
+          id={datasetId}
           ariaLabel="Bound dataset"
           value={editor.config.dataSourceId}
           onChange={(v) => editor.setDataset(v)}

@@ -1,7 +1,7 @@
 package com.helio.domain.engine
 
 import ExpressionEvaluator.NumericFunctions
-import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg}
+import ExpressionParser.{And, BinOp, Call, Cmp, Expr, FieldRef, Neg, Not, Or}
 import ExpressionTypeInference.inferTypeOf
 
 import scala.collection.mutable
@@ -9,7 +9,8 @@ import scala.collection.mutable
 // HEL-1403: static scan for text-typed fields used where a number is required.
 private[engine] object ExpressionNumericContexts {
 
-  /** Projected types whose run-time value is a `VStr` (`JsBoolean` evaluates as a string too). */
+  /** Projected types whose run-time value is not a number: a `VStr`, or a `VBool` for a boolean (HEL-1070; a
+   *  JsBoolean used to be read as a `VStr`) -- either one nulls the row in a numeric context. */
   private val TextTypes: Set[String]    = Set("string", "string-body", "boolean", "timestamp")
   private val NumericTypes: Set[String] = Set("integer", "float")
 
@@ -26,6 +27,7 @@ private[engine] object ExpressionNumericContexts {
       case FieldRef(n) if fieldTypes.get(n).exists(TextTypes.contains) => Vector(n)
       case BinOp('+', l, r)        => textRefs(l) ++ textRefs(r)
       case Call("coalesce", args)  => args.flatMap(textRefs)
+      case Call("if", args)        => args.drop(1).flatMap(textRefs) // the two branches propagate a value; the condition does not
       case Neg(inner)              => textRefs(inner)
       case _                       => Vector.empty
     }
@@ -47,6 +49,11 @@ private[engine] object ExpressionNumericContexts {
         if (NumericFunctions.contains(name)) args.foreach(check(_, name))
         else if (name == "add_days") args.lift(1).foreach(check(_, name))
         args.foreach(visit)
+      // HEL-1070: no numeric context of their own, but numeric contexts nested inside them still count.
+      case Cmp(_, l, r) => visit(l); visit(r)
+      case And(l, r)    => visit(l); visit(r)
+      case Or(l, r)     => visit(l); visit(r)
+      case Not(inner)   => visit(inner)
       case _ => ()
     }
 

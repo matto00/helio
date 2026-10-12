@@ -517,7 +517,7 @@ for (const { theme, width } of [
       await page.getByRole("button", { name: "Cancel" }).click();
 
       await page.getByRole("button", { name: "Open HEL-1311 Hist output" }).click();
-      const bins = page.getByRole("spinbutton", { name: "Bin count" });
+      const bins = page.getByRole("spinbutton", { name: "Histogram bins" });
       await expect(bins).toHaveValue("12");
       await settleSheetOpenAnimation(page);
       const binHeight = (await bins.boundingBox())!.height;

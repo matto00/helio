@@ -13,6 +13,10 @@ import { Provider } from "react-redux";
 import { panelsReducer } from "../../state/panelsSlice";
 import type { DividerPanel } from "../../types/panel";
 import { DividerEditor } from "./DividerEditor";
+import {
+  expectLabelTargetsControl,
+  expectDistinctNonEmptyLabelIds,
+} from "../../../../test/labelAssociation";
 
 function makeDividerPanel(color: string | null): DividerPanel {
   return {
@@ -50,5 +54,18 @@ describe("DividerEditor color swatch hint (F-165)", () => {
   it("does not show the hint once a real color has been stored", () => {
     renderEditor(makeDividerPanel("#ff0000"));
     expect(screen.queryByText(/preview only/i)).toBeNull();
+  });
+});
+
+describe("DividerEditor label association (HEL-1464)", () => {
+  it("the Orientation label targets the orientation combobox", () => {
+    renderEditor(makeDividerPanel(null));
+    expectLabelTargetsControl("Orientation", "combobox", "Divider orientation");
+  });
+
+  it("two mounted editors never share the label target id", () => {
+    renderEditor(makeDividerPanel(null));
+    renderEditor(makeDividerPanel(null));
+    expectDistinctNonEmptyLabelIds("Orientation");
   });
 });
