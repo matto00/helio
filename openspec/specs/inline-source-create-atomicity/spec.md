@@ -1,7 +1,7 @@
 # inline-source-create-atomicity Specification
 
 ## Purpose
-Calls that create a data source, directly or as an inline pipeline root, leave no data source or implicit "Auto:" Connector behind when they fail after creating it.
+Calls that create a data source, directly or as an inline pipeline root, leave no data source, no stored file and no implicit "Auto:" Connector behind when they fail after creating it.
 
 ## Requirements
 
