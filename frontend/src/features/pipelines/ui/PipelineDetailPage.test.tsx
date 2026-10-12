@@ -1811,6 +1811,24 @@ describe("PipelineDetailPage", () => {
       expect(stepLabels()).toEqual(["Rename column", "Rename column", "Filter rows"]);
     });
 
+    // HEL-1476: duplicate now returns the write path's 422; its server message must reach the user.
+    it("a rejected duplicate (422) surfaces the server's message in an error toast", async () => {
+      duplicatePipelineStepMock.mockRejectedValueOnce(
+        axiosError(422, "cast: unsupported target type 'binary-ref' for field 'doc'"),
+      );
+      const store = makeStore();
+      await renderDetailPageSettled("pipe-1", store);
+
+      fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+
+      await waitFor(() => {
+        const toasts = store.getState().toasts.items;
+        expect(toasts).toHaveLength(1);
+        expect(toasts[0].variant).toBe("error");
+        expect(toasts[0].message).toContain("unsupported target type 'binary-ref'");
+      });
+    });
+
     it("HEL-706: two synchronous activations of Duplicate step on the same step fire the duplicate call exactly once", async () => {
       let resolveDuplicate!: (step: PipelineStep) => void;
       duplicatePipelineStepMock.mockReturnValueOnce(

@@ -1,7 +1,9 @@
 # pipeline-cast-op Specification
 
 ## Purpose
-TBD - created by archiving change pipeline-op-cast-type. Update Purpose after archive.
+Defines the `cast` pipeline step: it retypes named fields to one of a fixed set of supported target types
+(string, integer, long, float, double, number, boolean, date, timestamp), nulling values that cannot be coerced. Write
+surfaces reject an unsupported target, and the pipeline editor offers exactly the supported set.
 
 ## Requirements
 

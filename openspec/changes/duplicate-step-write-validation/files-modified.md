@@ -1,0 +1,10 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineStepWrites.scala`
+- `backend/src/main/scala/com/helio/domain/steps/ConvertFormatConfig.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DuplicateStepWriteValidationSpec.scala`
+- `backend/src/test/scala/com/helio/domain/steps/DraftRoundTripWriteSafetySpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/CastPipelineRunSpec.scala`
+- `frontend/src/features/pipelines/ui/stepConfigs/CastFieldsConfig.tsx`
+- `frontend/src/features/pipelines/ui/stepConfigs/CastFieldsConfig.test.tsx`
+- `frontend/src/features/pipelines/ui/stepConfigs/CastFieldsConfig.guard.test.ts`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx`
+- `openspec/specs/pipeline-cast-op/spec.md`

@@ -247,43 +247,52 @@ private[pipelines] final class PipelineStepWrites(
             editorCheckF.flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_)  =>
-                // design.md Decision 5: round-trip the persisted config through
-                // the same typed encode/decode `addStep` uses — an unparseable
-                // legacy row fails loudly (500-classified) rather than cloning
-                // garbage.
-                PipelineStepConfigCodec.decode(existing.kind, PipelineStepConfigCodec.encode(existing)) match {
-                  case Failure(ex) =>
-                    log.error(s"duplicateStep: config round-trip failed for step ${stepId.value} (kind='${existing.kind}')", ex)
-                    Future.successful(Left(ServiceError.InternalError(s"Invalid '${existing.kind}' config")))
-                  case Success(typedConfig) =>
-                    // HEL-904 cycle-7 fix (round-4 skeptic Finding 1):
-                    // `existing.id` IS the anchor -- the clone must become
-                    // `existing`'s own trunk-continuation child so it lands
-                    // directly after the original in executionOrder, with
-                    // whatever `existing` used to continue to re-parented
-                    // one hop further down by spliceInsertAtInternal.
-                    // `insertAtInternal` (sibling-scoped renumber only) is
-                    // NOT equivalent here: on a migrated (parent-chained)
-                    // pipeline it silently appended the clone to the very
-                    // end instead of splicing it in after the original --
-                    // see spliceInsertAtInternal's doc for why.
-                    // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
-                    // same as every other parentStepId-anchored call site (task 7.3e).
-                    pipelineStepRepo
-                      .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
-                      .flatMap { step =>
-                        // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
-                        // one-row-per-call convention; metadata carries the source stepId.
-                        audit(
-                          "pipeline.step.duplicate",
-                          "pipeline_step",
-                          Some(step.id.value),
-                          user,
-                          JsObject("sourceStepId" -> JsString(stepId.value))
-                        )
-                        stepResponseWithRoot(pipeline.id, step).map(resp => Right(resp))
-                      }
-                      .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                // HEL-1476 D1: the same strict write-path check create/update run, on the encoded
+                // stored config -- exactly what the clone would persist -- so a legacy/invalid row
+                // cannot be copied past it. Runs after the ACL check (404/403 masking unchanged);
+                // `requiredConfigProblems` is deliberately not consulted, so drafts stay duplicable.
+                val storedRaw     = PipelineStepConfigCodec.encode(existing)
+                val configProblem = PipelineStep.rawConfigProblem(existing.kind, storedRaw)
+                if (configProblem.isDefined) Future.successful(Left(ServiceError.UnprocessableEntity(configProblem.get)))
+                else {
+                  // design.md Decision 5: round-trip the persisted config through
+                  // the same typed encode/decode `addStep` uses — an unparseable
+                  // legacy row fails loudly (500-classified) rather than cloning
+                  // garbage.
+                  PipelineStepConfigCodec.decode(existing.kind, storedRaw) match {
+                    case Failure(ex) =>
+                      log.error(s"duplicateStep: config round-trip failed for step ${stepId.value} (kind='${existing.kind}')", ex)
+                      Future.successful(Left(ServiceError.InternalError(s"Invalid '${existing.kind}' config")))
+                    case Success(typedConfig) =>
+                      // HEL-904 cycle-7 fix (round-4 skeptic Finding 1):
+                      // `existing.id` IS the anchor -- the clone must become
+                      // `existing`'s own trunk-continuation child so it lands
+                      // directly after the original in executionOrder, with
+                      // whatever `existing` used to continue to re-parented
+                      // one hop further down by spliceInsertAtInternal.
+                      // `insertAtInternal` (sibling-scoped renumber only) is
+                      // NOT equivalent here: on a migrated (parent-chained)
+                      // pipeline it silently appended the clone to the very
+                      // end instead of splicing it in after the original --
+                      // see spliceInsertAtInternal's doc for why.
+                      // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
+                      // same as every other parentStepId-anchored call site (task 7.3e).
+                      pipelineStepRepo
+                        .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
+                        .flatMap { step =>
+                          // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
+                          // one-row-per-call convention; metadata carries the source stepId.
+                          audit(
+                            "pipeline.step.duplicate",
+                            "pipeline_step",
+                            Some(step.id.value),
+                            user,
+                            JsObject("sourceStepId" -> JsString(stepId.value))
+                          )
+                          stepResponseWithRoot(pipeline.id, step).map(resp => Right(resp))
+                        }
+                        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                  }
                 }
             }
         }
