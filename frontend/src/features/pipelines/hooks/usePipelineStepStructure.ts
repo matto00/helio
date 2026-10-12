@@ -79,6 +79,7 @@ export function usePipelineStepStructure({
     clearDraftCreateError,
     createDraftIfComplete,
     markTempRemoved,
+    applyCreated,
   } = usePipelineStepCreation({
     id,
     roots,
@@ -150,7 +151,7 @@ export function usePipelineStepStructure({
   const handleInstantiateShape = usePipelineShapeInstantiation({
     id,
     roots,
-    setSteps,
+    applyCreated,
     setStepsInitialized,
     pushToast,
   });
