@@ -326,7 +326,9 @@ final class ApiRoutes(
     productTelemetryConfig.rateLimitPerWindow,
     rateLimitConfig.windowSeconds
   )
-  private val runRegistry    = new PipelineRunRegistry(eventBus = pipelineRunNotifyBus)
+  // HEL-1511: not private -- `Main` hands the SAME registry to the scheduler so a reaped run's terminal `failed` event
+  // reaches the SSE subscribers (local fan-out plus the cross-instance bus) exactly like a run's own events.
+  val runRegistry            = new PipelineRunRegistry(eventBus = pipelineRunNotifyBus)
   private val health         = new HealthRoutes()
   // HEL-116: propagates the Cloud Run trace id (X-Cloud-Trace-Context) into the
   // MDC for every request handled below, including the async onComplete error

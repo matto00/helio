@@ -103,7 +103,10 @@ final class PipelineRunService(
     // other timestamp in this service reads it. Production keeps `SystemClock`, identical to the
     // repository's own `Instant.now()` default; tests pin it so a case spanning a wall-clock
     // window boundary cannot straddle two epoch-aligned rate buckets.
-    guardClock: Clock = SystemClock
+    guardClock: Clock = SystemClock,
+    // HEL-1511 (design.md D1): the real runs this process is executing, stamped by the heartbeat actor. Defaulted so
+    // existing construction sites compile; `Main` reads `liveRunTracker` back to hand the same instance to the actor.
+    val liveRunTracker: LiveRunTracker = new LiveRunTracker
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "PipelineRunService requires an OutputRepository")
@@ -148,7 +151,7 @@ final class PipelineRunService(
   private val support   = new PipelineRunSupport(pipelineRepo, dataSourceRepo)
   private val terminal  = new PipelineRunTerminalWrites(pipelineRepo, pipelineRunRepo, registry, support)
   private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal)
-  private val executor  = new PipelineRunExecutor(pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded)
+  private val executor  = new PipelineRunExecutor(pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded, liveRunTracker)
   private val backfill  = new PipelineRunBackfill(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, outputRepo, nodeSnapshotRepo, backend, support)
   private val queries   = new PipelineRunQueries(pipelineRepo, pipelineRunRepo, cache)
   import executor.runPipeline

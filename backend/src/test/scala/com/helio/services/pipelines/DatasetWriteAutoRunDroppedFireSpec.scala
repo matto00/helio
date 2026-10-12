@@ -315,9 +315,70 @@ class DatasetWriteAutoRunDroppedFireSpec extends AnyWordSpec with Matchers with 
       runCount(pid) shouldBe 0
       debounceRowExists(pid) shouldBe false
 
-      // A FRESH write starts a new allowance (counter back to 0).
+      // A FRESH write after the drop starts a new row; one attempt later it is re-armed at count 1 ...
       await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), t0.plusSeconds(600)))
+      clock.set(t0.plusSeconds(700))
+      await(scheduler.tick())
+      debounceState(pid)._3 shouldBe 1
+
+      // ... and a further fresh write landing while the row is STILL re-armed at count 1 resets the allowance to 0
+      // (HEL-1511 5.3: the previous last assertion, a write after the drop, only ever saw a brand-new row at 0).
+      await(triggerService.triggerAutoRun(dsId, AuthenticatedUser(owner), t0.plusSeconds(750)))
       debounceState(pid)._3 shouldBe 0
+    }
+
+    "(e) HEL-1511 5.1: re-arm a guard rejection whose Retry-After is 0 for a full second -- never the same instant, so one tick cannot re-claim it" in {
+      cleanDb()
+      val owner  = seedUser()
+      val dsId   = seedDataset(owner)
+      val pid    = seedPipeline(owner, dsId)
+      val other  = seedPipeline(owner, seedDataset(owner))
+      val clock  = new FakeClock(t0)
+      // maxConcurrent 1 + another in-flight run = the cap pre-flight rejects; its advisory Retry-After is 0.
+      val config = PipelineRunGuardConfig(rateLimitPerWindow = 100, rateWindowSeconds = 60, maxConcurrent = 1, concurrencyRetryAfterSeconds = 0,
+        sourceFetchRateLimitPerWindow = 30)
+      val scheduler = newScheduler(newRunService(config, clock), clock)
+      seedInFlightRun(other, t0.minusSeconds(60))
+      await(newTriggerService(debounceSeconds = 2L).triggerAutoRun(dsId, AuthenticatedUser(owner), t0))
+
+      clock.set(t0.plusSeconds(3))
+      await(scheduler.tick())
+      debounceState(pid) shouldBe ((t0.plusSeconds(4), None, 1))
+
+      // A second tick at the SAME instant must not claim it again (the row is not due until t0+4).
+      await(scheduler.tick())
+      runCount(pid) shouldBe 0
+      debounceState(pid) shouldBe ((t0.plusSeconds(4), None, 1))
+    }
+
+    "(f) HEL-1511 5.2: three writes during one in-flight run start no run while it is in flight, then exactly one after it completes" in {
+      cleanDb()
+      val owner = seedUser()
+      val dsId  = seedDataset(owner)
+      val pid   = seedPipeline(owner, dsId)
+      val clock = new FakeClock(t0)
+      val scheduler = newScheduler(newRunService(guardConfig(rateLimit = 100, maxConcurrent = 100), clock), clock)
+      val trigger   = newTriggerService(debounceSeconds = 2L)
+
+      val active = seedInFlightRun(pid, t0.minusSeconds(60))
+      for (i <- 0 until 3) await(trigger.triggerAutoRun(dsId, AuthenticatedUser(owner), t0.plusSeconds(i)))
+
+      for (sec <- Seq(5L, 10L, 15L)) {
+        clock.set(t0.plusSeconds(sec))
+        await(scheduler.tick())
+        withClue(s"tick at +${sec}s, run still in flight: ") { runCount(pid) shouldBe 1 }
+      }
+      debounceRowExists(pid) shouldBe true
+
+      completeRun(active, t0.plusSeconds(16))
+      clock.set(t0.plusSeconds(20))
+      await(scheduler.tick())
+      runCount(pid) shouldBe 2
+      debounceRowExists(pid) shouldBe false
+
+      clock.set(t0.plusSeconds(40))
+      await(scheduler.tick())
+      runCount(pid) shouldBe 2
     }
   }
 }

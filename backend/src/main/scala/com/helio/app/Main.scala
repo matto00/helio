@@ -28,7 +28,7 @@ import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigr
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.services.pipelines.{OutputHistoryRetentionConfig, OutputHistoryRetentionService, PipelineSchedulerService}
+import com.helio.services.pipelines.{OutputHistoryRetentionConfig, OutputHistoryRetentionService, PipelineSchedulerService, RunHeartbeatService}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.{Await, Future}
@@ -302,9 +302,17 @@ object Main {
         // HEL-1384: the SAME trigger service the write path uses, so the fire-time verdict cannot drift.
         autoRunTriggerService = apiRoutes.autoRunTriggerServiceOpt.orNull,
         productEventRollupService = productEventRollupService,
-        outputHistoryRetentionService = outputHistoryRetentionService
+        outputHistoryRetentionService = outputHistoryRetentionService,
+        // HEL-1511: the reaper publishes each reaped run's terminal `failed` event on the run service's own registry.
+        registry = apiRoutes.runRegistry
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
+      // HEL-1511: the liveness heartbeat is its own 30 s timer (the scheduler tick is stalled for a long scheduled
+      // run's whole duration) and stamps exactly the runs the run service's tracker says this process is executing.
+      context.spawn(
+        RunHeartbeatActor(new RunHeartbeatService(apiRoutes.pipelineRunService.liveRunTracker, pipelineRunRepo), RunHeartbeatService.IntervalSeconds.seconds),
+        "run-heartbeat"
+      )
 
       // HEL-822 design.md Decision 7: the migration future is awaited (via flatMap, not
       // blocked) before HttpServer.start — the backend does not begin serving traffic on a
