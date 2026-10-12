@@ -17,30 +17,21 @@ See proposal.md (Why). Line references are against main 559c4be77 (after HEL-130
 
 ## Goals / Non-Goals
 
-**Goals:** the five HEL-1487 items, each proven by a test that was red before the fix (items 1, 2, 4) or by a
-zero-hit/grep check (items 3, 5).
+**Goals:** HEL-1487 items 2-5 and the bin-label precision of item 1, each proven by a test that was red before the
+fix (precision, hint, e2e timing) or by a zero-hit/grep check (comments, version note). Axis-label thinning is not a goal (HEL-1512).
 
 **Non-Goals:** any axis change for line/bar/pie/scatter; label rotation/ellipsis; changing `formatChartNumber`
 (shared by every chart and tooltip); binning maths; colour/token changes.
 
 ## Decisions
 
-### D1 — Axis labels: `interval: 0` + `hideOverlap: true`, applied at the merge point
+### D1 — Axis-label thinning: unchanged (owner ruling)
 
-For `chartType` `heatmap` (x and y) and `histogram` (x), `buildChartOption` adds `interval: 0, hideOverlap: true`
-to the axis `axisLabel` it builds, in the same place HEL-1305 adds its time-axis `hideOverlap` (and for the heatmap y
-axis, on the `yAxis.axisLabel` built from `yAxisBase`). `interval: 0` disables automatic skipping, so every label is
-laid out; `hideOverlap` then drops only labels that would collide, so narrow viewports never overlap.
-Exported as one small helper (e.g. `CATEGORY_LABEL_SHOW_ALL`) so the unit test and both axes use one definition.
-
-- Alternative: put `axisLabel` on the data option — rejected, the merge drops it (see Context); this is the trap.
-- Alternative: compute an interval from the chart width — rejected, `buildChartOption` has no measured width and
-  label widths depend on font; ECharts already measures.
-- Alternative: rotate labels — out of scope (non-goal) and changes the look of every heatmap.
-- Verification requirement: ECharts 6.1.0 must actually honour `hideOverlap` on a CATEGORY axis together with
-  `interval: 0`. The executor proves this in the RENDERED chart (count of rendered, non-ignored labels via the chart
-  instance at 1440 = number of categories; at 375 with 12 bins, rendered label boxes pairwise non-overlapping). If
-  6.1.0 does not honour it, stop and escalate rather than substituting another mechanism silently.
+Heatmap and histogram axis-label thinning stays exactly as on main; "show every label that fits" is split to
+HEL-1512. `interval: 0` + `hideOverlap` was tried and rejected: ECharts sizes label collision boxes from the glyph
+'国', which collapses to ~0.6em without a CJK font (heatmap row labels stacked at 375); an explicit `lineHeight`
+fixed that, but packed bin labels sat ~6-7px apart and ran together, and the `textMargin` that separated them
+re-thinned labels that fit. See evaluation-4 and the skeptic-final reports. Nothing in `buildChartOption.ts` changes.
 
 ### D2 — Bin labels: one decimal count per histogram
 

@@ -1,14 +1,11 @@
 ## Why
 
-HEL-1311 shipped heatmap and histogram charts with five polish defects (HEL-1487): ECharts' automatic interval hides
-every other category label even when all would fit, histogram bin labels mix decimal precision ("0 to 2.5", "2.5 to
+HEL-1311 shipped heatmap and histogram charts with polish defects (HEL-1487): histogram bin labels mix decimal precision ("0 to 2.5", "2.5 to
 5"), the heatmap editor hint contradicts the summing behaviour, two source comments enumerate a stale chart-type set,
 and an e2e touch-target check was loosened to 43px because it measured mid-animation.
 
 ## What Changes
 
-- Heatmap category axes (columns and rows) and the histogram category x axis show every label when they fit and hide
-  overlapping labels when they do not, instead of ECharts' automatic every-other interval.
 - Histogram bin range labels use one decimal-place count for the whole chart, chosen from the bin edges.
 - The heatmap Output-editor aggregation hint states that rows sharing a column and row are summed into one cell.
 - Comments in `ChartPanel.tsx` and `chartOverlayOption.ts` are corrected for the current chart-type set.
@@ -21,9 +18,19 @@ and an e2e touch-target check was loosened to 43px because it measured mid-anima
 
 ### Modified Capabilities
 - `heatmap-histogram-charts`: histogram bin labels gain a consistent-precision rule; heatmap/histogram category axes
-  gain a show-every-label-that-fits rule; the heatmap editor hint must describe summing.
+  the heatmap editor hint must describe summing.
+
+## Owner ruling: axis-label thinning is not changed
+
+The original item 1 (show every heatmap/histogram axis label that fits) is out of scope; axis-label thinning stays
+exactly as on main and the work is split to HEL-1512. ECharts' `interval: 0` + `hideOverlap` could not be made to
+work well: its label collision boxes are measured from the glyph '国' (so stacked at 375 without a CJK font), and
+the `textMargin` that fixes run-together labels re-thins labels that fit (see evaluation-4 and the skeptic-final
+reports).
 
 ## Non-goals
+
+- No change to heatmap/histogram axis-label thinning (HEL-1512).
 
 - No change to line, bar, pie or scatter axes, nor to HEL-1305's time-axis `hideOverlap` or HEL-1306 reference marks.
 - No change to binning itself (edges, counts, bin-count rule) or to the tooltip number format of other charts.

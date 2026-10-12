@@ -14,7 +14,7 @@ Re-derive line numbers from main.
 
 ## Acceptance Criteria
 
-- AC1: Heatmap (both category axes) and histogram (category x axis) show every category label when the labels fit (no automatic every-other thinning); when they do not fit, labels do not overlap. Histogram bin labels within one chart all use the same number of decimal places. Verified rendered in light and dark themes at 1440 and 375 widths. HEL-1305 time-axis labels and HEL-1306 reference lines/bands do not regress.
+- AC1: Histogram bin labels use one consistent precision (within one chart, all labels use the same number of decimal places); axis-label thinning is unchanged from main (show-every-label split to HEL-1512 by owner ruling).
 - AC2: The heatmap Output-editor aggregation hint states that rows sharing a column and row are summed (no "plots the rows as they are").
 - AC3: The stale chart-type comments (`frontend/src/features/panels/ui/ChartPanel.tsx:7`; the chartOverlayOption.ts one, now the `applyChartOverlay` doc comment at `frontend/src/features/panels/ui/chartOverlayOption.ts:71-72` after HEL-1305) are accurate for the current chart-type set.
 - AC4: `e2e/hel1311-heatmap-histogram-charts.spec.ts` measures the heatmap/histogram editor controls only after the sheet's open animation has settled, and asserts the 43.5px threshold (both sites, currently :495 and :504); the check is shown to fail under a genuinely undersized control.

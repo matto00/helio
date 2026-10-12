@@ -21,44 +21,6 @@ export const HEATMAP_VISUALMAP_CLEARANCE_PX = 56;
 export const HEATMAP_COMPACT_CLEARANCE_PX = 36;
 export const HEATMAP_COMPACT_BAR_THICKNESS_PX = 10;
 
-/** `interval: 0` turns off ECharts' automatic every-other-label skipping on a category axis, so every
- *  label is laid out; `hideOverlap` then drops only labels that would collide on a narrow chart. It
- *  must be applied where `buildChartOption` rebuilds `axisLabel`: one set on the data option is dropped. */
-export const CATEGORY_LABEL_SHOW_ALL = { interval: 0, hideOverlap: true } as const;
-
-/** ECharts' default axis-label font size, used when the appearance sets none. */
-export const CATEGORY_LABEL_DEFAULT_FONT_SIZE = 12;
-
-/** The label text's real height with a little leading. ECharts sizes each label's collision box from a
- *  line height it MEASURES on the glyph '国'; with no CJK font installed that glyph falls back to a
- *  half-width one (about 0.6em), so the boxes come out too short and `hideOverlap` hides nothing
- *  (stacked heatmap row labels at 375px). An explicit font-size-based `lineHeight` avoids the probe. */
-export function categoryLabelLineHeight(fontSize: number): number {
-  return Math.ceil(fontSize * 1.2);
-}
-
-/** `CATEGORY_LABEL_SHOW_ALL` plus the explicit line height for `fontSize`. */
-export function categoryLabelShowAll(fontSize: number) {
-  return { ...CATEGORY_LABEL_SHOW_ALL, lineHeight: categoryLabelLineHeight(fontSize) };
-}
-
-/** Minimum horizontal gap (px) between shown labels on a show-all X axis, vertical component 0. ECharts'
- *  default `[0, 3]` lets `hideOverlap` pack labels about one character apart, so a bin range such as
- *  "133 to 148" runs into its neighbour ("133 to 148 194 to 209"). Not applied to the heatmap row (y) axis,
- *  whose labels stack vertically. 8, not larger: ECharts needs about twice the margin as a free gap, and 10 stopped a
- *  10-bin histogram at 1440 showing all of its labels although they fit with a 16px gap. */
-export const CATEGORY_X_LABEL_TEXT_MARGIN: [number, number] = [0, 8];
-
-/** `categoryLabelShowAll` for a show-all X axis: also keeps neighbouring labels visibly apart. */
-export function categoryXLabelShowAll(fontSize: number) {
-  return { ...categoryLabelShowAll(fontSize), textMargin: CATEGORY_X_LABEL_TEXT_MARGIN };
-}
-
-/** The chart types whose category axes show every label that fits (heatmap: both axes; histogram: x). */
-export function showsEveryCategoryLabel(chartType: string): boolean {
-  return chartType === "heatmap" || chartType === "histogram";
-}
-
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")

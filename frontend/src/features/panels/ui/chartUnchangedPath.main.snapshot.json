@@ -2655,11 +2655,7 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15,
-        "textMargin": [0, 8]
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
@@ -2687,10 +2683,7 @@
         "show": true,
         "fontFamily": "ui-monospace, monospace",
         "formatter": "__fn__",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
@@ -2775,11 +2768,7 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15,
-        "textMargin": [0, 8]
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
@@ -3497,11 +3486,7 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15,
-        "textMargin": [0, 8]
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
@@ -3529,10 +3514,7 @@
         "show": true,
         "fontFamily": "ui-monospace, monospace",
         "formatter": "__fn__",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
@@ -3617,11 +3599,7 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef",
-        "interval": 0,
-        "hideOverlap": true,
-        "lineHeight": 15,
-        "textMargin": [0, 8]
+        "color": "#abcdef"
       },
       "axisLine": {
         "lineStyle": {
