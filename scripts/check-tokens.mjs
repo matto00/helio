@@ -91,6 +91,14 @@ export const ALLOWLIST = {
   "--dashboard-grid-background-override": "features/panels/ui/PanelList.tsx",
   "--panel-surface-override": "features/panels/ui/PanelCard.tsx",
   "--panel-text-override": "features/panels/ui/PanelCard.tsx",
+  "--panel-tone-success":
+    "theme/panelReadableTones.ts via features/panels/ui/PanelCard.tsx (inline style)",
+  "--panel-tone-warning":
+    "theme/panelReadableTones.ts via features/panels/ui/PanelCard.tsx (inline style)",
+  "--panel-tone-error":
+    "theme/panelReadableTones.ts via features/panels/ui/PanelCard.tsx (inline style)",
+  "--panel-tone-muted":
+    "theme/panelReadableTones.ts via features/panels/ui/PanelCard.tsx (inline style)",
   "--mobile-panel-height":
     "features/panels/ui/grid/MobilePanelStack.tsx:104 (inline CSSProperties)",
 };

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buildPanelSurface, resolvePanelTextColor } from "../../../theme/appearance";
+import { resolvePanelReadableTones } from "../../../theme/panelReadableTones";
 import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel } from "../state/panelsSlice";
 import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
@@ -36,6 +37,8 @@ export function getPanelCardStyle(
     appearance.transparency,
     appearance.color,
   );
+  // HEL-1490: readable tone/delta/secondary-text variants, only when the token would fail.
+  Object.assign(style, resolvePanelReadableTones(theme, appearance));
   return style;
 }
 

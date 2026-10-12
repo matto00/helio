@@ -1,0 +1,10 @@
+- `frontend/src/theme/panelReadableTones.ts` — new: pickReadableColor, resolvePanelReadableTones, token mirror (split out of appearance.ts for the size budget)
+- `frontend/src/theme/appearance.ts` — export helpers the new module reuses; add resolvePanelSurfaceRgb
+- `frontend/src/features/panels/ui/PanelCard.tsx` — getPanelCardStyle emits the per-panel variants
+- `frontend/src/features/panels/ui/PanelContent.css` — metric figure tones and delta read var(--panel-tone-x, var(--app-x))
+- `frontend/src/features/panels/ui/renderers/TableRenderer.css` — cell tone text and tone marks read the per-panel variant
+- `frontend/src/theme/panelReadableTones.test.ts` — picker and resolver tests
+- `frontend/src/theme/panelReadableTones.testUtils.ts` — independent float contrast model for tests
+- `frontend/src/theme/panelReadableTones.css.test.ts` — theme.css mirror guard
+- `frontend/src/features/panels/ui/panelCardStyle.tones.test.ts` — getPanelCardStyle and CSS fallback-form tests
+- `scripts/check-tokens.mjs` — allowlist the four runtime-set --panel-tone-* tokens (setter: PanelCard.tsx)

@@ -50,7 +50,7 @@ export const dashboardGridAppearanceEditorFallback = "#2a2620";
 export const panelAppearanceEditorFallback = "#1a1816";
 export const panelTextEditorFallback = "#f2efe9";
 
-interface RgbColor {
+export interface RgbColor {
   r: number;
   g: number;
   b: number;
@@ -114,7 +114,7 @@ export function getPanelTextEditorFallback(theme: Theme): string {
   return themeAppearancePalette[theme].defaultText;
 }
 
-function parseHexColor(value: string): RgbColor | null {
+export function parseHexColor(value: string): RgbColor | null {
   const match = /^#([0-9a-f]{6})$/i.exec(value);
   if (match === null) {
     return null;
@@ -144,7 +144,7 @@ function toRgbString(color: RgbColor, alpha = 1): string {
   return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
 }
 
-function toHexColor(color: RgbColor): string {
+export function toHexColor(color: RgbColor): string {
   const channel = (value: number) => value.toString(16).padStart(2, "0");
   return `#${channel(color.r)}${channel(color.g)}${channel(color.b)}`;
 }
@@ -158,13 +158,13 @@ function getRelativeLuminance(color: RgbColor): number {
   return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
 
-function getContrastRatio(first: RgbColor, second: RgbColor): number {
+export function getContrastRatio(first: RgbColor, second: RgbColor): number {
   const lighter = Math.max(getRelativeLuminance(first), getRelativeLuminance(second));
   const darker = Math.min(getRelativeLuminance(first), getRelativeLuminance(second));
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-function resolveTintedSurface(
+export function resolveTintedSurface(
   baseColor: string,
   overrideColor: string,
   tintStrength: number,
@@ -240,6 +240,11 @@ export function buildPanelSurface(theme: Theme, background: string, transparency
   const alpha = 1 - clampTransparency(transparency) * 0.85;
 
   return toRgbString(resolved, alpha);
+}
+
+/** The opaque tinted panel surface (`buildPanelSurface` minus its alpha). */
+export function resolvePanelSurfaceRgb(theme: Theme, background: string): RgbColor {
+  return resolveTintedSurface(themeAppearancePalette[theme].panelSurface, background, 0.24);
 }
 
 export function resolvePanelTextColor(
