@@ -1,0 +1,4 @@
+- `backend/src/main/scala/com/helio/services/sources/DataSourceService.scala` — compensating cleanup (row then file) around the five file-write create chains; private stored-object delete seam
+- `backend/src/test/scala/com/helio/services/sources/DataSourceCreateFailureCleanupSpec.scala` — red-first route-level specs for all 8 create paths, cleanup-failure guards, GCS mocked-Storage spec
+- `openspec/changes/datasource-create-leak-cleanup/red-evidence.md` — per-path red/green/mutation evidence
+- `openspec/changes/datasource-create-leak-cleanup/tasks.md` — tasks ticked

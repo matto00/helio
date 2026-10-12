@@ -26,7 +26,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Business logic for CSV + Static + Text (HEL-215) + Pdf (HEL-214) +
  *  Image (HEL-216) data
@@ -79,6 +79,36 @@ final class DataSourceService(
   private def audit(action: String, resourceId: Option[String], user: AuthenticatedUser, metadata: JsValue = JsObject.empty): Unit =
     if (auditService != null)
       auditService.record(Some(user.id), user.tokenId, user.source, action, "data_source", resourceId, metadata)
+
+  /** HEL-1494: runs a create chain that starts with a file write (write, row insert, schema upsert, audit) and, when it
+   *  FAILS, removes what this request created before re-raising the original failure unchanged: first the row (by the
+   *  fresh `sourceId`, owner-scoped; `false` when the insert never happened), then, only if the row step did not fail,
+   *  the stored object at the fresh `filePath`. A row left with its file intact is consistent; a row left pointing at a
+   *  deleted file would be a broken source. Only failed Futures are compensated (a `Left` passes through). A cleanup
+   *  failure is logged (ids, path, exception class) and never replaces the original error. */
+  private def compensatingFileCreate[A](sourceId: DataSourceId, filePath: String, user: AuthenticatedUser, context: String)(body: => Future[A]): Future[A] =
+    Future.unit.flatMap(_ => body).transformWith {
+      case Success(value) => Future.successful(value)
+      case Failure(ex) =>
+        deleteCreatedRow(sourceId, user, context).flatMap { rowStepOk =>
+          if (rowStepOk) deleteStoredObject(filePath, context).map(_ => ()) else Future.unit
+        }.transformWith(_ => Future.failed[A](ex))
+    }
+
+  /** The row half of [[compensatingFileCreate]]; never fails. `true` when the row is gone or never existed. */
+  private def deleteCreatedRow(sourceId: DataSourceId, user: AuthenticatedUser, context: String): Future[Boolean] =
+    Future.unit.flatMap(_ => dataSourceRepo.delete(sourceId, user)).map(_ => true).recover { case cleanupEx =>
+      log.warn(s"$context failed to delete the row of source ${sourceId.value}, keeping its file: ${ImplicitConnectorCleanup.describeFailure(cleanupEx)}")
+      false
+    }
+
+  /** Removes one stored object by exact path; never throws. Kept as a single private seam so HEL-1434 (blobs left by row
+   *  deletes) can lift it without touching the create paths. */
+  private def deleteStoredObject(path: String, context: String): Future[Boolean] =
+    Future.unit.flatMap(_ => fileSystem.delete(path)).map(_ => true).recover { case cleanupEx =>
+      log.warn(s"$context failed to delete stored object $path: ${ImplicitConnectorCleanup.describeFailure(cleanupEx)}")
+      false
+    }
 
   /** HEL-1093 (design.md Decision 2): fire-and-forget from `deleteRow`'s successful-write branch
    *  ONLY, alongside `audit(...)` -- unchanged by HEL-1096 (owner ruling, design.md Non-Goals:
@@ -275,7 +305,8 @@ final class DataSourceService(
           config    = CsvSourceConfig(filePath),
           tag       = validTag
         )
-        fileSystem.write(filePath, bytes).flatMap { _ =>
+        compensatingFileCreate(sourceId, filePath, user, "DataSourceService.createCsv") {
+          fileSystem.write(filePath, bytes).flatMap { _ =>
           dataSourceRepo.insert(source, user).flatMap { ds =>
             val fields = schema.fields.map { f =>
               val ov = overridesMap.get(f.name)
@@ -288,6 +319,7 @@ final class DataSourceService(
               Right(updated.getOrElse(ds))
             }
           }
+        }
         }
         }
     }
@@ -342,7 +374,8 @@ final class DataSourceService(
                   config    = CsvSourceConfig(filePath, sourceUrl = Some(url)),
                   tag       = validTag
                 )
-                fileSystem.write(filePath, bytes).flatMap { _ =>
+                compensatingFileCreate(sourceId, filePath, user, "DataSourceService.createCsvUrl") {
+                  fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
                     val fields = schema.fields.map(f =>
                       SchemaField(f.name, DataFieldType.asString(f.dataType))
@@ -352,6 +385,7 @@ final class DataSourceService(
                       Right(updated.getOrElse(ds))
                     }
                   }
+                }
                 }
             }
         }
@@ -421,7 +455,8 @@ final class DataSourceService(
                   config    = TextSourceConfig(filePath, sourceUrl),
                   tag       = validTag
                 )
-                fileSystem.write(filePath, bytes).flatMap { _ =>
+                compensatingFileCreate(sourceId, filePath, user, "DataSourceService.createText") {
+                  fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
                     val fields = ContentSourceSupport.metadataFields(DataFieldType.StringBodyType, filename, bytes.length.toLong)
                       .map(f => SchemaField(f.name, f.dataType))
@@ -430,6 +465,7 @@ final class DataSourceService(
                       Right(updated.getOrElse(ds))
                     }
                   }
+                }
                 }
             }
       }
@@ -512,7 +548,8 @@ final class DataSourceService(
                   config    = PdfSourceConfig(filePath, sourceUrl),
                   tag       = validTag
                 )
-                fileSystem.write(filePath, bytes).flatMap { _ =>
+                compensatingFileCreate(sourceId, filePath, user, "DataSourceService.createPdf") {
+                  fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
                     val fields = pdfFields(filename, bytes.length.toLong).map(f => SchemaField(f.name, f.dataType))
                     dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
@@ -520,6 +557,7 @@ final class DataSourceService(
                       Right(updated.getOrElse(ds))
                     }
                   }
+                }
                 }
             }
       }
@@ -592,7 +630,8 @@ final class DataSourceService(
                   config    = ImageSourceConfig(filePath, sourceUrl),
                   tag       = validTag
                 )
-                fileSystem.write(filePath, bytes).flatMap { _ =>
+                compensatingFileCreate(sourceId, filePath, user, "DataSourceService.createImage") {
+                  fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
                     val fields = (ContentSourceSupport.metadataFields(DataFieldType.BinaryRefType, filename, bytes.length.toLong) ++
                       Vector(
@@ -605,6 +644,7 @@ final class DataSourceService(
                       Right(updated.getOrElse(ds))
                     }
                   }
+                }
                 }
             }
       }
