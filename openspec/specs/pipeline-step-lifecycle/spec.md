@@ -136,8 +136,8 @@ status and message create returns, and no step SHALL be stored.
 - **WHEN** a step with a lane reference to step L is duplicated after L was deleted
 - **THEN** the request fails with the status and message create returns for a missing lane reference, and no step is stored
 
-#### Scenario: Duplicating an upsert step whose target is no longer writable is rejected
-- **WHEN** an `upsert_source` step is duplicated after its target source was deleted or is no longer a writable dataset
+#### Scenario: Duplicating an upsert step whose stored target the pipeline owner cannot write is rejected
+- **WHEN** an `upsertsource` step whose stored existing-source target the pipeline owner cannot write (for example, a dataset they do not own) is duplicated
 - **THEN** the request fails with the status and message create returns for that target, and no step is stored
 
 ### Requirement: Duplicating a step applies create's secondary-source ownership check to the caller

@@ -99,6 +99,16 @@ describe("StepCard — rejected cast save (HEL-1514)", () => {
     expect(screen.getByText(LEGACY_MESSAGE)).toBeInTheDocument();
   });
 
+  it("links the 422 message to the legacy row's control", async () => {
+    await openCastAndEditOtherRow(rejection(LEGACY_MESSAGE));
+
+    const control = screen.getByRole("combobox", { name: "Target type for amount" });
+    const describedBy = (control.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(
+      describedBy.some((id) => document.getElementById(id)?.textContent === LEGACY_MESSAGE),
+    ).toBe(true);
+  });
+
   it("also shows a non-422 failure message (nothing looks saved)", async () => {
     await openCastAndEditOtherRow(rejection("Internal boom", 500));
 
