@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.api.routes.pipelines.PipelineRunRegistry
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
@@ -51,7 +52,10 @@ final class PipelineSchedulerService(
     outputHistoryRetentionService: OutputHistoryRetentionService = null,
     // HEL-1384 (design.md D2/D6): the fire-time auto-run verdict. Wired exactly when
     // `autoRunDebounceRepo` is (enforced below), so a debounce pass can never run ungated.
-    autoRunTriggerService: AutoRunTriggerService = null
+    autoRunTriggerService: AutoRunTriggerService = null,
+    // HEL-1511 (design.md D3): nullable-optional like the collaborators above -- receives the terminal `failed`
+    // event of each reaped run so an open editor stops spinning. A fixture that passes none publishes nothing.
+    registry: PipelineRunRegistry = null
 )(implicit ec: ExecutionContext) {
 
   require(pipelineStepRepo != null, "PipelineSchedulerService: pipelineStepRepo is required (HEL-1384 fire-time config gate)")
@@ -71,6 +75,9 @@ final class PipelineSchedulerService(
         autoRunDebounceRepo, staleClaimAfterSeconds, runRepo, pipelineRepo, pipelineRunService, autoRunTriggerService
       )
     )
+
+  // HEL-1511: reaps orphaned non-terminal runs at the top of every tick; the bound is the run service's own config.
+  private val orphanReaper = new OrphanedRunReaper(runRepo, pipelineRunService.guardConfig.staleRunAfterSeconds, registry)
 
   /** Same-process in-flight guard (pipeline IDs) — the fast, same-tick half
    *  of the overlap guard (design.md Decision 3). Access is synchronized to
@@ -93,6 +100,11 @@ final class PipelineSchedulerService(
    *  siblings — mirrors `AlertEvaluationService`'s per-rule isolation). */
   def tick(): Future[Unit] = {
     val now = clock.now()
+    // HEL-1511 (design.md D3): reap FIRST (it never fails), so everything below sees the orphans' pipelines freed.
+    orphanReaper.reap(now).flatMap(_ => runPasses(now))
+  }
+
+  private def runPasses(now: Instant): Future[Unit] = {
     val candidatesWork = scheduleRepo.listTickCandidatesInternal(now).flatMap { candidates =>
       Future.traverse(candidates)(candidate => processCandidate(candidate, now)).map(_ => ())
     }
