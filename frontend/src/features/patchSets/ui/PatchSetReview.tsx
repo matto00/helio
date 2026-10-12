@@ -1,18 +1,31 @@
 import { Modal } from "../../../shared/ui/Modal";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import type { EditPreview, PatchSetPreviewResponse } from "../types/patchSet";
+import type {
+  EditPreview,
+  PatchSetPreviewResponse,
+  PatchSetStaleRejection,
+} from "../types/patchSet";
 import "./PatchSetReview.css";
 
 interface PatchSetReviewProps {
   preview: PatchSetPreviewResponse;
   applying: boolean;
   error?: string | null;
+  /** HEL-1458: apply was refused because these targets changed since the preview. While set, Accept is replaced by
+   *  Re-preview — applying the stale diff again would only be refused again. */
+  conflict?: PatchSetStaleRejection | null;
+  /** Called on Re-preview: the caller fetches a fresh preview (and fresh fingerprints). */
+  onRepreview?: () => void;
   /** Called on accept — the caller applies the SAME patch set that was
    *  previewed (HEL-406's existing apply endpoint). Nothing is written
    *  until this fires. */
   onAccept: () => void;
   /** Called on reject / close — nothing is written. */
   onReject: () => void;
+}
+
+function staleTargetNames(conflict: PatchSetStaleRejection): string {
+  return conflict.staleTargets.map((t) => `edit ${t.index + 1} (${t.kind} ${t.id})`).join(", ");
 }
 
 function jsonBlock(value: Record<string, unknown> | null | undefined): string {
@@ -61,6 +74,8 @@ export function PatchSetReview({
   preview,
   applying,
   error,
+  conflict,
+  onRepreview,
   onAccept,
   onReject,
 }: PatchSetReviewProps) {
@@ -76,14 +91,20 @@ export function PatchSetReview({
       >
         Reject
       </button>
-      <button
-        type="button"
-        className="ui-modal-btn ui-modal-btn--primary"
-        onClick={onAccept}
-        disabled={applying || edits.length === 0}
-      >
-        {applying ? "Applying…" : "Accept & apply"}
-      </button>
+      {conflict ? (
+        <button type="button" className="ui-modal-btn ui-modal-btn--primary" onClick={onRepreview}>
+          Re-preview
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="ui-modal-btn ui-modal-btn--primary"
+          onClick={onAccept}
+          disabled={applying || edits.length === 0}
+        >
+          {applying ? "Applying…" : "Accept & apply"}
+        </button>
+      )}
     </>
   );
 
@@ -112,6 +133,12 @@ export function PatchSetReview({
         )}
 
         <InlineError error={error} />
+        {conflict && (
+          <InlineError
+            variant="banner"
+            error={`Nothing was applied: ${staleTargetNames(conflict)} changed since this preview. Re-preview to review the current state.`}
+          />
+        )}
       </div>
     </Modal>
   );

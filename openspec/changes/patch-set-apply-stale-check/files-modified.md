@@ -1,0 +1,38 @@
+- `backend/src/main/scala/com/helio/api/package.scala` — re-export stale response types
+- `backend/src/main/scala/com/helio/api/protocols/ResourceProtocol.scala` — PatchSetStaleResponse wire type
+- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — fingerprint on EditTargetSchema
+- `backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetPreviewProtocol.scala` — EditPreview.fingerprint
+- `backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala` — EditTarget.fingerprint reader/writer
+- `backend/src/main/scala/com/helio/api/routes/ServiceResponse.scala` — render PatchSetStale as 409 body
+- `backend/src/main/scala/com/helio/services/ServiceError.scala` — PatchSetStale variant and StaleTarget
+- `backend/src/main/scala/com/helio/services/assistant/AssistantToolExecutor.scala` — strip model-emitted fingerprints before preview
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyResolvers.scala` — reject fingerprint on a create edit at resolution
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — compare supplied fingerprints after resolveAll, before any write
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — emit fingerprint on preview entries
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementService.scala` — strip then stamp fingerprints from the validating preview
+- `backend/src/test/scala/com/helio/api/routes/patchsets/RefinementRoutesSpec.scala` — tests for the stale-target check
+- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` — tests for the stale-target check
+- `frontend/src/features/patchSets/state/patchSetsSlice.test.ts` — tests for the stale-target check
+- `frontend/src/features/patchSets/state/patchSetsSlice.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `frontend/src/features/patchSets/types/patchSet.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `frontend/src/features/patchSets/ui/PatchSetReview.tsx` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.test.tsx` — tests for the stale-target check
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.tsx` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `helio-mcp/src/server.test.ts` — tests for the stale-target check
+- `helio-mcp/src/tools/refinement.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `helio-mcp/src/tools/refinementSchemas.test.ts` — tests for the stale-target check
+- `helio-mcp/src/tools/refinementSchemas.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `helio-mcp/src/types.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `schemas/patch-sets/patch-set-preview-response.schema.json` — schema: fingerprint field / 409 body
+- `schemas/patch-sets/patch-set.schema.json` — schema: fingerprint field / 409 body
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetFingerprintStamping.scala` — strip model fingerprints / stamp preview fingerprints
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetStaleMessage.scala` — builds the PatchSetStale error naming every stale target
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetTargetFingerprint.scala` — fingerprint helper: allowlisted per-kind projection, canonical JSON, v1 sha256
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleCheckRoutesSpec.scala` — tests for the stale-target check
+- `backend/src/test/scala/com/helio/domain/patchsets/PatchSetFingerprintWireSpec.scala` — tests for the stale-target check
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetTargetFingerprintSpec.scala` — tests for the stale-target check
+- `frontend/src/features/patchSets/ui/stampFingerprints.test.ts` — tests for the stale-target check
+- `frontend/src/features/patchSets/ui/stampFingerprints.ts` — frontend/MCP support for fingerprints, conflict and replace navigation
+- `helio-mcp/src/tools/refinementStaleConflict.test.ts` — tests for the stale-target check
+- `schemas/shared/patch-set-stale-response.schema.json` — schema: fingerprint field / 409 body
+- `openspec/changes/patch-set-apply-stale-check/tasks.md` — tasks marked complete

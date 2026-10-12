@@ -60,9 +60,10 @@ private[services] object PatchSetPreviewProjection {
     computeAfter(edit, user, ctx).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(afterOpt) =>
-        PatchSetPreviewImpact.compute(edit, user, ctx).map { impact =>
-          Right(EditPreview(edit.index, edit.kind, edit.op, edit.priorStateJson, afterOpt, impact))
-        }
+        for {
+          impact      <- PatchSetPreviewImpact.compute(edit, user, ctx)
+          fingerprint <- PatchSetTargetFingerprint.forEdit(edit, user, ctx)
+        } yield Right(EditPreview(edit.index, edit.kind, edit.op, edit.priorStateJson, afterOpt, impact, fingerprint))
     }
 
 

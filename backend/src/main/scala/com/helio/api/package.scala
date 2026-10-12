@@ -12,6 +12,10 @@ package object api {
   type StepConfigErrorResponse = protocols.StepConfigErrorResponse
   val StepConfigErrorResponse: protocols.StepConfigErrorResponse.type = protocols.StepConfigErrorResponse
   val ErrorResponse: protocols.ErrorResponse.type = protocols.ErrorResponse
+  type PatchSetStaleResponse = protocols.PatchSetStaleResponse
+  val PatchSetStaleResponse: protocols.PatchSetStaleResponse.type = protocols.PatchSetStaleResponse
+  type StaleTargetResponse = protocols.StaleTargetResponse
+  val StaleTargetResponse: protocols.StaleTargetResponse.type = protocols.StaleTargetResponse
   type HealthResponse = protocols.HealthResponse
   val HealthResponse: protocols.HealthResponse.type = protocols.HealthResponse
 

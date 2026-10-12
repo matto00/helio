@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
+import com.helio.services.ServiceError.StaleTarget
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.PanelService
@@ -77,9 +78,24 @@ final class PatchSetApplyService(
 
   def apply(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetApplyResponse]] =
     PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {
-      case Left(err)       => Future.successful(Left(err))
-      case Right(resolved) => applyResolved(resolved, user)
+      case Left(err) => Future.successful(Left(err))
+      case Right(resolved) =>
+        // HEL-1458: after authorization (a 403/404 wins, so a fingerprint never reveals existence) and before any write.
+        staleTargets(patchSet, resolved, user).flatMap {
+          case stale if stale.nonEmpty => Future.successful(Left(PatchSetStaleMessage.error(stale)))
+          case _                       => applyResolved(resolved, user)
+        }
     }
+
+  /** Every edit whose supplied fingerprint no longer matches its target's current editable state; edits that
+   *  supplied none are not checked. */
+  private def staleTargets(patchSet: PatchSet, resolved: Vector[ResolvedEdit], user: AuthenticatedUser): Future[Vector[StaleTarget]] =
+    Future.sequence(resolved.zip(patchSet.edits).collect { case (edit, original) if original.target.fingerprint.isDefined =>
+      PatchSetTargetFingerprint.forEdit(edit, user, context).map { current =>
+        if (current == original.target.fingerprint) None
+        else Some(StaleTarget(edit.index, edit.kind, original.target.id.getOrElse("")))
+      }
+    }).map(_.flatten)
 
   /** Applies every resolved edit in order, short-circuiting the walk (not
    *  the whole call) on the first failure so [[PatchSetApplyRollback]] can
