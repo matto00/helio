@@ -42,8 +42,9 @@ interface ChartDisplayFieldsProps {
   onPieChange: (patch: Partial<PieChartOptions>) => void;
   scatter: ScatterChartOptions;
   onScatterChange: (patch: Partial<ScatterChartOptions>) => void;
-  /** Field options for the scatter size/color selects (no "— None —" prefix —
-   *  added here). Empty when no DataType is bound. */
+  /** The caller's field options for the scatter size/color selects and the annotation field,
+   *  including the leading "— None —" clear option (listed exactly once; this component adds
+   *  none). Empty when no DataType is bound. */
   fieldOptions: SelectOption[];
   /** True when a DataType is bound — scatter field selects are only meaningful
    *  once columns exist, and the annotation's "Bind to field" mode is only
@@ -100,8 +101,6 @@ export function ChartDisplayFields({
   isBound,
   annotationState,
 }: ChartDisplayFieldsProps) {
-  const fieldSelectOptions: SelectOption[] = [{ value: "", label: "— None —" }, ...fieldOptions];
-
   return (
     <>
       <h3 className="panel-detail-modal__edit-section-heading">Display</h3>
@@ -254,7 +253,7 @@ export function ChartDisplayFields({
                   value={scatter.sizeField ?? ""}
                   onChange={(value) => onScatterChange({ sizeField: value || undefined })}
                   placeholder="— None —"
-                  options={fieldSelectOptions}
+                  options={fieldOptions}
                 />
               </div>
               <p className="panel-detail-modal__field-hint">
@@ -272,7 +271,7 @@ export function ChartDisplayFields({
                   value={scatter.colorField ?? ""}
                   onChange={(value) => onScatterChange({ colorField: value || undefined })}
                   placeholder="— None —"
-                  options={fieldSelectOptions}
+                  options={fieldOptions}
                 />
               </div>
               <p className="panel-detail-modal__field-hint">

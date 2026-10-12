@@ -1,0 +1,132 @@
+import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
+
+import { CSRF_HEADER, currentUserId, registerAndLogin } from "./support/auth";
+
+// HEL-1510 -- rendered-geometry guard for HEL-1464's Output editor desktop-overflow fix. A table
+// Output with an 86-character column name is opened at 1100px; every Columns-row control and the
+// Cell density control must lie inside the Configuration card's content box, the Modal's scrolling
+// body must not scroll sideways, and the long name must keep a non-zero width and its full-text
+// `title`. All numbers come from getBoundingClientRect / scrollWidth (never CSS text), so a
+// descendant selector or a cascade override cannot fool it. Replaces TableDisplayFields.css.test.ts.
+
+const CSRF = { [CSRF_HEADER]: "1" };
+const LONG_NAME =
+  "customer_lifetime_value_adjusted_for_seasonality_and_regional_tax_treatment_by_fiscals";
+
+async function postJson<T>(request: APIRequestContext, url: string, data: unknown): Promise<T> {
+  const res = await request.post(url, { data, headers: CSRF });
+  expect(res.status(), `${url}: ${await res.text()}`).toBe(201);
+  return (await res.json()) as T;
+}
+
+/** Right edge of `el`'s content box (rect right minus border and padding), in viewport px. */
+async function contentRight(el: Locator): Promise<number> {
+  return el.evaluate((node) => {
+    const cs = getComputedStyle(node);
+    return (
+      node.getBoundingClientRect().right -
+      parseFloat(cs.borderRightWidth) -
+      parseFloat(cs.paddingRight)
+    );
+  });
+}
+
+test("table Output editor at 1100px: an 86-char column name overflows nothing", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  expect(LONG_NAME.length).toBe(86);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.addInitScript(() => window.localStorage.setItem("helio-theme", "light"));
+  await registerAndLogin(page, request, {
+    prefix: "hel1510",
+    displayName: "HEL-1510",
+    isolate: true,
+  });
+  const userId = await currentUserId(request);
+  console.log(`[HEL-1510 e2e] created user ${userId}`);
+
+  let ids: { source: string; pipeline: string } | undefined;
+  try {
+    const source = await postJson<{ id: string }>(request, "/api/data-sources", {
+      name: "HEL-1510 overflow source",
+      type: "static",
+      columns: [
+        { name: "id", type: "string" },
+        { name: LONG_NAME, type: "integer" },
+        { name: "status", type: "string" },
+      ],
+      rows: [
+        ["1", 10, "ok"],
+        ["2", 20, "ok"],
+      ],
+    });
+    const pipeline = await postJson<{ id: string }>(request, "/api/pipelines", {
+      name: "HEL-1510 overflow pipeline",
+      roots: [{ sourceId: source.id }],
+    });
+    ids = { source: source.id, pipeline: pipeline.id };
+    const output = await postJson<{ id: string }>(
+      request,
+      `/api/pipelines/${pipeline.id}/outputs`,
+      { kind: "table", name: "HEL-1510 table", config: { fieldMapping: {} } },
+    );
+    console.log(
+      `[HEL-1510 e2e] created source ${source.id} pipeline ${pipeline.id} output ${output.id}`,
+    );
+
+    await page.goto(`/pipelines/${pipeline.id}`);
+    await page.getByRole("tab", { name: /^Outputs/ }).click();
+    await page.getByRole("button", { name: "Open HEL-1510 table output" }).click();
+
+    const dialog = page.getByRole("dialog");
+    const card = dialog
+      .locator(".output-editor-sheet__group--card")
+      .filter({ has: page.getByRole("heading", { name: "Configuration" }) });
+    const rows = card.locator(".table-display-fields__column-row");
+    await expect(rows).toHaveCount(3);
+    const name = card.locator(".table-display-fields__column-key", { hasText: LONG_NAME });
+    await expect(name).toBeVisible();
+
+    const limit = (await contentRight(card)) + 0.5;
+    const controls = card.locator(
+      [
+        ".table-display-fields__column-row input",
+        ".table-display-fields__column-key",
+        ".table-display-fields__column-format button",
+        ".table-display-fields__column-move button",
+        "#table-density",
+      ].join(", "),
+    );
+    const count = await controls.count();
+    expect(count).toBeGreaterThanOrEqual(3 * 4 + 1);
+    const overflows: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const right = await controls.nth(i).evaluate((n) => n.getBoundingClientRect().right);
+      if (right > limit) {
+        const label = await controls.nth(i).evaluate((n) => n.className || n.tagName);
+        overflows.push(`${label} right=${right.toFixed(1)} limit=${limit.toFixed(1)}`);
+      }
+    }
+    expect(overflows, `controls past the Configuration card content box`).toEqual([]);
+
+    // The Modal's scrolling body (not the preview table section, which scrolls by design).
+    const body = dialog.locator(".ui-modal__body");
+    const dims = await body.evaluate((n) => ({ sw: n.scrollWidth, cw: n.clientWidth }));
+    expect(
+      dims.sw,
+      `modal body scrollWidth ${dims.sw} vs clientWidth ${dims.cw}`,
+    ).toBeLessThanOrEqual(dims.cw);
+
+    const nameBox = await name.boundingBox();
+    expect(nameBox?.width ?? 0).toBeGreaterThan(0);
+    await expect(name).toHaveAttribute("title", LONG_NAME);
+  } finally {
+    if (ids) {
+      console.log(`[HEL-1510 e2e] deleting pipeline ${ids.pipeline} source ${ids.source}`);
+      await request.delete(`/api/pipelines/${ids.pipeline}`, { headers: CSRF });
+      await request.delete(`/api/data-sources/${ids.source}`, { headers: CSRF });
+    }
+  }
+});
