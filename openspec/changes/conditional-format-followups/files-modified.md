@@ -1,0 +1,15 @@
+- `frontend/src/features/pipelines/ui/outputHistory/historyRowRules.ts` — new: derives the rules the history rows table applies (table passthrough, collection mapped to value-column cell rules, metric none)
+- `frontend/src/features/pipelines/ui/outputHistory/historyRowRules.test.ts` — unit tests for the helper
+- `frontend/src/features/pipelines/ui/outputHistory/HistoryRows.tsx` — forwards rules to TableRenderer; Change cell class on ruled Outputs
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.tsx` — memoized rules from the Output's current config
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.css` — Change-cell accent wash out-ranking rule washes
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.rules.test.tsx` — behaviour tests (table, row+changed, collection, metric, no rules)
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.changeCell.css.test.ts` — specificity guard for the Change-cell rule
+- `frontend/src/theme/theme.css` — per-theme --panel-secondary-text-mix (light 62%, dark 60%)
+- `frontend/src/features/panels/ui/PanelContent.css` — metric unit and label use the token
+- `frontend/src/features/panels/ui/PanelContent.metricSecondaryText.css.test.ts` — contrast guard from token values
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorFooter.tsx` — saveDisabled folded into saveBlocked
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — single saveBlocked expression
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorFooter.test.tsx` — footer gating guard
+- `frontend/src/shared/ui/inputs.css` — Select trigger joins the invalid selectors
+- `frontend/src/shared/ui/inputs.invalid.css.test.ts` — Select invalid CSS guard

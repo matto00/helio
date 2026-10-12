@@ -53,11 +53,13 @@
    the accent: an error-toned border always, plus the halo only while
    focused (so an invalid-but-unfocused field doesn't carry a permanent ring). */
 .ui-input[aria-invalid="true"],
+.ui-select__trigger[aria-invalid="true"],
 .ui-textarea[aria-invalid="true"] {
   border-color: var(--app-error);
 }
 
 .ui-input[aria-invalid="true"]:focus-visible,
+.ui-select__trigger[aria-invalid="true"]:focus-visible,
 .ui-textarea[aria-invalid="true"]:focus-visible {
   border-color: var(--app-error);
   box-shadow: 0 0 0 3px var(--app-error-surface);

@@ -28,7 +28,7 @@
 .panel-content__metric-label {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  color: color-mix(in srgb, currentColor var(--panel-secondary-text-mix), transparent);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -37,7 +37,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
-  color: color-mix(in srgb, currentColor 60%, transparent);
+  color: color-mix(in srgb, currentColor var(--panel-secondary-text-mix), transparent);
   margin-left: var(--space-1);
 }
 
