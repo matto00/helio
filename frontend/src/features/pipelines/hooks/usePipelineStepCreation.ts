@@ -258,5 +258,6 @@ export function usePipelineStepCreation({
     clearDraftCreateError,
     createDraftIfComplete,
     markTempRemoved,
+    applyCreated,
   };
 }
