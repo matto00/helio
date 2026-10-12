@@ -7,7 +7,7 @@
 // HEL-1022: user-facing copy calls a root a "source" (internal naming --
 // `root`/`PipelineRoot` -- is unchanged, this is copy only).
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -28,6 +28,7 @@ export function AddRootModal({ onClose, onAdd }: AddRootModalProps) {
   const { items: dataSources, status: sourcesStatus } = useAppSelector((state) => state.sources);
   const noSourcesYet = sourcesStatus === "succeeded" && dataSources.length === 0;
 
+  const sourceId = useId();
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [addSourceOpen, setAddSourceOpen] = useState(false);
@@ -85,11 +86,15 @@ export function AddRootModal({ onClose, onAdd }: AddRootModalProps) {
         footer={footer}
       >
         <div className="create-pipeline-modal__field">
-          <label className="create-pipeline-modal__label" htmlFor="add-root-source">
+          <label
+            className="create-pipeline-modal__label"
+            htmlFor={noSourcesYet ? undefined : sourceId}
+          >
             Data source
           </label>
           {!noSourcesYet && (
             <Select
+              id={sourceId}
               value={selectedSourceId}
               options={sourceOptions}
               onChange={setSelectedSourceId}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createPipeline } from "../state/pipelinesSlice";
@@ -44,6 +44,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
   // and hasn't failed yet, so showing "no sources yet" would be a false read.
   const noSourcesYet = sourcesStatus === "succeeded" && dataSources.length === 0;
 
+  const sourceId = useId();
   const [name, setName] = useState("");
   const [selectedSourceId, setSelectedSourceId] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -174,7 +175,10 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
           </div>
 
           <div className="create-pipeline-modal__field">
-            <label className="create-pipeline-modal__label" htmlFor="pipeline-source">
+            <label
+              className="create-pipeline-modal__label"
+              htmlFor={noSourcesYet ? undefined : sourceId}
+            >
               Data source
             </label>
             {/* HEL-908 task 7.1 — a source can be picked from the existing
@@ -185,6 +189,7 @@ export function CreatePipelineModal({ onClose }: CreatePipelineModalProps) {
              * empty — "Create a new source" is always available. */}
             {!noSourcesYet && (
               <Select
+                id={sourceId}
                 value={selectedSourceId}
                 options={sourceOptions}
                 onChange={setSelectedSourceId}

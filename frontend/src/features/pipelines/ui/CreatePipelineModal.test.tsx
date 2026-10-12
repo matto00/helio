@@ -5,6 +5,11 @@ import * as pipelineService from "../services/pipelineService";
 import { fetchSources as fetchSourcesRequest } from "../../sources/services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { CreatePipelineModal } from "./CreatePipelineModal";
+import {
+  expectDistinctNonEmptyLabelIds,
+  expectLabelTargetsControl,
+  labelsWithText,
+} from "../../../test/labelAssociation";
 
 jest.mock("../services/pipelineService", () => ({
   getPipelines: jest.fn(),
@@ -239,5 +244,32 @@ describe("CreatePipelineModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create pipeline" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+  });
+
+  // HEL-1464 — the visible label must target its combobox (its literal `htmlFor="pipeline-source"`
+  // pointed at no element), and nothing may dangle when the picker is not rendered.
+  describe("label association (HEL-1464)", () => {
+    it("the Data source label targets the data source combobox", () => {
+      renderModal();
+      expectLabelTargetsControl("Data source", "combobox", "Data source");
+    });
+
+    it("two mounted modals never share the label target id", () => {
+      renderModal();
+      renderModal();
+      expectDistinctNonEmptyLabelIds("Data source");
+    });
+
+    it("D3a: the Data source label has no `for` when no sources exist (picker not rendered)", async () => {
+      fetchSourcesMock.mockResolvedValue([]);
+      renderWithStore(<CreatePipelineModal onClose={jest.fn()} />, {
+        sources: { items: [], status: "succeeded" },
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("combobox", { name: "Data source" })).not.toBeInTheDocument(),
+      );
+      const [label] = labelsWithText("Data source");
+      expect(label.hasAttribute("for")).toBe(false);
+    });
   });
 });

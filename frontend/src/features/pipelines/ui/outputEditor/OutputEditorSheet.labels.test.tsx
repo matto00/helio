@@ -172,7 +172,7 @@ describe("Output editor labels are associated with their Select (HEL-1432)", () 
     renderSheet(null);
     await choose("Chart type", "Scatter");
     expectLabelControls("Point size field", "scatter-size-field", "Scatter point size field");
-    expectLabelControls("Color by field", "scatter-color-field", "Scatter color-by field");
+    expectLabelControls("Color by field", "scatter-color-field", "Scatter color by field");
     expectNoDuplicateIds();
   });
 
@@ -208,5 +208,57 @@ describe("Output editor labels are associated with their Select (HEL-1432)", () 
     await choose("Output kind", "Table");
     expectLabelControls("Cell density", "table-density", "Cell density");
     expectNoDuplicateIds();
+  });
+});
+
+/** WCAG 2.5.3 (Label in Name): every associated <label> in the open sheet reads its text inside the
+ *  control's own `aria-label` (which, when present, overrides the label for the accessible name).
+ *  Returns the audited (label text, aria-label) pairs so a test can also assert the sweep was not
+ *  vacuous. */
+function auditLabelsInNames(): Array<[string, string]> {
+  const dialog = screen.getByRole("dialog");
+  const pairs: Array<[string, string]> = [];
+  for (const label of Array.from(dialog.querySelectorAll<HTMLLabelElement>("label[for]"))) {
+    const control = document.getElementById(label.htmlFor);
+    const aria = control?.getAttribute("aria-label");
+    if (!control || !aria) continue;
+    const text = (label.textContent ?? "").trim();
+    pairs.push([text, aria]);
+    expect(aria.toLowerCase()).toContain(text.toLowerCase());
+  }
+  return pairs;
+}
+
+describe("Output editor controls' accessible names contain their visible label (WCAG 2.5.3, HEL-1464)", () => {
+  it("scatter: the Color by field control is named by a string containing its label", async () => {
+    renderSheet(null);
+    await choose("Chart type", "Scatter");
+    const control = screen.getByRole("combobox", { name: "Scatter color by field" });
+    expect(control.getAttribute("aria-label")?.toLowerCase()).toContain("color by field");
+    expect(document.getElementById("scatter-color-field")).toBe(control);
+  });
+
+  it("histogram: the Bins control is named by a string containing its label", async () => {
+    renderSheet(null);
+    await choose("Chart type", "Histogram");
+    const control = screen.getByRole("spinbutton", { name: "Histogram bins" });
+    expect(control.getAttribute("aria-label")?.toLowerCase()).toContain("bins");
+    expect(screen.queryByRole("spinbutton", { name: "Bin count" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["chart (line)", null, null],
+    ["chart (scatter)", "Chart type", "Scatter"],
+    ["chart (histogram)", "Chart type", "Histogram"],
+    ["chart (bar)", "Chart type", "Bar"],
+    ["metric", "Output kind", "Metric"],
+    ["collection", "Output kind", "Collection"],
+    ["timeline", "Output kind", "Timeline"],
+    ["table", "Output kind", "Table"],
+  ])("sweep: %s — every aria-labelled label contains its text", async (_kind, combo, option) => {
+    renderSheet(null);
+    await screen.findByRole("combobox", { name: "Output kind" });
+    if (combo && option) await choose(combo, option);
+    expect(auditLabelsInNames().length).toBeGreaterThan(0);
   });
 });

@@ -11,7 +11,7 @@
 // stays a mono TextField with a format hint, since a friendlier cron widget
 // would need a new dependency (non-goal).
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Modal } from "../../../../shared/ui/Modal";
 import { Select } from "../../../../shared/ui/Select";
@@ -88,6 +88,7 @@ export function PipelineScheduleDialog({
 }: PipelineScheduleDialogProps) {
   const dispatch = useAppDispatch();
 
+  const kindId = useId();
   const [kind, setKind] = useState<ScheduleKind>("interval");
   const [intervalValue, setIntervalValue] = useState("");
   const [intervalUnit, setIntervalUnit] = useState("m");
@@ -277,10 +278,11 @@ export function PipelineScheduleDialog({
     >
       <div className="pipeline-schedule-dialog">
         <div className="pipeline-schedule-dialog__field">
-          <label className="pipeline-schedule-dialog__label" htmlFor="schedule-kind">
+          <label className="pipeline-schedule-dialog__label" htmlFor={kindId}>
             Schedule kind
           </label>
           <Select
+            id={kindId}
             value={kind}
             onChange={(v) => setKind(v as ScheduleKind)}
             options={KIND_OPTIONS}
