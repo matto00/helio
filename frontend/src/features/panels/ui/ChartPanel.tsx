@@ -4,7 +4,7 @@ import { useRef } from "react";
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
 // (1.12 MB min / 369 KB gzip) and auto-registers every chart type/component
 // it ships, defeating bundler tree-shaking regardless of what's actually
-// used here (bar/line/pie/scatter only — see `ChartType`).
+// used here (only the `ChartType` set registered in `echartsCore.ts`).
 import ReactECharts from "echarts-for-react/esm/core";
 
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
