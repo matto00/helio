@@ -1,9 +1,11 @@
 # pipeline-run-guard Specification
 
 ## Purpose
-Caps how many pipeline runs a single user can submit and have in flight at once, enforced
-globally across every backend instance and every trigger path (manual, hook/external, scheduled,
-and any future automated trigger), so no single user or automated trigger can exhaust compute.
+Caps how many pipeline runs a single submitter can start per window, and how many real runs a
+pipeline's OWNER can have in flight at once (an editor grantee's run counts against the owner's
+budget, not the editor's), enforced globally across every backend instance and every trigger path
+(manual, hook/external, scheduled, and any future automated trigger), so no single user or automated
+trigger can exhaust compute.
 
 ## Requirements
 

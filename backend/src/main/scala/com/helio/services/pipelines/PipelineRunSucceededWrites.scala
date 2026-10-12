@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.api.protocols.pipelines.TruncatedReadResponse
 import com.helio.api.routes.pipelines.RunStatusEvent
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId, UserId}
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}
@@ -64,7 +64,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
       triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
-      truncatedReads:     Vector[TruncatedReadResponse]
+      truncatedReads:     Vector[TruncatedReadResponse],
+      pipelineOwnerId:    UserId
   ): Future[Option[String]] = {
     def writesChain(): Future[Option[String]] = {
       val now = Instant.now()
@@ -244,11 +245,16 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // `inferredSchema` (mirroring `PipelineService.analyze`'s own
       // rewiring, see task 4.3) instead of the retired
       // `dataTypeRepo.findBySourceId` -> `deriveSourceSchema` path.
+      // HEL-1503 (design.md D1/D2): the source is read as the PIPELINE OWNER sees it (what the owner's analyze compares
+      // against), whoever submitted; the write follows the run's persistence mode -- owner-scoped for the owner's own
+      // run, privileged for an editor's admitted run (its owner-scoped write would touch 0 rows).
       val baselineUpsert: Future[Unit] =
-        dataSourceRepo.findByIdOwned(sourceDataSourceId, user)
+        dataSourceRepo.findByIdOwnedByInternal(sourceDataSourceId, pipelineOwnerId)
           .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
           .flatMap { schema =>
-            pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
+            val json = schema.toJson.compactPrint
+            if (ownerRun) pipelineRepo.updateLastSourceSchema(pipelineId, json, user)
+            else pipelineRepo.updateLastSourceSchemaInternal(pipelineId, json)
           }
           .recoverWith { case ex =>
             log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)

@@ -1,0 +1,11 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala` — updateLastSourceSchemaInternal (privileged baseline write); findByIdInternal permitted-callers doc
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — findByIdOwnedByInternal (source as the pipeline owner sees it)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — FOR KEY SHARE row read in both admission transactions, PipelineGone, RunAuthorization and checkRunAuthorizationInternal
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala` — PipelineGone/empty-roots to 404, dry-run pre-execute re-check, pipelineRepo dependency
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — wires pipelineRepo into the executor
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunSucceededWrites.scala` — baseline read as the pipeline owner, write follows the run's persistence mode
+- `backend/src/test/scala/com/helio/services/pipelines/Hel1503EditorRunGapsSpec.scala` — new red-first spec on a NOBYPASSRLS role
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala` — gone-pipeline admission pin inverted to PipelineGone
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — PipelineRunExecutor Forbidden producers 1 to 2
+- `openspec/specs/pipeline-run-guard/spec.md` — Purpose corrected to the owner's budget
+- `openspec/specs/pipeline-run-execution/spec.md` — Purpose written (no TBD)

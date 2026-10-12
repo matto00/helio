@@ -1,7 +1,10 @@
 # pipeline-run-execution Specification
 
 ## Purpose
-TBD - created by archiving change pipeline-step-execution. Update Purpose after archive.
+Defines how a pipeline run is submitted and executed: who may submit a real or dry run (the owner or an
+editor grantee), the pre-execution guards (rate limit, the owner's concurrency cap, existence and
+authorization re-checks), the engine call, and how the outcome is persisted and reported (run rows,
+last-run metadata, schema-drift baseline, status codes).
 
 ## Requirements
 
