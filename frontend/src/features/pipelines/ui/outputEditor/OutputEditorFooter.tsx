@@ -12,9 +12,8 @@ interface OutputEditorFooterProps {
   canAddTailWithAggregate: boolean;
   onAddTailWithAggregate: () => void;
   onSave: () => void;
-  /** HEL-1307 -- true while a conditional-format rule would be rejected by the server. */
-  saveDisabled?: boolean;
-  /** An unusable field value blocks Save (HEL-1311: histogram bin-count draft). */
+  /** True while an unusable draft blocks Save: a conditional-format rule the server would reject (HEL-1307),
+   *  a histogram bin-count draft (HEL-1311), or a reference-mark draft. */
   saveBlocked?: boolean;
 }
 
@@ -28,7 +27,6 @@ export function OutputEditorFooter({
   canAddTailWithAggregate,
   onAddTailWithAggregate,
   onSave,
-  saveDisabled = false,
   saveBlocked = false,
 }: OutputEditorFooterProps) {
   return (
@@ -67,7 +65,7 @@ export function OutputEditorFooter({
         type="button"
         className="ui-modal-btn ui-modal-btn--primary"
         onClick={onSave}
-        disabled={saving || saveDisabled || saveBlocked}
+        disabled={saving || saveBlocked}
       >
         {saving ? "Saving…" : "Save"}
       </button>

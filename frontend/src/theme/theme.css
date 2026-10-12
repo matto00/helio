@@ -165,6 +165,11 @@
      distinctly. See docs/contrast-audit.md and design.md D8. */
   --app-text-muted: #aaa49c;
 
+  /* HEL-1490 -- metric unit/label share this currentColor mix (PanelContent.css). Running-app measurement
+     (openspec/changes/archive/2026-10-11-conditional-format-followups/evaluation-1.md): 6.20:1 on the .panel-grid-card background rgb(26,24,22) at 1440 and 375, so 60%
+     stays. (Token-computed: 6.24:1.) */
+  --panel-secondary-text-mix: 60%;
+
   --app-border-subtle: rgba(242, 239, 233, 0.09);
   --app-border-strong: rgba(242, 239, 233, 0.18);
 
@@ -248,6 +253,12 @@
      --app-text so the "muted" step still reads distinctly. This reopens
      F-049's decision deliberately — see design.md D8. */
   --app-text-muted: #645e56;
+
+  /* HEL-1490 -- 60% measured 4.40:1 on --app-surface (#fdfcfa); 62% is the smallest whole percent that
+     clears 4.5:1, and it stays currentColor-relative so a custom panel text colour is followed. Running-app
+     measurement (openspec/changes/archive/2026-10-11-conditional-format-followups/evaluation-1.md): 4.69:1 on the .panel-grid-card background rgb(253,252,250) at 1440 and
+     375. (Token-computed: 4.67:1.) */
+  --panel-secondary-text-mix: 62%;
 
   --app-border-subtle: rgba(33, 29, 25, 0.11);
   --app-border-strong: rgba(33, 29, 25, 0.2);

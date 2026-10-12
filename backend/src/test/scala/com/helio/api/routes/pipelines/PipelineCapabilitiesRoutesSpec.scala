@@ -5,7 +5,7 @@ import com.helio.api.JsonProtocols
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapabilitiesResponse, ValidateExpressionRequest}
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation, SelectConfig}
-import com.helio.domain.engine.SchemaField
+import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
@@ -26,7 +26,9 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json._
 
+import java.nio.file.{Files, Paths}
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -271,6 +273,55 @@ class PipelineCapabilitiesRoutesSpec
       val pipelineId = newSharedPipeline()
       Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest("""date_trunc("day", $amount)""")) ~> routesFor(owner) ~> check {
         responseAs[ExpressionValidationResponse].valid shouldBe true
+      }
+    }
+
+    // HEL-1437: the endpoint's verdict IS analyze's verdict for an enabled compute step. The oracle
+    // is `PipelineAnalyzeService.analyzeNodes` itself (never a literal message), over the same
+    // schema `newSharedPipeline` gives the route.
+    "report exactly the validationError analyze reports for a compute step, row by row (HEL-1437 parity)" in {
+      val pipelineId = newSharedPipeline()
+      val schema     = Vector(SchemaField("amount", "float"), SchemaField("label", "string"))
+      def oracle(expr: String): Option[String] = {
+        val cfg = JsObject("column" -> JsString("__validate_expression__"), "expression" -> JsString(expr)).compactPrint
+        PipelineAnalyzeService.analyzeNodes(
+          Vector(PipelineAnalyzeService.NodeStepInput("s", None, 0, "compute", cfg)), schema
+        )("s").validationError
+      }
+      val table = Seq(
+        "valid"                       -> "$amount * 2",
+        "unknown field"               -> "$doesNotExist + 1",
+        "parse error"                 -> "$amount +",
+        "blank expression"            -> "   ",
+        "coalesce number/text"        -> """coalesce($amount, "n/a")""",
+        "comparison number vs text"   -> """$amount > "10"""",
+        "if branch mismatch"          -> """if($amount > 1, $amount, "x")""",
+        "date function type error"    -> "add_days($label, $amount > 1)",
+        "coalesce boolean/non-boolean" -> "coalesce($amount > 1, $amount)"
+      )
+      // Collect every divergent row so a red run names all of them, not just the first.
+      val mismatches = table.flatMap { case (name, expr) =>
+        Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest(expr)) ~> routesFor(owner) ~> check {
+          status shouldBe StatusCodes.OK
+          val resp = responseAs[ExpressionValidationResponse]
+          val want = oracle(expr)
+          if (resp.error == want && resp.valid == want.isEmpty) None
+          else Some(s"$name [$expr]: endpoint valid=${resp.valid} error=${resp.error}; analyze error=$want")
+        }
+      }
+      mismatches shouldBe empty
+      // The oracle is not vacuous: every non-"valid" row is a real analyze error.
+      table.filterNot(_._1 == "valid").foreach { case (name, expr) =>
+        withClue(s"oracle for $name: ")(oracle(expr) should not be empty)
+      }
+    }
+
+    "the type-error response matches the committed seam fixture (HEL-1437)" in {
+      val pipelineId = newSharedPipeline()
+      Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest("""coalesce($amount, "n/a")""")) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val fixture = new String(Files.readAllBytes(Paths.get("src/test/resources/validate-expression/type-error-response.json")))
+        responseAs[String].parseJson shouldBe fixture.parseJson
       }
     }
 

@@ -54,7 +54,7 @@ const DENY_REASON_COPY: Record<string, string> = {
   "rows-above-threshold": "This pipeline processes too many rows to update automatically.",
   "steps-above-bound": "This pipeline has too many steps to update automatically.",
   "step-config-invalid":
-    "A step in this pipeline is misconfigured, so it can't run until that step is fixed.",
+    "A step in this pipeline has a problem, so its results may be wrong or missing until that step is fixed.",
   // Honest, non-alarming copy (design.md D6) — nothing is known about risk for these four; they
   // name what wasn't recognized/available, not why it might be unsafe.
   "unclassified-op":
