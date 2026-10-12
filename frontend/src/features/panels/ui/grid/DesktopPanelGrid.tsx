@@ -339,9 +339,13 @@ export function DesktopPanelGrid({
       const bp = getBreakpointFromWidth(rglBreakpoints, width) as DashboardLayoutBreakpoint;
       const items = itemsFromRglLayout(panels, currentLayout);
       const edited = { ...resolvedLayout, [bp]: items };
+      // HEL-1457: stored items of panels this tab has not loaded are kept, so rebuilding the breakpoint from the
+      // loaded panels can never drop another writer's item.
+      const loaded = new Set(panels.map((p) => p.id));
+      const kept = layout[bp].filter((item) => !loaded.has(item.panelId));
       const next = areDashboardLayoutsEqual(edited, resolvedLayout)
         ? layout
-        : { ...layout, [bp]: items };
+        : { ...layout, [bp]: [...items, ...kept] };
       markLayoutChanged(next);
       if (commitOnNextLayoutChangeRef.current) {
         clearCommitFlag();

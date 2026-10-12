@@ -87,9 +87,9 @@ const props = () =>
 
 type Call = { layout: Partial<DashboardLayout>; expected: number | undefined };
 
-function setup() {
+function setup(other: typeof theirs = theirs) {
   // The server already holds another writer's panel-2 at version 2; this tab last saw version 1.
-  const server = { layout: everyBreakpoint(own(0), theirs), version: 2 };
+  const server = { layout: everyBreakpoint(own(0), other), version: 2 };
   const snapshot = () => ({
     id: "d1",
     name: "D",
@@ -183,5 +183,30 @@ describe("DesktopPanelGrid — layout save 409 (HEL-1457)", () => {
       if (call.expected === 3)
         expect(call.layout.lg?.some((i) => i.panelId === "panel-2")).toBe(true);
     }
+  });
+
+  describe("when the rebase is invalid and the fresh server layout is shown", () => {
+    // panel-2 sits where the dragged panel-1 lands, so the rebased breakpoint overlaps and is not retried.
+    const blocker = { panelId: "panel-2", x: 2, y: 0, w: 4, h: 5 };
+
+    it("loads the panels the fresh layout names", async () => {
+      const { calls, drag, flush } = setup(blocker);
+      drag(4);
+      await flush();
+      expect(calls).toHaveLength(1); // rejected, never retried
+      expect(fetchPanelsMock).toHaveBeenCalledWith("d1");
+    });
+
+    it("never drops the item of a panel this tab has not loaded when the next drag rebuilds the breakpoint", async () => {
+      const { calls, server, drag, flush } = setup(blocker);
+      drag(4);
+      await flush();
+      drag(8);
+      await flush();
+      const last = calls[calls.length - 1];
+      expect(last.expected).toBe(2);
+      expect(last.layout.lg?.map((i) => i.panelId).sort()).toEqual(["panel-1", "panel-2"]);
+      expect(server.layout.lg.find((i) => i.panelId === "panel-2")).toEqual(blocker);
+    });
   });
 });

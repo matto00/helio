@@ -119,10 +119,6 @@ export function useLayoutSave({
 }: UseLayoutSaveOptions): UseLayoutSaveResult {
   const dispatch = useAppDispatch();
   const store = useStore<RootState>();
-  // The layout object of the last save response the store ADOPTED (HEL-1457): the layout effect must treat it as
-  // server truth (class 4), never as a placement extension of the layout it replaced, whichever of the effect and
-  // the save's `.then` runs first.
-  const adoptedLayoutRef = useRef<DashboardLayout | null>(null);
   const panelsRef = useRef({ panels, panelsLoaded });
   useEffect(() => {
     panelsRef.current = { panels, panelsLoaded };
@@ -159,6 +155,22 @@ export function useLayoutSave({
   // The store layout this effect last saw, for placement-extension detection (class 3).
   const prevLayoutRef = useRef<DashboardLayout>(layout);
 
+  // A server layout can name panels this tab has not loaded (another writer's placement): load them, so they
+  // render and a later drag, which rebuilds a breakpoint from the loaded panels, cannot drop their items.
+  const refetchPanelsIfLayoutNamesUnknown = useCallback(
+    (serverLayout: DashboardLayout) => {
+      const { panels: knownPanels, panelsLoaded: loaded } = panelsRef.current;
+      if (!loaded) return;
+      const known = new Set(knownPanels.map((p) => p.id));
+      const { lg, md, sm, xs } = serverLayout;
+      if ([...lg, ...md, ...sm, ...xs].some((item) => !known.has(item.panelId))) {
+        dispatch(markDashboardPanelsStale(dashboardId));
+        void dispatch(fetchPanels(dashboardId));
+      }
+    },
+    [dashboardId, dispatch],
+  );
+
   useEffect(() => {
     const prevLayout = prevLayoutRef.current;
     prevLayoutRef.current = layout;
@@ -171,9 +183,8 @@ export function useLayoutSave({
       revisionChanged &&
       appliedRef.current !== null &&
       areDashboardLayoutsEqual(layout, appliedRef.current);
-    const isAdoptedResponse = adoptedLayoutRef.current === layout;
     const placement =
-      isInteractionCommit || isHistoryTraversal || isAdoptedResponse
+      isInteractionCommit || isHistoryTraversal
         ? null
         : detectPlacementExtension(prevLayout, layout);
     if (isInteractionCommit || isHistoryTraversal || placement) {
@@ -190,6 +201,7 @@ export function useLayoutSave({
     } else {
       persistedLayoutRef.current = layout;
       persistedVersionRef.current = storeLayoutVersionRef.current;
+      refetchPanelsIfLayoutNamesUnknown(layout);
       // A staged drag that this re-baseline discards (e.g. a server layout landing
       // before the flush) must not leave the pending flag stuck with nothing to save.
       if (layoutPendingDispatchedRef.current) dispatch(setLayoutPending(false));
@@ -203,7 +215,7 @@ export function useLayoutSave({
     ) {
       inFlightLayoutRef.current = null;
     }
-  }, [layout, dispatch]);
+  }, [layout, dispatch, refetchPanelsIfLayoutNamesUnknown]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -248,7 +260,6 @@ export function useLayoutSave({
           .getState()
           .dashboards.items.find((d) => d.id === dashboardId)?.layout;
         const adopted = storeLayout === dashboard.layout;
-        if (adopted) adoptedLayoutRef.current = dashboard.layout;
         if (action.meta.rebased && !adopted) {
           // Edited during the 409 round trip (header, HEL-1457): keep the old baseline AND version.
           layoutPendingDispatchedRef.current = true;
@@ -257,16 +268,7 @@ export function useLayoutSave({
         }
         persistedLayoutRef.current = dashboard.layout;
         persistedVersionRef.current = dashboard.layoutVersion;
-        // The adopted layout can hold another writer's panel this tab has not loaded: refetch the panels.
-        const { panels: knownPanels, panelsLoaded: loaded } = panelsRef.current;
-        if (loaded) {
-          const known = new Set(knownPanels.map((p) => p.id));
-          const { lg, md, sm, xs } = dashboard.layout;
-          if ([...lg, ...md, ...sm, ...xs].some((item) => !known.has(item.panelId))) {
-            dispatch(markDashboardPanelsStale(dashboardId));
-            void dispatch(fetchPanels(dashboardId));
-          }
-        }
+        refetchPanelsIfLayoutNamesUnknown(dashboard.layout);
         // HEL-1230 (D5): the store keeps a newer local layout over this response, so recompute pending
         // against the new baseline in BOTH directions — a local edit made while the PATCH was in flight
         // stays pending, and one that already equals the server's layout clears it (never stuck dirty,
@@ -283,7 +285,7 @@ export function useLayoutSave({
           inFlightLayoutRef.current = null;
         }
       });
-  }, [dashboardId, dispatch, store]);
+  }, [dashboardId, dispatch, store, refetchPanelsIfLayoutNamesUnknown]);
 
   // Register persistLayout into the parent's flush slot while mounted; clear it
   // on unmount so no layout-write path survives the shell swap below `sm`.
