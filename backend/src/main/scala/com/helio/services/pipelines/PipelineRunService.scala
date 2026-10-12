@@ -98,7 +98,7 @@ final class PipelineRunService(
     // production values (mirrors `RateLimitConfig`'s fromEnv-once-inject-explicitly convention) so
     // a fixture that constructs this service with a real `pipelineRunRepo` but no explicit config
     // still gets a real (non-zero) cap rather than an NPE.
-    guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv(),
+    val guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv(),
     // HEL-1374: drives ONLY the rate-window bucket (`incrementRateIfUnderLimit`'s `now`) -- no
     // other timestamp in this service reads it. Production keeps `SystemClock`, identical to the
     // repository's own `Instant.now()` default; tests pin it so a case spanning a wall-clock
