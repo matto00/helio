@@ -3,11 +3,16 @@
 // no source is selected, AND selecting a source then submitting calls
 // `onAdd` with exactly that id -- never with an empty/unset one.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { AddRootModal } from "./AddRootModal";
 import { fetchSources as fetchSourcesRequest } from "../../sources/services/dataSourceService";
 import type { DataSource } from "../../sources/types/dataSource";
+import {
+  expectDistinctNonEmptyLabelIds,
+  expectLabelTargetsControl,
+  labelsWithText,
+} from "../../../test/labelAssociation";
 
 jest.mock("../../sources/services/dataSourceService", () => ({
   fetchSources: jest.fn(),
@@ -69,5 +74,32 @@ describe("AddRootModal", () => {
     fireEvent.click(screen.getByRole("option", { name: /^Orders/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add source" }));
     expect(onAdd).toHaveBeenCalledWith("src-1");
+  });
+
+  // HEL-1464 — the visible label must target its combobox (its literal `htmlFor="add-root-source"`
+  // pointed at no element), and nothing may dangle when the picker is not rendered.
+  describe("label association (HEL-1464)", () => {
+    it("the Data source label targets the data source combobox", () => {
+      renderModal();
+      expectLabelTargetsControl("Data source", "combobox", "Data source");
+    });
+
+    it("two mounted modals never share the label target id", () => {
+      renderModal();
+      renderModal();
+      expectDistinctNonEmptyLabelIds("Data source");
+    });
+
+    it("D3a: the Data source label has no `for` when no sources exist (picker not rendered)", async () => {
+      fetchSourcesMock.mockResolvedValue([]);
+      renderWithStore(<AddRootModal onAdd={jest.fn()} onClose={jest.fn()} />, {
+        sources: { items: [], status: "succeeded" },
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole("combobox", { name: "Data source" })).not.toBeInTheDocument(),
+      );
+      const [label] = labelsWithText("Data source");
+      expect(label.hasAttribute("for")).toBe(false);
+    });
   });
 });

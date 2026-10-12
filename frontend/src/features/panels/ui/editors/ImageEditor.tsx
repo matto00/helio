@@ -2,6 +2,7 @@ import {
   type ChangeEvent,
   forwardRef,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -36,6 +37,7 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
   { panel, onDirtyChange },
   ref,
 ) {
+  const fitId = useId();
   const dispatch = useAppDispatch();
   const initialImageUrl = panel.config.imageUrl;
   const initialImageFit: ImageFit = coerceFit(panel.config.imageFit);
@@ -154,10 +156,11 @@ export const ImageEditor = forwardRef<PanelEditorHandle, ImageEditorProps>(funct
         <InlineError error={uploadError} />
       </div>
       <div className="panel-detail-modal__data-section">
-        <label className="panel-detail-modal__data-label" htmlFor="image-fit">
+        <label className="panel-detail-modal__data-label" htmlFor={fitId}>
           Image fit
         </label>
         <Select
+          id={fitId}
           ariaLabel="Image fit"
           value={imageFit}
           onChange={(v) => setImageFit(coerceFit(v))}

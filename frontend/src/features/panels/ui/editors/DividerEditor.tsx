@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useState } from "react";
 
 import { Select, TextField } from "../../../../shared/ui/index";
 import { updatePanelDivider } from "../../state/panelsSlice";
@@ -24,6 +24,7 @@ export const DividerEditor = forwardRef<PanelEditorHandle, DividerEditorProps>(
     const initialColor = panel.config.color ?? "#cccccc";
     const initialColorStored = panel.config.color ?? null;
 
+    const orientationId = useId();
     const [orientation, setOrientation] = useState<DividerOrientation>(initialOrientation);
     const [weight, setWeight] = useState(initialWeight);
     const [color, setColor] = useState(initialColor);
@@ -87,10 +88,11 @@ export const DividerEditor = forwardRef<PanelEditorHandle, DividerEditorProps>(
       <>
         <h3 className="panel-detail-modal__edit-section-heading">Divider</h3>
         <div className="panel-detail-modal__data-section">
-          <label className="panel-detail-modal__data-label" htmlFor="divider-orientation">
+          <label className="panel-detail-modal__data-label" htmlFor={orientationId}>
             Orientation
           </label>
           <Select
+            id={orientationId}
             ariaLabel="Divider orientation"
             value={orientation}
             onChange={(v) => setOrientation(coerceOrientation(v))}

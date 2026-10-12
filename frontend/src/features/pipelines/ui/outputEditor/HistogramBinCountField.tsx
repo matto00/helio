@@ -51,7 +51,7 @@ export function HistogramBinCountField({
         step={1}
         value={draft}
         placeholder="Automatic"
-        aria-label="Bin count"
+        aria-label="Histogram bins"
         aria-invalid={invalid || undefined}
         aria-describedby="output-histogram-bins-hint"
         onChange={(e) => {

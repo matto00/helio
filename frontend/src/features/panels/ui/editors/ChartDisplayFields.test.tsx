@@ -77,7 +77,7 @@ describe("ChartDisplayFields (HEL-248) — controls swap per chart type", () => 
   it("renders scatter size/color field selects when bound", () => {
     renderFields({ chartType: "scatter", isBound: true });
     expect(screen.getByRole("combobox", { name: "Scatter point size field" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Scatter color-by field" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Scatter color by field" })).toBeInTheDocument();
   });
 
   it("hides scatter field selects and shows a hint when unbound", () => {
@@ -172,5 +172,17 @@ describe("ChartDisplayFields — annotation control (HEL-318 / HEL-323)", () => 
       annotationState: makeAnnotationState({ literalValue: "Note" }),
     });
     expect(screen.getAllByText("Annotation")).toHaveLength(1);
+  });
+});
+
+describe("ChartDisplayFields — scatter label in name (WCAG 2.5.3, HEL-1464)", () => {
+  it("the Color by field control's accessible name contains its visible label", () => {
+    renderFields({ chartType: "scatter", isBound: true });
+    const label = screen.getByText("Color by field", { selector: "label" }) as HTMLLabelElement;
+    const control = screen.getByRole("combobox", { name: "Scatter color by field" });
+    expect(document.getElementById(label.htmlFor)).toBe(control);
+    expect(control.getAttribute("aria-label")?.toLowerCase()).toContain(
+      (label.textContent ?? "").toLowerCase(),
+    );
   });
 });

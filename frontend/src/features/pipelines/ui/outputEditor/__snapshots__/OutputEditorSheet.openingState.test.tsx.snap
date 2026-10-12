@@ -309,7 +309,7 @@ exports[`OutputEditorSheet opening state (HEL-1430 characterization) edit mode c
   "button name="Fixed text" pressed=false",
   "combobox name="Annotation field" value="— None —"",
   "combobox name="Scatter point size field" value="c"",
-  "combobox name="Scatter color-by field" value="b"",
+  "combobox name="Scatter color by field" value="b"",
   "group name="Reference lines"",
   "button name="Add line"",
   "button name="Add band"",

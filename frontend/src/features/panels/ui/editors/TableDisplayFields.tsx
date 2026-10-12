@@ -122,7 +122,9 @@ export function TableDisplayFields({
                       checked={column.visible}
                       onChange={() => onToggleVisible(column.key)}
                     />
-                    <span className="table-display-fields__column-key">{column.key}</span>
+                    <span className="table-display-fields__column-key" title={column.key}>
+                      {column.key}
+                    </span>
                   </label>
                   <div className="table-display-fields__column-format">
                     <Select
