@@ -3,7 +3,9 @@ package com.helio.services.patchsets
 import com.helio.api.protocols.panels.PanelResponse
 import com.helio.api.protocols.pipelines.PipelineStepResponse
 import com.helio.api.protocols.dashboards.DashboardResponse
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, Panel, PipelineStep}
+import com.helio.api.protocols.sources.DataSourceResponse
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DataSource, Panel, PipelineStep}
+import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
 import spray.json._
 
@@ -17,8 +19,10 @@ import scala.concurrent.{ExecutionContext, Future}
  *
  *  An allowlist, not a denylist: server-maintained fields (timestamps, `lastRun*`, ownership, ids, a dashboard's
  *  `layoutVersion`) are excluded by construction, so a field added to a response later cannot cause false
- *  conflicts. A dataSource/pipeline is fingerprinted on `name` alone (what their update requests write), so a
- *  delete of one does not notice a changed schema or steps. A different `v` prefix is stale by comparison. */
+ *  conflicts. A dataSource covers its name, type, redacted config, tag and schema; a pipeline covers its name, tag,
+ *  roots and the steps, Outputs and schedule that are deleted with it (see [[PatchSetPipelineDefinition]]). Dataset
+ *  rows, stored file bytes and run history are data, not definition, and are not covered. A different `v` prefix is
+ *  stale by comparison. */
 private[services] object PatchSetTargetFingerprint {
 
   private val Version = "v1:"
@@ -27,8 +31,8 @@ private[services] object PatchSetTargetFingerprint {
   private[services] val Allowlist: Map[String, Vector[String]] = Map(
     "panel"        -> Vector("title", "appearance", "type", "config"),
     "dashboard"    -> Vector("name", "appearance", "layout"),
-    "dataSource"   -> Vector("name"),
-    "pipeline"     -> Vector("name"),
+    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema"),
+    "pipeline"     -> Vector("name", "tag", "roots", "steps", "outputs", "schedule"),
     "pipelineStep" -> Vector("type", "config", "position", "enabled"),
     "output"       -> Vector("name", "config")
   )
@@ -43,10 +47,10 @@ private[services] object PatchSetTargetFingerprint {
       case ResolvedAction.PanelDelete(_, prior)     => ready("panel", panelState(prior))
       case ResolvedAction.DashboardUpdate(_, _, prior) => ready("dashboard", dashboardState(prior))
       case ResolvedAction.DashboardDelete(_, prior)    => ready("dashboard", dashboardState(prior))
-      case ResolvedAction.DataSourceUpdate(_, _, prior) => ready("dataSource", JsObject("name" -> JsString(prior.name)))
-      case ResolvedAction.DataSourceDelete(_, prior)    => ready("dataSource", JsObject("name" -> JsString(prior.name)))
-      case ResolvedAction.PipelineUpdate(_, _, prior) => ready("pipeline", JsObject("name" -> JsString(prior.name)))
-      case ResolvedAction.PipelineDelete(_, prior)    => ready("pipeline", JsObject("name" -> JsString(prior.name)))
+      case ResolvedAction.DataSourceUpdate(_, _, prior) => ready("dataSource", dataSourceState(prior))
+      case ResolvedAction.DataSourceDelete(_, prior)    => ready("dataSource", dataSourceState(prior))
+      case ResolvedAction.PipelineUpdate(_, _, prior)   => pipelineFingerprint(prior, ctx)
+      case ResolvedAction.PipelineDelete(_, prior)      => pipelineFingerprint(prior, ctx)
       case ResolvedAction.PipelineStepUpdate(_, _, prior) => ready("pipelineStep", stepState(prior))
       case ResolvedAction.PipelineStepDelete(_, prior)    => ready("pipelineStep", stepState(prior))
       case ResolvedAction.OutputUpdate(_, _, prior, priorConfig) =>
@@ -59,6 +63,14 @@ private[services] object PatchSetTargetFingerprint {
           _: ResolvedAction.PipelineCreate | _: ResolvedAction.PipelineStepCreate =>
         Future.successful(None)
     }
+
+  /** `DataSourceResponse.fromDomain` redacts secrets before this is hashed: a client-visible hash must never be a
+   *  function of a credential. The consequence is that a change to a secret alone is not noticed. */
+  private def dataSourceState(prior: DataSource): JsObject =
+    dataSourceResponseFormat.write(DataSourceResponse.fromDomain(prior)).asJsObject
+
+  private def pipelineFingerprint(prior: PipelineSummary, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[Option[String]] =
+    PatchSetPipelineDefinition.of(prior, ctx).map(state => Some(of("pipeline", state)))
 
   /** The fingerprint of `state` as seen through `kind`'s allowlist. */
   private[services] def of(kind: String, state: JsObject): String = {

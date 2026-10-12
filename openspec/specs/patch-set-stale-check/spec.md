@@ -10,8 +10,10 @@ carries a fingerprint from preview, and apply refuses, writing nothing, when any
 
 `POST /api/patch-sets/preview` SHALL return, on each `update` and `delete` edit's preview entry, a non-empty opaque
 string `fingerprint` derived from the target's current state restricted to the fields that kind's update request can
-write (for dataSource and pipeline: `name` only). A `create` edit's entry SHALL carry no
-fingerprint. The fingerprint SHALL change when any field that the target kind's update request can write changes, and
+write. For a dataSource and a pipeline it is derived from everything apply reads or overwrites, including what a delete
+removes: a dataSource's name, type, redacted config, tag and schema; a pipeline's name, tag, roots and the steps, Outputs and
+schedule deleted with it (never dataset rows, file bytes or run history). A `create` edit's entry SHALL carry no
+fingerprint. The fingerprint SHALL change when any field it covers changes, and
 SHALL NOT change when only server-maintained fields change (timestamps, run status/counters, version counters,
 server-materialized config).
 
@@ -24,6 +26,12 @@ server-materialized config).
 
 - **WHEN** a pipeline update edit is previewed twice with a pipeline run completing between the two previews
 - **THEN** both previews return the same fingerprint for that edit
+
+#### Scenario: Fingerprint changes on a dataSource or pipeline definition change
+
+- **WHEN** a dataset's declared schema, or a pipeline's steps, Outputs or schedule, are changed through their own
+  services between a preview and an apply carrying that preview's fingerprint, for an update or a delete edit
+- **THEN** the apply is refused with 409 PATCH_SET_STALE and nothing is applied
 
 #### Scenario: Fingerprint changes on an editable-field change
 

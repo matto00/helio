@@ -41,14 +41,31 @@ unknown prefix is stale. Per-kind field table (update and delete use the same se
 | --- | --- |
 | panel | `title`, `appearance`, `type`, raw config minus `metricDeprecated` (`UpdatePanelRequest`; from the object the panel resolver already read — no new read) |
 | dashboard | `name`, `appearance`, `layout` (`UpdateDashboardRequest`) |
-| dataSource | `name` (`UpdateDataSourceRequest(name)`) |
-| pipeline | `name` (`UpdatePipelineRequest(name)`) |
+| dataSource | `name`, `type`, `config` (secrets redacted by `DataSourceResponse.fromDomain` before hashing), `tag`, `inferredSchema` (the declared schema of a dataset) — what the resolver reads and what delete removes (owner revise, HEL-1458) |
+| pipeline | `name`, `tag`, `roots` (id, dataSourceId), and the definition of what is deleted with it: `steps` (id, type, config, position, enabled, parentStepId, rootId), `outputs` (id, name, kind, nodeStepId, config), `schedule` (kind, expression, enabled, timezone) — `PatchSetPipelineDefinition` (owner revise, HEL-1458) |
 | pipelineStep | `type`, `config`, `position`, `enabled` (`UpdatePipelineStepRequest`) |
 | output | `name`, stored config (`UpdateOutputRequest`); delete reads config with the same read the update resolver uses, used only for the fingerprint |
 
-Known limitation (OWNER REVIEW): dataSource/pipeline deletes are fingerprinted on `name` only, so a dataset whose
-schema or rows changed, or a pipeline whose steps changed, after preview is still deleted without a 409. Step edits are
-separate targets with their own fingerprints. Widening delete fingerprints is a follow-up, not this change.
+**Owner revise (HEL-1458, PR #976): dataSource and pipeline fingerprints cover what apply reads or overwrites.** Derived
+from the code, not from the update request. Update (`PatchSetDataSourceResolvers`/`PatchSetPipelineResolvers`) reads the
+whole `DataSource` / `PipelineSummary` (the preview `before` and the journaled `priorState` are those projections) and
+writes only `name`; delete (`DataSourceService.delete`, `PipelineService.delete` -> `pipelineRepo.delete`) removes the
+row and everything the Flyway FKs cascade from it (pipeline: steps V23, outputs V94, roots V98, schedule V62, runs V24,
+auto-run debounce V110, payload history V116, binary refs V94). The set therefore includes each cascaded child's
+*definition*. Update and delete share one set per kind (the existing convention, and one fingerprint per target is what
+preview issues); the cost is that a pipeline rename goes stale when its steps change, which is one Re-preview.
+
+- Not covered, deliberately: dataset **row contents** and stored **file bytes** (data, not definition: including them
+  would make deleting an actively written dataset unappliable), pipeline **run history, payload history and snapshots**,
+  and tick/run-maintained fields (`lastRun*`, timestamps, `next_run_at`). A delete still removes them unnoticed.
+- **Secrets:** the dataSource config is hashed from the same redacted projection the API returns, so no credential feeds a
+  client-visible hash. Consequence: a change to a secret alone (REST token, SQL password) is not noticed.
+- `tag` and `type` are immutable after create (no write path), so they are covered but cannot be exercised by a
+  change-then-409 test; a stored dataSource `config` has no service write after create other than refresh, so its test
+  uses `DataSourceRepository.update`, the real write path.
+- A pipeline's children are read with the privileged `*Internal` repository methods (plus `findScheduleDefinitionInternal`):
+  the pipeline was already resolved as the caller's own, so no id is caller-supplied.
+- Step, Output and panel/dashboard edits remain separate targets with their own fingerprints.
 
 **D3 Check placement: in `PatchSetApplyService.apply`, after `resolveAll` succeeds and before `applyResolved`.**
 Every edit with a supplied fingerprint is compared; ALL mismatches are collected (not first-only) so the 409 names

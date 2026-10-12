@@ -8,7 +8,7 @@ lets the same patch set be applied twice.
 ## What Changes
 
 - Preview returns an opaque `fingerprint` per update/delete edit, a content hash of the fields the target's update request can write
-  (dataSource/pipeline: name only — OWNER REVIEW limitation).
+  (dataSource and pipeline: also their config/schema and cascaded steps, Outputs and schedule — owner revise).
 - A patch-set edit's `target` accepts an optional `fingerprint`. Apply compares every supplied fingerprint against the
   target's current state before any write; on any mismatch it returns **409** `PATCH_SET_STALE` naming every stale
   target (index, kind, id) and writes nothing. Absent fingerprints keep today's behaviour (additive, not breaking).

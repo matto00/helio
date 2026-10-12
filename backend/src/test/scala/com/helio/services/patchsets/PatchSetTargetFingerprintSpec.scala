@@ -8,12 +8,13 @@ class PatchSetTargetFingerprintSpec extends AnyWordSpec with Matchers {
 
   private val SampleValue: JsValue = JsObject("v" -> JsNumber(1))
 
-  /** Written out independently of the implementation: the fields each kind's `Update*Request` can write. */
+  /** Written out independently of the implementation: what each kind's update request can write, plus, for a dataSource
+   *  and a pipeline, everything their delete removes. */
   private val WritableFields: Map[String, Vector[String]] = Map(
     "panel"        -> Vector("title", "appearance", "type", "config"),
     "dashboard"    -> Vector("name", "appearance", "layout"),
-    "dataSource"   -> Vector("name"),
-    "pipeline"     -> Vector("name"),
+    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema"),
+    "pipeline"     -> Vector("name", "tag", "roots", "steps", "outputs", "schedule"),
     "pipelineStep" -> Vector("type", "config", "position", "enabled"),
     "output"       -> Vector("name", "config")
   )
@@ -24,7 +25,7 @@ class PatchSetTargetFingerprintSpec extends AnyWordSpec with Matchers {
   "PatchSetTargetFingerprint.of" should {
 
     WritableFields.foreach { case (kind, fields) =>
-      s"allowlist every field the $kind update request can write" in {
+      s"cover every field of the $kind definition" in {
         PatchSetTargetFingerprint.Allowlist(kind) shouldBe fields
       }
 
