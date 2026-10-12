@@ -279,7 +279,14 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
    *  `dependentCount` defaults to always-zero since no referencing column
    *  exists in this ticket's scope (HEL-822 supplies the real implementation
    *  as its own collaborator, wired in at construction there -- no further
-   *  change needed here). */
+   *  change needed here).
+   *
+   *  HEL-1505: the Connector row and its credential row go in ONE user-context transaction, so a failure
+   *  deleting the credential rolls the Connector delete back instead of orphaning the credential. The row is
+   *  re-read and locked (`FOR UPDATE`, owner-scoped) inside that transaction and the credential id is taken
+   *  from the LOCKED row, so a concurrent rotation serializes with this delete instead of leaving the new
+   *  credential behind. A pending Connector (no credential) deletes alone; its outstanding completion tokens
+   *  cascade (V103). */
   def delete(
       id: ConnectorId,
       user: AuthenticatedUser,
@@ -287,26 +294,26 @@ class ConnectorRepository(ctx: DbContext, credentialRepo: ConnectorCredentialRep
   ): Future[Either[ConnectorHasDependents.type, Boolean]] =
     findByIdOwned(id, user).flatMap {
       case None => Future.successful(Right(false))
-      case Some(existing) =>
+      case Some(_) =>
         dependentCount(id).flatMap {
           case n if n > 0 => Future.successful(Left(ConnectorHasDependents))
           case _ =>
-            ctx.withUserContext(user.id.value)(table.filter(_.id === UUID.fromString(id.value)).delete)
-              .flatMap { deletedCount =>
-                if (deletedCount > 0)
-                  // HEL-955 design.md D4a: `credential_id` is now `Option` -- a pending
-                  // Connector has no credential row to delete (and its outstanding completion
-                  // tokens cascade via `ON DELETE CASCADE` on `connector_completion_tokens`,
-                  // set up in V103). Binding nothing, this makes the Risks note's claim that an
-                  // abandoned pending Connector is "deletable through the existing owner CRUD
-                  // path" actually true.
-                  existing.credentialId match {
-                    case Some(credId) => credentialRepo.delete(credId, user.id).map(_ => Right(true))
-                    case None         => Future.successful(Right(true))
-                  }
-                else
-                  Future.successful(Right(false))
+            val connectorUuid = UUID.fromString(id.value)
+            val ownerUuid     = UUID.fromString(user.id.value)
+            def owned         = table.filter(r => r.id === connectorUuid && r.ownerId === ownerUuid)
+            val deletion: DBIO[Either[ConnectorHasDependents.type, Boolean]] =
+              owned.forUpdate.result.headOption.flatMap {
+                case None => DBIO.successful(Right(false))
+                case Some(locked) =>
+                  for {
+                    deleted <- owned.delete
+                    _       <- locked.credentialId match {
+                                 case Some(credUuid) if deleted > 0 => credentialRepo.deleteAction(ConnectorCredentialId(credUuid.toString))
+                                 case _                             => DBIO.successful(0)
+                               }
+                  } yield Right(deleted > 0)
               }
+            ctx.withUserContext(user.id.value)(deletion)
         }
     }
 }

@@ -199,7 +199,7 @@ final class SourceService(
                       case Success(result) => Future.successful(result)
                       case Failure(ex) =>
                         new ImplicitConnectorCleanup(dataSourceRepo, connectorRepo)
-                          .deleteIfAuto(createdConnector.id, request.name, user, "createRest cleanup")
+                          .deleteIfUnadoptedImplicit(createdConnector.id, user, "createRest cleanup")
                           .transform(_ => Failure(ex))
                     }
                   }
