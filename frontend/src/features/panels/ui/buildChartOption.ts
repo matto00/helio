@@ -22,9 +22,15 @@ import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
 import {
   applyHeatmapTheme,
+  categoryLabelLineHeight,
+  categoryLabelShowAll,
+  categoryXLabelMargin,
+  categoryXLabelShowAll,
+  fontSizeOf,
   compactHeatmapVisualMap,
   HEATMAP_COMPACT_CLEARANCE_PX,
   mergeHeatmapYAxis,
+  showsEveryCategoryLabel,
 } from "./heatmapHistogramOptions";
 
 // `type`/`data` only — no placeholder `name` (unlike the persisted-appearance
@@ -212,12 +218,19 @@ export function buildChartOption({
           // A time axis has no `interval: auto` thinning like a category axis, so narrow charts
           // would run adjacent labels together.
           ...(timeInstants ? { hideOverlap: true } : {}),
+          ...(showsEveryCategoryLabel(chartType)
+            ? categoryXLabelShowAll(fontSizeOf(appearanceOption.xAxis))
+            : {}),
         },
       },
       yAxis: {
         ...yAxisBase,
         nameTextStyle: textStyle,
-        axisLabel: { ...yAxisBase.axisLabel, color: textColor },
+        axisLabel: {
+          ...yAxisBase.axisLabel,
+          color: textColor,
+          ...(chartType === "heatmap" ? categoryLabelShowAll(fontSizeOf(yAxisBase)) : {}),
+        },
       },
       legend: {
         ...(dataOption.legend as object),
@@ -365,6 +378,13 @@ export function buildChartOption({
         axisLabel: {
           ...(built.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
           fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+          // The normal-mode lineHeight/textMargin inherited through the spread are sized for the 12px font.
+          ...(showsEveryCategoryLabel(chartType)
+            ? {
+                lineHeight: categoryLabelLineHeight(COMPACT_AXIS_LABEL_FONT_SIZE),
+                textMargin: categoryXLabelMargin(COMPACT_AXIS_LABEL_FONT_SIZE),
+              }
+            : {}),
         },
         nameTextStyle: {
           ...(built.xAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,
@@ -376,6 +396,9 @@ export function buildChartOption({
         axisLabel: {
           ...(built.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
           fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+          ...(chartType === "heatmap"
+            ? { lineHeight: categoryLabelLineHeight(COMPACT_AXIS_LABEL_FONT_SIZE) }
+            : {}),
         },
         nameTextStyle: {
           ...(built.yAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,

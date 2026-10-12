@@ -149,7 +149,15 @@ export function StepOpEditor({
     );
   }
   if (step.opType.id === "cast") {
-    return <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={onCastChange} />;
+    return (
+      <CastFieldsConfig
+        columns={analyzeColumns}
+        casts={casts}
+        onChange={onCastChange}
+        saveError={saveError}
+        saveErrorIsValidation={saveErrorIsValidation}
+      />
+    );
   }
   if (step.opType.id === "filter") {
     return (
