@@ -1,6 +1,8 @@
 // HEL-1305 — echarts-free helpers behind the chart time x axis. Kept free of any echarts import so
 // the main bundle can reuse them without pulling the lazy-loaded echarts chunk in (HEL-512).
 
+import type { ChartType } from "./chartTypes";
+
 /** Schema type (`Output.schema[].type`) that selects a time x axis. */
 export const TIMESTAMP_FIELD_TYPE = "timestamp";
 
@@ -14,6 +16,24 @@ export function isTimeXField(
   fieldName: string | undefined,
 ): boolean {
   return fieldName !== undefined && fieldTypes?.[fieldName] === TIMESTAMP_FIELD_TYPE;
+}
+
+/** What a builder needs to decide on a time axis (owner ruling 5: not horizontal bar). */
+export interface TimeAxisContext {
+  fieldTypes?: ChartFieldTypes | null;
+  horizontalBar?: boolean;
+}
+
+/** `true` when the plotted x field is declared `timestamp` and the chart type has a time axis. */
+export function wantsTimeAxis(
+  chartType: ChartType,
+  ctx: TimeAxisContext | undefined,
+  xField: string | undefined,
+): boolean {
+  if (!ctx || !isTimeXField(ctx.fieldTypes, xField)) return false;
+  return (
+    chartType === "line" || chartType === "scatter" || (chartType === "bar" && !ctx.horizontalBar)
+  );
 }
 
 /** Builds `ChartFieldTypes` from any `{name, type}`-shaped list; `null` when there is nothing. */

@@ -8,58 +8,29 @@ import type { ScatterChartOptions } from "../types/panel";
 import type { ChartType } from "../../../utils/chartAppearance";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import { makeScatterSymbolSize } from "../../../utils/chartTypeOptions";
-import { isTimeXField, parseChartInstant } from "../../../utils/chartTimeAxis";
-import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
-
-/** What the builders need to decide on a time axis (owner ruling 5: not horizontal bar). */
-export interface TimeAxisContext {
-  fieldTypes?: ChartFieldTypes | null;
-  horizontalBar?: boolean;
-}
-
-/** `true` when the plotted x field is declared `timestamp` and the chart type has a time axis. */
-export function wantsTimeAxis(
-  chartType: ChartType,
-  ctx: TimeAxisContext | undefined,
-  xField: string | undefined,
-): boolean {
-  if (!ctx || !isTimeXField(ctx.fieldTypes, xField)) return false;
-  return (
-    chartType === "line" || chartType === "scatter" || (chartType === "bar" && !ctx.horizontalBar)
-  );
-}
+import type { AggregatePoint, TimedRow } from "../../../utils/chartTimePlan";
 
 const TIME_X_AXIS = { type: "time" } as const;
 
 const numberOr0 = (n: number) => (Number.isNaN(n) ? 0 : n);
 
-interface TimedRow {
-  t: number;
-  row: string[];
-}
+/** A non-numeric y is no value (`null`), never a real 0 (HEL-1508). */
+const numberOrNull = (raw: string | undefined): number | null => {
+  const n = parseFloat(raw ?? "");
+  return Number.isNaN(n) ? null : n;
+};
 
-/** Rows whose x parses, ordered by instant; ties keep row order. A row with no instant has no
- *  position on the axis and is not plotted. */
-function timedRows(rawRows: string[][], xCol: number): TimedRow[] {
-  const timed: TimedRow[] = [];
-  for (const row of rawRows) {
-    const t = parseChartInstant(row[xCol]);
-    if (t !== null) timed.push({ t, row });
-  }
-  return timed.sort((a, b) => a.t - b.t);
-}
-
-/** Single series: one value per plotted row (a non-numeric y plots 0, as on a category axis). */
+/** Single series: one value per plotted row; a non-numeric y is a gap. */
 export function buildTimeSingleSeries(
-  rawRows: string[][],
+  timed: readonly TimedRow[],
   headers: string[],
   xCol: number,
   yCol: number,
   chartType: ChartType,
 ): Partial<EChartsOption> {
-  const data = timedRows(rawRows, xCol).map(({ t, row }) => ({
+  const data = timed.map(({ t, row }) => ({
     name: row[xCol] ?? "",
-    value: [t, numberOr0(parseFloat(row[yCol] ?? ""))],
+    value: [t, numberOrNull(row[yCol])],
   }));
   return {
     xAxis: TIME_X_AXIS,
@@ -74,12 +45,12 @@ export function buildTimeSingleSeries(
  *  first-seen raw spelling. */
 export function buildTimeMultiSeries(
   rawRows: string[][],
+  timed: readonly TimedRow[],
   xCol: number,
   yCol: number,
   seriesCol: number,
   chartType: ChartType,
 ): Partial<EChartsOption> {
-  const timed = timedRows(rawRows, xCol);
   const nameByInstant = new Map<number, string>();
   for (const { t, row } of timed) {
     if (!nameByInstant.has(t)) nameByInstant.set(t, row[xCol] ?? "");
@@ -111,11 +82,11 @@ export function buildTimeMultiSeries(
 /** No y mapping: every numeric column (skipping x) is a series over the plotted rows. */
 export function buildTimeAutoSeries(
   rawRows: string[][],
+  timed: readonly TimedRow[],
   headers: string[],
   xCol: number,
   chartType: ChartType,
 ): Partial<EChartsOption> {
-  const timed = timedRows(rawRows, xCol);
   const series: Array<Record<string, unknown>> = [];
   for (let col = 0; col < headers.length; col++) {
     if (col === xCol) continue;
@@ -125,7 +96,7 @@ export function buildTimeAutoSeries(
       name: headers[col],
       data: timed.map(({ t, row }) => ({
         name: row[xCol] ?? "",
-        value: [t, numberOr0(parseFloat(row[col] ?? ""))],
+        value: [t, numberOrNull(row[col])],
       })),
     });
   }
@@ -137,9 +108,11 @@ export function buildTimeAutoSeries(
   } as Partial<EChartsOption>;
 }
 
-/** Scatter on a time axis: `[epochMillis, y(, size)]`, optionally one series per `colorField` value. */
+/** Scatter on a time axis: `[epochMillis, y(, size)]`, optionally one series per `colorField` value.
+ *  A row whose y is not numeric draws no point. */
 export function buildTimeScatter(
   rawRows: string[][],
+  timed: readonly TimedRow[],
   headers: string[],
   xCol: number,
   yCol: number,
@@ -147,9 +120,9 @@ export function buildTimeScatter(
 ): Partial<EChartsOption> {
   const sizeCol = scatterOptions?.sizeField ? headers.indexOf(scatterOptions.sizeField) : -1;
   const colorCol = scatterOptions?.colorField ? headers.indexOf(scatterOptions.colorField) : -1;
-  const timed = timedRows(rawRows, xCol);
+  const plotted = timed.filter(({ row }) => !Number.isNaN(parseFloat(row[yCol] ?? "")));
   const toPoint = ({ t, row }: TimedRow) => {
-    const value = [t, numberOr0(parseFloat(row[yCol] ?? ""))];
+    const value = [t, parseFloat(row[yCol] ?? "")];
     if (sizeCol !== -1) value.push(numberOr0(parseFloat(row[sizeCol] ?? "")));
     return { name: row[xCol] ?? "", value };
   };
@@ -166,29 +139,24 @@ export function buildTimeScatter(
       series: groups.map((group) => ({
         type: "scatter",
         name: group,
-        data: timed.filter(({ row }) => (row[colorCol] ?? "") === group).map(toPoint),
+        data: plotted.filter(({ row }) => (row[colorCol] ?? "") === group).map(toPoint),
         ...extra,
       })),
     } as Partial<EChartsOption>;
   }
   return {
     xAxis: TIME_X_AXIS,
-    series: [{ type: "scatter", data: timed.map(toPoint), ...extra }],
+    series: [{ type: "scatter", data: plotted.map(toPoint), ...extra }],
   } as Partial<EChartsOption>;
 }
 
-/** An aggregation grouped by a timestamp field: the group keys are the x values. A key that denotes
- *  no instant (including the `"null"` group) is not plotted. */
+/** An aggregation grouped by a timestamp field: the group keys are the x values, already parsed and
+ *  ordered by the plan (a key that denotes no instant, including the `"null"` group, is not plotted). */
 export function buildTimeAggregate(
   aggregate: GroupedAggregate,
+  points: readonly AggregatePoint[],
   chartType: ChartType,
 ): Partial<EChartsOption> {
-  const points = aggregate.categories
-    .flatMap((category, i) => {
-      const t = parseChartInstant(category);
-      return t === null ? [] : [{ t, name: category, y: aggregate.values[i] }];
-    })
-    .sort((a, b) => a.t - b.t);
   return {
     xAxis: TIME_X_AXIS,
     series: [
