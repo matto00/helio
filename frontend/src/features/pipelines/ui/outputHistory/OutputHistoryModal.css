@@ -119,3 +119,14 @@
 .output-history__row--changed td {
   background: var(--app-accent-surface);
 }
+
+/* HEL-1490 -- on a ruled Output a rule wash (TableRenderer.css: row tone (0,1,3), cell tone (0,2,3), pinned
+ * cell tone (0,3,3)) would erase the accent wash. The "Change" cell of a changed row keeps it: this out-ranks
+ * all of them, and only this cell, so the data cells show the rule. */
+.output-history__table
+  .ui-data-grid__table
+  tbody
+  tr.output-history__row--changed
+  td.output-history__change-cell {
+  background: var(--app-accent-surface);
+}

@@ -4,12 +4,16 @@ import { Spinner } from "../../../../shared/ui";
 import type { ColumnDef } from "../../../../shared/ui";
 import { formatCapturePair } from "../../../panels/history/formatCaptureTime";
 import type { HistoryPoint } from "../../../panels/history/outputHistoryService";
+import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import { TableRenderer } from "../../../panels/ui/renderers/TableRenderer";
 import { diffRows, type HistoryRow } from "../../utils/diffRows";
 import type { PointRowsState } from "./useOutputHistoryView";
 
 interface HistoryRowsProps {
   outputId: string;
+  /** HEL-1490 -- the Output's CURRENT conditional-format rules (already mapped for this table; see
+   *  `historyRowRules`). Absent/empty renders the rows exactly as before. */
+  rules?: ConditionalFormatRule[];
   selected: HistoryPoint;
   comparison: HistoryPoint | null;
   selectedRows: PointRowsState | undefined;
@@ -22,11 +26,15 @@ const CHANGE_COLUMN: ColumnDef = {
   width: 150,
 };
 
+/** Marks the Change cell of a ruled Output so `OutputHistoryModal.css` can keep its accent wash over a rule wash. */
+const changeCellClassName = () => "output-history__change-cell";
+
 /** HEL-1277 design D6/D7 — the stored rows of the selected point, with the whole-row multiset diff
  *  against the comparison point. The diff exists ONLY when both payloads are loaded: a payload that
  *  is absent, loading or failed disables it and never reads as removed rows. */
 export function HistoryRows({
   outputId,
+  rules,
   selected,
   comparison,
   selectedRows,
@@ -37,17 +45,19 @@ export function HistoryRows({
     () => (rows && comparisonRows?.status === "ready" ? diffRows(rows, comparisonRows.rows) : null),
     [rows, comparisonRows],
   );
+  const hasRules = rules !== undefined && rules.length > 0;
   const leadingColumns = useMemo<ColumnDef[] | undefined>(
     () =>
       diff
         ? [
             {
               ...CHANGE_COLUMN,
+              ...(hasRules ? { cellClassName: changeCellClassName } : {}),
               render: (row) => (diff.changed.has(row) ? "New or changed" : ""),
             },
           ]
         : undefined,
-    [diff],
+    [diff, hasRules],
   );
   const rowClassName = useMemo(
     () =>
@@ -107,6 +117,7 @@ export function HistoryRows({
           rowsTruncated={false}
           leadingColumns={leadingColumns}
           rowClassName={rowClassName}
+          conditionalFormats={rules}
           disablePinning
         />
       </div>

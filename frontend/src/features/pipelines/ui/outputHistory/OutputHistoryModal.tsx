@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { History } from "lucide-react";
 
 import "./OutputHistoryModal.css";
@@ -6,6 +7,7 @@ import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { Output } from "../../types/output";
 import { HistoryChart } from "./HistoryChart";
 import { HistoryRows } from "./HistoryRows";
+import { historyRowRules } from "./historyRowRules";
 import { HistoryScrubber } from "./HistoryScrubber";
 import { HistorySummary } from "./HistorySummary";
 import { HISTORY_VIEW_LIMIT, useOutputHistoryView } from "./useOutputHistoryView";
@@ -20,6 +22,8 @@ interface OutputHistoryModalProps {
  *  against the next-older retained point when both runs stored them. */
 export function OutputHistoryModal({ output, onClose }: OutputHistoryModalProps) {
   const view = useOutputHistoryView(output.id);
+  // Memoized so TableRenderer's own memo over its rules is not defeated by a fresh array per render.
+  const rules = useMemo(() => historyRowRules(output), [output]);
   const { loadState, points, selectedIndex, selected, comparison, rowsOf } = view;
 
   return (
@@ -65,6 +69,7 @@ export function OutputHistoryModal({ output, onClose }: OutputHistoryModalProps)
             )}
             <HistoryRows
               outputId={output.id}
+              rules={rules}
               selected={selected}
               comparison={comparison}
               selectedRows={rowsOf(selected)}
