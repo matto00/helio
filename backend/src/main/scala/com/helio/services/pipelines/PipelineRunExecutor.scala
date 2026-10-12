@@ -7,7 +7,7 @@ import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser
 import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SourceReadStats, StepKey}
 import com.helio.domain.util.Clock
-import com.helio.infrastructure.persistence.pipelines.{PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -20,6 +20,7 @@ import scala.util.control.NonFatal
 /** Submit-time run execution: the guard/pre-exec chain, the engine call and the dispatch of its success and
  *  failure outcomes to the terminal collaborators. Split out of `PipelineRunService` (HEL-1371). */
 private[pipelines] final class PipelineRunExecutor(
+    pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     dataSourceRepo: DataSourceRepository,
     pipelineRunRepo: PipelineRunRepository,
@@ -29,7 +30,8 @@ private[pipelines] final class PipelineRunExecutor(
     backend: PipelineExecutionBackend,
     support: PipelineRunSupport,
     terminal: PipelineRunTerminalWrites,
-    succeeded: PipelineRunSucceededWrites
+    succeeded: PipelineRunSucceededWrites,
+    liveRunTracker: LiveRunTracker
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -51,9 +53,13 @@ private[pipelines] final class PipelineRunExecutor(
     // is atomic across roots (R9), never partial.
     resolveAllRootDataSourcesInternal(pipelineId).flatMap {
       case roots if roots.isEmpty =>
-        Future.successful(Left(ServiceError.UnprocessableEntity(
-          "DataSource not found for pipeline: " + pipelineId.value
-        )))
+        // HEL-1503 (design.md D3): roots cascade with the pipeline, so a pipeline deleted mid-submit also lands here.
+        // Privileged existence check (read-only, keyed by the id `submit` just authorized): gone -> 404, a genuinely
+        // root-less pipeline -> the 422 below, unchanged.
+        pipelineRepo.findByIdInternal(pipelineId).map {
+          case None    => Left(pipelineGone(pipelineId))
+          case Some(_) => Left(ServiceError.UnprocessableEntity("DataSource not found for pipeline: " + pipelineId.value))
+        }
       case roots =>
         // Safe: pipeline ACL confirmed by findByIdShared. Use internal step list
         // so editor grantees (not pipeline owners) are not blocked by V35 RLS.
@@ -82,6 +88,9 @@ private[pipelines] final class PipelineRunExecutor(
             else executeRun(pipeline, roots, allSteps, isDry, user, triggerSource, triggeredByTokenId)
           }
     }
+
+  private def pipelineGone(pipelineId: PipelineId): ServiceError =
+    ServiceError.NotFound("Pipeline not found: " + pipelineId.value)
 
   /** Pre-execute (insert run record + prune) → load source rows → run engine
    *  → publish SSE events → handle success/failure. Extracted from `submit`
@@ -141,8 +150,9 @@ private[pipelines] final class PipelineRunExecutor(
       case Left(err) => Future.successful(Left(err))
       case Right(()) =>
         // HEL-505 (design.md Decision 3, C1/C2/C7): `insertRunIfUnderConcurrencyCap` REPLACES the
-        // plain `insertRun` call for the non-dry path -- dry runs skip this call entirely (already
-        // covered by the rate limit above) and proceed straight to `backend.execute`. On `false`
+        // plain `insertRun` call for the non-dry path -- dry runs skip admission (the rate limit above
+        // covers them) but are re-verified by `checkRunAuthorizationInternal` (HEL-1503 D4) before they
+        // execute. On `false`
         // (cap reached), `executeRun` returns `Left(TooManyRequests(...))` immediately, WITHOUT
         // ever calling `backend.execute` -- hence `preExec`'s short-circuiting
         // `Future[Either[ServiceError, Unit]]` shape (was `Future[Unit]` pre-HEL-505).
@@ -165,47 +175,84 @@ private[pipelines] final class PipelineRunExecutor(
                   .map(_ => Right(()))
               case PipelineRunRepository.ConcurrencyCapResult.CapExceeded =>
                 Future.successful(Left(ServiceError.TooManyRequests(guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded")))
-              // Not the owner/editor (grant revoked since `submit`'s check, or the pipeline deleted mid-submit): never executed.
+              // Not the owner/editor (grant revoked since `submit`'s check): never executed.
               case PipelineRunRepository.ConcurrencyCapResult.NotAuthorized =>
                 Future.successful(Left(ServiceError.Forbidden("Forbidden")))
+              // HEL-1503: the pipeline was deleted mid-submit -- 404, never executed, nothing written.
+              case PipelineRunRepository.ConcurrencyCapResult.PipelineGone =>
+                Future.successful(Left(pipelineGone(pipelineId)))
+            }
+          } else if (isDry && pipelineRunRepo != null) {
+            // HEL-1503 (design.md D4): a dry run writes no admission row, so re-verify owner-or-editor right before it
+            // executes (the former post-execution check only skipped its row). A revoke after this point is the same
+            // accepted race as the real-run window.
+            pipelineRunRepo.checkRunAuthorizationInternal(pipelineId, user).map {
+              case PipelineRunRepository.RunAuthorization.Authorized    => Right(())
+              case PipelineRunRepository.RunAuthorization.NotAuthorized => Left(ServiceError.Forbidden("Forbidden"))
+              case PipelineRunRepository.RunAuthorization.PipelineGone  => Left(pipelineGone(pipelineId))
             }
           } else Future.successful(Right(()))
 
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
-            // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
-            publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
-            publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
-
-            // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
-            // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
-            // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
-            // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
-            // interpret `nodeId` correctly.
-            def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
-              val (nodeId, nodeKind) = key match {
-                case RootKey(rootId) => (rootId, "root")
-                case StepKey(stepId) => (stepId, "step")
-              }
-              publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
-            }
-
-            val runFuture = backend
-              .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
-                ownerUserId = Some(pipeline.ownerId.value))
-              .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
-
-            runFuture.transformWith {
-              case Failure(ex) =>
-                executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
-              case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
-                executeRunSuccess(
-                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
-                  resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
-                )
-            }
+            // HEL-1511 (design.md D1): a real run is tracked from admission to its last terminal write, on every exit
+            // path (`Future.delegate` turns a synchronous throw into a failed Future, so the `andThen` still deregisters).
+            val tracked = !isDry && pipelineRunRepo != null
+            if (tracked) liveRunTracker.register(runId)
+            Future.delegate(runAdmitted(pipeline, roots, steps, isDry, user, triggerSource, pipelineId, runId, startAt, pidStr, ownerRun, assertionSink, truncationSink, writeBackSink))
+              .andThen { case _ => if (tracked) liveRunTracker.deregister(runId) }
         }
+    }
+  }
+
+  /** The engine call and the dispatch of its outcome, for a run the HEL-505 guard has admitted. */
+  private def runAdmitted(
+      pipeline:       Pipeline,
+      roots:          Vector[(String, DataSource)],
+      steps:          Vector[PipelineStep],
+      isDry:          Boolean,
+      user:           AuthenticatedUser,
+      triggerSource:  String,
+      pipelineId:     PipelineId,
+      runId:          PipelineRunId,
+      startAt:        Instant,
+      pidStr:         String,
+      ownerRun:       Boolean,
+      assertionSink:  AssertionSink,
+      truncationSink: TruncationSink,
+      writeBackSink:  WriteBackSink
+  ): Future[Either[ServiceError, RunResultResponse]] = {
+    // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
+    publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
+    publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
+
+    // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
+    // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
+    // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
+    // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
+    // interpret `nodeId` correctly.
+    def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
+      val (nodeId, nodeKind) = key match {
+        case RootKey(rootId) => (rootId, "root")
+        case StepKey(stepId) => (stepId, "step")
+      }
+      publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
+    }
+
+    val runFuture = backend
+      .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
+        ownerUserId = Some(pipeline.ownerId.value))
+      .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
+
+    runFuture.transformWith {
+      case Failure(ex) =>
+        executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
+      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
+        executeRunSuccess(
+          pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
+          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
+        )
     }
   }
 
@@ -307,7 +354,40 @@ private[pipelines] final class PipelineRunExecutor(
       // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
       // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
       onBlockedRun(pipelineId, runId, pidStr, user, ownerRun, assertionResults, blockingFailures).map(Right(_))
-    else Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
+    else isStillOpen(runId).flatMap {
+      // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
+      // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
+      case false =>
+        log.warn(s"Run ${runId.value} of pipeline ${pipelineId.value} finished after it was reaped as abandoned; discarding its outcome")
+        Future.successful(Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished")))
+      case true => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+    }
+  }
+
+  /** HEL-1511: whether the run is still non-terminal; trivially true when no run repository is wired (fixtures). */
+  private def isStillOpen(runId: PipelineRunId): Future[Boolean] =
+    if (pipelineRunRepo == null) Future.successful(true) else pipelineRunRepo.isRunOpenInternal(runId)
+
+  /** The unblocked-success chain: apply the deferred write-backs, then materialize and finalize. */
+  private def unblockedChain(
+      sourceDataSourceId: DataSourceId,
+      lowestRootId:       String,
+      pipelineId:         PipelineId,
+      runId:              PipelineRunId,
+      pidStr:             String,
+      resultRows:         Seq[Map[String, Any]],
+      jsRows:             Vector[JsObject],
+      nodeOutcomes:       Map[NodeKey, NodeOutcome],
+      user:               AuthenticatedUser,
+      ownerRun:           Boolean,
+      triggerSource:      String,
+      assertionResults:   Vector[AssertionResult],
+      primaryAvailableRowCount: Option[Long],
+      truncatedReads:     Vector[TruncatedReadResponse],
+      writeBackSink:      WriteBackSink,
+      pipelineOwnerId:    UserId
+  ): Future[Either[ServiceError, Option[String]]] = {
+    Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
       // record it and publish the one terminal `failed`, then re-fail with the original exception
       // (even if that bookkeeping fails) so every `submit` caller sees the outcome it always did.
@@ -320,7 +400,7 @@ private[pipelines] final class PipelineRunExecutor(
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId).map(Right(_))
     }
   }
 

@@ -6,6 +6,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -101,7 +102,9 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-873 (design.md Decision 2a): a queued row's truncation facts do not exist yet -- it
       // has not reached a terminal status and persists no row count, so NULL here is the one
       // decided, non-escalation exception to "every terminal row is non-null" (task 2.7).
-      truncatedReads     = None
+      truncatedReads     = None,
+      // HEL-1511 (design.md D1): a freshly admitted run is never "legacy" -- its first heartbeat is its start.
+      heartbeatAt        = Some(startedAt)
     )
     (runsTable += row).map(_ => ())
   }
@@ -116,12 +119,14 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * across two SEPARATE `withUserContext` calls, each its own transaction, would not prevent both
     * from reading the pre-insert count under READ COMMITTED before either commits):
     *
-    *   1. `pg_advisory_xact_lock(hashtext('pipeline-run-concurrency:' || userId))` -- serializes
-    *      concurrent submits from the SAME owner; auto-released at commit/rollback.
-    *   2. The pipeline-owned check (`pipelineOwnedAction`, same ACL gate `insertRun` already uses)
-    *      -- `false` denies without ever counting or inserting, mirroring `insertRun`'s own silent
-    *      no-op-for-non-owner semantics (this method is only ever reached post-ACL-check from
-    *      `executeRun`, so this branch is defensive, not a load-bearing security boundary here).
+    *   1. The pipeline row's owner id read `FOR KEY SHARE` (`keyShareOwnerAction`, HEL-1503): an absent row
+    *      yields `PipelineGone`, another owner `NotAuthorized` (defensive here -- this method is only reached
+    *      post-ACL-check from `executeRun`), and nothing is counted or inserted for either. The key-share lock
+    *      conflicts only with a `DELETE`, so a concurrent delete either committed first or waits for this
+    *      transaction, and the insert's `pipeline_id` FK can never fail.
+    *   2. `pg_advisory_xact_lock(hashtext('pipeline-run-concurrency:' || userId))` -- serializes
+    *      concurrent submits from the SAME owner; auto-released at commit/rollback. Taken AFTER the row lock
+    *      on both admission paths (uniform lock order).
     *   3. A live count of this owner's non-terminal REAL runs (`status NOT IN ('succeeded',
     *      'failed', 'dry_run')`, across every pipeline they own) -- `< maxConcurrent` inserts the
     *      new queued row inside the SAME transaction; otherwise rolls back without inserting.
@@ -131,7 +136,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * only after the dry run has already executed.
     *
     * Returns [[PipelineRunRepository.ConcurrencyCapResult]]: `NotAuthorized` (the caller does not own
-    * the pipeline -- e.g. it was deleted mid-submit) is distinguished from `CapExceeded` so the caller
+    * the pipeline) is distinguished from `CapExceeded` so the caller
     * can map it to `Forbidden` rather than a 429. It is NEVER an admission: only `Inserted` admits a
     * run (HEL-1492 retired the former `NotOwned` arm that executed the run without recording it).
     * An editor grantee's submit goes through [[insertGranteeRunIfUnderOwnerCap]] instead. */
@@ -147,12 +152,16 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   ): Future[PipelineRunRepository.ConcurrencyCapResult] = {
     import PipelineRunRepository.ConcurrencyCapResult._
     val action: DBIO[PipelineRunRepository.ConcurrencyCapResult] =
-      for {
-        _      <- concurrencyLockAction(user.id.value)
-        owned  <- pipelineOwnedAction(pipelineId, user)
-        result <- if (!owned) DBIO.successful(NotAuthorized)
-                  else countAndInsertAction(UUID.fromString(user.id.value), runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId, maxConcurrent)
-      } yield result
+      keyShareOwnerAction(pipelineId).flatMap {
+        // HEL-1503 (design.md D3): gone (deleted before the key-share lock -- or hidden by RLS) is told apart from
+        // an existing pipeline someone else owns; the row stays key-share locked until this transaction ends.
+        case None => DBIO.successful(PipelineGone)
+        case Some(rowOwner) if rowOwner != UUID.fromString(user.id.value) => DBIO.successful(NotAuthorized)
+        case Some(_) =>
+          concurrencyLockAction(user.id.value).flatMap { _ =>
+            countAndInsertAction(UUID.fromString(user.id.value), runId, pipelineId, startedAt, triggerSource, triggeredByTokenId, triggeredByUserId, maxConcurrent)
+          }
+      }
     ctx.withUserContext(user.id.value)(action)
   }
 
@@ -196,14 +205,15 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /** HEL-1492 (design.md D2): the privileged counterpart of [[insertRunIfUnderConcurrencyCap]] for an EDITOR
     * grantee's submit -- RLS (V35 `pipeline_runs_owner`) would reject the grantee's own insert (42501), so the
-    * write runs in system context, but never blind. ONE transaction: (1) the pipeline's owner id is read,
-    * (2) the SAME advisory lock the owner's own submits take (keyed by OWNER id, so owner and editor submits for
-    * one owner serialize against each other), (3) the submitter is re-verified as the pipeline owner or an
-    * `editor` row in `resource_permissions` (the `findGrantRole` predicate) -- a grant revoked since `submit`'s
-    * check, or a pipeline deleted since, yields `NotAuthorized` and writes nothing, (4) the OWNER's
-    * non-terminal count and the insert, exactly as the owner path. Authorization is checked here, at admission;
-    * every later lifecycle write for the admitted run goes through the `*Internal` methods unconditionally so an
-    * admitted run can never stay non-terminal and hold one of the owner's slots. */
+    * write runs in system context, but never blind. ONE transaction: (1) the pipeline's owner id is read
+    * `FOR KEY SHARE` (HEL-1503: an absent row yields `PipelineGone` and writes nothing), (2) the SAME advisory
+    * lock the owner's own submits take (keyed by OWNER id, so owner and editor submits for one owner serialize
+    * against each other), (3) the submitter is re-verified as the pipeline owner or an `editor` row in
+    * `resource_permissions` (the `findGrantRole` predicate) -- a grant revoked since `submit`'s check yields
+    * `NotAuthorized` and writes nothing, (4) the OWNER's non-terminal count and the insert, exactly as the
+    * owner path. Authorization is checked here, at admission; every later lifecycle write for the admitted run
+    * goes through the `*Internal` methods unconditionally so an admitted run can never stay non-terminal and
+    * hold one of the owner's slots. */
   def insertGranteeRunIfUnderOwnerCap(
       runId: PipelineRunId,
       pipelineId: PipelineId,
@@ -216,8 +226,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   ): Future[PipelineRunRepository.ConcurrencyCapResult] = {
     import PipelineRunRepository.ConcurrencyCapResult._
     val action: DBIO[PipelineRunRepository.ConcurrencyCapResult] =
-      pipelinesTable.filter(_.id === pipelineId.value).map(_.ownerId).result.headOption.flatMap {
-        case None => DBIO.successful(NotAuthorized)
+      keyShareOwnerAction(pipelineId).flatMap {
+        case None => DBIO.successful(PipelineGone)
         case Some(ownerUuid) =>
           for {
             _          <- concurrencyLockAction(ownerUuid.toString)
@@ -228,6 +238,28 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       }
     // withSystemContext: the editor is not the pipeline owner, so V35 pipeline_runs_owner RLS would refuse this
     // INSERT; bypass is correct because the same transaction re-verifies owner-or-editor (HEL-1492 Q5).
+    ctx.withSystemContext(action)
+  }
+
+  /** HEL-1503 (design.md D3): the pipeline's owner id read with `FOR KEY SHARE`, taken BEFORE the owner-keyed advisory
+    * lock in both admission transactions (uniform order: row key-share lock, then advisory lock). It conflicts only
+    * with a `DELETE` (or key update) of that row, so a concurrent delete either committed first (`None`) or waits
+    * until admission commits -- the insert's `pipeline_id` FK can then never fail. Plain SQL because Slick has no
+    * key-share option and a row lock cannot sit inside an `.exists` wrapper. */
+  private def keyShareOwnerAction(pipelineId: PipelineId): DBIO[Option[UUID]] =
+    sql"SELECT owner_id::text FROM pipelines WHERE id = ${pipelineId.value} FOR KEY SHARE".as[String].headOption.map(_.map(UUID.fromString))
+
+  /** HEL-1503 (design.md D4): privileged, read-only re-verification that `submitter` may still run `pipelineId`
+    * (owner, or an `editor` grant), made immediately before a DRY run executes. Never writes. */
+  def checkRunAuthorizationInternal(pipelineId: PipelineId, submitter: AuthenticatedUser): Future[RunAuthorization] = {
+    import RunAuthorization._
+    val action: DBIO[RunAuthorization] =
+      pipelinesTable.filter(_.id === pipelineId.value).map(_.ownerId).result.headOption.flatMap {
+        case None => DBIO.successful(PipelineGone)
+        case Some(ownerUuid) =>
+          submitterMayRunAction(pipelineId, ownerUuid, submitter).map(ok => if (ok) Authorized else NotAuthorized)
+      }
+    // withSystemContext: a read-only owner-or-editor check for an editor whom RLS would hide the owner's pipeline from.
     ctx.withSystemContext(action)
   }
 
@@ -253,7 +285,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     sql"SELECT pg_advisory_xact_lock(hashtext(${"pipeline-run-concurrency:" + userId}))::text".as[String].map(_ => ())
 
   /** Owner-scoped terminal update via JOIN to `pipelines.owner_id`. Silent
-    * no-op when the caller does not own the parent pipeline. */
+    * no-op when the caller does not own the parent pipeline. HEL-1511 (design.md D4): first terminal write wins --
+    * returns whether THIS call finalized the run (`false`: not owned, or already terminal, e.g. reaped). */
   def updateRunTerminal(
       runId: PipelineRunId,
       status: String,
@@ -265,14 +298,14 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // no default -- so a forgotten call site fails to compile rather than silently writing NULL
       // to a terminal row (the exact SparkJobSubmitter hazard task 2.8 calls out).
       truncatedReadsJson: Option[String]
-  ): Future[Unit] = {
+  ): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
     val ownedRunQuery = for {
       run      <- runsTable if run.id === runId.value
       pipeline <- pipelinesTable if pipeline.id === run.pipelineId && pipeline.ownerId === ownerUuid
     } yield run.id
     ctx.withUserContext(user.id.value)(ownedRunQuery.result.headOption).flatMap {
-      case None      => Future.successful(())
+      case None      => Future.successful(false)
       case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog, truncatedReadsJson)
     }
   }
@@ -280,7 +313,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing terminal update for the privileged Spark driver path.
     * `truncatedReadsJson` has NO default (see `updateRunTerminal`'s doc) --
     * `SparkJobSubmitter`'s two call sites pass `PipelineRunService.EmptyTruncationJson`
-    * explicitly (task 2.8, evaluation-2.md item 2). */
+    * explicitly (task 2.8, evaluation-2.md item 2). HEL-1511 (design.md D4): conditional on `completed_at IS NULL`,
+    * so the first terminal write wins; returns `true` only when this call finalized the row. */
   def updateRunTerminalInternal(
       runId: PipelineRunId,
       status: String,
@@ -288,13 +322,76 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rowCount: Option[Int],
       errorLog: Option[String],
       truncatedReadsJson: Option[String]
-  ): Future[Unit] =
+  ): Future[Boolean] =
     ctx.withSystemContext(
       runsTable
-        .filter(_.id === runId.value)
+        .filter(r => r.id === runId.value && r.completedAt.isEmpty)
         .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog, r.truncatedReads))
         .update((status, Some(completedAt), rowCount, errorLog, truncatedReadsJson))
-    ).map(_ => ())
+    ).map(_ > 0)
+
+  /** HEL-1511 (design.md D4): whether the run is still non-terminal. The success chain checks it before any
+    * side effect, so a run that was reaped while its instance stalled cannot write snapshots or write-backs. */
+  def isRunOpenInternal(runId: PipelineRunId): Future[Boolean] =
+    ctx.withSystemContext(runsTable.filter(r => r.id === runId.value && r.completedAt.isEmpty).exists.result)
+
+  /** HEL-1511 (design.md D1): one conditional UPDATE refreshing the heartbeat of the given live runs. Always
+    * system context: on the RLS user pool there is no request-bound user, so it would match 0 rows in prod. An
+    * empty set issues no query. Returns the number of rows stamped. */
+  def stampHeartbeatsInternal(runIds: Set[String], now: Instant): Future[Int] =
+    if (runIds.isEmpty) Future.successful(0)
+    else
+      ctx.withSystemContext(
+        runsTable
+          .filter(r => r.id.inSet(runIds) && r.completedAt.isEmpty)
+          .map(_.heartbeatAt)
+          .update(Some(now))
+      )
+
+  /** HEL-1511 (design.md D2): finalizes every stale non-terminal real run as `failed` in ONE statement. A run is
+    * stale when its heartbeat is older than `staleAfterSeconds`, or (no heartbeat ever: a legacy row) when it
+    * started more than `legacyAfterSeconds` ago. The conditional UPDATE needs no lock: under READ COMMITTED a
+    * concurrent heartbeat or reap that commits first makes this statement re-evaluate its WHERE on the updated row
+    * and skip it. The pipeline's `last_run_*` becomes failed only for a run with no newer non-dry run. */
+  def reapStaleRunsInternal(
+      now: Instant,
+      staleAfterSeconds: Long,
+      legacyAfterSeconds: Long,
+      truncatedReadsJson: String
+  ): Future[Vector[ReapedRun]] = {
+    val nowTs        = Timestamp.from(now)
+    val staleCutoff  = Timestamp.from(now.minusSeconds(staleAfterSeconds))
+    val legacyCutoff = Timestamp.from(now.minusSeconds(legacyAfterSeconds))
+    val legacyReason = s"Run abandoned: no heartbeat recorded and started over ${legacyAfterSeconds / 3600} h ago (the server running it likely stopped)"
+    ctx.withSystemContext(
+      sql"""WITH reaped AS (
+              UPDATE pipeline_runs
+              SET status = 'failed', completed_at = $nowTs, truncated_reads = $truncatedReadsJson::jsonb,
+                  error_log = CASE WHEN heartbeat_at IS NOT NULL
+                                   THEN 'Run abandoned: no heartbeat for ' || floor(extract(epoch FROM ($nowTs::timestamptz - heartbeat_at)))::bigint
+                                        || ' s (the server running it likely stopped)'
+                                   ELSE $legacyReason END
+              WHERE completed_at IS NULL AND status <> 'dry_run'
+                AND ((heartbeat_at IS NOT NULL AND heartbeat_at < $staleCutoff)
+                  OR (heartbeat_at IS NULL AND started_at < $legacyCutoff))
+              RETURNING id, pipeline_id, started_at, error_log
+            ), last_run AS (
+              UPDATE pipelines p
+              SET last_run_status = 'failed', last_run_at = $nowTs, last_run_row_count = NULL, last_run_truncated = false,
+                  updated_at = $nowTs
+              FROM reaped r
+              WHERE p.id = r.pipeline_id
+                AND NOT EXISTS (SELECT 1 FROM pipeline_runs n
+                                WHERE n.pipeline_id = r.pipeline_id AND n.status <> 'dry_run' AND n.started_at > r.started_at)
+              RETURNING p.id
+            )
+            SELECT r.id, r.pipeline_id, p.owner_id::text, r.started_at, r.error_log
+            FROM reaped r JOIN pipelines p ON p.id = r.pipeline_id"""
+        .as[(String, String, String, Timestamp, String)]
+    ).map(_.map { case (id, pid, owner, started, reason) =>
+      ReapedRun(PipelineRunId(id), PipelineId(pid), UserId(owner), started.toInstant, reason)
+    }.toVector)
+  }
 
   /** Owner-scoped dry-run insert. Silent no-op when the caller does not own
     * the parent pipeline. Dry runs are always triggered interactively (the
@@ -548,16 +645,28 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
 object PipelineRunRepository {
 
+  /** One run finalized by [[PipelineRunRepository.reapStaleRunsInternal]] (HEL-1511). */
+  final case class ReapedRun(runId: PipelineRunId, pipelineId: PipelineId, ownerId: UserId, startedAt: Instant, reason: String)
+
+  /** HEL-1503: result of [[PipelineRunRepository.checkRunAuthorizationInternal]]. */
+  sealed trait RunAuthorization
+  object RunAuthorization {
+    case object Authorized extends RunAuthorization
+    case object NotAuthorized extends RunAuthorization
+    case object PipelineGone extends RunAuthorization
+  }
+
   /** The outcomes of [[PipelineRunRepository.insertRunIfUnderConcurrencyCap]] and
    *  [[PipelineRunRepository.insertGranteeRunIfUnderOwnerCap]] (HEL-505, HEL-1492). Only `Inserted` admits a
-   *  run. `NotAuthorized` (the submitter is not the pipeline's owner or an editor -- a revoked grant, or the
-   *  pipeline deleted mid-submit) is deliberately distinct from `CapExceeded`: it maps to `Forbidden`, not a
-   *  429. */
+   *  run. `NotAuthorized` (the submitter is not the pipeline's owner or an editor -- a revoked grant) is
+   *  deliberately distinct from `CapExceeded`: it maps to `Forbidden`, not a 429. `PipelineGone` (HEL-1503: no such pipeline) maps to `NotFound`. */
   sealed trait ConcurrencyCapResult
   object ConcurrencyCapResult {
     case object Inserted extends ConcurrencyCapResult
     case object CapExceeded extends ConcurrencyCapResult
     case object NotAuthorized extends ConcurrencyCapResult
+    /** HEL-1503: the pipeline no longer exists (deleted mid-submit) -- 404, never a 403/500. */
+    case object PipelineGone extends ConcurrencyCapResult
   }
 
   case class PipelineRunRow(
@@ -588,7 +697,9 @@ object PipelineRunRepository {
       truncatedReads: Option[String] = None,
       // HEL-1492: the user who submitted the run (owner, editor grantee, the scheduler's synthetic owner, a hook
       // token's user). NULL on rows written before V124 and on the dormant SparkJobSubmitter path.
-      triggeredByUserId: Option[UUID] = None
+      triggeredByUserId: Option[UUID] = None,
+      // HEL-1511: last liveness stamp; NULL = never stamped (rows predating V126, and dry runs).
+      heartbeatAt: Option[Instant] = None
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
@@ -609,7 +720,9 @@ object PipelineRunRepository {
 
     def triggeredByUserId  = column[Option[UUID]]("triggered_by_user_id")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads, triggeredByUserId).mapTo[PipelineRunRow]
+    def heartbeatAt        = column[Option[Instant]]("heartbeat_at")
+
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads, triggeredByUserId, heartbeatAt).mapTo[PipelineRunRow]
   }
 
 

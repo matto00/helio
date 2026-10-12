@@ -444,7 +444,7 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
         override def updateRunTerminal(
             runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int],
             errorLog: Option[String], user: AuthenticatedUser, truncatedReadsJson: Option[String]
-        ): Future[Unit] = Future.failed(new RuntimeException("boom: updateRunTerminal"))
+        ): Future[Boolean] = Future.failed(new RuntimeException("boom: updateRunTerminal"))
       }
       val scheduler = newScheduler(newRunService(failingRepo), clock)
 

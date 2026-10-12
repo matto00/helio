@@ -38,7 +38,8 @@ function makeForm(): UseRestSourceFormReturn {
     templateParameterNames: [],
     supportsBody: false,
     buildRestSourceConfig: jest.fn(),
-  } as unknown as UseRestSourceFormReturn;
+    reset: jest.fn(),
+  };
 }
 
 describe("RestApiForm label association (HEL-1464)", () => {

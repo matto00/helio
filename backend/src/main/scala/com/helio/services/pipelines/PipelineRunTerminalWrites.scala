@@ -42,14 +42,26 @@ private[pipelines] final class PipelineRunTerminalWrites(
    *  the user-scoped, RLS-enforced `updateRunTerminal`; an admitted EDITOR run (`ownerRun = false`) uses
    *  `updateRunTerminalInternal`, keyed by the server-generated run id. The editor path does not re-check the grant:
    *  authorization happened once, at admission (the run-row insert), and a lifecycle write must always complete or the
-   *  admitted run would stay non-terminal and hold one of the OWNER's concurrency slots. */
+   *  admitted run would stay non-terminal and hold one of the OWNER's concurrency slots.
+   *
+   *  HEL-1511 (design.md D4): first terminal write wins. Resolves `true` when THIS call finalized the run, `false` when
+   *  the run was already terminal (reaped as abandoned); a caller then skips its `last_run_*` and assertion writes. */
   private[pipelines] def writeTerminal(
       runId: PipelineRunId, status: String, at: Instant, rowCount: Option[Int], errorLog: Option[String],
       user: AuthenticatedUser, ownerRun: Boolean, truncatedReadsJson: Option[String]
-  ): Future[Unit] =
-    if (pipelineRunRepo == null) Future.successful(())
+  ): Future[Boolean] =
+    if (pipelineRunRepo == null) Future.successful(true)
     else if (ownerRun) pipelineRunRepo.updateRunTerminal(runId, status, at, rowCount, errorLog, user, truncatedReadsJson)
     else pipelineRunRepo.updateRunTerminalInternal(runId, status, at, rowCount, errorLog, truncatedReadsJson)
+
+  /** HEL-1511 (design.md D4): the work that follows a terminal write -- run only when that write won; otherwise the
+   *  run was already terminal (e.g. reaped) or not found, and the outcome is dropped with a WARN. */
+  private[pipelines] def afterTerminalWin(runId: PipelineRunId, status: String, won: Boolean)(work: => Future[Unit]): Future[Unit] =
+    if (won) work
+    else {
+      log.warn(s"Run ${runId.value}: terminal write skipped (run already terminal or not found) for its '$status' outcome; dropping the late outcome")
+      Future.successful(())
+    }
 
   /** HEL-1492 (design.md D4): the `pipelines.last_run_*` write for either kind of submitter -- see [[writeTerminal]]. */
   private[pipelines] def writeLastRun(
@@ -97,10 +109,11 @@ private[pipelines] final class PipelineRunTerminalWrites(
         // HEL-873 (design.md Decision 2a): a failed run records `[]`, never NULL.
         val updateRun =
           writeTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-        updateRun.flatMap { _ =>
-          writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
-        }.flatMap { _ =>
-          persistAssertions(runId, assertionSink.results)
+        updateRun.flatMap { won =>
+          afterTerminalWin(runId, "failed", won) {
+            writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
+              .flatMap(_ => persistAssertions(runId, assertionSink.results))
+          }
         }
       } else Future.successful(())
     // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
@@ -181,10 +194,11 @@ private[pipelines] final class PipelineRunTerminalWrites(
     def writes(): Future[Unit] = {
       val updateRun =
         writeTerminal(runId, "failed", Instant.now(), rowCount = None, errorLog = Some(errMsg), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-      updateRun.flatMap { _ =>
-        writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
-      }.flatMap { _ =>
-        persistAssertions(runId, assertionResults)
+      updateRun.flatMap { won =>
+        afterTerminalWin(runId, "failed", won) {
+          writeLastRun(pipelineId, "failed", Instant.now(), rowCount = None, user, ownerRun, truncated = Some(false))
+            .flatMap(_ => persistAssertions(runId, assertionResults))
+        }
       }
     }
     // HEL-1366: terminal event only after the failed status is durable.
@@ -212,15 +226,13 @@ private[pipelines] final class PipelineRunTerminalWrites(
       val now = Instant.now()
       // HEL-873 (design.md Decision 2a): a blocked run is persisted as a failed run -- `[]`, never
       // NULL.
-      val updateMeta = writeLastRun(pipelineId, "failed", now, rowCount = None, user, ownerRun, truncated = Some(false))
-      val updateRun =
-        writeTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
-      val assertionsInsert = persistAssertions(runId, assertionResults)
-        for {
-          _ <- updateMeta
-          _ <- updateRun
-          _ <- assertionsInsert
-        } yield Some(summary)
+      writeTerminal(runId, "failed", now, rowCount = None, errorLog = Some(summary), user, ownerRun, truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
+        .flatMap { won =>
+          afterTerminalWin(runId, "failed", won) {
+            writeLastRun(pipelineId, "failed", now, rowCount = None, user, ownerRun, truncated = Some(false))
+              .flatMap(_ => persistAssertions(runId, assertionResults))
+          }
+        }.map(_ => Some(summary))
     }
     // HEL-1366: terminal event only after the failed status + last-run + assertions are written.
     publishTerminalAfter(pidStr, RunStatusEvent("failed", errorLog = Some(summary), runId = Some(runId.value)), writes())

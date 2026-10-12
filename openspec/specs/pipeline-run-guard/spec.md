@@ -1,9 +1,11 @@
 # pipeline-run-guard Specification
 
 ## Purpose
-Caps how many pipeline runs a single user can submit and have in flight at once, enforced
-globally across every backend instance and every trigger path (manual, hook/external, scheduled,
-and any future automated trigger), so no single user or automated trigger can exhaust compute.
+Caps how many pipeline runs a single submitter can start per window, and how many real runs a
+pipeline's OWNER can have in flight at once (an editor grantee's run counts against the owner's
+budget, not the editor's), enforced globally across every backend instance and every trigger path
+(manual, hook/external, scheduled, and any future automated trigger), so no single user or automated
+trigger can exhaust compute.
 
 ## Requirements
 
@@ -31,7 +33,42 @@ submission. Dry-run submissions count toward this rate limit identically to real
 - **WHEN** a user reached the configured limit in one window and submits again after the next epoch-aligned window boundary (a whole multiple of the configured window duration since the Unix epoch)
 - **THEN** the submission counts against a fresh budget for the new window, even if only seconds have passed since the previous submission
 
-### Requirement: Pipeline-run submission enforces a per-user concurrency cap
+### Requirement: The guard applies uniformly regardless of trigger source
+The system SHALL apply both the rate limit and the concurrency cap identically whether a pipeline
+run was submitted via the manual run-submission API, an external hook trigger, a scheduled
+trigger, a dataset-write auto-run trigger, or any future automated trigger — no trigger path SHALL
+be able to bypass either guard. A dataset-write auto-run MAY be withheld BEFORE submission when a
+read-only pre-check of the same in-flight count shows the owner already at the concurrency cap; that
+withholding consumes no rate slot, is stricter than (never looser than) the guard, and leaves the
+bound on created runs unchanged, because admission still happens only in the guarded submission path.
+
+#### Scenario: A hook-triggered submission is subject to the same guards as a manual one
+- **WHEN** an external hook trigger submits a run for a user already at their rate or concurrency limit
+- **THEN** the submission is rejected exactly as a manual API submission would be
+
+#### Scenario: A scheduled submission is subject to the same guards as a manual one
+- **WHEN** a scheduled trigger fires a run for a user already at their rate or concurrency limit
+- **THEN** the submission is rejected exactly as a manual API submission would be
+
+#### Scenario: An auto-run submission is subject to the same guards as a manual one
+- **WHEN** a dataset-write-triggered auto-run fires for a pipeline whose owner is already at their
+  rate or concurrency limit, whether the debounce window collapsed a burst of writes into one fire
+  or the burst was spread across multiple debounce windows (multiple individual fires)
+- **THEN** each fire is rejected as a manual API submission would be, except that a fire that would
+  hit the owner's concurrency cap may be withheld before submission by a read-only pre-check of the
+  same count, consuming no rate slot; either way no run is created, and the total number of
+  `pipeline_runs` rows created from the burst never exceeds the owner's configured budget
+
+### Requirement: Limits are configurable via environment variable with conservative defaults
+The system SHALL read the rate limit, its window duration, the concurrency cap, and the
+concurrency rejection's advisory `Retry-After` value from environment variables, applying
+documented conservative defaults when unset.
+
+#### Scenario: Defaults apply when env vars are unset
+- **WHEN** the pipeline-run guard's environment variables are not set
+- **THEN** the system applies its documented default rate limit, window duration, concurrency cap, and advisory retry-after value
+
+### Requirement: Pipeline-run submission enforces the pipeline owner's concurrency cap
 The system SHALL reject a real (non-dry) pipeline-run submission with HTTP 429, a `Retry-After`
 header, and a JSON `ErrorResponse` body when the pipeline's owner already has the configured
 maximum number of real runs in flight (not yet completed or failed), counted across every
@@ -70,38 +107,3 @@ documentation for why); they remain subject to the rate limit above.
 #### Scenario: An editor grantee's in-flight real run occupies one of the owner's slots
 - **WHEN** an editor grantee's real run of an owner's pipeline is in flight
 - **THEN** it counts toward that owner's concurrency cap, so the owner can start at most one fewer real run until it completes
-
-### Requirement: The guard applies uniformly regardless of trigger source
-The system SHALL apply both the rate limit and the concurrency cap identically whether a pipeline
-run was submitted via the manual run-submission API, an external hook trigger, a scheduled
-trigger, a dataset-write auto-run trigger, or any future automated trigger — no trigger path SHALL
-be able to bypass either guard. A dataset-write auto-run MAY be withheld BEFORE submission when a
-read-only pre-check of the same in-flight count shows the owner already at the concurrency cap; that
-withholding consumes no rate slot, is stricter than (never looser than) the guard, and leaves the
-bound on created runs unchanged, because admission still happens only in the guarded submission path.
-
-#### Scenario: A hook-triggered submission is subject to the same guards as a manual one
-- **WHEN** an external hook trigger submits a run for a user already at their rate or concurrency limit
-- **THEN** the submission is rejected exactly as a manual API submission would be
-
-#### Scenario: A scheduled submission is subject to the same guards as a manual one
-- **WHEN** a scheduled trigger fires a run for a user already at their rate or concurrency limit
-- **THEN** the submission is rejected exactly as a manual API submission would be
-
-#### Scenario: An auto-run submission is subject to the same guards as a manual one
-- **WHEN** a dataset-write-triggered auto-run fires for a pipeline whose owner is already at their
-  rate or concurrency limit, whether the debounce window collapsed a burst of writes into one fire
-  or the burst was spread across multiple debounce windows (multiple individual fires)
-- **THEN** each fire is rejected as a manual API submission would be, except that a fire that would
-  hit the owner's concurrency cap may be withheld before submission by a read-only pre-check of the
-  same count, consuming no rate slot; either way no run is created, and the total number of
-  `pipeline_runs` rows created from the burst never exceeds the owner's configured budget
-
-### Requirement: Limits are configurable via environment variable with conservative defaults
-The system SHALL read the rate limit, its window duration, the concurrency cap, and the
-concurrency rejection's advisory `Retry-After` value from environment variables, applying
-documented conservative defaults when unset.
-
-#### Scenario: Defaults apply when env vars are unset
-- **WHEN** the pipeline-run guard's environment variables are not set
-- **THEN** the system applies its documented default rate limit, window duration, concurrency cap, and advisory retry-after value

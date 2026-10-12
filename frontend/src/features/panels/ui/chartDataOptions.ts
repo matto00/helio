@@ -16,9 +16,10 @@ import {
   buildTimeMultiSeries,
   buildTimeScatter,
   buildTimeSingleSeries,
-  wantsTimeAxis,
 } from "./chartTimeDataOptions";
-import type { TimeAxisContext } from "./chartTimeDataOptions";
+import type { TimeAxisContext } from "../../../utils/chartTimeAxis";
+import { planAggregateTimeAxis, planTimeAxis } from "../../../utils/chartTimePlan";
+import type { AggregateTimePlan, TimeAxisPlan } from "../../../utils/chartTimePlan";
 
 /** HEL-572 design.md D6 — merges `cursor: "pointer"` onto every series entry
  *  a `buildDataOption` branch returns, applied here (a single post-process
@@ -48,6 +49,7 @@ export function buildDataOption(
   scatterOptions?: ScatterChartOptions,
   histogramOptions?: HistogramChartOptions,
   timeCtx?: TimeAxisContext,
+  timePlan?: TimeAxisPlan,
 ): Partial<EChartsOption> {
   return withPointerCursor(
     buildDataOptionCore(
@@ -58,6 +60,7 @@ export function buildDataOption(
       scatterOptions,
       histogramOptions,
       timeCtx,
+      timePlan,
     ),
     chartType,
   );
@@ -71,6 +74,7 @@ export function buildDataOptionCore(
   scatterOptions?: ScatterChartOptions,
   histogramOptions?: HistogramChartOptions,
   timeCtx?: TimeAxisContext,
+  timePlan?: TimeAxisPlan,
 ): Partial<EChartsOption> {
   if (rawRows.length === 0 || headers.length === 0) return {};
 
@@ -87,22 +91,26 @@ export function buildDataOptionCore(
 
   if (xCol === -1) return {};
 
-  // HEL-1305 — a timestamp x field (declared in the Output's schema) plots on a time axis; every
-  // other case keeps the category-axis branches below untouched.
-  const timeX = wantsTimeAxis(chartType, timeCtx, headers[xCol]);
+  // HEL-1305/HEL-1508 — a timestamp x field (declared in the Output's schema) plots on a time axis,
+  // except a vertical bar repeating an instant, which keeps one bar per row on a category axis over the
+  // plan's instant-ordered rows. `buildChartOption` hands in the plan its footnote is also derived from.
+  const plan = timePlan ?? planTimeAxis(rawRows, headers, fieldMapping, chartType, timeCtx);
+  const timed = plan.kind === "time" ? plan.timed : null;
+  if (plan.kind === "category-fallback") rawRows = plan.ordered;
 
   // Scatter: coordinate pairs [[x, y], ...], optionally with a third `size`
   // dimension (`sizeField` → bubble sizing) and/or grouped into one series per
   // distinct `colorField` value (legend entry per group). HEL-248.
   if (chartType === "scatter" && yCol !== -1) {
-    if (timeX) return buildTimeScatter(rawRows, headers, xCol, yCol, scatterOptions);
+    if (timed) return buildTimeScatter(rawRows, timed, headers, xCol, yCol, scatterOptions);
     const sizeCol = scatterOptions?.sizeField ? headers.indexOf(scatterOptions.sizeField) : -1;
     const colorCol = scatterOptions?.colorField ? headers.indexOf(scatterOptions.colorField) : -1;
 
+    // HEL-1508 — a row with no numeric y draws no point.
+    const plotted = rawRows.filter((r) => !isNaN(parseFloat(r[yCol] ?? "")));
     const toPoint = (r: string[]): number[] => {
       const xVal = parseFloat(r[xCol] ?? "");
-      const yVal = parseFloat(r[yCol] ?? "");
-      const point = [isNaN(xVal) ? 0 : xVal, isNaN(yVal) ? 0 : yVal];
+      const point = [isNaN(xVal) ? 0 : xVal, parseFloat(r[yCol] ?? "")];
       if (sizeCol !== -1) {
         const sizeVal = parseFloat(r[sizeCol] ?? "");
         point.push(isNaN(sizeVal) ? 0 : sizeVal);
@@ -122,7 +130,7 @@ export function buildDataOptionCore(
         series: groups.map((group) => ({
           type: "scatter",
           name: group,
-          data: rawRows.filter((r) => (r[colorCol] ?? "") === group).map(toPoint),
+          data: plotted.filter((r) => (r[colorCol] ?? "") === group).map(toPoint),
           ...(symbolSize ? { symbolSize } : {}),
         })),
       };
@@ -130,7 +138,7 @@ export function buildDataOptionCore(
 
     return {
       series: [
-        { type: "scatter", data: rawRows.map(toPoint), ...(symbolSize ? { symbolSize } : {}) },
+        { type: "scatter", data: plotted.map(toPoint), ...(symbolSize ? { symbolSize } : {}) },
       ],
     };
   }
@@ -160,7 +168,7 @@ export function buildDataOptionCore(
   }
 
   if (seriesCol !== -1 && yCol !== -1) {
-    if (timeX) return buildTimeMultiSeries(rawRows, xCol, yCol, seriesCol, chartType);
+    if (timed) return buildTimeMultiSeries(rawRows, timed, xCol, yCol, seriesCol, chartType);
     // Group rows by unique series-column values, x-values are shared categories
     const allX = [...new Set(rawRows.map((r) => r[xCol] ?? ""))];
     const groups = [...new Set(rawRows.map((r) => r[seriesCol] ?? ""))];
@@ -187,12 +195,12 @@ export function buildDataOptionCore(
   }
 
   if (yCol !== -1) {
-    if (timeX) return buildTimeSingleSeries(rawRows, headers, xCol, yCol, chartType);
-    // Single series: x categories from xCol, y values from yCol
+    if (timed) return buildTimeSingleSeries(timed, headers, xCol, yCol, chartType);
+    // Single series: x categories from xCol, y values from yCol; a non-numeric y is a gap (HEL-1508)
     const categories = rawRows.map((r) => r[xCol] ?? "");
     const values = rawRows.map((r) => {
       const n = parseFloat(r[yCol] ?? "");
-      return isNaN(n) ? 0 : n;
+      return isNaN(n) ? null : n;
     });
     return {
       xAxis: { type: "category", data: categories },
@@ -202,14 +210,14 @@ export function buildDataOptionCore(
   }
 
   // No y mapping — auto-detect numeric columns (skipping xCol)
-  if (timeX) return buildTimeAutoSeries(rawRows, headers, xCol, chartType);
+  if (timed) return buildTimeAutoSeries(rawRows, timed, headers, xCol, chartType);
   const categories = rawRows.map((r) => r[xCol] ?? "");
-  const autoSeries: Array<{ name: string; data: number[] }> = [];
+  const autoSeries: Array<{ name: string; data: Array<number | null> }> = [];
   for (let col = 0; col < headers.length; col++) {
     if (col === xCol) continue;
     const parsed = rawRows.map((r) => parseFloat(r[col] ?? ""));
     if (parsed.some((n) => !isNaN(n))) {
-      autoSeries.push({ name: headers[col], data: parsed.map((n) => (isNaN(n) ? 0 : n)) });
+      autoSeries.push({ name: headers[col], data: parsed.map((n) => (isNaN(n) ? null : n)) });
     }
   }
   if (autoSeries.length === 0) return {};
@@ -229,13 +237,10 @@ export function buildAggregateDataOption(
   aggregate: GroupedAggregate,
   chartType: ChartType,
   timeCtx?: TimeAxisContext,
+  timePlan?: AggregateTimePlan,
 ): Partial<EChartsOption> {
-  if (
-    (chartType === "line" || chartType === "bar") &&
-    wantsTimeAxis(chartType, timeCtx, aggregate.groupBy)
-  ) {
-    return buildTimeAggregate(aggregate, chartType);
-  }
+  const plan = timePlan ?? planAggregateTimeAxis(aggregate, chartType, timeCtx);
+  if (plan.kind === "time") return buildTimeAggregate(aggregate, plan.points, chartType);
   if (chartType === "pie") {
     return {
       series: [

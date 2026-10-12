@@ -19,6 +19,7 @@ import { applyChartOverlay } from "./chartOverlayOption";
 import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { applyReferenceMarks } from "./referenceMarksOption";
 import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
+import { resolveChartPlan } from "../../../utils/chartTimePlan";
 import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
 import {
   applyHeatmapTheme,
@@ -130,31 +131,38 @@ export function buildChartOption({
   // HEL-1178: an absent `appearance.chart` renders with the default chart
   // appearance (what the appearance editor pre-fills) so tooltip/axes/fonts
   // are themed. Render-time only — the stored appearance is never written.
-  const { option: appearanceOption, chartType } = appearanceToEChartsOption(
+  const { option: appearanceOption } = appearanceToEChartsOption(
     appearance?.chart ?? defaultChartAppearance,
     themeTokens,
   );
 
-  const useAggregate =
-    chartAggregate != null && (chartType === "bar" || chartType === "line" || chartType === "pie");
-
-  const timeCtx = {
+  // HEL-1508 — chart type, aggregate-vs-raw and the time-axis decision come from the one resolver
+  // `ChartRenderer` also calls for its "rows not shown" footnote, so the two can never disagree.
+  const plan = resolveChartPlan({
+    appearance,
+    rawRows,
+    headers,
+    fieldMapping,
+    chartAggregate,
+    chartOptions,
     fieldTypes,
-    horizontalBar: chartType === "bar" && chartOptions?.bar?.orientation === "horizontal",
-  };
-  const dataOption = useAggregate
-    ? buildAggregateDataOption(chartAggregate, chartType, timeCtx)
-    : rawRows && rawRows.length > 0 && headers && headers.length > 0
-      ? buildDataOption(
-          rawRows,
-          headers,
-          fieldMapping,
-          chartType,
-          chartOptions?.scatter,
-          chartOptions?.histogram,
-          timeCtx,
-        )
-      : {};
+  });
+  const { chartType, timeCtx } = plan;
+  let dataOption: Partial<EChartsOption> = {};
+  if (plan.source === "aggregate" && chartAggregate) {
+    dataOption = buildAggregateDataOption(chartAggregate, chartType, timeCtx, plan.timePlan);
+  } else if (plan.source === "rows" && rawRows && headers) {
+    dataOption = buildDataOption(
+      rawRows,
+      headers,
+      fieldMapping,
+      chartType,
+      chartOptions?.scatter,
+      chartOptions?.histogram,
+      timeCtx,
+      plan.timePlan,
+    );
+  }
   // The primary plotted instants, read before any overlay joins (it can never change the tooltip).
   const timeInstants = plottedInstants(dataOption);
 

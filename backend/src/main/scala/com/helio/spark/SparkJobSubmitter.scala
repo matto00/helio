@@ -6,7 +6,7 @@ import com.helio.domain.engine.{NodeKey, PipelineExecutionBackend, PipelineExecu
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DataSourceId, DatasetSource, Pipeline, PipelineRunId, PipelineStep, TruncationSink, WriteBackSink}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository}
-import com.helio.services.pipelines.{PipelineRunService, TriggerSource}
+import com.helio.services.pipelines.{LiveRunTracker, PipelineRunService, TriggerSource}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types._
 import org.slf4j.LoggerFactory
@@ -23,7 +23,9 @@ class SparkJobSubmitter(
     masterUrl: String,
     dataSourceRepo: DataSourceRepository,
     pipelineRepo: PipelineRepository,
-    pipelineRunRepo: PipelineRunRepository = null
+    pipelineRunRepo: PipelineRunRepository = null,
+    // HEL-1511: nullable-optional -- when wired, a submitted run is registered for heartbeat stamping until it ends.
+    liveRunTracker: LiveRunTracker = null
 )(implicit ec: ExecutionContext)
     extends PipelineExecutionBackend {
 
@@ -68,6 +70,7 @@ class SparkJobSubmitter(
     if (pipelineRunRepo != null) {
       pipelineRunRepo.insertRunInternal(runId, pipeline.id, startedAt, TriggerSource.Manual)
       pipelineRunRepo.deleteOldRunsInternal(pipeline.id)
+      if (liveRunTracker != null) liveRunTracker.register(runId)
     }
 
     Future {
@@ -112,6 +115,8 @@ class SparkJobSubmitter(
               // never NULL.
               pipelineRunRepo.updateRunTerminalInternal(runId, RunStatus.Failed, now, rowCount = None, errorLog = Some(errorMsg), truncatedReadsJson = Some(PipelineRunService.EmptyTruncationJson))
             }
+        } finally {
+          if (liveRunTracker != null) liveRunTracker.deregister(runId)
         }
       }
     }(sparkEc)

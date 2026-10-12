@@ -40,6 +40,7 @@ function renderFields(overrides: {
       scatter={{}}
       onScatterChange={noop}
       fieldOptions={[
+        { value: "", label: "— None —" },
         { value: "population", label: "population" },
         { value: "region", label: "region" },
       ]}

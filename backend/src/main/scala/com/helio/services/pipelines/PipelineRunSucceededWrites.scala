@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.api.protocols.pipelines.TruncatedReadResponse
 import com.helio.api.routes.pipelines.RunStatusEvent
-import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId}
+import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, DataFieldType, DataSourceId, Output, PipelineId, PipelineRootId, PipelineRunId, UserId}
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}
@@ -38,7 +38,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
   import support.truncatedReadsToJson
-  import terminal.{persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
+  import terminal.{afterTerminalWin, persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
 
   /** HEL-1271: the run's Output configs in ONE query (privileged read; `outputs` was already
    *  ACL-scoped by `listByPipelineInternal`), needed only by the history summary. Empty when no
@@ -64,7 +64,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
       triggerSource:      String,
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
-      truncatedReads:     Vector[TruncatedReadResponse]
+      truncatedReads:     Vector[TruncatedReadResponse],
+      pipelineOwnerId:    UserId
   ): Future[Option[String]] = {
     def writesChain(): Future[Option[String]] = {
       val now = Instant.now()
@@ -227,13 +228,19 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
       // `status` on both tables.
       val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
-      val updateMeta = writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
+      // HEL-1511 (design.md D4): `last_run_*` is written only when this run's terminal write won, so a run that was
+      // reaped between the executor's open-check and here never overwrites the pipeline's last-run fields.
       val updateRun =
         writeTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, ownerRun, truncatedReadsJson = Some(truncatedReadsJson))
+      val updateMeta = updateRun.flatMap { won =>
+        afterTerminalWin(runId, "succeeded", won) {
+          writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
+        }
+      }
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
       // `pipeline_runs` row exists before this real-run success path runs —
       // no ordering constraint here (unlike `PipelineRunTerminalWrites.onDryRunSuccess`).
-      val assertionsInsert = persistAssertions(runId, assertionResults)
+      val assertionsInsert = updateRun.flatMap(won => afterTerminalWin(runId, "succeeded", won)(persistAssertions(runId, assertionResults)))
       // HEL-462 (design D4): best-effort schema-drift baseline capture — the
       // current source schema (same derivation `PipelineService.analyze` uses)
       // becomes the new `last_source_schema` baseline. Only real, non-dry
@@ -244,11 +251,16 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // `inferredSchema` (mirroring `PipelineService.analyze`'s own
       // rewiring, see task 4.3) instead of the retired
       // `dataTypeRepo.findBySourceId` -> `deriveSourceSchema` path.
+      // HEL-1503 (design.md D1/D2): the source is read as the PIPELINE OWNER sees it (what the owner's analyze compares
+      // against), whoever submitted; the write follows the run's persistence mode -- owner-scoped for the owner's own
+      // run, privileged for an editor's admitted run (its owner-scoped write would touch 0 rows).
       val baselineUpsert: Future[Unit] =
-        dataSourceRepo.findByIdOwned(sourceDataSourceId, user)
+        dataSourceRepo.findByIdOwnedByInternal(sourceDataSourceId, pipelineOwnerId)
           .map(_.map(_.inferredSchema).getOrElse(Vector.empty))
           .flatMap { schema =>
-            pipelineRepo.updateLastSourceSchema(pipelineId, schema.toJson.compactPrint, user)
+            val json = schema.toJson.compactPrint
+            if (ownerRun) pipelineRepo.updateLastSourceSchema(pipelineId, json, user)
+            else pipelineRepo.updateLastSourceSchemaInternal(pipelineId, json)
           }
           .recoverWith { case ex =>
             log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
@@ -258,8 +270,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
           _ <- materializedWrites
           _ <- binaryRefsUpsert
           _ <- alertEvaluation
-          _ <- updateMeta
           _ <- updateRun
+          _ <- updateMeta
           _ <- assertionsInsert
           _ <- baselineUpsert
         } yield None

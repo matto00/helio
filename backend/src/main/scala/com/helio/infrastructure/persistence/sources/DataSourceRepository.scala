@@ -182,6 +182,17 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ).map(_.map(rowToDomain))
   }
 
+  /** HEL-1503 (design.md D2): `findByIdOwned` as the given OWNER sees the source, without impersonating the owner's
+    * session. System context; the explicit `owner_id` filter reproduces the owner's own view, so a source the owner
+    * does not own reads as `None`. Used by the schema-drift baseline capture, which must store what the pipeline
+    * owner's analyze compares against whoever submitted the run. */
+  def findByIdOwnedByInternal(id: DataSourceId, ownerId: UserId): Future[Option[DataSource]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    // withSystemContext: the run is already authorized (admitted), and the owner_id filter below is the owner's view.
+    ctx.withSystemContext(table.filter(r => r.id === id.value && r.ownerId === ownerUuid).result.headOption)
+      .map(_.map(rowToDomain))
+  }
+
   /** HEL-1092 design.md D7: grouped row count for a set of `dataset`-kind sources, for
    *  `PipelineCostEstimator`'s row estimate. One `count(*) ... GROUP BY data_source_id` over
    *  `dataset_rows` rather than N single-source queries. A source with zero rows (or not present
