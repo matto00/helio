@@ -1,0 +1,5 @@
+- `frontend/src/features/panels/ui/heatmapHistogramOptions.ts` — font-relative show-all label helpers (lineHeight, 0.6em x margin, showsEveryCategoryLabel)
+- `frontend/src/features/panels/ui/buildChartOption.ts` — wires show-all labels into heatmap x/y and histogram x; compact path recomputes lineHeight and margin for 10px
+- `frontend/src/features/panels/ui/buildChartOption.categoryAxisLabels.test.ts` — unit tests for normal/compact/other-chart axis labels
+- `frontend/src/features/panels/ui/chartUnchangedPath.main.snapshot.json` — heatmap and histogram entries only (axisLabel show-all keys)
+- `e2e/hel1512-category-axis-labels.spec.ts` — e2e: 7/7 days, 10/10 bins, font-relative gap floors, no overlap, light/dark 1440/375
