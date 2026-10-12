@@ -69,7 +69,7 @@ function alignByInstant(primary: TimePoint[], overlay: ChartOverlay): TimePoint[
 }
 
 /** HEL-1277 design D8 — appends the labelled "vs" series to a built single-series line/bar option.
- *  Ignored (option returned unchanged) for pie/scatter, a multi-series primary, a non-category x
+ *  Ignored (option returned unchanged) for any chart type other than line/bar (pie, scatter, heatmap, histogram), a multi-series primary, a non-category x
  *  or time x axis (horizontal bars move the category axis to y), normalized stacking (the primary
  *  became percent shares on a 0-100 axis), or when no primary x matches an overlay point. Overlay
  *  values align to the primary categories by `String(x)` (first occurrence); on a time axis (HEL-1305)
