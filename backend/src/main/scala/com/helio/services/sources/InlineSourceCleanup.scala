@@ -11,38 +11,19 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Deletes the implicit "Auto: <source name>" Connector that `SourceService.createRest` synthesizes for a bare-`url`
- *  REST source (HEL-822), once the source it was made for is gone. Two independent safeguards keep it from ever
- *  deleting a Connector it did not create: the name must be exactly `Auto: <source name>`, and the delete goes
- *  through the dependents-guarded `ConnectorRepository.delete` with the REAL referencing-source count (never the
- *  repository's always-zero default), so a Connector another source still references is refused and kept.
+ *  REST source (HEL-822), once the source it was made for is gone. ONE rule decides it everywhere (HEL-1497, unified
+ *  by HEL-1505): the server-owned `implicit` flag AND the `Auto: ` name prefix AND zero real referencing sources
+ *  (the REAL count, never the repository's always-zero default), owner-scoped.
  *
- *  Never throws: every failure is logged (ids and the error message only) and reported as `false`, so a cleanup
- *  can never replace the error that triggered it. A deliberate keep (name mismatch, still referenced, already gone)
- *  is not a failure and reports `true`. */
+ *  Never throws: every failure is logged (ids, context, exception class and SQLSTATE only) and reported as `false`,
+ *  so a cleanup can never replace the error that triggered it. A deliberate keep (not auto-created, still
+ *  referenced, already gone) is not a failure and reports `true`. */
 private[services] final class ImplicitConnectorCleanup(
     dataSourceRepo: DataSourceRepository,
     connectorRepo: ConnectorRepository
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[ImplicitConnectorCleanup])
-
-  def deleteIfAuto(connectorId: ConnectorId, sourceName: String, user: AuthenticatedUser, context: String): Future[Boolean] =
-    Future.unit.flatMap(_ => connectorRepo.findByIdOwned(connectorId, user)).flatMap {
-      case None => Future.successful(true)
-      case Some(connector) if connector.name != ImplicitConnectorCleanup.autoName(sourceName) =>
-        log.warn(s"$context kept connector ${connectorId.value}: its name is not the implicit-Connector name for the deleted source")
-        Future.successful(true)
-      case Some(_) =>
-        connectorRepo.delete(connectorId, user, id => dataSourceRepo.countRestSourcesReferencing(id)).map {
-          case Right(_) => true
-          case Left(ConnectorHasDependents) =>
-            log.info(s"$context kept connector ${connectorId.value}: another source still references it")
-            true
-        }
-    }.recover { case ex =>
-      log.warn(s"$context failed to delete implicit connector ${connectorId.value}: ${ex.getMessage}")
-      false
-    }
 
   /** HEL-1497: removes the Connector a deleted `rest_api` source pointed at, only when it is an UNADOPTED
    *  auto-created one: the server-owned `config.implicit` flag is true AND the name still starts with `Auto: `
@@ -68,11 +49,7 @@ private[services] final class ImplicitConnectorCleanup(
               true
           }
     }.recover { case ex =>
-      val sqlState = ex match {
-        case p: PSQLException => s" sqlstate=${p.getSQLState}"
-        case _                => ""
-      }
-      log.warn(s"$context failed to delete unadopted connector ${connectorId.value}: ${ex.getClass.getSimpleName}$sqlState")
+      log.warn(s"$context failed to delete unadopted connector ${connectorId.value}: ${ImplicitConnectorCleanup.describeFailure(ex)}")
       false
     }
 }
@@ -81,7 +58,15 @@ private[services] object ImplicitConnectorCleanup {
   /** The name prefix `SourceService.createRest` gives a synthesized Connector (HEL-822). */
   val AutoPrefix: String = "Auto: "
 
-  def autoName(sourceName: String): String = s"$AutoPrefix$sourceName"
+  /** The only description of an exception a cleanup log line may carry: its class and, for a database error, the
+   *  SQLSTATE. Never the message, which can embed a row value (PSQL `DETAIL`), a config or a credential. */
+  def describeFailure(ex: Throwable): String = {
+    val sqlState = ex match {
+      case p: PSQLException => s" sqlstate=${p.getSQLState}"
+      case _                => ""
+    }
+    s"${ex.getClass.getSimpleName}$sqlState"
+  }
 }
 
 /** The shared "delete what this call created" step for an inline pipeline-root source (HEL-1475): deletes the source
@@ -117,11 +102,11 @@ private[services] final class InlineSourceCleanup(
           Future.successful(false)
         case Right(_) =>
           captured match {
-            case Some((connectorId, sourceName)) => connectorCleanup.deleteIfAuto(connectorId, sourceName, user, context)
-            case None                            => Future.successful(true)
+            case Some(connectorId) => connectorCleanup.deleteIfUnadoptedImplicit(connectorId, user, context)
+            case None              => Future.successful(true)
           }
       }.recover { case ex =>
-        log.warn(s"$context failed to delete inline source ${id.value}: ${ex.getMessage}")
+        log.warn(s"$context failed to delete inline source ${id.value}: ${ImplicitConnectorCleanup.describeFailure(ex)}")
         false
       }
     }
@@ -135,8 +120,8 @@ private[services] final class InlineSourceCleanup(
       case None => Future.successful(InlineSourceDeleteResult.AlreadyGone)
       case Some(source) =>
         val name = Some(source.name)
-        val captured: Option[(ConnectorId, String)] = source match {
-          case r: RestSource if implicitConnector && connectorCleanup != null => Some((ConnectorId(r.config.connectorId), r.name))
+        val captured: Option[ConnectorId] = source match {
+          case r: RestSource if implicitConnector && connectorCleanup != null => Some(ConnectorId(r.config.connectorId))
           case _                                                              => None
         }
         if (implicitConnector && connectorCleanup == null)
@@ -152,32 +137,32 @@ private[services] final class InlineSourceCleanup(
             }
           case Right(_) =>
             val connectorStep = captured match {
-              case Some((connectorId, sourceName)) => connectorCleanup.deleteIfAuto(connectorId, sourceName, user, context)
-              case None                            => Future.successful(true)
+              case Some(connectorId) => connectorCleanup.deleteIfUnadoptedImplicit(connectorId, user, context)
+              case None              => Future.successful(true)
             }
             connectorStep.map(_ => InlineSourceDeleteResult.Removed(name))
         }.recover { case ex =>
-          log.warn(s"$context failed to delete inline source ${id.value}: ${ex.getMessage}")
+          log.warn(s"$context failed to delete inline source ${id.value}: ${ImplicitConnectorCleanup.describeFailure(ex)}")
           InlineSourceDeleteResult.Failed(name)
         }
     }
     outcome.recover { case ex =>
-      log.warn(s"$context failed to delete inline source ${id.value}: ${ex.getMessage}")
+      log.warn(s"$context failed to delete inline source ${id.value}: ${ImplicitConnectorCleanup.describeFailure(ex)}")
       InlineSourceDeleteResult.Failed(None)
     }
   }
 
-  private def captureImplicitConnector(id: DataSourceId, implicitConnector: Boolean, user: AuthenticatedUser, context: String): Future[Option[(ConnectorId, String)]] =
+  private def captureImplicitConnector(id: DataSourceId, implicitConnector: Boolean, user: AuthenticatedUser, context: String): Future[Option[ConnectorId]] =
     if (!implicitConnector) Future.successful(None)
     else if (connectorCleanup == null) {
       log.warn(s"$context cannot delete the implicit connector of source ${id.value}: no connector repository configured")
       Future.successful(None)
     } else
       Future.unit.flatMap(_ => dataSourceRepo.findByIdOwned(id, user)).map {
-        case Some(r: RestSource) => Some((ConnectorId(r.config.connectorId), r.name))
+        case Some(r: RestSource) => Some(ConnectorId(r.config.connectorId))
         case _                   => None
       }.recover { case ex =>
-        log.warn(s"$context could not read source ${id.value} to find its implicit connector: ${ex.getMessage}")
+        log.warn(s"$context could not read source ${id.value} to find its implicit connector: ${ImplicitConnectorCleanup.describeFailure(ex)}")
         None
       }
 }

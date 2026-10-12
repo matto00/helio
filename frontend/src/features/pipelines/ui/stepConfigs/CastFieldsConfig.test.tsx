@@ -66,4 +66,77 @@ describe("CastFieldsConfig", () => {
 
     expect(onChange).toHaveBeenCalledWith("amount", "");
   });
+
+  // HEL-1476: the picker offers exactly the backend's supported targets and shows a stored
+  // unsupported one as itself (read-only), not as "keep as is".
+  it("RED: offers all nine backend-supported targets plus keep-as-is", () => {
+    render(<CastFieldsConfig columns={["amount"]} casts={{}} onChange={jest.fn()} />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Target type for amount" }));
+
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "— keep as is —",
+      "string",
+      "integer",
+      "long",
+      "float",
+      "double",
+      "number",
+      "boolean",
+      "date",
+      "timestamp",
+    ]);
+  });
+
+  it("RED: shows a stored unsupported target as itself, not as keep as is", () => {
+    render(
+      <CastFieldsConfig
+        columns={["blob", "other"]}
+        casts={{ blob: "binary-ref" }}
+        onChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Target type for blob" })).toHaveTextContent(
+      "binary-ref (unsupported)",
+    );
+    expect(screen.getByRole("combobox", { name: "Target type for blob" })).not.toHaveTextContent(
+      "keep as is",
+    );
+  });
+
+  it("offers the unsupported value only on its own row, disabled, and replaces it on selection", () => {
+    const onChange = jest.fn();
+    render(
+      <CastFieldsConfig
+        columns={["blob", "other"]}
+        casts={{ blob: "binary-ref" }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Target type for other" }));
+    expect(screen.queryByRole("option", { name: /unsupported/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Target type for other" }), {
+      key: "Escape",
+    });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Target type for blob" }));
+    expect(screen.getByRole("option", { name: "binary-ref (unsupported)" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    fireEvent.click(screen.getByRole("option", { name: "timestamp" }));
+    expect(onChange).toHaveBeenCalledWith("blob", "timestamp");
+  });
+
+  it("treats a stored empty-string target as keep as is (no unsupported option)", () => {
+    render(<CastFieldsConfig columns={["blob"]} casts={{ blob: "" }} onChange={jest.fn()} />);
+
+    expect(screen.getByRole("combobox", { name: "Target type for blob" })).toHaveTextContent(
+      "keep as is",
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Target type for blob" }));
+    expect(screen.queryByRole("option", { name: /unsupported/ })).not.toBeInTheDocument();
+  });
 });

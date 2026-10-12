@@ -20,7 +20,8 @@ import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.SystemMaterializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.util.ByteString
 import org.flywaydb.core.Flyway
 import org.scalatest.BeforeAndAfterAll
@@ -29,6 +30,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.JdbcBackend
 import spray.json._
 
+import java.io.{ByteArrayOutputStream, IOException}
+import java.net.Socket
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration.DurationInt
@@ -111,6 +115,88 @@ class CsvUploadLimitsRoutesSpec
     } finally Await.result(binding.unbind(), 10.seconds)
   }
 
+  /** HEL-1505 (the `Broken pipe` flake): the server rejects an over-cap body with `413` + `Connection: close` as soon
+   *  as the cap is crossed, while a client is still writing the rest. `Http().singleRequest` can then see the write
+   *  fail before it has processed the `413` that already arrived (a Pekko client-internal ordering race, never
+   *  reproduced locally), so the 413 cases that go through a real server use this raw-socket client instead: a reader
+   *  thread is started BEFORE any write and keeps the response bytes whatever happens to the writer, a write that fails
+   *  because the server already closed is the expected outcome rather than an error, and the socket is closed only
+   *  after the reader has finished. This relies on Linux keeping response bytes that arrived before an RST readable.
+   *
+   *  With `gateOnServerClose` the writer sends only the part of the body that crosses the cap, then WAITS (bounded) for
+   *  the server to terminate the connection before writing the rest: the write-after-close ordering, forced without
+   *  sleeps. `tolerant = false` is the naive client (write everything, then read), kept to prove the premise. */
+  private def postOverHttpExpectingEarlyClose(
+      route: Route,
+      path: String,
+      form: Multipart.FormData,
+      gateOnServerClose: Boolean = false,
+      tolerant: Boolean = true
+  ): (StatusCode, String) = {
+    val mat        = SystemMaterializer(typedSystem).materializer
+    val terminated = Promise[Unit]()
+    val serverFlow = Route.toFlow(Route.seal(route))(typedSystem.classicSystem)
+      .watchTermination()((m, done) => { done.onComplete(_ => terminated.trySuccess(()))(typedSystem.executionContext); m })
+    val (bindingF, _) = Http(typedSystem.classicSystem).newServerAt("localhost", 0).connectionSource()
+      .toMat(Sink.foreach[Http.IncomingConnection](_.handleWith(serverFlow)))(Keep.both).run()(mat)
+    val binding = Await.result(bindingF, 10.seconds)
+    try {
+      val entity = Await.result(Marshal(form).to[RequestEntity].flatMap(_.toStrict(30.seconds)), 60.seconds)
+      val body   = Await.result(entity.dataBytes.runFold(ByteString.empty)(_ ++ _)(mat), 30.seconds).toArray
+      val head   = s"POST $path HTTP/1.1\r\nHost: localhost:${binding.localAddress.getPort}\r\nContent-Type: ${entity.contentType}\r\n" +
+        s"Content-Length: ${body.length}\r\nConnection: close\r\n\r\n"
+      val socket = new Socket("localhost", binding.localAddress.getPort)
+      try {
+        socket.setSoTimeout(30000)
+        val received = new ByteArrayOutputStream()
+        val reader = new Thread(() => {
+          val in  = socket.getInputStream
+          val buf = new Array[Byte](65536)
+          try {
+            var n = in.read(buf)
+            while (n >= 0) { received.synchronized(received.write(buf, 0, n)); n = in.read(buf) }
+          } catch { case _: IOException => () } // reset or timeout: keep whatever arrived before it
+        })
+        if (tolerant) reader.start()
+        val out = socket.getOutputStream
+        try {
+          out.write(head.getBytes(StandardCharsets.US_ASCII))
+          val prefixLength = if (gateOnServerClose) math.min(body.length, (CsvLimits.entityLimitBytes + 65536).toInt) else body.length
+          out.write(body, 0, prefixLength); out.flush()
+          if (gateOnServerClose) {
+            Await.result(terminated.future, 30.seconds) // bounded: a server that drains instead of closing fails here, not hangs
+            out.write(body, prefixLength, body.length - prefixLength); out.flush()
+          }
+        } catch { case _: IOException if tolerant => () } // the server closed first: expected
+        if (tolerant) { reader.join(35000); reader.isAlive shouldBe false }
+        else reader.run()
+        parseHttpResponse(received.synchronized(received.toByteArray))
+      } finally socket.close()
+    } finally Await.result(binding.unbind(), 10.seconds)
+  }
+
+  private def parseHttpResponse(bytes: Array[Byte]): (StatusCode, String) = {
+    val text     = new String(bytes, StandardCharsets.UTF_8)
+    val split    = text.indexOf("\r\n\r\n")
+    withClue(s"no complete HTTP response head was received (${bytes.length} bytes): ") { split should be >= 0 }
+    val statusLine = text.substring(0, text.indexOf("\r\n")).split(" ")
+    (StatusCode.int2StatusCode(statusLine(1).toInt), text.substring(split + 4))
+  }
+
+  /** A 25 MiB pdf: over the largest non-CSV cap, so the server rejects it mid-body. */
+  private def pdfOverCapForm(): Multipart.FormData = {
+    val body = Array.fill(25 * 1024 * 1024)('a'.toByte)
+    Multipart.FormData(
+      Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "pdf")),
+      Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "big-pdf")),
+      Multipart.FormData.BodyPart.Strict(
+        "file",
+        HttpEntity(ContentType(MediaTypes.`application/pdf`), ByteString.fromArrayUnsafe(body)),
+        Map("filename" -> "big.pdf")
+      )
+    )
+  }
+
   private def messageOf(body: String): String = body.parseJson.asJsObject.fields("message").convertTo[String]
 
   private def errorMessage: String = responseAs[String].parseJson.asJsObject.fields("message").convertTo[String]
@@ -131,7 +217,7 @@ class CsvUploadLimitsRoutesSpec
 
     "return 413 naming the limits when the entity exceeds the byte limit plus multipart margin" in {
       val tooBig = Array.fill((CsvLimits.entityLimitBytes + 1024).toInt)('a'.toByte)
-      val (status, body) = postOverHttp(routes(), "/api/data-sources/infer", csvUpload(tooBig))
+      val (status, body) = postOverHttpExpectingEarlyClose(routes(), "/api/data-sources/infer", csvUpload(tooBig))
       status shouldBe StatusCodes.RequestEntityTooLarge
       messageOf(body) should (include(CsvLimits.maxBytes.toString) and include(CsvLimits.maxRows.toString) and include(CsvLimits.maxCells.toString))
     }
@@ -176,7 +262,7 @@ class CsvUploadLimitsRoutesSpec
 
     "return 413 when the entity exceeds the limit, never 500" in {
       val tooBig = Array.fill((CsvLimits.entityLimitBytes + 1024).toInt)('a'.toByte)
-      val (status, body) = postOverHttp(routes(), "/api/data-sources", csvUpload(tooBig, Some("too-big")))
+      val (status, body) = postOverHttpExpectingEarlyClose(routes(), "/api/data-sources", csvUpload(tooBig, Some("too-big")))
       status shouldBe StatusCodes.RequestEntityTooLarge
       messageOf(body) should include(CsvLimits.maxBytes.toString)
     }
@@ -190,19 +276,21 @@ class CsvUploadLimitsRoutesSpec
     }
 
     "return 413, not 500, for a pdf upload over the largest non-CSV cap without buffering the whole entity" in {
-      val body = Array.fill(25 * 1024 * 1024)('a'.toByte)
-      val form = Multipart.FormData(
-        Multipart.FormData.BodyPart.Strict("type", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "pdf")),
-        Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "big-pdf")),
-        Multipart.FormData.BodyPart.Strict(
-          "file",
-          HttpEntity(ContentType(MediaTypes.`application/pdf`), ByteString.fromArrayUnsafe(body)),
-          Map("filename" -> "big.pdf")
-        )
-      )
-      val (status, text) = postOverHttp(routes(), "/api/data-sources", form)
+      val (status, text) = postOverHttpExpectingEarlyClose(routes(), "/api/data-sources", pdfOverCapForm())
       status shouldBe StatusCodes.RequestEntityTooLarge
       messageOf(text) should not be empty
+    }
+
+    "return 413 for the pdf over the cap even when the rest of the body is written after the server closed (forced ordering)" in {
+      val (status, text) = postOverHttpExpectingEarlyClose(routes(), "/api/data-sources", pdfOverCapForm(), gateOnServerClose = true)
+      status shouldBe StatusCodes.RequestEntityTooLarge
+      messageOf(text) should not be empty
+    }
+
+    "premise guard: a naive write-everything-then-read client hits Broken pipe on the same pdf request" in {
+      val failure = the[IOException] thrownBy
+        postOverHttpExpectingEarlyClose(routes(), "/api/data-sources", pdfOverCapForm(), tolerant = false)
+      failure.getMessage should include("Broken pipe")
     }
 
     "return 413 for an oversized metadata part instead of buffering it" in {
@@ -210,7 +298,7 @@ class CsvUploadLimitsRoutesSpec
         Multipart.FormData.BodyPart.Strict("name", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "x" * (2 * 1024 * 1024))),
         Multipart.FormData.BodyPart.Strict("file", HttpEntity(ContentTypes.`text/plain(UTF-8)`, "a\n1\n"))
       )
-      postOverHttp(routes(), "/api/data-sources", form)._1 shouldBe StatusCodes.RequestEntityTooLarge
+      postOverHttpExpectingEarlyClose(routes(), "/api/data-sources", form)._1 shouldBe StatusCodes.RequestEntityTooLarge
     }
 
     "leave JSON requests on the default entity limit and outside the upload gate" in {

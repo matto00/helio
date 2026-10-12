@@ -29,12 +29,15 @@ object ConvertFormatConfig {
    *  cross-field ("defaults to `field`"), which spray-json's per-field default mechanism cannot
    *  express -- mirrors [[UpsertSourceConfig]]'s own `read` delegating to `decode`. */
   implicit val format: RootJsonFormat[ConvertFormatConfig] = new RootJsonFormat[ConvertFormatConfig] {
+    // HEL-1476 D2: an empty `from`/`to` is OMITTED, not written as `""`. `decode` reads an absent key
+    // as `""` (typed value unchanged), and a present `""`/`""` pair is what `pairError` rejects -- so
+    // the frontend's `{"field":""}` draft re-encodes to itself and stays duplicable.
     def write(c: ConvertFormatConfig): JsValue =
       JsObject(
-        "field"       -> JsString(c.field),
-        "from"        -> JsString(c.from),
-        "to"          -> JsString(c.to),
-        "outputField" -> JsString(c.outputField)
+        Map("field" -> JsString(c.field)) ++
+          Option.when(c.from.nonEmpty)("from" -> JsString(c.from)) ++
+          Option.when(c.to.nonEmpty)("to" -> JsString(c.to)) +
+          ("outputField" -> JsString(c.outputField))
       )
     def read(json: JsValue): ConvertFormatConfig = decode(json.compactPrint)
   }

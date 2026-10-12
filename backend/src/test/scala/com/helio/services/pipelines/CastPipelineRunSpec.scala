@@ -113,5 +113,15 @@ class CastPipelineRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       rows.map(_.fields("id")) shouldBe Vector(JsString("1"))
       rows.head.fields("amount") shouldBe JsNumber(1.5)
     }
+
+    // HEL-1476 task 4.3 (ticket point 4): the legacy-target passthrough, through the real submit path.
+    "GUARD: a directly-stored legacy-target cast (binary-ref) runs through submit and passes every value through unchanged" in {
+      val pid  = seedCsvPipeline()
+      val step = await(stepRepo.insertInternal(
+        pid, "cast", CastConfig(Map("amount" -> "binary-ref", "when" -> "string-body")), enabled = true, None, explicitRootId = None)).id
+      val rows = runAndRead(pid, step).sortBy(_.fields("id").compactPrint)
+      rows.map(_.fields("amount")) shouldBe Vector(JsString("1.50"), JsString("2.25"), JsString("x"))
+      rows.map(_.fields("when")) shouldBe Vector(JsString("2026-03-14T09:30:00Z"), JsString("tomorrow"), JsString("03/14/2026"))
+    }
   }
 }
