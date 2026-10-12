@@ -108,14 +108,13 @@ it.
 
 ## Risks / Trade-offs
 
-- [hideOverlap drops labels irregularly on narrow screens] -> acceptable: no overlap is the requirement; the 375 view
-  is verified visually in both themes.
-- [Heatmap y labels long enough to eat grid width under containLabel] -> unchanged by this change (interval only).
+- [Axis-label thinning left as on main] -> by owner ruling; showing every label that fits is split to HEL-1512, so
+  heatmap/histogram labels still thin automatically on narrow charts exactly as before.
 - [HEL-1464 merges first and conflicts in the e2e spec / test file] -> re-sync with origin/main before PR; resolve
   keeping both (its accessible-name rename, our 43.5 + settle).
 - [Shared dev DB / browser] -> e2e and manual probes run as a throwaway `@example.test` user per agent.
 
 ## Planner Notes
 
-- Self-approved: hint copy wording (D3); `interval: 0` + `hideOverlap` over rotation (D1); precision rule (D2).
+- Self-approved: hint copy wording (D3); precision rule (D2). D1 (axis-label thinning) is the owner's ruling: unchanged from main, show-all split to HEL-1512.
 - ECharts cannot parse `color-mix()`; no colour changes are planned — if any arise, use hex-resolvable tokens.

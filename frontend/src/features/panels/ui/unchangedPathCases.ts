@@ -1,6 +1,7 @@
 // HEL-1305 -- the input matrix behind the unchanged-path GUARD (`buildChartOption.unchangedPath.test.ts`).
 // `chartUnchangedPath.main.snapshot.json` holds the options main (3eb0cc893) built for exactly these
-// inputs, functions masked as "__fn__"; regenerate it only from the pre-change tree.
+// inputs, functions masked as "__fn__"; regenerate it only from the pre-change tree. Its histogram entry
+// carries HEL-1487's one-precision bin labels ("1.0 to 3.7"), the only deliberate difference from main.
 import type { BuildArgs } from "./timeAxisTestSupport";
 import type { ChartType } from "../../../utils/chartAppearance";
 

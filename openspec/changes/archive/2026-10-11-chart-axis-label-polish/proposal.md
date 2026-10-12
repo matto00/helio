@@ -17,8 +17,8 @@ and an e2e touch-target check was loosened to 43px because it measured mid-anima
 ### New Capabilities
 
 ### Modified Capabilities
-- `heatmap-histogram-charts`: histogram bin labels gain a consistent-precision rule; heatmap/histogram category axes
-  the heatmap editor hint must describe summing.
+- `heatmap-histogram-charts`: histogram bin labels gain a consistent-precision rule; the heatmap editor hint must
+  describe summing.
 
 ## Owner ruling: axis-label thinning is not changed
 
