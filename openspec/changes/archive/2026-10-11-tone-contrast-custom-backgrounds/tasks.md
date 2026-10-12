@@ -14,5 +14,5 @@
 ## 2. Tests and verification
 
 - [x] 2.1 `npm test`, `npm run lint`, `npm run typecheck`, `npm run format:check` green with no new `eslint-disable`
-- [ ] 2.2 (evaluator) Running app: light, dark and saturated custom backgrounds, both themes, 1440 and 375; computed-style contrast table for tone text (surface + own wash), tone mark on a different tone's cell wash, delta, unit, label
+- [x] 2.2 (evaluator) Running app: light, dark and saturated custom backgrounds, both themes, 1440 and 375; computed-style contrast table for tone text (surface + own wash), tone mark on a different tone's cell wash, delta, unit, label
 - [x] 2.3 Default panel regression: computed colours equal the theme tokens, no inline `--panel-tone-*`
