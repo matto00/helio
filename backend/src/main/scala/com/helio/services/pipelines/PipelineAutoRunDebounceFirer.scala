@@ -85,7 +85,7 @@ private[pipelines] final class PipelineAutoRunDebounceFirer(
                 log.warn("Dropping pending auto-run for pipeline {} (owner {}): rejected by the pipeline-run guard ({}) after {} re-attempts",
                   pipelineId.value, ownerId.value, reason, attempts)
               case RearmOutcome.Superseded =>
-                log.debug("Auto-run for pipeline {} superseded by a fresh write while being re-armed", pipelineId.value)
+                log.debug("Auto-run for pipeline {}: claim token no longer matches (a fresh write re-armed the row, or another instance took over a stale claim)", pipelineId.value)
             }
         }
     }

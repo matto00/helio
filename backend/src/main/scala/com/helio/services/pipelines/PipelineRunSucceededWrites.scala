@@ -38,7 +38,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
   import support.truncatedReadsToJson
-  import terminal.{persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
+  import terminal.{afterTerminalWin, persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
 
   /** HEL-1271: the run's Output configs in ONE query (privileged read; `outputs` was already
    *  ACL-scoped by `listByPipelineInternal`), needed only by the history summary. Empty when no
@@ -228,13 +228,19 @@ private[pipelines] final class PipelineRunSucceededWrites(
       // value -- `[]` when nothing was truncated -- written in the SAME statement as `rowCount`/
       // `status` on both tables.
       val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
-      val updateMeta = writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
+      // HEL-1511 (design.md D4): `last_run_*` is written only when this run's terminal write won, so a run that was
+      // reaped between the executor's open-check and here never overwrites the pipeline's last-run fields.
       val updateRun =
         writeTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, ownerRun, truncatedReadsJson = Some(truncatedReadsJson))
+      val updateMeta = updateRun.flatMap { won =>
+        afterTerminalWin(runId, "succeeded", won) {
+          writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
+        }
+      }
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
       // `pipeline_runs` row exists before this real-run success path runs —
       // no ordering constraint here (unlike `PipelineRunTerminalWrites.onDryRunSuccess`).
-      val assertionsInsert = persistAssertions(runId, assertionResults)
+      val assertionsInsert = updateRun.flatMap(won => afterTerminalWin(runId, "succeeded", won)(persistAssertions(runId, assertionResults)))
       // HEL-462 (design D4): best-effort schema-drift baseline capture — the
       // current source schema (same derivation `PipelineService.analyze` uses)
       // becomes the new `last_source_schema` baseline. Only real, non-dry
@@ -264,8 +270,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
           _ <- materializedWrites
           _ <- binaryRefsUpsert
           _ <- alertEvaluation
-          _ <- updateMeta
           _ <- updateRun
+          _ <- updateMeta
           _ <- assertionsInsert
           _ <- baselineUpsert
         } yield None

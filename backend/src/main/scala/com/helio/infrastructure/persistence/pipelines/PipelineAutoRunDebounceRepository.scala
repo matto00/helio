@@ -94,7 +94,8 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
   /** HEL-1504 (design.md D2): after a pipeline-run guard rejection, ONE compare-on-token statement
    *  either re-arms the row (`fire_at = fireAt`, `claimed_at = NULL`, `guard_retry_count + 1`) while
    *  `guard_retry_count < maxRetries`, or deletes it once the allowance is spent. A token mismatch
-   *  (a fresh write took over the row) changes nothing and reports [[RearmOutcome.Superseded]]. */
+   *  (a fresh write re-armed the row, or another instance took over a stale claim) changes nothing and reports
+   *  [[RearmOutcome.Superseded]]. */
   def rearmAfterGuardRejection(
       pipelineId: PipelineId,
       claimedAt: Instant,
@@ -131,6 +132,7 @@ object RearmOutcome {
   final case class Rearmed(attempt: Int) extends RearmOutcome
   /** The allowance was spent: the row was deleted after `attempts` re-arms. */
   final case class Exhausted(attempts: Int) extends RearmOutcome
-  /** A fresh write superseded the claim; nothing was changed. */
+  /** The claim token no longer matches (a fresh write re-armed the row, or another instance took over a stale
+   *  claim); nothing was changed. */
   case object Superseded extends RearmOutcome
 }

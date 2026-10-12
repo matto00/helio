@@ -30,7 +30,8 @@ private[pipelines] final class PipelineRunExecutor(
     backend: PipelineExecutionBackend,
     support: PipelineRunSupport,
     terminal: PipelineRunTerminalWrites,
-    succeeded: PipelineRunSucceededWrites
+    succeeded: PipelineRunSucceededWrites,
+    liveRunTracker: LiveRunTracker
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -195,38 +196,63 @@ private[pipelines] final class PipelineRunExecutor(
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(()) =>
-            // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
-            publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
-            publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
-
-            // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
-            // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
-            // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
-            // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
-            // interpret `nodeId` correctly.
-            def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
-              val (nodeId, nodeKind) = key match {
-                case RootKey(rootId) => (rootId, "root")
-                case StepKey(stepId) => (stepId, "step")
-              }
-              publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
-            }
-
-            val runFuture = backend
-              .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
-                ownerUserId = Some(pipeline.ownerId.value))
-              .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
-
-            runFuture.transformWith {
-              case Failure(ex) =>
-                executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
-              case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
-                executeRunSuccess(
-                  pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
-                  resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
-                )
-            }
+            // HEL-1511 (design.md D1): a real run is tracked from admission to its last terminal write, on every exit
+            // path (`Future.delegate` turns a synchronous throw into a failed Future, so the `andThen` still deregisters).
+            val tracked = !isDry && pipelineRunRepo != null
+            if (tracked) liveRunTracker.register(runId)
+            Future.delegate(runAdmitted(pipeline, roots, steps, isDry, user, triggerSource, pipelineId, runId, startAt, pidStr, ownerRun, assertionSink, truncationSink, writeBackSink))
+              .andThen { case _ => if (tracked) liveRunTracker.deregister(runId) }
         }
+    }
+  }
+
+  /** The engine call and the dispatch of its outcome, for a run the HEL-505 guard has admitted. */
+  private def runAdmitted(
+      pipeline:       Pipeline,
+      roots:          Vector[(String, DataSource)],
+      steps:          Vector[PipelineStep],
+      isDry:          Boolean,
+      user:           AuthenticatedUser,
+      triggerSource:  String,
+      pipelineId:     PipelineId,
+      runId:          PipelineRunId,
+      startAt:        Instant,
+      pidStr:         String,
+      ownerRun:       Boolean,
+      assertionSink:  AssertionSink,
+      truncationSink: TruncationSink,
+      writeBackSink:  WriteBackSink
+  ): Future[Either[ServiceError, RunResultResponse]] = {
+    // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
+    publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
+    publish(pidStr, RunStatusEvent("running", runId = Some(runId.value)))
+
+    // HEL-905 (design.md Decision 6): the tree walk invokes this once per node completed;
+    // published as a non-terminal "node-progress" SSE event so the stream stays open across it.
+    // HEL-913 R15 (now complete): `nodeKind` is the explicit wire discriminator -- "root" or
+    // "step" -- so a consumer never has to already know which ids in this pipeline are roots to
+    // interpret `nodeId` correctly.
+    def onNodeProgress(key: NodeKey, rowCount: Long): Unit = {
+      val (nodeId, nodeKind) = key match {
+        case RootKey(rootId) => (rootId, "root")
+        case StepKey(stepId) => (stepId, "step")
+      }
+      publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
+    }
+
+    val runFuture = backend
+      .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
+        ownerUserId = Some(pipeline.ownerId.value))
+      .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
+
+    runFuture.transformWith {
+      case Failure(ex) =>
+        executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
+      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
+        executeRunSuccess(
+          pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
+          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
+        )
     }
   }
 
@@ -328,7 +354,40 @@ private[pipelines] final class PipelineRunExecutor(
       // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
       // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
       onBlockedRun(pipelineId, runId, pidStr, user, ownerRun, assertionResults, blockingFailures).map(Right(_))
-    else Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
+    else isStillOpen(runId).flatMap {
+      // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
+      // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
+      case false =>
+        log.warn(s"Run ${runId.value} of pipeline ${pipelineId.value} finished after it was reaped as abandoned; discarding its outcome")
+        Future.successful(Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished")))
+      case true => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+    }
+  }
+
+  /** HEL-1511: whether the run is still non-terminal; trivially true when no run repository is wired (fixtures). */
+  private def isStillOpen(runId: PipelineRunId): Future[Boolean] =
+    if (pipelineRunRepo == null) Future.successful(true) else pipelineRunRepo.isRunOpenInternal(runId)
+
+  /** The unblocked-success chain: apply the deferred write-backs, then materialize and finalize. */
+  private def unblockedChain(
+      sourceDataSourceId: DataSourceId,
+      lowestRootId:       String,
+      pipelineId:         PipelineId,
+      runId:              PipelineRunId,
+      pidStr:             String,
+      resultRows:         Seq[Map[String, Any]],
+      jsRows:             Vector[JsObject],
+      nodeOutcomes:       Map[NodeKey, NodeOutcome],
+      user:               AuthenticatedUser,
+      ownerRun:           Boolean,
+      triggerSource:      String,
+      assertionResults:   Vector[AssertionResult],
+      primaryAvailableRowCount: Option[Long],
+      truncatedReads:     Vector[TruncatedReadResponse],
+      writeBackSink:      WriteBackSink,
+      pipelineOwnerId:    UserId
+  ): Future[Either[ServiceError, Option[String]]] = {
+    Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
       // record it and publish the one terminal `failed`, then re-fail with the original exception
       // (even if that bookkeeping fails) so every `submit` caller sees the outcome it always did.
