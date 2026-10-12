@@ -23,6 +23,7 @@ import slick.jdbc.{JdbcBackend, PostgresProfile}
 import spray.json.JsString
 
 import java.nio.file.Paths
+import java.sql.Timestamp
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
@@ -248,11 +249,14 @@ class DatasetWriteAutoRunEndToEndSpec extends AnyWordSpec with Matchers with Bef
       await(scheduler.tick())
 
       runCount(pid) shouldBe 0
-      // The claim was still released (not stuck) despite the rejection -- a subsequent write can
-      // still debounce and fire normally once the cap frees up.
+      // HEL-1504: the claim was handed back (not stuck) and the write re-armed for the guard's
+      // Retry-After, not dropped -- guard_retry_count records the one re-attempt.
       import PostgresProfile.api._
-      val stillClaimed = await(db.run(sql"""SELECT 1 FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pid.value}""".as[Int])).nonEmpty
-      stillClaimed shouldBe false
+      val (claimedAt, retries) = await(db.run(
+        sql"""SELECT claimed_at, guard_retry_count FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pid.value}"""
+          .as[(Option[Timestamp], Int)].head))
+      claimedAt shouldBe None
+      retries shouldBe 1
     }
   }
 

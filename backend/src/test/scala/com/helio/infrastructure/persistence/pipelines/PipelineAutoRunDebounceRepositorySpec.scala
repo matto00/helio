@@ -252,6 +252,106 @@ class PipelineAutoRunDebounceRepositorySpec extends AnyWordSpec with Matchers wi
     }
   }
 
+  private def rawRetryCount(pipelineId: PipelineId): Option[Int] =
+    await(ctx.withSystemContext(
+      sql"""SELECT guard_retry_count FROM pipeline_auto_run_debounce WHERE pipeline_id = ${pipelineId.value}""".as[Int].headOption
+    ))
+
+  private def claimOne(pid: PipelineId, fireAt: Instant): Instant = {
+    await(repo.upsertDebounce(pid, fireAt))
+    val now = fireAt.plusSeconds(1)
+    await(repo.claimDue(now, staleClaimAfter = now.minusSeconds(300))).head._2
+  }
+
+  "unclaim (HEL-1504 D1)" should {
+
+    "hands the claim back without deleting the row: claimed_at NULL, fire_at and retry count untouched" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val fireAt = Instant.parse("2026-01-01T00:00:00Z")
+      val claimedAt = claimOne(pid, fireAt)
+
+      await(repo.unclaim(pid, claimedAt))
+      rawFireAt(pid) shouldBe Some(fireAt)
+      rawClaimedAt(pid) shouldBe None
+      rawRetryCount(pid) shouldBe Some(0)
+      // Immediately re-claimable on the next tick.
+      await(repo.claimDue(fireAt.plusSeconds(2), staleClaimAfter = fireAt.minusSeconds(300))).map(_._1) shouldBe Vector(pid)
+    }
+
+    "is a harmless no-op on a token mismatch (a fresh write already reset the claim)" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val fireAt = Instant.parse("2026-01-01T00:00:00Z")
+      val staleClaim = claimOne(pid, fireAt)
+      await(repo.upsertDebounce(pid, fireAt.plusSeconds(10)))
+      // Re-claim so a DIFFERENT live claim exists; the old token must not release it.
+      val later = fireAt.plusSeconds(11)
+      await(repo.claimDue(later, staleClaimAfter = later.minusSeconds(300))) should have size 1
+
+      await(repo.unclaim(pid, staleClaim))
+      rawClaimedAt(pid) shouldBe Some(later)
+    }
+  }
+
+  "rearmAfterGuardRejection (HEL-1504 D2)" should {
+
+    "re-arms: fire_at moved, claimed_at NULL, retry count incremented, until the allowance is spent" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val fireAt = Instant.parse("2026-01-01T00:00:00Z")
+      val claim1 = claimOne(pid, fireAt)
+      val retryAt = fireAt.plusSeconds(30)
+
+      await(repo.rearmAfterGuardRejection(pid, claim1, retryAt, maxRetries = 2)) shouldBe RearmOutcome.Rearmed(1)
+      rawFireAt(pid) shouldBe Some(retryAt)
+      rawClaimedAt(pid) shouldBe None
+
+      val now2 = retryAt.plusSeconds(1)
+      val claim2 = await(repo.claimDue(now2, staleClaimAfter = now2.minusSeconds(300))).head._2
+      await(repo.rearmAfterGuardRejection(pid, claim2, now2.plusSeconds(30), maxRetries = 2)) shouldBe RearmOutcome.Rearmed(2)
+
+      val now3 = now2.plusSeconds(31)
+      val claim3 = await(repo.claimDue(now3, staleClaimAfter = now3.minusSeconds(300))).head._2
+      await(repo.rearmAfterGuardRejection(pid, claim3, now3.plusSeconds(30), maxRetries = 2)) shouldBe RearmOutcome.Exhausted(2)
+      rawFireAt(pid) shouldBe None
+    }
+
+    "maxRetries = 0 never re-arms: the first rejection deletes the row" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val claim = claimOne(pid, Instant.parse("2026-01-01T00:00:00Z"))
+      await(repo.rearmAfterGuardRejection(pid, claim, Instant.parse("2026-01-01T00:01:00Z"), maxRetries = 0)) shouldBe RearmOutcome.Exhausted(0)
+      rawFireAt(pid) shouldBe None
+    }
+
+    "reports Superseded and changes nothing on a token mismatch" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val fireAt = Instant.parse("2026-01-01T00:00:00Z")
+      val staleClaim = claimOne(pid, fireAt)
+      await(repo.upsertDebounce(pid, fireAt.plusSeconds(10)))
+
+      await(repo.rearmAfterGuardRejection(pid, staleClaim, fireAt.plusSeconds(99), maxRetries = 5)) shouldBe RearmOutcome.Superseded
+      rawFireAt(pid) shouldBe Some(fireAt.plusSeconds(10))
+      rawRetryCount(pid) shouldBe Some(0)
+    }
+
+    "a fresh write resets the retry count to 0 (D3)" in {
+      cleanDb()
+      val pid = seedPipeline()
+      val fireAt = Instant.parse("2026-01-01T00:00:00Z")
+      val claim = claimOne(pid, fireAt)
+      await(repo.rearmAfterGuardRejection(pid, claim, fireAt.plusSeconds(30), maxRetries = 5)) shouldBe RearmOutcome.Rearmed(1)
+      rawRetryCount(pid) shouldBe Some(1)
+
+      await(repo.upsertDebounce(pid, fireAt.plusSeconds(5)))
+      rawRetryCount(pid) shouldBe Some(0)
+      // GREATEST: the write during the Retry-After wait never pulls the fire earlier than the retry.
+      rawFireAt(pid) shouldBe Some(fireAt.plusSeconds(30))
+    }
+  }
+
   "RLS (HEL-1093 tasks.md 3.5)" should {
 
     "FORCE ROW LEVEL SECURITY: a non-owning user's app-pool query sees zero rows for another " +
