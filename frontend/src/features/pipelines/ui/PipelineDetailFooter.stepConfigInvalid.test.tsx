@@ -47,7 +47,7 @@ const baseProps = {
 };
 
 const MISCONFIGURED_COPY =
-  "A step in this pipeline is misconfigured, so it can't run until that step is fixed.";
+  "A step in this pipeline has a problem, so its results may be wrong or missing until that step is fixed.";
 
 describe("PipelineDetailFooter with the shared step-config-invalid analyze verdict (HEL-1266)", () => {
   afterEach(() => {

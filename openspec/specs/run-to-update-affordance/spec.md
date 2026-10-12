@@ -54,8 +54,10 @@ false, the toast SHALL carry no action. A toast carrying that action SHALL NOT a
 When a pipeline's analyze response has `costVerdict.autoRunnable` false, the pipeline detail page
 SHALL render each reason using the same rule-code-to-copy mapping as the toast, and SHALL show a
 "Run to update" control when `costVerdict.canRun` is true for the viewing user. A `step-config-invalid`
-reason SHALL be rendered with copy that says a step is misconfigured and the pipeline cannot run until it is fixed,
-never the generic fallback message.
+reason SHALL be rendered with copy that says a step has a problem and the pipeline's results may be wrong or
+missing until that step is fixed, never the generic fallback message, and SHALL NOT claim the pipeline cannot run:
+the reason is also emitted for analyze-only (schema-derived) step errors, for which manual, scheduled and
+dataset-write runs still run.
 
 #### Scenario: An AI-gated pipeline's page names the rule
 - **WHEN** a pipeline's analyze response denies auto-run with reason code `ai-step`
@@ -68,7 +70,12 @@ never the generic fallback message.
 
 #### Scenario: A misconfigured step names the problem and offers no run control
 - **WHEN** the owner's analyze response carries a `step-config-invalid` reason and `costVerdict.canRun` is false
-- **THEN** the pipeline detail page shows the misconfigured-step copy and no "Run to update" control is rendered
+- **THEN** the pipeline detail page shows the step-problem copy and no "Run to update" control is rendered
+
+#### Scenario: The step-problem copy does not claim the pipeline cannot run
+- **WHEN** the pipeline detail page renders a `step-config-invalid` reason
+- **THEN** the copy reads "A step in this pipeline has a problem, so its results may be wrong or missing until that
+  step is fixed." and contains no claim that the pipeline cannot run
 
 ### Requirement: A manual run from either surface uses the existing guarded submission path
 Triggering "Run to update" from either the toast or the pipeline page SHALL submit through
