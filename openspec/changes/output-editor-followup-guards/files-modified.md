@@ -1,6 +1,0 @@
-- `frontend/src/features/panels/ui/editors/ChartDisplayFields.tsx` — stop prepending the duplicate "— None —" to the scatter pickers; prop doc corrected
-- `frontend/src/features/panels/ui/editors/ChartDisplayFields.test.tsx` — fixture passes the leading clear option like the real caller
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.scatterPickers.test.tsx` — red-first test: one "— None —" per scatter picker, no duplicate-key warning
-- `frontend/src/features/sources/ui/forms/RestApiForm.test.tsx` — typed mock form (adds reset), no widening cast
-- `e2e/hel1510-output-editor-table-overflow.spec.ts` — rendered-geometry overflow e2e at 1100px with an 86-char column name
-- `frontend/src/features/panels/ui/editors/TableDisplayFields.css.test.ts` — removed; replaced by the e2e spec
