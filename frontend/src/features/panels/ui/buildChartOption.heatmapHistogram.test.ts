@@ -209,15 +209,24 @@ describe("buildChartOption category axis labels (HEL-1487)", () => {
   const show = { interval: 0, hideOverlap: true };
   type Axis = { axisLabel?: Record<string, unknown> };
 
-  it.each([false, true])("shows every heatmap column and row label (compact %s)", (compact) => {
+  // ECharts measures its label collision box from '国', which collapses to ~0.6em with no CJK font
+  // installed, so hideOverlap needs an explicit line height: 15 at the 12px default, 12 at compact 10px.
+  it.each([
+    [false, 15],
+    [true, 12],
+  ])("shows every heatmap column and row label (compact %s, lineHeight %s)", (compact, lh) => {
     const option = build("heatmap", heatMapping, { compact });
-    expect((option.xAxis as Axis).axisLabel).toMatchObject(show);
-    expect((option.yAxis as Axis).axisLabel).toMatchObject(show);
+    expect((option.xAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
+    expect((option.yAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
   });
 
-  it.each([false, true])("shows every histogram bin label (compact %s)", (compact) => {
+  it.each([
+    [false, 15],
+    [true, 12],
+  ])("shows every histogram bin label (compact %s, lineHeight %s)", (compact, lh) => {
     const option = build("histogram", { xAxis: "ms" }, { rows, compact });
-    expect((option.xAxis as Axis).axisLabel).toMatchObject(show);
+    expect((option.xAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("lineHeight");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
   });
@@ -226,6 +235,7 @@ describe("buildChartOption category axis labels (HEL-1487)", () => {
     const option = build(chartType, { xAxis: "day", yAxis: "failures" });
     expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("interval");
     expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
+    expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("lineHeight");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
   });
 });

@@ -22,7 +22,9 @@ import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
 import {
   applyHeatmapTheme,
-  CATEGORY_LABEL_SHOW_ALL,
+  CATEGORY_LABEL_DEFAULT_FONT_SIZE,
+  categoryLabelLineHeight,
+  categoryLabelShowAll,
   compactHeatmapVisualMap,
   HEATMAP_COMPACT_CLEARANCE_PX,
   mergeHeatmapYAxis,
@@ -35,6 +37,12 @@ import {
 // `yAxis` from `dataOption/appearanceOption` and never falls back to this
 // object's own `name`). Kept type-shaped so `EChartsOption` inference below
 // still holds when data/appearance are both absent (see the "no data" tests).
+/** The font size an axis' `axisLabel` carries (ECharts' default when it sets none). */
+function fontSizeOf(axis: unknown): number {
+  const size = (axis as { axisLabel?: { fontSize?: unknown } } | undefined)?.axisLabel?.fontSize;
+  return typeof size === "number" ? size : CATEGORY_LABEL_DEFAULT_FONT_SIZE;
+}
+
 export const defaultOption: EChartsOption = {
   legend: { show: true },
   xAxis: { type: "category", data: [] },
@@ -214,7 +222,9 @@ export function buildChartOption({
           // A time axis has no `interval: auto` thinning like a category axis, so narrow charts
           // would run adjacent labels together.
           ...(timeInstants ? { hideOverlap: true } : {}),
-          ...(showsEveryCategoryLabel(chartType) ? CATEGORY_LABEL_SHOW_ALL : {}),
+          ...(showsEveryCategoryLabel(chartType)
+            ? categoryLabelShowAll(fontSizeOf(appearanceOption.xAxis))
+            : {}),
         },
       },
       yAxis: {
@@ -223,7 +233,7 @@ export function buildChartOption({
         axisLabel: {
           ...yAxisBase.axisLabel,
           color: textColor,
-          ...(chartType === "heatmap" ? CATEGORY_LABEL_SHOW_ALL : {}),
+          ...(chartType === "heatmap" ? categoryLabelShowAll(fontSizeOf(yAxisBase)) : {}),
         },
       },
       legend: {
@@ -372,6 +382,9 @@ export function buildChartOption({
         axisLabel: {
           ...(built.xAxis as { axisLabel?: object } | undefined)?.axisLabel,
           fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+          ...(showsEveryCategoryLabel(chartType)
+            ? { lineHeight: categoryLabelLineHeight(COMPACT_AXIS_LABEL_FONT_SIZE) }
+            : {}),
         },
         nameTextStyle: {
           ...(built.xAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,
@@ -383,6 +396,9 @@ export function buildChartOption({
         axisLabel: {
           ...(built.yAxis as { axisLabel?: object } | undefined)?.axisLabel,
           fontSize: COMPACT_AXIS_LABEL_FONT_SIZE,
+          ...(chartType === "heatmap"
+            ? { lineHeight: categoryLabelLineHeight(COMPACT_AXIS_LABEL_FONT_SIZE) }
+            : {}),
         },
         nameTextStyle: {
           ...(built.yAxis as { nameTextStyle?: object } | undefined)?.nameTextStyle,

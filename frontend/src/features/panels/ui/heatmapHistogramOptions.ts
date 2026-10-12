@@ -26,6 +26,22 @@ export const HEATMAP_COMPACT_BAR_THICKNESS_PX = 10;
  *  must be applied where `buildChartOption` rebuilds `axisLabel`: one set on the data option is dropped. */
 export const CATEGORY_LABEL_SHOW_ALL = { interval: 0, hideOverlap: true } as const;
 
+/** ECharts' default axis-label font size, used when the appearance sets none. */
+export const CATEGORY_LABEL_DEFAULT_FONT_SIZE = 12;
+
+/** The label text's real height with a little leading. ECharts sizes each label's collision box from a
+ *  line height it MEASURES on the glyph '国'; with no CJK font installed that glyph falls back to a
+ *  half-width one (about 0.6em), so the boxes come out too short and `hideOverlap` hides nothing
+ *  (stacked heatmap row labels at 375px). An explicit font-size-based `lineHeight` avoids the probe. */
+export function categoryLabelLineHeight(fontSize: number): number {
+  return Math.ceil(fontSize * 1.2);
+}
+
+/** `CATEGORY_LABEL_SHOW_ALL` plus the explicit line height for `fontSize`. */
+export function categoryLabelShowAll(fontSize: number) {
+  return { ...CATEGORY_LABEL_SHOW_ALL, lineHeight: categoryLabelLineHeight(fontSize) };
+}
+
 /** The chart types whose category axes show every label that fits (heatmap: both axes; histogram: x). */
 export function showsEveryCategoryLabel(chartType: string): boolean {
   return chartType === "heatmap" || chartType === "histogram";

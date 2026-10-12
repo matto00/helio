@@ -2657,7 +2657,8 @@
         "fontFamily": "ui-monospace, monospace",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {
@@ -2687,7 +2688,8 @@
         "formatter": "__fn__",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {
@@ -2774,7 +2776,8 @@
         "fontFamily": "ui-monospace, monospace",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {
@@ -3494,7 +3497,8 @@
         "fontFamily": "ui-monospace, monospace",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {
@@ -3524,7 +3528,8 @@
         "formatter": "__fn__",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {
@@ -3611,7 +3616,8 @@
         "fontFamily": "ui-monospace, monospace",
         "color": "#abcdef",
         "interval": 0,
-        "hideOverlap": true
+        "hideOverlap": true,
+        "lineHeight": 15
       },
       "axisLine": {
         "lineStyle": {

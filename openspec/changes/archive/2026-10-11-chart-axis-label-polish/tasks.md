@@ -22,3 +22,7 @@
 - [x] 3.3 Update `OutputEditorSheet.heatmapHistogram.test.tsx` to the new hint copy first (red), then green after 1.3
 - [x] 3.4 Rendered verification: screenshots of a heatmap and a 12-bin histogram in light and dark at 1440 and 375, plus a time-axis line chart and a reference-line chart showing no regression; store under the run evidence dir
 - [x] 3.5 Run the frontend gates (lint, typecheck, jest, format:check) and the hel1311, hel1305-related and hel1306 e2e specs with the local caps; record transcripts
+
+## 4. Final-gate fix
+
+- [x] 4.1 Heatmap row labels stacked at 375 on a machine with no CJK font (ECharts sizes label collision boxes from the glyph 国, ~0.6em without one, so `hideOverlap` hid nothing): the show-all axis labels now carry an explicit font-size-based `lineHeight` (`categoryLabelLineHeight`: 15 at the 12px default, 12 at compact 10px) in normal and compact mode. Proof: unit tests for both modes; e2e heatmap with 6 rows at 375 (h: 3) using real canvas text metrics is red on 17bb3e99d (6 of 6 rows shown, overlapping) and green after (3 of 6, no overlap); hel1311, hel1487, hel1305, hel1306 e2e all green (27 passed)

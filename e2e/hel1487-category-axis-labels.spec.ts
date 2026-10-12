@@ -37,7 +37,7 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
     .evaluate((canvas, which) => {
       type El = {
         ignore?: boolean;
-        style?: { text?: string };
+        style?: { text?: string; font?: string; fontSize?: number; fontFamily?: string };
         children?: () => El[];
         getBoundingRect?: () => { x: number; y: number; width: number; height: number };
         getComputedTransform?: () => number[] | null;
@@ -69,8 +69,17 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
         if (el.style?.text && el.getBoundingRect) {
           const r = el.getBoundingRect();
           const m = el.getComputedTransform?.() ?? [1, 0, 0, 1, 0, 0];
+          // ECharts sizes a label's height from the glyph '国', which is ~0.6em wide when no CJK font
+          // is installed, so its own box under-reports the height. Take the height from the real text
+          // metrics of the label's own font, centred on ECharts' box.
+          const ctx = document.createElement("canvas").getContext("2d")!;
+          ctx.font =
+            el.style.font ?? `${el.style.fontSize ?? 12}px ${el.style.fontFamily ?? "sans-serif"}`;
+          const tm = ctx.measureText(el.style.text);
+          const realHeight = tm.actualBoundingBoxAscent + tm.actualBoundingBoxDescent;
+          const centreY = m[3] * (r.y + r.height / 2) + m[5];
           const xs = [r.x, r.x + r.width].map((x) => m[0] * x + m[4]);
-          const ys = [r.y, r.y + r.height].map((y) => m[3] * y + m[5]);
+          const ys = [centreY - realHeight / 2, centreY + realHeight / 2];
           found.push({
             text: el.style.text,
             box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
@@ -97,6 +106,7 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TESTS = ["testA", "testB", "testC"];
+const SERVICES = Array.from({ length: 6 }, (_, i) => `service${i + 1}`);
 const HIST_ROWS = 40;
 
 for (const { theme, width } of [
@@ -129,6 +139,7 @@ for (const { theme, width } of [
         TESTS.forEach((test, t) => rows.push([day, test, d + t + 1, (d * 3 + t) * 5 + 10])),
       );
       for (let i = rows.length; i < HIST_ROWS; i += 1) rows.push(["Mon", "testA", 1, 10 + i]);
+      rows.forEach((row, i) => row.push(SERVICES[i % SERVICES.length]));
       const source = await postJson<{ id: string }>(
         request,
         "/api/data-sources",
@@ -140,6 +151,7 @@ for (const { theme, width } of [
             { name: "test", type: "string" },
             { name: "failures", type: "integer" },
             { name: "duration", type: "integer" },
+            { name: "service", type: "string" },
           ],
           rows,
         },
@@ -164,6 +176,11 @@ for (const { theme, width } of [
         chartType: "heatmap",
         aggregation: null,
         fieldMapping: { xAxis: "day", series: "test", yAxis: "failures" },
+      });
+      const heat8 = await output("HEL-1487 Heat8", {
+        chartType: "heatmap",
+        aggregation: null,
+        fieldMapping: { xAxis: "day", series: "service", yAxis: "failures" },
       });
       const hist5 = await output("HEL-1487 Hist5", {
         chartType: "histogram",
@@ -205,6 +222,7 @@ for (const { theme, width } of [
           dashboardId: dashboard.id,
           panels: [
             ["HEL-1487 PanelHeat", heat.id],
+            ["HEL-1487 PanelRows8", heat8.id],
             ["HEL-1487 PanelHist5", hist5.id],
             ["HEL-1487 PanelHist10", hist10.id],
             ["HEL-1487 PanelHist12", hist12.id],
@@ -215,7 +233,7 @@ for (const { theme, width } of [
       await postJson(
         request,
         `/api/dashboards/${dashboard.id}/auto-layout`,
-        { items: batch.panels.map((p) => ({ panelId: p.id, w: 12, h: 5 })) },
+        { items: batch.panels.map((p, i) => ({ panelId: p.id, w: 12, h: i === 1 ? 3 : 5 })) },
         200,
       );
 
@@ -232,6 +250,7 @@ for (const { theme, width } of [
           .first();
       const cards = {
         heat: card("HEL-1487 PanelHeat"),
+        heat8: card("HEL-1487 PanelRows8"),
         hist5: card("HEL-1487 PanelHist5"),
         hist10: card("HEL-1487 PanelHist10"),
         hist12: card("HEL-1487 PanelHist12"),
@@ -245,6 +264,7 @@ for (const { theme, width } of [
       const read = {
         heatX: await axisLabels(cards.heat, "xAxis"),
         heatY: await axisLabels(cards.heat, "yAxis"),
+        heat8Y: await axisLabels(cards.heat8, "yAxis"),
         hist5: await axisLabels(cards.hist5, "xAxis"),
         hist10: await axisLabels(cards.hist10, "xAxis"),
         hist12: await axisLabels(cards.hist12, "xAxis"),
@@ -256,6 +276,11 @@ for (const { theme, width } of [
 
       for (const [name, r] of Object.entries(read)) {
         expect(r.overlaps, `${name} labels overlap`).toEqual([]);
+      }
+      if (width === 375) {
+        // 6 rows in a short (h: 3) plot cannot all be legible: some must be hidden, none may overlap.
+        expect(read.heat8Y.shown.length, "heat8 rows shown").toBeLessThan(SERVICES.length);
+        expect(read.heat8Y.shown.length, "heat8 rows shown").toBeGreaterThan(0);
       }
       if (width === 1440) {
         expect(read.heatX.shown).toEqual(DAYS);
