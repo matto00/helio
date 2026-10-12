@@ -1,0 +1,43 @@
+## Context
+
+See ticket.md (restated scope) and the persisted premise-validation.md. State on origin/main a369a9cb8:
+
+- `PipelineProposalService.rollback(response, user)` (~447-450) deletes the pipeline, then calls `cleanupSource(id, implicitConnector = false, user)` for every `response.sources` entry. `cleanupSource` -> `InlineSourceCleanup.deleteCallCreated` -> `DataSourceService.delete`.
+- `DataSourceService.deleteAfterPrecheck` (~709-753, HEL-1497) calls `removeUnadoptedConnector` after every successful delete of a `RestSource`; that calls `ImplicitConnectorCleanup.deleteIfUnadoptedImplicit` (implicit flag AND `Auto: ` prefix AND real dependents count zero, owner-scoped via `connectorRepo.findByIdOwned` and the repository delete's own owner re-check). It is a no-op when `DataSourceService` has no `ConnectorRepository`; production wires one (ApiRoutes.scala:366/375).
+- `ProposalRestApiConfig.toRestApiConfigPayload` never maps `newConnector`; `SourceService.createRest` rejects connectorId=None,url=None with 400 before any write. The frontend `InlineConnectorSetup` creates an explicit Connector via `POST /api/connectors`, then rewrites the proposal root to `connectorId`.
+- The existing `PipelineProposalImplicitConnectorCleanupSpec` constructs `DataSourceService` WITHOUT a connector repository, so it cannot observe the HEL-1497 seam. New service-level tests must wire it the production way.
+
+## Goals / Non-Goals
+
+Goals: prove, red-first-attempted and mutation-failable, that both reported paths leave no Connector behind and that no cross-tenant deletion exists; correct the misleading code comments.
+Non-goals: any behaviour change; widening `rollback`'s signature or the API protocol (the seam already covers it); deleting a user-explicit Connector on rollback (open owner question); FirstRun REST support.
+
+## Decisions
+
+### D1 -- No fix, guards only (driver decision on the ticket-drift escalation)
+The HEL-1497 seam already removes the Connector. Adding a second path (widening `rollback`) would duplicate the rule HEL-1505 just unified. If the gap-1 repro is genuinely RED (a leak exists: apply returned `Right`, the Auto Connector existed, and after `rollback` it is still there), the executor STOPS, records the evidence, and returns ESCALATION; no fix is attempted in this run without the driver. A red caused by a harness defect (exception, null collaborator, wrong path taken, apply not `Right`) is NOT a leak and does not trigger the stop; fix the harness.
+
+### D2 -- Service-level gap-1 test, production-wired
+New spec (e.g. `PipelineProposalRollbackConnectorSpec`) on `VerifiedEmbeddedPostgres.start`, borrowing `PipelineProposalImplicitConnectorCleanupSpec`'s DB setup but NOT its collaborators: (i) construct `DataSourceService(..., connectorRepo = connectorRepo)` (check the constructor's parameter name/position); (ii) wire a REAL `PipelineRunService` (that spec passes `null`, and a successful apply always calls the run service, so a null would NPE); (iii) stub the REST fetch to return `Left` (a failed schema fetch), so apply takes the `fetchError` / `recordUnrunnable` (blocked run) path and returns `Right` instead of apply's internal `rollbackAll`. A succeeding fetch plus a real run service can produce a failed run that triggers the internal rollback, which is NOT the path under test. The test MUST assert apply returned `Right` before calling the public `rollback`. Insert the user row with a unique throwaway email (`...@example.test`). Steps: count `connectors` by `owner_id` and `connector_credentials` by `user_id` (that table has no `owner_id`, V92), both by the exact owner id -> `apply` a single bare-url REST root proposal (fetch stubbed to return `Left`, per (iii)) -> assert apply is `Right` and the Auto Connector exists (count +1, name starts `Auto: `) -> `rollback(response, owner)` -> assert data_sources, connectors and credentials counts are back to the before values. The "exists after apply" assertion makes the test non-vacuous.
+
+### D3 -- Route-level combined-proposal test through real `ApiRoutes`
+Drive `POST` combined apply (`CombinedProposalRoutes`, path `apply`) with a pipeline half carrying a bare-url REST root and a dashboard half that passes pre-apply validation but fails after the pipeline apply succeeds (e.g. a `$pipelineOutput` sentinel when the pipeline yields zero Outputs, per `resolveSentinelOutputId`; the executor confirms which reachable post-apply failure exists and records it). Assert the response is the POST-apply `422` from `CombinedProposalService.applyDashboardPhase` (sentinel resolution failing at ~115-117), not a pre-apply `400`, and that exact-owner `connectors` and `data_sources` counts are unchanged. The REST driver is stubbed through the `ApiRoutes` harness (fetch `Left`, as in D2). Non-vacuity for D3 is its OWN red under mutation D6(a), required, not a fallback to D2. This is the only test that catches a production wiring regression (the D3 init-order hazard HEL-1497 named). Follow an existing route spec's harness (`DataSourceDeleteAutoConnectorRoutesSpec`, `InlineSourceLeakPathsRoutesSpec`). External HTTP must stay stubbed or use an address that fails fast without network; a failed REST schema fetch keeps the source (`fetchError`), which is fine.
+
+### D4 -- newConnector tests
+(a) Service-level: apply a proposal whose REST root carries only `newConnector` -> `Left(BadRequest)`; exact-owner `connectors` and `data_sources` counts unchanged. (b) Characterization: create an explicit Connector through `ConnectorEntityService.create` (or the connectors route), apply with `connectorId`, `rollback` -> source gone, explicit Connector still present (name and implicit=false). Name the test so it reads as current behaviour, with a comment pointing at the open owner question; it is not a requirement.
+
+### D5 -- Cross-tenant test
+User B owns an implicit, `Auto: `-named, unreferenced Connector X (created the way `SourceService.createRest` does, or via `ImplicitConnectorConfig.forLegacySource` + `ConnectorRepository.create`). User A owns a REST source row whose `config.connectorId` = X (inserted directly via SQL/repo, simulating a forged or corrupted reference). A deletes the source through `DataSourceService.delete` (production-wired). (A proposal `rollback` variant would need a hand-built apply response, since apply rejects another user's `connectorId`; it is dropped, the `delete` seam is the one rollback uses.) Assert X still exists (count by B's exact owner id) and A's source is gone. The embedded test DB runs as a superuser (RLS bypassed), so the explicit owner filters are the only guard: exactly what the mutation in D6(b) removes.
+
+### D6 -- Mutation proofs (recorded, reverted)
+(a) Make `DataSourceService.removeUnadoptedConnector` a no-op -> D2 and D3 go red. (b) Owner scoping exists at three layers: `deleteIfUnadoptedImplicit`'s `findByIdOwned`, `ConnectorRepository.delete`'s owned precheck (~:295), and the owner filter on the delete statement itself (~:303). Remove them cumulatively until D5 goes red and record in red-evidence.md which layers had to be removed (expected: all three, i.e. defence in depth; if D5 goes red with fewer, say so). Record each command and the red output excerpt in `red-evidence.md` in the change dir, revert, and show green. Also record the red-first attempt for D2/D3/D4 before any comment edit (expected green; if red, see D1).
+
+### D7 -- Comment corrections
+Update `rollback`'s scaladoc (it also wrongly says `response.source`; the field is `sources`) and the `implicitConnector = false` call so they say the flag is false because the response cannot carry it, and that `DataSourceService.delete` (HEL-1497) removes an unadopted Auto Connector anyway. Comments follow CONTRIBUTING.md (no inline FQNs, concise).
+
+## Risks / Trade-offs
+
+- A guard that passes today proves nothing unless it can fail: D6 is mandatory, and D2 asserts the Connector existed before rollback.
+- Connectors are created server-side only by `SourceService.createRest` (implicit Auto), `ConnectorEntityService.create` and `ConnectorCompletionService.createPending` (connector routes, incl. MCP `create_connector` and the pending-connector flow). The explicit and pending ones are kept on rollback today; the owner question in the PR covers all of them.
+- The route test depends on a reachable post-apply dashboard failure; if none exists without fault injection, the executor documents that and uses the narrowest test seam available rather than inventing production hooks.
+- Shared resources: tests use embedded Postgres, never the shared dev DB; no live server is needed.
