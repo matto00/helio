@@ -108,3 +108,22 @@ Frontend only, no data change. Rollback is a revert.
 
 - Self-approved: hex-stepping toward black/white (D2), inline-vars-only-when-needed (D4), flat delta included (D3/D7).
 - Owner ruling (runtime fallback, no editor warning) is recorded on HEL-1490; not re-escalated.
+
+## Gate-Chain Implications Checklist
+
+The diff touches `scripts/check-tokens.mjs` (run by `.husky/pre-commit` as `npm run check:tokens`). The change is data
+only: four entries added to the exported `ALLOWLIST` object for the runtime-set `--panel-tone-*` tokens. No logic,
+I/O, imports or invocation changed.
+
+- **What does it execute?** Unchanged: `node scripts/check-tokens.mjs`, which reads CSS files under `frontend/src`
+  and checks every `var(--*)` reference resolves to a declaration or an allowlist entry. The new entries only add four
+  names to the allowlist lookup.
+- **What environment does it inherit, and from where?** Unchanged: the git hook's environment via husky/npm (cwd at
+  the repo or worktree root, the hook's `GIT_*` variables). The script reads no environment variables and runs no git.
+- **Does it write anything outside its own sandbox?** No. It only reads CSS files and prints to stdout/stderr; it
+  writes no files, and this change adds no writes.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves its scan root
+  relative to its own file (`frontend/src`), never via `.git`, so a linked worktree and the main checkout scan their own
+  trees identically.
+- **What happens on its first run?** The same as every run: a read-only scan that passes (the four tokens are now
+  allowlisted) or fails with the unresolved names. No state, cache or setup step exists.
