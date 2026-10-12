@@ -302,6 +302,9 @@ for (const { theme, width, accent } of CASES) {
           getBoundingRect(): { x: number; y: number; width: number; height: number };
           getComputedTransform(): number[] | null;
         };
+        // Reads ECharts 6.1.0 private internals (version per frontend/package-lock.json):
+        // `_componentsViews` and the `visualMap.continuous` view's `_shapes.inRange` polygon. ECharts
+        // exposes no public API for the rendered colour-bar geometry; re-check this on any ECharts upgrade.
         const views = (
           chart as unknown as { _componentsViews: { type: string; _shapes: { inRange: Poly } }[] }
         )._componentsViews;
@@ -401,6 +404,22 @@ for (const { theme, width, accent } of CASES) {
   });
 }
 
+/** Waits for the editor sheet's own `ui-modal-in` entrance animation (scale 0.985 -> 1) to finish, so a
+ *  bounding box is the resting size (44px, not the 43.34px mid-animation value). Filtered to the
+ *  dialog's own animations, never `getAnimations({ subtree: true })`: the lazily loaded chart
+ *  preview's loading skeleton runs an infinite shimmer whose `finished` never resolves. An empty
+ *  list (already finished) is a settled state; a cancelled animation rejects, so each is caught. */
+async function settleSheetOpenAnimation(page: Page): Promise<void> {
+  await page.locator("dialog.ui-modal[open]").evaluate(async (dialog) => {
+    await Promise.all(
+      dialog
+        .getAnimations()
+        .filter((a) => (a as CSSAnimation).animationName === "ui-modal-in")
+        .map((a) => a.finished.catch(() => undefined)),
+    );
+  });
+}
+
 // The Output editor: heatmap slot pickers and the histogram bin-count control, both themes, desktop
 // and 375px. Touch targets at 375px must meet the editor's 44px rule (shared `.ui-input`/select).
 for (const { theme, width } of [
@@ -490,18 +509,20 @@ for (const { theme, width } of [
       await expect(page.getByRole("combobox", { name: "Columns field" })).toContainText("day");
       await expect(page.getByRole("combobox", { name: "Rows field" })).toContainText("test");
       await expect(page.getByRole("combobox", { name: "Value field" })).toContainText("failures");
+      await settleSheetOpenAnimation(page);
       const heights = await minHeight(["Columns field", "Rows field", "Value field"]);
       console.log(`[HEL-1311 e2e] ${label} heatmap control heights ${JSON.stringify(heights)}`);
-      if (width === 375) for (const h of heights) expect(h).toBeGreaterThanOrEqual(43); // 44px rule, sub-pixel layout;
+      if (width === 375) for (const h of heights) expect(h).toBeGreaterThanOrEqual(43.5); // 44px rule
       await page.screenshot({ path: evidencePath("HEL-1311", `editor-heatmap-${label}.png`) });
       await page.getByRole("button", { name: "Cancel" }).click();
 
       await page.getByRole("button", { name: "Open HEL-1311 Hist output" }).click();
       const bins = page.getByRole("spinbutton", { name: "Histogram bins" });
       await expect(bins).toHaveValue("12");
+      await settleSheetOpenAnimation(page);
       const binHeight = (await bins.boundingBox())!.height;
       console.log(`[HEL-1311 e2e] ${label} bin-count height ${binHeight}`);
-      if (width === 375) expect(binHeight).toBeGreaterThanOrEqual(43);
+      if (width === 375) expect(binHeight).toBeGreaterThanOrEqual(43.5);
       await expect(page.getByRole("combobox", { name: "Histogram field" })).toContainText(
         "duration",
       );

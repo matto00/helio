@@ -6,7 +6,7 @@
 import type { EChartsOption } from "echarts";
 
 import type { HistogramChartOptions } from "../types/panel";
-import { binHistogram } from "../../../utils/histogramBins";
+import { binHistogram, type HistogramBin } from "../../../utils/histogramBins";
 import { formatChartNumber } from "../../../utils/chartAppearance";
 import { withAlpha } from "./chartOverlayOption";
 import type { ChartThemeTokens } from "../../../utils/chartAppearance";
@@ -122,11 +122,50 @@ export function applyHeatmapTheme(
   } as EChartsOption;
 }
 
-/** "3" -> "3", "2.5" -> "2.5" (the shared chart number format), as a bin's range label. */
-export function histogramBinLabel(start: number, end: number): string {
-  return start === end
-    ? formatChartNumber(start)
-    : `${formatChartNumber(start)} to ${formatChartNumber(end)}`;
+/** `Intl.NumberFormat`'s ceiling for `maximumFractionDigits`. */
+const MAX_BIN_LABEL_DECIMALS = 20;
+
+/** One decimal count for every edge of a multi-bin histogram: the fewest places at which each edge
+ *  reads exactly (within a millionth of a bin width), never more than one place past the width's
+ *  first significant decimal, so adjacent labels stay distinct. */
+function binLabelDecimals(bins: readonly HistogramBin[]): number {
+  const width = (bins[bins.length - 1].end - bins[0].start) / bins.length;
+  if (!(width > 0)) return MAX_BIN_LABEL_DECIMALS;
+  const cap = Math.min(MAX_BIN_LABEL_DECIMALS, Math.max(0, 1 - Math.floor(Math.log10(width))));
+  const tolerance = width * 1e-6;
+  const edges = [bins[0].start, ...bins.map((b) => b.end)];
+  for (let d = 0; d < cap; d += 1) {
+    const scale = 10 ** d;
+    if (edges.every((e) => Math.abs(Math.round(e * scale) / scale - e) <= tolerance)) return d;
+  }
+  return cap;
+}
+
+/** Range labels ("a to b") for the bins, all with the same number of decimal places. A single bin keeps
+ *  the shared chart number format (no precision rule: it has no neighbour to match or tell apart). */
+export function histogramBinLabels(bins: readonly HistogramBin[]): string[] {
+  if (bins.length === 1) {
+    const { start, end } = bins[0];
+    return [
+      start === end
+        ? formatChartNumber(start)
+        : `${formatChartNumber(start)} to ${formatChartNumber(end)}`,
+    ];
+  }
+  const d = binLabelDecimals(bins);
+  const format = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: d,
+    maximumFractionDigits: d,
+    useGrouping: false,
+  });
+  // Rounding first keeps a float residue such as -1.39e-17 from printing as "-0.0".
+  const edge = (value: number): string => {
+    const rounded = Number(value.toFixed(d));
+    return format.format(rounded === 0 ? 0 : rounded);
+  };
+  return bins.map((b) =>
+    b.start === b.end ? edge(b.start) : `${edge(b.start)} to ${edge(b.end)}`,
+  );
 }
 
 /** Bins the numeric `xAxis` field (see `binHistogram`) into a bar series on a category axis labelled
@@ -145,7 +184,7 @@ export function buildHistogramDataOption(
   );
   if (bins.length === 0) return {};
   return {
-    xAxis: { type: "category", data: bins.map((b) => histogramBinLabel(b.start, b.end)) },
+    xAxis: { type: "category", data: histogramBinLabels(bins) },
     legend: { data: [] },
     series: [{ type: "bar", name: "Count", data: bins.map((b) => b.count), barCategoryGap: 0 }],
   } as Partial<EChartsOption>;
