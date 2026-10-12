@@ -1,7 +1,10 @@
 package com.helio.domain.engine
 
 import org.slf4j.LoggerFactory
+import com.helio.domain.steps.{FillNullConfig, FillNullStep}
 import spray.json._
+
+import scala.util.Try
 
 import ColumnSchemaInference.{inferAggregate, inferCast, inferCompute, inferGroupBy, inferRename, inferSelect}
 import MultiInputSchemaInference.{inferJoin, inferLookup, inferUnion}
@@ -24,7 +27,7 @@ private[engine] object StepSchemaInference {
       // HEL-1100 (design.md D8): `upsertsource` is a terminal write step that never transforms
       // its rows -- a downstream child sees exactly its input schema unchanged, same as
       // `assert`'s pass-through-with-side-effect shape.
-      case "filter" | "limit" | "sort" | "dedupe" | "fillnull" | "upsertsource" => (inputSchema, None)
+      case "filter" | "limit" | "sort" | "dedupe" | "upsertsource" => (inputSchema, None)
       // HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `union`/`join`
       // project a schema derived from BOTH inputs when the secondary input is `lane`-kind
       // and its schema was resolvable (see `analyzeNodes`/`laneDependencyOf`). For a
@@ -38,6 +41,7 @@ private[engine] object StepSchemaInference {
       // `lookup` explicitly).
       case "union"                      => inferUnion(inputSchema, secondarySchema)
       case "join"                       => inferJoin(config, inputSchema, secondarySchema)
+      case "fillnull"                   => inferFillNull(config, inputSchema)
       case "select"                     => inferSelect(config, inputSchema)
       case "rename"                     => inferRename(config, inputSchema)
       case "cast"                       => inferCast(config, inputSchema)
@@ -60,6 +64,21 @@ private[engine] object StepSchemaInference {
       case unknown                      =>
         (inputSchema, Some(s"Unknown op: '$unknown'"))
     }
+
+  /** HEL-1491: `fillnull` stays schema-identity, but `mean`/`median` over a column projected `timestamp` is
+   *  flagged: the run (untyped, unchanged) writes a number there. A listed column absent from the input
+   *  is ignored; a decode failure is left to `validateStepConfig` (no new error category here). The
+   *  projection is NOT changed, so this flags the disagreement and does not remove it. */
+  private[engine] def inferFillNull(config: String, inputSchema: Vector[SchemaField]): (Vector[SchemaField], Option[String]) = {
+    val flagged = Try(FillNullConfig.decode(config)).toOption.toVector.flatMap { cfg =>
+      if (FillNullStep.NumericFillStrategies.contains(cfg.strategy)) {
+        val timestampCols = inputSchema.filter(_.`type` == "timestamp").map(_.name).toSet
+        val hit           = cfg.columns.distinct.filter(timestampCols.contains)
+        if (hit.nonEmpty) Vector(FillNullStep.timestampNumericFillMessage(cfg.strategy, hit)) else Vector.empty
+      } else Vector.empty
+    }
+    (inputSchema, flagged.headOption)
+  }
 
   /** Safely parse the JSON config and apply the transformation.
    *  On any parse/extraction failure, returns (inputSchema, Some(errorMessage)). */
