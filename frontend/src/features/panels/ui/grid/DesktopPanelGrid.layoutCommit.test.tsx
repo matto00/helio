@@ -40,7 +40,7 @@ jest.mock("../../hooks/usePanelData", () => ({
 }));
 jest.mock("../../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../../services/panelService", () => ({
-  fetchPanels: jest.fn(),
+  fetchPanels: jest.fn().mockImplementation(async () => []),
   createPanel: jest.fn(),
   updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
@@ -150,7 +150,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg });
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg }, undefined);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
   });
@@ -180,7 +180,7 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     redo();
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg });
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: layoutAt(4).lg }, undefined);
   });
 
   it("drag, undo, flush sends nothing and clears the pending flag", async () => {
@@ -262,7 +262,11 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     await flush();
     // exactly one PATCH, and only the breakpoint that differs from the (placement-extended) baseline
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(4)).lg });
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith(
+      "d1",
+      { lg: placed(layoutAt(4)).lg },
+      undefined,
+    );
   });
 
   it("resize then a panel create before flush stays pending and is flushed", async () => {
@@ -272,7 +276,11 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(2)).lg });
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith(
+      "d1",
+      { lg: placed(layoutAt(2)).lg },
+      undefined,
+    );
   });
 
   it("an undo/redo then a panel create stays pending and is flushed", async () => {
@@ -284,7 +292,11 @@ describe("DesktopPanelGrid — interaction commit (HEL-1028)", () => {
     expect(store.getState().dashboards.hasPendingLayout).toBe(true);
     await flush();
     expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { lg: placed(layoutAt(4)).lg });
+    expect(updateDashboardLayoutMock).toHaveBeenCalledWith(
+      "d1",
+      { lg: placed(layoutAt(4)).lg },
+      undefined,
+    );
   });
 
   it("a panel create with no pending edit sends no PATCH and does not mark pending", async () => {

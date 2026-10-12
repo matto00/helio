@@ -34,6 +34,10 @@ export interface Dashboard {
    *  hand-built test fixtures need not carry it). Ownership is enforced server-side; the client uses
    *  this only to avoid requests an owner-only endpoint would refuse, and treats absent as not-owner. */
   ownerId?: string;
+  /** HEL-1457: the server bumps this whenever the stored layout changes. A layout save echoes it back as
+   *  `expectedLayoutVersion` (see `useLayoutSave`); optional in the type only for hand-built fixtures, and an
+   *  absent value (an older server) means the save carries no precondition. */
+  layoutVersion?: number;
 }
 
 export interface DuplicateDashboardResponse {

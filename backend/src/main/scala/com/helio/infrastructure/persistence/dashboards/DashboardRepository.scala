@@ -16,7 +16,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class DashboardRepository(protected val ctx: DbContext)(implicit protected val ec: ExecutionContext)
-    extends DashboardProtocol with PanelProtocol with DashboardSnapshotOps with DashboardContentsOps {
+    extends DashboardProtocol with PanelProtocol with DashboardSnapshotOps with DashboardContentsOps with DashboardFieldWriteOps {
 
   import DashboardRepository._
 
@@ -35,7 +35,8 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
       appearance = row.appearance,
       layout     = row.layout,
       ownerId    = UserId(row.ownerId.toString),
-      tag        = row.tag
+      tag        = row.tag,
+      layoutVersion = row.layoutVersion
     )
 
   protected def domainToRow(d: Dashboard): DashboardRow =
@@ -48,7 +49,9 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
       appearance  = d.appearance,
       layout      = d.layout,
       ownerId     = UUID.fromString(d.ownerId.value),
-      tag         = d.tag
+      tag         = d.tag,
+      // Only ever used to INSERT a new row, which always starts at 0; the trigger owns the column after that.
+      layoutVersion = 0L
     )
 
   def findAll(ownerId: UserId, page: Page): Future[PagedResult[Dashboard]] = {
@@ -161,19 +164,6 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
     ctx.withUserContext(dashboard.ownerId.value)(table += domainToRow(dashboard))
       .map(_ => dashboard)
 
-  def update(dashboard: Dashboard): Future[Option[Dashboard]] =
-    ctx.withUserContext(dashboard.ownerId.value)(
-      table
-        .filter(_.id === dashboard.id.value)
-        .map(r => (r.name, r.lastUpdated, r.appearance, r.layout))
-        .update((
-          dashboard.name,
-          dashboard.meta.lastUpdated,
-          dashboard.appearance,
-          dashboard.layout
-        ))
-    ).map(count => if (count > 0) Some(dashboard) else None)
-
   /** Every panel id of the dashboard, unpaged (HEL-1233). The system context is load-bearing:
    *  the repair's "no live panel dropped" check needs the full set, and the app pool's RLS would
    *  hide panels the caller does not own. Call only after the caller's ownership of `dashboardId`
@@ -199,20 +189,6 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
         .map(_.layout)
         .update(next)
     ).map(_ > 0)
-
-  /** Privileged update: uses withSystemContext because the caller (DashboardService)
-   *  has already validated ownership before reaching this method. The V36 RLS
-   *  UPDATE policy (owner OR editor grantee) would also permit this, but the
-   *  service always confirms ownership first — withSystemContext is kept to
-   *  avoid a redundant DB round-trip for the policy predicate. */
-  def updateName(id: DashboardId, name: String, lastUpdated: Instant): Future[Option[Dashboard]] =
-    ctx.withSystemContext(
-      table
-        .filter(_.id === id.value)
-        .map(r => (r.name, r.lastUpdated))
-        .update((name, lastUpdated))
-        .andThen(table.filter(_.id === id.value).result.headOption)
-    ).map(_.map(rowToDomain))
 
   /** Privileged delete: uses withSystemContext because DashboardService has
    *  confirmed ownership via findByIdOwned before calling this. The V36 RLS
@@ -275,7 +251,9 @@ object DashboardRepository {
       // HEL-907 evaluator-1 CR3 (V95): extends HEL-366's resource tagging to
       // dashboards. Appended last so every pre-existing positional
       // `DashboardRow(...)` construction keeps compiling unchanged.
-      tag: Option[String] = None
+      tag: Option[String] = None,
+      // HEL-1457 (V127): maintained by a trigger; `insert` always writes 0 (see `DashboardRepository.insert`).
+      layoutVersion: Long = 0L
   )
 
   class DashboardTable(slickTag: Tag) extends Table[DashboardRow](slickTag, "dashboards") {
@@ -289,7 +267,8 @@ object DashboardRepository {
     def ownerId     = column[UUID]("owner_id")
     // HEL-907 evaluator-1 CR3 (V95).
     def tag         = column[Option[String]]("tag")
+    def layoutVersion = column[Long]("layout_version")
 
-    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId, tag).mapTo[DashboardRow]
+    def * = (id, name, createdBy, createdAt, lastUpdated, appearance, layout, ownerId, tag, layoutVersion).mapTo[DashboardRow]
   }
 }

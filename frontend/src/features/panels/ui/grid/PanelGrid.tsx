@@ -17,6 +17,8 @@ export type PanelGridHandle = PanelUpdatesFlushHandle;
 interface PanelGridProps {
   dashboardId: string;
   layout: DashboardLayout;
+  /** HEL-1457: the store's `layoutVersion` paired with `layout`, handed to the desktop grid's save. */
+  layoutVersion?: number;
   panels: Panel[];
   zoomLevel?: number;
   /** HEL-528 skeptic-final-1.md CR1 — the grid container's measured width,
@@ -60,7 +62,7 @@ interface PanelGridProps {
  * only possible layout write is that one-time repair POST.
  */
 export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(function PanelGrid(
-  { dashboardId, layout, panels, zoomLevel = 1.0, width },
+  { dashboardId, layout, layoutVersion, panels, zoomLevel = 1.0, width },
   ref,
 ) {
   const { registerLayoutFlush } = usePanelUpdatesFlush({ dashboardId, forwardedRef: ref });
@@ -76,6 +78,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
         <DesktopPanelGrid
           dashboardId={dashboardId}
           layout={layout}
+          layoutVersion={layoutVersion}
           panels={panels}
           zoomLevel={zoomLevel}
           width={width}

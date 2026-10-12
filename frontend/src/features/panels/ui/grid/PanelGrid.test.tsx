@@ -128,7 +128,7 @@ describe("PanelGrid", () => {
     updatePanelsBatchMock.mockReset();
     updatePanelsBatchMock.mockResolvedValue({ panels: [] });
     updateDashboardLayoutMock.mockReset();
-    updateDashboardLayoutMock.mockResolvedValue({} as never);
+    updateDashboardLayoutMock.mockResolvedValue({ layout: emptyLayout } as never);
   });
 
   afterEach(() => {
@@ -752,7 +752,11 @@ describe("PanelGrid", () => {
       });
 
       expect(updateDashboardLayoutMock).toHaveBeenCalledTimes(1);
-      expect(updateDashboardLayoutMock).toHaveBeenCalledWith("d1", { md: stagedLayout.md });
+      expect(updateDashboardLayoutMock).toHaveBeenCalledWith(
+        "d1",
+        { md: stagedLayout.md },
+        undefined,
+      );
     });
 
     // 3.2 — browse-only crossing: no staged change → the unmount path dispatches

@@ -412,6 +412,7 @@ export function PanelList() {
             key={selectedDashboardId}
             dashboardId={selectedDashboardId}
             layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+            layoutVersion={selectedDashboard?.layoutVersion}
             panels={items}
             zoomLevel={zoomLevel}
             width={gridContainerWidth}

@@ -68,6 +68,8 @@ import "./PanelGrid.css";
 interface DesktopPanelGridProps {
   dashboardId: string;
   layout: DashboardLayout;
+  /** HEL-1457: the store's `layoutVersion` paired with `layout`; see `useLayoutSave`. */
+  layoutVersion?: number;
   panels: Panel[];
   zoomLevel: number;
   /** Grid container width, measured by the parent `PanelGrid`. */
@@ -80,6 +82,7 @@ interface DesktopPanelGridProps {
 export function DesktopPanelGrid({
   dashboardId,
   layout,
+  layoutVersion,
   panels,
   zoomLevel,
   width,
@@ -184,6 +187,7 @@ export function DesktopPanelGrid({
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
     layout,
+    layoutVersion,
     panels,
     panelsLoaded: panelsStatus === "succeeded",
     registerLayoutFlush,

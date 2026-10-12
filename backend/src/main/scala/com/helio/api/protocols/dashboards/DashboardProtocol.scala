@@ -43,8 +43,13 @@ final case class DashboardResponse(
     // existing convention extended to dashboards. Omitted on the wire when
     // unset (spray-json drops `Option = None`) -- same convention as
     // DataSourceResponse/PipelineSummaryResponse's own `tag`.
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    // HEL-1457 (V127): bumped by the database whenever the stored layout changes; a client echoes it back as
+    // `expectedLayoutVersion` so a stale layout save is refused instead of overwriting.
+    layoutVersion: Long = 0L
 )
+/** Body of the 409 a stale layout write gets: `dashboard` is the row as it is now (HEL-1457). */
+final case class LayoutConflictResponse(message: String, dashboard: DashboardResponse)
 final case class DashboardsResponse(items: Vector[DashboardResponse])
 final case class DuplicateDashboardResponse(dashboard: DashboardResponse, panels: Vector[PanelResponse])
 // HEL-363: `ifExists` is an opt-in get-or-create flag. `Some("return")` looks
@@ -59,7 +64,9 @@ final case class CreateDashboardRequest(
 final case class UpdateDashboardRequest(
     name: Option[String],
     appearance: Option[DashboardAppearancePayload],
-    layout: Option[DashboardLayoutPatchPayload]
+    layout: Option[DashboardLayoutPatchPayload],
+    // HEL-1457: only valid alongside `layout`; the write is refused with 409 unless the stored layout is still this version.
+    expectedLayoutVersion: Option[Long] = None
 )
 final case class UpdateDashboardBatchRequest(fields: Vector[String], dashboard: UpdateDashboardRequest)
 
@@ -73,8 +80,9 @@ final case class AutoLayoutItemPayload(panelId: String, w: Int, h: Int)
  *  breakpoint at its own column count; present (`lg|md|sm|xs`) packs only that breakpoint (`w` in its
  *  units) and leaves the others untouched. `cols` is
  *  optional and defaults to 12 (matches `DesktopPanelGrid`'s `lg` breakpoint
- *  column count) — see design.md D1. */
-final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int], breakpoint: Option[String] = None)
+ *  column count) — see design.md D1. HEL-1457: `expectedLayoutVersion`, if given, refuses the pack with 409
+ *  unless the stored layout is still that `layoutVersion`. */
+final case class AutoLayoutRequest(items: Vector[AutoLayoutItemPayload], cols: Option[Int], breakpoint: Option[String] = None, expectedLayoutVersion: Option[Long] = None)
 
 
 /** Snapshot panel entry (CS2c-3c discriminated wire shape).
@@ -120,7 +128,8 @@ object DashboardResponse {
       appearance = DashboardAppearanceResponse.fromDomain(dashboard.appearance),
       layout     = DashboardLayoutResponse.fromDomain(dashboard.layout),
       ownerId    = dashboard.ownerId.value,
-      tag        = dashboard.tag
+      tag        = dashboard.tag,
+      layoutVersion = dashboard.layoutVersion
     )
 }
 
@@ -229,15 +238,16 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(DashboardAppearanceResponse.apply)
   implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(DashboardLayoutItemResponse.apply)
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse]         = jsonFormat4(DashboardLayoutResponse.apply)
-  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat7(DashboardResponse.apply)
+  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat8(DashboardResponse.apply)
+  implicit val layoutConflictResponseFormat: RootJsonFormat[LayoutConflictResponse]           = jsonFormat2(LayoutConflictResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse]                   = jsonFormat1(DashboardsResponse.apply)
   implicit val duplicateDashboardResponseFormat: RootJsonFormat[DuplicateDashboardResponse]   = jsonFormat2(DuplicateDashboardResponse.apply)
   implicit val createDashboardRequestFormat: RootJsonFormat[CreateDashboardRequest]           = jsonFormat3(CreateDashboardRequest.apply)
-  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat3(UpdateDashboardRequest.apply)
+  implicit val updateDashboardRequestFormat: RootJsonFormat[UpdateDashboardRequest]           = jsonFormat4(UpdateDashboardRequest.apply)
   implicit val updateDashboardBatchRequestFormat: RootJsonFormat[UpdateDashboardBatchRequest] = jsonFormat2(UpdateDashboardBatchRequest.apply)
 
   implicit val autoLayoutItemPayloadFormat: RootJsonFormat[AutoLayoutItemPayload] = jsonFormat3(AutoLayoutItemPayload.apply)
-  implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat3(AutoLayoutRequest.apply)
+  implicit val autoLayoutRequestFormat: RootJsonFormat[AutoLayoutRequest]         = jsonFormat4(AutoLayoutRequest.apply)
 
   implicit val dashboardSnapshotPanelEntryFormat: RootJsonFormat[DashboardSnapshotPanelEntry]         = jsonFormat6(DashboardSnapshotPanelEntry.apply)
   implicit val dashboardSnapshotDashboardEntryFormat: RootJsonFormat[DashboardSnapshotDashboardEntry] = jsonFormat3(DashboardSnapshotDashboardEntry.apply)

@@ -81,7 +81,7 @@ describe("layout PATCH from a ghost-bearing store layout (shared with the backen
       }),
     );
 
-    expect(updateMock).toHaveBeenCalledWith("d1", fixture.patch);
+    expect(updateMock).toHaveBeenCalledWith("d1", fixture.patch, undefined);
     expect(store.getState().dashboards.items[0].layout).toEqual(fixture.expectedStored);
     expect(store.getState().dashboards.hasPendingLayout).toBe(false);
   });

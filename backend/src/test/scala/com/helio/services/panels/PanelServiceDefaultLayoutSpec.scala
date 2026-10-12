@@ -8,7 +8,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{mock, verify, never, when}
+import org.mockito.Mockito.{mock, mockingDetails, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -16,6 +16,7 @@ import spray.json._
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -250,7 +251,7 @@ class PanelServiceDefaultLayoutSpec extends AnyWordSpec with Matchers {
       val (_, layout) = await(service.create(request, user)).getOrElse(fail("create failed"))
       (layout.lg.w, layout.md.w, layout.sm.w, layout.xs.w) shouldBe ((4, 4, 3, 2))
       List(layout.lg.h, layout.md.h, layout.sm.h, layout.xs.h) shouldBe List(5, 5, 5, 5)
-      verify(dashboardRepo, never()).update(any())
+      mockingDetails(dashboardRepo).getInvocations.asScala.map(_.getMethod.getName) should not contain "writeFields"
     }
 
     "answer 404 and place nothing when the repository could not see the dashboard" in {
