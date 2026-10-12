@@ -301,9 +301,9 @@ export function OutputEditorSheet({
           canAddTailWithAggregate={canAddTailWithAggregate}
           onAddTailWithAggregate={() => void handleAddTailWithAggregate()}
           onSave={() => void handleSave()}
-          saveDisabled={rulesInvalid}
           saveBlocked={
-            kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid)
+            rulesInvalid ||
+            (kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid))
           }
         />
       }
