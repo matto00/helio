@@ -93,6 +93,16 @@ object FillNullStep {
       Some(unsupportedStrategyMessage(cfg.strategy))
     else None
 
+  /** HEL-1491: strategies whose fill value is computed numerically (`PipelineRowJson.toDouble`), so they
+   *  write a number into every null cell regardless of the column's projected type. */
+  val NumericFillStrategies: Set[String] = Set("mean", "median")
+
+  /** HEL-1491: the one analyze-time message for a numeric fill over timestamp column(s). The run is
+   *  untyped and unchanged; this only flags the disagreement with the `timestamp` projection. */
+  def timestampNumericFillMessage(strategy: String, columns: Seq[String]): String =
+    s"fillnull strategy '$strategy' cannot fill timestamp column(s) ${columns.map(c => s"'$c'").mkString(", ")}: " +
+      "the run would write a number into a timestamp column. Use forwardFill, mode or constant, or cast the column to a number first."
+
   def apply(rows: Seq[PipelineRowJson.Row], cfg: FillNullConfig): Seq[PipelineRowJson.Row] = {
     strategyProblem(cfg).foreach(msg => throw new StepConfigError(msg))
     if (cfg.strategy.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values

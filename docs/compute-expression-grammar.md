@@ -348,15 +348,31 @@ warnings are not reported by this endpoint.
 
 The `+` rule above assumes a `timestamp`-typed column is text at run time. That holds for `cast`,
 `datebucket`, JSON/SQL schema inference (a `timestamp` type comes only from string values) and dataset
-sources. Two paths can still deliver a JSON number under a `timestamp` projection, so analyze's `+` type
-can disagree with the run there:
+sources. Two paths can still deliver a JSON number under a `timestamp` projection (HEL-1491):
 
 - `fillnull` with `mean`/`median` over epoch-valued timestamp strings: the schema stays `timestamp`,
   but the filled cells are numbers.
-- A `union` whose secondary lane has a same-named numeric field: the parent lane's `timestamp` type wins
-  on the name collision, while the rows carry numbers.
+- A `union` whose secondary lane has a same-named numeric field (or the reverse): the parent lane's
+  type wins on the name collision, while the rows mix numbers and timestamp strings.
 
-Neither is handled by the compute step; the type of a column on those paths is not reliable for `+`.
+Analyze now **flags** both as a step error (`validationError` on the `fillnull` or `union` step, shown
+on the step card and surfaced as a `step-config-invalid` reason with `canRun: false`): `fillnull`
+`mean`/`median` listing a `timestamp` column, and a `lane`-kind `union` whose parent and secondary types
+for a shared field are `timestamp` versus `integer`/`float`. The fix is to use `forwardFill`, `mode` or
+`constant`, cast the column to a number first, or cast one union side so the types match.
+
+This flags the disagreement; it does not remove it:
+
+- Run time is unchanged and is not blocked. `canRun: false` only hides the editor's "Run to update"
+  prompt; Run, Dry run, scheduled runs and auto-runs still execute.
+- The projected type is unchanged (the parent lane's type for a union, the input type for `fillnull`).
+  With a `timestamp` column, a downstream `$ts + ...` is still inferred as text while a run started
+  anyway can still produce a number. In the reverse union case (numeric parent, timestamp secondary) the
+  projection stays numeric while timestamp strings arrive under it.
+- A `union` with a `source`-kind secondary input (its default shape) is **not checked**: analyze does
+  not resolve that secondary's schema for `union`, so the collision is invisible there. Known gap.
+- Other collisions (for example `string` versus `integer`) and `mean`/`median` over a `string` column
+  holding numeric strings are out of scope.
 
 ## Legacy compatibility
 
