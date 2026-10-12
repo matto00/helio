@@ -408,7 +408,7 @@ describe("GUARD: every chart that is not a timestamp-x line/scatter/vertical bar
     ]);
   });
 
-  it("a single-series category chart keeps NaN y as 0 (only multi-series gaps changed)", () => {
+  it("a single-series category chart plots a non-numeric y as a gap (HEL-1508: gap-everywhere)", () => {
     const option = build("line", {
       rows: [
         ["Mon", "n/a", "x"],
@@ -417,7 +417,7 @@ describe("GUARD: every chart that is not a timestamp-x line/scatter/vertical bar
       headers: SERIES_HEADERS,
       fieldMapping: mapping,
     });
-    expect(seriesOf(option)[0].data).toEqual([0, 2]);
+    expect(seriesOf(option)[0].data).toEqual([null, 2]);
   });
 
   it("a string-typed x multi-series chart keeps first-seen row order", () => {
