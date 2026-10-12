@@ -60,6 +60,46 @@ async function token(page: Page, prop: "color" | "backgroundColor", name: string
 const css = (loc: Locator, prop: string) =>
   loc.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
 
+/** WCAG contrast of two computed `rgb()`/`rgba()` colours, measured in the live page. */
+function contrast(a: string, b: string): number {
+  const lum = (c: string) => {
+    const [r, g, bl] = (c.match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => {
+      const n = Number(v) / 255;
+      return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** The first non-transparent background-color walking up from `loc` (the panel's resolved surface). */
+const surfaceOf = (loc: Locator) =>
+  loc.evaluate((el) => {
+    for (let n: Element | null = el; n; n = n.parentElement) {
+      const bg = getComputedStyle(n).backgroundColor;
+      if (!/rgba\(.*, 0\)$/.test(bg) && bg !== "transparent") return bg;
+    }
+    return "rgb(255, 255, 255)";
+  });
+
+/**
+ * HEL-1490 contract on a CUSTOM-background panel: the figure keeps the theme token where the token clears
+ * 4.5:1 against the panel surface; where it fails, it is a different (readable) colour measuring >= 4.5:1.
+ * Measured from computed styles, so no variant hex is hardcoded.
+ */
+async function expectToneReadable(page: Page, figure: Locator, tokenName: string) {
+  const tokenColor = await token(page, "color", tokenName);
+  const actual = await css(figure, "color");
+  const surface = await surfaceOf(figure);
+  if (contrast(tokenColor, surface) >= 4.55) {
+    expect(actual).toBe(tokenColor);
+  } else if (contrast(tokenColor, surface) < 4.5) {
+    expect(actual).not.toBe(tokenColor);
+  }
+  expect(contrast(actual, surface), `${actual} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+}
+
 async function seed(request: APIRequestContext, theme: string, created: Record<string, string>) {
   const metricSource = await postJson<{ id: string }>(
     request,
@@ -221,7 +261,8 @@ for (const theme of ["light", "dark"] as const) {
       const ruledCard = card("CF ruled metric");
       const ruledFigure = ruledCard.locator(".panel-content__metric-figure");
       await expect(ruledFigure).toBeVisible();
-      expect(await css(ruledFigure, "color")).toBe(await token(page, "color", "--app-error"));
+      // custom-background panel (#f3f4f6): readable variant where the token fails (HEL-1490)
+      await expectToneReadable(page, ruledFigure, "--app-error");
       await expect(ruledFigure.locator(".sr-only")).toHaveText("Failing");
 
       // (b) the unit keeps exactly its no-rules colour on a panel with a custom text colour
