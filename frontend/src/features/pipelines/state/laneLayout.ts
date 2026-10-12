@@ -196,25 +196,3 @@ export function computeAncestorIds(steps: Step[], stepId: string): Set<string> {
   }
   return ancestors;
 }
-
-/** HEL-1515 -- every step that transitively depends on `stepId`: a child (via `parentStepId`) or a
- *  step whose `{kind:"lane"}` secondaryInput names it, and everything depending on those. The mirror
- *  of `computeAncestorIds`, and of the backend's dependents closure (`StepPlacement.dependentStepIds`).
- *  Selecting one of these as `stepId`'s own secondary input would close a cycle the run cannot schedule. */
-export function computeDependentIds(steps: Step[], stepId: string): Set<string> {
-  const dependents = new Set<string>();
-  const frontier = [stepId];
-  while (frontier.length > 0) {
-    const id = frontier.pop()!;
-    for (const s of steps) {
-      if (s.id === stepId || dependents.has(s.id)) continue;
-      const secondary = secondaryInputOf(s.config);
-      const viaLane = secondary?.kind === "lane" && secondary.stepId === id;
-      if (s.parentStepId === id || viaLane) {
-        dependents.add(s.id);
-        frontier.push(s.id);
-      }
-    }
-  }
-  return dependents;
-}

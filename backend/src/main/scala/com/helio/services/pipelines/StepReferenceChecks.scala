@@ -8,12 +8,12 @@ import com.helio.services.ServiceError
 import scala.concurrent.{ExecutionContext, Future}
 
 /** What [[StepReferenceChecks.referenceChecksF]] needs to validate a `lane` reference (HEL-1515): the pipeline's
- *  steps and, for the step being written, its prospective `ancestors` and `dependents` (the steps that would
+ *  steps and, for the step being written, its prospective `ancestors` and `descendants` (the steps that would
  *  already depend on it), plus `selfId` when the step already exists. */
 private[pipelines] final case class LaneScope(
     steps:      Vector[PipelineStep],
     ancestors:  Set[String],
-    dependents: Set[String],
+    descendants: Set[String],
     selfId:     Option[String]
 )
 
@@ -63,10 +63,10 @@ private[pipelines] final class StepReferenceChecks(
     }
 
   /** HEL-911 (Engine contract items 6a/7): a `lane` secondaryInput must name an existing step of THIS pipeline
-    * that is neither the step itself, one of its ancestors, nor (HEL-1515) a step that depends on it. */
+    * that is neither the step itself, one of its ancestors, nor (HEL-1515) one of its descendants. */
   private def laneCheckF(typedConfig: Any, laneScopeF: => Future[LaneScope]): Future[Either[ServiceError, Unit]] =
     PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
       case None    => Future.successful(Right(()))
-      case Some(_) => laneScopeF.map(s => PipelineService.validateLaneReference(typedConfig, s.steps, s.ancestors, s.dependents, s.selfId))
+      case Some(_) => laneScopeF.map(s => PipelineService.validateLaneReference(typedConfig, s.steps, s.ancestors, s.descendants, s.selfId))
     }
 }

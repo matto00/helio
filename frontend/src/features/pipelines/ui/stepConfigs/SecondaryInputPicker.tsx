@@ -17,7 +17,7 @@ import { fetchSources } from "../../../sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { Select } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import { computeAncestorIds, computeDependentIds } from "../../state/laneLayout";
+import { computeAncestorIds } from "../../state/laneLayout";
 import type { SecondaryInput } from "../../types/pipelineStep";
 import type { Step } from "../../types/step";
 
@@ -67,7 +67,6 @@ export function SecondaryInputPicker({
   }, [dispatch]);
 
   const ancestorIds = computeAncestorIds(allSteps, currentStepId);
-  const dependentIds = computeDependentIds(allSteps, currentStepId);
 
   const sourceOptions = dataSources.map((ds) => ({
     value: `${SOURCE_PREFIX}${ds.id}`,
@@ -77,7 +76,7 @@ export function SecondaryInputPicker({
   const laneOptions = allSteps
     .filter((s) => s.id !== currentStepId)
     .map((s) => {
-      const disabled = ancestorIds.has(s.id) || dependentIds.has(s.id);
+      const disabled = ancestorIds.has(s.id);
       return {
         value: `${LANE_PREFIX}${s.id}`,
         label: disabled ? `Lane node: ${s.label} (would create a cycle)` : `Lane node: ${s.label}`,

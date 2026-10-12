@@ -14,14 +14,13 @@ import java.util.UUID
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-/** HEL-1515 (assumed product call, see the change's design.md D4): a `lane` secondary input may not name a step
- *  that already depends on the writing step (a descendant, or a step reaching it through lane links), because
- *  the run can never schedule such a graph. Update checks the existing step's dependents; create checks the steps
- *  its insertion re-parents under the new step. Seeds go through SQL so the fixtures hold regardless of what the
+/** HEL-1515 (owner ruling: reject-at-write): a `lane` secondary input may not name one of the writing step's own
+ *  descendants, because the run can never schedule such a graph. Update checks the existing step's descendants;
+ *  create checks the steps its insertion re-parents under the new step, and their descendants. Seeds go through SQL so the fixtures hold regardless of what the
  *  write surface accepts. */
-class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWriteRoutesFixture {
+class StepLaneDescendantsRoutesSpec extends AnyWordSpec with Matchers with StepWriteRoutesFixture {
 
-  private val dependsMessage = "it depends on this step"
+  private val dependsMessage = "it is a descendant of this step"
 
   /** What the run does with the stored graph: the engine's own outcome, `Right` when it ran. */
   private def runOutcome(pid: PipelineId): Either[String, Int] = {
@@ -33,7 +32,7 @@ class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWr
     catch { case e: LaneReferenceError => Left(e.message) }
   }
 
-  "update: a lane reference to a step that depends on the writing step" should {
+  "update: a lane reference to one of the writing step's own descendants" should {
     "400 when it names a descendant, and leaves the stored config unchanged" in {
       val owner = newUser(); val pid = emptyPipeline(owner)
       val head = seedStep(pid, "rename", rename, None, 0)
@@ -43,7 +42,7 @@ class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWr
       patchConfig(owner, a, laneJoin(b)) {
         withClue(responseAs[String]) {
           status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(s"Lane reference '$b' would create a cycle (it depends on this step).")
+          responseAs[String] should include(s"Lane reference '$b' would create a cycle (it is a descendant of this step).")
         }
       }
       storedConfigOf(a) shouldBe before
@@ -60,22 +59,6 @@ class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWr
         case Left(msg) => msg should include("Cyclic or unresolved lane reference")
         case Right(n)  => fail(s"expected the run to fail, it evaluated $n nodes")
       }
-    }
-
-    "400 when it names a step that reaches the writing step only through a lane link (not a descendant)" in {
-      val owner = newUser(); val pid = emptyPipeline(owner)
-      val head = seedStep(pid, "rename", rename, None, 0)
-      val a    = seedStep(pid, "join", draftJoin, Some(head), 0)
-      val b    = seedStep(pid, "rename", rename, Some(a), 0)
-      val x    = seedStep(pid, "join", laneJoin(b), Some(head), 1) // x depends on b, b depends on a
-      val before = storedConfigOf(a)
-      patchConfig(owner, a, laneJoin(x)) {
-        withClue(responseAs[String]) {
-          status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(s"Lane reference '$x' would create a cycle (it depends on this step).")
-        }
-      }
-      storedConfigOf(a) shouldBe before
     }
 
     "GUARD: a lane reference to an unrelated sibling branch is still accepted" in {
@@ -102,7 +85,7 @@ class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWr
       createJoin(owner, pid, q) {
         withClue(responseAs[String]) {
           status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(s"Lane reference '$q' would create a cycle (it depends on this step).")
+          responseAs[String] should include(s"Lane reference '$q' would create a cycle (it is a descendant of this step).")
         }
       }
       stepCountOf(owner, pid) shouldBe 3
@@ -116,7 +99,7 @@ class StepLaneDependentsRoutesSpec extends AnyWordSpec with Matchers with StepWr
       createJoin(owner, pid, a, "parentStepId" -> JsString(head)) {
         withClue(responseAs[String]) { status shouldBe StatusCodes.BadRequest }
       }
-      // b is not a direct child of head, but depends on a, which moves under the new step.
+      // b is not a direct child of head, but is below a, which moves under the new step.
       createJoin(owner, pid, b, "parentStepId" -> JsString(head)) {
         withClue(responseAs[String]) {
           status shouldBe StatusCodes.BadRequest

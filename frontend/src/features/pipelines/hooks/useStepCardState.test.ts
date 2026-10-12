@@ -576,7 +576,7 @@ describe("useStepCardState — saveError (HEL-1102 task 2.4)", () => {
 // union/lookup/join handlers opt INTO `saveError`, so that rejection reaches the card instead of the edit
 // being silently lost.
 describe("useStepCardState -- lane rejection reaches saveError (HEL-1515)", () => {
-  const CYCLE = "Lane reference 'g' would create a cycle (it depends on this step).";
+  const CYCLE = "Lane reference 'g' would create a cycle (it is a descendant of this step).";
   const lane = { kind: "lane" as const, stepId: "g" };
   const cases = [
     {

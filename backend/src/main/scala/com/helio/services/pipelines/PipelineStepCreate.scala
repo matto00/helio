@@ -81,13 +81,13 @@ private[pipelines] final class PipelineStepCreate(
                 case _ =>
                   req.parentStepId.map(PipelineStepId(_)).orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
               }
-              // HEL-1515: the steps this insert re-parents under the new step (and what depends on them) cannot
-              // be lane targets either. The anchor is the SAME resolution `persistNewStep` inserts with; a
+              // HEL-1515 (owner ruling, reject-at-write): the steps this insert re-parents under the new step (and
+              // their parent-chain descendants) cannot be lane targets either. The anchor is the SAME resolution `persistNewStep` inserts with; a
               // placement it rejects re-parents nothing, so today's rejection stays the answer.
-              val dependents = StepPlacement
+              val descendants = StepPlacement
                 .resolveCreateAnchor(req, current, rootIdOfStep, rootIds, pipelineStepRepo.trunkOf)
-                .fold(_ => Set.empty[String], anchor => StepPlacement.dependentStepIds(StepPlacement.reparentedIds(anchor, current, rootIdOfStep), current))
-              LaneScope(current, PipelineService.ancestorChainOf(prospectiveParent, current), dependents, selfId = None)
+                .fold(_ => Set.empty[String], anchor => PipelineService.descendantStepIds(StepPlacement.reparentedIds(anchor, current, rootIdOfStep), current))
+              LaneScope(current, PipelineService.ancestorChainOf(prospectiveParent, current), descendants, selfId = None)
             }
           def pipelineAccessF: Future[Either[ServiceError, Pipeline]] =
             pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {
@@ -133,7 +133,7 @@ private[pipelines] final class PipelineStepCreate(
     // HEL-412: absent `enabled` creates an enabled step (the pre-existing
     // implicit behavior, made explicit).
     val enabled = req.enabled.getOrElse(true)
-    // HEL-1515: ONE placement resolution (`StepPlacement.resolveCreateAnchor`) -- the lane check's dependents
+    // HEL-1515: ONE placement resolution (`StepPlacement.resolveCreateAnchor`) -- the lane check's descendants
     // read the same anchor -- over a single read of the pipeline's roots and steps. Its rejections are, in
     // order, the ones each arm used to answer with: both ids named (400), unknown root (422), out-of-range
     // root position (422), unknown parent (422), several roots with no id (400), out-of-range position (422).

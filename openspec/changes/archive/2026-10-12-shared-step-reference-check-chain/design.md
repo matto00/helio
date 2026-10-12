@@ -163,3 +163,15 @@ and the tickets untouched and report why.
   permission, which arguably changes what users can save. Under the owner's overnight rule (a), the reversible
   recommended option `reject-at-write` is taken as an ASSUMED product call (C1). The PR is flagged OWNER REVIEW and
   parked for the owner, and the auditor does not merge it. D4's fix branch runs if the red repro reproduces.
+
+## Owner trim (HEL-1515 cycle 5)
+
+The owner ruled "reject-at-write" for descendants only, so the broader behaviour above was cut:
+- The dependents closure over parent AND lane edges (`StepPlacement.dependentStepIds`, lane-transitive rejection) is replaced by
+  parent-chain descendants (`PipelineService.descendantStepIds`); the message is now
+  `Lane reference '<id>' would create a cycle (it is a descendant of this step).`
+- The picker's dependents-disable (`computeDependentIds`) and its e2e were removed, and the
+  `pipeline-lane-rejoin-picker` delta is dropped (that spec is back to its pre-change content).
+- Kept by the owner: the shared check chain, the AC2 pins, `captureErrors` for join/union/lookup with `saveError`
+  rendering, and the patch-set fixture fix and undo spec.
+

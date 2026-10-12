@@ -1,11 +1,8 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.CreatePipelineStepRequest
-import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.model.{PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.services.ServiceError
-
-import scala.annotation.tailrec
 
 /** Where a create lands, resolved from the request: `anchor` is the step the new one is spliced under (`None` =
   * root level), `explicitRootId` names the root for a root-level splice, and `attachAsTail` makes the insert a new
@@ -13,7 +10,7 @@ import scala.annotation.tailrec
 private[pipelines] final case class CreateAnchor(anchor: Option[PipelineStepId], explicitRootId: Option[PipelineRootId], attachAsTail: Boolean)
 
 /** Pure placement and dependency helpers for step create (HEL-1515). `resolveCreateAnchor` is the one anchor
-  * resolution both the insert (`PipelineStepCreate.persistNewStep`) and the lane check's dependents use, so the two
+  * resolution both the insert (`PipelineStepCreate.persistNewStep`) and the lane check's descendants use, so the two
   * cannot disagree about which steps an insert re-parents. */
 private[pipelines] object StepPlacement {
 
@@ -73,18 +70,4 @@ private[pipelines] object StepPlacement {
           .fold(parentless)(r => parentless.filter(s => rootIdOfStep.get(s.id).contains(r)))
           .map(_.id.value).toSet
     }
-
-  /** `seeds` plus every step that transitively depends on one of them, through a parent edge (a child) or a lane
-    * edge (a step whose `lane` input names it) -- the engine's Kahn walk treats both as dependencies. */
-  def dependentStepIds(seeds: Set[String], steps: Vector[PipelineStep]): Set[String] = {
-    val laneDep = steps.flatMap(s => InProcessPipelineEngine.laneDependencyOf(s).map(dep => s.id.value -> dep))
-    @tailrec
-    def expand(frontier: Set[String], acc: Set[String]): Set[String] = {
-      val viaParent = steps.filter(s => s.parentStepId.exists(p => frontier.contains(p.value))).map(_.id.value)
-      val viaLane   = laneDep.collect { case (id, dep) if frontier.contains(dep) => id }
-      val newOnes   = (viaParent ++ viaLane).toSet -- acc
-      if (newOnes.isEmpty) acc else expand(newOnes, acc ++ newOnes)
-    }
-    expand(seeds, seeds)
-  }
 }

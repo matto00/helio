@@ -86,10 +86,10 @@ private[pipelines] final class PipelineStepWrites(
                             // cannot reference itself).
                             def laneScopeF: Future[LaneScope] =
                               pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
-                                // HEL-1515: a lane to a step that already depends on this one -- a descendant, or anything
-                                // reaching it through parent or lane links -- could never be scheduled.
-                                val dependents = StepPlacement.dependentStepIds(Set(existing.id.value), current) - existing.id.value
-                                LaneScope(current, PipelineService.ancestorChainOf(existing.parentStepId, current), dependents, selfId = Some(existing.id.value))
+                                // HEL-1515 (owner ruling, reject-at-write): a lane to one of this step's own
+                                // descendants could never be scheduled.
+                                val descendants = PipelineService.descendantStepIds(Set(existing.id.value), current) - existing.id.value
+                                LaneScope(current, PipelineService.ancestorChainOf(existing.parentStepId, current), descendants, selfId = Some(existing.id.value))
                               }
                             refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
                               case Left(err) => Future.successful(Left(err))
@@ -254,7 +254,7 @@ private[pipelines] final class PipelineStepWrites(
                       // HEL-1514/HEL-1515: create's reference checks, run through the shared chain against the clone's
                       // prospective position (directly after `existing`, so its ancestors are `existing` plus
                       // `existing`'s own chain). The clone takes over ALL of `existing`'s children, so a reference
-                      // into them is already a cycle on `existing` itself: no dependents to add here.
+                      // into them is already a cycle on `existing` itself: no descendants to add here.
                       def laneScopeF: Future[LaneScope] =
                         pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
                           LaneScope(current, PipelineService.ancestorChainOf(Some(existing.id), current), Set.empty, selfId = None)
