@@ -22,7 +22,7 @@
 
 - [x] 4.1 `docs/compute-expression-grammar.md`: state that validate-expression reports the same errors analyze does, including type errors, and that `valid:false` does not mean save rejects. Reword the notice description near the coalesce inference paragraph so it matches D5. Verify: grep shows no "can't run" claim remains.
 - [x] 4.2 Live after-check, repeating D6 steps 2-4 on the changed code: validate-expression returns `valid:false` with analyze's message, the page notice shows the D5 sentence, and the manual run still succeeds. Delete residue by exact id. Verify: `.concertino/runs/HEL-1437/evidence/live-repro-after.md`.
-- [ ] 4.3 Gates. Verify each passes:
+- [x] 4.3 Gates (evidence: evidence/gate-backend-testFull.txt, gate-frontend-jest.txt, gates-frontend-lint.txt, eval-1-gates.txt, gates-cycle2.txt). Verify each passes:
   - backend `sbt testFull`, run niced and capped per HEL-1442, with the sbt server shut down afterwards;
   - frontend lint, typecheck, format:check and jest;
   - `openspec validate validate-expression-type-errors --type change`.

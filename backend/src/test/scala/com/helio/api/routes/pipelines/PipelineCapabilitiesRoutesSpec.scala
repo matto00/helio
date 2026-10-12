@@ -26,7 +26,9 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
+import spray.json._
 
+import java.nio.file.{Files, Paths}
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -281,7 +283,6 @@ class PipelineCapabilitiesRoutesSpec
       val pipelineId = newSharedPipeline()
       val schema     = Vector(SchemaField("amount", "float"), SchemaField("label", "string"))
       def oracle(expr: String): Option[String] = {
-        import spray.json._
         val cfg = JsObject("column" -> JsString("__validate_expression__"), "expression" -> JsString(expr)).compactPrint
         PipelineAnalyzeService.analyzeNodes(
           Vector(PipelineAnalyzeService.NodeStepInput("s", None, 0, "compute", cfg)), schema
@@ -319,8 +320,7 @@ class PipelineCapabilitiesRoutesSpec
       val pipelineId = newSharedPipeline()
       Post(s"/pipelines/${pipelineId.value}/validate-expression", ValidateExpressionRequest("""coalesce($amount, "n/a")""")) ~> routesFor(owner) ~> check {
         status shouldBe StatusCodes.OK
-        import spray.json._
-        val fixture = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("src/test/resources/validate-expression/type-error-response.json")))
+        val fixture = new String(Files.readAllBytes(Paths.get("src/test/resources/validate-expression/type-error-response.json")))
         responseAs[String].parseJson shouldBe fixture.parseJson
       }
     }
