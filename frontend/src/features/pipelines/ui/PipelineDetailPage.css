@@ -1712,6 +1712,13 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/* HEL-1514: inline hint under a cast row whose stored target is no longer supported */
+.pipeline-detail-page__cast-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
 /* ── Phone breakpoint (DESIGN.md §4, 430px) ──────────────────────────────────
  * F-006: the footer's action row (Run history / Preview / Dry run / Run
  * pipeline) is wider than a 430px viewport and never wraps — `.pipeline-

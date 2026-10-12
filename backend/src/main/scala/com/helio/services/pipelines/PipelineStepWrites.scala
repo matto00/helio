@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{DeletePipelineStepResponse, PipelineStepConfigCodec, PipelineStepResponse, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Pipeline, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import org.slf4j.LoggerFactory
@@ -277,24 +277,66 @@ private[pipelines] final class PipelineStepWrites(
                       // see spliceInsertAtInternal's doc for why.
                       // `Some(existing.id)` anchor makes `explicitRootId` irrelevant to the repo,
                       // same as every other parentStepId-anchored call site (task 7.3e).
-                      pipelineStepRepo
-                        .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
-                        .flatMap { step =>
-                          // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
-                          // one-row-per-call convention; metadata carries the source stepId.
-                          audit(
-                            "pipeline.step.duplicate",
-                            "pipeline_step",
-                            Some(step.id.value),
-                            user,
-                            JsObject("sourceStepId" -> JsString(stepId.value))
-                          )
-                          stepResponseWithRoot(pipeline.id, step).map(resp => Right(resp))
-                        }
-                        .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                      duplicateReferenceChecksF(typedConfig, existing, pipeline, user).flatMap {
+                        case Left(err) => Future.successful(Left(err))
+                        case Right(_)  =>
+                          pipelineStepRepo
+                            .spliceInsertAtInternal(pipeline.id, existing.kind, typedConfig, Some(existing.id), existing.enabled, explicitRootId = None, actingUserId = pipeline.ownerId.value)
+                            .flatMap { step =>
+                              // HEL-477 skeptic-final-1 round 1: mirrors PanelService.duplicate's
+                              // one-row-per-call convention; metadata carries the source stepId.
+                              audit(
+                                "pipeline.step.duplicate",
+                                "pipeline_step",
+                                Some(step.id.value),
+                                user,
+                                JsObject("sourceStepId" -> JsString(stepId.value))
+                              )
+                              stepResponseWithRoot(pipeline.id, step).map(resp => Right(resp))
+                            }
+                            .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                      }
                   }
                 }
             }
         }
     }
+
+  /** HEL-1514: create's reference checks, run against the clone's prospective position (directly after
+   *  `existing`, so its ancestors are `existing` plus `existing`'s own chain), in create's order: the
+   *  secondary-source ownership check (CALLER identity), the lane-reference check, then the upsert-target
+   *  check (PIPELINE OWNER identity). Same statuses and messages as `PipelineStepCreate.addStepReporting`. */
+  private def duplicateReferenceChecksF(
+      typedConfig: Any,
+      existing:    PipelineStep,
+      pipeline:    Pipeline,
+      user:        AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] = {
+    val aclCheckF: Future[Either[ServiceError, Unit]] =
+      PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
+        case Some(id) =>
+          dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
+            case None    => Left(ServiceError.NotFound(s"Data source not found: $id"))
+            case Some(_) => Right(())
+          }
+        case None => Future.successful(Right(()))
+      }
+    val laneCheckF: Future[Either[ServiceError, Unit]] =
+      PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
+        case None => Future.successful(Right(()))
+        case Some(_) =>
+          pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
+            val ancestors = PipelineService.ancestorChainOf(Some(existing.id), current)
+            PipelineService.validateLaneReference(typedConfig, current, ancestors, selfId = None)
+          }
+      }
+    aclCheckF.flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(_)  =>
+        laneCheckF.flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  => upsertOwnershipCheckF(typedConfig, pipeline.ownerId, user)
+        }
+    }
+  }
 }
