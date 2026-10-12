@@ -9,6 +9,7 @@ import {
   updateConnector as updateConnectorRequest,
 } from "../services/connectorEntityService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
+import { undoPatchSet } from "../../patchSets/state/patchSetsSlice";
 import { deleteSource } from "../../sources/state/sourcesSlice";
 import type {
   Connector,
@@ -184,6 +185,14 @@ const connectorsSlice = createSlice({
       // cannot tell whether one was removed, so reset to "idle" and let the Connectors page refetch.
       .addCase(deleteSource.fulfilled, (state) => {
         state.status = "idle";
+      })
+      // HEL-1505: undoing a pipeline create removes the inline sources it made, and with a bare-url REST one its
+      // auto-created Connector. The outcome carries no source kind, so any removal resets the list (same posture).
+      .addCase(undoPatchSet.fulfilled, (state, action) => {
+        const removedInlineSource = action.payload.edits.some((edit) =>
+          edit.inlineSources?.some((source) => source.result === "removed"),
+        );
+        if (removedInlineSource) state.status = "idle";
       });
   },
 });

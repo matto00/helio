@@ -62,6 +62,10 @@ trait PatchSetInlineSourceFixture
   protected var panelService: PanelService                 = _
   protected var dashboardService: DashboardService         = _
 
+  /** HEL-1505: when true the fixture's `DataSourceService` is built WITH the real `connectorRepo` (its HEL-1497
+   *  cleanup runs, as in production); the default keeps the HEL-1493 wiring that isolates `InlineSourceCleanup`. */
+  protected def wireConnectorRepoIntoDataSourceService: Boolean = false
+
   protected val userId = UUID.randomUUID().toString
   protected val user   = AuthenticatedUser(UserId(userId))
 
@@ -91,7 +95,10 @@ trait PatchSetInlineSourceFixture
     )
     val accessChecker = new AccessCheckerImpl(permissionRepo, registry)
 
-    dataSourceService = new DataSourceService(dataSourceRepo, new LocalFileSystem(newTempDir("patch-set-undo-inline-source")))
+    dataSourceService = new DataSourceService(
+      dataSourceRepo, new LocalFileSystem(newTempDir("patch-set-undo-inline-source")),
+      connectorRepo = if (wireConnectorRepoIntoDataSourceService) connectorRepo else null
+    )
     val rest = new RestApiConnectorDriver(fetchOverride = Some(_ => Future.successful(Right(JsArray(JsObject("amount" -> JsNumber(1)))))))
     dashboardService     = new DashboardService(dashboardRepo, accessChecker, outputRepo = outputRepo)
     pipelineService = new PipelineService(

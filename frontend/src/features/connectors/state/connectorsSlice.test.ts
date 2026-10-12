@@ -9,6 +9,7 @@ import {
   rotateConnectorCredential,
   updateConnector,
 } from "./connectorsSlice";
+import { undoPatchSet } from "../../patchSets/state/patchSetsSlice";
 import { deleteSource } from "../../sources/state/sourcesSlice";
 import * as connectorEntityService from "../services/connectorEntityService";
 import type { Connector } from "../types/connector";
@@ -35,6 +36,32 @@ const testConnector: Connector = {
   dependentCount: 0,
   pending: false,
 };
+
+describe("connectorsSlice after a patch-set undo (HEL-1505)", () => {
+  const undone = (inlineSources: { id: string; result: "removed" | "kept" | "alreadyGone" }[]) =>
+    undoPatchSet.fulfilled(
+      { edits: [{ index: 0, status: "restored", newId: "p-1", inlineSources }] },
+      "req-u",
+      { applicationId: "app-1", patchSet: { edits: [] } },
+    );
+  const loaded = () =>
+    connectorsReducer(undefined, fetchConnectors.fulfilled([testConnector], "req-1"));
+
+  it("resets status to idle when the undo removed an inline source so the Connectors list refetches", () => {
+    const next = connectorsReducer(loaded(), undone([{ id: "s-1", result: "removed" }]));
+    expect(next.status).toBe("idle");
+  });
+
+  it("leaves the list alone when every inline source was kept", () => {
+    const next = connectorsReducer(loaded(), undone([{ id: "s-1", result: "kept" }]));
+    expect(next.status).toBe("succeeded");
+  });
+
+  it("leaves the list alone when the undo listed no inline sources", () => {
+    const next = connectorsReducer(loaded(), undone([]));
+    expect(next.status).toBe("succeeded");
+  });
+});
 
 describe("connectorsSlice", () => {
   it("resets status to idle when a source delete fulfills so the Connectors list refetches (HEL-1497)", () => {
