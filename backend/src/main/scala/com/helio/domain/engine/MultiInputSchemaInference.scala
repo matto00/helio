@@ -55,7 +55,12 @@ private[engine] object MultiInputSchemaInference {
    *  row VALUES carry no notion of a "winning type" either, since `Map[String, Any]` values
    *  are untyped at execution; this is a schema-layer-only convention). For a `source`-kind
    *  secondary input (unresolved -- no repo access to a `DataSource`'s schema), this
-   *  degrades to the pre-existing documented best-effort passthrough, unchanged. */
+   *  degrades to the pre-existing documented best-effort passthrough, unchanged.
+   *
+   *  HEL-1491: a collision of `timestamp` with `integer`/`float` (either direction) is reported as a
+   *  step error; the projection is unchanged (parent type still wins), so this flags and does not
+   *  remove the disagreement. Other collisions are not checked, and a `source`-kind secondary never
+   *  reaches this check (its schema is unresolved for `union`: a known, documented gap). */
   private[engine] def inferUnion(
       inputSchema:     Vector[SchemaField],
       secondarySchema: Option[Vector[SchemaField]]
@@ -63,9 +68,25 @@ private[engine] object MultiInputSchemaInference {
     secondarySchema match {
       case Some(secondary) =>
         val existingNames = inputSchema.map(_.name).toSet
-        (inputSchema ++ secondary.filterNot(f => existingNames.contains(f.name)), None)
+        (inputSchema ++ secondary.filterNot(f => existingNames.contains(f.name)), timestampNumberCollision(inputSchema, secondary))
       case None => (inputSchema, None)
     }
+
+  private val NumericTypes = Set("integer", "float")
+
+  private def timestampNumberCollision(parent: Vector[SchemaField], secondary: Vector[SchemaField]): Option[String] = {
+    val secondaryTypes = secondary.map(f => f.name -> f.`type`).toMap
+    val collisions = parent.flatMap { p =>
+      secondaryTypes.get(p.name).filter { s =>
+        (p.`type` == "timestamp" && NumericTypes.contains(s)) || (NumericTypes.contains(p.`type`) && s == "timestamp")
+      }.map(s => s"'${p.name}' (${p.`type`} vs $s)")
+    }
+    if (collisions.isEmpty) None
+    else Some(
+      s"union: field(s) ${collisions.mkString(", ")} differ between this lane and the secondary input, so the run would " +
+        "mix numbers and timestamps in one column. Cast one side so the types match."
+    )
+  }
 
   /** join — HEL-911 (design.md Engine contract item 12, evaluation-1.md CR3): `join` had NO
    *  dispatch case at all before this ticket. When the secondary input's schema is resolved

@@ -3,6 +3,7 @@ package com.helio.services.pipelines
 import com.helio.api.protocols.pipelines._
 import com.helio.domain.{AggregateConfig, AggregateField, Aggregation}
 import com.helio.domain.engine.SchemaField
+import com.helio.domain.steps.FillNullConfig
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineStepRepository}
@@ -145,6 +146,32 @@ class PipelineServiceCanRunSpec extends AnyWordSpec with Matchers with BeforeAnd
       val reason = verdict.reasons.find(_.code == "step-config-invalid").getOrElse(fail("expected a step-config-invalid reason"))
       reason.stepId shouldBe Some(s)
       reason.detail should include("bogus_fn")
+    }
+
+    // HEL-1491 (3.3): a fillnull mean over a timestamp column surfaces as step-config-invalid + canRun=false.
+    "report step-config-invalid and canRun=false for a fillnull mean over a timestamp column, but not for forwardFill" in {
+      val owner  = newUser()
+      val now    = Instant.now()
+      val source = DatasetSource(
+        DataSourceId(UUID.randomUUID().toString), "ts-src", owner.id, now, now,
+        inferredSchema = Vector(SchemaField("when", "timestamp"))
+      )
+      val sid = await(dataSourceRepo.insert(source, owner)).id
+      val req = CreatePipelineRequest(name = "ts-fill", roots = Vector(CreatePipelineRootRequest(sourceId = Some(sid.value))))
+      val pid = PipelineId(await(service.create(req, owner)).getOrElse(fail("expected Right")).id)
+      val bad = await(pipelineStepRepo.insertInternal(pid, "fillnull", FillNullConfig(Vector("when"), "mean", None), explicitRootId = None)).id.value
+
+      val verdict = await(service.analyze(pid, owner)).getOrElse(fail("expected Right")).costVerdict
+      verdict.canRun shouldBe false
+      val reason = verdict.reasons.find(_.code == "step-config-invalid").getOrElse(fail("expected a step-config-invalid reason"))
+      reason.stepId shouldBe Some(bad)
+      reason.detail should (include("mean") and include("'when'"))
+
+      val okPid = PipelineId(await(service.create(req.copy(name = "ts-fill-ok"), owner)).getOrElse(fail("expected Right")).id)
+      await(pipelineStepRepo.insertInternal(okPid, "fillnull", FillNullConfig(Vector("when"), "forwardFill", None), explicitRootId = None))
+      val okVerdict = await(service.analyze(okPid, owner)).getOrElse(fail("expected Right")).costVerdict
+      okVerdict.reasons.map(_.code) should not contain "step-config-invalid"
+      okVerdict.canRun shouldBe true
     }
 
     "name every misconfigured enabled step with its own reason" in {
