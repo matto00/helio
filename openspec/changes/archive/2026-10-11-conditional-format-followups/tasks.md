@@ -14,7 +14,7 @@
 
 ## 2. Metric unit contrast (item 2)
 
-- [x] 2.1 Measure the current light and dark unit AND label contrast in the running app (computed colour vs panel surface) and record it (verify: numbers in evidence) -- done by the evaluator: evaluation-1.md, evidence dir eval1-screens
+- [x] 2.1 Measure the current light and dark unit AND label contrast in the running app (computed colour vs panel surface) and record it (verify: numbers in evidence) -- done by the evaluator: openspec/changes/archive/2026-10-11-conditional-format-followups/evaluation-1.md, evidence dir eval1-screens
 - [x] 2.2 RED first: add a guard test covering both the unit and the label that fails at the 60% light mix (verify: recorded failing run)
 - [x] 2.3 Introduce the per-theme mix token and use it in every `.panel-content__metric-unit` and `.panel-content__metric-label` colour rule (verify: guard passes; re-measure unit and label >= 4.5:1 light and dark at 1440 and 375; custom panel text colour still followed)
 
@@ -30,5 +30,5 @@
 
 ## 5. Verification
 
-- [x] 5.1 Running-app check of the history modal (table and collection Outputs with rules), the metric unit and label, a history row that is both changed and ruled, and an invalid Select in light and dark at 1440 and 375, screenshots in the run evidence dir (verify: screenshots + measured contrast numbers) -- done by the evaluator: evaluation-1.md, evidence dir eval1-screens
+- [x] 5.1 Running-app check of the history modal (table and collection Outputs with rules), the metric unit and label, a history row that is both changed and ruled, and an invalid Select in light and dark at 1440 and 375, screenshots in the run evidence dir (verify: screenshots + measured contrast numbers) -- done by the evaluator: openspec/changes/archive/2026-10-11-conditional-format-followups/evaluation-1.md, evidence dir eval1-screens
 - [x] 5.2 lint (zero warnings, no new eslint-disable), typecheck, format:check, full jest (verify: all pass)
