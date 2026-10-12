@@ -1,0 +1,12 @@
+- `CLAUDE.md` — env-table row for PIPELINE_RUN_AUTO_RUN_MAX_RETRIES
+- `backend/src/main/resources/db/migration/V125__auto_run_debounce_guard_retry_count.sql` — adds guard_retry_count to pipeline_auto_run_debounce
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineAutoRunDebounceRepository.scala` — unclaim, rearmAfterGuardRejection (RearmOutcome), upsert resets the counter
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — shared in-flight-real-runs query and countOwnerInFlightRealRunsInternal pre-flight
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineAutoRunDebounceFirer.scala` — keep-pending on active run, D2a pre-flight, bounded re-arm on guard rejection
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunGuardConfig.scala` — autoRunMaxRetries from PIPELINE_RUN_AUTO_RUN_MAX_RETRIES
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — guardConfig exposed as a val so the firer reads the one enforced config
+- `backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunDroppedFireSpec.scala` — new red-first repro, cases a/b/c/d
+- `backend/src/test/scala/com/helio/services/pipelines/AutoRunGuardNoRetryStormSpec.scala` — rewritten to the bounded-retry contract
+- `backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunEndToEndSpec.scala` — guard-rejection case asserts re-arm
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineAutoRunDebounceRepositorySpec.scala` — unclaim and rearm repository coverage
+- `openspec/changes/rearm-dropped-dataset-auto-run/specs/pipeline-run-guard/spec.md` — MODIFIED delta: auto-run may be withheld pre-submit by the D2a cap pre-check
