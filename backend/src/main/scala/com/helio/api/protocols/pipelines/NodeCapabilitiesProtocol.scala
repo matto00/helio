@@ -26,8 +26,9 @@ object NodeCapabilitiesResponse {
 final case class ValidateExpressionRequest(expression: String)
 
 /** `POST /api/pipelines/:id/validate-expression?stepId=` response (HEL-906 cycle 7). `valid`
- *  mirrors `ExpressionEvaluator.validate`'s `Either` collapsed to a boolean; `error` carries
- *  the same message `Left` would, present only when `valid = false`. */
+ *  is true exactly when analyze would report no `validationError` for an enabled compute step with
+ *  that expression (HEL-1437: syntax, unknown fields AND type errors); `error` carries analyze's
+ *  message verbatim, present only when `valid = false`. `valid = false` does not mean save rejects. */
 final case class ExpressionValidationResponse(valid: Boolean, error: Option[String])
 
 trait NodeCapabilitiesProtocol extends SprayJsonSupport with DefaultJsonProtocol with PanelCapabilityProtocol {

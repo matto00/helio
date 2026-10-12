@@ -1,0 +1,4 @@
+{
+  "valid": false,
+  "error": "coalesce arguments must all be numbers or all be text; got float, string — wrap a number in concat() to coalesce it as text"
+}
