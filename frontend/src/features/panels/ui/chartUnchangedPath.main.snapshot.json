@@ -2658,7 +2658,8 @@
         "color": "#abcdef",
         "interval": 0,
         "hideOverlap": true,
-        "lineHeight": 15
+        "lineHeight": 15,
+        "textMargin": [0, 8]
       },
       "axisLine": {
         "lineStyle": {
@@ -2777,7 +2778,8 @@
         "color": "#abcdef",
         "interval": 0,
         "hideOverlap": true,
-        "lineHeight": 15
+        "lineHeight": 15,
+        "textMargin": [0, 8]
       },
       "axisLine": {
         "lineStyle": {
@@ -3498,7 +3500,8 @@
         "color": "#abcdef",
         "interval": 0,
         "hideOverlap": true,
-        "lineHeight": 15
+        "lineHeight": 15,
+        "textMargin": [0, 8]
       },
       "axisLine": {
         "lineStyle": {
@@ -3617,7 +3620,8 @@
         "color": "#abcdef",
         "interval": 0,
         "hideOverlap": true,
-        "lineHeight": 15
+        "lineHeight": 15,
+        "textMargin": [0, 8]
       },
       "axisLine": {
         "lineStyle": {

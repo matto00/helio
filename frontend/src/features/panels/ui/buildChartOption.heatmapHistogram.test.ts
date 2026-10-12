@@ -216,8 +216,13 @@ describe("buildChartOption category axis labels (HEL-1487)", () => {
     [true, 12],
   ])("shows every heatmap column and row label (compact %s, lineHeight %s)", (compact, lh) => {
     const option = build("heatmap", heatMapping, { compact });
-    expect((option.xAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
+    expect((option.xAxis as Axis).axisLabel).toMatchObject({
+      ...show,
+      lineHeight: lh,
+      textMargin: [0, 8],
+    });
     expect((option.yAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("textMargin");
   });
 
   it.each([
@@ -225,8 +230,13 @@ describe("buildChartOption category axis labels (HEL-1487)", () => {
     [true, 12],
   ])("shows every histogram bin label (compact %s, lineHeight %s)", (compact, lh) => {
     const option = build("histogram", { xAxis: "ms" }, { rows, compact });
-    expect((option.xAxis as Axis).axisLabel).toMatchObject({ ...show, lineHeight: lh });
+    expect((option.xAxis as Axis).axisLabel).toMatchObject({
+      ...show,
+      lineHeight: lh,
+      textMargin: [0, 8],
+    });
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("lineHeight");
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("textMargin");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
   });
@@ -236,6 +246,7 @@ describe("buildChartOption category axis labels (HEL-1487)", () => {
     expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("interval");
     expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
     expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("lineHeight");
+    expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("textMargin");
     expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
   });
 });

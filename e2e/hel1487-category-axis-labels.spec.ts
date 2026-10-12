@@ -27,6 +27,8 @@ interface AxisLabels {
   shown: string[];
   /** Pairs of shown labels whose global bounding boxes intersect. */
   overlaps: string[];
+  /** Smallest horizontal gap (px) between neighbouring shown labels, from real text widths; null for < 2. */
+  minGap: number | null;
 }
 
 /** Rendered labels of one axis ("xAxis" | "yAxis") of the first chart inside `card`. */
@@ -63,7 +65,7 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
       // Both axes' views report the same `type`; the axis dimension is what tells them apart.
       const dim = which === "xAxis" ? "x" : "y";
       const view = chart!._componentsViews.find((v) => v.__model?.axis?.dim === dim);
-      const found: Array<{ text: string; box: number[] }> = [];
+      const found: Array<{ text: string; box: number[]; spanX: number[] }> = [];
       const walk = (el: El) => {
         if (el.ignore) return;
         if (el.style?.text && el.getBoundingRect) {
@@ -80,8 +82,10 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
           const centreY = m[3] * (r.y + r.height / 2) + m[5];
           const xs = [r.x, r.x + r.width].map((x) => m[0] * x + m[4]);
           const ys = [centreY - realHeight / 2, centreY + realHeight / 2];
+          const centreX = m[0] * (r.x + r.width / 2) + m[4];
           found.push({
             text: el.style.text,
+            spanX: [centreX - tm.width / 2, centreX + tm.width / 2],
             box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
           });
         }
@@ -100,7 +104,14 @@ async function axisLabels(card: Locator, axis: "xAxis" | "yAxis"): Promise<AxisL
           if (hit) overlaps.push(`${a.text} | ${b.text}`);
         }),
       );
-      return { shown: found.map((f) => f.text), overlaps };
+      // Real-width gap between neighbours along x (meaningful for an x axis only).
+      const byX = [...found].sort((a, b) => a.spanX[0] - b.spanX[0]);
+      const gaps = byX.slice(1).map((b, i) => b.spanX[0] - byX[i].spanX[1]);
+      return {
+        minGap: gaps.length ? Math.min(...gaps) : null,
+        shown: found.map((f) => f.text),
+        overlaps,
+      };
     }, axis);
 }
 
@@ -139,7 +150,13 @@ for (const { theme, width } of [
         TESTS.forEach((test, t) => rows.push([day, test, d + t + 1, (d * 3 + t) * 5 + 10])),
       );
       for (let i = rows.length; i < HIST_ROWS; i += 1) rows.push(["Mon", "testA", 1, 10 + i]);
-      rows.forEach((row, i) => row.push(SERVICES[i % SERVICES.length]));
+      // Non-round latencies (12.345 .. 314.743): bin edges such as 133.4 force wide, many-digit labels.
+      rows.forEach((row, i) =>
+        row.push(
+          SERVICES[i % SERVICES.length],
+          (12.345 + (i * 302.398) / (rows.length - 1)).toFixed(3),
+        ),
+      );
       const source = await postJson<{ id: string }>(
         request,
         "/api/data-sources",
@@ -152,6 +169,7 @@ for (const { theme, width } of [
             { name: "failures", type: "integer" },
             { name: "duration", type: "integer" },
             { name: "service", type: "string" },
+            { name: "latency", type: "string" },
           ],
           rows,
         },
@@ -194,6 +212,12 @@ for (const { theme, width } of [
         fieldMapping: { xAxis: "duration" },
         chartOptions: { histogram: { binCount: 10 } },
       });
+      const hist20 = await output("HEL-1487 Hist20", {
+        chartType: "histogram",
+        aggregation: null,
+        fieldMapping: { xAxis: "latency" },
+        chartOptions: { histogram: { binCount: 20 } },
+      });
       const hist12 = await output("HEL-1487 Hist12", {
         chartType: "histogram",
         aggregation: null,
@@ -226,6 +250,7 @@ for (const { theme, width } of [
             ["HEL-1487 PanelHist5", hist5.id],
             ["HEL-1487 PanelHist10", hist10.id],
             ["HEL-1487 PanelHist12", hist12.id],
+            ["HEL-1487 PanelHist20", hist20.id],
           ].map(([title, outputId]) => ({ title, type: "output", config: { outputId } })),
         },
         201,
@@ -233,7 +258,13 @@ for (const { theme, width } of [
       await postJson(
         request,
         `/api/dashboards/${dashboard.id}/auto-layout`,
-        { items: batch.panels.map((p, i) => ({ panelId: p.id, w: 12, h: i === 1 ? 3 : 5 })) },
+        {
+          items: batch.panels.map((p, i) => ({
+            panelId: p.id,
+            w: i === 5 ? 6 : 12,
+            h: i === 1 ? 3 : 5,
+          })),
+        },
         200,
       );
 
@@ -254,6 +285,7 @@ for (const { theme, width } of [
         hist5: card("HEL-1487 PanelHist5"),
         hist10: card("HEL-1487 PanelHist10"),
         hist12: card("HEL-1487 PanelHist12"),
+        hist20: card("HEL-1487 PanelHist20"),
       };
       for (const c of Object.values(cards)) {
         await expect(c.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
@@ -268,6 +300,7 @@ for (const { theme, width } of [
         hist5: await axisLabels(cards.hist5, "xAxis"),
         hist10: await axisLabels(cards.hist10, "xAxis"),
         hist12: await axisLabels(cards.hist12, "xAxis"),
+        hist20: await axisLabels(cards.hist20, "xAxis"),
       };
       console.log(`[HEL-1487 e2e] ${label} rendered labels ${JSON.stringify(read)}`);
       for (const [name, c] of Object.entries(cards)) {
@@ -276,6 +309,13 @@ for (const { theme, width } of [
 
       for (const [name, r] of Object.entries(read)) {
         expect(r.overlaps, `${name} labels overlap`).toEqual([]);
+      }
+      // Shown x labels keep a visible gap: ECharts' default 3px margin lets "133 to 148" run into
+      // its neighbour. Measured from real text widths (heatY is a row axis, so not included).
+      for (const name of ["heatX", "hist5", "hist10", "hist12", "hist20"] as const) {
+        const gap = read[name].minGap;
+        if (gap !== null)
+          expect(gap, `${name} min gap between x labels`).toBeGreaterThanOrEqual(14);
       }
       if (width === 375) {
         // 6 rows in a short (h: 3) plot cannot all be legible: some must be hidden, none may overlap.
@@ -286,7 +326,9 @@ for (const { theme, width } of [
         expect(read.heatX.shown).toEqual(DAYS);
         expect(read.heatY.shown).toEqual(TESTS);
         expect(read.hist5.shown).toHaveLength(5);
-        expect(read.hist10.shown).toHaveLength(10);
+        // 10 bins leave the widest label ("100 to 110") ~11px of free pitch, below the legibility gap, so the
+        // last one or two may hide; thinning to every other label (5) would be the regression.
+        expect(read.hist10.shown.length).toBeGreaterThanOrEqual(8);
       }
       // Whatever is shown, every shown bin label uses one number of decimal places.
       const places = new Set(

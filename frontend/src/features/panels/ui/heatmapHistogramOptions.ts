@@ -42,6 +42,18 @@ export function categoryLabelShowAll(fontSize: number) {
   return { ...CATEGORY_LABEL_SHOW_ALL, lineHeight: categoryLabelLineHeight(fontSize) };
 }
 
+/** Minimum horizontal gap (px) between shown labels on a show-all X axis, vertical component 0. ECharts'
+ *  default `[0, 3]` lets `hideOverlap` pack labels about one character apart, so a bin range such as
+ *  "133 to 148" runs into its neighbour ("133 to 148 194 to 209"). Not applied to the heatmap row (y) axis,
+ *  whose labels stack vertically. 8, not larger: ECharts needs about twice the margin as a free gap, and 10 stopped a
+ *  10-bin histogram at 1440 showing all of its labels although they fit with a 16px gap. */
+export const CATEGORY_X_LABEL_TEXT_MARGIN: [number, number] = [0, 8];
+
+/** `categoryLabelShowAll` for a show-all X axis: also keeps neighbouring labels visibly apart. */
+export function categoryXLabelShowAll(fontSize: number) {
+  return { ...categoryLabelShowAll(fontSize), textMargin: CATEGORY_X_LABEL_TEXT_MARGIN };
+}
+
 /** The chart types whose category axes show every label that fits (heatmap: both axes; histogram: x). */
 export function showsEveryCategoryLabel(chartType: string): boolean {
   return chartType === "heatmap" || chartType === "histogram";

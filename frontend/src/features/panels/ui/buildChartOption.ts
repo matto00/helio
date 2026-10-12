@@ -25,6 +25,7 @@ import {
   CATEGORY_LABEL_DEFAULT_FONT_SIZE,
   categoryLabelLineHeight,
   categoryLabelShowAll,
+  categoryXLabelShowAll,
   compactHeatmapVisualMap,
   HEATMAP_COMPACT_CLEARANCE_PX,
   mergeHeatmapYAxis,
@@ -223,7 +224,7 @@ export function buildChartOption({
           // would run adjacent labels together.
           ...(timeInstants ? { hideOverlap: true } : {}),
           ...(showsEveryCategoryLabel(chartType)
-            ? categoryLabelShowAll(fontSizeOf(appearanceOption.xAxis))
+            ? categoryXLabelShowAll(fontSizeOf(appearanceOption.xAxis))
             : {}),
         },
       },
