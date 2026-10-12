@@ -49,9 +49,37 @@ function applyLine(option: EChartsOption, line: LineChartOptions): EChartsOption
   return { ...option, series } as EChartsOption;
 }
 
+/** A point's y: the item itself, or `value[1]` of a time-axis `{name, value: [t, y]}` item. */
+function pointY(item: unknown): unknown {
+  if (
+    item !== null &&
+    typeof item === "object" &&
+    Array.isArray((item as { value?: unknown }).value)
+  ) {
+    return (item as { value: unknown[] }).value[1];
+  }
+  return item;
+}
+
+/** The same item carrying `y` in place of its own (time-axis items keep their name and instant). */
+function withPointY(item: unknown, y: number | null): unknown {
+  if (
+    item !== null &&
+    typeof item === "object" &&
+    Array.isArray((item as { value?: unknown }).value)
+  ) {
+    const point = item as { value: unknown[] };
+    return { ...point, value: [point.value[0], y, ...point.value.slice(2)] };
+  }
+  return y;
+}
+
 /** Replace each series' values with its per-category percent share so every
  *  category's rendered values sum to 100 (ECharts has no native normalized
- *  stack — design.md D4). Divide-by-zero categories map to 0. */
+ *  stack — design.md D4). Divide-by-zero categories map to 0. A missing value
+ *  (`null`, a multi-series gap) contributes nothing and stays `null`, so a
+ *  normalized bar with no value is omitted rather than drawn as 0%. Time-axis
+ *  pair items are read and written in place. */
 function toPercentShares(series: MutableSeries[]): MutableSeries[] {
   const categoryCount = series.reduce(
     (max, s) => Math.max(max, Array.isArray(s.data) ? s.data.length : 0),
@@ -60,7 +88,7 @@ function toPercentShares(series: MutableSeries[]): MutableSeries[] {
   const sums: number[] = [];
   for (let i = 0; i < categoryCount; i++) {
     sums[i] = series.reduce((acc, s) => {
-      const v = Array.isArray(s.data) ? Number(s.data[i]) : NaN;
+      const v = Array.isArray(s.data) ? Number(pointY(s.data[i])) : NaN;
       return acc + (isNaN(v) ? 0 : v);
     }, 0);
   }
@@ -68,8 +96,10 @@ function toPercentShares(series: MutableSeries[]): MutableSeries[] {
     ...s,
     data: Array.isArray(s.data)
       ? s.data.map((raw, i) => {
-          const v = Number(raw);
-          return sums[i] ? ((isNaN(v) ? 0 : v) / sums[i]) * 100 : 0;
+          const y = pointY(raw);
+          if (y === null || y === undefined) return raw === undefined ? raw : withPointY(raw, null);
+          const v = Number(y);
+          return withPointY(raw, sums[i] ? ((isNaN(v) ? 0 : v) / sums[i]) * 100 : 0);
         })
       : s.data,
   }));

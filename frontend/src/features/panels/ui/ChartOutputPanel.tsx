@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import type { PanelAppearance } from "../types/panel";
+import type { OutputSchemaField } from "../../pipelines/types/output";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import { groupAndAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
@@ -9,6 +10,7 @@ import { defaultChartAppearance } from "../../../theme/appearance";
 import { chartAggregationSpec, selectChartOverlay } from "../history/chartOverlay";
 import { configCompare } from "../history/metricHistoryView";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
+import { toChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { sanitizeReferenceMarks } from "../../../utils/referenceMarks";
 import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 import { resolvePanelChartType } from "./resolvePanelChartType";
@@ -20,6 +22,8 @@ interface ChartOutputPanelProps {
   /** Absent on the public path (`PublicOutputMeta` carries none). */
   pipelineId?: string;
   config: Record<string, unknown>;
+  /** HEL-1305: the Output's declared schema; a `timestamp` x field plots on a time axis. */
+  schema?: OutputSchemaField[] | null;
   appearance: PanelAppearance;
   rawRows: string[][] | null | undefined;
   headers: string[] | null | undefined;
@@ -49,6 +53,7 @@ export function ChartOutputPanel({
   outputId,
   pipelineId,
   config,
+  schema,
   appearance,
   rawRows,
   headers,
@@ -68,6 +73,7 @@ export function ChartOutputPanel({
     () => sanitizeReferenceMarks(config.referenceLines, config.referenceBands),
     [config.referenceLines, config.referenceBands],
   );
+  const fieldTypes = useMemo(() => toChartFieldTypes(schema), [schema]);
   const history = useOutputHistory(
     outputId,
     panelId,
@@ -117,6 +123,7 @@ export function ChartOutputPanel({
               aggregationSpec.yField,
             ),
             seriesName: aggregateSeriesName(aggregationSpec),
+            groupBy: aggregationSpec.groupBy,
           }
         : null,
     [aggregationSpec, records],
@@ -143,6 +150,7 @@ export function ChartOutputPanel({
       annotation={cfg.annotation ?? null}
       overlay={overlay}
       referenceMarks={referenceMarks}
+      fieldTypes={fieldTypes}
       truncationNote={truncationNote}
       truncationNoteShort={truncationNoteShort}
       compact={compact}

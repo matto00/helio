@@ -1,6 +1,7 @@
 // The editor sheet's Preview card: the never-materialized banner plus the live preview pane
 // (extracted verbatim from `OutputEditorSheet.tsx`).
 
+import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { OutputKind, RunResult } from "../../types/output";
 import { OutputPreviewPane } from "./OutputPreviewPane";
 import type { OutputKindState } from "./useOutputKindState";
@@ -10,6 +11,8 @@ interface OutputSheetPreviewCardProps {
   kindState: OutputKindState;
   rows: RunResult | undefined;
   neverMaterialized: boolean | null;
+  /** HEL-1305: the node's column types, so the preview plots a timestamp x like the dashboard. */
+  fieldTypes?: ChartFieldTypes | null;
   onRunPipeline?: () => void;
 }
 
@@ -18,6 +21,7 @@ export function OutputSheetPreviewCard({
   kindState,
   rows,
   neverMaterialized,
+  fieldTypes,
   onRunPipeline,
 }: OutputSheetPreviewCardProps) {
   const {
@@ -76,6 +80,7 @@ export function OutputSheetPreviewCard({
         chartYField={yField}
         chartOptions={chartOptionsState}
         referenceMarks={referenceMarks}
+        chartFieldTypes={fieldTypes}
         chartAnnotation={
           annotationState.mode === "literal" ? annotationState.literalValue : undefined
         }

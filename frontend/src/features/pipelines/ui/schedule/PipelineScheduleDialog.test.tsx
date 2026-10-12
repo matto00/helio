@@ -10,6 +10,10 @@ import {
   deletePipelineSchedule,
 } from "../../services/pipelineService";
 import type { PipelineSchedule } from "../../types/pipelineSchedule";
+import {
+  expectDistinctNonEmptyLabelIds,
+  expectLabelTargetsControl,
+} from "../../../../test/labelAssociation";
 
 jest.mock("../../services/pipelineService", () => ({
   getPipelineSchedule: jest.fn(),
@@ -232,5 +236,18 @@ describe("PipelineScheduleDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(putPipelineScheduleMock).toHaveBeenCalled());
+  });
+
+  // HEL-1464 — the Schedule kind label must target its combobox (its literal `htmlFor="schedule-kind"`
+  // pointed at no element), and two mounted dialogs must not share the target id.
+  it("the Schedule kind label targets the schedule kind combobox", () => {
+    renderDialog(existingSchedule);
+    expectLabelTargetsControl("Schedule kind", "combobox", "Schedule kind");
+  });
+
+  it("two mounted dialogs never share the label target id", () => {
+    renderDialog(existingSchedule);
+    renderDialog(existingSchedule);
+    expectDistinctNonEmptyLabelIds("Schedule kind");
   });
 });

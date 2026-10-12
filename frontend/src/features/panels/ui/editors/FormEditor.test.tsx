@@ -9,6 +9,10 @@ import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../../source
 import { renderWithStore } from "../../../../test/renderWithStore";
 import { makeFormPanel } from "../../../../test/panelFixtures";
 import type { PanelEditorHandle } from "./editorTypes";
+import {
+  expectLabelTargetsControl,
+  expectDistinctNonEmptyLabelIds,
+} from "../../../../test/labelAssociation";
 
 jest.mock("../../services/panelService", () => ({
   updatePanelForm: jest.fn(),
@@ -142,5 +146,25 @@ describe("FormEditor", () => {
     expect(screen.getByRole("button", { name: "Remove quantity" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move quantity up" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Move quantity down" })).toBeInTheDocument();
+  });
+});
+
+describe("FormEditor label association (HEL-1464)", () => {
+  beforeEach(() => {
+    fetchDatasetSchemaMock.mockReset();
+    fetchDatasetSchemaMock.mockResolvedValue({ fields: [] });
+  });
+
+  it("the Dataset label targets the bound-dataset combobox", async () => {
+    renderEditor();
+    expectLabelTargetsControl("Dataset", "combobox", "Bound dataset");
+    await waitFor(() => expect(fetchDatasetSchemaMock).toHaveBeenCalled());
+  });
+
+  it("two mounted editors never share the label target id", async () => {
+    renderEditor();
+    renderEditor();
+    expectDistinctNonEmptyLabelIds("Dataset");
+    await waitFor(() => expect(fetchDatasetSchemaMock).toHaveBeenCalled());
   });
 });

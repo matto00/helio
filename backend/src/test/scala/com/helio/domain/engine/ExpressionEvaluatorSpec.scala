@@ -76,7 +76,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       ExpressionEvaluator.validate("reverse($name)", Set("name")) shouldBe
         Left(
           "'reverse' is not a recognized function; supported functions: " +
-            "abs, add_days, ceil, coalesce, concat, date_trunc, floor, length, lower, mod, round, seconds_between, substring, upper"
+            "abs, add_days, ceil, coalesce, concat, date_trunc, floor, if, length, lower, mod, round, seconds_between, substring, upper"
         )
     }
 
@@ -719,9 +719,10 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
       // function cannot be added without being classified (and parity-tested) here.
       val stringFns = Set("concat", "substring", "lower", "upper", "length")
       val nullFns   = Set("coalesce") // HEL-1423: polymorphic, parity-tested separately below
+      val condFns   = Set("if")       // HEL-1070: polymorphic, parity-tested in ExpressionBooleanInferenceSpec
       val dateFns   = ExpressionEvaluator.DateTimeFunctions.toSet // HEL-1314: parity-tested in NumericOpOnTextFieldWarningSpec's date section
       ExpressionEvaluator.NumericFunctions.toSet shouldBe
-        (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns -- nullFns -- dateFns)
+        (ExpressionEvaluator.SupportedFunctions.toSet -- stringFns -- nullFns -- condFns -- dateFns)
       ExpressionEvaluator.NumericFunctions.foreach { f =>
         val exprs = (1 to 2).map(k => s"$f(${Seq("$x", "$y").take(k).mkString(", ")})")
           .filter(e => ExpressionEvaluator.validate(e, fields.keySet).isRight)
@@ -754,7 +755,7 @@ class ExpressionEvaluatorSpec extends AnyWordSpec with Matchers {
 
     "list every supported function in the unknown-function message" in {
       val msg = ExpressionEvaluator.validate("reverse($name)", Set("name")).left.toOption.get
-      ExpressionEvaluator.SupportedFunctions should have size 14
+      ExpressionEvaluator.SupportedFunctions should have size 15
       ExpressionEvaluator.SupportedFunctions.foreach(f => msg should include(f))
       Seq("floor", "ceil", "round", "mod", "abs").foreach(f => msg should include(f))
     }

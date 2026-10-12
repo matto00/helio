@@ -2,7 +2,7 @@ package com.helio.domain.engine
 
 import spray.json._
 import ExpressionInterpreter.{evalExpr, valToJs}
-import ExpressionParser.{BinOp, Call, Expr, FieldRef, Neg, NumLit, StrLit, isDollarPrefixError, parse, parseLegacy}
+import ExpressionParser.{And, BinOp, BoolLit, Call, Cmp, Expr, FieldRef, Neg, Not, NumLit, Or, StrLit, isDollarPrefixError, parse, parseLegacy}
 import ExpressionTypeInference.inferTypeOf
 
 /** Errors that can occur during expression evaluation at row-processing time. */
@@ -35,14 +35,21 @@ object EvaluationError {
  *   - Function calls: `concat`, `substring`, `lower`, `upper`, `length`, and the numeric
  *     `floor`, `ceil`, `round(x[, digits])`, `mod`, `abs` (strict numeric, null-propagating), `coalesce`, and the UTC date/time
  *     `seconds_between(end, start)`, `date_trunc("unit", ts)`, `add_days(ts, n)` (HEL-1314; see `ExpressionDateTimeFunctions`)
+ *   - Comparison `= != < <= > >=` (non-associative), boolean `and`/`or`/`not` (SQL three-valued logic) and the
+ *     `true`/`false` literals, plus the lazy conditional `if(cond, then, else)` (HEL-1070; strict grammar only)
  *   - Parenthesised sub-expressions
  *   - No external library dependencies
  *
  * Grammar (strict):
- *   expr   → term   (('+' | '-') term)*
+ *   expr   → orExpr
+ *   orExpr → andExpr ('or' andExpr)*
+ *   andExpr→ notExpr ('and' notExpr)*
+ *   notExpr→ 'not' notExpr | cmpExpr
+ *   cmpExpr→ sum (CMP sum)?                 (non-associative; CMP = = != < <= > >=)
+ *   sum    → term   (('+' | '-') term)*
  *   term   → unary (('*' | '/') unary)*
  *   unary  → '-' unary | factor
- *   factor → NUMBER | STRING | '$' IDENT | IDENT '(' args ')' | '(' expr ')'
+ *   factor → NUMBER | STRING | 'true' | 'false' | '$' IDENT | IDENT '(' args ')' | '(' expr ')'
  *   args   → (expr (',' expr)*)?
  *
  * ── Strict vs. legacy-tolerant (design.md Decision 4) ──────────────────────────
@@ -69,9 +76,17 @@ object ExpressionEvaluator {
    *  message; `ExpressionEvaluatorSpec` probes it against the dispatcher in both directions. */
   private[engine] val SupportedFunctions: Vector[String] =
     Vector(
-      "abs", "add_days", "ceil", "coalesce", "concat", "date_trunc", "floor", "length", "lower", "mod", "round",
+      "abs", "add_days", "ceil", "coalesce", "concat", "date_trunc", "floor", "if", "length", "lower", "mod", "round",
       "seconds_between", "substring", "upper"
     )
+
+  /** HEL-1070: the comparison and boolean operators the strict parser accepts; mirrored by the shared
+   *  fixture (`ComputeExpressionFunctionsSeamSpec`). */
+  private[engine] val SupportedOperators: Vector[String] =
+    Vector("=", "!=", "<", "<=", ">", ">=", "and", "or", "not")
+
+  /** HEL-1070: the reserved boolean literals of the strict grammar. */
+  private[engine] val BooleanLiterals: Vector[String] = Vector("true", "false")
 
   /** The numeric-in/numeric-out subset of `SupportedFunctions` (all infer `"float"`); the infer/apply
    *  parity test iterates it, so a new numeric function must be classified here. */
@@ -160,12 +175,16 @@ object ExpressionEvaluator {
     }
 
   private def checkRefs(expr: Expr, names: Set[String]): Either[String, Unit] = expr match {
-    case NumLit(_) | StrLit(_) => Right(())
+    case NumLit(_) | StrLit(_) | BoolLit(_) => Right(())
     case FieldRef(name) =>
       if (names.contains(name)) Right(()) else Left(unknownFieldMessage(name, names))
     case BinOp(_, l, r) =>
       checkRefs(l, names).flatMap(_ => checkRefs(r, names))
     case Neg(e) => checkRefs(e, names)
+    case Not(e) => checkRefs(e, names)
+    case Cmp(_, l, r) => checkRefs(l, names).flatMap(_ => checkRefs(r, names))
+    case And(l, r)    => checkRefs(l, names).flatMap(_ => checkRefs(r, names))
+    case Or(l, r)     => checkRefs(l, names).flatMap(_ => checkRefs(r, names))
     case Call(_, args) =>
       args.foldLeft[Either[String, Unit]](Right(())) { (acc, a) =>
         acc.flatMap(_ => checkRefs(a, names))

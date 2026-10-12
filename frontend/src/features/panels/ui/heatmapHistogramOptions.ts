@@ -21,7 +21,7 @@ export const HEATMAP_VISUALMAP_CLEARANCE_PX = 56;
 export const HEATMAP_COMPACT_CLEARANCE_PX = 36;
 export const HEATMAP_COMPACT_BAR_THICKNESS_PX = 10;
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
