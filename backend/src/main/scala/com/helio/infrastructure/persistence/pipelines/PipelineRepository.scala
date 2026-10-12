@@ -54,6 +54,9 @@ class PipelineRepository(
   /** ACL-bypassing read by id. Reserved for documented privileged callers:
     * - `ResourceTypeRegistry` resolver (the directive does the comparison)
     * - `SparkJobSubmitter` (already-authorized background execution path)
+    * - `PipelineRunExecutor.runPipeline`'s empty-roots branch (HEL-1503): a read-only existence check keyed by the id
+    *   `PipelineRunService.submit` has just authorized, telling a pipeline deleted mid-submit (404) from a genuinely
+    *   root-less one (422)
     *
     * Do not call from a request-bound service method. */
   def findByIdInternal(id: PipelineId): Future[Option[Pipeline]] =
@@ -558,6 +561,17 @@ class PipelineRepository(
         .update(Some(schemaJson))
     ).map(_ => ())
   }
+
+  /** HEL-1503: the privileged counterpart of [[updateLastSourceSchema]] for an EDITOR grantee's successful run, whose
+    * owner-scoped write would touch 0 rows. Keys on the already-authorized pipeline id; same resilience convention
+    * (silent when the row is gone). */
+  def updateLastSourceSchemaInternal(id: PipelineId, schemaJson: String): Future[Unit] =
+    // withSystemContext: the editor is not the pipeline owner, so the owner-scoped write cannot apply; bypass is
+    // correct because the run was admitted by insertGranteeRunIfUnderOwnerCap's in-transaction re-authorization
+    // and the write is keyed on that run's pipeline id (HEL-1503 D1).
+    ctx.withSystemContext(
+      pipelinesTable.filter(_.id === id.value).map(_.lastSourceSchema).update(Some(schemaJson))
+    ).map(_ => ())
 
   /** Owner-scoped baseline read (HEL-462). Returns the raw JSON string of the
     * last successful run's source schema, or `None` when the pipeline has no

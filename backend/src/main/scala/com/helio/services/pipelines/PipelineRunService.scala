@@ -148,7 +148,7 @@ final class PipelineRunService(
   private val support   = new PipelineRunSupport(pipelineRepo, dataSourceRepo)
   private val terminal  = new PipelineRunTerminalWrites(pipelineRepo, pipelineRunRepo, registry, support)
   private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal)
-  private val executor  = new PipelineRunExecutor(pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded)
+  private val executor  = new PipelineRunExecutor(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded)
   private val backfill  = new PipelineRunBackfill(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, outputRepo, nodeSnapshotRepo, backend, support)
   private val queries   = new PipelineRunQueries(pipelineRepo, pipelineRunRepo, cache)
   import executor.runPipeline
