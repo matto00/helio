@@ -22,9 +22,11 @@ import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { applyTimeAxisTooltip, plottedInstants } from "./timeAxisOption";
 import {
   applyHeatmapTheme,
+  CATEGORY_LABEL_SHOW_ALL,
   compactHeatmapVisualMap,
   HEATMAP_COMPACT_CLEARANCE_PX,
   mergeHeatmapYAxis,
+  showsEveryCategoryLabel,
 } from "./heatmapHistogramOptions";
 
 // `type`/`data` only — no placeholder `name` (unlike the persisted-appearance
@@ -212,12 +214,17 @@ export function buildChartOption({
           // A time axis has no `interval: auto` thinning like a category axis, so narrow charts
           // would run adjacent labels together.
           ...(timeInstants ? { hideOverlap: true } : {}),
+          ...(showsEveryCategoryLabel(chartType) ? CATEGORY_LABEL_SHOW_ALL : {}),
         },
       },
       yAxis: {
         ...yAxisBase,
         nameTextStyle: textStyle,
-        axisLabel: { ...yAxisBase.axisLabel, color: textColor },
+        axisLabel: {
+          ...yAxisBase.axisLabel,
+          color: textColor,
+          ...(chartType === "heatmap" ? CATEGORY_LABEL_SHOW_ALL : {}),
+        },
       },
       legend: {
         ...(dataOption.legend as object),

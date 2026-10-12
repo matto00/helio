@@ -1,0 +1,13 @@
+- `frontend/src/features/panels/ui/heatmapHistogramOptions.ts` — histogramBinLabels (one precision per histogram), CATEGORY_LABEL_SHOW_ALL, showsEveryCategoryLabel; removed histogramBinLabel
+- `frontend/src/features/panels/ui/buildChartOption.ts` — interval 0 + hideOverlap on heatmap x/y and histogram x axisLabel at the merge point
+- `frontend/src/features/panels/ui/heatmapHistogramLabels.test.ts` — unit tests for histogramBinLabels
+- `frontend/src/features/panels/ui/buildChartOption.heatmapHistogram.test.ts` — axis-label option tests (heatmap, histogram, line/bar unchanged)
+- `frontend/src/features/panels/ui/chartUnchangedPath.main.snapshot.json` — heatmap/histogram entries updated for the intended label changes
+- `frontend/src/features/panels/ui/unchangedPathCases.ts` — note on the updated snapshot entries
+- `frontend/src/features/panels/ui/ChartPanel.tsx` — comment no longer lists a closed chart-type set
+- `frontend/src/features/panels/ui/chartOverlayOption.ts` — applyChartOverlay doc comment names the ignored chart types
+- `frontend/src/features/pipelines/ui/outputEditor/OutputKindFields.tsx` — heatmap hint says same column/row rows are summed
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.heatmapHistogram.test.tsx` — hint copy assertion
+- `e2e/hel1311-heatmap-histogram-charts.spec.ts` — settle ui-modal-in animation before touch-target reads, 43.5 threshold, ECharts 6.1.0 internals comment
+- `e2e/hel1487-category-axis-labels.spec.ts` — rendered axis-label count and no-overlap checks, light/dark at 1440 and 375
+- `openspec/changes/chart-axis-label-polish/tasks.md` — tasks marked done

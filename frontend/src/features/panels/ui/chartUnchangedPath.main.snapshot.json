@@ -2655,7 +2655,9 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {
@@ -2683,7 +2685,9 @@
         "show": true,
         "fontFamily": "ui-monospace, monospace",
         "formatter": "__fn__",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {
@@ -2764,11 +2768,13 @@
     },
     "xAxis": {
       "type": "category",
-      "data": ["1 to 3.67", "3.67 to 6.33", "6.33 to 9"],
+      "data": ["1.0 to 3.7", "3.7 to 6.3", "6.3 to 9.0"],
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {
@@ -3486,7 +3492,9 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {
@@ -3514,7 +3522,9 @@
         "show": true,
         "fontFamily": "ui-monospace, monospace",
         "formatter": "__fn__",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {
@@ -3599,7 +3609,9 @@
       "axisLabel": {
         "show": true,
         "fontFamily": "ui-monospace, monospace",
-        "color": "#abcdef"
+        "color": "#abcdef",
+        "interval": 0,
+        "hideOverlap": true
       },
       "axisLine": {
         "lineStyle": {

@@ -203,3 +203,29 @@ describe("buildChartOption histogram (HEL-1311)", () => {
     expect(bar[0].cursor).toBe("pointer");
   });
 });
+
+describe("buildChartOption category axis labels (HEL-1487)", () => {
+  const rows = Array.from({ length: 10 }, (_, i) => ["d", "t", "1", String(i)]);
+  const show = { interval: 0, hideOverlap: true };
+  type Axis = { axisLabel?: Record<string, unknown> };
+
+  it.each([false, true])("shows every heatmap column and row label (compact %s)", (compact) => {
+    const option = build("heatmap", heatMapping, { compact });
+    expect((option.xAxis as Axis).axisLabel).toMatchObject(show);
+    expect((option.yAxis as Axis).axisLabel).toMatchObject(show);
+  });
+
+  it.each([false, true])("shows every histogram bin label (compact %s)", (compact) => {
+    const option = build("histogram", { xAxis: "ms" }, { rows, compact });
+    expect((option.xAxis as Axis).axisLabel).toMatchObject(show);
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
+  });
+
+  it.each(["line", "bar"] as const)("leaves %s axis labels untouched", (chartType) => {
+    const option = build(chartType, { xAxis: "day", yAxis: "failures" });
+    expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("interval");
+    expect((option.xAxis as Axis).axisLabel).not.toHaveProperty("hideOverlap");
+    expect((option.yAxis as Axis).axisLabel).not.toHaveProperty("interval");
+  });
+});

@@ -152,7 +152,7 @@ export function ChartKindFields({
               ? "Aggregation isn't available for scatter — each point plots a raw row."
               : chartType === "histogram"
                 ? "Aggregation isn't available for histogram — it counts the rows into bins."
-                : "Aggregation isn't available for heatmap — it plots the rows as they are."}
+                : "Aggregation isn't available for heatmap — rows with the same column and row are summed into one cell."}
           </p>
         </div>
       ) : (

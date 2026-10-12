@@ -139,7 +139,9 @@ describe("OutputEditorSheet -- Heatmap (HEL-1311)", () => {
     renderSheet(chartOutput(AGG_BAR));
     await choose("Chart type", "Heatmap");
     expect(
-      screen.getByText("Aggregation isn't available for heatmap — it plots the rows as they are."),
+      screen.getByText(
+        "Aggregation isn't available for heatmap — rows with the same column and row are summed into one cell.",
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /Group by/i })).not.toBeInTheDocument();
   });
