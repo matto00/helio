@@ -60,7 +60,7 @@ private[pipelines] final class PipelineStepCreate(
           // `req.parentStepId` takes precedence (mirrors `persistNewStep`'s own anchor
           // resolution) else falls back to trunk-last, the same default `persistNewStep`
           // uses for a bare append. `selfId = None`: the new step has no id yet.
-          val laneScopeF: Future[LaneScope] =
+          def laneScopeF: Future[LaneScope] =
             for {
               roots                   <- pipelineRepo.listRootDataSourceIdsInternal(pipelineId)
               (current, rootIdOfStep) <- pipelineStepRepo.listWithRootIdsInternal(pipelineId)

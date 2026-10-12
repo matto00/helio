@@ -35,7 +35,7 @@ interface LookupConfigProps {
   currentStepId: string;
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: LookupConfigValue) => void;
-  /** HEL-1515: the backend\'s rejection of the last save (e.g. a lane that depends on this step). */
+  /** HEL-1515: the backend's rejection of the last save (e.g. a lane that depends on this step). */
   saveError?: string | null;
 }
 

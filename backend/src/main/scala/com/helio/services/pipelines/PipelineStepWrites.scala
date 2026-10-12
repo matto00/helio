@@ -84,7 +84,7 @@ private[pipelines] final class PipelineStepWrites(
                             // (`StepReferenceChecks.referenceChecksF`) create and duplicate use. HEL-911: the lane
                             // check runs against the EXISTING step's actual parent chain and its own id (a step
                             // cannot reference itself).
-                            val laneScopeF: Future[LaneScope] =
+                            def laneScopeF: Future[LaneScope] =
                               pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
                                 // HEL-1515: a lane to a step that already depends on this one -- a descendant, or anything
                                 // reaching it through parent or lane links -- could never be scheduled.
@@ -255,7 +255,7 @@ private[pipelines] final class PipelineStepWrites(
                       // prospective position (directly after `existing`, so its ancestors are `existing` plus
                       // `existing`'s own chain). The clone takes over ALL of `existing`'s children, so a reference
                       // into them is already a cycle on `existing` itself: no dependents to add here.
-                      val laneScopeF: Future[LaneScope] =
+                      def laneScopeF: Future[LaneScope] =
                         pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
                           LaneScope(current, PipelineService.ancestorChainOf(Some(existing.id), current), Set.empty, selfId = None)
                         }

@@ -30,7 +30,7 @@ interface JoinConfigProps {
   allSteps: Step[];
   currentStepId: string;
   onChange: (newConfig: JoinConfigValue) => void;
-  /** HEL-1515: the backend\'s rejection of the last save (e.g. a lane that depends on this step). */
+  /** HEL-1515: the backend's rejection of the last save (e.g. a lane that depends on this step). */
   saveError?: string | null;
 }
 
