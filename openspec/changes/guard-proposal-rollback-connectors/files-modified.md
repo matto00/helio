@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/services/pipelines/PipelineProposalRollbackConnectorSpec.scala`
-- `backend/src/test/scala/com/helio/api/routes/proposals/CombinedApplyProposalRollbackConnectorSpec.scala`
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala`
