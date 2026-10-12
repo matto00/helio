@@ -170,8 +170,8 @@ export function PipelineRiverView({
   // HEL-908 task 6.1 — "Add Outputs from a shape" targets a chosen anchor
   // node: `undefined` for the empty-state trigger (seeds a new primary
   // lane), the last primary-lane step's id for the bottom-of-list trigger
-  // (always a leaf, so `handleInstantiateShape` resolves it to plain
-  // primary-lane continuation).
+  // (the shape splices in after it as primary-lane continuation; any lane
+  // hanging off that step moves under the shape's last step).
   const [shapePickerAnchorStepId, setShapePickerAnchorStepId] = useState<string | undefined>(
     undefined,
   );
@@ -480,9 +480,9 @@ export function PipelineRiverView({
                 {/* HEL-912 (design.md Decision 1) removed the `trunkLastHasTail`
                  * disable this button used to have; it is no longer gated on
                  * the anchor's children. The shape's first step is a plain
-                 * splice, which reparented a lane hanging off the anchor
-                 * (known hazard, HEL-1506): see the KNOWN HAZARD note in
-                 * `usePipelineShapeInstantiation.ts`. */}
+                 * splice, which moves a lane hanging off the anchor under the
+                 * shape's last step; the editor applies the reported reparents
+                 * (HEL-1506, `usePipelineShapeInstantiation.ts`). */}
                 <button
                   type="button"
                   className="pipeline-detail-page__shape-picker-btn pipeline-detail-page__shape-picker-btn--dashed"
