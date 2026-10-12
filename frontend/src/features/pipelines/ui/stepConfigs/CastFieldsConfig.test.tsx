@@ -140,3 +140,127 @@ describe("CastFieldsConfig", () => {
     expect(screen.queryByRole("option", { name: /unsupported/ })).not.toBeInTheDocument();
   });
 });
+
+describe("CastFieldsConfig — stored unsupported target (HEL-1514)", () => {
+  const HINT = "No longer supported. Choose a type, or keep as is to keep today's behaviour.";
+
+  it("marks only the unsupported row invalid and points it at the hint", () => {
+    render(
+      <CastFieldsConfig
+        columns={["amount", "label"]}
+        casts={{ amount: "binary-ref", label: "string" }}
+        onChange={jest.fn()}
+      />,
+    );
+
+    const bad = screen.getByRole("combobox", { name: "Target type for amount" });
+    expect(bad).toHaveAttribute("aria-invalid", "true");
+    const hintId = bad.getAttribute("aria-describedby");
+    expect(hintId).toBeTruthy();
+    expect(document.getElementById(hintId!)).toHaveTextContent(HINT);
+    const ok = screen.getByRole("combobox", { name: "Target type for label" });
+    expect(ok).not.toHaveAttribute("aria-invalid");
+    expect(ok).not.toHaveAttribute("aria-describedby");
+    expect(screen.getAllByText(HINT)).toHaveLength(1);
+  });
+
+  it("gives each cast card its own hint id", () => {
+    render(
+      <>
+        <CastFieldsConfig columns={["a"]} casts={{ a: "x" }} onChange={jest.fn()} />
+        <CastFieldsConfig columns={["a"]} casts={{ a: "y" }} onChange={jest.fn()} />
+      </>,
+    );
+
+    const ids = screen
+      .getAllByRole("combobox", { name: "Target type for a" })
+      .map((c) => c.getAttribute("aria-describedby"));
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("choosing keep as is on the unsupported row removes it from the map", () => {
+    const onChange = jest.fn();
+    render(
+      <CastFieldsConfig
+        columns={["amount"]}
+        casts={{ amount: "binary-ref" }}
+        onChange={onChange}
+      />,
+    );
+
+    chooseSelectOption("Target type for amount", "— keep as is —");
+
+    expect(onChange).toHaveBeenCalledWith("amount", "");
+  });
+
+  it("renders a row for a stored key that is not in the schema, so it can be cleared", () => {
+    const onChange = jest.fn();
+    render(
+      <CastFieldsConfig
+        columns={["id"]}
+        casts={{ zeta: "binary-ref", gone: "string" }}
+        onChange={onChange}
+      />,
+    );
+
+    // schema columns first, then remaining stored keys sorted
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows.map((r) => r.querySelector("td")?.textContent)).toEqual(["id", "gone", "zeta"]);
+    expect(screen.getByRole("combobox", { name: "Target type for zeta" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("combobox", { name: "Target type for gone" })).not.toHaveAttribute(
+      "aria-invalid",
+    );
+    chooseSelectOption("Target type for zeta", "— keep as is —");
+    expect(onChange).toHaveBeenCalledWith("zeta", "");
+  });
+
+  it("on a validation 422 the unsupported row is also described by the save error", () => {
+    render(
+      <CastFieldsConfig
+        columns={["amount", "label"]}
+        casts={{ amount: "binary-ref", label: "string" }}
+        onChange={jest.fn()}
+        saveError="cast: unsupported target type 'binary-ref'"
+        saveErrorIsValidation
+      />,
+    );
+
+    const ids = screen
+      .getByRole("combobox", { name: "Target type for amount" })
+      .getAttribute("aria-describedby")!
+      .split(" ");
+    expect(ids).toHaveLength(2);
+    expect(document.getElementById(ids[0])).toHaveTextContent("No longer supported.");
+    expect(document.getElementById(ids[1])).toHaveTextContent("cast: unsupported target type");
+    expect(screen.getByRole("combobox", { name: "Target type for label" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+
+  it("a non-validation save error is not linked to any row", () => {
+    render(
+      <CastFieldsConfig
+        columns={["amount"]}
+        casts={{ amount: "binary-ref" }}
+        onChange={jest.fn()}
+        saveError="Internal boom"
+      />,
+    );
+
+    const ids = screen
+      .getByRole("combobox", { name: "Target type for amount" })
+      .getAttribute("aria-describedby")!
+      .split(" ");
+    expect(ids).toHaveLength(1);
+    expect(document.getElementById(ids[0])).toHaveTextContent("No longer supported.");
+  });
+
+  it("renders no extra rows when every stored key is in the schema", () => {
+    render(<CastFieldsConfig columns={["id"]} casts={{ id: "string" }} onChange={jest.fn()} />);
+
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+});

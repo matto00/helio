@@ -76,7 +76,7 @@ export function buildStepCardFieldHandlers({
     if (targetType) next[field] = targetType;
     else delete next[field];
     setCasts(next);
-    persist({ casts: next });
+    persist({ casts: next }, true);
   }
 
   function onFilterChange(newConfig: FilterConfigValue) {
