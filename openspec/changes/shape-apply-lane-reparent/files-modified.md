@@ -1,6 +1,0 @@
-- `frontend/src/features/pipelines/hooks/usePipelineShapeInstantiation.ts` — apply each shape step create's reparentedStepIds via shared applyCreated; comments rewritten
-- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts` — expose applyCreated for the shape hook
-- `frontend/src/features/pipelines/hooks/usePipelineStepStructure.ts` — thread applyCreated into the shape hook
-- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx` — stale anchor/known-hazard comments updated
-- `frontend/src/features/pipelines/ui/PipelineDetailPage.shapeReparent.test.tsx` — red-first page tests (lane placement, partial apply, draft survival, real createPipelineStep mapping)
-- `openspec/changes/shape-apply-lane-reparent/specs/pipeline-shape-instantiation-ui/spec.md` — spec delta
