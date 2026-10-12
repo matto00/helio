@@ -151,10 +151,16 @@ describe("useStepCardState characterization — handler wire payloads (group 2)"
     }
   });
 
-  it("captures exactly pivot/window/fillnull/upsertsource", () => {
+  it("captures exactly pivot/window/fillnull/cast/upsertsource", () => {
     const capturing = new Set(ALL_CASES.filter((c) => c.captures).map((c) => c.handler));
     expect(capturing).toEqual(
-      new Set(["onPivotChange", "onWindowChange", "onFillNullChange", "onUpsertSourceChange"]),
+      new Set([
+        "onPivotChange",
+        "onWindowChange",
+        "onFillNullChange",
+        "onCastChange",
+        "onUpsertSourceChange",
+      ]),
     );
   });
 
