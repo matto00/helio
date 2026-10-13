@@ -23,6 +23,7 @@ import type { Panel, PanelAppearance } from "../../types/panel";
 import { PanelContent } from "../PanelContent";
 import { AppearanceEditor } from "../editors/AppearanceEditor";
 import { OutputControlsEditor } from "../editors/OutputControlsEditor";
+import { EditFormScrollArea } from "./EditFormScrollArea";
 import { OutputPanelSection } from "./OutputPanelSection";
 import { renderSubtypeEditor } from "./renderSubtypeEditor";
 import { usePanelDetailData } from "./usePanelDetailData";
@@ -265,11 +266,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
           </div>
         ) : (
           <>
-            <form
-              id="panel-detail-edit-form"
-              className="panel-detail-modal__content"
-              onSubmit={handleEditSubmit}
-            >
+            <EditFormScrollArea formId="panel-detail-edit-form" onSubmit={handleEditSubmit}>
               <AppearanceEditor
                 panelTitle={panel.title}
                 theme={theme}
@@ -305,7 +302,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                   handleSubtypeDirtyChange,
                 })
               )}
-            </form>
+            </EditFormScrollArea>
 
             {showDiscardWarning ? (
               <div className="panel-detail-modal__discard-warning">

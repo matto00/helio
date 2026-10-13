@@ -15,12 +15,49 @@
 
 /* HEL-716 — cancels Modal's `.ui-modal__body` padding so this modal's
    content bleeds edge-to-edge exactly as it did before the migration (the
-   form/view-body sections below own their own padding, unchanged). */
+   form/view-body sections below own their own padding, unchanged).
+   HEL-1449: the negative margin only shifts the box up, so `height: 100%` left the bottom
+   2 x --space-5 short of the body's bottom edge (a dead band above the footer divider); the
+   height adds that back so the box spans header divider to footer divider. */
 .panel-detail-modal__inner {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100% + 2 * var(--space-5));
   margin: calc(-1 * var(--space-5));
+}
+
+/* HEL-1449 (owner ruling scroll-hint) -- the edit form sits in a relative wrapper beside a pointer-
+   transparent overlay that carries the top/bottom scroll-fades; the wrapper keeps the form's own
+   `flex: 1` box inside `.panel-detail-modal__inner`. The fade is an overlay, not an inset shadow on
+   the form, because an inset shadow paints UNDER the form's children (the Controls rows are opaque
+   exactly at the bottom edge). `--app-text` makes it darken in light and lighten in dark. */
+.panel-detail-modal__scroll-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-detail-modal__scroll-fade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.panel-detail-modal__scroll-fade--top {
+  box-shadow: inset 0 12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.panel-detail-modal__scroll-fade--bottom {
+  box-shadow: inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
+}
+
+.panel-detail-modal__scroll-fade--top.panel-detail-modal__scroll-fade--bottom {
+  box-shadow:
+    inset 0 12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
+    inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
 }
 
 /* Unsaved changes badge — shown in the header during edit mode when any field is dirty */
