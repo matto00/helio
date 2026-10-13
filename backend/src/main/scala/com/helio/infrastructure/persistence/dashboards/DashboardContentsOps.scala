@@ -7,7 +7,7 @@ import slick.jdbc.PostgresProfile.api._
 // ad-hoc projection (distinct from DashboardTable's whole-row `*` shape), so
 // it needs these column-type implicits in scope here too — they're defined
 // once on DashboardRepository's companion object and reused across every
-// file in this package that needs them (mirrors DashboardRepository.update's
+// file in this package that needs them (mirrors the former DashboardRepository.update's
 // own `(r.name, r.lastUpdated, r.appearance, r.layout)` partial update).
 import DashboardRepository.{dashboardLayoutColumnType, instantColumnType}
 

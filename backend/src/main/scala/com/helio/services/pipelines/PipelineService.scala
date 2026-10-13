@@ -86,8 +86,9 @@ final class PipelineService(
   private val rootWrites = new PipelineRootWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, pipelineRootRepo, sourceService, dataSourceService, inlineSourceCleanup, support, requireEditorAccess)
   private val createTransaction = new PipelineCreateTransaction(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo, support)
   private val createWrites = new PipelineCreateWrites(pipelineRepo, dataSourceRepo, inlineSourceCleanup, support, rootWrites, createTransaction)
-  private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)
-  private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, support, requireEditorAccess)
+  private val refChecks  = new StepReferenceChecks(dataSourceRepo, support)
+  private val stepCreate = new PipelineStepCreate(pipelineRepo, pipelineStepRepo, support, refChecks, requireEditorAccess)
+  private val stepWrites = new PipelineStepWrites(pipelineRepo, pipelineStepRepo, support, refChecks, requireEditorAccess)
 
   import support.{audit, toSummaryResponse}
 
@@ -335,7 +336,8 @@ object PipelineService {
    *  `lane`-kind `secondaryInput` naming a step that does not exist, belongs to a
    *  DIFFERENT pipeline (including another user's -- this is the security boundary
    *  Engine contract item 10's ACL skip is justified by, per round-1 skeptic CR2), or
-   *  is the referencing step itself / one of its own ancestors (a cycle, item 7). `None`
+   *  is the referencing step itself / one of its own ancestors / (HEL-1515) one of its descendants
+   *  (a cycle, item 7). `None`
    *  means the config has no lane reference to validate (every other step kind, or a
    *  `source`-kind secondary input) -- nothing to check.
    *
@@ -349,6 +351,8 @@ object PipelineService {
       typedConfig: Any,
       pipelineSteps: Vector[PipelineStep],
       ancestorChainIds: Set[String],
+      // HEL-1515: the referencing step's own descendants (parent-chain), which the run could never schedule.
+      descendantIds: Set[String],
       selfId: Option[String]
   ): Either[ServiceError, Unit] =
     PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
@@ -360,6 +364,8 @@ object PipelineService {
           Left(ServiceError.UnprocessableEntity(s"Lane reference '$dep' does not exist in this pipeline."))
         else if (ancestorChainIds.contains(dep))
           Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
+        else if (descendantIds.contains(dep))
+          Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is a descendant of this step)."))
         else
           Right(())
     }

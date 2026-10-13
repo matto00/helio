@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/dashboards/dashboard.schema.json",
   "title": "Dashboard",
   "type": "object",
-  "required": ["id", "name", "meta", "appearance", "layout", "ownerId"],
+  "required": ["id", "name", "meta", "appearance", "layout", "ownerId", "layoutVersion"],
   "properties": {
     "id": {
       "type": "string",
@@ -26,6 +26,11 @@
     "ownerId": {
       "type": "string",
       "minLength": 1
+    },
+    "layoutVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "HEL-1457: database-maintained, bumped whenever the stored layout changes (any writer). Echo it as `expectedLayoutVersion` on a layout PATCH or auto-layout to have a stale write refused with 409 instead of overwriting."
     },
     "tag": {
       "type": "string",

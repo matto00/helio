@@ -58,6 +58,7 @@ interface TestState {
       appearance?: DashboardAppearance;
       layout?: DashboardLayout;
       ownerId?: string;
+      layoutVersion?: number;
     }>;
     selectedDashboardId?: string | null;
     status?: "idle" | "loading" | "succeeded" | "failed";

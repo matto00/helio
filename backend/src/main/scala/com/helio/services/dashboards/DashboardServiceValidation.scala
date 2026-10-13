@@ -113,6 +113,10 @@ object DashboardServiceValidation {
   ): Either[String, (Option[String], Option[DashboardAppearance], Option[LayoutPolicy.Patch])] = {
     if (request.name.isEmpty && request.appearance.isEmpty && request.layout.isEmpty) {
       Left("name, appearance, or layout is required")
+    } else if (request.expectedLayoutVersion.isDefined && request.layout.isEmpty) {
+      Left("expectedLayoutVersion requires layout")
+    } else if (request.expectedLayoutVersion.exists(_ < 0)) {
+      Left("expectedLayoutVersion must not be negative")
     } else {
       request.name.map(_.trim) match {
         case Some("") => Left("name must not be blank")

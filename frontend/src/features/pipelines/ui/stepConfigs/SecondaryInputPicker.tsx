@@ -16,6 +16,7 @@ import { useEffect } from "react";
 import { fetchSources } from "../../../sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { Select } from "../../../../shared/ui/index";
+import { InlineError } from "../../../../shared/chrome/InlineError";
 import { computeAncestorIds } from "../../state/laneLayout";
 import type { SecondaryInput } from "../../types/pipelineStep";
 import type { Step } from "../../types/step";
@@ -26,6 +27,8 @@ interface SecondaryInputPickerProps {
   allSteps: Step[];
   currentStepId: string;
   onChange: (next: SecondaryInput) => void;
+  /** HEL-1515: the backend's message when the last save was rejected. */
+  saveError?: string | null;
 }
 
 // A data-source option's value and a lane-node option's value can collide
@@ -54,6 +57,7 @@ export function SecondaryInputPicker({
   allSteps,
   currentStepId,
   onChange,
+  saveError,
 }: SecondaryInputPickerProps) {
   const dispatch = useAppDispatch();
   const { items: dataSources } = useAppSelector((state) => state.sources);
@@ -93,6 +97,7 @@ export function SecondaryInputPicker({
           if (decoded) onChange(decoded);
         }}
       />
+      <InlineError error={saveError ?? null} />
     </div>
   );
 }

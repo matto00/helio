@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{ErrorResponse, JsonProtocols, PatchSetStaleResponse, StaleTargetResponse, StepConfigErrorResponse}
+import com.helio.api.protocols.dashboards.{DashboardResponse, LayoutConflictResponse}
 import com.helio.services.ServiceError
 
 import scala.concurrent.Future
@@ -82,6 +83,8 @@ object ServiceResponse extends JsonProtocols {
         statusCodeFor(e),
         StepConfigErrorResponse(message, StepConfigInvalidCode, stepId, stepKind, reason)
       )
+    case ServiceError.LayoutConflict(current) =>
+      complete(statusCodeFor(e), LayoutConflictResponse(e.message, DashboardResponse.fromDomain(current)))
     case ServiceError.PatchSetStale(staleTargets, message) =>
       complete(
         statusCodeFor(e),
@@ -107,6 +110,7 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.NotFound(_)            => StatusCodes.NotFound
     case ServiceError.Forbidden(_)           => StatusCodes.Forbidden
     case ServiceError.Conflict(_)            => StatusCodes.Conflict
+    case ServiceError.LayoutConflict(_)      => StatusCodes.Conflict
     case ServiceError.UnprocessableEntity(_) => StatusCodes.UnprocessableEntity
     case ServiceError.StepConfigInvalid(_, _, _, _) => StatusCodes.UnprocessableEntity
     case ServiceError.PatchSetStale(_, _)    => StatusCodes.Conflict

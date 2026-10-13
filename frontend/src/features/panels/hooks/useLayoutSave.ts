@@ -46,6 +46,15 @@
 // client's panel order differing from the stored order) is class 4 and re-baselines. Either way pending
 // stays false, no history entry is added (history comes only from drag/resize/undo), the baseline
 // becomes the repaired layout, and a later drag persists normally.
+// HEL-1457 — LAYOUT VERSION PRECONDITION. Every save sends `expectedLayoutVersion`, and invariant I1 holds:
+// the version sent is never newer than the server layout the saved local layout was derived from.
+// `persistedVersionRef` is paired with `persistedLayoutRef` and moves only where that is set from server data
+// (a class-4 re-baseline, which takes the store's consistent pair, and an adopted save response) -- never from a
+// class-3 placement extension, so the next save after an own panel create takes one 409 and a rebase
+// (`updateDashboardLayout`) instead of overwriting the placement. A 409 retry that succeeded while the user
+// edited again (store layout != what was sent) advances NEITHER the baseline NOR the version: the next flush
+// sends the old version, conflicts, and rebases again, so it can never send a breakpoint lacking the other
+// writer's item under a version that includes it. The store half of the pairing is in `dashboardsSlice`.
 // D5: a PATCH response never overwrites a newer local layout (see `dashboardsSlice`'s fulfilled
 // reducer); `persistLayout`'s `.then` then recomputes pending against the server baseline. Known,
 // accepted race: if a panel create lands while a PATCH is in flight and the server handled the PATCH
@@ -61,6 +70,10 @@ import {
 } from "../../dashboards/state/dashboardLayout";
 import { buildLayoutPatch } from "../../dashboards/state/layoutPatch";
 import { setLayoutPending, updateDashboardLayout } from "../../dashboards/state/dashboardsSlice";
+import { markDashboardPanelsStale } from "../state/panelActions";
+import { fetchPanels } from "../state/panelThunks";
+import { useStore } from "react-redux";
+import type { RootState } from "../../../store/store";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import type { Panel } from "../types/panel";
 import type { LayoutFlush } from "./usePanelUpdatesFlush";
@@ -86,6 +99,9 @@ interface UseLayoutSaveOptions {
    *  persisted baseline, undo snapshots and the interaction-commit equality all live in this shape,
    *  so a derived or repaired breakpoint is never mistaken for an edit and never written on view. */
   layout: DashboardLayout;
+  /** The store's `layoutVersion` of the server layout `layout` was derived from (HEL-1457); `undefined` from a
+   *  server that does not send one, in which case saves carry no precondition. */
+  layoutVersion?: number;
   /** The dashboard's panels and whether that list is loaded: a changed-and-invalid breakpoint is
    *  replaced by its render-time resolution only when they are (HEL-1071, see `buildLayoutPatch`). */
   panels: Panel[];
@@ -96,17 +112,25 @@ interface UseLayoutSaveOptions {
 export function useLayoutSave({
   dashboardId,
   layout,
+  layoutVersion,
   panels,
   panelsLoaded,
   registerLayoutFlush,
 }: UseLayoutSaveOptions): UseLayoutSaveResult {
   const dispatch = useAppDispatch();
+  const store = useStore<RootState>();
   const panelsRef = useRef({ panels, panelsLoaded });
   useEffect(() => {
     panelsRef.current = { panels, panelsLoaded };
   });
   const latestLayoutRef = useRef<DashboardLayout>(layout);
   const persistedLayoutRef = useRef<DashboardLayout>(layout);
+  // The store's layoutVersion, paired with the store layout (see header, HEL-1457).
+  const storeLayoutVersionRef = useRef(layoutVersion);
+  const persistedVersionRef = useRef(layoutVersion);
+  useEffect(() => {
+    storeLayoutVersionRef.current = layoutVersion;
+  });
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   // Tracks whether we've already dispatched setLayoutPending(true) for the
   // current pending cycle, so a drag (which fires onLayoutChange every tick)
@@ -130,6 +154,22 @@ export function useLayoutSave({
   });
   // The store layout this effect last saw, for placement-extension detection (class 3).
   const prevLayoutRef = useRef<DashboardLayout>(layout);
+
+  // A server layout can name panels this tab has not loaded (another writer's placement): load them, so they
+  // render and a later drag, which rebuilds a breakpoint from the loaded panels, cannot drop their items.
+  const refetchPanelsIfLayoutNamesUnknown = useCallback(
+    (serverLayout: DashboardLayout) => {
+      const { panels: knownPanels, panelsLoaded: loaded } = panelsRef.current;
+      if (!loaded) return;
+      const known = new Set(knownPanels.map((p) => p.id));
+      const { lg, md, sm, xs } = serverLayout;
+      if ([...lg, ...md, ...sm, ...xs].some((item) => !known.has(item.panelId))) {
+        dispatch(markDashboardPanelsStale(dashboardId));
+        void dispatch(fetchPanels(dashboardId));
+      }
+    },
+    [dashboardId, dispatch],
+  );
 
   useEffect(() => {
     const prevLayout = prevLayoutRef.current;
@@ -160,6 +200,8 @@ export function useLayoutSave({
       dispatch(setLayoutPending(pending));
     } else {
       persistedLayoutRef.current = layout;
+      persistedVersionRef.current = storeLayoutVersionRef.current;
+      refetchPanelsIfLayoutNamesUnknown(layout);
       // A staged drag that this re-baseline discards (e.g. a server layout landing
       // before the flush) must not leave the pending flag stuck with nothing to save.
       if (layoutPendingDispatchedRef.current) dispatch(setLayoutPending(false));
@@ -173,7 +215,7 @@ export function useLayoutSave({
     ) {
       inFlightLayoutRef.current = null;
     }
-  }, [layout, dispatch]);
+  }, [layout, dispatch, refetchPanelsIfLayoutNamesUnknown]);
 
   const persistLayout = useCallback(() => {
     const nextLayout = latestLayoutRef.current;
@@ -198,10 +240,35 @@ export function useLayoutSave({
     );
 
     inFlightLayoutRef.current = nextLayout;
-    void dispatch(updateDashboardLayout({ dashboardId, layout: patch, sentLayout: nextLayout }))
-      .unwrap()
-      .then((dashboard) => {
+    void dispatch(
+      updateDashboardLayout({
+        dashboardId,
+        layout: patch,
+        sentLayout: nextLayout,
+        baseLayout: persistedLayoutRef.current,
+        baseVersion: persistedVersionRef.current,
+      }),
+    )
+      .then((action) => {
+        // A rejected save leaves the baseline alone; the store was re-synced by the thunk itself.
+        if (!updateDashboardLayout.fulfilled.match(action)) return;
+        const dashboard = action.payload;
+        // Adopted = the reducer put the response's layout in the store, i.e. the store still equalled what was
+        // sent. Decided from the store, not `latestLayoutRef`, which the layout effect may already have replaced
+        // with the adopted layout.
+        const storeLayout = store
+          .getState()
+          .dashboards.items.find((d) => d.id === dashboardId)?.layout;
+        const adopted = storeLayout === dashboard.layout;
+        if (action.meta.rebased && !adopted) {
+          // Edited during the 409 round trip (header, HEL-1457): keep the old baseline AND version.
+          layoutPendingDispatchedRef.current = true;
+          dispatch(setLayoutPending(true));
+          return;
+        }
         persistedLayoutRef.current = dashboard.layout;
+        persistedVersionRef.current = dashboard.layoutVersion;
+        refetchPanelsIfLayoutNamesUnknown(dashboard.layout);
         // HEL-1230 (D5): the store keeps a newer local layout over this response, so recompute pending
         // against the new baseline in BOTH directions — a local edit made while the PATCH was in flight
         // stays pending, and one that already equals the server's layout clears it (never stuck dirty,
@@ -209,9 +276,6 @@ export function useLayoutSave({
         const pending = !areDashboardLayoutsEqual(latestLayoutRef.current, dashboard.layout);
         layoutPendingDispatchedRef.current = pending;
         dispatch(setLayoutPending(pending));
-      })
-      .catch(() => {
-        // Keep local drag UX responsive; retry happens on the next layout change.
       })
       .finally(() => {
         if (
@@ -221,7 +285,7 @@ export function useLayoutSave({
           inFlightLayoutRef.current = null;
         }
       });
-  }, [dashboardId, dispatch]);
+  }, [dashboardId, dispatch, store, refetchPanelsIfLayoutNamesUnknown]);
 
   // Register persistLayout into the parent's flush slot while mounted; clear it
   // on unmount so no layout-write path survives the shell swap below `sm`.

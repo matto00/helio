@@ -296,6 +296,7 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onUnionChange}
+        saveError={saveError}
       />
     );
   }
@@ -307,6 +308,7 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onLookupChange}
+        saveError={saveError}
       />
     );
   }
@@ -318,6 +320,7 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onJoinChange}
+        saveError={saveError}
       />
     );
   }

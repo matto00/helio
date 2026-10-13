@@ -16,6 +16,12 @@ import {
 import { applyDashboardProposal as applyDashboardProposalRequest } from "../services/proposalService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { areDashboardLayoutsEqual } from "./dashboardLayout";
+import {
+  dashboardFromConflict,
+  isLayoutConflict,
+  LAYOUT_CONFLICT_MESSAGE,
+  rebaseLayoutPatch,
+} from "./layoutConflict";
 import type { RootState } from "../../../store/store";
 import type {
   Dashboard,
@@ -46,6 +52,14 @@ const initialState: DashboardsState = {
 // so the first item is always the most recently updated.
 function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
   return dashboards[0]?.id ?? null;
+}
+
+// HEL-1457: a response that is NOT adopted over a newer local layout keeps the local layout BY REFERENCE and
+// the OLD `layoutVersion` with it, so the store's (layout, layoutVersion) pair stays "this layout, derived from
+// that server version" and a later re-baseline can never pair a local layout with a version that already
+// includes another writer's items.
+function keepLocalLayout(response: Dashboard, local: Dashboard): Dashboard {
+  return { ...response, layout: local.layout, layoutVersion: local.layoutVersion };
 }
 
 // HEL-1119: push-or-replace-by-id, shared by every reducer that adds a
@@ -156,28 +170,81 @@ export const renameDashboard = createAsyncThunk<
  * `layout` is the PATCH body (changed breakpoints only). `sentLayout` (HEL-1230) is the full authored
  * layout that PATCH represents; it never goes on the wire. The fulfilled reducer compares it with the
  * layout in the store at response time to tell whether the user edited while the request was in flight.
+ *
+ * HEL-1457: `baseLayout` / `baseVersion` are the server layout this save was derived from and its
+ * `layoutVersion`; the version goes on the wire as `expectedLayoutVersion`. On a 409 the save is rebased onto
+ * the dashboard the 409 carries (`rebaseLayoutPatch`) and retried once; the fulfilled action's
+ * `meta.rebased` says that happened. An invalid rebase or a second 409 shows the fresh server layout and
+ * rejects with a message that says the change was not saved.
  */
 export const updateDashboardLayout = createAsyncThunk<
   Dashboard,
-  { dashboardId: string; layout: Partial<DashboardLayout>; sentLayout: DashboardLayout },
-  { rejectValue: string }
+  {
+    dashboardId: string;
+    layout: Partial<DashboardLayout>;
+    sentLayout: DashboardLayout;
+    baseLayout?: DashboardLayout;
+    baseVersion?: number;
+  },
+  { rejectValue: string; fulfilledMeta: { rebased: boolean } }
 >(
   "dashboards/updateDashboardLayout",
-  async ({ dashboardId, layout }, { dispatch, rejectWithValue }) => {
-    try {
-      return await updateDashboardLayoutRequest(dashboardId, layout);
-    } catch (err) {
-      // HEL-1071: a rejected layout save is no longer silent — the server's message (the offending
-      // breakpoint and panel ids) reaches the toast, and the dashboard is re-read so the store's authored
-      // layout converges on what the server holds. Upserted by id, so a concurrent list fetch that
-      // already placed this dashboard is replaced rather than duplicated.
+  async (
+    { dashboardId, layout, baseLayout, baseVersion },
+    { dispatch, rejectWithValue, fulfillWithValue },
+  ) => {
+    const showServerLayout = async (known: Dashboard | null) => {
+      // The dashboard is re-read so the store's authored layout converges on what the server holds. Upserted
+      // by id, so a concurrent list fetch that already placed this dashboard is replaced, not duplicated.
       try {
-        const fresh = (await fetchDashboardsRequest()).find((d) => d.id === dashboardId);
+        const fresh = known ?? (await fetchDashboardsRequest()).find((d) => d.id === dashboardId);
         if (fresh) dispatch(dashboardsSlice.actions.dashboardUpserted(fresh));
       } catch {
-        // The failed save is still reported below; the next successful fetch re-syncs.
+        // The failed save is still reported by the caller; the next successful fetch re-syncs.
       }
-      return rejectWithValue(extractErrorMessage(err, "Failed to save dashboard layout."));
+    };
+    try {
+      return fulfillWithValue(
+        await updateDashboardLayoutRequest(dashboardId, layout, baseVersion),
+        {
+          rebased: false,
+        },
+      );
+    } catch (err) {
+      if (!isLayoutConflict(err)) {
+        // HEL-1071: a rejected layout save is not silent: the server's message (the offending breakpoint
+        // and panel ids) reaches the toast.
+        await showServerLayout(null);
+        return rejectWithValue(extractErrorMessage(err, "Failed to save dashboard layout."));
+      }
+      let current = dashboardFromConflict(err);
+      if (!current) {
+        try {
+          current = (await fetchDashboardsRequest()).find((d) => d.id === dashboardId) ?? null;
+        } catch {
+          current = null;
+        }
+      }
+      const rebased =
+        current && baseLayout ? rebaseLayoutPatch(layout, baseLayout, current.layout) : null;
+      if (!current || !rebased) {
+        await showServerLayout(current);
+        return rejectWithValue(LAYOUT_CONFLICT_MESSAGE);
+      }
+      try {
+        return fulfillWithValue(
+          await updateDashboardLayoutRequest(dashboardId, rebased, current.layoutVersion),
+          { rebased: true },
+        );
+      } catch (retryErr) {
+        const conflict = isLayoutConflict(retryErr);
+        await showServerLayout(conflict ? (dashboardFromConflict(retryErr) ?? current) : null);
+        return rejectWithValue(
+          conflict
+            ? LAYOUT_CONFLICT_MESSAGE
+            : extractErrorMessage(retryErr, "Failed to save dashboard layout."),
+        );
+      }
     }
   },
 );
@@ -346,7 +413,7 @@ const dashboardsSlice = createSlice({
             state.hasPendingLayout = false;
             return action.payload;
           }
-          return { ...action.payload, layout: dashboard.layout };
+          return keepLocalLayout(action.payload, dashboard);
         });
       })
       .addCase(repairDashboardLayout.fulfilled, (state, action) => {
@@ -356,7 +423,7 @@ const dashboardsSlice = createSlice({
         state.items = state.items.map((dashboard) => {
           if (dashboard.id !== action.payload.id) return dashboard;
           if (areDashboardLayoutsEqual(dashboard.layout, expectedLayout)) return action.payload;
-          return { ...action.payload, layout: dashboard.layout };
+          return keepLocalLayout(action.payload, dashboard);
         });
       })
       .addCase(createDashboard.fulfilled, (state, action) => {

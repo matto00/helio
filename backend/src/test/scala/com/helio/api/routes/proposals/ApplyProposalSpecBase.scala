@@ -29,6 +29,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
+import java.sql.Connection
 import java.util.UUID
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
@@ -289,6 +290,10 @@ abstract class ApplyProposalSpecBase
       sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, owner_id)
              VALUES ($panelId, $dashboardId, 'seeded', $ownerId, now(), now(), '{}'::jsonb, 'divider', $ownerId::uuid)"""
     ))
+
+  /** A fresh superuser session on the same database (HEL-1457): lets a spec hold a row lock in a real second
+   *  transaction while a route request runs on the NOBYPASSRLS app pool, and observe `pg_stat_activity`. */
+  protected def superuserConnection(): Connection = embeddedPostgres.getPostgresDatabase.getConnection
 
   /** The dashboard's stored layout JSON, read straight from the table (ACL-free). */
   protected def storedLayoutJson(dashboardId: String): JsObject =

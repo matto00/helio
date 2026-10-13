@@ -3,13 +3,11 @@ package com.helio.services.dashboards
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, UpdateDashboardRequest}
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.dashboards.{DashboardRepository, DashboardWriteResult, LayoutCas}
 import com.helio.services.ServiceError
 import com.helio.services.auth.AccessChecker
 import com.helio.services.panels.LayoutWritePolicy
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{mock, never, verify, when}
+import org.mockito.Mockito.mock
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -37,15 +35,24 @@ class DashboardServiceLayoutPolicySpec extends AnyWordSpec with Matchers {
   private val storedBadXs = Vector(item("a", 0, 0), item("b", 0, 0))
   private val storedGood  = Vector(item("a", 0, 0), item("b", 1, 0))
 
-  private def serviceStoring(layout: DashboardLayout): (DashboardService, ArgumentCaptor[Dashboard], DashboardRepository) = {
-    val repo = mock(classOf[DashboardRepository])
-    val dashboard = Dashboard(id, "D", ResourceMeta(owner.id.value, now, now), DashboardAppearance.Default, layout, owner.id)
-    when(repo.findById(id, Some(owner))).thenReturn(Future.successful(Some(dashboard)))
+  /** Records every `writeFields` call; the value classes in its signature cannot be matched with Mockito's `any()`. */
+  private final class RecordingRepo(dashboard: Dashboard) extends DashboardRepository(null) {
+    var writes: Vector[Option[LayoutCas]] = Vector.empty
+    override def findById(i: DashboardId, caller: Option[AuthenticatedUser]): Future[Option[Dashboard]] = Future.successful(Some(dashboard))
     // HEL-1456: a layout write keeps only items of panels on the dashboard; `a` and `b` are the live ones here.
-    when(repo.panelIdsInternal(id)).thenReturn(Future.successful(Set(PanelId("a"), PanelId("b"))))
-    val captor = ArgumentCaptor.forClass(classOf[Dashboard])
-    when(repo.update(captor.capture())).thenAnswer(inv => Future.successful(Some(inv.getArgument[Dashboard](0))))
-    (new DashboardService(repo, mock(classOf[AccessChecker]), outputRepo = mock(classOf[OutputRepository])), captor, repo)
+    override def panelIdsInternal(i: DashboardId): Future[Set[PanelId]] = Future.successful(Set(PanelId("a"), PanelId("b")))
+    override def writeFields(
+        i: DashboardId, o: UserId, layout: Option[LayoutCas], name: Option[String], appearance: Option[DashboardAppearance], at: Instant
+    ): Future[DashboardWriteResult] = {
+      writes :+= layout
+      Future.successful(DashboardWriteResult.Written(layout.fold(dashboard)(cas => dashboard.copy(layout = cas.next))))
+    }
+  }
+
+  private def serviceStoring(layout: DashboardLayout): (DashboardService, RecordingRepo) = {
+    val dashboard = Dashboard(id, "D", ResourceMeta(owner.id.value, now, now), DashboardAppearance.Default, layout, owner.id)
+    val repo      = new RecordingRepo(dashboard)
+    (new DashboardService(repo, mock(classOf[AccessChecker]), outputRepo = mock(classOf[OutputRepository])), repo)
   }
 
   // The stored dashboard has a good xs; the value being "restored" is a previously stored-bad one.
@@ -53,25 +60,25 @@ class DashboardServiceLayoutPolicySpec extends AnyWordSpec with Matchers {
 
   "DashboardService.update" should {
     "reject writing back a stored-bad breakpoint under the default Validate policy, writing nothing" in {
-      val (service, _, repo) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedGood))
+      val (service, repo) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedGood))
       val result = await(service.update(id, restoreBad, owner))
       result.left.toOption.get shouldBe a[ServiceError.BadRequest]
-      verify(repo, never()).update(any())
+      repo.writes shouldBe empty
     }
 
     "write the stored-bad prior value back under RestorePriorStored (the rollback/undo exemption)" in {
-      val (service, captor, _) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedGood))
+      val (service, repo) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedGood))
       val result = await(service.update(id, restoreBad, owner, LayoutWritePolicy.RestorePriorStored))
       result.isRight shouldBe true
-      captor.getValue.layout.xs shouldBe storedBadXs
+      repo.writes.last.get.next.xs shouldBe storedBadXs
     }
 
     "skip validation of a breakpoint identical to stored even under Validate (grandfathering)" in {
-      val (service, captor, _) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedBadXs))
+      val (service, repo) = serviceStoring(DashboardLayout(Vector.empty, Vector.empty, Vector.empty, storedBadXs))
       val request = UpdateDashboardRequest(None, None, Some(DashboardLayoutPatchPayload(lg = payloads(Vector(item("a", 0, 0, 6))), xs = payloads(storedBadXs.reverse))))
       await(service.update(id, request, owner)).isRight shouldBe true
-      captor.getValue.layout.xs shouldBe storedBadXs
-      captor.getValue.layout.lg shouldBe Vector(item("a", 0, 0, 6))
+      repo.writes.last.get.next.xs shouldBe storedBadXs
+      repo.writes.last.get.next.lg shouldBe Vector(item("a", 0, 0, 6))
     }
   }
 }
