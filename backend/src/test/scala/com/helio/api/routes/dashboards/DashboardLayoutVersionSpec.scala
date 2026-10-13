@@ -152,4 +152,71 @@ class DashboardLayoutVersionSpec extends ApplyProposalSpecBase with LayoutRouteF
       send(Post(s"/api/dashboards/$d/auto-layout", json(body(n)))) { status shouldBe StatusCodes.Conflict }
     }
   }
+
+  // HEL-1525: placement responses carry the version the placement transaction produced.
+  private def responseVersion(body: String): Option[Long] = body.parseJson.asJsObject.fields.get("layoutVersion").map(_.convertTo[Long])
+
+  private def batchBody(d: String, n: Int): String =
+    s"""{"dashboardId":"$d","panels":[${(1 to n).map(i => s"""{"title":"b$i","type":"markdown","config":{"content":"x"}}""").mkString(",")}]}"""
+
+  "placement responses" should {
+    "carry N+1 on create and duplicate, equal to a subsequent dashboard read" in {
+      val d = createDashboard("ver-place-single")
+      val p = createPanel(d)
+      val n = versionOf(d)
+      val created = send(Post("/api/panels", json(s"""{"dashboardId":"$d","title":"c","type":"text"}"""))) {
+        status shouldBe StatusCodes.Created
+        responseVersion(responseAs[String])
+      }
+      created shouldBe Some(n + 1)
+      versionOf(d) shouldBe n + 1
+      val dup = send(Post(s"/api/panels/$p/duplicate")) {
+        status shouldBe StatusCodes.Created
+        responseVersion(responseAs[String])
+      }
+      dup shouldBe Some(n + 2)
+      versionOf(d) shouldBe n + 2
+    }
+
+    "carry one top-level version on a batch and none on its items" in {
+      val d = createDashboard("ver-place-batch")
+      createPanel(d)
+      val n = versionOf(d)
+      send(Post("/api/panels/batch", json(batchBody(d, 3)))) {
+        status shouldBe StatusCodes.Created
+        val fields = responseAs[String].parseJson.asJsObject.fields
+        fields("layoutVersion").convertTo[Long] shouldBe n + 1
+        fields("panels").convertTo[Vector[JsObject]].foreach(_.fields should not contain key("layoutVersion"))
+      }
+      versionOf(d) shouldBe n + 1
+    }
+
+    "omit the version on an empty batch" in {
+      val d = createDashboard("ver-place-empty")
+      send(Post("/api/panels/batch", json(batchBody(d, 0)))) {
+        if (status == StatusCodes.Created) responseVersion(responseAs[String]) shouldBe None
+        else status shouldBe StatusCodes.BadRequest
+      }
+    }
+
+    "carry N+2 when another layout write landed before the create" in {
+      val d = createDashboard("ver-place-race")
+      val p = createPanel(d)
+      val n = versionOf(d)
+      send(patchLg(d, p, 40, s""","expectedLayoutVersion":$n""")) { status shouldBe StatusCodes.OK }
+      send(Post("/api/panels", json(s"""{"dashboardId":"$d","title":"c","type":"text"}"""))) {
+        status shouldBe StatusCodes.Created
+        responseVersion(responseAs[String]) shouldBe Some(n + 2)
+      }
+    }
+
+    "leave the version off every non-placement panel response" in {
+      val d = createDashboard("ver-place-patch")
+      val p = createPanel(d)
+      send(Patch(s"/api/panels/$p", json("""{"title":"renamed"}"""))) {
+        status shouldBe StatusCodes.OK
+        responseVersion(responseAs[String]) shouldBe None
+      }
+    }
+  }
 }

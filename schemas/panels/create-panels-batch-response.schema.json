@@ -12,6 +12,10 @@
       "items": {
         "$ref": "panel.schema.json"
       }
+    },
+    "layoutVersion": {
+      "type": "integer",
+      "description": "HEL-1525: the dashboard's layout version after the whole batch was placed (one transaction, one version). Present whenever at least one panel was created; items do not repeat it."
     }
   }
 }
