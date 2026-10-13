@@ -365,6 +365,7 @@ object PipelineStepKind {
    *  so the CHECK constraint and row mapping), `PipelineAnalyzeServiceSpec`
    *  (an `inferOutputSchema` branch per kind), `PipelineCostEstimatorSpec`,
    *  `PipelineStepCatalogServiceSpec`, `PipelineStepSecondSourceGuardSpec`,
+   *  `PatchSetPreviewProjectionStepsRegistryGuardSpec` (a patch-set preview projection arm per kind),
    *  and the frontend `stepNarrowing.test.ts` (a `STEP_ICONS` entry per
    *  authorable kind). Re-derive that list with
    *  `git grep -l 'PipelineStep.Registry\|PipelineStepKind.All' -- backend/src/test frontend/src helio-mcp/src`.

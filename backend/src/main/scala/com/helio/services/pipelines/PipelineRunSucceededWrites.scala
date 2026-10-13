@@ -69,6 +69,13 @@ private[pipelines] final class PipelineRunSucceededWrites(
   ): Future[Option[String]] = {
     def writesChain(): Future[Option[String]] = {
       val now = Instant.now()
+      // HEL-1518 (design.md D3): each node's snapshot transaction starts with the run guard, so a run reaped or
+      // deleted since the early open-check writes nothing for that node. Only a real run (a wired run repository)
+      // has one, matching the executor's early-check fixture rule. Privileged: the guard runs inside the node write's
+      // own `withSystemContext` transaction (which already bypasses RLS to write `node_snapshots`/history), and the
+      // pipeline and run rows it locks may belong to an owner other than the submitting editor; locking them discloses
+      // nothing and writes nothing.
+      val guard: Option[DBIO[Unit]] = Option(pipelineRunRepo).map(_.runGuardAction(pipelineId, runId))
       // HEL-905 (design.md Decisions 3, 4): a materialized node is one carrying >= 1 `outputs`
       // row. For each materialized node, `node_snapshots` is replaced atomically (per-node, via
       // `overwriteRows`'s existing delete-then-insert-in-one-transaction), sequenced only after the
@@ -107,7 +114,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
                 }
                 val nodeOutputs = outputsByNodeKey.getOrElse(nodeKey, Vector.empty)
                 val replace: Future[Unit] =
-                  if (outputHistoryRepo == null) nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt)
+                  if (outputHistoryRepo == null) nodeSnapshotRepo.overwriteRows(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, guard)
                   else {
                     // HEL-1271 (D9): the summary insert shares this node's replace transaction -- NOT
                     // best-effort; a failure here fails the node exactly like a snapshot-insert failure.
@@ -134,14 +141,14 @@ private[pipelines] final class PipelineRunSucceededWrites(
                         nodePayloadRepo
                           .writeAction(pipelineId.value, nodeStepIdOpt, explicitRootIdOpt, Some(runId.value), triggerSource, now, nodeJsRows, payloadConfig)
                           .flatMap(pid => outputHistoryRepo.insertAction(entries.map(e => if (optedIn(e.outputId)) e.copy(payloadId = pid) else e)))
-                    nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction)
+                    nodeSnapshotRepo.overwriteRowsWith(pipelineId.value, nodeStepIdOpt, nodeJsRows, explicitRootIdOpt, historyAction, guard)
                   }
                 replace.flatMap { _ =>
                   // HEL-905 (design.md Decision 4): per-Output shallow-union schema derivation
                   // over this node's own row set. Two Outputs on the same node get independently
                   // derived (but identical) schemas -- no sharing/caching needed at this scale.
                   val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
-                  val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+                  val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType), Some(f.nullable))).toVector
                   Future
                     .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
                     .map(_ => ())
@@ -270,18 +277,36 @@ private[pipelines] final class PipelineRunSucceededWrites(
           _ <- materializedWrites
           _ <- binaryRefsUpsert
           _ <- alertEvaluation
-          _ <- updateRun
+          won <- updateRun
           _ <- updateMeta
           _ <- assertionsInsert
           _ <- baselineUpsert
+          _ <- failIfLostTerminalWrite(runId, won)
         } yield None
     }
     // HEL-1366: `succeeded` is published only after the whole chain (snapshots, run status,
     // last-run metadata, ...) has completed, so a subscriber reading on the event sees this run's
     // results. Edge: `for` fails fast, so if `materializedWrites` fails the event can fire while the
     // eagerly-started `updateRun` is still in flight (write-failure path only).
-    publishTerminalAfter(pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)), writesChain())
+    // HEL-1518 (design.md D4): a run guard trip (the run was reaped or deleted mid-chain) publishes NOTHING -- the
+    // reaper's `failed` event, or the pipeline's deletion, already ended that run's lifecycle.
+    publishTerminalAfter(
+      pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)), writesChain(),
+      skipPublishOn = { case _: PipelineRunRepository.RunNoLongerOpen => true; case _ => false }
+    )
   }
+
+  /** HEL-1518 (design.md D7): the run's own `succeeded` terminal write lost (`won = false`) -- the run was reaped, or
+   *  deleted with its pipeline, outside any node write's guard (e.g. after the last node, or before the Output list was
+   *  read, when the cascade had already emptied it). First terminal write wins, so this execution is a late finisher:
+   *  fail the chain with the run's actual state, which publishes no `succeeded` and maps to 404 / 409 in the executor.
+   *  No-op when this write won, or (fixtures) no run repository is wired. */
+  private def failIfLostTerminalWrite(runId: PipelineRunId, won: Boolean): Future[Unit] =
+    if (won || pipelineRunRepo == null) Future.unit
+    else pipelineRunRepo.runStateInternal(runId).flatMap {
+      case PipelineRunRepository.RunState.Open => Future.unit
+      case state                               => Future.failed(PipelineRunRepository.RunNoLongerOpen(state))
+    }
 
   /** Extract every `binary-ref`-shaped field value from `rows` into
    *  [[BinaryRef]] records for `binaryRefRepo.overwriteForNode` (renamed from

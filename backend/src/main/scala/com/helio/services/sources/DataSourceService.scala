@@ -308,7 +308,7 @@ final class DataSourceService(
               val ov = overridesMap.get(f.name)
               // Every override was already validated as `string` above; `dataType` is retained
               // only so a `displayName`-only override still applies without dropping the type.
-              SchemaField(f.name, ov.map(o => DataFieldType.canonicalizeLegacy(o.dataType)).getOrElse(DataFieldType.asString(f.dataType)))
+              SchemaField(f.name, ov.map(o => DataFieldType.canonicalizeLegacy(o.dataType)).getOrElse(DataFieldType.asString(f.dataType)), Some(f.nullable))
             }.toVector
             dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
               audit("data_source.create", Some(ds.id.value), user)
@@ -374,7 +374,7 @@ final class DataSourceService(
                   fileSystem.write(filePath, bytes).flatMap { _ =>
                   dataSourceRepo.insert(source, user).flatMap { ds =>
                     val fields = schema.fields.map(f =>
-                      SchemaField(f.name, DataFieldType.asString(f.dataType))
+                      SchemaField(f.name, DataFieldType.asString(f.dataType), Some(f.nullable))
                     ).toVector
                     dataSourceRepo.upsertInferredSchema(ds.id, fields, now, user).map { updated =>
                       audit("data_source.create", Some(ds.id.value), user)
@@ -1189,7 +1189,7 @@ final class DataSourceService(
     val fields = schema.fields.map(f =>
       DataField(f.name, f.displayName, DataFieldType.asString(f.dataType), f.nullable)
     ).toVector
-    upsertSourceDataType(source, fields, user, now).map(_ => Right(source))
+    upsertSourceDataType(source, fields, user, now, persistNullable = true).map(_ => Right(source))
   }
 
   /** Refresh a text source (HEL-215): re-read the stored file when it was
@@ -1333,9 +1333,16 @@ final class DataSourceService(
       source: DataSource,
       fields: Vector[DataField],
       user: AuthenticatedUser,
-      now: Instant
+      now: Instant,
+      persistNullable: Boolean = false
   ): Future[DataSource] =
-    dataSourceRepo.upsertInferredSchema(source.id, fields.map(f => SchemaField(f.name, f.dataType)), now, user)
+    // HEL-1424: only CSV refresh records nullability; text/pdf/image keep `None` (their reported value is unchanged).
+    dataSourceRepo.upsertInferredSchema(
+      source.id,
+      fields.map(f => SchemaField(f.name, f.dataType, if (persistNullable) Some(f.nullable) else None)),
+      now,
+      user
+    )
       .map(_.getOrElse(source))
 
 

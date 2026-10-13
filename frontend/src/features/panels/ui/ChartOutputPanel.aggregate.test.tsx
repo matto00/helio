@@ -84,6 +84,7 @@ describe("ChartOutputPanel aggregation (HEL-1351)", () => {
       values: [15, 2, 7],
       groupBy: "region",
       seriesName: "sum(amount)",
+      hasNullGroup: true,
     });
     expect(last.aggregationSpec).toEqual({ ...AGG, groupHasNull: true });
   });
@@ -105,6 +106,33 @@ describe("ChartOutputPanel aggregation (HEL-1351)", () => {
       />,
     );
     expect(captured.at(-1)!.chartAggregate).toEqual(dashboard);
+    // HEL-1424: the preview flags the null group the same way, so it relabels it "(blank)" too.
+    expect(captured.at(-1)!.chartAggregate!.hasNullGroup).toBe(true);
+  });
+
+  it("the preview does not flag a literal 'null' text group as blank (HEL-1424)", () => {
+    captured.length = 0;
+    render(
+      <OutputPreviewPane
+        kind="chart"
+        rows={
+          {
+            columns: HEADERS,
+            rows: [
+              { region: "null", amount: 1 },
+              { region: "east", amount: 2 },
+            ],
+          } as never
+        }
+        loading={false}
+        chartType="bar"
+        chartFieldMapping={{ xAxis: "region", yAxis: "amount" }}
+        chartGroupBy="region"
+        chartAggFn="sum"
+        chartYField="amount"
+      />,
+    );
+    expect(captured.at(-1)!.chartAggregate!.hasNullGroup).toBe(false);
   });
 
   it("carries groupHasNull from strict-null records only, never from the stringified rawRows (HEL-1408 D10a)", () => {

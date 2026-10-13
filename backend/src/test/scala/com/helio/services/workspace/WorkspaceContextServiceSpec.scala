@@ -285,10 +285,11 @@ class WorkspaceContextServiceSpec
   // holds an Output id post-rewire, see `createPipeline`'s own doc) -- this helper's NAME is kept
   // (minimizing the diff against this file's many call sites) but its implementation now updates
   // `outputs.schema` (`Vector[SchemaField]`) instead of `data_types.fields`
-  // (`Vector[DataField]`) -- `nullable`/`displayName` have no `SchemaField` slot and are dropped,
-  // matching `WorkspaceContextService.toDataTypeEntry`'s own synthetic-`DataField` adaptation.
+  // (`Vector[DataField]`) -- `displayName` has no `SchemaField` slot and is dropped. HEL-1424: `nullable` is now
+  // stored (the helper passes `Some(f.nullable)`), so these fixtures keep asserting the value they declare
+  // instead of silently reading the new legacy default (`true`).
   private def setDataTypeFields(outputIdStr: String, fields: Vector[DataField]): Unit =
-    await(outputRepo.updateSchemaInternal(OutputId(outputIdStr), fields.map(f => SchemaField(f.name, f.dataType))))
+    await(outputRepo.updateSchemaInternal(OutputId(outputIdStr), fields.map(f => SchemaField(f.name, f.dataType, Some(f.nullable)))))
 
   // ── 4.1 Empty workspace ─────────────────────────────────────────────────
 
@@ -613,6 +614,22 @@ class WorkspaceContextServiceSpec
       amount.min shouldBe Some(10.0)
       amount.max shouldBe Some(20.0)
       amount.mean shouldBe Some(15.0)
+    }
+
+    // HEL-1424: workspace-context columns report the stored nullability; a legacy field with none reads true.
+    "report stored nullable per column, and true for a legacy field with none (HEL-1424)" in {
+      val source   = createSource(userA, "nullable-source")
+      val pipeline = createPipeline(userA, source.id, "nullable-pipeline", "nullable-output")
+
+      await(outputRepo.updateSchemaInternal(OutputId(pipeline.outputId), Vector(
+        SchemaField("a", "string", Some(false)),
+        SchemaField("b", "string", Some(true)),
+        SchemaField("legacy", "string")
+      )))
+
+      val resp  = await(service.assemble(userA))
+      val entry = resp.dataTypes.find(_.id == pipeline.outputId).getOrElse(fail("output DataType missing"))
+      entry.columns.map(c => c.name -> c.nullable).toMap shouldBe Map("a" -> false, "b" -> true, "legacy" -> true)
     }
 
     "report nullRate 1, distinctCount 0, and no min/max for an all-null column" in {

@@ -69,6 +69,20 @@ describe("PanelInspectView — tasks.md 4.1 (header text)", () => {
     expect(await screen.findByText("Showing rows for quarter: Q1")).toBeInTheDocument();
   });
 
+  it("labels a blank (empty) selection value '(blank)' in the header and the button (HEL-1424)", async () => {
+    const { store } = renderInspectView();
+    act(() => {
+      store.dispatch(
+        selectDataPoint({ panelId: "panel-1", dimension: "quarter", value: "", series: "" }),
+      );
+    });
+
+    expect(await screen.findByText("Showing rows for quarter: (blank)")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Filter dashboard by quarter = (blank)" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders an empty state, not a header, when nothing is selected", () => {
     renderInspectView();
     expect(screen.getByText("Nothing selected")).toBeInTheDocument();

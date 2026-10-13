@@ -79,9 +79,9 @@ private[pipelines] final class PipelineAnalyzeReads(
             // HEL-1236: source-kind join secondaries' schemas, so a join's renamed columns project.
             secondarySchemas  <- resolveSecondarySourceSchemas(allSteps.map(s => s.kind -> PipelineStepConfigCodec.encode(s)), dataSourceRepo.findByIdInternal)
             upsertProblems    <- upsertTargetProblems(allSteps, pipeline.ownerId)
-          } yield (rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems)
+          } yield (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems)
 
-          rootFetch.flatMap { case (rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems) =>
+          rootFetch.flatMap { case (rootDataSourceIds, rootIdOfStep, rootDsOpts, secondarySchemas, upsertProblems) =>
             val rootSchemas = rootDsOpts.map { case (rid, dsOpt) =>
               (rid, dsOpt.map(_.name).getOrElse(""), dsOpt.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
             }
@@ -91,7 +91,17 @@ private[pipelines] final class PipelineAnalyzeReads(
             // scoped here to the PRIMARY (lowest-positioned) root's schema, the same root
             // `findPrimaryDataSourceIdInternal` used to resolve alone, so existing single-root
             // baselines keep comparing against the same schema they always have.
-            val primarySchema: Vector[SchemaField] = rootSchemas.headOption.map(_._3).getOrElse(Vector.empty)
+            //
+            // HEL-1516 (design.md D2): the drift diff compares against the baseline as the pipeline OWNER sees the
+            // primary source (mirroring the capture side, HEL-1503 D2), not the caller's own view -- for a grantee who
+            // does not own the source `rootSchemas.headOption` is empty and every baseline column would read removed.
+            // `rootSchemas`/projections/cost inputs keep the caller's view; for the owner the two reads are identical.
+            val primaryOwnerViewF: Future[Vector[SchemaField]] =
+              rootDataSourceIds.headOption match {
+                case Some((_, primaryDsId)) =>
+                  dataSourceRepo.findByIdOwnedByInternal(primaryDsId, pipeline.ownerId).map(_.map(_.inferredSchema).getOrElse(Vector.empty[SchemaField]))
+                case None => Future.successful(Vector.empty[SchemaField])
+              }
 
             // HEL-913 task 7.2c fold-in: build `nodeInputs` from EVERY step (enabled or not),
             // never pre-filtered -- a disabled step still occupies a real position in the
@@ -145,8 +155,10 @@ private[pipelines] final class PipelineAnalyzeReads(
             // HEL-462: compare the current (primary-root) source schema against the baseline
             // captured on the pipeline's last successful (non-dry) run.
             for {
-              canRun       <- canRunF
-              baselineJson <- pipelineRepo.findLastSourceSchema(pipelineId, user)
+              canRun        <- canRunF
+              // HEL-1516 D1: keyed by the id `findByIdShared` authorized, so a grantee reads the owner's baseline.
+              baselineJson  <- pipelineRepo.findLastSourceSchemaInternal(pipelineId)
+              primarySchema <- primaryOwnerViewF
             } yield {
               val baseline = parseBaselineSchema(pipelineId, baselineJson)
               val drift    = PipelineSchemaDrift.diff(baseline, primarySchema)

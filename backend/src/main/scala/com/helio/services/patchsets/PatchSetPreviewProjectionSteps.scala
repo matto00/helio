@@ -7,13 +7,14 @@ import com.helio.domain.model._
  *  previews (HEL-408 design.md D3, tasks.md 2.2's "pipelineStep via
  *  `PipelineStepConfigCodec.decode` ... + a `.copy(...)`") -- mirrors
  *  `PipelineStepRepository.rowToDomain`'s / `PipelineStepResponse.
- *  fromDomain`'s own established per-kind-arm enumeration (same 22 step
- *  kinds, same style) rather than inventing a new dispatch mechanism.
+ *  fromDomain`'s own established per-kind-arm enumeration (one arm per
+ *  `PipelineStep.Registry` kind; the registry guard spec fails when one
+ *  is missing) rather than inventing a new dispatch mechanism.
  *  Extracted to its own file to keep `PatchSetPreviewProjection.scala`
  *  within a manageable size. */
 private[services] object PipelineStepProjectionSupport {
 
-  /** `.copy(position = ...)` across all 22 registered step kinds -- the
+  /** `.copy(position = ...)` across every `PipelineStep.Registry` kind -- the
    *  PURE in-memory analogue of `PipelineStepRepository.updateInternal`'s
    *  position-only branch. */
   def withPosition(step: PipelineStep, position: Int): PipelineStep = step match {
@@ -41,9 +42,12 @@ private[services] object PipelineStepProjectionSupport {
     case s: LookupStep               => s.copy(position = position)
     case s: AssertStep               => s.copy(position = position)
     case s: UpsertSourceStep         => s.copy(position = position)
+    case s: ConvertFormatStep        => s.copy(position = position)
+    case s: AnalyzeWithAiStep        => s.copy(position = position)
+    case s: GenerateTextStep         => s.copy(position = position)
   }
 
-  /** `.copy(config = ...)` across all 22 registered step kinds, given the
+  /** `.copy(config = ...)` across every `PipelineStep.Registry` kind, given the
    *  `Any`-typed value `PipelineStepConfigCodec.decode` returns (its own
    *  documented cycle-1/2 signature) -- the PURE in-memory analogue of
    *  `PipelineStepRepository.updateInternal`'s config-replace branch. A
@@ -76,6 +80,9 @@ private[services] object PipelineStepProjectionSupport {
     case (s: LookupStep, c: LookupConfig)                        => Right(s.copy(config = c))
     case (s: AssertStep, c: AssertConfig)                        => Right(s.copy(config = c))
     case (s: UpsertSourceStep, c: UpsertSourceConfig)            => Right(s.copy(config = c))
+    case (s: ConvertFormatStep, c: ConvertFormatConfig)          => Right(s.copy(config = c))
+    case (s: AnalyzeWithAiStep, c: AnalyzeWithAiConfig)          => Right(s.copy(config = c))
+    case (s: GenerateTextStep, c: GenerateTextConfig)            => Right(s.copy(config = c))
     case _ => Left(s"config decode produced a type mismatched with step kind '${step.kind}'")
   }
 }

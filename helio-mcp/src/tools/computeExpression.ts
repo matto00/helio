@@ -19,7 +19,7 @@ export const COMPUTE_EXPRESSION_DOC =
   "timezone-less date-times (read as UTC), bare dates (midnight UTC) or whole-number epoch " +
   "seconds/milliseconds; a null or unparseable timestamp makes that row's result null. There is " +
   "no now(). Numeric functions are strict: a text or timestamp column used as a number nulls the " +
-  "row (analyze warns numeric-op-on-text-field) — cast text to a number first. Conditionals and " +
+  "row (analyze warns numeric-op-on-text-field; text functions given numbers warn text-function-on-numeric-field; wrong-type literals warn literal-type-mismatch) — cast text to a number first. Expressions nest at most 100 levels deep (brackets, call arguments, unary - or not) and 200 levels as a tree, otherwise parse error. Conditionals and " +
   "booleans: if(cond,then,else) evaluates only the chosen branch (a false or null cond takes " +
   "else; nest it for several cases); both branches must share a type (integer and float mix to " +
   "float). Comparison operators = != < <= > >= are non-associative (no chaining; == and <> are " +

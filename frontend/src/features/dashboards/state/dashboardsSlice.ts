@@ -166,6 +166,30 @@ export const renameDashboard = createAsyncThunk<
   }
 });
 
+// The slices the layout-save rejection copy reads (a narrow state so a store of just these two can dispatch it).
+type LayoutSaveState = Pick<RootState, "dashboards" | "panels">;
+
+const LAYOUT_SAVE_FAILED_MESSAGE = "Failed to save dashboard layout.";
+
+function isBadRequest(err: unknown): boolean {
+  return isAxiosError(err) && err.response?.status === 400;
+}
+
+// HEL-1527: true when the re-synced server layout holds a panel id this tab has not loaded. Only meaningful
+// when the panel list is loaded for THIS dashboard and did not fail: `fetchPanels.pending` keeps
+// `loadedDashboardId` through the refetch gap, `markDashboardPanelsStale` nulls it, and `fetchPanels.rejected`
+// empties `items` but keeps `loadedDashboardId` (hence the `status` check).
+function layoutNamesUnloadedPanel(state: LayoutSaveState, dashboardId: string): boolean {
+  const { panels } = state;
+  if (panels.loadedDashboardId !== dashboardId || panels.status === "failed") return false;
+  const layout = state.dashboards.items.find((d) => d.id === dashboardId)?.layout;
+  if (!layout) return false;
+  const known = new Set(panels.items.map((p) => p.id));
+  return [...layout.lg, ...layout.md, ...layout.sm, ...layout.xs].some(
+    (item) => !known.has(item.panelId),
+  );
+}
+
 /**
  * `layout` is the PATCH body (changed breakpoints only). `sentLayout` (HEL-1230) is the full authored
  * layout that PATCH represents; it never goes on the wire. The fulfilled reducer compares it with the
@@ -186,23 +210,33 @@ export const updateDashboardLayout = createAsyncThunk<
     baseLayout?: DashboardLayout;
     baseVersion?: number;
   },
-  { rejectValue: string; fulfilledMeta: { rebased: boolean } }
+  { state: LayoutSaveState; rejectValue: string; fulfilledMeta: { rebased: boolean } }
 >(
   "dashboards/updateDashboardLayout",
   async (
     { dashboardId, layout, baseLayout, baseVersion },
-    { dispatch, rejectWithValue, fulfillWithValue },
+    { dispatch, getState, rejectWithValue, fulfillWithValue },
   ) => {
-    const showServerLayout = async (known: Dashboard | null) => {
+    const showServerLayout = async (known: Dashboard | null): Promise<boolean> => {
       // The dashboard is re-read so the store's authored layout converges on what the server holds. Upserted
       // by id, so a concurrent list fetch that already placed this dashboard is replaced, not duplicated.
       try {
         const fresh = known ?? (await fetchDashboardsRequest()).find((d) => d.id === dashboardId);
-        if (fresh) dispatch(dashboardsSlice.actions.dashboardUpserted(fresh));
+        if (!fresh) return false;
+        dispatch(dashboardsSlice.actions.dashboardUpserted(fresh));
+        return true;
       } catch {
         // The failed save is still reported by the caller; the next successful fetch re-syncs.
+        return false;
       }
     };
+    // HEL-1527: the toast never shows the server's developer-facing text (it quotes raw panel ids). A 400 whose
+    // re-synced layout names a panel this tab has not loaded gets the "changed elsewhere" copy; anything else
+    // gets the generic copy.
+    const rejectionCopy = (err: unknown, resynced: boolean): string =>
+      isBadRequest(err) && resynced && layoutNamesUnloadedPanel(getState(), dashboardId)
+        ? LAYOUT_CONFLICT_MESSAGE
+        : LAYOUT_SAVE_FAILED_MESSAGE;
     try {
       return fulfillWithValue(
         await updateDashboardLayoutRequest(dashboardId, layout, baseVersion),
@@ -212,10 +246,9 @@ export const updateDashboardLayout = createAsyncThunk<
       );
     } catch (err) {
       if (!isLayoutConflict(err)) {
-        // HEL-1071: a rejected layout save is not silent: the server's message (the offending breakpoint
-        // and panel ids) reaches the toast.
-        await showServerLayout(null);
-        return rejectWithValue(extractErrorMessage(err, "Failed to save dashboard layout."));
+        // HEL-1071: a rejected layout save is not silent: it re-syncs and toasts (copy per `rejectionCopy`).
+        const resynced = await showServerLayout(null);
+        return rejectWithValue(rejectionCopy(err, resynced));
       }
       let current = dashboardFromConflict(err);
       if (!current) {
@@ -238,11 +271,11 @@ export const updateDashboardLayout = createAsyncThunk<
         );
       } catch (retryErr) {
         const conflict = isLayoutConflict(retryErr);
-        await showServerLayout(conflict ? (dashboardFromConflict(retryErr) ?? current) : null);
+        const resynced = await showServerLayout(
+          conflict ? (dashboardFromConflict(retryErr) ?? current) : null,
+        );
         return rejectWithValue(
-          conflict
-            ? LAYOUT_CONFLICT_MESSAGE
-            : extractErrorMessage(retryErr, "Failed to save dashboard layout."),
+          conflict ? LAYOUT_CONFLICT_MESSAGE : rejectionCopy(retryErr, resynced),
         );
       }
     }
@@ -337,11 +370,30 @@ const dashboardsSlice = createSlice({
     },
     setDashboardLayoutLocally(
       state,
-      action: PayloadAction<{ dashboardId: string; layout: DashboardLayout }>,
+      action: PayloadAction<{
+        dashboardId: string;
+        layout: DashboardLayout;
+        /** HEL-1525: the version a own panel create/duplicate response reported. Adopted into the store only when
+         *  it is exactly the store's version + 1 AND the layout grew in every breakpoint: then the server layout
+         *  at that version is the layout this one was derived from plus exactly the placement, so the store's
+         *  (layout, layoutVersion) pair stays valid (I1). Any other value changes the layout only. */
+        placedLayoutVersion?: number;
+      }>,
     ) {
-      const { dashboardId, layout } = action.payload;
+      const { dashboardId, layout, placedLayoutVersion } = action.payload;
       const dashboard = state.items.find((d) => d.id === dashboardId);
       if (dashboard) {
+        const appendedEverywhere = (["lg", "md", "sm", "xs"] as const).every(
+          (bp) => layout[bp].length > dashboard.layout[bp].length,
+        );
+        if (
+          placedLayoutVersion !== undefined &&
+          dashboard.layoutVersion !== undefined &&
+          placedLayoutVersion === dashboard.layoutVersion + 1 &&
+          appendedEverywhere
+        ) {
+          dashboard.layoutVersion = placedLayoutVersion;
+        }
         dashboard.layout = layout;
       }
     },

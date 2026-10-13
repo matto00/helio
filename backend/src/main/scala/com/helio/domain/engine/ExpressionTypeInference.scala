@@ -6,9 +6,9 @@ import ExpressionParser.{And, BinOp, BoolLit, Call, Cmp, Expr, FieldRef, Neg, No
 // Static result-type inference over the parsed AST.
 private[engine] object ExpressionTypeInference {
 
-  /** Types whose `+` result is text: a timestamp is text at evaluation time, and a boolean concatenates
+  /** Types whose `+` result is text: a timestamp and a `string-body` are text at evaluation time, and a boolean concatenates
    *  as `true`/`false`. */
-  private val TextLike = Set("string", "timestamp", "boolean")
+  private val TextLike = Set("string", "string-body", "timestamp", "boolean")
 
   private val NumericTypes = Set("integer", "float")
   private val TextTypes    = Set("string", "string-body", "timestamp")

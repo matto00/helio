@@ -80,7 +80,11 @@ object PipelineAnalyzeService {
    *  operationally (searchable log line) instead of silently normalizing it away. Write is
    *  unaffected -- every in-process value is already canonical by construction. */
   implicit val schemaFieldJsonFormat: RootJsonFormat[SchemaField] = new RootJsonFormat[SchemaField] {
-    override def write(f: SchemaField): JsValue = JsObject("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+    override def write(f: SchemaField): JsValue = {
+      val base: Map[String, JsValue] = Map("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+      // HEL-1424: `nullable` is emitted only when recorded, so unrecorded fields persist as before.
+      JsObject(f.nullable.fold(base)(n => base + ("nullable" -> JsBoolean(n))))
+    }
     override def read(json: JsValue): SchemaField = {
       val obj  = json.asJsObject
       val name = obj.fields("name").convertTo[String]
@@ -98,7 +102,11 @@ object PipelineAnalyzeService {
           )
           DataFieldType.asString(DataFieldType.StringType)
       }
-      SchemaField(name = name, `type` = resolvedType)
+      val nullable = obj.fields.get("nullable") match {
+        case Some(JsBoolean(b)) => Some(b)
+        case _                  => None
+      }
+      SchemaField(name = name, `type` = resolvedType, nullable = nullable)
     }
   }
 
@@ -190,12 +198,14 @@ object PipelineAnalyzeService {
    *  single-root/pre-multi-root convention). Never surfaced on the wire. */
   private val DefaultRootKey = ""
 
-  /** HEL-1414: the data-source id a `join` OR `lookup` step's `source`-kind secondary names. Used ONLY
-   *  to pre-resolve schemas for [[AnalyzeSchemaWarnings]]; [[sourceDependencyOf]] stays join-only so
-   *  `analyzeNodes` projections (a source-secondary lookup's documented placeholder types) do not change. */
+  /** HEL-1414 / HEL-1520: the data-source id a `join`, `union` OR `lookup` step's `source`-kind secondary
+   *  names. Drives the schema pre-resolution for both [[AnalyzeSchemaWarnings]] and `analyzeNodes`;
+   *  [[sourceDependencyOf]] excludes `lookup` so a source-secondary lookup's documented placeholder
+   *  types do not change. */
   def secondarySourceIdOf(op: String, config: String): Option[String] =
     Try(op match {
       case "join"   => Some(JoinConfig.decode(config).secondaryInput)
+      case "union"  => Some(UnionConfig.decode(config).secondaryInput)
       case "lookup" => Some(LookupConfig.decode(config).secondaryInput)
       case _        => None
     }).toOption.flatten.collect { case SecondaryInput.Source(dsId) if dsId.nonEmpty => dsId }
@@ -240,13 +250,17 @@ object PipelineAnalyzeService {
     }).getOrElse(None)
   }
 
-  /** HEL-1236: the data-source id a `join` step's `source`-kind secondary input names, if any --
-   *  the counterpart of [[laneDependencyOf]]. Only `join` is covered (the only op whose analyzed
-   *  schema consumes a source-kind secondary schema today). Same tolerant decode: a malformed
-   *  config degrades to `None`. Public so callers can pre-resolve those sources' schemas. */
+  /** HEL-1236 / HEL-1520: the data-source id a `join` or `union` step's `source`-kind secondary input
+   *  names, if any -- the counterpart of [[laneDependencyOf]]. Only `join` and `union` are covered (the
+   *  ops whose analyzed schema consumes a source-kind secondary schema; `lookup` keeps placeholder
+   *  types). Same tolerant decode: a malformed config degrades to `None`. Public so callers can
+   *  pre-resolve those sources' schemas. */
   def sourceDependencyOf(op: String, config: String): Option[String] =
-    if (op != "join") None
-    else Try(JoinConfig.decode(config).secondaryInput).toOption.collect {
+    Try(op match {
+      case "join"  => Some(JoinConfig.decode(config).secondaryInput)
+      case "union" => Some(UnionConfig.decode(config).secondaryInput)
+      case _       => None
+    }).toOption.flatten.collect {
       case SecondaryInput.Source(dsId) if dsId.nonEmpty => dsId
     }
 
@@ -294,7 +308,7 @@ object PipelineAnalyzeService {
 
     def processNode(step: NodeStepInput): Unit = {
       val inputSchema     = schemaAt(step)
-      // HEL-1236: a `join`'s `source`-kind secondary input resolves from the caller-supplied
+      // HEL-1236 / HEL-1520: a `join`'s or `union`'s `source`-kind secondary input resolves from the caller-supplied
       // `secondarySourceSchemas` (keyed by data source id) -- this layer has no repo access of its
       // own. Absent from the map -> `None`, the documented left-schema passthrough.
       val secondarySchema = laneDependencyOf(step.op, step.config).flatMap(results.get).map(_.outputSchema)

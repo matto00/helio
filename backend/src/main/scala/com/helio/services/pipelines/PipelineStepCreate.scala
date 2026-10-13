@@ -49,7 +49,7 @@ private[pipelines] final class PipelineStepCreate(
             s"Invalid '${req.`type`}' config"
           )))
         case Success(typedConfig) =>
-          // HEL-1515: ownership -> lane -> pipeline access -> upsert target all run in ONE shared chain
+          // HEL-1515/HEL-1523: pipeline access -> ownership -> lane -> upsert target all run in ONE shared chain
           // (`StepReferenceChecks.referenceChecksF`), the same one update and duplicate use. This call site
           // supplies only its own inputs: the lane scope, and the pipeline lookup + editor check the upsert
           // identity depends on.
@@ -70,22 +70,28 @@ private[pipelines] final class PipelineStepCreate(
               // parent through the SAME anchor resolver `persistNewStep` places with, scoped to
               // THAT root. An unknown root, or an out-of-range `position`, uses no ancestors
               // (`persistNewStep` still returns the 422); `validateLaneReference` runs regardless.
-              // Otherwise (HEL-911 evaluation-1.md CR2): `req.parentStepId`, else the trunk-last step
-              // `persistNewStep`'s bare-append placement uses. (A bare `position` splice anchors on
-              // `current(position - 1)` instead -- a pre-existing mismatch, left as it was.)
-              val prospectiveParent: Option[PipelineStepId] = (req.parentStepId, req.rootId) match {
-                case (None, Some(rootIdRaw)) =>
-                  rootIds.find(_.value == rootIdRaw).flatMap { rootId =>
-                    PipelineService.resolveRootTrunkAnchor(current, rootIdOfStep, rootId, req.position).toOption.flatten
+              // HEL-1523: the prospective parent IS the anchor `persistNewStep` inserts at, for every arm
+              // (parentStepId, rootId, bare position, bare append, attachAsTail). When placement resolution
+              // FAILS, `persistNewStep` returns that rejection afterward; the lane check falls back to the
+              // pre-existing parent guess (`parentStepId`, else trunk-last; the rootId arm: none) so the
+              // error precedence of existing requests does not move.
+              val placement = StepPlacement.resolveCreateAnchor(req, current, rootIdOfStep, rootIds, pipelineStepRepo.trunkOf)
+              val prospectiveParent: Option[PipelineStepId] = placement match {
+                case Right(anchor) => anchor.anchor
+                case Left(_) =>
+                  (req.parentStepId, req.rootId) match {
+                    case (None, Some(rootIdRaw)) =>
+                      rootIds.find(_.value == rootIdRaw).flatMap { rootId =>
+                        PipelineService.resolveRootTrunkAnchor(current, rootIdOfStep, rootId, req.position).toOption.flatten
+                      }
+                    case _ =>
+                      req.parentStepId.map(PipelineStepId(_)).orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
                   }
-                case _ =>
-                  req.parentStepId.map(PipelineStepId(_)).orElse(pipelineStepRepo.trunkOf(current).lastOption.map(_.id))
               }
               // HEL-1515 (owner ruling, reject-at-write): the steps this insert re-parents under the new step (and
-              // their parent-chain descendants) cannot be lane targets either. The anchor is the SAME resolution `persistNewStep` inserts with; a
-              // placement it rejects re-parents nothing, so today's rejection stays the answer.
-              val descendants = StepPlacement
-                .resolveCreateAnchor(req, current, rootIdOfStep, rootIds, pipelineStepRepo.trunkOf)
+              // their parent-chain descendants) cannot be lane targets either; a placement that is rejected
+              // re-parents nothing.
+              val descendants = placement
                 .fold(_ => Set.empty[String], anchor => PipelineService.descendantStepIds(StepPlacement.reparentedIds(anchor, current, rootIdOfStep), current))
               LaneScope(current, PipelineService.ancestorChainOf(prospectiveParent, current), descendants, selfId = None)
             }
