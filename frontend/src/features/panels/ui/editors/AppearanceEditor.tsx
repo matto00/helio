@@ -3,8 +3,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { TextField } from "../../../../shared/ui/index";
 import { buildPanelSurface, resolvePanelTextColor } from "../../../../theme/appearance";
 import type { Theme } from "../../../../theme/theme";
-import type { ChartAppearance } from "../../types/panel";
-import { ChartAppearanceEditor } from "./ChartAppearanceEditor";
 
 interface AppearanceEditorProps {
   panelTitle: string;
@@ -19,13 +17,10 @@ interface AppearanceEditorProps {
   setColor: Dispatch<SetStateAction<string>>;
   transparency: number;
   setTransparency: Dispatch<SetStateAction<number>>;
-  showChartSection: boolean;
-  chartAppearance: ChartAppearance;
-  setChartAppearance: Dispatch<SetStateAction<ChartAppearance>>;
 }
 
-/** Common appearance form section (title, background, text color, transparency
- *  and — for chart panels — the chart appearance sub-form). Extracted from
+/** Common appearance form section (title, background, text color and
+ *  transparency). Extracted from
  *  `PanelDetailModal` so the modal stays under the file-size cap. */
 export function AppearanceEditor({
   panelTitle,
@@ -38,9 +33,6 @@ export function AppearanceEditor({
   setColor,
   transparency,
   setTransparency,
-  showChartSection,
-  chartAppearance,
-  setChartAppearance,
 }: AppearanceEditorProps) {
   // F-125 — resolve the same blended background/text combo `PanelCard` /
   // `PanelContent` render at view time, so the editor gives a real live
@@ -112,13 +104,6 @@ export function AppearanceEditor({
         />
         <strong>{transparency}%</strong>
       </label>
-
-      {showChartSection && (
-        <ChartAppearanceEditor
-          chartAppearance={chartAppearance}
-          setChartAppearance={setChartAppearance}
-        />
-      )}
     </>
   );
 }

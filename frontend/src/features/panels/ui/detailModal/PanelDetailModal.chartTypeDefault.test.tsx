@@ -1,5 +1,5 @@
-// HEL-1378 -- the detail modal's initial chart state must not invent `chartType: "line"` for a panel
-// that stores none (it would then outrank the bound Output's chartType in the editor's controls).
+// HEL-1378 -- a title-only save in the detail modal must not write `appearance.chart` / `chartType`
+// (that would outrank the bound Output's chartType).
 
 import { act, fireEvent, screen } from "@testing-library/react";
 
@@ -8,8 +8,6 @@ import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
 import type { Output } from "../../../pipelines/types/output";
 import { usePanelData } from "../../hooks/usePanelData";
-import { defaultChartAppearance } from "../../../../theme/appearance";
-import type { ChartAppearance } from "../../types/panel";
 import { PanelDetailModal } from "./PanelDetailModal";
 
 jest.mock("echarts-for-react/esm/core", () => ({
@@ -30,19 +28,6 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   getFilterCapabilities: jest.fn(() => Promise.resolve({ columns: [] })),
 }));
 
-// Wrap the real editor and capture the chartAppearance the modal hands it.
-const mockCaptured: { chart?: ChartAppearance } = {};
-jest.mock("../editors/AppearanceEditor", () => {
-  const actual = jest.requireActual("../editors/AppearanceEditor");
-  return {
-    ...actual,
-    AppearanceEditor: (props: { chartAppearance: ChartAppearance }) => {
-      mockCaptured.chart = props.chartAppearance;
-      return <actual.AppearanceEditor {...props} />;
-    },
-  };
-});
-
 const output: Output = {
   id: "output-1",
   pipelineId: "pipe-1",
@@ -59,7 +44,6 @@ const output: Output = {
 };
 
 beforeEach(() => {
-  mockCaptured.chart = undefined;
   HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
     this.setAttribute("open", "");
   });
@@ -94,27 +78,6 @@ async function openEdit(panel: ReturnType<typeof makeOutputPanel>) {
 }
 
 describe("PanelDetailModal initial chart state (HEL-1378)", () => {
-  it("carries no chartType when the panel stores none", async () => {
-    await openEdit(makeOutputPanel({ id: "p1", title: "Revenue" }));
-    expect(mockCaptured.chart).toBeDefined();
-    expect(mockCaptured.chart).not.toHaveProperty("chartType");
-  });
-
-  it("passes a stored chartType through", async () => {
-    const panel = makeOutputPanel({
-      id: "p1",
-      title: "Revenue",
-      appearance: {
-        background: "transparent",
-        color: "inherit",
-        transparency: 0,
-        chart: { ...defaultChartAppearance, chartType: "pie" },
-      },
-    });
-    await openEdit(panel);
-    expect(mockCaptured.chart?.chartType).toBe("pie");
-  });
-
   it("regression guard (not a red test): a title-only save writes no appearance.chart", async () => {
     const { store } = await openEdit(makeOutputPanel({ id: "p1", title: "Revenue" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Revenue v2" } });

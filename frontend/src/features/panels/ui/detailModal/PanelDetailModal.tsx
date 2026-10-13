@@ -78,8 +78,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
     setColor,
     transparency,
     setTransparency,
-    chartAppearance,
-    setChartAppearance,
     markdownEditorRef,
     textEditorRef,
     imageEditorRef,
@@ -278,9 +276,6 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
                 setColor={setColor}
                 transparency={transparency}
                 setTransparency={setTransparency}
-                showChartSection={false}
-                chartAppearance={chartAppearance}
-                setChartAppearance={setChartAppearance}
               />
               {isOutputPanel(panel) ? (
                 <>

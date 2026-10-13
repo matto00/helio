@@ -12,7 +12,7 @@ import { PanelDetailModal } from "./PanelDetailModal";
 // HEL-539 (task 4.1/5.5) — PanelDetailModal's Retry is a labeled button
 // (retryVariant="button", the modal has room for one), unlike PanelCard's
 // icon-only control (small grid cells) — covered separately in
-// PanelCard.test.tsx.
+// PanelCardBody.test.tsx.
 jest.mock("../../../pipelines/services/outputService", () => ({
   getOutputById: jest.fn(),
   getOutputRows: jest.fn(),
