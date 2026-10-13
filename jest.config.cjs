@@ -28,12 +28,17 @@ module.exports = {
     // checkout's run without excluding a worktree's own tests from its own
     // run.
     "<rootDir>/.claude/worktrees/",
+    // `.concertino/runs/*/evidence/` (gitignored) keeps the probe and mutant
+    // specs that evaluators and skeptics leave behind. They import from
+    // worktrees that cleanup has since deleted, so collecting them fails the
+    // main checkout's pre-commit hook with "Cannot find module".
+    "<rootDir>/.concertino/",
   ],
   // `testPathIgnorePatterns` stops those tests executing, but jest-haste-map
   // still crawls the worktrees and reports naming collisions on the duplicate
   // `helio` / `helio-mcp` / `helio-frontend` package.json names. Only
   // `modulePathIgnorePatterns` keeps them out of the module map entirely.
-  modulePathIgnorePatterns: ["<rootDir>/.claude/worktrees/"],
+  modulePathIgnorePatterns: ["<rootDir>/.claude/worktrees/", "<rootDir>/.concertino/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: { "^(\\.{1,2}/.*)\\.js$": "$1" },
   // HEL-907 evaluator-final round 3: every test file this config actually
