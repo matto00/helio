@@ -4,7 +4,8 @@ import com.helio.api.protocols.panels.PanelResponse
 import com.helio.api.protocols.pipelines.PipelineStepResponse
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.DataSourceResponse
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DataSource, Panel, PipelineStep}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DataSource, DatasetFieldDeclaration, DatasetSource, Panel, PipelineStep}
+import DatasetFieldDeclaration.datasetFieldDeclarationFormat
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
 import spray.json._
@@ -31,7 +32,7 @@ private[services] object PatchSetTargetFingerprint {
   private[services] val Allowlist: Map[String, Vector[String]] = Map(
     "panel"        -> Vector("title", "appearance", "type", "config"),
     "dashboard"    -> Vector("name", "appearance", "layout"),
-    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema"),
+    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema", "declaredSchema"),
     "pipeline"     -> Vector("name", "tag", "roots", "steps", "outputs", "schedule"),
     "pipelineStep" -> Vector("type", "config", "position", "enabled"),
     "output"       -> Vector("name", "config")
@@ -47,8 +48,8 @@ private[services] object PatchSetTargetFingerprint {
       case ResolvedAction.PanelDelete(_, prior)     => ready("panel", panelState(prior))
       case ResolvedAction.DashboardUpdate(_, _, prior) => ready("dashboard", dashboardState(prior))
       case ResolvedAction.DashboardDelete(_, prior)    => ready("dashboard", dashboardState(prior))
-      case ResolvedAction.DataSourceUpdate(_, _, prior) => ready("dataSource", dataSourceState(prior))
-      case ResolvedAction.DataSourceDelete(_, prior)    => ready("dataSource", dataSourceState(prior))
+      case ResolvedAction.DataSourceUpdate(_, _, prior) => dataSourceFingerprint(prior, user, ctx)
+      case ResolvedAction.DataSourceDelete(_, prior)    => dataSourceFingerprint(prior, user, ctx)
       case ResolvedAction.PipelineUpdate(_, _, prior)   => pipelineFingerprint(prior, ctx)
       case ResolvedAction.PipelineDelete(_, prior)      => pipelineFingerprint(prior, ctx)
       case ResolvedAction.PipelineStepUpdate(_, _, prior) => ready("pipelineStep", stepState(prior))
@@ -65,9 +66,24 @@ private[services] object PatchSetTargetFingerprint {
     }
 
   /** `DataSourceResponse.fromDomain` redacts secrets before this is hashed: a client-visible hash must never be a
-   *  function of a credential. The consequence is that a change to a secret alone is not noticed. */
-  private def dataSourceState(prior: DataSource): JsObject =
-    dataSourceResponseFormat.write(DataSourceResponse.fromDomain(prior)).asJsObject
+   *  function of a credential. The consequence is that a change to a secret alone is not noticed.
+   *
+   *  A dataset is hashed on its DECLARED schema (`dataset_schema`: name, type, required, default), read after the owned
+   *  resolution. Its `inferredSchema` is dropped: it is recomputed from the row contents on every row write, including
+   *  pipeline write-backs, so it would both miss declaration edits and go stale on data writes. */
+  private def dataSourceFingerprint(prior: DataSource, user: AuthenticatedUser, ctx: PatchSetApplyContext)(implicit
+      ec: ExecutionContext
+  ): Future[Option[String]] = {
+    val response = dataSourceResponseFormat.write(DataSourceResponse.fromDomain(prior)).asJsObject
+    prior match {
+      case dataset: DatasetSource =>
+        ctx.dataSourceRepo.getDeclaredSchema(dataset.id, user).map { declared =>
+          val withoutRowDerived = JsObject(response.fields - "inferredSchema")
+          Some(of("dataSource", JsObject(withoutRowDerived.fields + ("declaredSchema" -> declared.getOrElse(Vector.empty).toJson))))
+        }
+      case _ => Future.successful(Some(of("dataSource", response)))
+    }
+  }
 
   private def pipelineFingerprint(prior: PipelineSummary, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[Option[String]] =
     PatchSetPipelineDefinition.of(prior, ctx).map(state => Some(of("pipeline", state)))

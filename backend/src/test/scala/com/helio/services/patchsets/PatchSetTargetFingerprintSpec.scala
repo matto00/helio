@@ -13,7 +13,7 @@ class PatchSetTargetFingerprintSpec extends AnyWordSpec with Matchers {
   private val WritableFields: Map[String, Vector[String]] = Map(
     "panel"        -> Vector("title", "appearance", "type", "config"),
     "dashboard"    -> Vector("name", "appearance", "layout"),
-    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema"),
+    "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema", "declaredSchema"),
     "pipeline"     -> Vector("name", "tag", "roots", "steps", "outputs", "schedule"),
     "pipelineStep" -> Vector("type", "config", "position", "enabled"),
     "output"       -> Vector("name", "config")

@@ -7,10 +7,12 @@ import PatchSetApplyServiceJson._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** A pipeline's definition for the patch-set fingerprint (HEL-1458): the summary fields apply reads (name, tag, roots)
  *  plus everything that is deleted with the pipeline and is configuration rather than data -- its steps, Outputs and
- *  schedule. Run history, payload history and snapshots are data and are left out, as are tick- and run-maintained
+ *  schedule, and, through the Output cascade (V94 `ON DELETE CASCADE` on `panels.output_id` and
+ *  `alert_rules.target_output_id`), the panels bound to each Output and the alert rules targeting it. Run history, payload history and snapshots are data and are left out, as are tick- and run-maintained
  *  fields (`lastRun*`, timestamps, `next_run_at`).
  *
  *  Children are read with the privileged `*Internal` repository methods: the pipeline was already resolved as the
@@ -27,6 +29,9 @@ private[services] object PatchSetPipelineDefinition {
       outputs       <- ctx.outputRepo.listByPipelineInternal(pipelineId)
       configs       <- ctx.outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
       schedule      <- ctx.pipelineRepo.findScheduleDefinitionInternal(pipelineId)
+      outputIds      = outputs.map(_.id.value)
+      panelIds      <- ctx.panelRepo.findIdsByOutputIdsInternal(outputIds)
+      alertRules    <- ctx.outputRepo.findAlertRuleDefinitionsInternal(outputIds)
     } yield {
       val (steps, rootIds) = stepsAndRoots
       val rootIdByStep     = rootIds.map { case (step, root) => step.value -> root.value }
@@ -34,8 +39,11 @@ private[services] object PatchSetPipelineDefinition {
         .map(step => pick(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(step, rootIdByStep)), StepKeys))
         .sortBy(_.fields("id").toString)
       val outputJson = outputs.map { output =>
-        pick(outputResponseFormat.write(outputResponseFrom(output, configs.getOrElse(output.id.value, JsObject.empty))), OutputKeys)
-      }
+        val own = pick(outputResponseFormat.write(outputResponseFrom(output, configs.getOrElse(output.id.value, JsObject.empty))), OutputKeys)
+        JsObject(own.fields +
+          ("panelIds" -> JsArray(panelIds.getOrElse(output.id.value, Vector.empty).map(JsString(_)))) +
+          ("alertRules" -> JsArray(alertRules.getOrElse(output.id.value, Vector.empty).map(alertRuleJson))))
+      }.sortBy(_.fields("id").toString)
       JsObject(
         Map(
           "name"    -> JsString(summary.name),
@@ -49,6 +57,14 @@ private[services] object PatchSetPipelineDefinition {
         }
       )
     }
+  }
+
+  private def alertRuleJson(rule: (String, String, String, String, Boolean, String)): JsValue = {
+    val (id, metric, condition, name, enabled, severity) = rule
+    JsObject(
+      "id" -> JsString(id), "metric" -> JsString(metric), "condition" -> Try(condition.parseJson).getOrElse(JsString(condition)),
+      "name" -> JsString(name), "enabled" -> JsBoolean(enabled), "severity" -> JsString(severity)
+    )
   }
 
   private def pick(json: JsValue, keys: Vector[String]): JsObject = {

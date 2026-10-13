@@ -22,6 +22,10 @@ import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRootRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.services.pipelines.PipelineScheduleService
+import com.helio.services.alerts.AlertRuleService
+import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
+import com.helio.api.protocols.alerts.CreateAlertRuleRequest
+import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
@@ -67,6 +71,7 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
 
   private var pipelineService: PipelineService       = _
   private var scheduleService: PipelineScheduleService = _
+  private var alertRuleService: AlertRuleService       = _
   private var outputRepo: OutputRepository          = _
   private var dataSourceService: DataSourceService   = _
   private var dashboardService: DashboardService     = _
@@ -109,6 +114,7 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
     panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, outputRepo = outputRepo)
     dataSourceService = new DataSourceService(dataSourceRepo, fileSystem)
     pipelineService   = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = outputRepo, pipelineRootRepo = new PipelineRootRepository(ctx))
+    alertRuleService  = new AlertRuleService(new AlertRuleRepository(ctx), outputRepo)(routeEc)
     scheduleService   = new PipelineScheduleService(new PipelineScheduleRepository(ctx)(routeEc), pipelineRepo)(routeEc)
 
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
@@ -151,6 +157,17 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
       case Left(e)  => fail(s"source seed failed: $e")
     }
   }
+
+  private def newEmptyDataset(): DataSource = {
+    val request = StaticDataSourceRequest("Src " + UUID.randomUUID(), "static", Vector(StaticColumnPayload("value", "integer")), Vector.empty)
+    await(dataSourceService.createStatic(request, userA)) match {
+      case Right(d) => d
+      case Left(e)  => fail(s"source seed failed: $e")
+    }
+  }
+
+  private def changeDeclaredSchema(source: DataSource, field: DatasetFieldDeclarationPayload): Unit =
+    await(dataSourceService.updateDatasetSchema(source.id, UpdateDatasetSchemaRequest(Vector(field)), userA)) shouldBe a[Right[_, _]]
 
   private def newPipeline(source: DataSource): PipelineId =
     await(pipelineService.create(CreatePipelineRequest("Pipe " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(source.id.value)))), userA)) match {
@@ -209,6 +226,19 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
         renamedSource(source.id) shouldBe false
       }
 
+      Vector(
+        "required"            -> DatasetFieldDeclarationPayload(name = "value", `type` = "integer", required = Some(true)),
+        "default"             -> DatasetFieldDeclarationPayload(name = "value", `type` = "integer", default = Some(Some(JsNumber(7)))),
+        "type on a populated column" -> DatasetFieldDeclarationPayload(name = "value", `type` = "float")
+      ).foreach { case (label, field) =>
+        s"refuse a $op after the declared $label changed" in {
+          val source = newDataset("value")
+          assertRefusedAfter(edit("dataSource", source.id.value, op))(changeDeclaredSchema(source, field))
+          await(dataSourceRepo.findByIdInternal(source.id)) should not be empty
+          renamedSource(source.id) shouldBe false
+        }
+      }
+
       // No service rewrites a stored config after create except refresh; the repository update is the real write path.
       s"refuse a $op after the stored config changed" in {
         val now    = Instant.now()
@@ -219,6 +249,24 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
         await(dataSourceRepo.findByIdInternal(source.id)) should not be empty
         renamedSource(source.id) shouldBe false
       }
+    }
+  }
+
+  "dataSource fingerprint on row writes" should {
+    "not change when rows are appended to an empty dataset" in {
+      val source = newEmptyDataset()
+      val body   = edit("dataSource", source.id.value, "update")
+      val before = previewFingerprint(body)
+      await(dataSourceService.appendRows(source.id, Vector(Vector(JsNumber(1))), userA)) shouldBe a[Right[_, _]]
+      previewFingerprint(body) shouldBe before
+    }
+
+    "not change when the rows are replaced" in {
+      val source = newDataset("value")
+      val body   = edit("dataSource", source.id.value, "delete")
+      val before = previewFingerprint(body)
+      await(dataSourceService.replaceRows(source.id, Vector(Vector(JsNumber(2)), Vector(JsNumber(3))), userA)) shouldBe a[Right[_, _]]
+      previewFingerprint(body) shouldBe before
     }
   }
 
@@ -301,6 +349,31 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
         await(scheduleService.put(pipelineId, PutPipelineScheduleRequest("interval", "1h", Some(true), "UTC"), userA)) shouldBe a[Right[_, _]]
         assertRefusedAfter(edit("pipeline", pipelineId.value, op)) {
           await(scheduleService.put(pipelineId, PutPipelineScheduleRequest("interval", "2h", Some(true), "UTC"), userA)) shouldBe a[Right[_, _]]
+        }
+        renamed(pipelineId) shouldBe false
+        await(pipelineRepo.findByIdInternal(pipelineId)) should not be empty
+      }
+    }
+
+    Vector("update", "delete").foreach { op =>
+      s"refuse a $op after a panel was bound to an Output of the pipeline" in {
+        val pipelineId = newPipeline(newDataset("value"))
+        val output     = newOutput(pipelineId)
+        val dashboard  = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("Dash " + UUID.randomUUID())), userA))._1
+        assertRefusedAfter(edit("pipeline", pipelineId.value, op)) {
+          val request = CreatePanelRequest(Some(dashboard.id.value), Some("Bound"), Some("output"), Some(JsObject("outputId" -> JsString(output.id.value))))
+          await(panelService.create(request, userA)) shouldBe a[Right[_, _]]
+        }
+        renamed(pipelineId) shouldBe false
+        await(pipelineRepo.findByIdInternal(pipelineId)) should not be empty
+      }
+
+      s"refuse a $op after an alert rule was created on an Output of the pipeline" in {
+        val pipelineId = newPipeline(newDataset("value"))
+        val output     = newOutput(pipelineId)
+        assertRefusedAfter(edit("pipeline", pipelineId.value, op)) {
+          val request = CreateAlertRuleRequest(output.id.value, "count", JsObject("comparator" -> JsString("gt"), "threshold" -> JsNumber(5)), "warning", Some(true), "Rule")
+          await(alertRuleService.create(request, userA)) shouldBe a[Right[_, _]]
         }
         renamed(pipelineId) shouldBe false
         await(pipelineRepo.findByIdInternal(pipelineId)) should not be empty

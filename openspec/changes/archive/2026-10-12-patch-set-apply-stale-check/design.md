@@ -41,8 +41,8 @@ unknown prefix is stale. Per-kind field table (update and delete use the same se
 | --- | --- |
 | panel | `title`, `appearance`, `type`, raw config minus `metricDeprecated` (`UpdatePanelRequest`; from the object the panel resolver already read — no new read) |
 | dashboard | `name`, `appearance`, `layout` (`UpdateDashboardRequest`) |
-| dataSource | `name`, `type`, `config` (secrets redacted by `DataSourceResponse.fromDomain` before hashing), `tag`, `inferredSchema` (the declared schema of a dataset) — what the resolver reads and what delete removes (owner revise, HEL-1458) |
-| pipeline | `name`, `tag`, `roots` (id, dataSourceId), and the definition of what is deleted with it: `steps` (id, type, config, position, enabled, parentStepId, rootId), `outputs` (id, name, kind, nodeStepId, config), `schedule` (kind, expression, enabled, timezone) — `PatchSetPipelineDefinition` (owner revise, HEL-1458) |
+| dataSource | `name`, `type`, `config` (secrets redacted by `DataSourceResponse.fromDomain` before hashing), `tag`, and the schema: for a dataset its DECLARED schema (`dataset_schema`: name, type, required, default, read after the owned resolution; never `inferredSchema`, which is recomputed from the row contents on every row write), for every other kind `inferredSchema` (written only by a user refresh) — what the resolver reads and what delete removes (owner revise, HEL-1458) |
+| pipeline | `name`, `tag`, `roots` (id, dataSourceId), and the definition of what is deleted with it: `steps` (id, type, config, position, enabled, parentStepId, rootId), `outputs` (id, name, kind, nodeStepId, config, the sorted ids of the panels bound to it, and the definitions of the alert rules targeting it), `schedule` (kind, expression, enabled, timezone) — `PatchSetPipelineDefinition` (owner revise, HEL-1458) |
 | pipelineStep | `type`, `config`, `position`, `enabled` (`UpdatePipelineStepRequest`) |
 | output | `name`, stored config (`UpdateOutputRequest`); delete reads config with the same read the update resolver uses, used only for the fingerprint |
 
@@ -51,7 +51,10 @@ from the code, not from the update request. Update (`PatchSetDataSourceResolvers
 whole `DataSource` / `PipelineSummary` (the preview `before` and the journaled `priorState` are those projections) and
 writes only `name`; delete (`DataSourceService.delete`, `PipelineService.delete` -> `pipelineRepo.delete`) removes the
 row and everything the Flyway FKs cascade from it (pipeline: steps V23, outputs V94, roots V98, schedule V62, runs V24,
-auto-run debounce V110, payload history V116, binary refs V94). The set therefore includes each cascaded child's
+auto-run debounce V110, payload history V116, binary refs V94; and, through each Output, `panels.output_id` (V94 :344),
+`alert_rules.target_output_id` (:391) and `alert_events.target_output_id` (:394), all `ON DELETE CASCADE`, verified in
+the migration). Panels bound to an Output and alert rules targeting it are configuration and are fingerprinted; alert
+*events* are history and are not. The set therefore includes each cascaded child's
 *definition*. Update and delete share one set per kind (the existing convention, and one fingerprint per target is what
 preview issues); the cost is that a pipeline rename goes stale when its steps change, which is one Re-preview.
 
@@ -136,3 +139,10 @@ current `editTargetFormat` reader ignores unknown keys (it reads by name) and th
   refinement's parse fails before the strip); `AssistantToolExecutor`'s captured `AssistantProposal.Patch` must hold
   the STRIPPED patch set; add a 409 body schema under `schemas/shared/` mirroring `step-config-error-response`.
 - Red test on main sends `target.fingerprint` as raw JSON (the Scala field does not exist yet).
+
+- **Follow-up, not in this change:** the same panel/alert-rule cascade applies to an `output` delete and to a
+  `pipelineStep` delete target (`outputs.node_step_id ... ON DELETE CASCADE`, V94 :209); their fingerprints still cover
+  only the target's own definition.
+- Dataset schema: appending or replacing rows does not change the fingerprint (guard tests), because only the declared
+  schema is hashed; an earlier revision hashed `inferred_schema` and so missed declaration edits (`required`, `default`,
+  a type change on a populated column) and went stale on row writes, including pipeline write-backs.
