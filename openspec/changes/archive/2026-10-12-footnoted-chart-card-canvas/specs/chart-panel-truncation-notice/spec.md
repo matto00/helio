@@ -8,8 +8,9 @@ footnote and chrome space before its chart canvas does, in both light and dark t
 
 - every footnote SHALL be clamped to one line with no extra vertical padding; its full text stays available as a
   tooltip and to assistive technology;
-- at the narrowest width (w=2) only, the truncation note uses its short form, the card title is clamped to two lines
-  and the footer stays on one line (unchanged from HEL-1398);
+- at the narrowest width (w=2) only, the truncation note uses its short form, and the card title is clamped to two lines
+  and the footer stays on one line (HEL-1398) -- on a card carrying a footnote, and equally on a chart-output card
+  carrying a viewer-control bar even when it shows no footnote;
 - when the card is a chart-output card (known from the Output's kind, never from rendered data, so the layout is the
   same while the chart loads, errors, is empty or shows footnotes) carrying a viewer-control bar with exactly ONE
   control and that control is a text or dropdown control, its label SHALL sit beside its input on one row, show its full
@@ -22,7 +23,9 @@ footnote and chrome space before its chart canvas does, in both light and dark t
 The rendered chart canvas SHALL then be at least: 96px with no control bar and at most two footnotes; 84px with no
 control bar and three footnotes; 60px with a one-control (text or dropdown) bar and at most two footnotes; 48px with such
 a bar and three footnotes. Nothing SHALL overlap the header, the control bar or the footer. Taller cards (h>=5), other panel
-kinds, a chart with no footnote, and the mobile stack (HEL-1438) keep their current layout.
+kinds, a chart with neither a footnote nor a viewer-control bar, and the mobile stack (HEL-1438) keep their current
+layout. A chart-output card with a one-control text or dropdown bar lays the bar out inline whether or not it shows
+footnotes.
 
 #### Scenario: narrow minimum-height chart with annotation and truncation note, no control bar
 - **WHEN** a truncated chart panel with an annotation and no viewer-control bar is placed at w=2, h=4 on the desktop grid
