@@ -49,12 +49,20 @@ export function toChartFieldTypes(
 const EPOCH_MILLIS_THRESHOLD = 9999999999n;
 const LONG_MAX = 9223372036854775807n;
 const MAX_SCALE_MAGNITUDE = 40;
-const MAX_JS_DATE_MS = 8.64e15;
+// Epochs are bounded to years 0001-01-01T00:00:00Z .. 9999-12-31T23:59:59.999Z (HEL-1502 D5); the
+// backend's upper bound is the same instant to the nanosecond, which millisecond precision cannot exceed.
+const MIN_EPOCH_MS = -62135596800000;
+const MAX_EPOCH_MS = 253402300799999;
+const MAX_OFFSET_SECONDS = 18 * 3600;
 const DECIMAL = /^([+-]?)(\d*)(?:\.(\d*))?(?:[eE]([+-]?\d+))?$/;
 const DATE = "(\\d{4})-(\\d{2})-(\\d{2})";
 const TIME = "(\\d{2}):(\\d{2})(?::(\\d{2}))?";
 const FRACTION = "(?:\\.(\\d{1,9}))?";
-const ISO_ZONED = new RegExp(`^${DATE}T${TIME}${FRACTION}(Z|[+-]\\d{2}:\\d{2}(?::\\d{2})?)$`, "i");
+// A numeric offset is a sign then HH, HHMM, HH:MM or HH:MM:SS (HEL-1502 D1); `Z` is checked in code
+// (T separator only). The optional `[id]` is stripped syntactically and never validated (D2).
+const OFFSET = "[+-](?:\\d{4}|\\d{2}(?::\\d{2}(?::\\d{2})?)?)";
+const REGION_ID = "(?:\\[[A-Za-z0-9_+\\-/:]+\\])?";
+const ISO_ZONED = new RegExp(`^${DATE}([Tt ])${TIME}${FRACTION}(${OFFSET}|[Zz])${REGION_ID}$`);
 const ISO_LOCAL = new RegExp(`^${DATE}[T ]${TIME}${FRACTION}$`, "i");
 const ISO_DATE = new RegExp(`^${DATE}$`);
 const US_DATE = /^(\d{2})\/(\d{2})\/(\d{4})$/;
@@ -98,18 +106,25 @@ function utcMillis(
   return date.setUTCHours(h, mi, s, ms);
 }
 
+/** Seconds east of UTC for `Z` or a grammar-valid numeric offset; `null` past 18:00 or for minutes or
+ *  seconds above 59 (mirrors `ZoneOffset.ofHoursMinutesSeconds`). */
 function offsetSeconds(offset: string): number | null {
   if (offset.toUpperCase() === "Z") return 0;
-  const [h, m, s] = offset.slice(1).split(":").map(Number);
-  if (h > 18 || m > 59 || (s ?? 0) > 59) return null;
-  const total = h * 3600 + m * 60 + (s ?? 0);
+  const digits = offset.slice(1).replace(/:/g, "");
+  const h = Number(digits.slice(0, 2));
+  const m = digits.length >= 4 ? Number(digits.slice(2, 4)) : 0;
+  const sec = digits.length >= 6 ? Number(digits.slice(4, 6)) : 0;
+  if (m > 59 || sec > 59) return null;
+  const total = h * 3600 + m * 60 + sec;
+  if (total > MAX_OFFSET_SECONDS) return null;
   return offset[0] === "-" ? -total : total;
 }
 
 /** Epoch milliseconds (UTC) of the instant `raw` denotes, or `null`. Accepts the backend's set —
  *  whole-number epochs (seconds, milliseconds above 9999999999), ISO instants and offset date-times,
- *  time-zone-less date-times read as UTC, bare `yyyy-MM-dd` as midnight UTC — plus `MM/dd/yyyy` as
- *  midnight UTC (schema inference types such a column `timestamp`). Never throws. */
+ *  Postgres numeric offsets (`+HH`, `+HHMM`, `+HH:MM`, `+HH:MM:SS`) on a `T` or space separator, a
+ *  `[Region/Id]` suffix read at the written offset, time-zone-less date-times read as UTC, bare
+ *  `yyyy-MM-dd` and `MM/dd/yyyy` as midnight UTC. Epochs are bounded to years 0001-9999. Never throws. */
 export function parseChartInstant(raw: string | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   const s = raw.trim();
@@ -120,12 +135,14 @@ export function parseChartInstant(raw: string | null | undefined): number | null
     const millis =
       epoch > EPOCH_MILLIS_THRESHOLD || epoch < -EPOCH_MILLIS_THRESHOLD ? epoch : epoch * 1000n;
     const n = Number(millis);
-    return Math.abs(n) <= MAX_JS_DATE_MS ? n : null;
+    return n >= MIN_EPOCH_MS && n <= MAX_EPOCH_MS ? n : null;
   }
 
   const zoned = ISO_ZONED.exec(s);
   if (zoned) {
-    const [, y, mo, d, h, mi, sec, fraction, offset] = zoned;
+    const [, y, mo, d, separator, h, mi, sec, fraction, offset] = zoned;
+    if (separator === " " && offset.toUpperCase() === "Z") return null;
+    if (fraction !== undefined && sec === undefined) return null; // the backend's fraction needs seconds
     const local = utcMillis(+y, +mo, +d, +h, +mi, sec ? +sec : 0, fraction);
     const shift = offsetSeconds(offset);
     return local === null || shift === null ? null : local - shift * 1000;

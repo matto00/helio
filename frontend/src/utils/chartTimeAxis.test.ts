@@ -12,7 +12,6 @@ import {
 interface FixtureCase {
   input: string;
   epochMillis: number | null;
-  backendParseInstant: boolean;
 }
 
 const cases = JSON.parse(
@@ -31,8 +30,7 @@ describe("parseChartInstant against the shared backend-parity fixture", () => {
   );
 
   it("covers every shape the design lists", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(35);
-    expect(cases.some((c) => !c.backendParseInstant)).toBe(true);
+    expect(cases.length).toBeGreaterThanOrEqual(98);
   });
 
   it("reads a time-zone-less date-time as UTC whatever the process time zone is", () => {

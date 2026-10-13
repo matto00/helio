@@ -29,8 +29,8 @@ final case class ClassifiedColumn(name: String, kind: ColumnKind, distinctDates:
  *     builder emits uses `String.toDouble`, which turns those into null, so classifying them
  *     numeric would produce an all-null column. They fall through to categorical/text.
  *   - date-like: not numeric, and >= 90% of non-blank cells are accepted by
- *     [[DateBucketStep.parseNonEpochDate]] (the datebucket step's own non-epoch parser). Non-ISO
- *     formats such as MM/dd/yyyy are therefore NOT date-like.
+ *     [[DateBucketStep.parseNonEpochDate]] (the datebucket step's own non-epoch parser), so
+ *     `MM/dd/yyyy` and Postgres-offset (`2026-07-01 12:00:00+00`) columns are date-like (HEL-1502).
  *   - categorical: neither, with 2..max(20, 50% of sampled rows) distinct values.
  *   - text: everything else. */
 object ColumnClassifier {

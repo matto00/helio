@@ -32,7 +32,7 @@ class DateBucketCharacterisationSpec extends AnyWordSpec with Matchers {
     ("blank", "", null),
     ("invalid month", "2026-13-01", null),
     ("invalid hour", "2026-07-01T25:00:00Z", null),
-    ("MM/dd/yyyy", "07/01/2026", null),
+    ("MM/dd/yyyy (HEL-1502 widen-parser: now a shared shape)", "07/01/2026", "2026-07-01"),
     ("fractional epoch string", "1771286400.5", null),
     ("fractional Double", 1771286400.5, null),
     ("NaN", Double.NaN, null),

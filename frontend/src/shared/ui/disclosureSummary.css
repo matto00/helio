@@ -1,0 +1,47 @@
+/* Disclosure summary (HEL-1502): the one recipe for a `<summary>` that opens a `<details>`.
+ *
+ * Use as `<summary className="disclosure-summary tap-expand-44">`. The 44px touch floor comes from
+ * composing `.tap-expand-44` (tapTarget.css), which owns `::after` and `position: relative`; the chevron
+ * therefore lives on `::before`. A feature adds its own block class only for layout-specific rules such
+ * as font size.
+ *
+ * `display: inline-flex` already drops the native marker in most engines; `list-style: none` and the
+ * WebKit marker rule below make that true everywhere, so the explicit chevron never doubles up. */
+.disclosure-summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-sm);
+  font-weight: var(--weight-medium);
+  color: var(--app-text-muted);
+  cursor: pointer;
+  border-radius: var(--app-radius-sm);
+  list-style: none;
+}
+
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure-summary::before {
+  content: "";
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-right: var(--space-2);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+details[open] > .disclosure-summary::before {
+  transform: rotate(45deg);
+}
+
+.disclosure-summary:hover {
+  color: var(--app-text);
+}
+
+.disclosure-summary:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
