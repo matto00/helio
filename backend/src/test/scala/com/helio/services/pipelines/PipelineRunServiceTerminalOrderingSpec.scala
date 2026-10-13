@@ -429,13 +429,15 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
       val testPids = Set(observerPid, tableLock.pid, rowLock.pid)
 
       h.gate.success(())
+      // HEL-1518: a node's snapshot transaction now starts by locking the run row (FOR SHARE), so while the row lock is
+      // held it waits there, one step before the node_snapshots table lock; the table lock blocks it only once the row
+      // lock is released (stage 2).
       awaitBlockedBy(rowLock, testPids)
-      awaitBlockedBy(tableLock, testPids)
-      assertNoTerminalWhileBlocked(h.sub, "both pipeline_runs row and node_snapshots locked")
+      assertNoTerminalWhileBlocked(h.sub, "pipeline_runs row and node_snapshots locked")
       withClue("run status while both locks are held: ")(runStatus(fx.pid).foreach(s => isTerminalStatus(s) shouldBe false))
       snapshotCount(fx.pid) shouldBe 0
 
-      // Stage 2: release ONLY the row lock; the snapshot replace is still blocked.
+      // Stage 2: release ONLY the row lock; the snapshot replace now reaches the node_snapshots lock and is still blocked.
       rowLock.release()
       val testPids2 = Set(observerPid, tableLock.pid)
       awaitBlockedBy(tableLock, testPids2)
