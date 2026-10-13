@@ -177,8 +177,8 @@ against actual row data.
 - `length`, `floor`, `ceil`, `round`, `mod`, `abs` and `seconds_between` infer `"float"`.
 - `date_trunc` and `add_days` infer `"timestamp"`.
 - `true`, `false`, comparisons, `and`, `or` and `not` infer `"boolean"`.
-- `+` infers `"string"` if either operand infers `"string"`, `"timestamp"` or `"boolean"` (each is concatenated as
-  text); otherwise it infers `"float"`.
+- `+` infers `"string"` if either operand infers `"string"`, `"string-body"`, `"timestamp"` or `"boolean"` (each is
+  concatenated as text); otherwise it infers `"float"`.
 - A comparison whose operands infer different kinds (numeric `"integer"`/`"float"`; text `"string"`/`"string-body"`/
   `"timestamp"`; `"boolean"`), or an ordering comparison of booleans, SHALL fail inference with an error naming the
   operator and both operand types.
@@ -258,6 +258,10 @@ against actual row data.
 - **WHEN** a pipeline `compute` step has expression `$n = "5"` where `n` is a float field
 - **THEN** analyze reports a validation error on that step naming `=` and both types
 - **AND** saving the step succeeds
+
+#### Scenario: string-body plus a number infers string
+- **WHEN** the output type of `$body + 1` is inferred with `body` declared `string-body`
+- **THEN** the inferred type is `string`
 
 ### Requirement: Dotted references are usable on every expression surface
 Every surface that evaluates or validates an expression SHALL accept a dotted column reference on
@@ -616,3 +620,38 @@ boolean used where a number is required SHALL remain a type error.
 #### Scenario: plus still concatenates a boolean
 - **WHEN** `$flag + 1` is evaluated against `{"flag": true}`
 - **THEN** the result is the JSON string `"true1"`
+
+### Requirement: Expression nesting depth is bounded
+The compute expression parsers SHALL reject an expression whose bracket, function-call, unary `-` or `not` nesting
+exceeds 100 levels, and SHALL reject an expression whose parsed tree is deeper than 200 levels (tree depth is the
+number of nodes on the longest root-to-leaf path, a lone literal being depth 1; for example `1` followed by 200
+repetitions of `+1` has depth 201), each with a parse error that names the limit. Both limits SHALL apply on every
+path that parses an expression, including the legacy bare-identifier fallback. Each such error SHALL be reported like
+any other parse error: on save validation, on validate-expression, and as a `null` result for every row when such an
+expression is run. No expression input of any length SHALL make parsing, validation, type inference, warning analysis
+or evaluation throw a stack overflow or any other exception. Expressions within both limits SHALL parse and evaluate
+exactly as before.
+
+#### Scenario: a long unary-minus chain is a parse error
+- **WHEN** an expression of 10000 consecutive `-` characters followed by `1` is validated
+- **THEN** validation fails with a parse error naming the nesting limit, and no exception escapes
+
+#### Scenario: deeply nested brackets are a parse error
+- **WHEN** an expression of 10000 `(` characters, `1`, then 10000 `)` characters is validated
+- **THEN** validation fails with a parse error naming the nesting limit
+
+#### Scenario: deep brackets on the legacy fallback are a parse error
+- **WHEN** `x + ` followed by 10000 `(` characters, `1` and 10000 `)` characters is validated, and is compiled for a run
+- **THEN** both fail with a parse error naming the nesting limit, and no exception escapes
+
+#### Scenario: a long flat operator chain is a parse error
+- **WHEN** `1` followed by 10000 repetitions of `+1` is validated, has its type inferred, and is evaluated
+- **THEN** each fails with a parse error naming the tree-depth limit, and no exception escapes
+
+#### Scenario: nesting at the limits still works
+- **WHEN** an expression with exactly 100 nested unary minus operators before `1`, and `1` followed by 199 repetitions of `+1` (depth 200), are evaluated
+- **THEN** they parse and evaluate to `1` and `200`
+
+#### Scenario: one level past the tree limit is rejected
+- **WHEN** `1` followed by 200 repetitions of `+1` (depth 201) is validated
+- **THEN** validation fails with a parse error naming the tree-depth limit

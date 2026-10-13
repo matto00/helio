@@ -125,9 +125,14 @@ class NumericOpOnTextFieldWarningSpec extends AnyWordSpec with Matchers {
       warnings(steps).filter(_.code == Code) shouldBe empty
     }
 
-    "not warn for an unrelated column after a compute (trust is per step, design D5)" in {
+    // INVERTED ON PURPOSE (HEL-1455, owner ruling 2): HEL-1403 asserted that trust is per STEP, so a compute on
+    // another column silenced this warning. Trust is now per COLUMN: `price` passes through the first compute
+    // untouched, so it is still an uncast CSV string and `floor($price)` still nulls every row.
+    "warn for an unrelated column after a compute (trust is per column, HEL-1455 owner ruling 2)" in {
       val steps = Vector(compute("c1", None, 0, "k", "1"), compute("c2", Some("c1"), 1, "o", "floor($price)"))
-      warnings(steps).filter(_.code == Code) shouldBe empty
+      val ws = warnings(steps).filter(_.code == Code)
+      ws.map(_.stepId) shouldBe Vector("c2")
+      ws.head.message should include("'price'")
     }
 
     "not warn for a disabled step or for a step with a validationError" in {
