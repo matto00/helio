@@ -44,7 +44,7 @@ object PipelineCycleGuard {
       val table = TableQuery[DataSourceRepository.DataSourceTable]
       table.filter(_.id.inSet(ids)).map(d => (d.id, d.name, d.ownerId)).result.map { rows =>
         rows.map { case (id, name, ownerId) =>
-          id -> (if (ownerId.exists(_.toString == actingUserId)) name else id)
+          id -> (if (ownerId.toString == actingUserId) name else id)
         }.toMap
       }
     }
