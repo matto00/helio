@@ -12,6 +12,7 @@ import { resolveDashboardLayout } from "./dashboardLayout";
 import { dashboardsReducer, updateDashboardLayout } from "./dashboardsSlice";
 import type { Dashboard, DashboardLayout } from "../types/dashboard";
 import type { Panel } from "../../panels/types/panel";
+import { panelsReducer } from "../../panels/state/panelsSlice";
 
 jest.mock("../services/dashboardService", () => ({
   ...jest.requireActual("../services/dashboardService"),
@@ -61,7 +62,7 @@ describe("layout PATCH from a ghost-bearing store layout (shared with the backen
   it("adopts the ghost-free response layout and clears the pending flag", async () => {
     updateMock.mockResolvedValue(dashboard(fixture.expectedStored));
     const store = configureStore({
-      reducer: { dashboards: dashboardsReducer },
+      reducer: { dashboards: dashboardsReducer, panels: panelsReducer },
       preloadedState: {
         dashboards: {
           items: [dashboard(fixture.local)],

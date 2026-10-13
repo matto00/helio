@@ -14,6 +14,7 @@ import { toChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { sanitizeReferenceMarks } from "../../../utils/referenceMarks";
 import { isNonAggregatingChartType } from "../../../utils/chartTypes";
 import { resolvePanelChartType } from "./resolvePanelChartType";
+import { groupHasNull } from "../../../utils/blankLabel";
 import { ChartRenderer } from "./renderers/ChartRenderer";
 
 interface ChartOutputPanelProps {
@@ -104,13 +105,10 @@ export function ChartOutputPanel({
   // HEL-1408 design D10a -- null detection reads the typed records (never the null-to-"" `rawRows`),
   // strictly `=== null`, and rides on a LOCAL copy of the spec so the shared spec type is untouched.
   const groupBy = aggregationSpec?.groupBy;
-  const groupHasNull = useMemo(
-    () => (groupBy && records ? records.some((r) => r[groupBy] === null) : false),
-    [groupBy, records],
-  );
+  const hasNullGroup = useMemo(() => groupHasNull(records, groupBy), [groupBy, records]);
   const clickSpec = useMemo(
-    () => (aggregationSpec ? { ...aggregationSpec, groupHasNull } : null),
-    [aggregationSpec, groupHasNull],
+    () => (aggregationSpec ? { ...aggregationSpec, groupHasNull: hasNullGroup } : null),
+    [aggregationSpec, hasNullGroup],
   );
   const chartAggregate = useMemo(
     () =>
@@ -124,9 +122,11 @@ export function ChartOutputPanel({
             ),
             seriesName: aggregateSeriesName(aggregationSpec),
             groupBy: aggregationSpec.groupBy,
+            // HEL-1424 -- the chart relabels the null group "(blank)" only when it really is null.
+            hasNullGroup,
           }
         : null,
-    [aggregationSpec, records],
+    [aggregationSpec, records, hasNullGroup],
   );
   // An aggregated Output only overlays its grouped baseline over the grouped plot; with no record
   // rows to group from, the panel falls back to raw rows and must not draw the grouped overlay.

@@ -70,11 +70,10 @@ final class PanelCapabilityService(
     )
   }
 
-  // An Output's schema carries only {name, type} (no nullability signal) -- mirrors
-  // WorkspaceContextService.toDataTypeEntry's identical `nullable = false` default for the same
-  // reason (HEL-904 task 3.12). Outputs have no computed-field concept of their own.
+  // HEL-1424: an Output's stored schema records `nullable` per column; a legacy field without it
+  // reads `true` (conservative, no migration). Mirrors WorkspaceContextService.toDataTypeEntry.
   private def columnsOf(output: Output): Vector[PanelCapabilityColumnResponse] =
-    output.schema.flatMap(sf => wireType(sf.`type`).map(t => PanelCapabilityColumnResponse(sf.name, t, nullable = false)))
+    output.schema.flatMap(sf => wireType(sf.`type`).map(t => PanelCapabilityColumnResponse(sf.name, t, nullable = sf.nullable.getOrElse(true))))
 
   // Round-trips through DataFieldType so an unrecognized `type` string
   // (never a real value the domain writes, but not worth throwing over) is

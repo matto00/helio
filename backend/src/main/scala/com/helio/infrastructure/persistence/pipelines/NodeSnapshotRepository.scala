@@ -105,8 +105,14 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  `None` (auto-resolve the pipeline's first/only root, exactly today's single-root behavior)
    *  so every pre-existing call site is unaffected; `PipelineRunService`'s multi-root-aware
    *  write path passes the target root explicitly. */
-  def overwriteRows(pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String]): Future[Unit] =
-    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId))
+  def overwriteRows(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      rows: Seq[JsObject],
+      explicitRootId: Option[String],
+      guard: Option[DBIO[Unit]] = None
+  ): Future[Unit] =
+    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId, guard))
 
   /** `overwriteRows` plus `andThen` (HEL-1271: the per-Output history insert) in ONE transaction,
    *  so a failing `andThen` rolls back the replace. Run as two separate `withSystemContext` calls
@@ -117,12 +123,21 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       nodeStepId: Option[String],
       rows: Seq[JsObject],
       explicitRootId: Option[String],
-      andThen: DBIO[Unit]
+      andThen: DBIO[Unit],
+      guard: Option[DBIO[Unit]] = None
   ): Future[Unit] =
-    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId).andThen(andThen))
+    ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId, guard).andThen(andThen))
 
-  /** The replace as a composable `DBIO` (unchanged SQL); runs nothing by itself. */
-  def overwriteRowsAction(pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String]): DBIO[Unit] = {
+  /** The replace as a composable `DBIO` (unchanged SQL); runs nothing by itself. HEL-1518: `guard` (the success
+   *  chain's run guard) runs as the transaction's FIRST action, so a failing guard rolls back having written nothing;
+   *  `None` (backfill, other callers) leaves the replace exactly as before. */
+  def overwriteRowsAction(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      rows: Seq[JsObject],
+      explicitRootId: Option[String],
+      guard: Option[DBIO[Unit]] = None
+  ): DBIO[Unit] = {
     val deleteAction = (nodeStepId, explicitRootId) match {
       case (Some(stepId), _) =>
         sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id = $stepId"
@@ -152,7 +167,7 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       }
       DBIO.seq((deleteAction +: insertActions): _*)
     }
-    action.transactionally
+    guard.fold[DBIO[Unit]](action)(g => g.andThen(action)).transactionally
   }
 
   /** Return stored snapshot rows for `(pipelineId, nodeStepId)` ordered by

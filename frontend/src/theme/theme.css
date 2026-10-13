@@ -493,6 +493,12 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* HEL-1424: the "(blank)" placeholder for an empty selection value is copy, not a data value, so it
+   drops the monospace a literal value gets and reads as a placeholder (DESIGN.md copy rule). */
+.selection-value--blank {
+  font-style: italic;
+}
+
 /* Visually-hidden text: visible to assistive tech, removed from layout/paint
    for sighted users. No design token applies to an intentionally 1px/
    off-screen technique like this. Canonical home for the "sr-only" clip

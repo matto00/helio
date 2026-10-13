@@ -184,7 +184,7 @@ class PatchSetUndoPanelDashboardSpec extends PatchSetUndoServiceFixture {
       val applicationId = applySuccessfully(Vector(
         Edit(EditTarget("panel", Some(panel.id.value)), "delete", None, None, None, None, None, None)
       ))
-      await(outputRepo.deleteInternal(output.id)) shouldBe true
+      await(outputRepo.deleteWithPanelsInternal(output.id)) shouldBe empty // the panel was already deleted by the edit above
 
       val undone = await(undoService.undo(PatchSetApplicationId(applicationId), userA))
 

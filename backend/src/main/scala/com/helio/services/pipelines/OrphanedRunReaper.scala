@@ -22,6 +22,9 @@ private[pipelines] final class OrphanedRunReaper(
   private val log = LoggerFactory.getLogger(classOf[PipelineSchedulerService])
 
   def reap(now: Instant): Future[Unit] =
+    // Privileged (system context): the scheduler tick has no request user, and the reap must see and finalize every
+    // owner's stale runs; the user pool's owner-scoped RLS would match none of them. Bypassing RLS is correct here: the
+    // statement takes no caller input and only finalizes runs past the stale bound.
     runRepo
       .reapStaleRunsInternal(now, staleAfterSeconds, PipelineRunGuardConfig.LegacyRunStaleAfterSeconds, PipelineRunService.EmptyTruncationJson)
       .map(_.foreach { run =>

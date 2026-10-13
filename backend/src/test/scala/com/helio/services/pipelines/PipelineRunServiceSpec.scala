@@ -1935,6 +1935,18 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
   // `SourceReadStats`; the wording for this branch, the one most at risk of implying a number
   "PipelineRunService (HEL-905 P1.2: tree-walk materialized-node persistence)" should {
 
+    // HEL-1424: a run records per-column nullability from the materialized rows.
+    "records nullable per column on outputs.schema (a null score is nullable, name is not)" in {
+      val dsId = seedDsWithDataIncludingNullScore()
+      val pid  = seedPipeline(dsId)
+      val outputId = seedOutputAtTrunkLast(pid)
+
+      await(service.submit(pid, isDry = false, dummyUser)) shouldBe a[Right[_, _]]
+
+      val schema = await(outputRepo.findByIdInternal(outputId)).get.schema
+      schema.map(f => f.name -> f.nullable).toMap shouldBe Map("name" -> Some(false), "score" -> Some(true))
+    }
+
     "materializes a tail's own node into node_snapshots/outputs.schema, distinct from the trunk-last node" in {
       val dsId = seedDsWithData()
       val pid  = seedPipeline(dsId)

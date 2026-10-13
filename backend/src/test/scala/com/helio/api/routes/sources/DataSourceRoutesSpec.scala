@@ -17,7 +17,8 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import org.apache.pekko.util.ByteString
 import com.helio.infrastructure.persistence.{Database, DbContext}
-import com.helio.api.protocols.sources.{DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, RowListResponse, RowResponse, RowWriteResponse, SchemaUpdateConflictResponse}
+import com.helio.domain.engine.SchemaField
+import com.helio.api.protocols.sources.{CsvSourceResponse, ImageSourceResponse, DatasetSchemaResponse, DatasetSchemaUpdateResponse, FieldAggregateResponse, RowListResponse, RowResponse, RowWriteResponse, SchemaUpdateConflictResponse}
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.storage.LocalFileSystem
@@ -649,6 +650,51 @@ class DataSourceRoutesSpec
       Post("/api/data-sources", noName) ~> routes() ~> check {
         status shouldBe StatusCodes.BadRequest
       }
+    }
+  }
+
+  // HEL-1424: stored CSV schemas record nullability; a legacy field without it reads true for CSV only.
+  private def listedSchema(id: String): Vector[(String, Boolean)] =
+    Get("/api/data-sources") ~> routes() ~> check {
+      status shouldBe StatusCodes.OK
+      responseAs[PagedResult[DataSourceResponse]].items.find(_.id == id) match {
+        case Some(c: CsvSourceResponse)   => c.inferredSchema.map(f => f.name -> f.nullable)
+        case Some(i: ImageSourceResponse) => i.inferredSchema.map(f => f.name -> f.nullable)
+        case other                        => fail(s"unexpected list entry: $other")
+      }
+    }
+
+  "data-source list nullability (HEL-1424)" should {
+
+    "report an all-blank CSV column as nullable on create and on a later list read" in {
+      cleanDb()
+      val created = Post("/api/data-sources", multipartUpload("Blanks", "id,notes\n1,\n2,\n3,\n")) ~> routes() ~> check {
+        status shouldBe StatusCodes.Created
+        responseAs[DataSourceResponse] match {
+          case c: CsvSourceResponse => c.inferredSchema.map(f => f.name -> f.nullable)
+          case other                => fail(s"expected csv, got $other")
+        }
+      }
+      created shouldBe Vector("id" -> false, "notes" -> true)
+      val id = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head.id.value
+      listedSchema(id) shouldBe Vector("id" -> false, "notes" -> true)
+    }
+
+    "read a legacy stored CSV field without nullability as nullable true" in {
+      cleanDb()
+      Post("/api/data-sources", multipartUpload("Legacy", validCsv)) ~> routes() ~> check { status shouldBe StatusCodes.Created }
+      val src = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      await(dataSourceRepo.upsertInferredSchema(
+        src.id, Vector(SchemaField("id", "string"), SchemaField("name", "string")), Instant.now(), AuthenticatedUser(testUser.id)))
+      listedSchema(src.id.value).map(_._2).distinct shouldBe Vector(true)
+    }
+
+    "keep an image source's fields at nullable false (unchanged)" in {
+      cleanDb()
+      Post("/api/data-sources", imageMultipartUpload("Photo", validPngBytes(), "photo.png")) ~> routes() ~> check { status shouldBe StatusCodes.Created }
+      val src = await(dataSourceRepo.findAll(testUser.id, Page(0, 10))).items.head
+      val byName = listedSchema(src.id.value).toMap
+      Seq("width", "height", "mimeType").foreach(n => byName(n) shouldBe false)
     }
   }
 

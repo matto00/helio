@@ -5,9 +5,15 @@ import {
   fetchDashboards as fetchDashboardsRequest,
   updateDashboardLayout as updateDashboardLayoutRequest,
 } from "../services/dashboardService";
-import { dashboardsReducer, repairDashboardLayout, updateDashboardLayout } from "./dashboardsSlice";
+import {
+  dashboardsReducer,
+  repairDashboardLayout,
+  setDashboardLayoutLocally,
+  updateDashboardLayout,
+} from "./dashboardsSlice";
 import { LAYOUT_CONFLICT_MESSAGE } from "./layoutConflict";
 import type { Dashboard, DashboardLayout, DashboardLayoutItem } from "../types/dashboard";
+import { panelsReducer } from "../../panels/state/panelsSlice";
 
 jest.mock("../services/dashboardService", () => ({
   ...jest.requireActual("../services/dashboardService"),
@@ -51,7 +57,7 @@ const conflict = (current: Dashboard) => ({
 
 function makeStore(local: Dashboard) {
   return configureStore({
-    reducer: { dashboards: dashboardsReducer },
+    reducer: { dashboards: dashboardsReducer, panels: panelsReducer },
     preloadedState: {
       dashboards: {
         items: [local],
@@ -162,7 +168,9 @@ describe("updateDashboardLayout 409 (HEL-1457)", () => {
     const store = makeStore(dashboard([item("a", 4)], 1));
     const result = await store.dispatch(updateDashboardLayout(args));
     expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayout.rejected.match(result) && result.payload).toBe("bad");
+    expect(updateDashboardLayout.rejected.match(result) && result.payload).toBe(
+      "Failed to save dashboard layout.",
+    );
   });
 });
 
@@ -218,5 +226,44 @@ describe("the store keeps a local layout together with the version it derives fr
     );
 
     expect(store.getState().dashboards.items[0].layoutVersion).toBe(5);
+  });
+});
+
+describe("setDashboardLayoutLocally placedLayoutVersion (HEL-1525)", () => {
+  const every = (...items: DashboardLayoutItem[]): DashboardLayout => ({
+    lg: items,
+    md: items,
+    sm: items,
+    xs: items,
+  });
+  const before = every(item("a", 0));
+  const after = every(item("a", 0), item("b", 0, 2));
+  const run = (placedLayoutVersion: number | undefined, next: DashboardLayout = after) => {
+    const store = makeStore({ ...dashboard([], 3), layout: before });
+    store.dispatch(
+      setDashboardLayoutLocally({ dashboardId: "d1", layout: next, placedLayoutVersion }),
+    );
+    return store.getState().dashboards.items[0];
+  };
+
+  it("adopts the version when it is exactly the store's + 1", () => {
+    const d = run(4);
+    expect(d.layoutVersion).toBe(4);
+    expect(d.layout).toEqual(after);
+  });
+
+  it("keeps the version when a concurrent writer made it +2, and still sets the layout", () => {
+    const d = run(5);
+    expect(d.layoutVersion).toBe(3);
+    expect(d.layout).toEqual(after);
+  });
+
+  it("keeps the version when the response carries none", () => {
+    expect(run(undefined).layoutVersion).toBe(3);
+  });
+
+  it("keeps the version when the layout did not grow in every breakpoint", () => {
+    const partial: DashboardLayout = { ...after, xs: before.xs };
+    expect(run(4, partial).layoutVersion).toBe(3);
   });
 });

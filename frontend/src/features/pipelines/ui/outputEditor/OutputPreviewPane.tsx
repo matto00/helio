@@ -30,6 +30,7 @@ import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { ReferenceMarks } from "../../../../utils/referenceMarks";
 import type { RunResult } from "../../types/output";
 import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes";
+import { groupHasNull } from "../../../../utils/blankLabel";
 
 interface OutputPreviewPaneProps {
   kind: string;
@@ -106,6 +107,8 @@ export function OutputPreviewPane({
       ...groupAndAggregate(rawRowData, spec.groupBy, spec.agg, spec.yField),
       seriesName: aggregateSeriesName(spec),
       groupBy: spec.groupBy,
+      // HEL-1424 -- same strict null predicate and relabel as the dashboard panel.
+      hasNullGroup: groupHasNull(rawRowData, spec.groupBy),
     };
   }, [kind, chartType, chartGroupBy, chartYField, chartAggFn, rawRowData]);
 

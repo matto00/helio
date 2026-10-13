@@ -30,13 +30,10 @@ object SchemaInferenceEngine {
    *  `fromJson(JsArray(rows))` for any input. */
   def inferSchemaFromRows(rows: Vector[JsValue]): InferredSchema = fromJson(JsArray(rows))
 
-  /** Sampled data rows after the header; inference needs only this head, never the whole file. */
-  private val InferSampleRows = 100
-
   def fromCsv(csv: String): InferredSchema = fromCsvLines(csvLines(csv))
 
-  /** [[fromCsv]] over raw UTF-8 bytes: decodes one line at a time and stops after the sampled head,
-   *  so an upload never becomes a file-sized (or, as UTF-16, double-sized) `String`. */
+  /** [[fromCsv]] over raw UTF-8 bytes: decodes one line at a time and streams the nullability
+   *  fold over every row, so an upload never becomes a file-sized (or, as UTF-16, double-sized) `String`. */
   def fromCsvBytes(bytes: Array[Byte]): InferredSchema = fromCsvLines(csvLines(bytes))
 
   private def fromCsvLines(lines: Iterator[String]): InferredSchema = {
@@ -47,14 +44,16 @@ object SchemaInferenceEngine {
     val headers = parseRfc4180Row(headerLine)
     if (headers.isEmpty) return InferredSchema(Seq.empty)
 
-    val dataRows = lines.take(InferSampleRows).toVector
-    if (dataRows.isEmpty)
+    // HEL-1424: nullability streams over EVERY data row (never a whole-file toVector), skipping blank /
+    // whitespace-only lines exactly as the row loader does (they produce no row).
+    val dataRows = lines.filter(_.trim.nonEmpty)
+    if (!dataRows.hasNext)
       return InferredSchema(headers.map(h => InferredField(h, displayName(h), DataFieldType.StringType, nullable = false)))
 
     // HEL-893 design D1: every column is StringType -- the CSV row loader
     // (`InProcessPipelineEngine.loadCsvRowsFromBytes`) materializes every non-blank cell as a `String`
     // (a blank cell is null, HEL-1408), and never casts it. Declaring anything else would be a promise the data
-    // does not honour. Only nullability is inferred from the sampled rows; type-widening
+    // does not honour. Only nullability is inferred (from every data row, HEL-1424); type-widening
     // (`widenType`) has no caller left and is deleted per HEL-893 D1.
     val init: Vector[Boolean] = Vector.fill(headers.length)(false)
 
@@ -164,13 +163,12 @@ object SchemaInferenceEngine {
   // `objects`, sharing `inferFromObjects`'s type lattice (`inferJsonType`/`widenJson`) but
   // deliberately NOT calling `JsonFlattener.leaves` -- pipeline-output rows are already-projected
   // columns stored un-flattened (design D2), so flattening here would describe a schema whose
-  // dotted keys the stored rows do not have. Also does not compute nullability (design D3) --
-  // the pipeline-output caller pins its own `nullable = true` policy, unrelated to this engine's
-  // absence-never-contributes rule.
+  // dotted keys the stored rows do not have. HEL-1424: nullability is computed here as
+  // `presentNonNullCount < objects.size` (JsNull or absent counts as null), mirroring `inferFromObjects`.
   def inferShallowFromJsObjects(objects: Vector[JsObject]): Seq[InferredField] = {
-    val accByKey = objects.foldLeft(Map.empty[String, Option[DataFieldType]]) { (acc, obj) =>
+    val accByKey = objects.foldLeft(Map.empty[String, PathAcc]) { (acc, obj) =>
       obj.fields.foldLeft(acc) { case (m, (key, value)) =>
-        val prior = m.getOrElse(key, None)
+        val prior = m.getOrElse(key, PathAcc(None, presentNonNullCount = 0))
         value match {
           case JsNull =>
             // design D8: an explicit JsNull MUST be branched on FIRST and contributes NOTHING
@@ -181,20 +179,20 @@ object SchemaInferenceEngine {
             m.updated(key, prior)
           case other =>
             val (valueType, _) = inferJsonType(other)
-            val widened = prior match {
+            val widened = prior.dataType match {
               case None       => valueType
               case Some(seen) => widenJson(seen, valueType)
             }
-            m.updated(key, Some(widened))
+            m.updated(key, PathAcc(Some(widened), prior.presentNonNullCount + 1))
         }
       }
     }
     // Sort the merged key set globally for order-independence, matching inferFromObjects.
-    accByKey.toSeq.sortBy(_._1).map { case (key, dataTypeOpt) =>
+    accByKey.toSeq.sortBy(_._1).map { case (key, PathAcc(dataTypeOpt, presentNonNullCount)) =>
       // design D6: every key in the union MUST appear, including one that was JsNull (or absent
       // from every object it appeared with a non-null value) -- falls back to StringType,
       // matching inferJsonType(JsNull) and today's inferFieldType(null) => "string".
-      InferredField(key, displayName(key), dataTypeOpt.getOrElse(DataFieldType.StringType), nullable = false)
+      InferredField(key, displayName(key), dataTypeOpt.getOrElse(DataFieldType.StringType), nullable = presentNonNullCount < objects.size)
     }
   }
 

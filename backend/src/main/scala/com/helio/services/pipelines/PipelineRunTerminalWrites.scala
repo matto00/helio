@@ -29,12 +29,15 @@ private[pipelines] final class PipelineRunTerminalWrites(
   /** HEL-1366: publishes a run's TERMINAL event only once `writes` (the path's own durable terminal
    *  writes) has completed, so any subscriber reacting to it reads the terminal state. Publishes
    *  exactly once whether `writes` succeeds or fails (a subscriber is never left waiting), and
-   *  returns `writes` unchanged. Every terminal path calls this exactly once per run. */
-  private[pipelines] def publishTerminalAfter[T](pipelineId: String, event: RunStatusEvent, writes: => Future[T]): Future[T] =
+   *  returns `writes` unchanged. Every terminal path calls this exactly once per run. HEL-1518: `skipPublishOn`
+   *  names the one failure after which nothing is published (the run guard tripping); default publishes always. */
+  private[pipelines] def publishTerminalAfter[T](
+      pipelineId: String, event: RunStatusEvent, writes: => Future[T], skipPublishOn: Throwable => Boolean = _ => false
+  ): Future[T] =
     // `writes` is by-name and started inside `Future.unit.flatMap`, so a synchronous throw while
     // building the chain becomes a failed Future and still reaches the publish below.
     Future.unit.flatMap(_ => writes).transformWith { outcome =>
-      publish(pipelineId, event)
+      if (!outcome.failed.toOption.exists(skipPublishOn)) publish(pipelineId, event)
       Future.fromTry(outcome)
     }
 
