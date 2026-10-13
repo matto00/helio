@@ -28,3 +28,16 @@ goes red when the claim is skipped, and by the claim being the only thing that m
 The refinement-drawer double apply (`RefinementChatDrawer` clears the stored conversation before navigating) was not
 reproduced. The assistant hand-off (`extractProposal` re-rendering the latest proposal with no applied state) is the
 confirmed path.
+
+## Cycle 3: V131 RLS under NOSUPERUSER NOBYPASSRLS (skeptic-final-2 CR1/CR2)
+
+New `PatchSetAppliedProposalsRlsSpec` (non-owner role and table-owner role) and a post-chain FORCE assertion in
+`FlywayNonSuperuserMigrationSpec`. Mutations were applied to `V131__patch_set_applied_proposals.sql` and restored
+afterwards (`git diff` of the file is empty).
+
+| Mutation | Result |
+|----------|--------|
+| delete `FORCE ROW LEVEL SECURITY` | RED (4): the flags test (both roles); the owner-role "owner INSERT/SELECT, hide others' rows" case (the table owner now bypasses RLS, which only the owner role can show); `FlywayNonSuperuserMigrationSpec` |
+| delete `CREATE POLICY` | RED (6): flags/policy test, cross-owner and real claim-path tests for both roles |
+
+Claim-table RLS is now proven under real non-bypassing roles (incl. the table owner), not only by code reading.
