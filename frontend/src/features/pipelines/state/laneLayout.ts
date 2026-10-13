@@ -196,3 +196,25 @@ export function computeAncestorIds(steps: Step[], stepId: string): Set<string> {
   }
   return ancestors;
 }
+
+/** HEL-1521 — every step that depends on `stepId`: a child of it (via `parentStepId`) or a step whose
+ *  `{kind:"lane"}` secondaryInput names it, transitively. Mirrors the backend's `LaneCycleViolations.dependentsOf`
+ *  (reverse edges over parent + lane links), minus `stepId` itself. Selecting one of these as `stepId`'s own
+ *  secondary input closes a cycle the server rejects. Visited-set walk, so a legacy cyclic graph terminates. */
+export function computeDependentIds(steps: Step[], stepId: string): Set<string> {
+  const dependents = new Set<string>();
+  const stack = [stepId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    for (const s of steps) {
+      if (s.id === stepId || dependents.has(s.id)) continue;
+      const secondary = secondaryInputOf(s.config);
+      const lanesToId = secondary?.kind === "lane" && secondary.stepId === id;
+      if (s.parentStepId === id || lanesToId) {
+        dependents.add(s.id);
+        stack.push(s.id);
+      }
+    }
+  }
+  return dependents;
+}

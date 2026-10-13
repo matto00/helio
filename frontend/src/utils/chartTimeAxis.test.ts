@@ -30,7 +30,7 @@ describe("parseChartInstant against the shared backend-parity fixture", () => {
   );
 
   it("covers every shape the design lists", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(98);
+    expect(cases.length).toBeGreaterThanOrEqual(125);
   });
 
   it("reads a time-zone-less date-time as UTC whatever the process time zone is", () => {

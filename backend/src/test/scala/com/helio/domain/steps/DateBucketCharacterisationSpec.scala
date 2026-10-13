@@ -32,12 +32,28 @@ class DateBucketCharacterisationSpec extends AnyWordSpec with Matchers {
     ("blank", "", null),
     ("invalid month", "2026-13-01", null),
     ("invalid hour", "2026-07-01T25:00:00Z", null),
-    ("MM/dd/yyyy (HEL-1502 widen-parser: now a shared shape)", "07/01/2026", "2026-07-01"),
     ("fractional epoch string", "1771286400.5", null),
     ("fractional Double", 1771286400.5, null),
     ("NaN", Double.NaN, null),
     ("Infinity", Double.PositiveInfinity, null),
     ("null", null, null)
+  )
+
+  private val widenedByHel1502: Seq[(String, Any, Any)] = Seq(
+    ("MM/dd/yyyy (HEL-1502 widen-parser: now a shared shape)", "07/01/2026", "2026-07-01")
+  )
+
+  private val rejectedByHel1532: Seq[(String, Any, Any)] = Seq(
+    ("clamped 29 Feb", "2026-02-29 12:00", null),
+    ("space-local hour 24", "2026-07-01 24:00", null),
+    ("instant hour 24", "2026-07-01T24:00:00Z", null),
+    ("leap second", "2026-07-01T23:59:60Z", null),
+    ("empty fraction", "2026-07-01T12:00:00.Z", null),
+    ("extended year", "+12026-07-01T12:00:00Z", null),
+    ("year 0000", "0000-07-01", null),
+    ("US year 0000", "07/01/0000", null),
+    ("fraction without seconds", "2026-07-01 12:00.5", null),
+    ("real leap-year 29 Feb stays", "2024-02-29 12:00", "2024-02-29")
   )
 
   private val epochDelta: Seq[(String, Any, Any)] = Seq(
@@ -50,6 +66,8 @@ class DateBucketCharacterisationSpec extends AnyWordSpec with Matchers {
 
   "DateBucketStep.apply characterisation" should {
     unchanged.foreach { case (label, in, out) => s"keep $label" in { bucket(in) shouldBe out } }
+    widenedByHel1502.foreach { case (label, in, out) => s"change $label (was null)" in { bucket(in) shouldBe out } }
+    rejectedByHel1532.foreach { case (label, in, out) => s"pin $label" in { bucket(in) shouldBe out } }
     epochDelta.foreach { case (label, in, out) => s"parse $label (was null)" in { bucket(in) shouldBe out } }
   }
 

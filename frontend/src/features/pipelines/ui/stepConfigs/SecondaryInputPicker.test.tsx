@@ -130,6 +130,34 @@ describe("SecondaryInputPicker — eligibility as a PROPERTY (task 5.5)", () => 
     expect(option).toHaveAttribute("aria-disabled", "true");
   });
 
+  it("HEL-1521: a parent-chain descendant and a lane-linked dependent are PRESENT but disabled; an unrelated node is not", () => {
+    // current's child "kid", and "linked" (a sibling-branch step that lanes to "kid", so it depends on current).
+    const steps = [
+      ...buildSteps(),
+      plainStep("kid", "Filter Kid", "current"),
+      unionStep("linked", "Union linked", "f", { kind: "lane", stepId: "kid" }),
+    ];
+    renderWithStore(
+      <SecondaryInputPicker
+        label="Other source"
+        value={{ kind: "source", dataSourceId: "" }}
+        allSteps={steps}
+        currentStepId="current"
+        onChange={jest.fn()}
+      />,
+      { sources: { items: [], status: "succeeded" } },
+    );
+    openPicker();
+    for (const name of [/Filter Kid/, /Union linked/]) {
+      const option = screen.getByRole("option", { name });
+      expect(option).toHaveTextContent("would create a cycle");
+      expect(option).toHaveAttribute("aria-disabled", "true");
+    }
+    const unrelated = screen.getByRole("option", { name: /Filter F/ });
+    expect(unrelated).not.toHaveAttribute("aria-disabled", "true");
+    expect(unrelated).not.toHaveTextContent("would create a cycle");
+  });
+
   it("(c) a non-terminal node, an already-consumed node, a node in a higher-index lane, and a node at a lower row are each present and NOT disabled", () => {
     renderPicker();
     openPicker();

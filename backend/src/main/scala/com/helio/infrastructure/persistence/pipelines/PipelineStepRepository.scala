@@ -1372,7 +1372,7 @@ object PipelineStepRepository {
     * branch off a root-level step belongs to that root too). `private[pipelines]` so
     * `PipelineRootRemovalSpec` can prove this directly, mirroring the `PipelineService`
     * companion-object testable-pure-helper convention this ticket has used repeatedly (7.3c-i,
-    * `classifyDbError`/`ancestorChainOf`). */
+    * `classifyDbError`). */
   private[pipelines] def descendantsOfRoot(rows: Vector[PipelineStepRow], rootId: String): Set[String] = {
     val rootLevelIds = rows.filter(_.rootId.contains(rootId)).map(_.id).toSet
     def expand(frontier: Set[String], acc: Set[String]): Set[String] = {

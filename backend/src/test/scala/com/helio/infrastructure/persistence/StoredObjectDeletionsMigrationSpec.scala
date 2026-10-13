@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  *  Dev/CI run as a superuser and bypass RLS, which would show a broken trigger posture as green (MISTAKES.md). So V128
  *  is applied by `helio_migration_test`, a LOGIN NOSUPERUSER NOBYPASSRLS role that OWNS the schema and tables (prod's
- *  Flyway role shape, see [[V119OwnerFkMigrationSpec]]), and the DELETEs run on a connection of that same role --
+ *  Flyway role shape, see [[V119MigrationHarness]]), and the DELETEs run on a connection of that same role --
  *  FORCE ROW LEVEL SECURITY applies to it. Everything is READ over the superuser connection, which RLS cannot hide
  *  anything from. Both entry points must commit the OUTER delete and queue the key:
  *   (a) an RLS-bound session (`app.current_user_id` set) deleting the user's own csv source;

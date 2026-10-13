@@ -42,6 +42,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { HelioConfig } from "./config.js";
+import type { DashboardResponse } from "./types.js";
 
 /** Base error for any non-2xx Helio response. */
 export class HelioApiError extends Error {
@@ -49,9 +50,27 @@ export class HelioApiError extends Error {
     readonly status: number,
     readonly url: string,
     message: string,
+    /** The parsed JSON body of a non-2xx response (HEL-1524), when it had one. */
+    readonly body?: unknown,
   ) {
     super(message);
     this.name = "HelioApiError";
+  }
+}
+
+/** 409 from a dashboard layout write whose body carries the server's current dashboard
+ *  (HEL-1457/HEL-1524): the layout moved since the caller read it. `current` is that dashboard
+ *  (with its newer `layoutVersion`); `expectedLayoutVersion` is the precondition that was sent,
+ *  or `null` when none was (a server-side retry budget miss). */
+export class HelioLayoutConflictError extends HelioApiError {
+  constructor(
+    url: string,
+    message: string,
+    readonly current: DashboardResponse,
+    readonly expectedLayoutVersion: number | null,
+  ) {
+    super(409, url, message, { dashboard: current });
+    this.name = "HelioLayoutConflictError";
   }
 }
 
@@ -307,7 +326,12 @@ export class HelioHttpClient {
         continue;
       }
       if (!response.ok) {
-        throw new HelioApiError(response.status, url, this.describeError(response, errorBody));
+        throw new HelioApiError(
+          response.status,
+          url,
+          this.describeError(response, errorBody),
+          errorBody,
+        );
       }
       // 204 No Content (e.g. some DELETEs) — return undefined as T.
       if (response.status === 204) return undefined as T;

@@ -168,4 +168,27 @@ class TimestampParsingSpec extends AnyWordSpec with Matchers {
       }
     }
   }
+  "TimestampParsing.parseInstant (HEL-1532 rejections)" should {
+    val rejected = Seq(
+      "2026-07-01T12:00:00.Z" -> "empty fraction", "2026-07-01T12:00:00." -> "empty fraction, T-local",
+      "2026-07-01 12:00:00." -> "empty fraction, space-local", "2026-07-01T23:59:60Z" -> "leap second",
+      "2026-07-01T12:00:60.5Z" -> "leap second with fraction", "+12026-07-01T12:00:00Z" -> "extended year",
+      "-0001-07-01T12:00:00Z" -> "negative year", "0000-07-01T12:00:00Z" -> "year 0000 instant",
+      "0000-07-01T12:00" -> "year 0000 T-local", "0000-07-01" -> "year 0000 date",
+      "0000-07-01 12:00" -> "year 0000 space-local", "07/01/0000" -> "US year 0000", "07/01/+12026" -> "US extended year",
+      "2026-02-29 12:00" -> "clamped 29 Feb", "2026-07-01 24:00" -> "hour 24 space-local",
+      "2026-07-01T24:00" -> "hour 24 T-local", "2026-07-01T24:00:00Z" -> "hour 24 instant",
+      "2026-07-01 12:00.5" -> "fraction after minutes, space-local", "2026-07-01T12:00.5" -> "fraction after minutes, T-local"
+    )
+    rejected.foreach { case (s, label) => s"reject $label ($s)" in { TimestampParsing.parseInstant(s) shouldBe None } }
+
+    "keep boundary positives" in {
+      Seq(
+        "0001-01-01T00:30:00+01:00" -> "0000-12-31T23:30:00Z", "9999-12-31T23:00:00-05:00" -> "+10000-01-01T04:00:00Z",
+        "0001-01-01" -> "0001-01-01T00:00:00Z", "9999-12-31 23:59:59.999" -> "9999-12-31T23:59:59.999Z",
+        "2024-02-29 12:00" -> "2024-02-29T12:00:00Z", "2026-07-01T23:59:59Z" -> "2026-07-01T23:59:59Z",
+        "2026-07-01 00:00" -> "2026-07-01T00:00:00Z", "10/01/2026" -> "2026-10-01T00:00:00Z"
+      ).foreach { case (s, e) => withClue(s)(TimestampParsing.parseInstant(s) shouldBe Some(Instant.parse(e))) }
+    }
+  }
 }
