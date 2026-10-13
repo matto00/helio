@@ -1,8 +1,0 @@
-- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala` — add findLastSourceSchemaInternal (owner-view baseline read) and checkPreviewAccessInternal (pre-execute preview access re-check); doc updates
-- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala` — doc cross-reference to checkPreviewAccessInternal (submitterMayRunAction stays private)
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineAnalyzeReads.scala` — drift baseline via findLastSourceSchemaInternal; drift current schema read in the owner's view
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunPreview.scala` — guardedExecution re-check before each backend.execute (replaces authorizedForAi); empty-roots 404 vs 422
-- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — rewrite PipelineRunPreview Forbidden-producer classification comment (count stays 1)
-- `backend/src/test/scala/com/helio/services/pipelines/Hel1516GranteeDriftPreviewSpec.scala` — new NOBYPASSRLS spec, cases a-g
-- `openspec/changes/grantee-drift-preview-recheck/red-run.md` — red runs and mutation record
-- `openspec/changes/grantee-drift-preview-recheck/tasks.md` — tasks ticked
