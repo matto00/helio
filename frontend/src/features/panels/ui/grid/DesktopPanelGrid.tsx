@@ -26,44 +26,29 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type KeyboardEvent,
-} from "react";
+import { useMemo } from "react";
 import { Responsive } from "react-grid-layout";
 
-import { createScaledStrategy, getBreakpointFromWidth, noCompactor } from "react-grid-layout/core";
+import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
-import {
-  areDashboardLayoutsEqual,
-  resolveDashboardLayout,
-  type DashboardLayoutBreakpoint,
-} from "../../../dashboards/state/dashboardLayout";
-import { setDashboardLayoutLocally } from "../../../dashboards/state/dashboardsSlice";
-import { pushLayoutSnapshot } from "../../../layout/state/layoutHistorySlice";
-import { accumulatePanelUpdate } from "../../state/panelsSlice";
+import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
-import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
+import { useAppSelector } from "../../../../hooks/reduxHooks";
 import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PanelCard } from "../PanelCard";
-import {
-  createLayouts,
-  itemsFromRglLayout,
-  panelGridConfig,
-  rglBreakpoints,
-} from "./panelGridConfig";
+import { createLayouts, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 import "./PanelGrid.css";
+import { useCommitFlag } from "./useCommitFlag";
+import { useGridLayoutInteraction } from "./useGridLayoutInteraction";
+import { usePanelDetailState } from "./usePanelDetailState";
+import { usePanelTitleEditing } from "./usePanelTitleEditing";
+import { useProcessedWidth } from "./useProcessedWidth";
 
 interface DesktopPanelGridProps {
   dashboardId: string;
@@ -88,32 +73,18 @@ export function DesktopPanelGrid({
   width,
   registerLayoutFlush,
 }: DesktopPanelGridProps) {
-  const dispatch = useAppDispatch();
-  // HEL-651: gate the auto-close effect below on the panels-list load state,
+  // HEL-651: gate the auto-close effect (in `usePanelDetailState`) on the panels-list load state,
   // not just `panels` itself — `fetchPanels.rejected` empties `items` on a
   // *transient refetch failure*, indistinguishable from a real deletion by
   // list contents alone. See design.md's Decision (design-gate round 2).
   const panelsStatus = useAppSelector((state) => state.panels.status);
   const { theme } = useTheme();
-  const [isDragging, setIsDragging] = useState(false);
-  const [confirmDeletePanelId, setConfirmDeletePanelId] = useState<string | null>(null);
-  const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
-  // F-123 — the "Customize" panel-actions-menu item (wired to `onDetail`)
-  // opens the settings form directly; a plain card click (`onCardClick`)
-  // still opens the read-only view. Both previously funneled into the same
-  // `setDetailPanelId` call with no way to tell them apart.
-  const [detailPanelMode, setDetailPanelMode] = useState<"view" | "edit">("view");
-  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [editingTitleError, setEditingTitleError] = useState<string | null>(null);
-  const titleCancelledRef = useRef(false);
-  // Ref so that commitTitleEdit can read the latest editingTitle without
-  // being recreated on every keystroke (keeps onTitleKeyDown stable).
-  const editingTitleRef = useRef(editingTitle);
-  useEffect(() => {
-    editingTitleRef.current = editingTitle;
-  });
-  const mousedownPos = useRef<{ x: number; y: number } | null>(null);
+  // HEL-1418: hook DECLARATION ORDER is load-bearing (effects run, and clean up, in declaration
+  // order): title editing, detail state, the commit flag (its cleanup stays before
+  // `useLayoutSave`'s unmount flush), `useLayoutSave`, then the hooks that consume its outputs as
+  // plain arguments.
+  const title = usePanelTitleEditing();
+  const detail = usePanelDetailState(panels, panelsStatus, title.beginTitleEdit);
   // positionStrategy with createScaledStrategy(zoomLevel) corrects drag and resize coordinate
   // offsets that arise when a CSS scale() transform is applied to the grid's ancestor element.
   // react-grid-layout@2.2.2 exposes positionStrategy as the modern replacement for the legacy
@@ -131,59 +102,10 @@ export function DesktopPanelGrid({
     () => (zoomLevel === 1 ? undefined : createScaledStrategy(zoomLevel)),
     [zoomLevel],
   );
-  // HEL-651: `detailPanel` is genuinely `Panel | undefined` — the render
-  // guard below (`detailPanel ?`) is what prevents ever mounting
-  // `PanelDetailModal` with an undefined panel, regardless of *why*
-  // `detailPanel` is momentarily undefined (transient loading/failed, or
-  // truly deleted). See design.md's Decision (design-gate round 2).
-  const detailPanel =
-    detailPanelId !== null ? panels.find((p) => p.id === detailPanelId) : undefined;
-
-  useEffect(() => {
-    // Only auto-close (clear detailPanelId) once the panels list is
-    // known-loaded ("succeeded") and still doesn't contain this panel; never
-    // on "loading"/"failed", so a transient refetch window doesn't
-    // permanently dismiss the modal. This does NOT preserve unsaved
-    // edit-mode state — the render guard below unmounts `PanelDetailModal`
-    // (destroying its local useState) on ANY unmount, gated or not.
-    if (detailPanelId !== null && detailPanel === undefined && panelsStatus === "succeeded") {
-      // HEL-651: this effect exists specifically to synchronize local
-      // `detailPanelId` with an external signal (the `panels` list confirming
-      // the backing panel is gone) — the exact "subscribe for updates from
-      // some external system" case the lint rule allows for, not internal
-      // derived state that should be computed during render instead. The
-      // render guard above already prevents the crash unconditionally; this
-      // setState only tidies `detailPanelId` back to a genuine "closed" state
-      // once the removal is confirmed (design.md's Decision + Alternatives).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDetailPanelId(null);
-    }
-  }, [detailPanelId, detailPanel, panelsStatus]);
-
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
-  const preInteractionLayoutRef = useRef<DashboardLayout | null>(null);
 
-  // HEL-1028: RGL fires onDragStop/onResizeStop BEFORE the onLayoutChange that
-  // carries the final layout, so the stop handlers only arm this flag and
-  // handleLayoutChange performs the store commit. A zero-delay timer (and the
-  // next interaction start) disarms it when the interaction moved nothing.
-  const commitOnNextLayoutChangeRef = useRef(false);
-  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearCommitFlag = useCallback(() => {
-    commitOnNextLayoutChangeRef.current = false;
-    if (commitTimerRef.current !== null) {
-      clearTimeout(commitTimerRef.current);
-      commitTimerRef.current = null;
-    }
-  }, []);
-  const armCommitFlag = useCallback(() => {
-    clearCommitFlag();
-    commitOnNextLayoutChangeRef.current = true;
-    commitTimerRef.current = setTimeout(clearCommitFlag, 0);
-  }, [clearCommitFlag]);
-  useEffect(() => clearCommitFlag, [clearCommitFlag]);
-
+  const { commitOnNextLayoutChangeRef, clearCommitFlag, armCommitFlag } = useCommitFlag();
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
     layout,
@@ -192,182 +114,20 @@ export function DesktopPanelGrid({
     panelsLoaded: panelsStatus === "succeeded",
     registerLayoutFlush,
   });
-
-  const cancelEditingTitle = useCallback(() => {
-    titleCancelledRef.current = true;
-    setEditingTitleId(null);
-    setEditingTitleError(null);
-  }, []);
-
-  const commitTitleEdit = useCallback(
-    (panelId: string) => {
-      if (titleCancelledRef.current) return;
-      const trimmed = editingTitleRef.current.trim();
-      if (trimmed.length === 0) {
-        setEditingTitleError("Title must not be blank.");
-        return;
-      }
-      setEditingTitleId(null);
-      setEditingTitleError(null);
-      dispatch(accumulatePanelUpdate({ panelId, fields: { title: trimmed } }));
-    },
-    [dispatch],
-  );
-
-  const handleStartEdit = useCallback((panelId: string, currentTitle: string) => {
-    setConfirmDeletePanelId(null);
-    setDetailPanelId(null);
-    setEditingTitleId(panelId);
-    setEditingTitle(currentTitle);
-    setEditingTitleError(null);
-    titleCancelledRef.current = false;
-  }, []);
-
-  const handleTitleChange = useCallback((value: string) => {
-    setEditingTitle(value);
-    setEditingTitleError(null);
-  }, []);
-
-  const handleTitleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>, panelId: string) => {
-      if (event.key === "Enter") {
-        commitTitleEdit(panelId);
-      } else if (event.key === "Escape") {
-        cancelEditingTitle();
-      }
-    },
-    [commitTitleEdit, cancelEditingTitle],
-  );
-
-  const handleTitleBlur = useCallback(
-    (panelId: string) => {
-      commitTitleEdit(panelId);
-    },
-    [commitTitleEdit],
-  );
-
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    mousedownPos.current = { x: e.clientX, y: e.clientY };
-  }, []);
-
-  const handleCardClick = useCallback((panelId: string, e: React.MouseEvent<HTMLElement>) => {
-    const pos = mousedownPos.current;
-    if (pos !== null && Math.abs(e.clientX - pos.x) + Math.abs(e.clientY - pos.y) > 5) return;
-    if ((e.target as Element).closest("button, input, a, .react-resizable-handle")) return;
-    setDetailPanelMode("view");
-    setDetailPanelId(panelId);
-  }, []);
-
-  const handleRequestDelete = useCallback((panelId: string) => {
-    setConfirmDeletePanelId(panelId);
-  }, []);
-
-  const handleCancelDelete = useCallback(() => {
-    setConfirmDeletePanelId(null);
-  }, []);
-
-  const handleDetail = useCallback((panelId: string) => {
-    // F-123 — "Customize" in the panel actions menu should open the editor
-    // directly, not the same read-only view a plain card click lands on.
-    setDetailPanelMode("edit");
-    setDetailPanelId(panelId);
-  }, []);
-
-  const handleDragStart = useCallback(() => {
-    clearCommitFlag();
-    setIsDragging(true);
-    preInteractionLayoutRef.current = latestLayoutRef.current;
-  }, [latestLayoutRef, clearCommitFlag]);
-
-  const handleDragStop = useCallback(() => {
-    setIsDragging(false);
-    if (preInteractionLayoutRef.current !== null) {
-      dispatch(
-        pushLayoutSnapshot({
-          dashboardId,
-          layout: preInteractionLayoutRef.current,
-        }),
-      );
-      preInteractionLayoutRef.current = null;
-    }
-    armCommitFlag();
-  }, [dashboardId, dispatch, armCommitFlag]);
-
-  const handleResizeStart = useCallback(() => {
-    clearCommitFlag();
-    preInteractionLayoutRef.current = latestLayoutRef.current;
-  }, [latestLayoutRef, clearCommitFlag]);
-
-  const handleResizeStop = useCallback(() => {
-    if (preInteractionLayoutRef.current !== null) {
-      dispatch(
-        pushLayoutSnapshot({
-          dashboardId,
-          layout: preInteractionLayoutRef.current,
-        }),
-      );
-      preInteractionLayoutRef.current = null;
-    }
-    armCommitFlag();
-  }, [dashboardId, dispatch, armCommitFlag]);
-
-  // HEL-1413 — the container width RGL has actually PROCESSED, as opposed to the `width` prop this
-  // component was just handed. RGL derives the active breakpoint and cols from a new width in an
-  // effect and calls `onWidthChange` from it, so this state commits together with the new
-  // breakpoint/cols render. It is NOT the point at which every item is laid out: RGL's inner
-  // GridLayout syncs its own layout state from props one effect flush later, so a consumer must
-  // still let item transitions finish and positions stabilise after seeing this value.
-  // Exposed as a CSS custom property on the grid root (it carries no styling; `style` is used
-  // because RGL does not forward `data-*` to its root) so a live browser check can wait on RGL
-  // itself instead of racing the ResizeObserver -> rAF -> setWidth chain that sits between a
-  // viewport resize and this component receiving the new width.
-  const [processedWidth, setProcessedWidth] = useState(width);
-  const handleWidthChange = useCallback((nextWidth: number) => setProcessedWidth(nextWidth), []);
-  const gridStyle = useMemo(
-    () => ({ "--panel-grid-processed-width": `${processedWidth}px` }) as CSSProperties,
-    [processedWidth],
-  );
-
-  type LayoutChangeHandler = NonNullable<React.ComponentProps<typeof Responsive>["onLayoutChange"]>;
-  const handleLayoutChange = useCallback<LayoutChangeHandler>(
-    (currentLayout) => {
-      if (currentLayout === undefined) return;
-      // HEL-1023: RGL also calls this on mount and on every breakpoint change with exactly the layout
-      // it was fed, and that layout may be derived/repaired at render. Only a layout that DIFFERS
-      // from what we resolved is a user edit, and an edit rewrites the active breakpoint alone; a
-      // view hands the store layout straight back, so it never arms pending, history or a PATCH.
-      const bp = getBreakpointFromWidth(rglBreakpoints, width) as DashboardLayoutBreakpoint;
-      const items = itemsFromRglLayout(panels, currentLayout);
-      const edited = { ...resolvedLayout, [bp]: items };
-      // HEL-1457: stored items of panels this tab has not loaded are kept, so rebuilding the breakpoint from the
-      // loaded panels can never drop another writer's item.
-      const loaded = new Set(panels.map((p) => p.id));
-      const kept = layout[bp].filter((item) => !loaded.has(item.panelId));
-      const next = areDashboardLayoutsEqual(edited, resolvedLayout)
-        ? layout
-        : { ...layout, [bp]: [...items, ...kept] };
-      markLayoutChanged(next);
-      if (commitOnNextLayoutChangeRef.current) {
-        clearCommitFlag();
-        if (!areDashboardLayoutsEqual(next, layout)) {
-          dispatch(
-            setDashboardLayoutLocally({ dashboardId, layout: commitInteractionLayout(next) }),
-          );
-        }
-      }
-    },
-    [
-      markLayoutChanged,
-      panels,
-      width,
-      layout,
-      clearCommitFlag,
-      resolvedLayout,
-      dispatch,
-      dashboardId,
-      commitInteractionLayout,
-    ],
-  );
+  const interaction = useGridLayoutInteraction({
+    dashboardId,
+    layout,
+    resolvedLayout,
+    panels,
+    width,
+    latestLayoutRef,
+    markLayoutChanged,
+    commitInteractionLayout,
+    commitOnNextLayoutChangeRef,
+    clearCommitFlag,
+    armCommitFlag,
+  });
+  const { gridStyle, handleWidthChange } = useProcessedWidth(width);
 
   return (
     <>
@@ -385,50 +145,50 @@ export function DesktopPanelGrid({
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactorPreventCollision}
         positionStrategy={scaledPositionStrategy}
-        onDragStart={handleDragStart}
-        onResizeStart={handleResizeStart}
-        onDragStop={handleDragStop}
-        onResizeStop={handleResizeStop}
-        onLayoutChange={handleLayoutChange}
+        onDragStart={interaction.handleDragStart}
+        onResizeStart={interaction.handleResizeStart}
+        onDragStop={interaction.handleDragStop}
+        onResizeStop={interaction.handleResizeStop}
+        onLayoutChange={interaction.handleLayoutChange}
       >
         {panels.map((panel) => {
-          const isEditingTitle = editingTitleId === panel.id;
-          const isConfirmingDelete = confirmDeletePanelId === panel.id;
+          const isEditingTitle = title.editingTitleId === panel.id;
+          const isConfirmingDelete = detail.confirmDeletePanelId === panel.id;
           return (
             <div key={panel.id}>
               <PanelCard
                 panel={panel}
                 theme={theme}
-                isDragging={isDragging}
+                isDragging={interaction.isDragging}
                 dashboardId={dashboardId}
                 isEditingTitle={isEditingTitle}
-                editingTitle={isEditingTitle ? editingTitle : ""}
-                editingTitleError={isEditingTitle ? editingTitleError : null}
+                editingTitle={isEditingTitle ? title.editingTitle : ""}
+                editingTitleError={isEditingTitle ? title.editingTitleError : null}
                 isConfirmingDelete={isConfirmingDelete}
-                onMouseDown={handleMouseDown}
-                onCardClick={handleCardClick}
-                onStartEdit={handleStartEdit}
-                onTitleChange={handleTitleChange}
-                onTitleKeyDown={handleTitleKeyDown}
-                onTitleBlur={handleTitleBlur}
-                onRequestDelete={handleRequestDelete}
-                onCancelDelete={handleCancelDelete}
-                onDetail={handleDetail}
+                onMouseDown={detail.handleMouseDown}
+                onCardClick={detail.handleCardClick}
+                onStartEdit={detail.handleStartEdit}
+                onTitleChange={title.handleTitleChange}
+                onTitleKeyDown={title.handleTitleKeyDown}
+                onTitleBlur={title.handleTitleBlur}
+                onRequestDelete={detail.handleRequestDelete}
+                onCancelDelete={detail.handleCancelDelete}
+                onDetail={detail.handleDetail}
               />
             </div>
           );
         })}
       </Responsive>
-      {detailPanel ? (
+      {detail.detailPanel ? (
         <PanelDetailModal
           // HEL-307: key by panel id so a direct switch between panels remounts
           // the modal subtree, re-seeding every `useState(initial*)` form field
           // from the target panel. Without it React reuses the instance and Save
           // could write the previous panel's staged values onto this one.
-          key={detailPanelId}
-          panel={detailPanel}
-          onClose={() => setDetailPanelId(null)}
-          initialMode={detailPanelMode}
+          key={detail.detailPanelId}
+          panel={detail.detailPanel}
+          onClose={detail.closeDetail}
+          initialMode={detail.detailPanelMode}
         />
       ) : null}
     </>

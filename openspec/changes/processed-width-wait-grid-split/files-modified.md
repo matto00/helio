@@ -1,0 +1,13 @@
+- `e2e/support/gridProcessedWidth.ts` — new shared `waitForGridWidth` / `containerWidthForViewport` processed-width helper
+- `e2e/hel1023-breakpoint-layout-derivation.spec.ts` — `settledRects` uses the shared helper (box poll kept as an assertion)
+- `e2e/hel1392-remount-request-burst.spec.ts` — `crossTo` waits for the exact processed width via the helper
+- `e2e/hel1275-metric-delta-sparkline.spec.ts` — `resizeAndSettle` gates on the processed width via the helper
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.tsx` — split to 196 lines; composes the extracted hooks
+- `frontend/src/features/panels/ui/grid/usePanelTitleEditing.ts` — extracted title-edit state/handlers
+- `frontend/src/features/panels/ui/grid/usePanelDetailState.ts` — extracted detail modal, delete-confirm, card-click, HEL-651 auto-close, handleStartEdit
+- `frontend/src/features/panels/ui/grid/useCommitFlag.ts` — extracted HEL-1028 commit flag (declared before useLayoutSave)
+- `frontend/src/features/panels/ui/grid/useGridLayoutInteraction.ts` — extracted drag/resize handlers and handleLayoutChange (takes useLayoutSave outputs as arguments)
+- `frontend/src/features/panels/ui/grid/useProcessedWidth.ts` — extracted HEL-1413 processed-width state and style
+- `openspec/changes/archive/2026-10-08-fix-breakpoint-layout-e2e-flake/evidence.md` — wording nits (lg geometry/4 outside md bounds; residue window end 16:04:07)
+- `openspec/changes/processed-width-wait-grid-split/audit.md` — setViewportSize audit (78 sites)
+- `openspec/changes/processed-width-wait-grid-split/evidence.md` — probe, grep proof, hook-order and test evidence
