@@ -1,7 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.api.protocols.pipelines.PipelineStepResponse
-import com.helio.domain.model.PipelineId
+import com.helio.domain.model.{Output, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
 import spray.json._
@@ -34,16 +34,8 @@ private[services] object PatchSetPipelineDefinition {
       alertRules    <- ctx.outputRepo.findAlertRuleDefinitionsInternal(outputIds)
     } yield {
       val (steps, rootIds) = stepsAndRoots
-      val rootIdByStep     = rootIds.map { case (step, root) => step.value -> root.value }
-      val stepJson = steps
-        .map(step => pick(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(step, rootIdByStep)), StepKeys))
-        .sortBy(_.fields("id").toString)
-      val outputJson = outputs.map { output =>
-        val own = pick(outputResponseFormat.write(outputResponseFrom(output, configs.getOrElse(output.id.value, JsObject.empty))), OutputKeys)
-        JsObject(own.fields +
-          ("panelIds" -> JsArray(panelIds.getOrElse(output.id.value, Vector.empty).map(JsString(_)))) +
-          ("alertRules" -> JsArray(alertRules.getOrElse(output.id.value, Vector.empty).map(alertRuleJson))))
-      }.sortBy(_.fields("id").toString)
+      val stepJson   = stepsJson(steps, rootIds)
+      val outputJson = outputsJson(outputs, configs, panelIds, alertRules)
       JsObject(
         Map(
           "name"    -> JsString(summary.name),
@@ -57,6 +49,43 @@ private[services] object PatchSetPipelineDefinition {
         }
       )
     }
+  }
+
+  /** The steps as fingerprinted JSON, sorted by id (shared by the pipeline and step-delete fingerprints). */
+  def stepsJson(steps: Vector[PipelineStep], rootIds: Map[PipelineStepId, PipelineRootId]): Vector[JsObject] = {
+    val rootIdByStep = rootIds.map { case (step, root) => step.value -> root.value }
+    steps
+      .map(step => pick(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(step, rootIdByStep)), StepKeys))
+      .sortBy(_.fields("id").toString)
+  }
+
+  /** The Outputs as fingerprinted JSON, each with its bound panel ids and targeting alert rules, sorted by id. The one
+   *  projection behind the pipeline, output-delete and step-delete fingerprints (HEL-1522), so they cannot drift. */
+  def outputsJson(
+      outputs: Vector[Output],
+      configs: Map[String, JsObject],
+      panelIds: Map[String, Vector[String]],
+      alertRules: Map[String, Vector[(String, String, String, String, Boolean, String)]]
+  ): Vector[JsObject] =
+    outputs.map { output =>
+      val own = pick(outputResponseFormat.write(outputResponseFrom(output, configs.getOrElse(output.id.value, JsObject.empty))), OutputKeys)
+      JsObject(own.fields +
+        ("panelIds" -> panelIdsJson(panelIds.getOrElse(output.id.value, Vector.empty))) +
+        ("alertRules" -> alertRulesJson(alertRules.getOrElse(output.id.value, Vector.empty))))
+    }.sortBy(_.fields("id").toString)
+
+  def panelIdsJson(ids: Vector[String]): JsArray = JsArray(ids.map(JsString(_)))
+
+  def alertRulesJson(rules: Vector[(String, String, String, String, Boolean, String)]): JsArray = JsArray(rules.map(alertRuleJson))
+
+  /** The Outputs (with their configs, panel ids and alert rules) as fingerprinted JSON. */
+  def outputsWithCascade(outputs: Vector[Output], ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[Vector[JsObject]] = {
+    val ids = outputs.map(_.id.value)
+    for {
+      configs    <- ctx.outputRepo.findConfigsByIdsInternal(ids)
+      panelIds   <- ctx.panelRepo.findIdsByOutputIdsInternal(ids)
+      alertRules <- ctx.outputRepo.findAlertRuleDefinitionsInternal(ids)
+    } yield outputsJson(outputs, configs, panelIds, alertRules)
   }
 
   private def alertRuleJson(rule: (String, String, String, String, Boolean, String)): JsValue = {

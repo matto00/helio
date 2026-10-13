@@ -179,6 +179,17 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       ).map(_.collect { case (Some(outputId), id, metric, condition, name, enabled, severity) => outputId -> (id, metric, condition, name, enabled, severity) }
         .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).toVector })
 
+  /** Of `ids`, the alert rules the CALLER can read (user context + owner filter, exactly `AlertRuleRepository.findAll`'s
+   *  scoping), by id. Lets the patch-set preview name a rule only if the caller could list it (HEL-1522). */
+  def findVisibleAlertRuleIds(ids: Vector[String], user: AuthenticatedUser): Future[Set[String]] =
+    if (ids.isEmpty) Future.successful(Set.empty)
+    else {
+      val ownerUuid = UUID.fromString(user.id.value)
+      ctx.withUserContext(user.id.value)(
+        TableQuery[AlertRuleRepository.AlertRuleTable].filter(r => r.id.inSet(ids) && r.ownerId === ownerUuid).map(_.id).result
+      ).map(_.toSet)
+    }
+
   /** Owner-scoped read (not merely sharing-aware) — used by
    *  `AlertRuleService.create` (task 3.1) to validate a rule's
    *  `targetOutputId` before persisting, mirroring the strict

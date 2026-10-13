@@ -986,12 +986,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         case None => DBIO.successful(None)
         case Some(deletedRow) =>
           for {
-            allRows        <- stepsTable.filter(_.pipelineId === deletedRow.pipelineId).map(s => (s.id, s.parentStepId)).result
-            childrenSorted <- stepsTable.filter(_.parentStepId === deletedRow.id).sortBy(_.position).map(_.id).result
-            headChildOpt    = childrenSorted.headOption
-            tailRootIds     = childrenSorted.drop(1)
-            parentByChild   = allRows.toMap
-            tailDescendantIds = tailRootIds.flatMap(rootId => descendantIdsOf(rootId, parentByChild)).toSet
+            allRows        <- stepsTable.filter(_.pipelineId === deletedRow.pipelineId).map(s => (s.id, s.parentStepId, s.position)).result
+            removal         = PipelineStepRepository.removalOf(deletedRow.id, allRows)
+            headChildOpt    = removal.headChild
+            tailDescendantIds = removal.tailDescendants
             // HEL-913 task 4.4d: the promoted head child inherits `deletedRow`'s `root_id` in
             // the SAME update as its `parent_step_id` -- deleting a root-attached step
             // (`deletedRow.parentStepId == None`, `deletedRow.rootId == Some(x)`) without this
@@ -1020,14 +1018,17 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(action.transactionally)
   }
 
-  /** Every id in the subtree rooted at `rootId` (inclusive), walked via the
-    * `(id -> parentStepId)` map of a pipeline's full step set. Pure — no DB
-    * access. Used by `deleteInternal`'s splice-on-delete to find every step
-    * a removed tail must take with it. */
-  private def descendantIdsOf(rootId: String, parentById: Map[String, Option[String]]): Vector[String] = {
-    val childrenOf = parentById.toVector.collect { case (childId, Some(p)) if p == rootId => childId }
-    rootId +: childrenOf.flatMap(c => descendantIdsOf(c, parentById))
-  }
+  /** Read-only: every step id `deleteInternal(id)` would remove (the target and its tail subtrees; the promoted head
+    * child and its subtree survive). Empty when the step does not exist. Shares [[PipelineStepRepository.removalOf]]
+    * with the delete itself, so a preview fingerprint cannot drift from what the delete removes. */
+  def removedByDeleteInternal(id: PipelineStepId): Future[Set[String]] =
+    ctx.withSystemContext(for {
+      existing <- stepsTable.filter(_.id === id.value).result.headOption
+      rows <- existing match {
+        case None => DBIO.successful(Vector.empty[(String, Option[String], Int)])
+        case Some(row) => stepsTable.filter(_.pipelineId === row.pipelineId).map(s => (s.id, s.parentStepId, s.position)).result.map(_.toVector)
+      }
+    } yield if (existing.isEmpty) Set.empty[String] else PipelineStepRepository.removalOf(id.value, rows).removed)
 
   /** Query for the sibling group sharing `parentStepId` (`None` = root)
     * within `pipelineId`. HEL-904 task 1.6: `position` is scoped to this
@@ -1353,6 +1354,23 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object PipelineStepRepository {
+
+  /** What deleting a step does to the tree (HEL-1522): the single rule behind `deleteInternal`, the preview's
+    * removal bookkeeping and the patch-set fingerprint. The lowest-`(position, id)` child is promoted into the
+    * deleted step's slot (the tie-break on id makes the choice deterministic when HEL-911 permits tied positions);
+    * every other child and its whole subtree is removed with the step. */
+  final case class StepRemoval(deletedId: String, headChild: Option[String], tailRoots: Vector[String], tailDescendants: Set[String]) {
+    /** The deleted step plus the tail subtrees. */
+    def removed: Set[String] = tailDescendants + deletedId
+  }
+
+  /** Pure. `rows` = every step of the pipeline as `(id, parentStepId, position)`. */
+  def removalOf(deletedId: String, rows: Seq[(String, Option[String], Int)]): StepRemoval = {
+    val childrenOf = rows.groupBy(_._2).map { case (parent, kids) => parent -> kids.sortBy(k => (k._3, k._1)).map(_._1).toVector }
+    def subtree(root: String): Vector[String] = root +: childrenOf.getOrElse(Some(root), Vector.empty).flatMap(subtree)
+    val children = childrenOf.getOrElse(Some(deletedId), Vector.empty)
+    StepRemoval(deletedId, children.headOption, children.drop(1), children.drop(1).flatMap(subtree).toSet)
+  }
 
   /** HEL-913 task 7.5/7.5a: pure function over raw rows -- every step id belonging to `rootId`,
     * the root-level step itself (`root_id = rootId`) PLUS its entire descendant subtree, walked

@@ -1,0 +1,45 @@
+- `backend/src/main/resources/db/migration/V131__patch_set_applied_proposals.sql` — apply-once claim table, FORCE RLS owner policy (D5)
+- `backend/src/main/scala/com/helio/api/package.scala` — alias for PatchSetAlreadyAppliedResponse
+- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — proposalId ("Server-assigned. Omit.") on propose_patch_set schema
+- `backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala` — PatchSet.proposalId, lenient format
+- `backend/src/main/scala/com/helio/api/protocols/ResourceProtocol.scala` — PatchSetAlreadyAppliedResponse wire type + format
+- `backend/src/main/scala/com/helio/api/routes/ServiceResponse.scala` — 409 completeError arm + code constant for PatchSetAlreadyApplied
+- `backend/src/main/scala/com/helio/infrastructure/persistence/patchsets/PatchSetApplicationRepository.scala` — claim / release / attach-application methods
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` — findVisibleAlertRuleIds: caller-scoped alert-rule read for the impact hint
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` — shared removalOf rule, removedByDeleteInternal, deleteInternal uses the rule with (position,id) order
+- `backend/src/main/scala/com/helio/services/assistant/AssistantToolExecutor.scala` — mint proposalId, return it in tool_result, capture it
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyOnce.scala` — claim-before-write / release-only-if-no-write wrapper
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyService.scala` — proposalId UUID check (400) and apply-once wiring
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetFingerprintStamping.scala` — strip also drops a model proposalId
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineDefinition.scala` — shared per-Output / per-step projections
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewImpact.scala` — pipeline-delete hint names removed panels and alert rules
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewRemovals.scala` — removed-step ids via the shared rule
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetTargetFingerprint.scala` — output / pipelineStep delete cascade keys, allowlists, doc
+- `backend/src/main/scala/com/helio/services/patchsets/RefinementService.scala` — mint proposalId on the stored patch set
+- `backend/src/main/scala/com/helio/services/ServiceError.scala` — PatchSetAlreadyApplied variant
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetApplyOnceRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPipelineDeleteImpactRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetRoutesFixture.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleCascadeRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleCheckRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleDefinitionGapsRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleWidenedFingerprintRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStepDeleteTiedPositionsRoutesSpec.scala` — tests
+- `backend/src/test/scala/com/helio/domain/patchsets/PatchSetFingerprintWireSpec.scala` — tests
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRemovalRuleSpec.scala` — tests
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala` — tests
+- `backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala` — tests
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetTargetFingerprintSpec.scala` — tests
+- `backend/src/test/scala/com/helio/services/patchsets/RefinementServiceSpec.scala` — tests
+- `frontend/src/features/assistant/proposalExtraction.test.ts` — tests
+- `frontend/src/features/assistant/proposalExtraction.ts` — frontend: proposalId / already-applied state
+- `frontend/src/features/patchSets/state/patchSetsSlice.test.ts` — tests
+- `frontend/src/features/patchSets/state/patchSetsSlice.ts` — frontend: proposalId / already-applied state
+- `frontend/src/features/patchSets/types/patchSet.ts` — frontend: proposalId / already-applied state
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.test.tsx` — tests
+- `frontend/src/features/patchSets/ui/PatchSetReviewPage.tsx` — frontend: proposalId / already-applied state
+- `frontend/src/features/patchSets/ui/stampFingerprints.test.ts` — tests
+- `schemas/patch-sets/patch-set.schema.json` — optional proposalId
+- `schemas/shared/patch-set-already-applied-response.schema.json` — 409 body schema
+- `openspec/changes/patch-set-stale-followups/` — tasks ticked, design implementation notes, mutation-runs.md, this file
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyOnceBookkeepingSpec.scala` — attach/release failure after an apply does not change its outcome

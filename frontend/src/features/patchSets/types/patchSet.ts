@@ -45,6 +45,9 @@ export interface Edit {
 export interface PatchSet {
   summary?: string;
   edits: Edit[];
+  /** HEL-1522: server-minted when refinement or the assistant proposes the patch set. Kept unchanged and sent back on
+   *  apply, so the server applies a given proposal at most once (409 PATCH_SET_ALREADY_APPLIED). */
+  proposalId?: string;
 }
 
 /** One edit's before/after diff + impact hints. `before`/`after` reuse each
@@ -140,5 +143,20 @@ export function isPatchSetStale(value: unknown): value is PatchSetStaleRejection
     typeof value === "object" &&
     value !== null &&
     (value as { code?: unknown }).code === "PATCH_SET_STALE"
+  );
+}
+
+/** Rejection value of the apply thunk for `409 PATCH_SET_ALREADY_APPLIED` (HEL-1522): this proposal was already
+ *  applied by the caller, nothing was applied now, and retrying can never succeed. */
+export interface PatchSetAlreadyAppliedRejection {
+  code: "PATCH_SET_ALREADY_APPLIED";
+  message: string;
+}
+
+export function isPatchSetAlreadyApplied(value: unknown): value is PatchSetAlreadyAppliedRejection {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { code?: unknown }).code === "PATCH_SET_ALREADY_APPLIED"
   );
 }

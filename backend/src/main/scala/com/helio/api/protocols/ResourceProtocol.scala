@@ -16,6 +16,9 @@ final case class StepConfigErrorResponse(message: String, code: String, stepId: 
  *  Titled `PatchSetStaleResponse` in `schemas/shared/`. */
 final case class StaleTargetResponse(index: Int, kind: String, id: String)
 final case class PatchSetStaleResponse(message: String, code: String, staleTargets: Vector[StaleTargetResponse])
+/** HEL-1522: 409 body for a patch-set apply refused because its `proposalId` was already applied by the caller.
+ *  Titled `PatchSetAlreadyAppliedResponse` in `schemas/shared/`. */
+final case class PatchSetAlreadyAppliedResponse(message: String, code: String)
 final case class HealthResponse(status: String)
 
 object ResourceMetaResponse {
@@ -41,5 +44,7 @@ trait ResourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     jsonFormat3(StaleTargetResponse.apply)
   implicit val patchSetStaleResponseFormat: RootJsonFormat[PatchSetStaleResponse] =
     jsonFormat3(PatchSetStaleResponse.apply)
+  implicit val patchSetAlreadyAppliedResponseFormat: RootJsonFormat[PatchSetAlreadyAppliedResponse] =
+    jsonFormat2(PatchSetAlreadyAppliedResponse.apply)
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(HealthResponse.apply)
 }

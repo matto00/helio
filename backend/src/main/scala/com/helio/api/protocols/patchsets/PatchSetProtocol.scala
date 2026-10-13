@@ -77,7 +77,9 @@ final case class Edit(
     outputPatch: Option[UpdateOutputRequest] = None
 )
 
-final case class PatchSet(summary: Option[String], edits: Vector[Edit])
+/** `proposalId` (HEL-1522): server-minted by refinement and the assistant so an apply can be made once per proposal.
+ *  Optional; a patch set without it is applied exactly as before. */
+final case class PatchSet(summary: Option[String], edits: Vector[Edit], proposalId: Option[String] = None)
 
 trait PatchSetProtocol
     extends SprayJsonSupport
@@ -212,5 +214,20 @@ trait PatchSetProtocol
    *  `summary` absent (design.md D4); `edits` missing raises the standard
    *  `DeserializationException`, matching `DashboardProposal`'s own
    *  precedent (`jsonFormat2`, no custom reader). */
-  implicit val patchSetFormat: RootJsonFormat[PatchSet] = jsonFormat2(PatchSet.apply)
+  implicit val patchSetFormat: RootJsonFormat[PatchSet] = new RootJsonFormat[PatchSet] {
+    private val base = jsonFormat3(PatchSet.apply)
+    def write(p: PatchSet): JsValue = base.write(p)
+
+    /** `proposalId` is read leniently: a non-string value from a model is dropped rather than failing the decode.
+     *  Its UUID shape is enforced only where it is consumed (apply), never here, because this format also decodes
+     *  preview, refinement and `propose_patch_set` input. */
+    def read(json: JsValue): PatchSet = json match {
+      case JsObject(fields) =>
+        base.read(JsObject(fields.get("proposalId") match {
+          case Some(_: JsString) | None => fields
+          case Some(_)                  => fields - "proposalId"
+        }))
+      case other => base.read(other)
+    }
+  }
 }
