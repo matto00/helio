@@ -264,7 +264,8 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   }
 
   /** The submitter is the pipeline's owner, or holds an `editor` grant on it (same predicate as
-    * `PipelineRepository.findGrantRole`, evaluated in the caller's transaction). */
+    * `PipelineRepository.findGrantRole`, evaluated in the caller's transaction). Private; the preview-side owner-or-editor
+    * check is `PipelineRepository.checkPreviewAccessInternal` (HEL-1516), which encodes the same predicate. */
   private def submitterMayRunAction(pipelineId: PipelineId, ownerUuid: UUID, submitter: AuthenticatedUser): DBIO[Boolean] = {
     val submitterUuid = UUID.fromString(submitter.id.value)
     if (submitterUuid == ownerUuid) DBIO.successful(true)

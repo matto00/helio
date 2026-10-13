@@ -399,13 +399,13 @@ describe("HelioApi layout methods (HEL-1071)", () => {
   it("updateDashboardLayout PATCHes /api/dashboards/:id with ONLY the breakpoints passed (no copy-to-all)", async () => {
     const { api, calls } = harness();
     const xs = [{ panelId: "a", x: 0, y: 0, w: 2, h: 3 }];
-    await api.updateDashboardLayout("dash-1", { xs });
+    await api.updateDashboardLayout("dash-1", { xs }, 4);
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.init.method).toBe("PATCH");
     expect(calls[0]?.url).toBe("https://helio.test/api/dashboards/dash-1");
     const body = JSON.parse(calls[0]?.init.body as string);
-    expect(body).toEqual({ layout: { xs } });
+    expect(body).toEqual({ layout: { xs }, expectedLayoutVersion: 4 });
     expect(Object.keys(body.layout)).toEqual(["xs"]);
   });
 
@@ -418,5 +418,13 @@ describe("HelioApi layout methods (HEL-1071)", () => {
     expect(calls[0]?.url).toBe("https://helio.test/api/dashboards/dash-1/auto-layout");
     expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ items, breakpoint: "xs" });
     expect("breakpoint" in JSON.parse(calls[1]?.init.body as string)).toBe(false);
+    expect("expectedLayoutVersion" in JSON.parse(calls[1]?.init.body as string)).toBe(false);
+  });
+
+  it("autoLayoutDashboard sends expectedLayoutVersion only when given (HEL-1524)", async () => {
+    const { api, calls } = harness();
+    const items = [{ panelId: "a", w: 1, h: 2 }];
+    await api.autoLayoutDashboard("dash-1", items, undefined, undefined, 0);
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({ items, expectedLayoutVersion: 0 });
   });
 });

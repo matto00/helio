@@ -1,0 +1,19 @@
+# HEL-1524 layout precondition seam check  base=http://localhost:9863  strip=true
+user 45d730e6-b2a5-4aa4-b9b9-477df681b64b hel1524-seam-1791881939484-8c4b38@example.test (throwaway)
+PASS  D1 get_dashboard exposes numeric layoutVersion
+agent reads layoutVersion N=2
+PASS  second writer (with current version) succeeds
+PASS  second write bumped layoutVersion
+FAIL  stale update_dashboard_layout -> layout_conflict error result  "{\n  \"appearance\": {\n    \"background\": \"transparent\",\n    \"gridBackground\": \"transparent\"\n  },\n  \"id\": \"447e12f8-7343-4456-8ee3-ba696a79093e\",\n  \"layout\": {\n    \"lg\": [\n      {\n        \"h\": 3,\n        \"panelId\": \"971894f1-0a9b-40cb-82c4-5f64514b5636\",\n        \"w\": 6,\n        \"x\": 6,\n        \"y\": 0\n  "
+FAIL  conflict carries current dashboard with newer layoutVersion  undefined
+FAIL  conflict dashboard.layout.lg is the second writer's  undefined
+PASS  exactly one PATCH sent for the stale call (no retry)
+FAIL  stored lg layout still equals the second writer's (stale write did not land)  {"stored":"[{\"h\":3,\"panelId\":\"971894f1-0a9b-40cb-82c4-5f64514b5636\",\"w\":6,\"x\":6,\"y\":0}]","otherLg":"[{\"h\":3,\"panelId\":\"fbdbb7b8-036d-43ef-b07e-bb379d12e80c\",\"w\":6,\"x\":0,\"y\":0}]"}
+PASS  re-call with dashboard.layoutVersion succeeds
+FAIL  stale auto_layout_dashboard -> layout_conflict with current dashboard  "{\n  \"appearance\": {\n    \"background\": \"transparent\",\n    \"gridBackground\": \"transparent\"\n  },\n  \"id\": \"447e12f8-7343-4456-8ee3-ba696a79093e\",\n  \"layout\": {\n    \"lg\": [\n      {\n        \"h\": 3,\n        \"panelId\": \"fbdbb7b8-036d-43ef-b07e-bb379d12e80c\",\n        \"w\": 6,\n        \"x\": 0,\n        \"y\": 0\n  "
+PASS  auto_layout_dashboard without a version still works (optional)
+apply_patch_set stale result: { "edits": [], "failure": "This dashboard's layout was changed elsewhere; the layout was not saved." }
+PASS  stale apply_patch_set: failure string, no applicationId (omitted on the wire), not an error result
+PASS  layout unchanged after the stale patch set
+PASS  throwaway user deleted by exact (id, email)
+RESULT: RED (5 failed)

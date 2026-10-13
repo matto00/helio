@@ -73,6 +73,7 @@ describe("applyCombinedProposalHandler", () => {
           },
           appearance: { background: "transparent", gridBackground: "transparent" },
           layout: { lg: [], md: [], sm: [], xs: [] },
+          layoutVersion: 0,
           ownerId: "user-1",
         },
         panels: [],
