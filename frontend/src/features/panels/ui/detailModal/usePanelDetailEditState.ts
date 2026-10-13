@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   isDividerPanel,
@@ -10,9 +10,8 @@ import {
   isTextPanel,
 } from "../../state/panelNarrowing";
 import { clampTransparency } from "../../../../theme/appearance";
-import type { ChartAppearance, Panel } from "../../types/panel";
+import type { Panel } from "../../types/panel";
 import type { PanelEditorHandle } from "../editors/editorTypes";
-import { buildInitialChart } from "./panelDetailChartState";
 
 export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edit") {
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
@@ -29,13 +28,11 @@ export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edi
   const initialBackground = panel.appearance.background;
   const initialColor = panel.appearance.color;
   const initialTransparency = Math.round(clampTransparency(panel.appearance.transparency) * 100);
-  const initialChart = useMemo(() => buildInitialChart(panel), [panel]);
 
   const [title, setTitle] = useState(initialTitle);
   const [background, setBackground] = useState(initialBackground);
   const [color, setColor] = useState(initialColor);
   const [transparency, setTransparency] = useState(initialTransparency);
-  const [chartAppearance, setChartAppearance] = useState<ChartAppearance>(initialChart);
 
   // ── Subtype editor refs (only one is mounted at a time, content-kind
   //    panels only — an output-kind panel has no CONTENT subtype editor, see
@@ -83,7 +80,6 @@ export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edi
     setBackground(panel.appearance.background);
     setColor(panel.appearance.color);
     setTransparency(Math.round(clampTransparency(panel.appearance.transparency) * 100));
-    setChartAppearance(buildInitialChart(panel));
     activeEditorRef()?.current?.reset();
     // activeEditorRef is recomputed inside the effect; safe to omit
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,8 +118,6 @@ export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edi
     setColor,
     transparency,
     setTransparency,
-    chartAppearance,
-    setChartAppearance,
     markdownEditorRef,
     textEditorRef,
     imageEditorRef,

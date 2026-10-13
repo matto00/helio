@@ -215,7 +215,9 @@
      (evaluator live measurement at 390×844). They are reachable in every chart
      panel's edit flow (bar/line/pie/scatter share this markup), so lift them to
      the 44px tap minimum. The base rule already centers content (align-items:
-     center), so the checkbox + text stay vertically centred in the taller row. */
+     center), so the checkbox + text stay vertically centred in the taller row.
+     HEL-1395: the editor that rendered these rows was removed as dead code; the
+     rule stays because `PanelDetailModal.css.test.ts` pins it. */
   .panel-detail-modal__chart-label {
     min-height: 44px;
   }

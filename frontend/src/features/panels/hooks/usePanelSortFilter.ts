@@ -76,7 +76,7 @@ export interface PanelSortFilterResult {
  *  this session, and (task 7.3 live-UI finding) an EFFECT fires the same (undebounced — this is a
  *  one-time programmatic correction, not a keystroke stream) refetch once when that seeded
  *  default is itself genuinely active, so a persisted default is honored from first paint. NOTE:
- *  `output` here is a SEPARATE fetch (`PanelCard`'s own pre-existing `useOutputMeta(outputId)`,
+ *  `output` here is a SEPARATE fetch (`PanelCardBody`'s own pre-existing `useOutputMeta(outputId)`,
  *  reused — not a new network call) than the one `TableRenderer`'s own seed uses (via
  *  `OutputPanelContent`'s independently-resolving `useOutputMeta`); both requests target the SAME
  *  Output and typically resolve within the same tick, but the two can theoretically settle one

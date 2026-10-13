@@ -1,6 +1,6 @@
 // HEL-1189 tasks.md 4.4 — the two-click add flow, kind-offering parity with a mocked capability
 // contract, rebind, remove, and keyboard-only operation. `@testing-library/user-event` is not a
-// dependency in this codebase (see PanelCard.test.tsx's established convention) — keyboard
+// dependency in this codebase (see PanelCardHeader.refreshFullscreen.test.tsx's established convention) — keyboard
 // operability is exercised via `fireEvent.keyDown` against `Select`'s own hand-rolled
 // `handleKeyDown` (real application logic, not a jsdom-faked browser affordance), asserting on
 // resulting DOM state rather than `toHaveFocus()` (MISTAKES.md: jsdom cannot see focus).
@@ -211,7 +211,7 @@ describe("OutputControlsEditor", () => {
       expect(screen.getByRole("combobox", { name: "Add control" })).toBeInTheDocument(),
     );
     const trigger = screen.getByRole("combobox", { name: "Add control" });
-    // Real, focusable, non-disabled trigger — reachable by Tab (PanelCard.test.tsx convention).
+    // Real, focusable, non-disabled trigger — reachable by Tab (PanelCardHeader.refreshFullscreen.test.tsx convention).
     expect(trigger.tagName).toBe("BUTTON");
     expect(trigger).not.toHaveAttribute("tabindex", "-1");
     expect(trigger).not.toBeDisabled();

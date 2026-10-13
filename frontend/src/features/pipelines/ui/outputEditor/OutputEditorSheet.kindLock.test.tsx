@@ -87,7 +87,7 @@ describe("OutputEditorSheet -- Kind is locked in edit mode (HEL-1388)", () => {
     expect(kind).toHaveAccessibleDescription(REASON);
   });
 
-  // `@testing-library/user-event` is not a dependency (see PanelCard.test.tsx), so there is no
+  // `@testing-library/user-event` is not a dependency (see PanelCardHeader.refreshFullscreen.test.tsx), so there is no
   // `userEvent.tab()` walk: instead assert native `disabled` (what removes a control from the
   // browser tab order) and that jsdom refuses focus() on it -- a disabled button cannot take focus.
   it("opens no listbox on click/keyboard and cannot take focus", async () => {
