@@ -60,7 +60,7 @@ final class PanelRoutes(
       panel,
       layout  = Some(wire(placed.lg)),
       layouts = Some(PanelLayoutsResponse(wire(placed.lg), wire(placed.md), wire(placed.sm), wire(placed.xs)))
-    )
+    ).copy(layoutVersion = placed.layoutVersion)
   }
 
   val routes: Route =
@@ -82,7 +82,12 @@ final class PanelRoutes(
           post {
             entity(as[CreatePanelsBatchRequest]) { request =>
               ServiceResponse.run(panelService.batchCreate(request, user)) { created =>
-                StatusCodes.Created -> CreatePanelsBatchResponse(created.map { case (p, placed) => placedResponse(p, placed) })
+                StatusCodes.Created -> CreatePanelsBatchResponse(
+                  // The batch is one placement transaction, so every item carries the same version; the
+                  // items do not repeat it (HEL-1525 D2).
+                  created.map { case (p, placed) => placedResponse(p, placed).copy(layoutVersion = None) },
+                  created.headOption.flatMap(_._2.layoutVersion)
+                )
               }
             }
           }

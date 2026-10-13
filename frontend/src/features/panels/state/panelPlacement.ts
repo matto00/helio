@@ -3,7 +3,8 @@
 // breakpoint's own bottom and returns them in `layouts`; the client appends exactly those to its own
 // breakpoint arrays (HEL-1071: never project the lg item into md/sm/xs, which collapses columns into
 // the same cell). It must run BEFORE the panel list is refetched, so the owner repair never sees a
-// live panel without an item.
+// live panel without an item. The response's `layoutVersion` (HEL-1525) is passed along as a CANDIDATE only;
+// the slice and `useLayoutSave` adopt it when it is provably consecutive (see their comments).
 
 import type { Dispatch } from "@reduxjs/toolkit";
 
@@ -34,6 +35,7 @@ export function adoptPlacedLayouts(
         sm: withPanel("sm"),
         xs: withPanel("xs"),
       },
+      placedLayoutVersion: created.layoutVersion,
     }),
   );
 }

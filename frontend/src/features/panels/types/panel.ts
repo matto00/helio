@@ -294,6 +294,9 @@ interface PanelBase {
   /** Authoritative per-breakpoint placement of a newly created Output panel (HEL-1071), the item the
    *  server stored in each breakpoint. `layout` above is the lg item, kept for compatibility. */
   layouts?: Record<"lg" | "md" | "sm" | "xs", { x: number; y: number; w: number; h: number }>;
+  /** HEL-1525: the dashboard's layout version right after the create/duplicate placement committed; present
+   *  only on those two responses. The client adopts it only when it is exactly one past its own store version. */
+  layoutVersion?: number;
 }
 
 export interface OutputPanel extends PanelBase {
