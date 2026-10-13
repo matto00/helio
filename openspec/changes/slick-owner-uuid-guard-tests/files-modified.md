@@ -1,0 +1,23 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — `owner_id` column and `DataSourceRow.ownerId` are `UUID`; fallbacks dropped; row conversion deferred into the DBIO (`insertRowAction`); stale "ownerless" doc removed
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineCycleGuard.scala` — non-optional owner in `resolveDisplayNamesAction`
+- `backend/src/main/scala/com/helio/services/sources/RestSourceConnectorMigration.scala` — ownerless branch and its header doc removed; `migrateOne` takes a `UUID`
+- `backend/src/test/scala/com/helio/services/sources/RestSourceConnectorMigrationSpec.scala` — `seedLegacyRestSource` takes a non-optional owner; comment about the removed branch corrected
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V119MigrationHarness.scala` — new shared harness trait extracted from the V119 spec
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V119OwnerFkCleanupSpec.scala` — new: the two cleanup scenarios
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V119OwnerFkGuardSpec.scala` — new: six guard-abort tests (adds lookup, union) plus live-mention negative (extended with lookup/union)
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V119OwnerFkMigrationSpec.scala` — slimmed to the post-V119 insert/delete group and the inventory-doc test (name kept)
+- `backend/src/test/scala/com/helio/infrastructure/persistence/StoredObjectDeletionsMigrationSpec.scala` — comment-only: Flyway role-shape reference retargeted to `V119MigrationHarness`
+- `backend/src/test/scala/com/helio/infrastructure/persistence/sources/DataSourceRepositoryEmptyOwnerSpec.scala` — new: empty owner yields a failed Future, no synchronous throw, no row (`insert`, `insertDatasetSource`)
+- `openspec/changes/slick-owner-uuid-guard-tests/specs/user-reference-integrity/spec.md` — spec delta (per-reference-kind guard scenarios)
+- `openspec/changes/slick-owner-uuid-guard-tests/tasks.md` — tasks ticked
+- `openspec/changes/slick-owner-uuid-guard-tests/sql-parity.md` — evidence: grep, base-vs-head SQL, regression runs
+- `openspec/changes/slick-owner-uuid-guard-tests/mutation-runs.md` — evidence: six V119 mutations, eager-conversion mutation, restore proof
+- `openspec/changes/slick-owner-uuid-guard-tests/.openspec.yaml` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/ticket.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/proposal.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/design.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/skeptic-design-1.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/skeptic-design-2.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/evaluation-1.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/skeptic-final-1.md` — planning artifact / gate report
+- `openspec/changes/slick-owner-uuid-guard-tests/files-modified.md` — planning artifact / gate report

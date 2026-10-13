@@ -47,7 +47,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  HEL-237's regression fix. */
   private def rowToDomain(row: DataSourceRow): DataSource = {
     val id         = DataSourceId(row.id)
-    val ownerId    = row.ownerId.map(uid => UserId(uid.toString)).getOrElse(UserId(""))
+    val ownerId    = UserId(row.ownerId.toString)
     row.sourceType match {
       case DataSourceKind.Csv =>
         val cfg = DataSourceConfigCodec.decodeCsv(row.config)
@@ -111,7 +111,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       config         = configJson,
       createdAt      = ds.createdAt,
       updatedAt      = ds.updatedAt,
-      ownerId        = if (ds.ownerId.value.isEmpty) None else Some(UUID.fromString(ds.ownerId.value)),
+      ownerId        = UUID.fromString(ds.ownerId.value),
       tag            = ds.tag,
       inferredSchema = ds.inferredSchema
     )
@@ -219,8 +219,17 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  The row's `owner_id` must equal `user.id` — callers are responsible for
    *  building the `DataSource` with the correct `ownerId` before calling this. */
   def insert(source: DataSource, user: AuthenticatedUser): Future[DataSource] =
-    ctx.withUserContext(user.id.value)(table += domainToRow(source))
-      .map(_ => source)
+    ctx.withUserContext(user.id.value)(insertRowAction(source)).map(_ => source)
+
+  /** The `data_sources` row insert, with the domain-to-row conversion DEFERRED into the DBIO chain (HEL-1433 D1).
+   *  `owner_id` is a non-optional UUID, so converting a malformed or empty owner throws; evaluated eagerly that would
+   *  escape as a synchronous exception out of the caller (`withUserContext` takes its action by value). Deferring it
+   *  keeps the pre-HEL-1433 failure mode: the caller gets a FAILED Future and no row is written. */
+  private def insertRowAction(source: DataSource, inferredSchema: Option[Vector[SchemaField]] = None): DBIO[Int] =
+    DBIO.successful(()).flatMap { _ =>
+      val row = domainToRow(source)
+      table += inferredSchema.fold(row)(schema => row.copy(inferredSchema = schema))
+    }
 
   /** Update name + config + updatedAt in user context.
    *
@@ -308,9 +317,9 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  explicit, named RLS-context choice for a credential-bearing migration. */
   /** HEL-822: all `rest_api` rows, regardless of owner, raw config — feeds
    *  `RestSourceConnectorMigration`'s startup scan. Privileged (system context); the
-   *  migration itself decides per-row whether/how to touch a row (owned, ownerless,
+   *  migration itself decides per-row whether/how to touch a row (owned,
    *  malformed, already-migrated). */
-  def findAllRestApiRawInternal(): Future[Vector[(String, Option[UUID], String, String)]] =
+  def findAllRestApiRawInternal(): Future[Vector[(String, UUID, String, String)]] =
     ctx.withSystemContext(table.filter(_.sourceType === DataSourceKind.RestApi).result)
       .map(_.map(r => (r.id, r.ownerId, r.name, r.config)).toVector)
 
@@ -367,7 +376,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       DatasetRowRow(UUID.randomUUID().toString, source.id.value, idx.toLong, JsArray(row).compactPrint, source.createdAt, source.createdAt)
     }
     for {
-      _ <- table += domainToRow(source).copy(inferredSchema = inferredSchema)
+      _ <- insertRowAction(source, Some(inferredSchema))
       _ <- rowsTable ++= rowInserts
       _ <- table.filter(_.id === source.id.value).map(_.datasetSchema).update(Some(declaredColumns.toJson.compactPrint))
     } yield ()
@@ -1141,7 +1150,7 @@ object DataSourceRepository {
       config: String,
       createdAt: Instant,
       updatedAt: Instant,
-      ownerId: Option[UUID],
+      ownerId: UUID,
       tag: Option[String] = None,
       inferredSchema: Vector[SchemaField] = Vector.empty
   )
@@ -1156,7 +1165,7 @@ object DataSourceRepository {
     def config     = column[String]("config")(jsonbStringType)
     def createdAt  = column[Instant]("created_at")
     def updatedAt  = column[Instant]("updated_at")
-    def ownerId    = column[Option[UUID]]("owner_id")
+    def ownerId    = column[UUID]("owner_id")
     def tag        = column[Option[String]]("tag")
     def inferredSchema = column[Vector[SchemaField]]("inferred_schema")
     // HEL-1074 design.md Decision 9: deliberately NOT part of `DataSourceRow`/the `*` projection
