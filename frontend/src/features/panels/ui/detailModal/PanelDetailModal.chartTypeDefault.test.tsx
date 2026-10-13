@@ -27,6 +27,7 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
   listOutputPanels: jest.fn(() => Promise.resolve([])),
   getDistinctValues: jest.fn(() => Promise.resolve({ values: [] })),
+  getFilterCapabilities: jest.fn(() => Promise.resolve({ columns: [] })),
 }));
 
 // Wrap the real editor and capture the chartAppearance the modal hands it.

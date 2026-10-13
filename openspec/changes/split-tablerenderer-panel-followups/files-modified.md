@@ -1,0 +1,21 @@
+- `frontend/src/features/panels/ui/renderers/TableRenderer.tsx` — host shrunk 903 -> 299 lines; calls the two new hooks in the original slots (commit 1)
+- `frontend/src/features/panels/ui/renderers/tableRendererProps.ts` — new: TableRendererProps interface moved verbatim (+export)
+- `frontend/src/features/panels/ui/renderers/tableRendererModel.ts` — new: pure helpers, UNSORTED_SENTINEL, getSortValue moved verbatim (+export)
+- `frontend/src/features/panels/ui/renderers/tableRendererPersistence.ts` — new: PERSIST_DEBOUNCE_MS and the three persist* functions moved verbatim (+export)
+- `frontend/src/features/panels/ui/renderers/useTableRows.ts` — new: row/column/filter/sort derivation hook (verbatim body + signature/return)
+- `frontend/src/features/panels/ui/renderers/useTablePersistedState.ts` — new: persist timers, pin state, flush effect and handlers hook (verbatim body + signature/return)
+- `frontend/src/features/panels/ui/PanelCard.filterEmptyState.test.tsx` — comment-only: stale PanelContent.tsx:372 pointer (commit 2)
+- `frontend/src/features/panels/ui/renderers/TableRenderer.test.tsx` — comment-only: production caller is OutputPanelContent.tsx; getValue pointer re-pointed to useTableRows.ts
+- `frontend/src/features/panels/ui/renderers/columnFormatting.ts` — comment-only: TableRenderer.tsx:243 pointer re-pointed to useTableRows.ts
+- `frontend/src/features/panels/ui/renderers/ChartRenderer.tsx` — comment-only: static importer is ChartOutputPanel.tsx
+- `frontend/src/features/panels/ui/PanelContent.css` — comment-only: Spinner lives in TableRenderer.tsx only
+- `openspec/specs/write-path-audit/spec.md` — Source Locations table: 7 dead paths re-pointed; cycle 2: panelsSlice.ts row now names panelThunks.ts
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.chartTypeDefault.test.tsx` — mock getFilterCapabilities (clears 2 AggregateErrors) (commit 3)
+- `frontend/src/shared/ui/useScrollEdges.ts` — additive vertical axis: top, bottom, overflowingY (commit 4)
+- `frontend/src/shared/ui/useScrollEdges.test.tsx` — vertical-axis cases
+- `frontend/src/features/panels/ui/detailModal/EditFormScrollArea.tsx` — new: owns useScrollEdges, renders the edit form plus the fade overlay
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` — edit form rendered through EditFormScrollArea
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.css` — scroll-area wrapper and overlay fade rules; cycle 2: `.panel-detail-modal__inner` height now `calc(100% + 2 * var(--space-5))` so the scroll viewport reaches the footer divider
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.editScrollFade.test.tsx` — new: view->edit overlay test (red under host-level hook mutation)
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — pins the 3 new vertical scroll-fade declarations
+- `DESIGN.md` — shadow paragraph reworded for the three vertical scroll-fade values

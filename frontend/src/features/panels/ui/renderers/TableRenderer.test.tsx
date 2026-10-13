@@ -1025,7 +1025,7 @@ describe("TableRenderer — column formatting renders + sort/filter guards (HEL-
   // Design D4/task 4.1a — every assertion below over a formatted column's
   // RENDERED TEXT pins locale AND timezone explicitly (evaluation-1.md
   // change request 1). `TableRenderer`'s `formatIntl` prop is TEST-ONLY (see its
-  // doc comment) — production (`PanelContent.tsx`) never sets it, so
+  // doc comment) — production (`OutputPanelContent.tsx`) never sets it, so
   // production keeps `Intl`'s locale-aware runtime defaults; passing it
   // here anchors these assertions instead of letting them inherit the
   // host's locale, matching `columnFormatting.test.ts`'s own pin.
@@ -1080,7 +1080,7 @@ describe("TableRenderer — column formatting renders + sort/filter guards (HEL-
   // lexically) must still order NUMERICALLY when sorted.
   //
   // MUTATION-FAILABLE at the CALL SITE (design D1b), verified by hand: with
-  // `TableRenderer.tsx:243`'s `getValue: (row) => getSortValue(row[col.key])`
+  // `useTableRows.ts`'s `sortColumns` `getValue: (row) => getSortValue(row[col.key])`
   // temporarily re-pointed at `formatColumnValue(columnFormats[col.key],
   // row[col.key])`, this assertion goes RED — the currency column's numbers
   // become the strings "$9.99"/"$1,234.56" and sort lexically, putting
