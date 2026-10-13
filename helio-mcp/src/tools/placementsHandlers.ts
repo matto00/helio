@@ -11,7 +11,9 @@
  */
 
 import type { HelioApi } from "../helioApi.js";
+import { HelioLayoutConflictError } from "../httpClient.js";
 import type { PanelResponse } from "../types.js";
+import { PlaceOutputsPackConflictError } from "./layoutConflict.js";
 
 export interface PlaceOutputsItem {
   outputId: string;
@@ -36,7 +38,7 @@ export interface PlaceOutputsItem {
 export async function placeOutputsHandler(
   api: HelioApi,
   input: { dashboardId: string; items: PlaceOutputsItem[] },
-): Promise<{ panels: PanelResponse[] }> {
+): Promise<{ panels: PanelResponse[]; layoutVersion?: number }> {
   const created = await api.placeOutputs(
     input.dashboardId,
     input.items.map((item) => ({ outputId: item.outputId, title: item.title })),
@@ -50,14 +52,30 @@ export async function placeOutputsHandler(
     );
 
   if (sizedItems.length > 0) {
-    await api.autoLayoutDashboard(
-      input.dashboardId,
-      sizedItems.map(({ item, panel }) => ({
-        panelId: panel.id,
-        w: item.w ?? 4,
-        h: item.h ?? 4,
-      })),
-    );
+    // No precondition (HEL-1524 D5): this pack positions only panels this call just created, and
+    // those creates bumped the version, so any version the agent holds is stale by construction.
+    // A conflict is surfaced (never retried) with the panels that were created but not positioned.
+    try {
+      const packed = await api.autoLayoutDashboard(
+        input.dashboardId,
+        sizedItems.map(({ item, panel }) => ({
+          panelId: panel.id,
+          w: item.w ?? 4,
+          h: item.h ?? 4,
+        })),
+      );
+      if (typeof packed?.layoutVersion === "number") {
+        return { ...created, layoutVersion: packed.layoutVersion };
+      }
+    } catch (err) {
+      if (err instanceof HelioLayoutConflictError) {
+        throw new PlaceOutputsPackConflictError(
+          err,
+          created.panels.map((p) => p.id),
+        );
+      }
+      throw err;
+    }
   }
 
   return created;

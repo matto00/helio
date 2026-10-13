@@ -39,23 +39,30 @@ object AnalyzeSchemaWarnings {
   val FieldNotInInputSchema: String = "field-not-in-input-schema"
   val JoinKeyTypeMismatch: String   = "join-key-type-mismatch"
   val JoinColumnRenamed: String     = "join-column-renamed"
-  val NumericOpOnTextField: String  = "numeric-op-on-text-field"
+  val NumericOpOnTextField: String       = ComputeTypeWarnings.NumericOpOnTextField
+  val TextFunctionOnNumericField: String = ComputeTypeWarnings.TextFunctionOnNumericField
+  val LiteralTypeMismatch: String        = ComputeTypeWarnings.LiteralTypeMismatch
 
   final case class Warning(stepId: String, code: String, message: String)
 
   /** Completeness of a node's OUTPUT (or of the root, for an input). `names`: every column name
    *  that exists at run time is in the projection. `types`: the projected types equal the
-   *  run-time value classes (positively defined: only [[typeTrusted]] ops preserve it). */
-  private final case class Flags(names: Boolean, types: Boolean)
+   *  run-time value classes (positively defined: only [[typeTrusted]] ops preserve it).
+   *  `untrusted` (HEL-1455): when `types` holds, every column is trusted except these (columns a `compute` wrote). */
+  private final case class Flags(names: Boolean, types: Boolean, untrusted: Set[String] = Set.empty)
   private final case class Secondary(schema: Vector[SchemaField], flags: Flags, viaLane: Boolean)
 
   private val Incomplete = Flags(names = false, types = false)
+
+  /** Whether `column` of an input described by `flags` has a type trusted to equal its run-time value class. */
+  private def columnTrusted(flags: Flags, column: String): Boolean = flags.types && !flags.untrusted.contains(column)
   private val MaxListedFields = 20
 
   /** Ops whose projected output types equal the run-time classes they produce (pass-through, or
    *  authoritative at run time). Confirmed against each op's runtime step (task 1.3). `compute`
+   *  preserves the trust of the columns it passes through and makes only the column it writes untrusted
    *  (its projected type comes from `ExpressionEvaluator.inferType`, which is not proven to equal
-   *  the evaluator's run-time value class -- e.g. numeric coercion in `+`), `fillnull` (a
+   *  the evaluator's run-time value class -- e.g. numeric coercion in `+`; HEL-1455), `fillnull` (a
    *  `constant` fill writes the raw string; mean/median write a Double), `datebucket`, `window`,
    *  `aggregate`/`groupby` (group-by `type` is informational), `union`, `pivot`/`unpivot` and every
    *  AI/text op are deliberately NOT trusted. `cast` is trusted per-config ([[castTrusted]]),
@@ -113,19 +120,31 @@ object AnalyzeSchemaWarnings {
                 case _                     => in.names
               }
               val types = names && in.types && typesPreserved(step, sec)
-              Flags(names, types)
+              Flags(names, types, if (types) untrustedAfter(step, in, sec) else Set.empty)
             }
         }
       })
 
     def typesPreserved(step: NodeStepInput, sec: Option[Secondary]): Boolean = step.op match {
+      case "compute"                      => Try(ComputeConfig.decode(step.config)).isSuccess
       case op if typeTrusted.contains(op) => true
       case "cast"                         => castTrusted(step.config)
-      case "join"                         => sec.exists(_.flags.types)
+      // A secondary with untrusted columns may land them (renamed `right_<name>`) in the output: stay conservative.
+      case "join"                         => sec.exists(s => s.flags.types && s.flags.untrusted.isEmpty)
       // A source-secondary lookup's projection used placeholder column types (analyzeNodes does not
       // see the source schema), so only a lane secondary keeps the output type-trusted.
-      case "lookup"                       => sec.exists(s => s.viaLane && s.flags.types && lookupColumnsResolved(step.config, s.schema))
+      case "lookup"                       => sec.exists(s => s.viaLane && s.flags.types && s.flags.untrusted.isEmpty && lookupColumnsResolved(step.config, s.schema))
       case _                              => false
+    }
+
+    // HEL-1455 per-column trust: a compute leaves its pass-through columns as trusted as they were and makes only
+    // the column it writes untrusted; the few ops that move or drop columns carry the set accordingly.
+    def untrustedAfter(step: NodeStepInput, in: Flags, sec: Option[Secondary]): Set[String] = step.op match {
+      case "compute" => Try(ComputeConfig.decode(step.config)).toOption.fold(in.untrusted)(in.untrusted + _.column)
+      case "rename"  => Try(RenameConfig.decode(step.config)).toOption.fold(in.untrusted)(c => in.untrusted.map(n => c.renames.getOrElse(n, n)))
+      case "select"  => Try(SelectConfig.decode(step.config)).toOption.fold(in.untrusted)(c => in.untrusted.intersect(c.fields.toSet))
+      case "cast"    => Try(CastConfig.decode(step.config)).toOption.fold(in.untrusted)(c => in.untrusted -- c.casts.keySet)
+      case _         => in.untrusted
     }
 
     val out = Vector.newBuilder[(Int, Warning)]
@@ -147,9 +166,10 @@ object AnalyzeSchemaWarnings {
           lookupKeyWarnings(step, a, in, sec).foreach(w => out += a.position -> w)
           lookupRenames(step, a, in, sec).foreach(w => out += a.position -> w)
         }
-        // Gated on trusted input TYPES: after a compute/fillnull/aggregate/untrusted cast the
-        // projected type may not equal the run-time class, and a guess would be a false positive.
-        if (step.op == "compute" && in.types) computeNumericWarnings(step, a).foreach(w => out += a.position -> w)
+        // Type-based warnings are gated on trusted input TYPES (per column, HEL-1455): after fillnull/aggregate/an
+        // untrusted cast, or for a column an earlier compute wrote, the projected type may not equal the run-time
+        // class and a guess would be a false positive. The literal warning needs no trust.
+        if (step.op == "compute") ComputeTypeWarnings(step, a, in.types, in.untrusted).foreach(w => out += a.position -> w)
       }
     }
     out.result().sortBy { case (pos, w) => (pos, w.stepId, w.code, w.message) }.map(_._2)
@@ -169,7 +189,7 @@ object AnalyzeSchemaWarnings {
         for {
           l <- leftField
           r <- rightField
-          if in.types && s.flags.types
+          if columnTrusted(in, key) && columnTrusted(s.flags, key)
           lf <- family(l.`type`)
           rf <- family(r.`type`)
           if lf != rf
@@ -204,7 +224,7 @@ object AnalyzeSchemaWarnings {
         for {
           l <- leftField
           r <- rightField
-          if in.types && s.flags.types
+          if columnTrusted(in, cfg.sourceKey) && columnTrusted(s.flags, cfg.lookupKey)
           lf <- family(l.`type`)
           rf <- family(r.`type`)
           if lf != rf
@@ -225,23 +245,6 @@ object AnalyzeSchemaWarnings {
         val keyOpt    = if (cfg.sourceKey == cfg.lookupKey) Some(cfg.lookupKey) else None
         val mapping   = JoinColumnNaming.resolveWithKey(a.inputSchema.map(_.name), requested, keyOpt)
         requested.flatMap(col => mapping.get(col).filter(_ != col).map(renamed => Warning(step.id, JoinColumnRenamed, renameMessage("lookup", col, renamed))))
-      }
-    }
-
-  private def computeNumericWarnings(step: NodeStepInput, a: AnalyzedStep): Vector[Warning] =
-    Try(ComputeConfig.decode(step.config)).toOption.fold(Vector.empty[Warning]) { cfg =>
-      val types = a.inputSchema.map(sf => sf.name -> sf.`type`).toMap
-      ExpressionEvaluator.numericContextTextFields(cfg.expression, types).map { case (field, contexts) =>
-        // A cast cannot help a timestamp: its string does not cast to a number, so point at the date functions.
-        val fix =
-          if (types(field) == "timestamp") "use seconds_between(end, start) for a time difference or add_days(ts, n) for an offset"
-          else "add a cast step before this step to convert it to a number"
-        Warning(
-          step.id,
-          NumericOpOnTextField,
-          s"compute: field '$field' is ${types(field)} in this step's inferred input schema but is used with ${contexts.mkString(", ")}; " +
-            s"every non-null row will compute null at run time -- $fix"
-        )
       }
     }
 

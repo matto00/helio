@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{OutputPreviewEntry, PipelinePreviewResponse, RunResultResponse}
 import com.helio.domain.model.{AssertionSink, AuthenticatedUser, OutputId, PipelineId, TruncationSink}
 import com.helio.domain.engine.{NodeDependencyClosure, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, StepKey}
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
@@ -105,6 +105,20 @@ private[pipelines] final class PipelineRunPreview(
         }
     }
 
+  /** HEL-1516 (design.md D3): re-verify, immediately before an execution, that `user` still holds the access the
+   *  preview required (`requireEditor`: an owner-or-editor closure with an enabled AI step; otherwise any grant) -- a
+   *  grant revoked, or a pipeline deleted, after `previewAtNode`'s ACL read answers 403 / 404 and `run` is never
+   *  invoked. The read is privileged and read-only (`PipelineRepository.checkPreviewAccessInternal`). */
+  private def guardedExecution[A](pipelineId: PipelineId, user: AuthenticatedUser, requireEditor: Boolean)(
+      run: => Future[Either[ServiceError, A]]
+  ): Future[Either[ServiceError, A]] =
+    pipelineRepo.checkPreviewAccessInternal(pipelineId, user, requireEditor).flatMap {
+      case PipelineRunRepository.RunAuthorization.Authorized    => run
+      case PipelineRunRepository.RunAuthorization.NotAuthorized => Future.successful(Left(ServiceError.Forbidden("Forbidden")))
+      case PipelineRunRepository.RunAuthorization.PipelineGone  =>
+        Future.successful(Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value)))
+    }
+
   /** Shared implementation for `previewStep`/`previewOutputs` -- `targetStepId = None` means
    *  "preview the pipeline's raw source rows" (an empty step slice); `Some(id)` walks the
    *  path-to-root ending at that step, exactly as `previewStep` always has. Never mutates run
@@ -139,9 +153,12 @@ private[pipelines] final class PipelineRunPreview(
         // Privileged: pipeline ACL is the authoritative gate. findByIdInternal is correct here.
         resolveAllRootDataSourcesInternal(pipelineId).flatMap {
           case roots if roots.isEmpty =>
-            Future.successful(Left(ServiceError.UnprocessableEntity(
-              "DataSource not found for pipeline: " + pipelineId.value
-            )))
+            // HEL-1516 (A3): roots cascade with the pipeline, so empty roots may mean it was deleted after the ACL read
+            // above (404, mirroring HEL-1503's executor) rather than a genuinely root-less pipeline (422).
+            pipelineRepo.findByIdInternal(pipelineId).map {
+              case None    => Left(ServiceError.NotFound("Pipeline not found: " + pipelineId.value))
+              case Some(_) => Left(ServiceError.UnprocessableEntity("DataSource not found for pipeline: " + pipelineId.value))
+            }
           case roots if targetStepId.isEmpty =>
             // Source-level preview (an Output bound directly to the pipeline's raw source, no
             // step): run the engine with an empty step slice, so `outcome.rows`/`outcome.nodeOutcomes`
@@ -175,6 +192,8 @@ private[pipelines] final class PipelineRunPreview(
                 val selectedRoot = rootId.flatMap(rid => roots.find(_._1 == rid)).getOrElse(roots.head)
                 val dataSource = selectedRoot._2
                 val truncationSink = new TruncationSink
+                // HEL-1516: re-verify access right before the source-level execution (any grant suffices).
+                guardedExecution(pipelineId, user, requireEditor = false) {
                 backend
                   .execute(pipeline, Vector(selectedRoot), Vector.empty, dataSourceRepo, new AssertionSink, truncationSink,
                     ownerUserId = Some(pipeline.ownerId.value))
@@ -195,6 +214,7 @@ private[pipelines] final class PipelineRunPreview(
                     logExecutionFailure(s"previewAtNode (source-level) failed for pipeline ${pipelineId.value}", ex)
                     Left(executionFailureError(ex))
                   }
+                }
             }
           case roots =>
             val dataSource = roots.head._2
@@ -241,14 +261,10 @@ private[pipelines] final class PipelineRunPreview(
                   // must too, else a disabled AI step would over-deny a viewer previewing an
                   // otherwise AI-free closure.
                   val closureHasEnabledAiStep = slicedSteps.exists(s => s.enabled && PipelineCostEstimator.AiOps.contains(s.kind))
-                  val authorizedForAi: Future[Boolean] =
-                    if (!closureHasEnabledAiStep) Future.successful(true)
-                    else if (pipeline.ownerId.value == user.id.value) Future.successful(true)
-                    else pipelineRepo.findGrantRole(pipelineId, user).map(_.contains("editor"))
-                  authorizedForAi.flatMap {
-                    case false =>
-                      Future.successful(Left(ServiceError.Forbidden("Forbidden")))
-                    case true =>
+                  // HEL-1516: this REPLACES the former pre-check (`authorizedForAi`): the same predicate (owner-or-editor
+                  // when the closure has an enabled AI step, any grant otherwise) is now re-verified right before
+                  // execution, so it also covers a grant revoked or a pipeline deleted since the ACL read above.
+                  guardedExecution(pipelineId, user, requireEditor = closureHasEnabledAiStep) {
                       // HEL-861 (design D8/task 2.2c): the step-preview site is the one call site
                       // design.md calls out by name -- it must construct and pass its OWN
                       // truncationSink here, mirroring the real-run site, or a preview whose

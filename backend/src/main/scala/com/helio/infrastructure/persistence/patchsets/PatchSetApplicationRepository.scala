@@ -64,6 +64,28 @@ class PatchSetApplicationRepository(ctx: DbContext)(implicit ec: ExecutionContex
     table.filter(r => r.ownerId === ownerUuid && !r.id.in(keepIds)).delete
   }
 
+  /** Apply-once claim (HEL-1522, V131): `true` when this call recorded `(owner, proposalId)`, `false` when the owner
+   *  had already claimed it. The primary key makes concurrent claims race-safe -- at most one insert wins. Runs in the
+   *  owner's user context so the FORCE-RLS owner policy's check is satisfied. */
+  def claimProposal(user: AuthenticatedUser, proposalId: String): Future[Boolean] =
+    ctx.withUserContext(user.id.value)(
+      sqlu"""INSERT INTO patch_set_applied_proposals (owner_id, proposal_id)
+             VALUES (${user.id.value}::uuid, $proposalId) ON CONFLICT DO NOTHING"""
+    ).map(_ > 0)
+
+  /** Releases a claim whose apply left no write behind. */
+  def releaseProposal(user: AuthenticatedUser, proposalId: String): Future[Unit] =
+    ctx.withUserContext(user.id.value)(
+      sqlu"DELETE FROM patch_set_applied_proposals WHERE owner_id = ${user.id.value}::uuid AND proposal_id = $proposalId"
+    ).map(_ => ())
+
+  /** Records which journaled application a claim produced. */
+  def attachApplication(user: AuthenticatedUser, proposalId: String, applicationId: String): Future[Unit] =
+    ctx.withUserContext(user.id.value)(
+      sqlu"""UPDATE patch_set_applied_proposals SET application_id = $applicationId
+             WHERE owner_id = ${user.id.value}::uuid AND proposal_id = $proposalId"""
+    ).map(_ => ())
+
   /** Owner-scoped findById — RLS-scoped via `withUserContext` AND an explicit `ownerId` filter
    *  (defense-in-depth, mirrors `AuthoringConversationRepository.findById`). A missing id, a
    *  foreign-owned id, and a pruned-away id are all indistinguishable: every one resolves to

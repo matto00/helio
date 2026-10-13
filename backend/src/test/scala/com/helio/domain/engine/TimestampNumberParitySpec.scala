@@ -176,7 +176,36 @@ class TimestampNumberParitySpec extends AnyWordSpec with Matchers {
       errorOf(inputs, "u", src) shouldBe None
     }
 
-    "KNOWN GAP (pinned): a source-kind secondary is not checked and keeps the parent type" in {
+    // HEL-1520. Red on base / under mutation M-proj (remove `union` from sourceDependencyOf).
+    "a source-kind secondary whose schema is supplied reports the collision and keeps the parent type" in {
+      val sourceUnion = NodeStepInput(
+        "u", Some("p"), 1, "union",
+        """{"secondaryInput":{"kind":"source","dataSourceId":"ds-1"},"mode":"byPosition"}""", Some("")
+      )
+      val u = PipelineAnalyzeService.analyzeNodes(
+        Vector(castIn("p", 0, "ts", "timestamp"), sourceUnion), Map("" -> tsSource),
+        Map("ds-1" -> Vector(SchemaField("ts", "integer")))
+      )("u")
+      u.validationError.getOrElse(fail("expected a validationError on the source union")) should
+        (include("ts") and include("timestamp") and include("integer"))
+      u.outputSchema.find(_.name == "ts").get.`type` shouldBe "timestamp"
+    }
+
+    // HEL-1520. Same mutation M-proj.
+    "a source-kind secondary with a timestamp field under a numeric parent also errors (reverse)" in {
+      val sourceUnion = NodeStepInput(
+        "u", Some("p"), 1, "union",
+        """{"secondaryInput":{"kind":"source","dataSourceId":"ds-1"},"mode":"byPosition"}""", Some("")
+      )
+      val u = PipelineAnalyzeService.analyzeNodes(
+        Vector(castIn("p", 0, "ts", "integer"), sourceUnion), Map("" -> tsSource),
+        Map("ds-1" -> Vector(SchemaField("ts", "timestamp")))
+      )("u")
+      u.validationError.getOrElse(fail("expected a validationError")) should include("ts")
+      u.outputSchema.find(_.name == "ts").get.`type` shouldBe "integer"
+    }
+
+    "GUARD: a source-kind secondary absent from the supplied map passes through with no error" in {
       val sourceUnion = NodeStepInput(
         "u", Some("p"), 1, "union",
         """{"secondaryInput":{"kind":"source","dataSourceId":"ds-1"},"mode":"byPosition"}""", Some("")

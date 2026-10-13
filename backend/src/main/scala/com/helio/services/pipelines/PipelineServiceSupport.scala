@@ -88,9 +88,10 @@ private[pipelines] final class PipelineServiceSupport(
   private[pipelines] def toWarningResponse(w: AnalyzeSchemaWarnings.Warning): AnalyzeWarningResponse =
     AnalyzeWarningResponse(stepId = w.stepId, code = w.code, message = w.message)
 
-  /** HEL-1236: pre-resolves the inferred schema of every `join` step's `source`-kind secondary
-   *  input so `PipelineAnalyzeService.analyzeNodes` can project the join's renamed columns
-   *  (`right_<name>`) instead of its left-schema passthrough. EVERY `analyzeNodes` call site in
+  /** HEL-1236 / HEL-1520: pre-resolves the inferred schema of every `join`, `union` (and, for schema
+   *  warnings, `lookup`) step's `source`-kind secondary input so `PipelineAnalyzeService.analyzeNodes` can
+   *  project the join's renamed columns (`right_<name>`) / the union's secondary-only columns instead of
+   *  the left-schema passthrough. EVERY `analyzeNodes` call site in
    *  this file funnels through here (no site keeps the passthrough). `resolve` is the caller's
    *  access policy: persisted-pipeline paths pass `findByIdInternal` (the pipeline ACL is the
    *  gate, exactly as `JoinStep.evaluate` resolves it); the un-applied-proposal path passes the

@@ -8,6 +8,7 @@ import com.helio.api.protocols.pipelines.{ExpressionValidationResponse, NodeCapa
 import com.helio.api.protocols.pipelines.{PipelineAnalyzeConciseResponse, PipelineLaneTreeNode}
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Output, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import com.helio.domain.engine.{InvalidGraph, LaneReferenceError}
+import com.helio.domain.pipelines.LaneCycleViolations
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineRootRepository, PipelineStepRepository, ReparentRejected}
@@ -353,21 +354,29 @@ object PipelineService {
       ancestorChainIds: Set[String],
       // HEL-1515: the referencing step's own descendants (parent-chain), which the run could never schedule.
       descendantIds: Set[String],
+      // HEL-1521: steps that depend on the referencing step through lane links (a superset of the descendants).
+      dependentIds: Set[String],
       selfId: Option[String]
   ): Either[ServiceError, Unit] =
     PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
       case None => Right(())
       case Some(dep) =>
-        if (selfId.contains(dep))
+        // The relation comes from LaneCycleViolations.relationOf; only the missing-step 422 sits between self and
+        // ancestor, so the status precedence of every pre-existing case is unchanged.
+        val relation = LaneCycleViolations.relationOf(dep, selfId, ancestorChainIds, descendantIds, dependentIds)
+        if (relation.contains(LaneCycleViolations.Itself))
           Left(ServiceError.BadRequest(s"Lane reference '$dep' cannot reference the step itself."))
         else if (!pipelineSteps.exists(_.id.value == dep))
           Left(ServiceError.UnprocessableEntity(s"Lane reference '$dep' does not exist in this pipeline."))
-        else if (ancestorChainIds.contains(dep))
-          Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
-        else if (descendantIds.contains(dep))
-          Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is a descendant of this step)."))
-        else
-          Right(())
+        else relation match {
+          case Some(LaneCycleViolations.Ancestor) =>
+            Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is an ancestor of this step)."))
+          case Some(LaneCycleViolations.Descendant) =>
+            Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it is a descendant of this step)."))
+          case Some(LaneCycleViolations.DependentViaLane) =>
+            Left(ServiceError.BadRequest(s"Lane reference '$dep' would create a cycle (it depends on this step through a lane link)."))
+          case _ => Right(())
+        }
     }
 
   /** HEL-1345 (design D1/D3): the splice anchor for a `rootId` create, as an index into THAT root's
@@ -409,23 +418,6 @@ object PipelineService {
           s"position must be between 0 and ${trunk.size} (this root's trunk length)"
         ))
     }
-  }
-
-  /** The ancestor-id chain (root-ward) starting at `parentStepId`, walked via
-   *  `pipelineSteps`' own `parentStepId` links. Pure -- shared by both `addStep` (the
-   *  new step's PROSPECTIVE parent, since it has no id yet) and `updateStep` (the
-   *  existing step's actual parent). */
-  private[pipelines] def ancestorChainOf(parentStepId: Option[PipelineStepId], pipelineSteps: Vector[PipelineStep]): Set[String] = {
-    val byId = pipelineSteps.map(s => s.id.value -> s).toMap
-    def loop(cur: Option[PipelineStepId], acc: Set[String]): Set[String] = cur match {
-      case None => acc
-      case Some(pid) =>
-        byId.get(pid.value) match {
-          case Some(p) => loop(p.parentStepId, acc + p.id.value)
-          case None    => acc
-        }
-    }
-    loop(parentStepId, Set.empty)
   }
 
   /** HEL-913 task 7.5 (R7 phase 1's lane-reference refusal): every step id descending from

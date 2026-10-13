@@ -18,6 +18,7 @@ import {
 } from "../services/patchSetService";
 import type {
   PatchSet,
+  PatchSetAlreadyAppliedRejection,
   PatchSetApplyResponse,
   PatchSetPreviewResponse,
   PatchSetStaleRejection,
@@ -243,7 +244,10 @@ export function invalidateAffectedState(
 export const applyPatchSet = createAsyncThunk<
   PatchSetApplyResponse,
   PatchSet,
-  { state: RootState; rejectValue: string | PatchSetStaleRejection }
+  {
+    state: RootState;
+    rejectValue: string | PatchSetStaleRejection | PatchSetAlreadyAppliedRejection;
+  }
 >("patchSets/applyPatchSet", async (patchSet, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await applyPatchSetRequest(patchSet);
@@ -259,6 +263,15 @@ export const applyPatchSet = createAsyncThunk<
     ) {
       const { message, staleTargets } = err.response.data as PatchSetStaleRejection;
       return rejectWithValue({ code: "PATCH_SET_STALE", message, staleTargets });
+    }
+    // HEL-1522: the proposal was already applied; nothing was applied now and a retry can never succeed.
+    if (
+      isAxiosError(err) &&
+      err.response?.status === 409 &&
+      err.response.data?.code === "PATCH_SET_ALREADY_APPLIED"
+    ) {
+      const { message } = err.response.data as PatchSetAlreadyAppliedRejection;
+      return rejectWithValue({ code: "PATCH_SET_ALREADY_APPLIED", message });
     }
     const serverMessage =
       isAxiosError(err) && typeof err.response?.data?.message === "string"

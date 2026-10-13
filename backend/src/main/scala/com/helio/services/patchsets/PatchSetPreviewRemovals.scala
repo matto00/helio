@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.domain.model._
+import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -43,13 +44,9 @@ private[patchsets] object PatchSetPreviewRemovals {
       case _ => Future.successful(overlay)
     }
 
-  /** The deleted step and its tail subtrees (every child but the lowest-positioned, which `deleteInternal` promotes). */
-  private def removedStepIds(id: PipelineStepId, rows: Vector[PipelineStep]): Set[String] = {
-    val children      = rows.filter(_.parentStepId.contains(id)).sortBy(_.position).drop(1)
-    val childrenOf    = rows.groupBy(_.parentStepId.map(_.value))
-    def subtree(root: PipelineStep): Vector[String] = root.id.value +: childrenOf.getOrElse(Some(root.id.value), Vector.empty).flatMap(subtree)
-    children.flatMap(subtree).toSet + id.value
-  }
+  /** The deleted step and its tail subtrees, by the same rule `deleteInternal` applies. */
+  private def removedStepIds(id: PipelineStepId, rows: Vector[PipelineStep]): Set[String] =
+    PipelineStepRepository.removalOf(id.value, rows.map(r => (r.id.value, r.parentStepId.map(_.value), r.position))).removed
 
   private def outputsRemoved(ctx: PatchSetApplyContext, outputIds: Seq[OutputId], overlay: PatchSetPreviewOverlay)(
       implicit ec: ExecutionContext
