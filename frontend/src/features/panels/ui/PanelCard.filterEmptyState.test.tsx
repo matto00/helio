@@ -2,7 +2,7 @@
 // required RED-FIRST proof (Iron Law: systematic-debugging.md): a table panel with a PERSISTED
 // filter that legitimately matches zero rows of a real, materialized Output must render
 // `TableRenderer`'s own "No rows match your filter." + "Clear filters" empty state, never
-// `PanelContent`'s generic top-level "No data available" short-circuit (`PanelContent.tsx:372`),
+// `PanelContent`'s generic top-level "No data available" short-circuit (`PanelContent.tsx`'s no-data branch),
 // which drops the filter UI and Clear-filters affordance entirely.
 
 import { screen } from "@testing-library/react";

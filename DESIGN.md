@@ -341,8 +341,11 @@ expanders without the spacing they were measured against.
   mechanism from the `--app-focus-ring` outline token, converging them is
   HEL-1022's remit) and scroll-fade edge insets (`inset Npx 0 Npx -Npx
 color-mix(...)`, in four distinct values across `DataGrid`/list tables/
-  `ConnectorsPage`). Neither carries a y-offset with a blur — the shape an
-  elevation shadow takes — so neither is drift; `frontend/src/theme/
+  `ConnectorsPage`, plus three vertical values — top, bottom, combined — on the
+  panel edit form's scroll-fade overlay in `PanelDetailModal.css`). Neither is an
+  elevation shadow — the rings are zero-blur and every inset is drawn INSIDE its
+  box (the vertical ones are y-offset blurs, but inset, so they never lift a
+  surface) — so neither is drift; `frontend/src/theme/
 elevationTokenGuard.css.test.ts` pins each declaration by exact file,
   text and count rather than exempting the properties wholesale.
 - Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
