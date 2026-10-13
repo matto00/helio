@@ -12,6 +12,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
+import { layoutConflictResult } from "./layoutConflict.js";
 import { createContentPanelHandler, placeOutputsHandler } from "./placementsHandlers.js";
 
 function jsonResult(value: unknown): CallToolResult {
@@ -22,6 +23,8 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
   try {
     return jsonResult(await produce());
   } catch (err) {
+    const conflict = layoutConflictResult(err);
+    if (conflict) return conflict;
     const message =
       err instanceof HelioApiError
         ? `${err.name} (status ${err.status}) for ${err.url}: ${err.message}`
