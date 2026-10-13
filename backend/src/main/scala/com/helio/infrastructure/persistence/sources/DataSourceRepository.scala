@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.sources
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.api.protocols.sources.{DataSourceConfigCodec, DatasetFieldDeclarationPayload}
 import com.helio.domain.engine.{DatasetRowValidator, DatasetSchemaMigration, PipelineRowJson, SchemaField, SchemaInferenceEngine}
 import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationResult, SchemaUpdateRejection}
@@ -260,8 +261,16 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  (`app.current_user_id` == `owner_id`), adding a DB-layer backstop.
    *  The app-layer ACL check (`findByIdOwned`) is still performed by callers
    *  before this method is invoked. */
-  def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] =
-    ctx.withUserContext(user.id.value)(table.filter(_.id === id.value).delete).map(_ > 0)
+  def delete(id: DataSourceId, user: AuthenticatedUser): Future[Boolean] = {
+    val owned = table.filter(r => r.id === id.value && r.ownerId === UUID.fromString(user.id.value))
+    // HEL-1498: the cascade through pipeline_roots reaches the Outputs (and their panels) bound to this source's
+    // roots, so once the owner check finds the row, lock those panels in id order before the DELETE.
+    val action = owned.map(_.id).result.headOption.flatMap {
+      case None      => DBIO.successful(0)
+      case Some(sid) => PanelRowLocks.lockForDeletion(dataSources = Seq(sid)) andThen owned.delete
+    }
+    ctx.withUserContext(user.id.value)(action.transactionally).map(_ > 0)
+  }
 
   /** HEL-1252: every persisted reference to `id` (pipeline roots, join/lookup/union secondary inputs,
    *  upsert targets, form-panel bindings) as seen by `user`: visible referencing resources by identity, hidden

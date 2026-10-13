@@ -22,18 +22,9 @@ private[panels] final class PanelBindingChecks(
    *  [[PlacementSizes.ContentDefault]]. */
   def defaultSizesFor(panel: Panel): Future[PlacementSizes] =
     panel match {
-      case outputPanel: OutputPanel =>
-        outputPanel.outputId match {
-          case None => Future.successful(PlacementSizes.ContentDefault)
-          case Some(outputId) =>
-            outputRepo.findByIdInternal(outputId).map {
-              case None         => PlacementSizes.ContentDefault
-              case Some(output) =>
-                val size = OutputPanelDefaultSize.forKind(output.kind)
-                PlacementSizes.scaledFromLg(ItemSize(size.w, size.h))
-            }
-        }
-      case _ => Future.successful(PlacementSizes.ContentDefault)
+      case outputPanel: OutputPanel if outputPanel.outputId.isDefined =>
+        outputRepo.findByIdInternal(outputPanel.config.outputId).map(output => PlacementSizes.forNewPanel(panel, output.map(_.kind)))
+      case _ => Future.successful(PlacementSizes.forNewPanel(panel, None))
     }
 
   // HEL-904 task 4.1: `rejectCompanionBinding` (enforce-pipeline-only-bindings,

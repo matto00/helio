@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
+import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
@@ -299,17 +300,26 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     findById(id, user).map(_.filter(_.ownerId == user.id))
 
   /** ACL-bypassing delete. Safe to call only after the caller's pipeline
-   *  access has been confirmed by the service layer. */
+   *  access has been confirmed by the service layer. Locks the panel rows the
+   *  `panels.output_id` cascade will remove first, in id order (HEL-1498). */
   def deleteInternal(id: OutputId): Future[Boolean] =
-    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
-
-  /** ACL-bypassing bulk delete of every Output attached to a node — the
-   *  cascade companion to `PipelineStepRepository`'s splice-on-delete
-   *  (task 1.6/1.7): deleting a tail step deletes its Outputs too. */
-  def deleteByNodeInternal(pipelineId: PipelineId, nodeStepId: PipelineStepId): Future[Int] =
     ctx.withSystemContext(
-      table.filter(r => r.pipelineId === pipelineId.value && r.nodeStepId === Option(nodeStepId.value)).delete
-    )
+      (PanelRowLocks.lockForDeletion(outputs = Seq(id.value)) andThen table.filter(_.id === id.value).delete).transactionally
+    ).map(_ > 0)
+
+  /** ACL-bypassing delete of an Output AND every panel bound to it, in ONE transaction (HEL-1498; was two, with
+   *  the cascade unlocked in the second): lock the panel rows in id order ([[PanelRowLocks]]), delete the panels
+   *  explicitly -- `RETURNING id`, so the ids actually removed are reported back (`DELETE /api/outputs/:id`) -- then
+   *  the Output row (the `panels.output_id` cascade then finds nothing left). Safe to call only after the caller's
+   *  ownership of the Output has been confirmed by the service layer. */
+  def deleteWithPanelsInternal(id: OutputId): Future[Vector[PanelId]] = {
+    val action = for {
+      _       <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
+      removed <- sql"DELETE FROM panels WHERE output_id = ${id.value} RETURNING id".as[String]
+      _       <- table.filter(_.id === id.value).delete
+    } yield removed.toVector.map(PanelId(_))
+    ctx.withSystemContext(action.transactionally)
+  }
 }
 
 object OutputRepository {

@@ -1,0 +1,44 @@
+- `backend/src/main/resources/db/migration/V129__lock_panels_for_deletion.sql` — SECURITY DEFINER `hel1498_lock_panels`: one id-ordered `FOR UPDATE` over every panel a delete can reach (RLS-bypassing); V129 = origin/main max (V128) + 1
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRowLocks.scala` — new Scala entry point `lockForDeletion` (one call per transaction, first write)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala` — `lockPanelRows` removed; `delete` uses `PanelRowLocks`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardContentsOps.scala` — HEL-1526/W1: required layout, panel lock, dashboard FOR UPDATE, write only the computed layout, return the re-read row
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardContentsService.scala` — passes the required layout
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelMutationRepository.scala` — W2 `batchUpdate`: id-ordered `FOR UPDATE` before the item loop
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRepository.scala` — dead unlocked `deleteByOutputIdInternal` removed
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` — W3 `deleteWithPanelsInternal` (one txn: lock, panels RETURNING id, output); `deleteInternal` locks; dead `deleteByNodeInternal` removed
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — `delete` calls the single-transaction repo method
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala` — W4 `delete`: lock after the owner check
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` — W5 `deleteInternal` locks tail + step outputs' panels; W6 `removeRootCascadeAction` locks the root's panels first; dead `delete` removed
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRootRepository.scala` — dead `remove` removed
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — W7 `delete`: lock after the owner check
+- `backend/src/main/scala/com/helio/infrastructure/persistence/workspace/WorkspaceTeardownRepository.scala` — W8: one lock over tagged dashboards, pipelines and sources (covers untagged dashboards)
+- `backend/src/main/scala/com/helio/services/panels/CreatePlacement.scala` — pure `PlacementSizes.forNewPanel` shared by apply and preview
+- `backend/src/main/scala/com/helio/services/panels/PanelBindingChecks.scala` — `defaultSizesFor` uses the shared helper
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjection.scala` — dispatcher (split) + overlay threading, removed-target rejection, panel create placement
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreview{Panel,Dashboard,Source,Pipeline,Step}Projection.scala` — per-kind projections (split); now return the projected object for the overlay; dashboard update is overlay-aware (expectedLayoutVersion conflict, live panel set, version bump)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewOverlay.scala` — immutable overlay of earlier edits (new)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewRemovals.scala` — delete cascades recorded into the overlay (new)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewImpact.scala` — dashboard-delete panel count overlay-aware
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewService.scala` — threads the overlay through the edit loop
+- `backend/src/main/scala/com/helio/services/patchsets/README.md` — file list refreshed for the split
+- `backend/src/test/scala/com/helio/infrastructure/persistence/panels/LockRaceSupport.scala` — shared race harness (new)
+- `backend/src/test/scala/com/helio/infrastructure/persistence/dashboards/DashboardDeleteRacesPanelDeleteSpec.scala` — uses the harness; asserts `(None, None)`; strict SQLSTATE
+- `backend/src/test/scala/com/helio/infrastructure/persistence/panels/PanelWriterLockOrderRaceSpec.scala` — W1-W3 red-first races
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineCascadeLockOrderRaceSpec.scala` — W4-W8 red-first races
+- `backend/src/test/scala/com/helio/infrastructure/persistence/panels/ReplaceContentsLayoutRaceSpec.scala` — HEL-1526 red-first race + non-racing version spec
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewCumulativeSpec.scala` — PROOF/GUARD preview-vs-apply parity (new)
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewGhostLayoutSpec.scala` — two cases labelled `GUARD:` + legend
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpec.scala` — case for the removed dead `stepRepo.delete` removed
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala` — whole-matrix preview may now be rejected for a deleted-then-referenced source (nothing-written check kept)
+- `backend/src/test/scala/com/helio/infrastructure/persistence/ResourceTagMigrationSpec.scala` — stand-in function in the V93-pinned schema
+- `backend/src/test/scala/com/helio/api/routes/proposals/ApplyProposalSpecBase.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/test/scala/com/helio/api/routes/proposals/CombinedApplyProposalSpecBase.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalSpecBase.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/test/scala/com/helio/api/routes/firstrun/FirstRunRoutesFixture.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala` — fixtures' non-migrating app role gets EXECUTE on the lock function
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewDashboardProjection.scala` — split out of PatchSetPreviewProjection (commit 13f0485fe), then overlay-aware
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewPanelProjection.scala` — split out of PatchSetPreviewProjection (commit 13f0485fe), then overlay-aware
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewPipelineProjection.scala` — split out of PatchSetPreviewProjection (commit 13f0485fe), then overlay-aware
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewSourceProjection.scala` — split out of PatchSetPreviewProjection (commit 13f0485fe), then overlay-aware
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewStepProjection.scala` — split out of PatchSetPreviewProjection (commit 13f0485fe), then overlay-aware

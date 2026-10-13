@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
 import com.helio.domain.model._
@@ -299,25 +300,6 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           positionScopedUpdateAction(row, newConfig, position, enabled, now).map(r => Some(rowToDomain(r)))
       }
     } yield updated
-    ctx.withUserContext(user.id.value)(action.transactionally)
-  }
-
-  /** Owner-scoped delete via the parent-pipeline JOIN. Returns `true` only if
-    * a step the caller owned was removed.
-    *
-    * Both the ownership check and the DELETE run inside a single
-    * `withUserContext` transaction so the V35 RLS policy on `pipeline_steps`
-    * (EXISTS subquery to `pipelines.owner_id`) is active throughout. */
-  def delete(id: PipelineStepId, user: AuthenticatedUser): Future[Boolean] = {
-    val ownerUuid = UUID.fromString(user.id.value)
-    val ownedQuery = for {
-      step     <- stepsTable if step.id === id.value
-      pipeline <- pipelinesTable if pipeline.id === step.pipelineId && pipeline.ownerId === ownerUuid
-    } yield step.id
-    val action = ownedQuery.result.headOption.flatMap {
-      case None      => DBIO.successful(false)
-      case Some(sid) => stepsTable.filter(_.id === sid).delete.map(_ > 0)
-    }
     ctx.withUserContext(user.id.value)(action.transactionally)
   }
 
@@ -1017,6 +999,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             // which V98's CHECK rejects outright. When the deleted step was itself non-root
             // (`deletedRow.parentStepId` is `Some(...)`), `deletedRow.rootId` is already `None`,
             // so this is a no-op for that case -- one update statement covers both.
+            // HEL-1498: lock the panels of EVERY Output this delete will cascade away -- the step's own and the
+            // tail subtrees' -- in one id-ordered statement, before the first write below (the promotion UPDATE).
+            // The promoted head child and its subtree survive, so they are not locked.
+            _ <- PanelRowLocks.lockForDeletion(steps = tailDescendantIds + deletedRow.id)
             _ <- headChildOpt match {
               case Some(headChildId) =>
                 stepsTable
@@ -1200,6 +1186,10 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  separately so this method stays table-scoped to `pipeline_steps`/`node_snapshots`). */
   def removeRootCascadeAction(pipelineId: PipelineId, rootId: PipelineRootId): DBIO[Set[String]] =
     for {
+      // HEL-1498: the first write of the root-removal transaction (`PipelineRootWrites.removeRoot` composes this
+      // first): lock, in id order, the panels of every Output this root's removal cascades away, including panels
+      // on other users' dashboards the acting editor cannot see.
+      _    <- PanelRowLocks.lockForDeletion(roots = Seq(rootId.value))
       rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
       stepIdsUnderRoot = PipelineStepRepository.descendantsOfRoot(rows.toVector, rootId.value)
       _ <- DBIO.sequence(stepIdsUnderRoot.toVector.map { sid =>
