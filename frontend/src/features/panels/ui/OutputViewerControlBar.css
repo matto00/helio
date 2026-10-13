@@ -50,3 +50,52 @@
   height: var(--control-sm);
   width: 140px;
 }
+
+/* HEL-1444 D2: on a desktop short card (h=4, a 220px content box) that carries a chart footnote, a
+ * bar holding exactly ONE text or dropdown control puts the label beside its input on one row and
+ * drops the bar's bottom padding, saving ~21px for the chart canvas. A range control (numeric or
+ * date: a label plus two inputs, too wide for one row at w=2), a bar of two or more controls and a
+ * footnote-less chart keep labels above inputs, unchanged. The markup is untouched: each control
+ * keeps its existing labelling. The height clause keeps the phone stack (inline-size containment
+ * only) and h>=5 cards out. */
+@container panel-card (max-height: 260px) {
+  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+    .output-viewer-control-bar:has(
+      > .output-viewer-control-bar__control:only-child:not(
+          .output-viewer-control-bar__control--range
+        )
+    ) {
+    padding-bottom: var(--space-1);
+  }
+
+  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+    .output-viewer-control-bar
+    > .output-viewer-control-bar__control:only-child:not(
+      .output-viewer-control-bar__control--range
+    ) {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+    .output-viewer-control-bar
+    > .output-viewer-control-bar__control:only-child:not(.output-viewer-control-bar__control--range)
+    > :not(.output-viewer-control-bar__label) {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+    .output-viewer-control-bar
+    > .output-viewer-control-bar__control:only-child:not(.output-viewer-control-bar__control--range)
+    > .output-viewer-control-bar__label {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

@@ -82,7 +82,9 @@ export function PanelCardHeader({
           </>
         ) : (
           <>
-            <h3 className="panel-grid-card__title">{panel.title}</h3>
+            <h3 className="panel-grid-card__title" title={panel.title}>
+              {panel.title}
+            </h3>
           </>
         )}
       </div>

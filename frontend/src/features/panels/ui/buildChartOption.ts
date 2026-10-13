@@ -13,6 +13,7 @@ import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/ap
 import type { Theme } from "../../../theme/theme";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
+import { applyValueAxisSplitCap } from "./valueAxisLabels";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
 import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
@@ -104,6 +105,9 @@ export interface BuildChartOptionParams {
    *  (line, scatter, vertical bar); absent -> every chart keeps its category axis. */
   fieldTypes?: ChartFieldTypes | null;
   effectiveCompact: boolean;
+  /** HEL-1444: the most value-axis splits that fit the measured canvas (`valueAxisSplitCap`);
+   *  absent when the default split count fits. Only a value-type y axis is capped. */
+  valueAxisSplitCap?: number;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
   theme: Theme;
@@ -124,6 +128,7 @@ export function buildChartOption({
   referenceMarks,
   fieldTypes,
   effectiveCompact,
+  valueAxisSplitCap,
   measuredPieLegendOverlap,
   themeTokens,
   theme,
@@ -415,6 +420,9 @@ export function buildChartOption({
       },
     };
   }
+
+  // HEL-1444 -- a short canvas gets fewer value-axis labels instead of overprinted ones.
+  if (!isPie) built = applyValueAxisSplitCap(built, valueAxisSplitCap);
 
   return built;
 }
