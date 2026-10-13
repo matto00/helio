@@ -173,6 +173,28 @@ creating a new one, and produce N targeted edits (a `PatchSet`) instead of a who
 "make that a bar chart, group by month"})` → inspect/edit the returned `patchSet` → `apply_patch_set
 ({patchSet})` → optionally `undo_patch_set({applicationId})` to revert it.
 
+### Layout version precondition (HEL-1524)
+
+Every dashboard an agent reads (`list_dashboards`, `get_dashboard`) and every layout write returns the server's
+`layoutVersion`. It bumps on every layout change (a browser tab, another agent, a panel create or delete).
+
+- `update_dashboard_layout` **requires** `expectedLayoutVersion`: the `layoutVersion` of the dashboard as you last
+  read it. This is a breaking change to the tool's input: a call without it is rejected by the tool schema before
+  any request is sent.
+- `auto_layout_dashboard` accepts an optional `expectedLayoutVersion`, sent when given. Without it the server packs
+  against the live layout and keeps every panel you did not name.
+- `place_outputs` sends no precondition on its internal pack (its own creates already made any held version stale);
+  its result carries the new `layoutVersion` when a pack ran.
+- If the layout changed since your read, nothing is saved and the tool returns an error result (`isError`) whose JSON
+  is `{error: "layout_conflict", message, expectedLayoutVersion, currentLayoutVersion, dashboard, nextStep}`.
+  `dashboard` is the server's current dashboard: recompute against `dashboard.layout` and call again with
+  `expectedLayoutVersion: dashboard.layoutVersion`. The tool never retries for you, with or without the
+  precondition. A `place_outputs` pack conflict also carries `createdPanelIds` (created but **not positioned**).
+- `apply_patch_set`: put `expectedLayoutVersion` in the `patch` of any dashboard `update` edit that sets `layout`.
+  A stale version rolls the whole set back and answers HTTP 200 with `edits: []`, no `applicationId` (omitted), and
+  `failure: "This dashboard's layout was changed elsewhere; the layout was not saved."` (no dashboard in the body).
+  Match on that `failure`, re-read with `get_dashboard`, rebuild the layout patch, and resubmit with the new version.
+
 Plus one **resource**: `helio://workspace/context` — the same payload as
 `get_workspace_context`, so an MCP client can attach it as ambient context.
 

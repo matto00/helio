@@ -1,0 +1,19 @@
+# HEL-1524 layout precondition seam check  base=http://localhost:9863  strip=false
+user 7d0e5c40-d8de-4688-91e4-09f28aa145fe hel1524-seam-1791881938030-44b806@example.test (throwaway)
+PASS  D1 get_dashboard exposes numeric layoutVersion
+agent reads layoutVersion N=2
+PASS  second writer (with current version) succeeds
+PASS  second write bumped layoutVersion
+PASS  stale update_dashboard_layout -> layout_conflict error result
+PASS  conflict carries current dashboard with newer layoutVersion
+PASS  conflict dashboard.layout.lg is the second writer's
+PASS  exactly one PATCH sent for the stale call (no retry)
+PASS  stored lg layout still equals the second writer's (stale write did not land)
+PASS  re-call with dashboard.layoutVersion succeeds
+PASS  stale auto_layout_dashboard -> layout_conflict with current dashboard
+PASS  auto_layout_dashboard without a version still works (optional)
+apply_patch_set stale result: { "edits": [], "failure": "This dashboard's layout was changed elsewhere; the layout was not saved." }
+PASS  stale apply_patch_set: failure string, no applicationId (omitted on the wire), not an error result
+PASS  layout unchanged after the stale patch set
+PASS  throwaway user deleted by exact (id, email)
+RESULT: GREEN

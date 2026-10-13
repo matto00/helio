@@ -13,6 +13,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
+import { layoutConflictResult } from "./layoutConflict.js";
 import type { ProposalPanel } from "../types.js";
 import { addPipelineStepHandler } from "./assertSchemas.js";
 import {
@@ -53,6 +54,8 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
   try {
     return jsonResult(await produce());
   } catch (err) {
+    const conflict = layoutConflictResult(err);
+    if (conflict) return conflict;
     const message =
       err instanceof HelioApiError
         ? `${err.name} (status ${err.status}) for ${err.url}: ${err.message}`
@@ -1083,10 +1086,17 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "position there. The server REJECTS (400, nothing saved, no clamping) a breakpoint whose " +
         "items overlap or exceed its columns, and the error names the breakpoint and the panel " +
         "ids. BREAKING vs. earlier versions: without `breakpoint` only `lg` is set (it no longer " +
-        "copies the same placement to all four breakpoints). Returns the updated dashboard. " +
+        "copies the same placement to all four breakpoints). REQUIRED `expectedLayoutVersion`: the " +
+        "`layoutVersion` of the dashboard as you last read it (list_dashboards / get_dashboard, or " +
+        "the `layoutVersion` on a previous layout result). If the layout changed since (a browser " +
+        "tab or another agent), nothing is saved and you get an error result `layout_conflict` " +
+        "carrying the current `dashboard` (with its newer `layoutVersion`): recompute against " +
+        "`dashboard.layout` and call again with that version. The write is never retried for you. " +
+        "Returns the updated dashboard (including its new `layoutVersion`). " +
         "Create + bind panels first, then call this with their ids.",
       inputSchema: {
         dashboardId: z.string().min(1),
+        expectedLayoutVersion: z.number().int().min(0),
         items: z.array(layoutItemSchema).min(1).optional(),
         breakpoint: breakpointSchema.optional(),
         layouts: z
@@ -1099,8 +1109,16 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           .optional(),
       },
     },
-    ({ dashboardId, items, breakpoint, layouts }) =>
-      guarded(() => updateDashboardLayoutHandler(api, { dashboardId, items, breakpoint, layouts })),
+    ({ dashboardId, expectedLayoutVersion, items, breakpoint, layouts }) =>
+      guarded(() =>
+        updateDashboardLayoutHandler(api, {
+          dashboardId,
+          expectedLayoutVersion,
+          items,
+          breakpoint,
+          layouts,
+        }),
+      ),
   );
 
   server.registerTool(
@@ -1122,7 +1140,13 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "is packed (`w` in its own column units) and the others are untouched. " +
         "Create/place panels first (create_pipeline + place_outputs / create_content_panel), then " +
         "call this with their ids and your chosen sizes — no need to reimplement " +
-        "shelf-packing/clamping client-side.",
+        "shelf-packing/clamping client-side. OPTIONAL `expectedLayoutVersion`: pass the " +
+        "`layoutVersion` you last read when you hold one (each panel create bumps it, so a version " +
+        "read before creating panels is stale; use the `layoutVersion` place_outputs returns, or " +
+        "re-read). If it no longer matches, nothing is saved and you get an error result " +
+        "`layout_conflict` carrying the current `dashboard`; re-plan and call again with its " +
+        "`layoutVersion`. Without it the server packs against the live layout and never drops a " +
+        "panel you did not name. Never retried for you. Returns the updated dashboard.",
       inputSchema: {
         dashboardId: z.string().min(1),
         items: z
@@ -1136,9 +1160,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
           .min(1),
         cols: z.number().int().positive().optional(),
         breakpoint: breakpointSchema.optional(),
+        expectedLayoutVersion: z.number().int().min(0).optional(),
       },
     },
-    ({ dashboardId, items, cols, breakpoint }) =>
-      guarded(() => api.autoLayoutDashboard(dashboardId, items, cols, breakpoint)),
+    ({ dashboardId, items, cols, breakpoint, expectedLayoutVersion }) =>
+      guarded(() =>
+        api.autoLayoutDashboard(dashboardId, items, cols, breakpoint, expectedLayoutVersion),
+      ),
   );
 }
