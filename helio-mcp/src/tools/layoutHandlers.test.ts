@@ -14,10 +14,14 @@ const xsItems = [
 ];
 
 function fakeApi() {
-  const calls: { dashboardId: string; layout: unknown }[] = [];
+  const calls: { dashboardId: string; layout: unknown; expectedLayoutVersion: number }[] = [];
   const api = {
-    updateDashboardLayout: async (dashboardId: string, layout: unknown) => {
-      calls.push({ dashboardId, layout });
+    updateDashboardLayout: async (
+      dashboardId: string,
+      layout: unknown,
+      expectedLayoutVersion: number,
+    ) => {
+      calls.push({ dashboardId, layout, expectedLayoutVersion });
       return { id: dashboardId };
     },
   } as unknown as HelioApi;
@@ -27,21 +31,36 @@ function fakeApi() {
 describe("updateDashboardLayoutHandler", () => {
   it("sets only the named breakpoint: items + breakpoint xs sends xs alone", async () => {
     const { api, calls } = fakeApi();
-    await updateDashboardLayoutHandler(api, { dashboardId: "d", items: xsItems, breakpoint: "xs" });
-    expect(calls).toEqual([{ dashboardId: "d", layout: { xs: xsItems } }]);
+    await updateDashboardLayoutHandler(api, {
+      dashboardId: "d",
+      expectedLayoutVersion: 3,
+      items: xsItems,
+      breakpoint: "xs",
+    });
+    expect(calls).toEqual([
+      { dashboardId: "d", expectedLayoutVersion: 3, layout: { xs: xsItems } },
+    ]);
     expect(Object.keys(calls[0]?.layout as object)).toEqual(["xs"]);
   });
 
   it("defaults the breakpoint to lg and never copies the items to the other breakpoints", async () => {
     const { api, calls } = fakeApi();
-    await updateDashboardLayoutHandler(api, { dashboardId: "d", items: xsItems });
+    await updateDashboardLayoutHandler(api, {
+      dashboardId: "d",
+      expectedLayoutVersion: 3,
+      items: xsItems,
+    });
     expect(Object.keys(calls[0]?.layout as object)).toEqual(["lg"]);
   });
 
   it("forwards a per-breakpoint `layouts` map as given, naming only what was supplied", async () => {
     const { api, calls } = fakeApi();
     const layouts = { sm: xsItems, xs: xsItems };
-    await updateDashboardLayoutHandler(api, { dashboardId: "d", layouts });
+    await updateDashboardLayoutHandler(api, {
+      dashboardId: "d",
+      expectedLayoutVersion: 3,
+      layouts,
+    });
     expect(calls[0]?.layout).toEqual(layouts);
     expect(Object.keys(calls[0]?.layout as object)).toEqual(["sm", "xs"]);
   });
@@ -51,13 +70,14 @@ describe("updateDashboardLayoutHandler", () => {
     await expect(
       updateDashboardLayoutHandler(api, {
         dashboardId: "d",
+        expectedLayoutVersion: 3,
         items: xsItems,
         layouts: { xs: xsItems },
       }),
     ).rejects.toThrow(/exactly one/);
-    await expect(updateDashboardLayoutHandler(api, { dashboardId: "d" })).rejects.toThrow(
-      /exactly one/,
-    );
+    await expect(
+      updateDashboardLayoutHandler(api, { dashboardId: "d", expectedLayoutVersion: 3 }),
+    ).rejects.toThrow(/exactly one/);
     expect(calls).toHaveLength(0);
   });
 
@@ -66,12 +86,17 @@ describe("updateDashboardLayoutHandler", () => {
     await expect(
       updateDashboardLayoutHandler(api, {
         dashboardId: "d",
+        expectedLayoutVersion: 3,
         layouts: { xs: xsItems },
         breakpoint: "xs",
       }),
     ).rejects.toThrow(/breakpoint/);
     await expect(
-      updateDashboardLayoutHandler(api, { dashboardId: "d", layouts: {} }),
+      updateDashboardLayoutHandler(api, {
+        dashboardId: "d",
+        expectedLayoutVersion: 3,
+        layouts: {},
+      }),
     ).rejects.toThrow(/at least one/);
     expect(calls).toHaveLength(0);
   });
@@ -84,7 +109,12 @@ describe("updateDashboardLayoutHandler", () => {
       },
     } as unknown as HelioApi;
     await expect(
-      updateDashboardLayoutHandler(api, { dashboardId: "d", items: xsItems, breakpoint: "xs" }),
+      updateDashboardLayoutHandler(api, {
+        dashboardId: "d",
+        expectedLayoutVersion: 3,
+        items: xsItems,
+        breakpoint: "xs",
+      }),
     ).rejects.toThrow(message);
   });
 });
