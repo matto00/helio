@@ -1,0 +1,89 @@
+FAIL src/features/dashboards/state/layoutPatch.test.ts
+  ● buildLayoutPatch › keeps an unloaded panel's authored item when it substitutes a breakpoint
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 7
+    + Received  + 0
+
+    @@ -19,14 +19,7 @@
+            "panelId": "c",
+            "w": 1,
+            "x": 0,
+            "y": 2,
+          },
+    -     Object {
+    -       "h": 2,
+    -       "panelId": "u",
+    -       "w": 1,
+    -       "x": 0,
+    -       "y": 8,
+    -     },
+        ],
+      }
+
+      45 |     };
+      46 |     const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0), item("c", 0, 2)] };
+    > 47 |     expect(buildLayoutPatch(next, baseline, resolved)).toEqual({
+         |                                                        ^
+      48 |       xs: [...resolved.xs, item("u", 0, 8)],
+      49 |     });
+      50 |   });
+
+      at Object.<anonymous> (src/features/dashboards/state/layoutPatch.test.ts:47:56)
+
+  ● buildLayoutPatch › skips blank-id and repeated unloaded items when it keeps them
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 7
+    + Received  + 0
+
+    @@ -12,14 +12,7 @@
+            "panelId": "b",
+            "w": 1,
+            "x": 1,
+            "y": 0,
+          },
+    -     Object {
+    -       "h": 2,
+    -       "panelId": "u",
+    -       "w": 1,
+    -       "x": 0,
+    -       "y": 8,
+    -     },
+        ],
+      }
+
+      56 |     };
+      57 |     const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0)] };
+    > 58 |     expect(buildLayoutPatch(next, baseline, resolved)).toEqual({
+         |                                                        ^
+      59 |       xs: [...resolved.xs, item("u", 0, 8)],
+      60 |     });
+      61 |   });
+
+      at Object.<anonymous> (src/features/dashboards/state/layoutPatch.test.ts:58:56)
+
+  ● buildLayoutPatch › sends a ghost item as authored; it is not judged client-side (the server drops it)
+
+    expect(received).toContainEqual(expected) // deep equality
+
+    Expected value: {"h": 2, "panelId": "ghost", "w": 1, "x": 0, "y": 2}
+    Received array: [{"h": 2, "panelId": "a", "w": 1, "x": 0, "y": 0}, {"h": 2, "panelId": "b", "w": 1, "x": 1, "y": 0}, {"h": 2, "panelId": "c", "w": 1, "x": 0, "y": 2}]
+
+      67 |     };
+      68 |     const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0), item("c", 0, 2)] };
+    > 69 |     expect(buildLayoutPatch(next, baseline, resolved).xs).toContainEqual(item("ghost", 0, 2));
+         |                                                           ^
+      70 |   });
+      71 | });
+      72 |
+
+      at Object.<anonymous> (src/features/dashboards/state/layoutPatch.test.ts:69:59)
+
+Test Suites: 1 failed, 1 total
+Tests:       3 failed, 5 passed, 8 total
+Snapshots:   0 total
+Time:        3.044 s
+Ran all test suites matching src/features/dashboards/state/layoutPatch.test.ts.
