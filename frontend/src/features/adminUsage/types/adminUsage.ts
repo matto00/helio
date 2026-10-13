@@ -50,6 +50,10 @@ export interface AdminUsageTotals {
   activeLast7Days: number | null;
   activeLast30Days: number | null;
   asOf: string | null;
+  /** Live (not rolled up) size of the stored-object deletion queue. */
+  storedObjectDeletionsQueued: number;
+  /** Queue rows that reached the retry cap; each is re-armed 24 h after its last attempt. */
+  storedObjectDeletionsStuck: number;
 }
 
 export interface AdminUsage {

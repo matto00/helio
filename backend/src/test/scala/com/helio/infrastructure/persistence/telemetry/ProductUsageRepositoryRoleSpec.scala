@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.telemetry
 
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.sources.StoredObjectDeletionRepository
 import com.helio.services.telemetry.AdminUsageService
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -86,7 +87,7 @@ class ProductUsageRepositoryRoleSpec extends AnyWordSpec with Matchers with Befo
   }
 
   private val repo    = () => new ProductUsageRepository(ctx)
-  private val service = () => new AdminUsageService(repo(), new Clock { def now(): Instant = Instant.parse("2026-04-14T00:00:00Z") })
+  private val service = () => new AdminUsageService(repo(), new StoredObjectDeletionRepository(ctx), new Clock { def now(): Instant = Instant.parse("2026-04-14T00:00:00Z") })
 
   "the usage read path" should {
 

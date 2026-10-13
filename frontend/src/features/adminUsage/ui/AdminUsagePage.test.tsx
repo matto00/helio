@@ -124,6 +124,32 @@ describe("AdminUsagePage", () => {
     ).toHaveLength(2);
   });
 
+  it("shows both deletion queue counts in a separate storage cleanup section, not the totals card", async () => {
+    fetchMock.mockResolvedValue(usage);
+    renderWithStore(<AdminUsagePage />);
+    await screen.findByText("Data through 2026-04-13 (UTC)");
+
+    const cleanup = within(screen.getByRole("region", { name: "Storage cleanup" }));
+    expect(cleanup.getByText("Queued deletions").nextElementSibling).toHaveTextContent("5");
+    expect(cleanup.getByText("Stuck deletions").nextElementSibling).toHaveTextContent("2");
+    const totals = within(screen.getByRole("region", { name: "All-time totals" }));
+    expect(totals.queryByText("Queued deletions")).not.toBeInTheDocument();
+    expect(totals.queryByText("Stuck deletions")).not.toBeInTheDocument();
+  });
+
+  it("still shows the deletion counts when nothing has been rolled up", async () => {
+    fetchMock.mockResolvedValue({
+      ...usage,
+      rolledThrough: null,
+      totals: { ...usage.totals, storedObjectDeletionsQueued: 3, storedObjectDeletionsStuck: 1 },
+    });
+    renderWithStore(<AdminUsagePage />);
+
+    const cleanup = within(await screen.findByRole("region", { name: "Storage cleanup" }));
+    expect(cleanup.getByText("Queued deletions").nextElementSibling).toHaveTextContent("3");
+    expect(cleanup.getByText("Stuck deletions").nextElementSibling).toHaveTextContent("1");
+  });
+
   it("renders an unavailable active count as a dash with a note, never 0", async () => {
     fetchMock.mockResolvedValue({
       ...usage,
@@ -142,7 +168,14 @@ describe("AdminUsagePage", () => {
     fetchMock.mockResolvedValue({
       ...usage,
       rolledThrough: null,
-      totals: { totalUsers: 8, activeLast7Days: null, activeLast30Days: null, asOf: null },
+      totals: {
+        totalUsers: 8,
+        activeLast7Days: null,
+        activeLast30Days: null,
+        asOf: null,
+        storedObjectDeletionsQueued: 3,
+        storedObjectDeletionsStuck: 1,
+      },
     });
     renderWithStore(<AdminUsagePage />);
 

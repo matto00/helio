@@ -5,6 +5,7 @@ import com.helio.infrastructure.persistence.sources.{KeyReference, QueuedObjectD
 import com.helio.infrastructure.storage.FileSystem
 import org.slf4j.LoggerFactory
 
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -32,7 +33,8 @@ final class StoredObjectDeletionService(
     batchSize: Int = StoredObjectDeletionService.DefaultBatchSize,
     maxAttempts: Int = StoredObjectDeletionService.DefaultMaxAttempts,
     leaseSeconds: Long = StoredObjectDeletionService.DefaultLeaseSeconds,
-    deferSeconds: Long = StoredObjectDeletionService.DefaultDeferSeconds
+    deferSeconds: Long = StoredObjectDeletionService.DefaultDeferSeconds,
+    rearmAfterSeconds: Long = StoredObjectDeletionService.DefaultRearmAfterSeconds
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -54,6 +56,19 @@ final class StoredObjectDeletionService(
 
   private def pass(): Future[Int] = {
     val now = clock.now()
+    rearmStuck(now).flatMap(_ => claimAndProcess(now))
+  }
+
+  /** Re-arms rows at the attempt cap whose last attempt is `rearmAfterSeconds` old. A failure is logged and never
+   *  stops the claim in the same pass. */
+  private def rearmStuck(now: Instant): Future[Unit] =
+    repo.rearm(now.minusSeconds(rearmAfterSeconds), maxAttempts)
+      .map(n => if (n > 0) log.info(s"Re-armed $n stuck stored-object deletion(s)"))
+      .recover { case NonFatal(e) =>
+        log.warn(s"Stored-object deletion re-arm failed: ${ImplicitConnectorCleanup.describeFailure(e)}")
+      }
+
+  private def claimAndProcess(now: Instant): Future[Int] = {
     repo.claim(now, now.minusSeconds(leaseSeconds), leaseSeconds, maxAttempts, batchSize).flatMap { claimed =>
       if (claimed.isEmpty) Future.successful(0)
       else
@@ -82,4 +97,6 @@ object StoredObjectDeletionService {
   val DefaultMaxAttempts: Int   = 10
   val DefaultLeaseSeconds: Long = 300L
   val DefaultDeferSeconds: Long = 3600L
+  /** A row at the attempt cap is retried again this long after its last attempt (HEL-1531). */
+  val DefaultRearmAfterSeconds: Long = 86400L
 }

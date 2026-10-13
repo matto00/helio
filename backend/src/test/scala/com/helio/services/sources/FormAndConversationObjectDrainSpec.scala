@@ -369,7 +369,8 @@ class FormAndConversationObjectDrainSpec extends AnyWordSpec with Matchers with 
       val u = newUser(); val src = dataset(u); val key = object_(formKey())
       val r = row(src, cell(key))
       sql(sqlu"DELETE FROM dataset_rows WHERE id = $r")
-      sql(sqlu"UPDATE stored_object_deletions SET attempts = 10 WHERE storage_key = $key")
+      // Last attempt inside the 24 h re-arm cool-down at the offset clock (100000 s ahead): the cap still holds.
+      sql(sqlu"UPDATE stored_object_deletions SET attempts = 10, last_attempt_at = ${Timestamp.from(Instant.now().plusSeconds(100000 - 3600))} WHERE storage_key = $key")
       withOffset(100000)(pass())
       present(key) shouldBe true
     }
