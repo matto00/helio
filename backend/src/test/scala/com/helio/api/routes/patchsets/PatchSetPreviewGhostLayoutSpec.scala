@@ -8,7 +8,10 @@ import spray.json._
 /** HEL-1485 item 1: a patch-set preview of a dashboard update shows the layout the apply will store, ghost
  *  layout items (panels no longer on the dashboard) dropped exactly as `DashboardWrites.applyUpdate` drops
  *  them. Each case previews and then applies the same patch set on the same dashboard and compares the two
- *  layouts, so the expectation is apply's behaviour, not a hand-built JSON. Ghosts are planted by SQL. */
+ *  layouts, so the expectation is apply's behaviour, not a hand-built JSON. Ghosts are planted by SQL.
+ *
+ *  Legend: `GUARD:` cases pin behaviour that already held and must keep holding (green before and after the
+ *  fix, not proofs of it); the unlabelled cases were RED before HEL-1485's fix. */
 class PatchSetPreviewGhostLayoutSpec extends ApplyProposalSpecBase with LayoutRouteFixtures {
 
   private val ghost = "00000000-0000-0000-0000-00000000dead"
@@ -70,13 +73,13 @@ class PatchSetPreviewGhostLayoutSpec extends ApplyProposalSpecBase with LayoutRo
       previewed shouldBe applyLayout(d, patch)
     }
 
-    "still reject a layout that overlaps two live panels" in {
+    "GUARD: still reject a layout that overlaps two live panels" in {
       val (d, a, b) = ghostBearingDashboard("preview-live-overlap")
       val patch     = s"""{"layout":{"lg":${JsArray(item(a, 0, 0), item(b, 1, 0)).compactPrint}}}"""
       send(Post("/api/patch-sets/preview", json(body(d, patch)))) { status shouldBe StatusCodes.BadRequest }
     }
 
-    "leave the layout unfiltered on a rename-only update, as apply's rename-only write does" in {
+    "GUARD: leave the layout unfiltered on a rename-only update, as apply's rename-only write does" in {
       val (d, _, _) = ghostBearingDashboard("preview-ghost-rename-only")
       val patch     = """{"name":"renamed-only"}"""
       val previewed = previewLayout(d, patch)

@@ -208,20 +208,6 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
           .result
       ).map(_.toMap)
 
-  /** ACL-bypassing bulk delete of every panel bound to an Output — the
-   *  application-level mirror of `outputs`' `ON DELETE CASCADE` FK (V94),
-   *  called BEFORE the Output row itself is deleted so the removed ids can
-   *  be reported back to the caller (`DELETE /api/outputs/:id` response,
-   *  HEL-906 task 2.3). Returns the ids of every panel removed. */
-  def deleteByOutputIdInternal(outputId: String): Future[Vector[PanelId]] = {
-    val query = table.filter(_.outputId === Option(outputId))
-    ctx.withSystemContext(
-      query.map(_.id).result.flatMap { ids =>
-        query.delete.map(_ => ids.toVector.map(PanelId(_)))
-      }.transactionally
-    )
-  }
-
   def insert(panel: Panel): Future[Panel] =
     ctx.withUserContext(panel.ownerId.value)(table += domainToRow(panel))
       .map(_ => panel)

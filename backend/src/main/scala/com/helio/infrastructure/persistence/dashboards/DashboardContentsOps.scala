@@ -1,6 +1,6 @@
 package com.helio.infrastructure.persistence.dashboards
 
-import com.helio.infrastructure.persistence.panels.{PanelRepository, PanelRowMapper}
+import com.helio.infrastructure.persistence.panels.{PanelRepository, PanelRowLocks, PanelRowMapper}
 import com.helio.domain.model._
 import slick.jdbc.PostgresProfile.api._
 // The `r.layout`/`r.lastUpdated` partial-column update below defines a NEW
@@ -31,45 +31,46 @@ import scala.concurrent.Future
 trait DashboardContentsOps { self: DashboardRepository =>
 
   /** Replace ALL panels belonging to `dashboardId` with `newPanels` — one
-   *  `.transactionally` DBIO: delete the old panel rows, insert the new ones,
-   *  and overwrite the dashboard's layout, via `ctx.withSystemContext` (the
-   *  caller has already ACL-checked, same privilege pattern as
-   *  `importSnapshot`/`duplicate`). Returns `None` if `dashboardId` doesn't
-   *  exist — defensive; the service layer's prior ACL/existence check makes
-   *  this the rare/race case, not the common path.
+   *  `.transactionally` DBIO via `ctx.withSystemContext` (the caller has already
+   *  ACL-checked, same privilege pattern as `importSnapshot`/`duplicate`):
    *
-   *  design.md D4 (named, not engineered around): two overlapping calls for
-   *  the SAME dashboard serialize on Postgres's row lock for the panel
-   *  DELETE; the later commit's panel set wins and silently supersedes the
-   *  earlier one (both still return 200 from their own caller's
-   *  perspective) — accepted last-writer-wins behavior for v1. */
+   *  1. lock every panel row of the dashboard in id order ([[PanelRowLocks]]; HEL-1498 -- the first write, so a
+   *     dashboard delete or any other panel writer cannot deadlock it over two or more shared panels);
+   *  2. lock the dashboard row `FOR UPDATE` and read it (`None` if it does not exist -- defensive; the service
+   *     layer's prior ACL/existence check makes this the rare/race case);
+   *  3. delete the old panels, insert the new ones, store `layout` and `last_updated`;
+   *  4. re-read the row and return it, so the response carries the stored `layoutVersion` (V127 bumps it).
+   *
+   *  HEL-1526: `layout` is REQUIRED and is the only layout ever written -- the one computed for exactly the panel
+   *  set supplied. The method never reads a layout and writes it back, so a layout write that committed between
+   *  an earlier read and this write cannot be reverted (the dashboard row is locked before anything is written).
+   *
+   *  design.md D4 (named, not engineered around): two overlapping calls for the SAME dashboard serialize on the
+   *  locks above; the later commit's panel set wins and silently supersedes the earlier one (both still return
+   *  200 from their own caller's perspective) — accepted last-writer-wins behavior for v1. */
   def replaceContents(
       dashboardId: DashboardId,
       newPanels: Vector[Panel],
-      layout: Option[DashboardLayout]
+      layout: DashboardLayout
   ): Future[Option[(Dashboard, Vector[Panel])]] = {
     val panelTable = TableQuery[PanelRepository.PanelTable]
     val newPanelRows: Seq[PanelRepository.PanelRow] = newPanels.map(PanelRowMapper.domainToRow)
     val now = Instant.now()
 
-    val action = table.filter(_.id === dashboardId.value).result.headOption.flatMap {
-      case None => DBIO.successful(None)
-      case Some(existingRow) =>
-        val existingDash = rowToDomain(existingRow)
-        val newLayout    = layout.getOrElse(existingDash.layout)
-        val updatedDash  = existingDash.copy(layout = newLayout, meta = existingDash.meta.copy(lastUpdated = now))
-
-        val deleteAction = panelTable.filter(_.dashboardId === dashboardId.value).delete
-        val insertAction = DBIO.sequence(newPanelRows.map(pr => panelTable += pr))
-        val dashboardUpdateAction =
-          table
-            .filter(_.id === dashboardId.value)
-            .map(r => (r.layout, r.lastUpdated))
-            .update((newLayout, now))
-
-        (deleteAction andThen insertAction andThen dashboardUpdateAction)
-          .map(_ => Some((updatedDash, newPanels)))
-    }.transactionally
+    val action = (for {
+      _      <- PanelRowLocks.lockForDeletion(dashboards = Seq(dashboardId.value))
+      locked <- table.filter(_.id === dashboardId.value).forUpdate.result.headOption
+      result <- locked match {
+        case None => DBIO.successful(None)
+        case Some(_) =>
+          val deleteAction = panelTable.filter(_.dashboardId === dashboardId.value).delete
+          val insertAction = DBIO.sequence(newPanelRows.map(pr => panelTable += pr))
+          val layoutAction =
+            table.filter(_.id === dashboardId.value).map(r => (r.layout, r.lastUpdated)).update((layout, now))
+          (deleteAction andThen insertAction andThen layoutAction andThen table.filter(_.id === dashboardId.value).result.head)
+            .map(row => Some((rowToDomain(row), newPanels)))
+      }
+    } yield result).transactionally
 
     ctx.withSystemContext(action)
   }

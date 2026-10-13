@@ -81,6 +81,8 @@ class ConnectorRepositorySpec extends AnyWordSpec with Matchers with BeforeAndAf
       stmt.execute("GRANT helio_app_test TO postgres")
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_app_test")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO helio_app_test")
+      // HEL-1498: panel writers call the SECURITY DEFINER lock function; production's app role is the migrating role (EXECUTE granted by V129), this fixture's is not.
+      stmt.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO helio_app_test")
       stmt.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO helio_app_test")
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_privileged")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO helio_privileged")

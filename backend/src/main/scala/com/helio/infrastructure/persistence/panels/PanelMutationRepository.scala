@@ -137,8 +137,15 @@ trait PanelMutationOps { self: PanelRepository =>
           else DBIO.seq(actions: _*)
       }
 
+    // HEL-1498: lock every named panel row in id order BEFORE the item loop (which updates in request order), so a
+    // dashboard delete racing this batch over two or more shared panels cannot form a lock cycle. One ordered
+    // statement over existing rows only, no deletion, so the application-level lock suffices (the SECURITY DEFINER
+    // function exists for cascades that reach rows the caller cannot see). Rows a racer deleted are skipped here and
+    // surface below as the per-item "not found" failure.
+    val lockInIdOrder = table.filter(_.id inSet panelIds.toSet).sortBy(_.id).forUpdate.result
+
     val action =
-      DBIO.sequence(items.map(buildItemAction))
+      (lockInIdOrder andThen DBIO.sequence(items.map(buildItemAction)))
         .andThen(table.filter(_.id inSet panelIds.toSet).result)
         .transactionally
 

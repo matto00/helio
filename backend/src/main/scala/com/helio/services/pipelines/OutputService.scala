@@ -232,19 +232,18 @@ final class OutputService(
    *  so their ids can be reported back in the response). Owner-only: checked
    *  explicitly against the sharing-aware `findById` result's `ownerId`
    *  (rather than relying on RLS alone) BEFORE calling the ACL-bypassing
-   *  `panelRepo.deleteByOutputIdInternal`/`outputRepo.deleteInternal` —
-   *  those two are privileged writes with no RLS backstop of their own, so
-   *  the owner check has to happen here, in the service layer. */
+   *  `outputRepo.deleteWithPanelsInternal` — a privileged write (one
+   *  transaction: panel rows locked in id order, panels, then the Output) with
+   *  no RLS backstop of its own, so the owner check has to happen here, in the
+   *  service layer. */
   def delete(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, DeleteOutputResponse]] =
     outputRepo.findById(id, user).flatMap {
       case None                                        => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(output) if output.ownerId != user.id    => Future.successful(Left(ServiceError.NotFound("Output not found")))
       case Some(_) =>
-        panelRepo.deleteByOutputIdInternal(id.value).flatMap { removedPanelIds =>
-          outputRepo.deleteInternal(id).map { _ =>
-            audit("output.delete", Some(id.value), user)
-            Right(DeleteOutputResponse(removedPanelIds.map(_.value)))
-          }
+        outputRepo.deleteWithPanelsInternal(id).map { removedPanelIds =>
+          audit("output.delete", Some(id.value), user)
+          Right(DeleteOutputResponse(removedPanelIds.map(_.value)))
         }
     }
 
