@@ -8,6 +8,7 @@ import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SourceReadStats, StepKey}
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.RunState
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -354,19 +355,43 @@ private[pipelines] final class PipelineRunExecutor(
       // HEL-1100 (design.md Decision 3): blocked first -- a blocked run never applies its
       // pending writes at all, matching the pre-existing "no snapshot write on block" contract.
       onBlockedRun(pipelineId, runId, pidStr, user, ownerRun, assertionResults, blockingFailures).map(Right(_))
-    else isStillOpen(runId).flatMap {
+    else runState(runId).flatMap {
       // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
       // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
-      case false =>
-        log.warn(s"Run ${runId.value} of pipeline ${pipelineId.value} finished after it was reaped as abandoned; discarding its outcome")
-        Future.successful(Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished")))
-      case true => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+        // HEL-1518 (design.md D3/D4): a guard trip inside a node's snapshot transaction means the run was finalized
+        // or deleted after the early check; it maps exactly like the early check does.
+        .recoverWith { case PipelineRunRepository.RunNoLongerOpen(state) => lateFinisher(pipelineId, runId, state) }
+      case state => lateFinisher(pipelineId, runId, state)
     }
   }
 
-  /** HEL-1511: whether the run is still non-terminal; trivially true when no run repository is wired (fixtures). */
-  private def isStillOpen(runId: PipelineRunId): Future[Boolean] =
-    if (pipelineRunRepo == null) Future.successful(true) else pipelineRunRepo.isRunOpenInternal(runId)
+  /** HEL-1518 (design.md D2/D4): the answer for a run that is no longer open. A reaped (terminal) run answers 409; a
+   *  missing one answers 404 when its pipeline is gone too (the cascade removed the run row) and 409 otherwise (the
+   *  row was pruned). Publishes nothing. */
+  private def lateFinisher(pipelineId: PipelineId, runId: PipelineRunId, state: RunState): Future[Either[ServiceError, Option[String]]] = state match {
+    case RunState.Missing =>
+      // Privileged existence check (read-only), keyed by the id `submit` already authorized -- the same pattern as
+      // the submit-time `pipelineGone` check; the user pool may not see a pipeline the run's submitter only edits.
+      pipelineRepo.findByIdInternal(pipelineId).map {
+        case None =>
+          log.warn(s"Run ${runId.value}: pipeline ${pipelineId.value} was deleted while its run executed; discarding its outcome")
+          Left(pipelineGone(pipelineId))
+        case Some(_) =>
+          log.warn(s"Run ${runId.value} of pipeline ${pipelineId.value} finished after its run record was removed; discarding its outcome")
+          Left(ServiceError.Conflict("Run record no longer exists; its outcome was discarded"))
+      }
+    case _ =>
+      log.warn(s"Run ${runId.value} of pipeline ${pipelineId.value} finished after it was reaped as abandoned; discarding its outcome")
+      Future.successful(Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished")))
+  }
+
+  /** HEL-1511: whether the run is still non-terminal; trivially open when no run repository is wired (fixtures). */
+  private def runState(runId: PipelineRunId): Future[RunState] =
+    // Privileged read (`runStateInternal`): the run id is server-generated, inserted by this executor, and an
+    // editor-admitted run belongs to the pipeline OWNER, so it is invisible to the editor's own RLS context. Bypassing
+    // RLS is correct: the lookup discloses nothing to the caller beyond the open/terminal/missing outcome.
+    if (pipelineRunRepo == null) Future.successful(RunState.Open) else pipelineRunRepo.runStateInternal(runId)
 
   /** The unblocked-success chain: apply the deferred write-backs, then materialize and finalize. */
   private def unblockedChain(
