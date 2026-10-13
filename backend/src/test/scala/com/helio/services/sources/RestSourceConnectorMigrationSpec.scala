@@ -135,17 +135,11 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
     UserId(id)
   }
 
-  private def seedLegacyRestSource(ownerIdOpt: Option[UserId], name: String, config: String): DataSourceId = {
+  private def seedLegacyRestSource(owner: UserId, name: String, config: String): DataSourceId = {
     val id = UUID.randomUUID().toString
     await(ctx.withSystemContext(
-      ownerIdOpt match {
-        case Some(owner) =>
-          sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($id, $name, 'rest_api', $config::jsonb, ${owner.value}::uuid, now(), now())"""
-        case None =>
-          sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
-                 VALUES ($id, $name, 'rest_api', $config::jsonb, NULL, now(), now())"""
-      }
+      sqlu"""INSERT INTO data_sources (id, name, source_type, config, owner_id, created_at, updated_at)
+             VALUES ($id, $name, 'rest_api', $config::jsonb, ${owner.value}::uuid, now(), now())"""
     ))
     DataSourceId(id)
   }
@@ -159,7 +153,7 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
       val owner = freshUser()
       val url   = urlFor("bearer-endpoint")
       val legacyConfig = s"""{"url":"$url","method":"GET","auth":{"type":"bearer","token":"secret-bearer-token"}}"""
-      val srcId = seedLegacyRestSource(Some(owner), "bearer-src", legacyConfig)
+      val srcId = seedLegacyRestSource(owner, "bearer-src", legacyConfig)
 
       // Pre-migration baseline: fetch through the raw legacy request shape directly.
       val baselineRequest = HttpRequest(
@@ -183,7 +177,7 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
       val owner = freshUser()
       val url   = urlFor("apikey-endpoint")
       val legacyConfig = s"""{"url":"$url","method":"GET","auth":{"type":"api_key","name":"api_key","value":"secret-query-key","in":"query"}}"""
-      val srcId = seedLegacyRestSource(Some(owner), "apikey-src", legacyConfig)
+      val srcId = seedLegacyRestSource(owner, "apikey-src", legacyConfig)
 
       val baselineUri = Uri(url).withQuery(
         Uri.Query("api_key" -> "secret-query-key")
@@ -206,7 +200,7 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
       val owner = freshUser()
       val url   = urlFor("echo-query") + "?tag=a&tag=b"
       val legacyConfig = s"""{"url":"$url"}"""
-      val srcId = seedLegacyRestSource(Some(owner), "dup-query-src", legacyConfig)
+      val srcId = seedLegacyRestSource(owner, "dup-query-src", legacyConfig)
 
       await(RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, log))
 
@@ -219,11 +213,12 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
 
     // HEL-1347: the "skip an ownerless legacy row" test was removed -- V119 makes data_sources.owner_id NOT NULL
     // with a FK to users, so an ownerless row cannot be seeded. V119OwnerFkMigrationSpec covers that ground
-    // (NULL owner -> 23502, owner id with no user -> 23503). The defensive branch in the migration is unchanged.
+    // (NULL owner -> 23502, owner id with no user -> 23503). HEL-1433 then removed the migration's now-unreachable
+    // ownerless branch itself (the Slick column is a non-optional UUID).
 
     "skip a malformed row without crashing (task 4.6)" in {
       val owner = freshUser()
-      val srcId = seedLegacyRestSource(Some(owner), "malformed-src", """{"notAUrlOrConnectorId":"x"}""")
+      val srcId = seedLegacyRestSource(owner, "malformed-src", """{"notAUrlOrConnectorId":"x"}""")
       await(RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, log))
       val result = DataSourceConfigCodec.decodeRest(rawConfigOf(srcId))
       result shouldBe a[Left[_, _]]
@@ -234,7 +229,7 @@ class RestSourceConnectorMigrationSpec extends AnyWordSpec with Matchers with He
       val owner = freshUser()
       val url   = urlFor("bearer-endpoint")
       val legacyConfig = s"""{"url":"$url","auth":{"type":"bearer","token":"secret-bearer-token"}}"""
-      val srcId = seedLegacyRestSource(Some(owner), "idempotent-src", legacyConfig)
+      val srcId = seedLegacyRestSource(owner, "idempotent-src", legacyConfig)
 
       await(RestSourceConnectorMigration.run(dataSourceRepo, connectorRepo, ctx, log))
       val afterFirstRun = rawConfigOf(srcId)
