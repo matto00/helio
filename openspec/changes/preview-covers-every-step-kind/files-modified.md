@@ -1,0 +1,5 @@
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPreviewProjectionSteps.scala` — ConvertFormat/AnalyzeWithAi/GenerateText arms in withPosition and withDecodedConfig; stale "22 kinds" scaladoc removed
+- `backend/src/main/scala/com/helio/domain/model/PipelineStep.scala` — registry guard spec added to the PipelineStepKind.All scaladoc list (C3)
+- `backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetPreviewStepKindRoutesSpec.scala` — route-level red-first preview + apply specs for the three kinds
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewProjectionStepsRegistryGuardSpec.scala` — Registry-driven structural guard
+- `openspec/changes/preview-covers-every-step-kind/{tasks.md,red-evidence.md,files-modified.md}` — task ticks, red/green/mutation evidence
