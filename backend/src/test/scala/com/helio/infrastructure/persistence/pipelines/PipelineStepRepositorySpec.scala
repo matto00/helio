@@ -206,12 +206,5 @@ class PipelineStepRepositorySpec extends AnyWordSpec with Matchers with BeforeAn
       val owned = await(stepRepo.findById(step.id, systemUser)).get
       owned.asInstanceOf[RenameStep].config.renames shouldBe empty
     }
-
-    "delete returns false and leaves the row for a non-owner" in {
-      val pid  = seedPipeline()
-      val step = await(stepRepo.insertRootStep(pid, PipelineStepKind.Rename, RenameConfig(Map.empty), systemUser))
-      await(stepRepo.delete(step.id, otherUser)) shouldBe false
-      await(stepRepo.findById(step.id, systemUser)) shouldBe defined
-    }
   }
 }

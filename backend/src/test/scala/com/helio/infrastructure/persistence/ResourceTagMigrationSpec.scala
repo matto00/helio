@@ -95,6 +95,14 @@ class ResourceTagMigrationSpec extends AnyWordSpec with Matchers with BeforeAndA
     // is the minimal change that keeps `DataSourceRepository` usable here.
     Await.result(db.run(sqlu"ALTER TABLE data_sources ADD COLUMN inferred_schema JSONB NOT NULL DEFAULT '[]'::jsonb"), 10.seconds)
 
+    // HEL-1498: `PipelineRepository.delete` now locks panel rows through V129's `hel1498_lock_panels`. This spec is
+    // pinned to V93, whose schema predates `outputs` (the function's tables), and asserts nothing about locking, so a
+    // no-op stand-in with the same signature keeps the repository delete under test.
+    Await.result(
+      db.run(sqlu"CREATE FUNCTION hel1498_lock_panels(text[], text[], text[], text[], text[], text[]) RETURNS void LANGUAGE sql AS 'SELECT'"),
+      10.seconds
+    )
+
     val ctx        = new DbContext(db, db)
     dataSourceRepo = new DataSourceRepository(ctx)
     pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)

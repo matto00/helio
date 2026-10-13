@@ -1,6 +1,7 @@
 package com.helio.services.panels
 
-import com.helio.domain.model.{DashboardLayout, DashboardLayoutItem, PanelId}
+import com.helio.domain.model.{DashboardLayout, DashboardLayoutItem, OutputKind, Panel, PanelId}
+import com.helio.domain.panels.OutputPanel
 
 /** The size one new panel takes in one breakpoint. */
 final case class ItemSize(w: Int, h: Int)
@@ -29,6 +30,18 @@ object PlacementSizes {
     }
     PlacementSizes(at("lg"), at("md"), at("sm"), at("xs"))
   }
+
+  /** The size a new `panel` takes in each breakpoint (pure; shared by panel create and patch-set preview). An Output
+   *  panel whose Output resolved (`outputKind`) takes that kind's decision-15 default (`OutputPanelDefaultSize`),
+   *  scaled per breakpoint's column count; every other kind, and an Output panel whose Output cannot be resolved
+   *  (placement is never skipped), takes [[ContentDefault]]. */
+  def forNewPanel(panel: Panel, outputKind: Option[OutputKind]): PlacementSizes =
+    (panel, outputKind) match {
+      case (_: OutputPanel, Some(kind)) =>
+        val size = OutputPanelDefaultSize.forKind(kind)
+        scaledFromLg(ItemSize(size.w, size.h))
+      case _ => ContentDefault
+    }
 
   /** An lg-sized item scaled to each breakpoint's column count (never wider than the grid). */
   def scaledFromLg(lg: ItemSize): PlacementSizes = {

@@ -46,7 +46,8 @@ final class PatchSetPreviewService(
       case Right(resolved) => previewResolved(resolved, user)
     }
 
-  /** Projects every resolved edit in order, short-circuiting the walk on the
+  /** Projects every resolved edit in order against the state the earlier edits leave
+   *  ([[PatchSetPreviewOverlay]], HEL-1498), short-circuiting the walk on the
    *  first `Left` -- mirrors `PatchSetApplyService.applyResolved`'s
    *  short-circuit shape, but with no rollback to perform (nothing was ever
    *  written). */
@@ -54,15 +55,15 @@ final class PatchSetPreviewService(
       resolved: Vector[ResolvedEdit],
       user: AuthenticatedUser
   ): Future[Either[ServiceError, PatchSetPreviewResponse]] = {
-    def loop(remaining: Vector[ResolvedEdit], acc: Vector[EditPreview]): Future[Either[ServiceError, Vector[EditPreview]]] =
+    def loop(remaining: Vector[ResolvedEdit], acc: Vector[EditPreview], overlay: PatchSetPreviewOverlay): Future[Either[ServiceError, Vector[EditPreview]]] =
       remaining.headOption match {
         case None => Future.successful(Right(acc))
         case Some(edit) =>
-          PatchSetPreviewProjection.project(edit, user, context).flatMap {
-            case Left(err)      => Future.successful(Left(err))
-            case Right(preview) => loop(remaining.tail, acc :+ preview)
+          PatchSetPreviewProjection.project(edit, user, context, overlay).flatMap {
+            case Left(err)                  => Future.successful(Left(err))
+            case Right((preview, extended)) => loop(remaining.tail, acc :+ preview, extended)
           }
       }
-    loop(resolved, Vector.empty).map(_.map(PatchSetPreviewResponse.apply))
+    loop(resolved, Vector.empty, PatchSetPreviewOverlay.empty).map(_.map(PatchSetPreviewResponse.apply))
   }
 }

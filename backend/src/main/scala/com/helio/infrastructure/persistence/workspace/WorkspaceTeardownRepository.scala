@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.workspace
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import com.helio.infrastructure.persistence.sources.{DataSourceReferenceRepository, DataSourceRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceReferenceRepository.SourceReferences
@@ -157,13 +158,12 @@ class WorkspaceTeardownRepository(
           // (see the constructor-site comment above) -- deleted alongside
           // the other two, panels cascade via their own pre-existing FK.
           val deleteDashboards = dashboardsTable.filter(_.id.inSet(dashboardIds)).delete
-          // HEL-1485: the panel-row pre-lock must precede deletePipelines, not deleteDashboards: the
-          // pipeline cascade (outputs -> panels, V94) already fires V122, which locks each affected dashboard.
-          // Under the owner's RLS context this covers every panel of a tagged dashboard (V36 panel policies).
-          // Not covered: an untagged dashboard holding panels bound to a tagged pipeline's outputs is
-          // locked by V122 mid-transaction, so a later statement needing a panel row there is still
-          // dashboard-then-panel (pre-existing, outside the dashboard-delete race).
-          (DashboardRepository.lockPanelRows(dashboardIds) andThen deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
+          // HEL-1485 / HEL-1498: ONE id-ordered panel lock over everything these deletes can reach, before the first
+          // delete: the tagged dashboards' panels AND the panels bound to outputs of the tagged pipelines / sources,
+          // including panels on untagged dashboards and on other users' dashboards (invisible to this RLS
+          // context, hence the SECURITY DEFINER function). The pipeline cascade fires V122, which locks each
+          // affected dashboard, so a later panel lock would invert the "panels by id, then dashboards" order.
+          (PanelRowLocks.lockForDeletion(dashboards = dashboardIds, pipelines = pipelineIds, dataSources = sourceIds) andThen deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
         }
     } yield TeardownOutcome(
       blocked = conflicts.nonEmpty,
