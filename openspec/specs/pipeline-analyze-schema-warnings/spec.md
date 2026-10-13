@@ -32,6 +32,10 @@ For an enabled step with no `validationError`, the system SHALL emit one `field-
 - **WHEN** a `union` whose secondary input is a source whose schema analyze does not resolve is followed by a step referencing a column only that source carries
 - **THEN** no `field-not-in-input-schema` warning is emitted for that step
 
+#### Scenario: A union with a resolved source secondary is name-complete
+- **WHEN** a `union` whose `source`-kind secondary's inferred schema resolves is followed by a step referencing one column only that source carries and one column neither input carries
+- **THEN** no warning is emitted for the source-only column, and a `field-not-in-input-schema` warning is emitted for the column neither input carries
+
 #### Scenario: Reference under an unresolvable join secondary does not warn
 - **WHEN** a `join` whose source secondary input has no resolvable schema is followed by a step referencing a right-side column
 - **THEN** no `field-not-in-input-schema` warning is emitted for that step
