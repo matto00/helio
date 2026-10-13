@@ -62,6 +62,10 @@
         "sm": { "$ref": "#/$defs/PanelPlacement" },
         "xs": { "$ref": "#/$defs/PanelPlacement" }
       }
+    },
+    "layoutVersion": {
+      "type": "integer",
+      "description": "HEL-1525: the dashboard's layout version right after this placement committed, read in the same transaction that appended the placed items. Present only on the `POST /api/panels` and `POST /api/panels/:id/duplicate` responses (a `POST /api/panels/batch` response carries one top-level `layoutVersion` instead). Omitted on every other panel response."
     }
   },
   "additionalProperties": false,

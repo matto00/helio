@@ -49,9 +49,13 @@
 // HEL-1457 — LAYOUT VERSION PRECONDITION. Every save sends `expectedLayoutVersion`, and invariant I1 holds:
 // the version sent is never newer than the server layout the saved local layout was derived from.
 // `persistedVersionRef` is paired with `persistedLayoutRef` and moves only where that is set from server data
-// (a class-4 re-baseline, which takes the store's consistent pair, and an adopted save response) -- never from a
-// class-3 placement extension, so the next save after an own panel create takes one 409 and a rebase
-// (`updateDashboardLayout`) instead of overwriting the placement. A 409 retry that succeeded while the user
+// (a class-4 re-baseline, which takes the store's consistent pair, and an adopted save response) -- and from a
+// class-3 placement extension only in one provable case (HEL-1525): the create/duplicate response's version was
+// adopted by the slice (it was exactly the store's + 1) and the store version moved in this same render to exactly
+// `persistedVersionRef + 1`. Then the placement was the only layout write since the baseline, so baseline + placement
+// is the server layout at that version. If a concurrent writer landed in between, the response is >= baseline + 2,
+// nothing is adopted, and the next save after an own panel create takes one 409 and a rebase
+// (`updateDashboardLayout`) instead of overwriting the other writer. A 409 retry that succeeded while the user
 // edited again (store layout != what was sent) advances NEITHER the baseline NOR the version: the next flush
 // sends the old version, conflicts, and rebases again, so it can never send a breakpoint lacking the other
 // writer's item under a version that includes it. The store half of the pairing is in `dashboardsSlice`.
@@ -131,6 +135,9 @@ export function useLayoutSave({
   useEffect(() => {
     storeLayoutVersionRef.current = layoutVersion;
   });
+  // The store version the LAYOUT effect last saw (HEL-1525). Written only inside that effect (constraint C1):
+  // an every-render effect declared before it would already hold the current version when it reads it.
+  const prevStoreVersionRef = useRef(layoutVersion);
   const inFlightLayoutRef = useRef<DashboardLayout | null>(null);
   // Tracks whether we've already dispatched setLayoutPending(true) for the
   // current pending cycle, so a drag (which fires onLayoutChange every tick)
@@ -174,6 +181,8 @@ export function useLayoutSave({
   useEffect(() => {
     const prevLayout = prevLayoutRef.current;
     prevLayoutRef.current = layout;
+    const prevStoreVersion = prevStoreVersionRef.current;
+    prevStoreVersionRef.current = storeLayoutVersionRef.current;
     latestLayoutRef.current = layout;
     const isInteractionCommit =
       localCommitRef.current !== null && areDashboardLayoutsEqual(layout, localCommitRef.current);
@@ -194,6 +203,19 @@ export function useLayoutSave({
       localCommitRef.current = null;
       if (placement) {
         persistedLayoutRef.current = extendBaseline(persistedLayoutRef.current, placement);
+        // HEL-1525: the slice moved the store version to exactly baseline + 1 in this same render, which proves
+        // the placement was the only layout write since the baseline, so baseline + placement IS the server
+        // layout at that version. Any other combination keeps the old version (next save 409s and rebases).
+        const storeVersion = storeLayoutVersionRef.current;
+        const baselineVersion = persistedVersionRef.current;
+        if (
+          storeVersion !== undefined &&
+          baselineVersion !== undefined &&
+          storeVersion !== prevStoreVersion &&
+          storeVersion === baselineVersion + 1
+        ) {
+          persistedVersionRef.current = storeVersion;
+        }
       }
       const pending = !areDashboardLayoutsEqual(layout, persistedLayoutRef.current);
       layoutPendingDispatchedRef.current = pending;
