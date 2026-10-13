@@ -1,10 +1,11 @@
 package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
+import com.helio.services.pipelines.StepReferenceChecks
 import com.helio.api.protocols.panels.PanelResponse
 import com.helio.api.protocols.pipelines.{CreatePipelineStepRequest, PipelineStepConfigCodec, PipelineStepResponse, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
 import PatchSetApplyServiceJson._
 import spray.json.{JsArray, JsObject, JsValue}
 
@@ -59,14 +60,7 @@ private[patchsets] object PatchSetPipelineStepResolvers {
             // HEL-620's union fix never reached this file -- lookup already `.nonEmpty`-
             // guarded); now driven by the same shared extractor PipelineService.addStep/
             // updateStep use, so this surface cannot independently drift again.
-            PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-              case Some(id) =>
-                ctx.dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
-                  case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: $id"))
-                  case Some(_) => Right(())
-                }
-              case None => Future.successful(Right(()))
-            }
+            secondarySourceOwnership(typedConfig, index, user, ctx)
         }
         }
     }
@@ -252,13 +246,17 @@ private[patchsets] object PatchSetPipelineStepResolvers {
         // might carry, not to validate the config's own shape.
         Future.successful(Right(()))
       case Success(typedConfig) =>
-        PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-          case Some(id) =>
-            ctx.dataSourceRepo.findByIdOwned(DataSourceId(id), user).map {
-              case None    => Left(ServiceError.NotFound(s"edit $index: data source not found: $id"))
-              case Some(_) => Right(())
-            }
-          case None => Future.successful(Right(()))
-        }
+        secondarySourceOwnership(typedConfig, index, user, ctx)
     }
+
+  /** HEL-1523: the shared secondary-source ownership primitive, worded for a patch-set edit. */
+  private def secondarySourceOwnership(
+      typedConfig: Any,
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Unit]] =
+    StepReferenceChecks.secondarySourceOwnershipF(ctx.dataSourceRepo, typedConfig, user).map(_.left.map(id =>
+      ServiceError.NotFound(s"edit $index: data source not found: $id")
+    ))
 }

@@ -14,9 +14,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.Future
 
-/** HEL-1515: create's pipeline lookup and editor check are the shared chain's `beforeUpsertF` stage, so they must
- *  not START until ownership and the lane check have passed. Counting `findByIdShared` calls proves the deferral
- *  (statuses alone cannot: results were sequenced either way). */
+/** HEL-1515/HEL-1523: create's pipeline lookup and editor check are the shared chain's FIRST stage (`accessF`), so
+ *  they run before ownership and the lane check, and nothing about the pipeline's steps is read for a caller who
+ *  fails them. Counting `findByIdShared` and step-read calls proves the order (statuses alone cannot: results were
+ *  sequenced either way). The earlier stages (ownership, lane) still must not start before access has passed. */
 class StepReferenceCheckDeferralSpec extends AnyWordSpec with Matchers with StepWriteRoutesFixture {
 
   private val lookups     = new AtomicInteger(0)
@@ -53,19 +54,29 @@ class StepReferenceCheckDeferralSpec extends AnyWordSpec with Matchers with Step
     s"""{"secondaryInput":{"kind":"source","dataSourceId":"$dsId"},"joinKey":"id","joinType":"inner"}""".parseJson
 
   "create" should {
-    "not look the pipeline up when the secondary-source ownership check fails" in {
+    // HEL-1523 (moved expectation): access is the first stage, so the lookup happens even when a later stage
+    // fails -- but a later stage's failure is then reached only after access passed.
+    "look the pipeline up once, first, when the secondary-source ownership check fails" in {
       val owner = newUser(); val other = newUser(); val pid = emptyPipeline(owner)
       lookups.set(0)
       Post(s"/pipelines/${pid.value}/steps", JsObject("type" -> JsString("join"), "config" -> sourceJoin(newSource(other)))) ~>
         routesFor(owner) ~> check { status shouldBe StatusCodes.NotFound }
-      lookups.get shouldBe 0
+      lookups.get shouldBe 1
     }
 
-    "not look the pipeline up when the lane check fails" in {
+    "look the pipeline up once, first, when the lane check fails" in {
       val owner = newUser(); val pid = emptyPipeline(owner)
       lookups.set(0)
       createJoin(owner, pid, UUID.randomUUID().toString) { status shouldBe StatusCodes.UnprocessableEntity }
-      lookups.get shouldBe 0
+      lookups.get shouldBe 1
+    }
+
+    "read no steps of the pipeline for a caller without access, whatever the lane reference" in {
+      val owner = newUser(); val stranger = newUser(); val pid = emptyPipeline(owner)
+      listReads.set(0); rootIdReads.set(0)
+      createJoin(stranger, pid, UUID.randomUUID().toString) { status shouldBe StatusCodes.NotFound }
+      listReads.get shouldBe 0
+      rootIdReads.get shouldBe 0
     }
 
     "look the pipeline up exactly once when the earlier stages pass" in {
