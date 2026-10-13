@@ -1183,6 +1183,9 @@ export interface EditTarget {
    *  whose `parentId` is the existing parent pipeline's id) and must be OMITTED for
    *  update/delete, where it is meaningless. */
   parentId?: string;
+  /** HEL-1458: opaque hash of the target's state, stamped by `propose_patch_set` on update/delete edits. Pass it
+   *  through unchanged: apply answers 409 (nothing applied) when the target changed since. Never set on a create. */
+  fingerprint?: string;
 }
 
 /** One targeted edit. `patch`'s real shape reuses the existing per-resource

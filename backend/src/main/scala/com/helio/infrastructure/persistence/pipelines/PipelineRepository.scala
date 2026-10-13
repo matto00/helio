@@ -489,6 +489,19 @@ class PipelineRepository(
     ).map(_ > 0)
   }
 
+  /** The cadence definition (kind, expression, enabled, timezone) of a pipeline's schedule, for the patch-set stale
+    * check (HEL-1458): a schedule is deleted with its pipeline, so a delete must notice one changed since the preview.
+    * Privileged (`withSystemContext`) and unscoped by owner: the only caller has already resolved the pipeline as the
+    * caller's own. `next_run_at`/`last_run_at` are tick-maintained and deliberately not returned. */
+  def findScheduleDefinitionInternal(id: PipelineId): Future[Option[(String, String, Boolean, String)]] =
+    ctx.withSystemContext(
+      TableQuery[PipelineScheduleRepository.PipelineScheduleTable]
+        .filter(_.pipelineId === id.value)
+        .map(r => (r.kind, r.expression, r.enabled, r.timezone))
+        .result
+        .headOption
+    )
+
   /** Owner-scoped post-run housekeeping. Returns silently if no owned row
     * matches — keeps the run-lifecycle path resilient when the pipeline is
     * deleted mid-run. */

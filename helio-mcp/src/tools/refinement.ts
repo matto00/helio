@@ -86,7 +86,7 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "back everything already applied if a mid-set edit fails (nothing is left half-applied). " +
         "Does NOT decompose the patch set into individual per-resource PATCH tool calls — pass " +
         "the exact PatchSet propose_patch_set returned (or one built/edited by hand matching the " +
-        "same shape: { summary?, edits: [{ target: {kind, id?, parentId?}, " +
+        "same shape: { summary?, edits: [{ target: {kind, id?, parentId?, fingerprint?}, " +
         "op: update|delete|create, patch? }] }, where `patch` reuses each kind's existing " +
         "PATCH/create request shape verbatim and is absent entirely for op: delete). " +
         "target.parentId is REQUIRED for a create targeting a child kind (currently only " +
@@ -94,7 +94,12 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "for update/delete. A pipelineStep create's patch must ALSO set attachAsTail: true to " +
         "add a SIBLING lane off patch.parentStepId — omitting it instead SPLICES the new step in " +
         "directly after patch.parentStepId, reparenting that step's existing children onto the " +
-        "new step (a trunk insertion, not a new lane). Returns the PatchSetApplyResponse " +
+        "new step (a trunk insertion, not a new lane). Keep each update/delete target's " +
+        "`fingerprint` exactly as propose_patch_set returned it: if any such target changed since " +
+        "the patch set was proposed, apply answers HTTP 409 with code PATCH_SET_STALE, names every " +
+        "stale edit (index, kind, id) in the error message, and applies NOTHING — do not retry " +
+        "the same patch set; call propose_patch_set again so it is built on the current state. " +
+        "Returns the PatchSetApplyResponse " +
         "verbatim (per-edit status/newId/priorState/resultingState, plus `failure` when a " +
         "rollback happened). An output-panel edit whose `patch.config.controls` holds a control the " +
         "Output's contract disallows is NOT rejected at propose time; apply_patch_set answers HTTP " +

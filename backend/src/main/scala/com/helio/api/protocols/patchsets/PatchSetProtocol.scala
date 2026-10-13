@@ -39,7 +39,10 @@ import spray.json._
 // is worse than a documented absence (task 5.4); it is a natural follow-up
 // once something needs it, not a remaining impossibility.
 
-final case class EditTarget(kind: String, id: Option[String], parentId: Option[String] = None)
+/** `fingerprint` (HEL-1458) is an opaque `v1:` content hash of the target's editable state, issued by
+ *  preview and by refinement; apply refuses with 409 when it no longer matches. Optional so a caller that
+ *  sends none keeps today's behaviour, and rejected on a `create` edit at resolution (never in the reader). */
+final case class EditTarget(kind: String, id: Option[String], parentId: Option[String] = None, fingerprint: Option[String] = None)
 
 /** `op`'s `update`-patch is decoded into exactly ONE of the six `Option`
  *  fields below, selected by `target.kind` — the same multi-`Option`-field-
@@ -97,6 +100,7 @@ trait PatchSetProtocol
       val fields = scala.collection.mutable.Map[String, JsValue]("kind" -> JsString(t.kind))
       t.id.foreach(v => fields("id") = JsString(v))
       t.parentId.foreach(v => fields("parentId") = JsString(v))
+      t.fingerprint.foreach(v => fields("fingerprint") = JsString(v))
       JsObject(fields.toMap)
     }
     def read(json: JsValue): EditTarget = {
@@ -104,7 +108,8 @@ trait PatchSetProtocol
       EditTarget(
         kind     = obj.fields.get("kind").map(_.convertTo[String]).getOrElse(deserializationError("edit target 'kind' is required")),
         id       = obj.fields.get("id").map(_.convertTo[String]),
-        parentId = obj.fields.get("parentId").map(_.convertTo[String])
+        parentId = obj.fields.get("parentId").map(_.convertTo[String]),
+        fingerprint = obj.fields.get("fingerprint").map(_.convertTo[String])
       )
     }
   }

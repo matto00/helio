@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/shared/patch-set-stale-response.schema.json",
+  "title": "PatchSetStaleResponse",
+  "description": "409 body for POST /api/patch-sets/apply refused because one or more targets changed since the preview their fingerprints came from (HEL-1458). Nothing was applied. `message` names every stale edit (index, kind, id) so clients that surface only `message` (the MCP tools) still show them; `staleTargets` is the structured form.",
+  "type": "object",
+  "required": ["message", "code", "staleTargets"],
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "code": {
+      "const": "PATCH_SET_STALE"
+    },
+    "staleTargets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StaleTarget"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "StaleTarget": {
+      "type": "object",
+      "required": ["index", "kind", "id"],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The edit's position in the applied patch set's edits array."
+        },
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

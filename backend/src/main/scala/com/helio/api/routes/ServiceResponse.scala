@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols, StepConfigErrorResponse}
+import com.helio.api.{ErrorResponse, JsonProtocols, PatchSetStaleResponse, StaleTargetResponse, StepConfigErrorResponse}
 import com.helio.services.ServiceError
 
 import scala.concurrent.Future
@@ -82,8 +82,16 @@ object ServiceResponse extends JsonProtocols {
         statusCodeFor(e),
         StepConfigErrorResponse(message, StepConfigInvalidCode, stepId, stepKind, reason)
       )
+    case ServiceError.PatchSetStale(staleTargets, message) =>
+      complete(
+        statusCodeFor(e),
+        PatchSetStaleResponse(message, PatchSetStaleCode, staleTargets.map(t => StaleTargetResponse(t.index, t.kind, t.id)))
+      )
     case _ => complete(statusCodeFor(e), ErrorResponse(e.message))
   }
+
+  /** Wire `code` of a [[ServiceError.PatchSetStale]] body (HEL-1458). */
+  val PatchSetStaleCode: String = "PATCH_SET_STALE"
 
   /** Wire `code` of a [[ServiceError.StepConfigInvalid]] body (HEL-1147). */
   val StepConfigInvalidCode: String = "STEP_CONFIG_INVALID"
@@ -101,6 +109,7 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.Conflict(_)            => StatusCodes.Conflict
     case ServiceError.UnprocessableEntity(_) => StatusCodes.UnprocessableEntity
     case ServiceError.StepConfigInvalid(_, _, _, _) => StatusCodes.UnprocessableEntity
+    case ServiceError.PatchSetStale(_, _)    => StatusCodes.Conflict
     case ServiceError.BadGateway(_)          => StatusCodes.BadGateway
     case ServiceError.InternalError(_)       => StatusCodes.InternalServerError
     case ServiceError.PayloadTooLarge(_)     => StatusCodes.RequestEntityTooLarge

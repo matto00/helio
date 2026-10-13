@@ -101,6 +101,11 @@
         "parentId": {
           "type": "string",
           "minLength": 1
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "HEL-1458: opaque `v1:` content hash of the target's editable state, issued by POST /api/patch-sets/preview (EditPreview.fingerprint) and stamped by refinement. Optional on update/delete: when present, POST /api/patch-sets/apply compares it with the target's current state before any write and answers 409 PATCH_SET_STALE (nothing applied) on a mismatch. Rejected with 400 on a `create` edit. Absent keeps the previous behaviour."
         }
       },
       "additionalProperties": false

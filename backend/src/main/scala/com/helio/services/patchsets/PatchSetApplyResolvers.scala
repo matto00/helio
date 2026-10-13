@@ -64,6 +64,10 @@ private[services] object PatchSetApplyResolvers {
     // checked once, generically, here rather than duplicated into every update/delete resolver.
     if ((edit.op == "update" || edit.op == "delete") && edit.target.parentId.exists(_.trim.nonEmpty)) {
       Future.successful(Left(ServiceError.BadRequest(s"edit $index: target.parentId must be omitted when op is '${edit.op}'")))
+    } else if (edit.op == "create" && edit.target.fingerprint.isDefined) {
+      // HEL-1458: a create has no prior state to fingerprint. Rejected here, not in the JSON reader, so
+      // refinement's parse can strip a model-invented value first.
+      Future.successful(Left(ServiceError.BadRequest(s"edit $index: target.fingerprint must be omitted when op is 'create'")))
     } else
     (edit.target.kind, edit.op) match {
       case ("panel", "update")        => resolvePanelUpdate(edit, index, user, ctx)

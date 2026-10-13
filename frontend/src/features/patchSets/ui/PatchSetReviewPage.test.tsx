@@ -1,7 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Provider } from "react-redux";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
@@ -133,7 +133,15 @@ function makeStore() {
  *  mocking react-router internals — mirrors ProposalReviewPage.test.tsx's own HomeProbe. */
 function HomeProbe() {
   const location = useLocation();
-  return <div data-testid="home-route">{location.pathname}</div>;
+  const navigate = useNavigate();
+  return (
+    <div>
+      <div data-testid="home-route">{location.pathname}</div>
+      <button type="button" onClick={() => navigate(-1)}>
+        history back
+      </button>
+    </div>
+  );
 }
 
 function renderPage(routeState?: { patchSet: PatchSet }) {
@@ -205,6 +213,80 @@ describe("PatchSetReviewPage", () => {
       expect(screen.getByTestId("home-route")).toBeInTheDocument();
     });
     expect(mockedApplyPatchSet).toHaveBeenCalledWith(explicitPatchSet);
+  });
+
+  it("does not restore an applyable review when Back is pressed after a successful apply (HEL-1458)", async () => {
+    mockedPreviewPatchSet.mockResolvedValue(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockResolvedValue(sampleApplyResponse);
+
+    renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+    await screen.findByTestId("home-route");
+
+    fireEvent.click(screen.getByRole("button", { name: /history back/i }));
+    // Let the remounted page's preview request settle, so an applyable review would be on screen by now.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("button", { name: /accept & apply/i })).not.toBeInTheDocument();
+    expect(mockedApplyPatchSet).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies the patch set with the fingerprints from the preview it showed (HEL-1458)", async () => {
+    const withFingerprint = samplePreview("Renamed");
+    withFingerprint.edits[0].fingerprint = "v1:previewed";
+    mockedPreviewPatchSet.mockResolvedValueOnce(withFingerprint);
+    mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponse);
+
+    renderPage({ patchSet: explicitPatchSet });
+
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    await waitFor(() => expect(mockedApplyPatchSet).toHaveBeenCalledTimes(1));
+    expect(mockedApplyPatchSet.mock.calls[0][0].edits[0].target).toEqual({
+      kind: "panel",
+      id: "panel-2",
+      fingerprint: "v1:previewed",
+    });
+  });
+
+  it("shows the stale targets and a Re-preview action when apply answers 409, then re-previews on request (HEL-1458)", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          message: "Nothing was applied: changed since the preview: edit 0 (panel panel-2).",
+          code: "PATCH_SET_STALE",
+          staleTargets: [{ index: 0, kind: "panel", id: "panel-2" }],
+        },
+      },
+    });
+
+    renderPage({ patchSet: explicitPatchSet });
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    expect(
+      await screen.findByText(/edit 1 \(panel panel-2\) changed since this preview/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("home-route")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /accept & apply/i })).not.toBeInTheDocument();
+
+    const refreshed = samplePreview("Renamed again");
+    refreshed.edits[0].fingerprint = "v1:fresh";
+    mockedPreviewPatchSet.mockResolvedValueOnce(refreshed);
+    fireEvent.click(screen.getByRole("button", { name: /re-preview/i }));
+
+    await screen.findByText("Renamed again");
+    expect(mockedPreviewPatchSet).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/changed since this preview/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /accept & apply/i })).toBeEnabled();
   });
 
   it("Accept pushes an Undo toast with duration 0 when the apply response carries an applicationId", async () => {
