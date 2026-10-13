@@ -28,7 +28,8 @@ private[services] object PatchSetPreviewImpact {
   def compute(
       edit: ResolvedEdit,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
+      ctx: PatchSetApplyContext,
+      overlay: PatchSetPreviewOverlay = PatchSetPreviewOverlay.empty
   )(implicit ec: ExecutionContext): Future[Vector[String]] =
     edit.action match {
       // `pipeline`/`pipelineStep` update/delete: output rows are written
@@ -53,7 +54,8 @@ private[services] object PatchSetPreviewImpact {
       // query's own COUNT alongside the slice -- no over-fetch.
       case ResolvedAction.DashboardDelete(id, _) =>
         ctx.panelRepo.findAllByDashboardId(id, Some(user), Page(0, 1)).map { page =>
-          Vector(dashboardDeleteHint(page.total))
+          // The count at resolve time, adjusted for panels earlier edits of the set created or deleted there.
+          Vector(dashboardDeleteHint(overlay.panelCount(id.value, page.total)))
         }
 
       // HEL-904 task 4.1: the panel-update "rebind to a different DataType"

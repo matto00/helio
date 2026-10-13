@@ -31,6 +31,19 @@ describe("AdminUsagePage", () => {
     expect(fetchMock).toHaveBeenCalledWith(30);
   });
 
+  it("gives every 'View as table' summary the shared disclosure recipe and the 44px touch floor", async () => {
+    fetchMock.mockResolvedValue(usage);
+    renderWithStore(<AdminUsagePage />);
+    await screen.findByText("Data through 2026-04-13 (UTC)");
+
+    const summaries = screen.getAllByText("View as table");
+    expect(summaries.length).toBeGreaterThan(0);
+    for (const summary of summaries) {
+      expect(summary.tagName).toBe("SUMMARY");
+      expect(summary).toHaveClass("disclosure-summary", "tap-expand-44");
+    }
+  });
+
   it("shows exact funnel, template and TTFD numbers in accessible tables, with gaps as a dash not 0", async () => {
     fetchMock.mockResolvedValue(usage);
     renderWithStore(<AdminUsagePage />);

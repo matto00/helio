@@ -95,7 +95,7 @@ final class DashboardContentsService(
       case Left(err) => Future.successful(Left(err))
       case Right(built) =>
         val layout = ProposalLayoutSupport.buildLayout(panels, built.map(_.id))
-        dashboardRepo.replaceContents(dashboardId, built, Some(layout)).map {
+        dashboardRepo.replaceContents(dashboardId, built, layout).map {
           case None         => Left(ServiceError.NotFound("Dashboard not found"))
           case Some(result @ (_, newPanels)) =>
             // HEL-477 design.md Decision 9: one dashboard.contents.replace

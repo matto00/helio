@@ -298,7 +298,14 @@ class PatchSetPreviewOutputContextSpec
           }
         }
       }
-      await(previewService.preview(PatchSet(None, matrix(s)), userA)) shouldBe a[Right[_, _]]
+      // HEL-1498: the matrix deletes a data source that a later pipeline create roots on, so the cumulative
+      // preview now rejects the whole set exactly as apply would. What this case guards is that nothing is
+      // written either way, so the accepted outcomes are a clean preview or that one rejection.
+      await(previewService.preview(PatchSet(None, matrix(s)), userA)) match {
+        case Right(_)                          => succeed
+        case Left(ServiceError.NotFound(msg)) => msg should startWith("data source not found")
+        case Left(other)                       => fail(s"unexpected rejection: $other")
+      }
       val after = snapshot()
       after shouldBe before
     }

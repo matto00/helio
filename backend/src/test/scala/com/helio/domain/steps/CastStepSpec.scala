@@ -27,13 +27,33 @@ class CastStepSpec extends AnyWordSpec with Matchers {
       s"GUARD: $target keeps '$s' unchanged (original string, untrimmed)" in { cast(target, s) shouldBe s }
 
     "GUARD: an integer-looking string is kept under timestamp (epoch, matching datebucket)" in { cast("timestamp", "42") shouldBe "42" }
-    "GUARD: a Long epoch input yields its String form" in {
-      cast("timestamp", 1751371200L) shouldBe "1751371200"
-      cast("date", 1751371200L) shouldBe "1751371200"
+    // HEL-1502 owner ruling iso-instant-both: a non-String numeric epoch is emitted as its UTC ISO instant.
+    "RED: a Long epoch input yields its ISO instant" in {
+      cast("timestamp", 1751371200L) shouldBe "2025-07-01T12:00:00Z"
+      cast("date", 1751371200L) shouldBe "2025-07-01T12:00:00Z"
     }
-    "a whole Double epoch (a JSON epoch number) is kept as its string form, as datebucket now parses it" in {
-      cast("timestamp", 1.7513712E9) shouldBe "1.7513712E9"
-      cast("date", 1.7513712E9) shouldBe "1.7513712E9"
+    "RED: a whole Double epoch (a JSON epoch number) yields its ISO instant, never scientific notation" in {
+      cast("timestamp", 1.7513712E9) shouldBe "2025-07-01T12:00:00Z"
+      cast("date", 1.7513712E9) shouldBe "2025-07-01T12:00:00Z"
+      cast("timestamp", 1771286400.0) shouldBe "2026-02-17T00:00:00Z"
+    }
+    "RED: a millisecond epoch keeps non-zero milliseconds only" in {
+      cast("date", 1771286400123.0) shouldBe "2026-02-17T00:00:00.123Z"
+      cast("timestamp", 1771286400000.0) shouldBe "2026-02-17T00:00:00Z"
+    }
+    "GUARD: a numeric STRING keeps its original text" in {
+      cast("timestamp", "1771286400") shouldBe "1771286400"
+      cast("date", "1.7712864E9") shouldBe "1.7712864E9"
+    }
+    "RED: an epoch outside years 0001-9999 yields null" in {
+      (cast("timestamp", Long.MinValue) == null) shouldBe true
+      (cast("timestamp", Long.MinValue.toString) == null) shouldBe true
+    }
+    "RED: Postgres-offset, region-zoned and MM/dd/yyyy shapes are kept; 02/30/2026 is not" in {
+      for (s <- Seq("2026-07-01 12:00:00+00", "2026-07-01 17:30:00+0530", "2026-07-01T14:00:00+02:00[Europe/Paris]", "07/01/2026"))
+        cast("timestamp", s) shouldBe s
+      (cast("timestamp", "02/30/2026") == null) shouldBe true
+      (cast("date", "02/30/2026") == null) shouldBe true
     }
     "a fractional Double epoch yields null" in {
       (cast("timestamp", 1.7513712005E9) == null) shouldBe true

@@ -141,15 +141,7 @@ class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     (rootsTable += row).map(_ => rowToDomain(row))
   }
 
-  /** Owner-scoped removal. Returns `false` if no row matched (not owned / does not exist) --
-   *  the service layer (task 4.6 / R7) is responsible for refusing removal of the LAST root or a
-   *  root a surviving lane still references BEFORE calling this. */
-  def remove(rootId: PipelineRootId, user: AuthenticatedUser): Future[Boolean] =
-    ctx.withUserContext(user.id.value)(
-      rootsTable.filter(_.id === rootId.value).delete
-    ).map(_ > 0)
-
-  /** DBIO variant of [[remove]] (HEL-913 task 7.4/7.5), for composition into
+  /** Root removal as a DBIO (HEL-913 task 7.4/7.5), for composition into
    *  `PipelineService.removeRoot`'s ONE transaction spanning this repo and
    *  `PipelineStepRepository`'s explicit step/`node_snapshots` cleanup (R7 phase 2) --
    *  mirrors `addAction`'s existing DBIO-variant convention. Privileged (no ACL check here):

@@ -39,9 +39,12 @@ When `fieldMapping.xAxis` or `fieldMapping.yAxis` is absent or empty, the ChartP
 When the field plotted on the x axis is declared `timestamp` in the Output's schema, a `line`, `scatter`, or
 vertical `bar` chart (raw rows, or an aggregation grouped by that field) SHALL render a continuous time x axis:
 points SHALL be ordered by the instant their x value denotes and spaced in proportion to the time between them.
-An x value SHALL denote an instant exactly as the backend reads it — whole-number epochs (seconds, or
-milliseconds above 9999999999), ISO instants and offset date-times, time-zone-less date-times read as UTC, and
-bare `yyyy-MM-dd` dates as midnight UTC — and additionally `MM/dd/yyyy` as midnight UTC. A row whose x value
+An x value SHALL denote an instant exactly as the backend's shared timestamp parser reads it (see
+`timestamp-value-parsing`), with no frontend-only extension: whole-number epochs (seconds, or milliseconds above
+9999999999) whose instant lies in years 0001–9999, ISO instants and offset date-times, `T`- or space-separated date-times with a numeric offset
+`+HH`/`+HHMM`/`+HH:MM`/`+HH:MM:SS` of at most 18:00 (either optionally followed by a bracketed id, read at the
+written offset), time-zone-less date-times read as UTC, bare `yyyy-MM-dd` dates and
+`MM/dd/yyyy` dates as midnight UTC. A row whose x value
 denotes no instant SHALL NOT be plotted on the time axis; when one or more rows (or, for an aggregation, group
 keys) are left out this way, the chart SHALL show a footnote stating how many, such as "3 rows with no readable
 date not shown." or "1 group with no readable date not shown.", and SHALL show no such footnote when none are
@@ -63,6 +66,14 @@ time axis by being cast to `timestamp` in its pipeline.
 #### Scenario: A time-zone-less date-time is read as UTC
 - **WHEN** a timestamp x value is `2026-10-01T12:00` and the viewer's time zone is not UTC
 - **THEN** the point is placed at 12:00 UTC on 1 Oct 2026 and the tooltip shows `2026-10-01 12:00`
+
+#### Scenario: Postgres timestamptz text is placed at its offset
+- **WHEN** a timestamp x value is `2026-10-01 12:00:00+00` and another is `2026-10-01 17:30:00+0530`
+- **THEN** both points are placed at 12:00 UTC on 1 Oct 2026, the same instants the backend reads
+
+#### Scenario: Chart and backend agree case by case
+- **WHEN** every case of the shared chart timestamp fixture is parsed by the chart's x parser and by the backend's shared timestamp parser
+- **THEN** both yield the same instant (or both yield none) for every case
 
 #### Scenario: A non-timestamp x field is unchanged
 - **WHEN** the x field is declared `string` (or no schema is available) and its values look like dates

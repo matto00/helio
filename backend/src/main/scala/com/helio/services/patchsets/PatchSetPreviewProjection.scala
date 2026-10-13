@@ -1,25 +1,14 @@
 package com.helio.services.patchsets
 
-import com.helio.services.dashboards.DashboardServiceValidation
-import com.helio.services.panels.{LayoutPolicy, LayoutWritePolicy, PanelServiceHelpers}
 import com.helio.services.ServiceError
-import com.helio.services.pipelines.OutputService
-import com.helio.domain.engine.ExpressionEvaluator
-import com.helio.api.http.RequestValidation
-import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse, UpdateDashboardRequest}
-import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse, PipelineSummaryResponse, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
-import com.helio.api.protocols.sources.{DataSourceResponse, StaticDataSourceRequest, UpdateDataSourceRequest}
+import com.helio.services.panels.PlacementSizes
+import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.patchsets.EditPreview
 import com.helio.domain.model._
-import com.helio.domain.panels._
-import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
-import PatchSetApplyServiceJson._
+import com.helio.domain.panels.OutputPanel
 import spray.json._
 
-import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** Pure(-ish) after-state projection for one resolved edit (design.md D2/D3/
  *  D1a, tasks.md 2.2) -- the read-only diff half of HEL-408's preview.
@@ -44,360 +33,165 @@ import scala.util.{Failure, Success}
  *  `Left` from either remaining check fails the WHOLE `preview` call
  *  (design.md D1a), never silently dropped or per-edit-only.
  *
- *  Extracted to its own file from the start (design.md Impact -- learning
- *  from HEL-406/HEL-668's file-size lesson); the pipelineStep-specific
- *  22-arm `.copy` dispatch lives in `PatchSetPreviewProjectionSteps.scala`
- *  for the identical reason. */
+ *  This object is the dispatcher; each resource kind's after-state builders live in
+ *  `PatchSetPreview{Panel,Dashboard,Source,Pipeline,Step}Projection.scala` (HEL-1498 split,
+ *  behaviour-preserving), and the pipelineStep-specific 22-arm `.copy` dispatch lives in
+ *  `PatchSetPreviewProjectionSteps.scala`. */
 private[services] object PatchSetPreviewProjection {
 
-  private val PendingId = "(pending)"
+  private[patchsets] val PendingId = "(pending)"
 
+  /** Projection against the resolve-time state only (no earlier edits): the overlay-free entry point. */
   def project(
       edit: ResolvedEdit,
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, EditPreview]] =
-    computeAfter(edit, user, ctx).flatMap {
+    project(edit, user, ctx, PatchSetPreviewOverlay.empty).map(_.map(_._1))
+
+  /** Projects `edit` against the state the earlier edits of the set left in `overlay` (HEL-1498) and returns the
+   *  preview plus the overlay extended with this edit's own effect. `before` and the fingerprint stay the
+   *  resolve-time (pre-apply) state, exactly as apply's `priorState` and stale check. */
+  private[services] def project(
+      edit: ResolvedEdit,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext,
+      overlay: PatchSetPreviewOverlay
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, (EditPreview, PatchSetPreviewOverlay)]] =
+    computeAfter(edit, user, ctx, overlay).flatMap {
       case Left(err) => Future.successful(Left(err))
-      case Right(afterOpt) =>
+      case Right((afterOpt, afterEdit)) =>
         for {
-          impact      <- PatchSetPreviewImpact.compute(edit, user, ctx)
+          impact      <- PatchSetPreviewImpact.compute(edit, user, ctx, overlay)
           fingerprint <- PatchSetTargetFingerprint.forEdit(edit, user, ctx)
-        } yield Right(EditPreview(edit.index, edit.kind, edit.op, edit.priorStateJson, afterOpt, impact, fingerprint))
+          extended    <- PatchSetPreviewRemovals.record(edit, ctx, afterEdit)
+        } yield Right((EditPreview(edit.index, edit.kind, edit.op, edit.priorStateJson, afterOpt, impact, fingerprint), extended))
     }
 
+  private type Projected = Either[ServiceError, (Option[JsValue], PatchSetPreviewOverlay)]
+
+  private def gone(what: String): ServiceError = ServiceError.NotFound(s"$what not found (deleted by an earlier edit in this patch set)")
+
+  /** A read of something an earlier edit removed fails the whole call, like apply's mid-set failure. */
+  private def unlessRemoved(overlay: PatchSetPreviewOverlay, kind: String, id: String, what: String)(
+      f: => Projected
+  ): Future[Projected] =
+    Future.successful(if (overlay.isRemoved(kind, id)) Left(gone(what)) else f)
 
   private def computeAfter(
       edit: ResolvedEdit,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
+      ctx: PatchSetApplyContext,
+      overlay: PatchSetPreviewOverlay
+  )(implicit ec: ExecutionContext): Future[Projected] =
     edit.action match {
-      case ResolvedAction.PanelUpdate(_, request, prior) =>
-        Future.successful(panelUpdateAfter(request, prior))
-      case ResolvedAction.PanelDelete(_, _) =>
-        Future.successful(Right(None))
+      case ResolvedAction.PanelUpdate(id, request, prior) =>
+        unlessRemoved(overlay, "panel", id.value, "Panel") {
+          PatchSetPreviewPanelProjection.panelUpdateAfter(request, overlay.panel(prior)).map {
+            case (json, panel) => (Some(json), overlay.withPanel(panel))
+          }
+        }
+      case ResolvedAction.PanelDelete(id, _) =>
+        unlessRemoved(overlay, "panel", id.value, "Panel")(Right((None, overlay)))
       case ResolvedAction.PanelCreate(request) =>
-        Future.successful(Right(Some(panelCreateAfter(request, user))))
+        panelCreate(edit, request, user, ctx, overlay)
 
-      case ResolvedAction.DashboardUpdate(_, request, prior) =>
-        dashboardUpdateAfter(request, prior, ctx)
-      case ResolvedAction.DashboardDelete(_, _) =>
-        Future.successful(Right(None))
+      case ResolvedAction.DashboardUpdate(id, request, prior) =>
+        if (overlay.isRemoved("dashboard", id.value)) Future.successful(Left(gone("Dashboard")))
+        else
+          ctx.dashboardRepo.panelIdsInternal(prior.id).map { stored =>
+            PatchSetPreviewDashboardProjection.dashboardUpdateAfter(request, overlay.dashboard(prior), stored, overlay).map {
+              case (json, dashboard) => (Some(json), overlay.withDashboard(dashboard))
+            }
+          }
+      case ResolvedAction.DashboardDelete(id, _) =>
+        unlessRemoved(overlay, "dashboard", id.value, "Dashboard")(Right((None, overlay)))
       case ResolvedAction.DashboardCreate(request) =>
-        Future.successful(Right(Some(dashboardCreateAfter(request, user))))
+        Future.successful(Right((Some(PatchSetPreviewDashboardProjection.dashboardCreateAfter(request, user)), overlay)))
 
-      case ResolvedAction.DataSourceUpdate(_, request, prior) =>
-        Future.successful(Right(Some(dataSourceUpdateAfter(request, prior))))
-      case ResolvedAction.DataSourceDelete(_, _) =>
-        Future.successful(Right(None))
+      case ResolvedAction.DataSourceUpdate(id, request, prior) =>
+        unlessRemoved(overlay, "dataSource", id.value, "Data source") {
+          val (json, updated) = PatchSetPreviewSourceProjection.dataSourceUpdateAfter(request, overlay.dataSource(prior))
+          Right((Some(json), overlay.withDataSource(updated)))
+        }
+      case ResolvedAction.DataSourceDelete(id, _) =>
+        unlessRemoved(overlay, "dataSource", id.value, "Data source")(Right((None, overlay)))
       case ResolvedAction.DataSourceCreate(request) =>
-        Future.successful(Right(Some(dataSourceCreateAfter(request, user))))
+        Future.successful(Right((Some(PatchSetPreviewSourceProjection.dataSourceCreateAfter(request, user)), overlay)))
 
       // HEL-904 task 3.3: the `dataType` update/delete content checks are
       // REMOVED outright -- `dataType` is no longer a valid target.kind.
 
-      case ResolvedAction.PipelineUpdate(_, request, prior) =>
-        Future.successful(pipelineRenameAfter(request, prior))
-      case ResolvedAction.PipelineDelete(_, _) =>
-        Future.successful(Right(None))
+      case ResolvedAction.PipelineUpdate(id, request, prior) =>
+        unlessRemoved(overlay, "pipeline", id.value, "Pipeline") {
+          PatchSetPreviewPipelineProjection.pipelineRenameAfter(request, overlay.pipeline(prior)).map {
+            case (json, updated) => (Some(json), overlay.withPipeline(updated))
+          }
+        }
+      case ResolvedAction.PipelineDelete(id, _) =>
+        unlessRemoved(overlay, "pipeline", id.value, "Pipeline")(Right((None, overlay)))
       case ResolvedAction.PipelineCreate(request) =>
-        pipelineCreateAfter(request, user, ctx)
+        PatchSetPreviewPipelineProjection.pipelineCreateAfter(request, user, ctx, overlay).map(_.map(json => (json, overlay)))
 
       // ── pipelineStep (HEL-914 task 5.2: create added) ──────────────────
-      case ResolvedAction.PipelineStepUpdate(_, request, prior) =>
-        Future.successful(pipelineStepUpdateAfter(request, prior))
-      case ResolvedAction.PipelineStepDelete(_, _) =>
-        Future.successful(Right(None))
-      case ResolvedAction.PipelineStepCreate(_, request) =>
+      case ResolvedAction.PipelineStepUpdate(id, request, prior) =>
+        unlessRemoved(overlay, "pipelineStep", id.value, "Pipeline step") {
+          PatchSetPreviewStepProjection.pipelineStepUpdateAfter(request, overlay.step(prior)).map {
+            case (json, updated) => (Some(json), overlay.withStep(updated))
+          }
+        }
+      case ResolvedAction.PipelineStepDelete(id, _) =>
+        unlessRemoved(overlay, "pipelineStep", id.value, "Pipeline step")(Right((None, overlay)))
+      case ResolvedAction.PipelineStepCreate(pipelineId, request) =>
         // A create's `after` has no prior `PipelineStep` domain object to `.copy` onto (unlike
         // update's `pipelineStepUpdateAfter`) and no persisted position/root yet -- a lightweight,
         // honest "what you asked for" echo (pending id, type, config, and the tree-shape fields
         // that decide which lane this becomes) rather than a fabricated full typed response.
-        Future.successful(Right(Some(pipelineStepCreateAfter(request))))
+        // A parent (or pipeline) an earlier edit deleted is rejected as `StepPlacement` rejects an unknown parent.
+        val parentGone = request.parentStepId.exists(overlay.isRemoved("pipelineStep", _)) || overlay.isRemoved("pipeline", pipelineId.value)
+        Future.successful(
+          if (parentGone) Left(ServiceError.UnprocessableEntity("parentStepId is not a step of this pipeline (deleted by an earlier edit in this patch set)"))
+          else Right((Some(PatchSetPreviewStepProjection.pipelineStepCreateAfter(request)), overlay))
+        )
 
       // ── output (HEL-1239) ────────────────────────────────────────────────
-      case ResolvedAction.OutputUpdate(_, request, prior, priorConfig) =>
-        Future.successful(outputUpdateAfter(request, prior, priorConfig))
-      case ResolvedAction.OutputDelete(_, _) =>
-        Future.successful(Right(None))
-    }
-
-  /** HEL-1239: after-state of an Output update -- `name` replaced, `config` shallow-merged and its `fieldMapping` validated EXACTLY as `OutputService.update`
-   *  does (shared `OutputService.mergeConfig`/`validateConfig`), so a preview of an invalid
-   *  patch 400s like the apply would. `updatedAt` stays at `prior`'s value (design.md D3's
-   *  timestamp exclusion, same as every other update projection). */
-  private def outputUpdateAfter(
-      request: UpdateOutputRequest,
-      prior: Output,
-      priorConfig: JsObject
-  ): Either[ServiceError, Option[JsValue]] = {
-    val merged = request.config.map(patch => OutputService.mergeConfig(priorConfig, patch))
-    request.config.map(patch => OutputService.validateConfig(prior.kind, patch, priorConfig)).getOrElse(Right(())).map { _ =>
-      val updated = prior.copy(name = request.name.getOrElse(prior.name))
-      Some(outputResponseFormat.write(outputResponseFrom(updated, merged.getOrElse(priorConfig))))
-    }
-  }
-
-  private def pipelineStepCreateAfter(request: CreatePipelineStepRequest): JsValue =
-    JsObject(
-      Vector(
-        Some("id" -> JsString(PendingId)),
-        Some("type" -> JsString(request.`type`)),
-        Some("config" -> request.config),
-        request.parentStepId.map(v => "parentStepId" -> JsString(v)),
-        request.rootId.map(v => "rootId" -> JsString(v)),
-        request.enabled.map(v => "enabled" -> JsBoolean(v))
-      ).flatten: _*
-    )
-
-
-  private def panelUpdateAfter(request: UpdatePanelRequest, prior: Panel): Either[ServiceError, Option[JsValue]] =
-    PanelServiceHelpers.resolvePatch(request, prior) match {
-      case Left(err) => Left(ServiceError.BadRequest(err))
-      case Right(spec) =>
-        // HEL-904: the `validateScatterAggregationConflict` gate here was
-        // removed along with `ChartPanel` — Outputs carry no panel-side
-        // `aggregation` field to conflict with a chart type.
-        val titled = withTitleAndAppearance(prior, spec.trimmedTitle, spec.appearance)
-        val configured: Either[String, Panel] = spec.configPatch match {
-          case None      => Right(titled)
-          case Some(cfg) => PanelConfigCodec.applyConfigPatch(titled, cfg)
-        }
-        configured match {
-          case Left(err)    => Left(ServiceError.BadRequest(err))
-          case Right(panel) => Right(Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))))
-        }
-    }
-
-  /** design.md D3's create-side builder reuse -- every field here already
-   *  round-tripped through `resolveAll`'s own `resolvePanelCreate` (decode
-   *  failures already fail the whole `preview` call before this projection
-   *  runs), so the `getOrElse` fallbacks below are unreachable in practice,
-   *  not a silent second decode. */
-  private def panelCreateAfter(request: CreatePanelRequest, user: AuthenticatedUser): JsValue = {
-    val createConfig = PanelServiceHelpers.resolveCreateConfig(request).getOrElse(
-      throw new IllegalStateException("panel create config failed to decode after resolveAll already accepted it")
-    )
-    val appearance = PanelServiceHelpers.resolveCreateAppearance(request.appearance).getOrElse(PanelAppearance.Default)
-    val now = Instant.now()
-    val panel = PanelServiceHelpers.buildNewPanel(
-      id           = PanelId(PendingId),
-      dashboardId  = DashboardId(request.dashboardId.map(_.trim).getOrElse("")),
-      title        = RequestValidation.normalizePanelTitle(request.title),
-      meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-      appearance   = appearance,
-      ownerId      = user.id,
-      createConfig = createConfig
-    )
-    panelResponseFormat.write(PanelResponse.fromDomain(panel))
-  }
-
-  /** Generic title/appearance `.copy` across the Panel ADT's 9 registered
-   *  kinds (mirrors `PanelServiceHelpers.buildNewPanel`'s own 9-arm
-   *  dispatch) -- `PanelPatchApplier`'s real title/appearance write steps
-   *  (`panelRepo.updateTitle`/`updateAppearance`), replicated in memory. */
-  private def withTitleAndAppearance(panel: Panel, title: Option[String], appearance: Option[PanelAppearance]): Panel = {
-    def t(existing: String): String = title.getOrElse(existing)
-    def a(existing: PanelAppearance): PanelAppearance = appearance.getOrElse(existing)
-    panel match {
-      case p: TextPanel       => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: MarkdownPanel   => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: ImagePanel      => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: DividerPanel    => p.copy(title = t(p.title), appearance = a(p.appearance))
-      case p: OutputPanel     => p.copy(title = t(p.title), appearance = a(p.appearance))
-    }
-  }
-
-
-  private def dashboardUpdateAfter(
-      request: UpdateDashboardRequest,
-      prior: Dashboard,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] =
-    DashboardServiceValidation.validateDashboardUpdateRequest(request) match {
-      case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right((nameOpt, appearanceOpt, layoutPatchOpt)) =>
-        // HEL-1456 D5 / HEL-1485: the same live-panel layout resolution `DashboardWrites.applyUpdate`
-        // runs (shared `LayoutPolicy.resolveOnLive`), so a preview drops ghost items exactly as apply
-        // does and 400s only where apply would. A rename-only update returns the stored row, layout
-        // unfiltered, like apply's `updateName` branch.
-        ctx.dashboardRepo.panelIdsInternal(prior.id).map { panelIds =>
-          val renameOnly = nameOpt.isDefined && appearanceOpt.isEmpty && layoutPatchOpt.isEmpty
-          val (liveLayout, layoutResolved) = LayoutPolicy.resolveOnLive(prior.layout, layoutPatchOpt, panelIds, LayoutWritePolicy.Validate)
-          layoutResolved match {
-            case Left(msg) => Left(ServiceError.BadRequest(msg))
-            case Right(patched) =>
-              // design.md D3's corrected three-field mirror of DashboardService.applyUpdate --
-              // name/appearance/layout only, `meta` deliberately left at `prior`'s value (D3's
-              // timestamp exclusion).
-              val updated = prior.copy(
-                name       = nameOpt.getOrElse(prior.name),
-                appearance = appearanceOpt.getOrElse(prior.appearance),
-                layout     = if (renameOnly) prior.layout else patched.getOrElse(liveLayout)
-              )
-              Right(Some(dashboardResponseFormat.write(DashboardResponse.fromDomain(updated))))
+      case ResolvedAction.OutputUpdate(id, request, prior, priorConfig) =>
+        unlessRemoved(overlay, "output", id.value, "Output") {
+          val (basis, basisConfig) = overlay.output(prior, priorConfig)
+          PatchSetPreviewPipelineProjection.outputUpdateAfter(request, basis, basisConfig).map {
+            case (json, updated, config) => (Some(json), overlay.withOutput(updated, config))
           }
         }
+      case ResolvedAction.OutputDelete(id, _) =>
+        unlessRemoved(overlay, "output", id.value, "Output")(Right((None, overlay)))
     }
 
-  private def dashboardCreateAfter(request: CreateDashboardRequest, user: AuthenticatedUser): JsValue = {
-    val now = Instant.now()
-    val dashboard = Dashboard(
-      id         = DashboardId(PendingId),
-      name       = RequestValidation.normalizeDashboardName(request.name),
-      meta       = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-      appearance = DashboardAppearance.Default,
-      layout     = DashboardLayout.Default,
-      ownerId    = user.id
-    )
-    dashboardResponseFormat.write(DashboardResponse.fromDomain(dashboard))
-  }
-
-
-  /** Trivial rename-only `.copy`, mirroring `PatchSetApplyRollback`'s own
-   *  `DataSourceUpdate` inverse-request composition style -- `updatedAt` is
-   *  deliberately left at `prior`'s value (design.md D3's timestamp
-   *  exclusion). */
-  private def dataSourceUpdateAfter(request: UpdateDataSourceRequest, prior: DataSource): JsValue = {
-    val newName = request.name.map(_.trim).getOrElse(prior.name)
-    val updated = prior match {
-      case c: CsvSource    => c.copy(name = newName)
-      case r: RestSource   => r.copy(name = newName)
-      case s: SqlSource    => s.copy(name = newName)
-      case s: DatasetSource => s.copy(name = newName)
-      case t: TextSource   => t.copy(name = newName)
-      case p: PdfSource    => p.copy(name = newName)
-      case i: ImageSource  => i.copy(name = newName)
-    }
-    dataSourceResponseFormat.write(DataSourceResponse.fromDomain(updated))
-  }
-
-  private def dataSourceCreateAfter(request: StaticDataSourceRequest, user: AuthenticatedUser): JsValue = {
-    val now = Instant.now()
-    val source = DatasetSource(
-      id        = DataSourceId(PendingId),
-      name      = request.name.trim,
-      ownerId   = user.id,
-      createdAt = now,
-      updatedAt = now,
-      tag       = request.tag
-    )
-    dataSourceResponseFormat.write(DataSourceResponse.fromDomain(source))
-  }
-
-
-
-
-  /** Mirrors `PipelineService.updateName`'s blank-name check
-   *  (`PipelineService.updateName`, design.md D1/D1a) before the trivial
-   *  rename `.copy`. */
-  private def pipelineRenameAfter(request: UpdatePipelineRequest, prior: PipelineSummary): Either[ServiceError, Option[JsValue]] =
-    if (request.name.trim.isEmpty) Left(ServiceError.BadRequest("name must not be empty"))
-    else Right(Some(pipelineSummaryResponseFormat.write(toPipelineSummaryResponse(prior.copy(name = request.name.trim)))))
-
-  /** Trivial field-echo of the decoded `CreatePipelineRequest` (design.md
-   *  D3) -- `sourceDataSourceName` needs one genuine extra READ (a read, not
-   *  a write) since the request only carries the source's id, not its name;
-   *  `outputDataTypeId`/`id` are the `"(pending)"` sentinel, nothing exists
-   *  yet. */
-  private def pipelineCreateAfter(
-      request: CreatePipelineRequest,
+  /** A panel create: rejected when the dashboard or Output it names was deleted by an earlier edit; otherwise its
+   *  placement (sized exactly as `PanelService.create` sizes it) joins the dashboard's layout ops under the
+   *  placeholder id `(pending:<editIndex>)`. */
+  private def panelCreate(
+      edit: ResolvedEdit,
+      request: CreatePanelRequest,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
-  )(implicit ec: ExecutionContext): Future[Either[ServiceError, Option[JsValue]]] = {
-    // HEL-913 task 7.6: `roots` replaces the scalar `sourceDataSourceId` -- resolves EVERY
-    // root's DataSource (never just the first) so the preview's `roots[]` echoes what the real
-    // create would actually produce, not a single-root approximation.
-    // (id, name) pairs -- an inline root (task 7.1a: `sourceId` absent, `type` present) has no
-    // real DataSource to look up yet, so it echoes the PENDING sentinel id and the request's own
-    // `name`, exactly like the pipeline id itself below (nothing exists until the real apply
-    // runs `pipelineService.create`, which re-validates every root, inline branch included).
-    def loop(remaining: List[CreatePipelineRootRequest], acc: Vector[(String, String)]): Future[Either[ServiceError, Vector[(String, String)]]] =
-      remaining match {
-        case Nil => Future.successful(Right(acc))
-        case root :: rest =>
-          root.sourceId.map(_.trim) match {
-            case Some(sid) if sid.isEmpty =>
-              Future.successful(Left(ServiceError.BadRequest("roots: sourceId is required and must not be blank")))
-            case Some(sid) =>
-              ctx.dataSourceRepo.findByIdOwned(DataSourceId(sid), user).flatMap {
-                case None     => Future.successful(Left(ServiceError.NotFound(s"data source not found: $sid")))
-                case Some(ds) => loop(rest, acc :+ ((ds.id.value, ds.name)))
-              }
-            case None =>
-              loop(rest, acc :+ ((PendingId, root.name.getOrElse("(pending)"))))
-          }
+      ctx: PatchSetApplyContext,
+      overlay: PatchSetPreviewOverlay
+  )(implicit ec: ExecutionContext): Future[Projected] = {
+    val panel       = PatchSetPreviewPanelProjection.panelCreateBuild(request, user)
+    val dashboardId = panel.dashboardId.value
+    val outputId    = Option(panel).collect { case o: OutputPanel => o.outputId }.flatten
+    if (overlay.isRemoved("dashboard", dashboardId)) Future.successful(Left(gone("Dashboard")))
+    else if (outputId.exists(o => overlay.isRemoved("output", o.value))) Future.successful(Left(gone("Output")))
+    else {
+      val kindF = outputId match {
+        case None    => Future.successful(None)
+        case Some(o) => overlay.outputs.get(o.value).map(x => Future.successful(Option(x._1))).getOrElse(ctx.outputRepo.findByIdInternal(o)).map(_.map(_.kind))
       }
-    if (request.roots.isEmpty)
-      Future.successful(Left(ServiceError.BadRequest("roots must be a non-empty array")))
-    else
-      loop(request.roots.toList, Vector.empty).map {
-        case Left(err) => Left(err)
-        case Right(sources) =>
-          // HEL-1022 (adversarial review finding 3): `createdAt`/`updatedAt` must not silently
-          // default to `""` -- nothing is persisted yet (this is a preview), so "now" is the
-          // honest value for what applying this create edit would produce this instant, exactly
-          // like `PipelineRepository.create`/`createAction`'s own `now.toString` for a real
-          // create. An empty string reached `PipelineListTable`'s `formatRelativeTime("")` as
-          // "NaN years ago" -- latent (this construction site's caller is a preview projection,
-          // not the list endpoint itself), but this response shape is otherwise contractually
-          // "always non-empty" (`pipeline-list-api` spec), so this site must honor that too.
-          val now = Instant.now().toString
-          Right(Some(pipelineSummaryResponseFormat.write(PipelineSummaryResponse(
-            id                   = PendingId,
-            name                 = request.name.trim,
-            roots                = sources.map { case (id, name) => PipelineRootSummaryResponse(PendingId, id, name) },
-            lastRunStatus        = None,
-            lastRunAt            = None,
-            lastRunRowCount      = None,
-            ownerId              = Some(user.id.value),
-            tag                  = request.tag,
-            createdAt            = now,
-            updatedAt            = now
-          ))))
+      kindF.map { kind =>
+        val extended =
+          if (dashboardId.isEmpty) overlay
+          else overlay.withPanelCreated(dashboardId, s"(pending:${edit.index})", PlacementSizes.forNewPanel(panel, kind))
+        Right((Some(PatchSetPreviewPanelProjection.panelCreateAfter(panel)), extended))
       }
-  }
-
-  /** Trivial field-echo -- `PatchSetPipelineResolvers.pipelineSummaryResponse`
-   *  is `private` to that object, not `private[services]`, so this mirrors
-   *  its 1:1 field mapping rather than reaching across the object boundary. */
-  private def toPipelineSummaryResponse(s: PipelineSummary): PipelineSummaryResponse =
-    PipelineSummaryResponse(
-      id                   = s.id,
-      name                 = s.name,
-      roots                = s.roots.map(r => PipelineRootSummaryResponse(r.id, r.dataSourceId, r.dataSourceName)),
-      lastRunStatus        = s.lastRunStatus,
-      lastRunAt            = s.lastRunAt,
-      lastRunRowCount      = s.lastRunRowCount,
-      ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
-      tag                  = s.tag,
-      createdAt            = s.createdAt,
-      updatedAt            = s.updatedAt
-    )
-
-
-  private def pipelineStepUpdateAfter(request: UpdatePipelineStepRequest, prior: PipelineStep): Either[ServiceError, Option[JsValue]] = {
-    val configuredEither: Either[String, PipelineStep] = request.config match {
-      case None => Right(prior)
-      case Some(cfgJson) =>
-        PipelineStepConfigCodec.decode(prior.kind, cfgJson.compactPrint) match {
-          case Failure(_)           => Left(s"Invalid '${prior.kind}' config")
-          case Success(typedConfig) => PipelineStepProjectionSupport.withDecodedConfig(prior, typedConfig)
-        }
-    }
-    configuredEither match {
-      case Left(err) => Left(ServiceError.BadRequest(err))
-      case Right(configured) =>
-        val positioned = PipelineStepProjectionSupport.withPosition(configured, request.position.getOrElse(configured.position))
-        // HEL-913 task 7.6a-iii: this is a PURE, synchronous preview projection (no DB access --
-        // `positioned` is a hypothetical, not-yet-persisted step shape) so it genuinely cannot
-        // resolve a root here. `Map.empty` is passed EXPLICITLY (fromDomain has no default,
-        // 7.6a-i) rather than silently inherited, and the reason is stated here rather than left
-        // for a reader to guess: a config/position preview never changes which root a step
-        // belongs to, so this is a narrower gap than "unknown" -- it's "unchanged, just not
-        // reflected in this hypothetical projection."
-        Right(Some(pipelineStepResponseFormat.write(PipelineStepResponse.fromDomain(positioned, Map.empty))))
     }
   }
 }

@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
+import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.domain.model._
 import slick.jdbc.PostgresProfile.api._
@@ -484,9 +485,15 @@ class PipelineRepository(
     * the caller owned was removed. */
   def delete(id: PipelineId, user: AuthenticatedUser): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
-    ctx.withUserContext(user.id.value)(
-      pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid).delete
-    ).map(_ > 0)
+    val owned     = pipelinesTable.filter(r => r.id === id.value && r.ownerId === ownerUuid)
+    // HEL-1498: once the owner check has found the pipeline, lock the panel rows its output cascade will remove (in
+    // id order, including panels on other users' dashboards) before the DELETE; a pipeline the caller does not own
+    // locks nothing.
+    val action = owned.map(_.id).result.headOption.flatMap {
+      case None      => DBIO.successful(0)
+      case Some(pid) => PanelRowLocks.lockForDeletion(pipelines = Seq(pid)) andThen owned.delete
+    }
+    ctx.withUserContext(user.id.value)(action.transactionally).map(_ > 0)
   }
 
   /** The cadence definition (kind, expression, enabled, timezone) of a pipeline's schedule, for the patch-set stale

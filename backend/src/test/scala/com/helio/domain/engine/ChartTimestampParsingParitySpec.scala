@@ -10,19 +10,18 @@ import java.nio.file.{Files, Paths}
 /** GUARD (HEL-1305, labelled as such): green on a correct tree, red only by mutation. The chart time
  *  axis parses x values with the frontend `parseChartInstant`; `shared-test-fixtures/chart-timestamp-parsing.json`
  *  pins that parser to [[TimestampParsing.parseInstant]] case by case (the frontend half is
- *  `chartTimeAxis.test.ts`). Cases with `backendParseInstant: false` are frontend-only extensions
- *  (`MM/dd/yyyy`); this spec only asserts the backend rejects them (`None`), so the extension stays the
- *  single deliberate divergence. */
+ *  `chartTimeAxis.test.ts`). HEL-1502: there is no frontend-only extension any more (`MM/dd/yyyy` is a
+ *  shared shape), so every fixture case is pure parity and both halves iterate all of them. Both halves
+ *  also assert a minimum case count so a truncated fixture cannot pass. */
 class ChartTimestampParsingParitySpec extends AnyWordSpec with Matchers {
 
   private val cases = JsonParser(Files.readString(Paths.get("../shared-test-fixtures/chart-timestamp-parsing.json")))
     .convertTo[Vector[JsObject]]
 
   "TimestampParsing.parseInstant" should {
-    "agree with every backend-parity case of the shared chart timestamp fixture" in {
-      val parity = cases.filter(_.fields("backendParseInstant") == JsTrue)
-      parity should not be empty
-      parity.foreach { c =>
+    "agree with every case of the shared chart timestamp fixture" in {
+      cases.size should be >= 99
+      cases.foreach { c =>
         val input    = c.fields("input").asInstanceOf[JsString].value
         val expected = c.fields("epochMillis") match {
           case JsNumber(n) => Some(n.toLong)
@@ -31,14 +30,6 @@ class ChartTimestampParsingParitySpec extends AnyWordSpec with Matchers {
         withClue(s"input ${input.toJson.compactPrint}: ") {
           TimestampParsing.parseInstant(input).map(_.toEpochMilli) shouldBe expected
         }
-      }
-    }
-
-    "leave the frontend-only extension cases to the frontend" in {
-      val extension = cases.filter(_.fields("backendParseInstant") == JsFalse)
-      extension should not be empty
-      extension.foreach { c =>
-        TimestampParsing.parseInstant(c.fields("input").asInstanceOf[JsString].value) shouldBe None
       }
     }
   }
