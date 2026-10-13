@@ -35,6 +35,10 @@ export interface OutputViewerControlBarProps {
   /** Resolves a `dropdown` control's options — the caller supplies the public- or authenticated-
    *  route implementation (design.md D1's reuse); this component is agnostic to which. */
   fetchDistinctValues: (column: string) => Promise<DistinctValueOption[]>;
+  /** HEL-1444: the bar belongs to a chart-kind Output (known from config, never from rendered data), so
+   *  a short desktop card may lay a lone text/dropdown control out on one row. Stable through loading,
+   *  empty and error states, so the control being typed into never moves. */
+  chartCard?: boolean;
 }
 
 const DATE_PRESET_OPTIONS: SelectOption[] = [
@@ -51,6 +55,7 @@ export function OutputViewerControlBar({
   onChange,
   onClear,
   fetchDistinctValues,
+  chartCard = false,
 }: OutputViewerControlBarProps) {
   // spec.md Requirement 1 — an orphaned control is never rendered to a viewer, even though it
   // still shows (as orphaned) in the author's own editor.
@@ -59,7 +64,11 @@ export function OutputViewerControlBar({
   if (visibleControls.length === 0) return null;
 
   return (
-    <div className="output-viewer-control-bar" role="group" aria-label="Panel controls">
+    <div
+      className={`output-viewer-control-bar${chartCard ? " output-viewer-control-bar--chart" : ""}`}
+      role="group"
+      aria-label="Panel controls"
+    >
       {visibleControls.map((control) => (
         <OutputViewerControl
           key={control.id}

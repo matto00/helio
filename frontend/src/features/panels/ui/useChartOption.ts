@@ -21,6 +21,7 @@ export interface UseChartOptionParams {
   referenceMarks?: ReferenceMarks | null;
   fieldTypes?: ChartFieldTypes | null;
   effectiveCompact: boolean;
+  valueAxisSplitCap?: number;
   measuredPieLegendOverlap: boolean;
 }
 
@@ -40,6 +41,7 @@ export function useChartOption({
   referenceMarks,
   fieldTypes,
   effectiveCompact,
+  valueAxisSplitCap,
   measuredPieLegendOverlap,
 }: UseChartOptionParams): EChartsOption {
   // `theme`/`accentColor` are read only to force the memo below to recompute
@@ -104,6 +106,7 @@ export function useChartOption({
       referenceMarks,
       fieldTypes,
       effectiveCompact,
+      valueAxisSplitCap,
       measuredPieLegendOverlap,
       themeTokens,
       theme,
@@ -119,6 +122,7 @@ export function useChartOption({
     referenceMarks,
     fieldTypes,
     effectiveCompact,
+    valueAxisSplitCap,
     measuredPieLegendOverlap,
     theme,
     accentColor,

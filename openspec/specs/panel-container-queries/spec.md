@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change css-container-queries-panels. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Panel card establishes CSS container context
 The `.panel-grid-card` element SHALL have `container-type: size` and `container-name: panel-card` applied so
 that all descendant elements can use `@container panel-card` rules that respond to the panel's rendered pixel
@@ -115,3 +117,11 @@ is scrollable rather than clipped when it exceeds the available panel height.
 - **WHEN** a text panel has content that exceeds the available height at any font-size
 - **THEN** the `.panel-content--text` element SHALL scroll rather than clip or overflow the panel boundary
 
+### Requirement: A clamped panel card title exposes its full text
+
+The desktop grid's panel card title SHALL carry the panel's full title as a native tooltip (`title` attribute), and
+its accessible name SHALL be the full title, including when the title is visually line-clamped.
+
+#### Scenario: clamped title on a footnoted narrow chart
+- **WHEN** a footnoted chart panel with a long title is placed at w=2, h=4 at a 1440px viewport
+- **THEN** the title heading's `title` attribute equals the full panel title, and the heading is found by its full title as its accessible name

@@ -10,6 +10,7 @@ import ReactECharts from "echarts-for-react/esm/core";
 import type { ChartTypeOptionsMap, PanelAppearance } from "../types/panel";
 import type { GroupedAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
+import { valueAxisSplitCap } from "./valueAxisLabels";
 import {
   CHART_COMPACT_HEIGHT_PX,
   PIE_LEGEND_HIDE_HEIGHT_PX,
@@ -97,6 +98,7 @@ export function ChartPanel({
     referenceMarks,
     fieldTypes,
     effectiveCompact,
+    valueAxisSplitCap: valueAxisSplitCap(measuredHeight),
     measuredPieLegendOverlap,
   });
 

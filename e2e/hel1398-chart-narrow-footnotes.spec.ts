@@ -342,7 +342,20 @@ for (const theme of ["light", "dark"] as const) {
             footer!.top + TOL,
           );
           expect(note!.height, "the note stays visible").toBeGreaterThan(8);
-          expect(annotation!.height, "the annotation stays visible").toBeGreaterThan(8);
+          if (controls) {
+            // HEL-1444 D3: with a viewer-control bar the w=2 annotation yields to the control bar --
+            // visually hidden (the sr-only recipe) but still in the accessibility tree.
+            expect(
+              annotation!.height,
+              "the annotation is visually hidden (HEL-1444 D3)",
+            ).toBeLessThanOrEqual(2);
+            await expect(
+              card.getByText("Source: internal sales ledger, refreshed nightly", { exact: true }),
+              "the annotation stays in the accessibility tree (HEL-1444 D3)",
+            ).toHaveCount(1);
+          } else {
+            expect(annotation!.height, "the annotation stays visible").toBeGreaterThan(8);
+          }
           if (!controls) {
             expect(canvas!.height, `canvas (measured ${canvas!.height}px)`).toBeGreaterThanOrEqual(
               MIN_CANVAS_PX,
