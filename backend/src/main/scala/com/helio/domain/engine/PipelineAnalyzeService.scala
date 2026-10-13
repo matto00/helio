@@ -80,7 +80,11 @@ object PipelineAnalyzeService {
    *  operationally (searchable log line) instead of silently normalizing it away. Write is
    *  unaffected -- every in-process value is already canonical by construction. */
   implicit val schemaFieldJsonFormat: RootJsonFormat[SchemaField] = new RootJsonFormat[SchemaField] {
-    override def write(f: SchemaField): JsValue = JsObject("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+    override def write(f: SchemaField): JsValue = {
+      val base: Map[String, JsValue] = Map("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+      // HEL-1424: `nullable` is emitted only when recorded, so unrecorded fields persist as before.
+      JsObject(f.nullable.fold(base)(n => base + ("nullable" -> JsBoolean(n))))
+    }
     override def read(json: JsValue): SchemaField = {
       val obj  = json.asJsObject
       val name = obj.fields("name").convertTo[String]
@@ -98,7 +102,11 @@ object PipelineAnalyzeService {
           )
           DataFieldType.asString(DataFieldType.StringType)
       }
-      SchemaField(name = name, `type` = resolvedType)
+      val nullable = obj.fields.get("nullable") match {
+        case Some(JsBoolean(b)) => Some(b)
+        case _                  => None
+      }
+      SchemaField(name = name, `type` = resolvedType, nullable = nullable)
     }
   }
 

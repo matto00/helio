@@ -1,3 +1,4 @@
+import { BLANK_LABEL } from "./blankLabel";
 import {
   filterRecordsForAggregateSelection,
   filterRowsForSelection,
@@ -297,17 +298,29 @@ describe("aggregate blank-category click and Inspect (HEL-1408 design D10a)", ()
     { team: "null", id: 5 },
   ];
 
-  it("a click on the 'null' bar selects blank when the records hold a null group", () => {
+  // HEL-1424: the null group is DISPLAYED "(blank)", so that is the name a click reports; the
+  // selection value stays "" (C1).
+  it("a click on the '(blank)' bar selects blank when the records hold a null group", () => {
     expect(
-      mapAggregateClickToSelection(click("null"), { ...spec, groupHasNull: true })?.value,
+      mapAggregateClickToSelection(click(BLANK_LABEL), { ...spec, groupHasNull: true })?.value,
     ).toBe("");
   });
 
-  it("a click on 'null' without null records stays the literal string 'null'", () => {
+  it("a click on 'null' or '(blank)' without null records stays the literal string", () => {
     expect(
       mapAggregateClickToSelection(click("null"), { ...spec, groupHasNull: false })?.value,
     ).toBe("null");
     expect(mapAggregateClickToSelection(click("null"), spec)?.value).toBe("null");
+    expect(mapAggregateClickToSelection(click(BLANK_LABEL), spec)?.value).toBe(BLANK_LABEL);
+  });
+
+  it("a pie slice click on '(blank)' selects blank as well (the aggregate mapper is type-agnostic)", () => {
+    expect(
+      mapAggregateClickToSelection(
+        { componentType: "series", name: BLANK_LABEL, seriesType: "pie" } as ChartClickParams,
+        { ...spec, groupHasNull: true },
+      ),
+    ).toEqual({ dimension: "team", value: "", series: "count(id)" });
   });
 
   it("a click on any other bar is untouched, even with a null group", () => {

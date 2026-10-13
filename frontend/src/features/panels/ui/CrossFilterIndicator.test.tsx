@@ -25,6 +25,19 @@ describe("CrossFilterIndicator", () => {
     expect(region).toHaveTextContent("Filtered by quarter = Q1");
   });
 
+  it("labels an empty (blank) filter value '(blank)', non-monospace (HEL-1424)", () => {
+    renderWithStore(<CrossFilterIndicator />, {
+      panels: {
+        items: [],
+        crossFilter: { panelId: "panel-1", dimension: "team", value: "", series: "" },
+      },
+    });
+
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("Filtered by team = (blank)");
+    expect(screen.getByText("(blank)")).not.toHaveClass("mono");
+  });
+
   it("the clear-all control dispatches clearCrossFilter", () => {
     const { store } = renderWithStore(<CrossFilterIndicator />, {
       panels: {

@@ -8,6 +8,7 @@
 // imports this same module for its click handler.
 
 import type { ChartType } from "./chartAppearance";
+import { isBlankCategoryClick } from "./blankLabel";
 import { isSelectableChartType } from "./chartTypes";
 import type { ScatterChartOptions } from "../features/panels/types/panel";
 import type { ChartAggregationSpec } from "../features/panels/history/chartOverlay";
@@ -145,10 +146,11 @@ export function mapAggregateClickToSelection(
   spec: ChartAggregationSpec,
 ): ChartClickSelection | null {
   if (typeof params.name !== "string") return null;
-  // HEL-1408 design D10a: a null group plots as the label "null" (grouping keys on `String(v)`),
-  // but a blank selection must match blank rows on siblings, so a "null" bar over real nulls
-  // selects "" (blank). With no null in the records, "null" is a literal string and stays.
-  const value = spec.groupHasNull && params.name === "null" ? "" : params.name;
+  // HEL-1408 design D10a / HEL-1424: a null group is plotted as "(blank)" (grouping keys on
+  // `String(v)`, the chart relabels it), but a blank selection must match blank rows on siblings, so
+  // the "(blank)" bar over real nulls selects "" (blank). With no null in the records, nothing is
+  // relabelled and a "null" category is a literal string that stays.
+  const value = isBlankCategoryClick(params.name, spec.groupHasNull) ? "" : params.name;
   return { dimension: spec.groupBy, value, series: aggregateSeriesName(spec) };
 }
 

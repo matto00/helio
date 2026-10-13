@@ -193,6 +193,23 @@ class DataSourceServiceSpec
       schema.map(_.name) should contain allOf ("a", "b")
     }
 
+    // HEL-1424: refresh re-infers nullability from the new file and persists it for CSV.
+    "persist the refreshed nullability (a column that gained a blank becomes nullable)" in {
+      cleanDb()
+      val src = createCsvSource("id,score\n1,5\n2,6\n")
+      await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema.map(f => f.name -> f.nullable) shouldBe
+        Vector("id" -> Some(false), "score" -> Some(false))
+      src match {
+        case c: CsvSource => await(fileSystem.write(c.config.path, "id,score\n1,5\n2,\n".getBytes(StandardCharsets.UTF_8)))
+        case other        => fail(s"expected CsvSource, got $other")
+      }
+
+      await(service.refresh(src.id, None, user)).isRight shouldBe true
+
+      await(dataSourceRepo.findByIdOwned(src.id, user)).get.inferredSchema.map(f => f.name -> f.nullable) shouldBe
+        Vector("id" -> Some(false), "score" -> Some(true))
+    }
+
     // HEL-904: there's no separate DataType row to orphan anymore — inferredSchema is a plain
     // column on the source — so "Fix D" is now just "refresh re-populates it from empty".
     "re-populate the source's inferredSchema when it was empty (Fix D)" in {

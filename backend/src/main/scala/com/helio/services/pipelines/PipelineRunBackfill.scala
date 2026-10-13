@@ -165,7 +165,7 @@ private[pipelines] final class PipelineRunBackfill(
           case None    => outputs.filter(o => o.node.stepId.isEmpty && (explicitRootId.isEmpty || o.node.rootId == explicitRootId))
         }
         val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
-        val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+        val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType), Some(f.nullable))).toVector
         Future.sequence(onThisNode.map(o => outputRepo.updateSchemaInternal(o.id, schema))).map(_ => ())
       }
     }

@@ -8,6 +8,7 @@ import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { Output } from "../../types/output";
 import { readChartConfig } from "../outputEditor/outputConfigTypes";
+import { relabelNullCategory } from "../../../../utils/blankLabel";
 
 interface HistoryChartProps {
   output: Output;
@@ -21,24 +22,35 @@ interface HistoryChartProps {
 export function HistoryChart({ output, selected, comparison }: HistoryChartProps) {
   const series = selected.summary.series ?? null;
   const cfg = useMemo(() => readChartConfig(output.config), [output.config]);
+  // HEL-1424 -- a grouped series stores a null group as the category "null" (history cannot tell it
+  // from the text "null", owner ruling), shown as "(blank)". The selected rows and the "vs" overlay
+  // points are relabelled together so they stay aligned; rows-mode and time points are untouched.
+  const grouped = series?.mode === "grouped";
   const rawRows = useMemo(
     () =>
       series
-        ? series.points.filter((p) => p[1] !== null).map((p) => [String(p[0] ?? ""), String(p[1])])
+        ? series.points
+            .filter((p) => p[1] !== null)
+            .map((p) => {
+              const x = String(p[0] ?? "");
+              return [grouped ? relabelNullCategory(x) : x, String(p[1])];
+            })
         : null,
-    [series],
+    [series, grouped],
   );
-  const overlay = useMemo(
-    () =>
-      comparison
-        ? selectPointOverlay(
-            series,
-            comparison.summary.series ?? null,
-            `vs ${formatCapturePair(selected.capturedAt, comparison.capturedAt).comparison}`,
-          )
-        : null,
-    [series, comparison, selected.capturedAt],
-  );
+  const overlay = useMemo(() => {
+    if (!comparison) return null;
+    const picked = selectPointOverlay(
+      series,
+      comparison.summary.series ?? null,
+      `vs ${formatCapturePair(selected.capturedAt, comparison.capturedAt).comparison}`,
+    );
+    if (!picked || !grouped) return picked;
+    return {
+      ...picked,
+      points: picked.points.map(([x, y]): [unknown, number | null] => [relabelNullCategory(x), y]),
+    };
+  }, [series, comparison, selected.capturedAt, grouped]);
   const fieldTypes = useMemo(() => toChartFieldTypes(output.schema), [output.schema]);
   const appearance = useMemo(
     () => ({
