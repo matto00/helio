@@ -85,7 +85,11 @@ Each outcome below is pinned by `V119OwnerFkMigrationSpec` with an explicit lane
 - **A user with a connector and its credential:** observed on a freshly migrated database, the delete succeeds and
   removes both. This is order-dependent behaviour of the RESTRICT check inside one cascade, not a guarantee; do not
   build on it without re-measuring.
-- **Not cleaned up:** storage blobs (GCS or local files) behind deleted image uploads and CSV sources.
+- **Storage blobs (HEL-1434):** the objects (GCS or local files) behind deleted image uploads and csv/text/pdf/image
+  sources are removed after the delete commits, by any path including this cascade: V128's row triggers queue each
+  deleted row's key and the scheduler tick drains the queue. Objects orphaned BEFORE that (V119's cleanup, earlier
+  deletes) are not removed; the read-only measurement and the owner's procedure are in
+  `openspec/changes/archive/2026-10-12-delete-blobs-with-rows/measurements.md`. Known gaps: `TRUNCATE` fires no row trigger.
 
 These are follow-ups for HEL-1301's account-deletion design. V119 itself never reaches any of this on deploy: its guard
 aborts, before deleting anything, if a data source it would delete is still referenced.

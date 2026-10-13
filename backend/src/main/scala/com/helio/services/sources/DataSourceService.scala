@@ -102,13 +102,9 @@ final class DataSourceService(
       false
     }
 
-  /** Removes one stored object by exact path; never throws. Kept as a single private seam so HEL-1434 (blobs left by row
-   *  deletes) can lift it without touching the create paths. */
+  /** Removes one stored object by exact path; never throws (the shared [[StoredObjectCleanup]] helper). */
   private def deleteStoredObject(path: String, context: String): Future[Boolean] =
-    Future.unit.flatMap(_ => fileSystem.delete(path)).map(_ => true).recover { case cleanupEx =>
-      log.warn(s"$context failed to delete stored object $path: ${ImplicitConnectorCleanup.describeFailure(cleanupEx)}")
-      false
-    }
+    StoredObjectCleanup.delete(fileSystem, path, context)
 
   /** HEL-1093 (design.md Decision 2): fire-and-forget from `deleteRow`'s successful-write branch
    *  ONLY, alongside `audit(...)` -- unchanged by HEL-1096 (owner ruling, design.md Non-Goals:
@@ -707,18 +703,10 @@ final class DataSourceService(
 
   /** Extracted from `delete` (HEL-974): the actual delete, run once the any-reference check has cleared. */
   private def deleteAfterPrecheck(sourceId: DataSourceId, user: AuthenticatedUser, source: DataSource): Future[Either[DataSourceDeleteError, Unit]] = {
-    val deleteFileF: Future[Unit] = source match {
-      case c: CsvSource =>
-        fileSystem.delete(c.config.path).recover { case _ => () }
-      case t: TextSource =>
-        fileSystem.delete(t.config.path).recover { case _ => () }
-      case p: PdfSource =>
-        fileSystem.delete(p.config.path).recover { case _ => () }
-      case i: ImageSource =>
-        fileSystem.delete(i.config.path).recover { case _ => () }
-      case _ => Future.successful(())
-    }
-    deleteFileF.flatMap(_ => dataSourceRepo.delete(source.id, user)).map { _ =>
+    // HEL-1434: the row goes FIRST; the object is removed only once the row delete succeeded, so a failing row delete
+    // (the zero-root race below, or any other failure) leaves the row AND its file. The queue (V128) also enqueues the
+    // key; the drain's later delete finds nothing, which is harmless.
+    dataSourceRepo.delete(source.id, user).flatMap(deleted => if (deleted) deleteBackingObject(source) else Future.unit).map { _ =>
       audit("data_source.delete", Some(source.id.value), user)
       Right(())
     }.recover {
@@ -733,6 +721,18 @@ final class DataSourceService(
       case right @ Right(_) => removeUnadoptedConnector(source, user).map(_ => right)
       case left             => Future.successful(left)
     }
+  }
+
+  /** HEL-1434: the stored object of a deleted csv/text/pdf/image source; never fails (best effort, the queue is the backstop). */
+  private def deleteBackingObject(source: DataSource): Future[Unit] = {
+    val path = source match {
+      case c: CsvSource   => Some(c.config.path)
+      case t: TextSource  => Some(t.config.path)
+      case p: PdfSource   => Some(p.config.path)
+      case i: ImageSource => Some(i.config.path)
+      case _              => None
+    }
+    path.fold(Future.unit)(p => deleteStoredObject(p, "DataSourceService.delete").map(_ => ()))
   }
 
   /** HEL-1497 (Q1-Q3): after the SOURCE is gone (the dependents guard would refuse while it still references the

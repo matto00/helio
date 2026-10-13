@@ -21,10 +21,10 @@ import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaReposit
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.auth.ConnectorCredentialRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
-import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigration}
+import com.helio.services.sources.{ContentSourceSupport, RestSourceConnectorMigration, StoredObjectDeletionService}
 import com.helio.infrastructure.storage.{GcsFileSystem, LocalFileSystem}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.domain.history.PayloadHistoryConfig
@@ -290,6 +290,9 @@ object Main {
         new OutputHistoryRetentionService(
           outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock, nodePayloadHistoryRepo, payloadHistoryConfig
         )
+      // HEL-1434: drains the stored-object deletion queue (V128) over the SAME FileSystem the uploads are written to.
+      val storedObjectDeletionService =
+        new StoredObjectDeletionService(new StoredObjectDeletionRepository(ctx), fileSystem, SystemClock)
       val pipelineSchedulerService = new PipelineSchedulerService(
         pipelineScheduleRepo,
         pipelineRepo,
@@ -304,7 +307,8 @@ object Main {
         productEventRollupService = productEventRollupService,
         outputHistoryRetentionService = outputHistoryRetentionService,
         // HEL-1511: the reaper publishes each reaped run's terminal `failed` event on the run service's own registry.
-        registry = apiRoutes.runRegistry
+        registry = apiRoutes.runRegistry,
+        storedObjectDeletionService = storedObjectDeletionService
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
       // HEL-1511: the liveness heartbeat is its own 30 s timer (the scheduler tick is stalled for a long scheduled

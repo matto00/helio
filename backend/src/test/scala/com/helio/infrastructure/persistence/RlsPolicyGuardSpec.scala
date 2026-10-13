@@ -158,7 +158,10 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     // V117 — hel1387_dropped_output_config_keys, deny-all + explicit helio_privileged grant (admin-only; holds user config values) (HEL-1387)
     "hel1387_dropped_output_config_keys" -> Some(Set("hel1387_dropped_output_config_keys_deny_all")),
     // V118 — hel1410_migrated_output_formats, deny-all + explicit helio_privileged grant (admin-only; holds user config values) (HEL-1410)
-    "hel1410_migrated_output_formats" -> Some(Set("hel1410_migrated_output_formats_deny_all"))
+    "hel1410_migrated_output_formats" -> Some(Set("hel1410_migrated_output_formats_deny_all")),
+    // V128 — stored_object_deletions, FORCE RLS with deliberately NO policy: only helio_privileged (BYPASSRLS) and the
+    // SECURITY DEFINER row triggers on image_uploads/data_sources can touch the queue (HEL-1434)
+    "stored_object_deletions" -> Some(Set.empty[String])
   )
 
   override def beforeAll(): Unit = {
