@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherRunSpec.scala` — sequence the D7 delete test with terminalGate; add first-terminal-write-wins positive pin
-- `openspec/changes/fix-late-finisher-spec-flake/evidence.md` — probe, mutation and repeat-run evidence
-- `openspec/changes/fix-late-finisher-spec-flake/tasks.md` — tasks marked done
