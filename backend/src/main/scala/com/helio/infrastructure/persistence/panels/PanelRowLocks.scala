@@ -8,8 +8,11 @@ import scala.concurrent.ExecutionContext
 
 /** HEL-1498: the ONE way a transaction locks the panel rows it may delete or update.
  *
- *  The system-wide lock order is "panel rows by id, then dashboard rows by id" (V122's trigger locks dashboards by
- *  id; HEL-1485 put panel rows in front of that for dashboard deletes). Every transaction that updates or deletes
+ *  The system-wide lock order is "panel rows by id, then dashboard rows by id, then Output (and pipeline / step / root /
+ *  source) rows" (V122's trigger locks dashboards by id; HEL-1485 put panel rows in front of that for dashboard
+ *  deletes; HEL-1534, V130, makes this function lock the affected dashboards too, so a cascading delete takes the
+ *  dashboard before the Output, the order a panel create already uses: dashboard `FOR UPDATE`, then the INSERT's
+ *  KEY SHARE on the Output). Every transaction that updates or deletes
  *  two or more existing panel rows, directly or through an FK cascade, MUST call [[lockForDeletion]] as its first
  *  write, before anything else that locks or writes.
  *
@@ -19,9 +22,10 @@ import scala.concurrent.ExecutionContext
  *  - locking a superset is safe; locking too little is not;
  *  - `FOR UPDATE` skips a row a racer deleted and committed (READ COMMITTED recheck), so a lost race is not an error;
  *  - a panel CREATED after the lock and then deleted by the same cascade is locked late (residual, accepted in
- *    HEL-1485 and scoped out of HEL-1498).
+ *    HEL-1485 and scoped out of HEL-1498); likewise a dashboard that gains its FIRST panel bound to a deleted Output
+ *    after this call is locked late by V122, and a second create on it can still deadlock (HEL-1534 residual).
  *
- *  The lock runs in the migration's SECURITY DEFINER function (`hel1498_lock_panels`, V129), not as an application
+ *  The lock runs in the migration's SECURITY DEFINER function (`hel1498_lock_panels`, V129; extended to lock dashboards by V130), not as an application
  *  `FOR UPDATE`: under RLS the acting user cannot see panels on another user's dashboard bound to their own
  *  pipeline's Output, yet the FK cascade deletes them, so only a bypass can order them. It returns void. */
 object PanelRowLocks {

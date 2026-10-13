@@ -299,14 +299,6 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   private def findByOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] =
     findById(id, user).map(_.filter(_.ownerId == user.id))
 
-  /** ACL-bypassing delete. Safe to call only after the caller's pipeline
-   *  access has been confirmed by the service layer. Locks the panel rows the
-   *  `panels.output_id` cascade will remove first, in id order (HEL-1498). */
-  def deleteInternal(id: OutputId): Future[Boolean] =
-    ctx.withSystemContext(
-      (PanelRowLocks.lockForDeletion(outputs = Seq(id.value)) andThen table.filter(_.id === id.value).delete).transactionally
-    ).map(_ > 0)
-
   /** ACL-bypassing delete of an Output AND every panel bound to it, in ONE transaction (HEL-1498; was two, with
    *  the cascade unlocked in the second): lock the panel rows in id order ([[PanelRowLocks]]), delete the panels
    *  explicitly -- `RETURNING id`, so the ids actually removed are reported back (`DELETE /api/outputs/:id`) -- then

@@ -19,7 +19,7 @@ import scala.util.control.NonFatal
  *  ACL (via `accessChecker`, resource type `"pipeline"` — already registered
  *  in `ApiRoutes.registry`) gates create/list-by-pipeline; per-Output
  *  read/update/delete rely on `OutputRepository`'s own RLS-backed methods
- *  (`findById` sharing-aware select, `updateOwned`/`deleteInternal`
+ *  (`findById` sharing-aware select, `updateOwned`/`deleteWithPanelsInternal`
  *  owner-only, V94 `outputs_update`/`outputs_delete`). */
 final class OutputService(
     outputRepo:    OutputRepository,
