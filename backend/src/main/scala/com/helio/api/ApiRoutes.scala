@@ -67,7 +67,7 @@ import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepo
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository}
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -376,7 +376,7 @@ final class ApiRoutes(
   // HEL-904 task 4.1: `PanelService` no longer takes `dataTypeRepo`/
   // `metricRepo` — Text/Markdown's data-bound "Source mode" and metrics are
   // both removed outright.
-  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepo, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepo)
+  private val panelService      = new PanelService(panelRepo, accessChecker, dashboardRepo, auditService, outputRepo, dataSourceRepo, dataSourceService, fileSystem, nodeSnapshotRepo, new StoredObjectDeletionRepository(dbContext))
   // HEL-1193: one validator instance shared by the propose-time control checks below; the same
   // class (and eligibility function) PanelService constructs internally for the write path.
   private val outputControlsValidator = new OutputControlsValidator(outputRepo, nodeSnapshotRepo)
