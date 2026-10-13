@@ -226,7 +226,7 @@ class PublicProvenanceRoutesSpec
       val dashId = seedDashboard(public = true)
       val (outId, _, _) = seedRichOutput()
       val orphaned = seedPanel(dashId, Some(outId))
-      await(outputRepo.deleteInternal(OutputId(outId)))
+      await(outputRepo.deleteWithPanelsInternal(OutputId(outId)))
       val textPanel = seedPanel(dashId, None, kind = "text")
       Get(s"/dashboards/$dashId/panels/$orphaned/provenance") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
       Get(s"/dashboards/$dashId/panels/$textPanel/provenance") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }

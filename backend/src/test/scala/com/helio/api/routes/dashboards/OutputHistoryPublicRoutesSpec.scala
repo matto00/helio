@@ -150,7 +150,7 @@ class OutputHistoryPublicRoutesSpec
       Get(s"/dashboards/$dashId/panels/$text/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
       Get(s"/dashboards/$dashId/panels/${UUID.randomUUID()}/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
       Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check { status shouldBe StatusCodes.OK }
-      awaitDb(outputRepo.deleteInternal(OutputId(oid)))
+      awaitDb(outputRepo.deleteWithPanelsInternal(OutputId(oid)))
       Get(s"/dashboards/$dashId/panels/$panelId/history") ~> routes() ~> check { status shouldBe StatusCodes.NotFound }
     }
   }
