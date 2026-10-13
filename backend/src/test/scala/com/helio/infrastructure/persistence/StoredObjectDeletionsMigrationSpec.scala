@@ -1,6 +1,8 @@
 package com.helio.infrastructure.persistence
 
+import com.helio.infrastructure.persistence.sources.{QueueCounts, StoredObjectDeletionRepository}
 import com.helio.testkit.VerifiedEmbeddedPostgres
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
@@ -8,8 +10,13 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import slick.jdbc.{JdbcBackend, PostgresProfile}
+
 import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
 
 /** HEL-1434 [MUTATION] M4: V128's deletion-queue triggers under real RLS.
  *
@@ -133,6 +140,36 @@ class StoredObjectDeletionsMigrationSpec extends AnyWordSpec with Matchers with 
       rows(su, s"SELECT count(*) FROM users WHERE id = '$U2'")(_.getInt(1)) shouldBe Vector(0)
       rows(su, "SELECT count(*) FROM data_sources WHERE id = 'ds-k2'")(_.getInt(1)) shouldBe Vector(0)
       queueKeys(su) shouldBe Set("csv/k2.csv", "images/k2.png")
+    }
+
+    "HEL-1531 count the queue through the privileged pool (BYPASSRLS, migration grants only) and read zero on the app pool" in withMigratedDb { (su, db) =>
+      Seq(("k1", 0), ("k2", 9), ("k3", 10), ("k4", 12)).foreach { case (k, attempts) =>
+        exec(su, s"INSERT INTO stored_object_deletions (storage_key, source_table, attempts) VALUES ('images/$k.png', 'image_uploads', $attempts)")
+      }
+      def pool(initSql: Option[String]): JdbcBackend.Database = {
+        val cfg = new HikariConfig()
+        cfg.setJdbcUrl(pg.getJdbcUrl(Role, db) + "&stringtype=unspecified")
+        cfg.setUsername(Role)
+        cfg.setPassword("test")
+        cfg.setMaximumPoolSize(2)
+        initSql.foreach(cfg.setConnectionInitSql)
+        JdbcBackend.Database.forDataSource(new HikariDataSource(cfg), Some(2))
+      }
+      val appDb  = pool(None)
+      val privDb = pool(Some("SET ROLE helio_privileged"))
+      try {
+        import PostgresProfile.api._
+        val ctx = new DbContext(appDb, privDb)
+        // The pool the counts run on is NOSUPERUSER at login and helio_privileged BYPASSRLS at read time (C1).
+        Await.result(ctx.withSystemContext(
+          sql"SELECT rolsuper, rolbypassrls, current_user FROM pg_roles WHERE rolname = current_user".as[(Boolean, Boolean, String)].head
+        ), 20.seconds) shouldBe ((false, true, "helio_privileged"))
+        Await.result(appDb.run(sql"SELECT rolsuper FROM pg_roles WHERE rolname = session_user".as[Boolean].head), 20.seconds) shouldBe false
+        // Attempts 10 and 12 are stuck (>= cap), 9 and 0 are not.
+        Await.result(new StoredObjectDeletionRepository(ctx).queueCounts(10), 20.seconds) shouldBe QueueCounts(4L, 2L)
+        // The same read on the app pool is silently empty (FORCE RLS, no policy): the failure mode this guards.
+        Await.result(new StoredObjectDeletionRepository(new DbContext(appDb, appDb)).queueCounts(10), 20.seconds) shouldBe QueueCounts(0L, 0L)
+      } finally { appDb.close(); privDb.close() }
     }
   }
 }

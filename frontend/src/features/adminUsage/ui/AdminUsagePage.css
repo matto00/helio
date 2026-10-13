@@ -39,6 +39,10 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-usage__stats.admin-usage__stats--pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-usage__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -148,7 +152,8 @@
 }
 
 @media (max-width: 430px) {
-  .admin-usage__stats.admin-usage__stats--totals {
+  .admin-usage__stats.admin-usage__stats--totals,
+  .admin-usage__stats.admin-usage__stats--pair {
     grid-template-columns: minmax(0, 1fr);
   }
 

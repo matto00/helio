@@ -4,7 +4,9 @@ import com.helio.api.protocols.admin._
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository
 import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository.{ActiveUsersRow, EventDayRow, TtfdRow}
+import com.helio.infrastructure.persistence.sources.StoredObjectDeletionRepository
 import com.helio.services.ServiceError
+import com.helio.services.sources.StoredObjectDeletionService
 
 import java.time.{LocalDate, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
@@ -12,10 +14,12 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Assembles the owner usage view from the rollup tables only (HEL-1211, design.md Decisions 1,
  *  3-6). Never reads `product_events`; the response carries no user identifier.
  *
+ *  The one live read besides the rollups is the stored-object deletion queue's size (HEL-1531), counts only.
+ *
  *  Window: the last `days` UTC days ending at `rolled_through` (the last fully rolled day), or
  *  ending today (UTC) when nothing has been rolled up yet. Count series are zero-filled so a
  *  chart axis is continuous; WAU and TTFD for a day without data are `None` (a gap, never 0). */
-final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implicit ec: ExecutionContext) {
+final class AdminUsageService(repo: ProductUsageRepository, deletions: StoredObjectDeletionRepository, clock: Clock)(implicit ec: ExecutionContext) {
 
   import AdminUsageService._
 
@@ -43,7 +47,10 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
       // Nothing has been finalised yet (`rolled_through` is null): the only rollup rows that may
       // exist are the still-moving yesterday/today recomputes, which are not final numbers, so
       // none are read -- the response is the zero-filled empty window.
-      if (rolled.isEmpty) repo.totalUsers().map(n => empty(days, from, to, window, AdminUsageTotals(n, None, None, None)))
+      if (rolled.isEmpty) for {
+        n      <- repo.totalUsers()
+        counts <- deletions.queueCounts(StoredObjectDeletionService.DefaultMaxAttempts)
+      } yield empty(days, from, to, window, AdminUsageTotals(n, None, None, None, counts.queued, counts.stuck))
       else for {
         eventRows <- repo.eventDaily(from, to, events)
         active    <- repo.activeUsersDaily(from, to)
@@ -51,6 +58,7 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
         templates <- repo.propertyTotals(from, to, ProductEventRegistry.FirstrunTemplateChosen, "template")
         users     <- repo.totalUsers()
         latest    <- repo.activeTotals(to)
+        counts    <- deletions.queueCounts(StoredObjectDeletionService.DefaultMaxAttempts)
       } yield AdminUsageResponse(
         days                  = days,
         from                  = from.toString,
@@ -62,7 +70,7 @@ final class AdminUsageService(repo: ProductUsageRepository, clock: Clock)(implic
         templateChoices       = templates.map { case (t, n) => AdminUsageTemplateCount(t, n) },
         provenanceOpensPerDay = countSeries(window, eventRows, Provenance),
         activeUsers           = activeSeries(window, active),
-        totals                = AdminUsageTotals(users, latest.flatMap(_.weekly), latest.flatMap(_.monthly), Some(to.toString))
+        totals                = AdminUsageTotals(users, latest.flatMap(_.weekly), latest.flatMap(_.monthly), Some(to.toString), counts.queued, counts.stuck)
       )
     }
 

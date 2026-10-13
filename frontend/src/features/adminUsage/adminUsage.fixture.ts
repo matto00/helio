@@ -38,5 +38,12 @@ export const usage: AdminUsage = {
     { day: "2026-04-12", dailyActiveUsers: 0, weeklyActiveUsers: null },
     { day: "2026-04-13", dailyActiveUsers: 7, weeklyActiveUsers: 12 },
   ],
-  totals: { totalUsers: 8, activeLast7Days: 2, activeLast30Days: 4, asOf: "2026-04-13" },
+  totals: {
+    totalUsers: 8,
+    activeLast7Days: 2,
+    activeLast30Days: 4,
+    asOf: "2026-04-13",
+    storedObjectDeletionsQueued: 5,
+    storedObjectDeletionsStuck: 2,
+  },
 };
