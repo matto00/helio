@@ -1,0 +1,14 @@
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionParser.scala` — nesting limit 100, legacy paren pre-check, iterative tree-depth limit 200
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionTypeInference.scala` — `string-body` makes `+` infer string
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionNumericContexts.scala` — substring start/end context; text-function and wrong-type-literal scans
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala` — accessors for the two new scans
+- `backend/src/main/scala/com/helio/domain/engine/AnalyzeSchemaWarnings.scala` — per-column trust (`Flags.untrusted`), per-side join/lookup key trust, delegates compute warnings
+- `backend/src/main/scala/com/helio/domain/engine/ComputeTypeWarnings.scala` — new: the three compute operand-type warnings (split out for file size)
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala` — doc comment lists the new codes
+- `backend/src/test/scala/com/helio/domain/engine/ExpressionDepthLimitSpec.scala` — new: red-first depth tests and 512 KB headroom test
+- `backend/src/test/scala/com/helio/domain/engine/ComputeTypeWarningsSpec.scala` — new: items 1-4b, per-column trust, join/lookup key scenarios
+- `backend/src/test/scala/com/helio/domain/engine/NumericOpOnTextFieldWarningSpec.scala` — per-step trust assertion deliberately inverted (owner ruling 2)
+- `schemas/pipelines/pipeline-analyze-response.schema.json` — warning code enum
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — `AnalyzeWarningCode` union
+- `helio-mcp/src/types.ts`, `helio-mcp/src/tools/read.ts`, `helio-mcp/src/tools/pipelineProposal.ts`, `helio-mcp/src/tools/computeExpression.ts` — new codes in types and tool descriptions
+- `docs/compute-expression-grammar.md` — per-column trust, new codes, string-body in `+`, depth limits

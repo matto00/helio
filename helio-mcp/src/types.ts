@@ -626,7 +626,9 @@ export interface AnalyzeWarning {
     | "field-not-in-input-schema"
     | "join-key-type-mismatch"
     | "join-column-renamed"
-    | "numeric-op-on-text-field";
+    | "numeric-op-on-text-field"
+    | "text-function-on-numeric-field"
+    | "literal-type-mismatch";
   message: string;
 }
 
