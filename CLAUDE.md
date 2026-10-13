@@ -112,6 +112,10 @@ With `CI` unset, test and dev entry points are capped at or below CI's worker co
 
 An invalid override value throws, naming the variable. Details and measurements: `CONTRIBUTING.md` ("Local resource caps") and `openspec/changes/archive/2026-10-09-cap-local-test-parallelism/measurements.md`.
 
+### Stopping dev servers
+
+Stop a run's servers with `scripts/concertino/stop-servers.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>`. Never write a kill loop that also kills a server's parent or grandparent (anything found via `ps -o ppid=`): a detached server's parent is the `systemd --user` manager, and SIGTERM to it logs the whole desktop session out. That happened twice on 2026-10-12.
+
 ## Architecture
 
 Helio is a dashboard builder with a React/Redux frontend and a Scala/Pekko backend.
