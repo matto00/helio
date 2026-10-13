@@ -10,12 +10,12 @@ import spray.json._
  *  referrer that was a tail SIBLING of its lane target is recreated as a trunk splice (the journal does not record
  *  `attachAsTail`), which would re-parent that target under it; the undo now fails for that edit instead of
  *  silently restoring an unrunnable pipeline. */
-class PatchSetUndoLaneDependentsSpec extends PatchSetUndoServiceFixture {
+class PatchSetUndoLaneDescendantsSpec extends PatchSetUndoServiceFixture {
 
   "PatchSetUndoService.undo" should {
     "fail the recreate of a deleted lane referrer whose sibling lane target the recreate would re-parent under it, leaving the graph runnable" in {
-      val sourceId = seedDatasetSource(userA, "Undo-lane-dependents source")
-      val pipeline = seedPipeline(userA, sourceId, "Undo-lane-dependents pipeline")
+      val sourceId = seedDatasetSource(userA, "Undo-lane-descendants source")
+      val pipeline = seedPipeline(userA, sourceId, "Undo-lane-descendants pipeline")
       val pid      = PipelineId(pipeline.id)
       val anchor   = seedPipelineStep(pid, userA, "limit", JsObject("count" -> JsNumber(100)))
       val lane     = seedPipelineStep(pid, userA, "limit", JsObject("count" -> JsNumber(50)), parentStepId = Some(anchor.id))

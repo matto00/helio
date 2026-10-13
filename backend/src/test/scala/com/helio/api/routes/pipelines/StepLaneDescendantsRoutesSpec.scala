@@ -20,7 +20,7 @@ import scala.concurrent.duration.DurationInt
  *  write surface accepts. */
 class StepLaneDescendantsRoutesSpec extends AnyWordSpec with Matchers with StepWriteRoutesFixture {
 
-  private val dependsMessage = "it is a descendant of this step"
+  private val descendantMessage = "it is a descendant of this step"
 
   /** What the run does with the stored graph: the engine's own outcome, `Right` when it ran. */
   private def runOutcome(pid: PipelineId): Either[String, Int] = {
@@ -103,7 +103,7 @@ class StepLaneDescendantsRoutesSpec extends AnyWordSpec with Matchers with StepW
       createJoin(owner, pid, b, "parentStepId" -> JsString(head)) {
         withClue(responseAs[String]) {
           status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(dependsMessage)
+          responseAs[String] should include(descendantMessage)
         }
       }
       stepCountOf(owner, pid) shouldBe 3
@@ -116,7 +116,7 @@ class StepLaneDescendantsRoutesSpec extends AnyWordSpec with Matchers with StepW
       createJoin(owner, pid, head, "rootId" -> JsString(rootOf(pid)), "position" -> JsNumber(0)) {
         withClue(responseAs[String]) {
           status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(dependsMessage)
+          responseAs[String] should include(descendantMessage)
         }
       }
       stepCountOf(owner, pid) shouldBe 2
@@ -128,7 +128,7 @@ class StepLaneDescendantsRoutesSpec extends AnyWordSpec with Matchers with StepW
       createJoin(owner, pid, q, "position" -> JsNumber(2)) {
         withClue(responseAs[String] + s" head=$head t=$t") {
           status shouldBe StatusCodes.BadRequest
-          responseAs[String] should include(dependsMessage)
+          responseAs[String] should include(descendantMessage)
         }
       }
       stepCountOf(owner, pid) shouldBe 3

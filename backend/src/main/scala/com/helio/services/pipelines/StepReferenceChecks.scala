@@ -8,8 +8,8 @@ import com.helio.services.ServiceError
 import scala.concurrent.{ExecutionContext, Future}
 
 /** What [[StepReferenceChecks.referenceChecksF]] needs to validate a `lane` reference (HEL-1515): the pipeline's
- *  steps and, for the step being written, its prospective `ancestors` and `descendants` (the steps that would
- *  already depend on it), plus `selfId` when the step already exists. */
+ *  steps and, for the step being written, its prospective `ancestors` and `descendants` (its own parent-chain
+ *  descendants, including steps a create re-parents under it), plus `selfId` when the step already exists. */
 private[pipelines] final case class LaneScope(
     steps:      Vector[PipelineStep],
     ancestors:  Set[String],
