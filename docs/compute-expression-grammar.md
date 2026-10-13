@@ -262,7 +262,22 @@ step first. Their results are floats on the wire, so analyze-time and run-time t
 Using a text field where a number is required (`floor($price)`, `$s - 1`, `-$s` over a string,
 boolean or `timestamp` column, or a text day count in `add_days`) compiles but nulls every non-null row. **Analyze warns** about it
 (`numeric-op-on-text-field`, non-blocking, only when the input schema's types are trusted — e.g.
-an uncast CSV column): add a `cast` step first.
+an uncast CSV column): add a `cast` step first. A text `start`/`end` of `substring` counts too, and so does
+a `string-body` field in `$sb + 1`, which concatenates (inferring `string`) rather than adds.
+
+Trust is tracked **per column**: a `compute` step leaves the columns it passes through as trusted as they
+were (an uncast CSV column still warns after an unrelated `compute`) and makes only the column it writes
+untrusted. The join and lookup key type checks use the same per-side, per-column trust.
+
+The opposite mistakes warn too, also non-blocking: a trusted `integer`/`float` field passed to `length`,
+`lower`, `upper` or `substring`'s first argument (`text-function-on-numeric-field`; wrap it in `concat(...)`),
+and a wrong-type **literal** — a string literal where a number is required (`"3" * 2`) or a number literal given
+to a text function (`length(5)`) — `literal-type-mismatch`, which needs no input trust because the literal's
+type is known. A literal behind `coalesce`, `if` or a comparison does not warn (the row need not be null).
+
+**Depth limits.** An expression nested more than **100** levels (brackets, function arguments, unary `-`,
+`not`) or whose parsed tree is deeper than **200** levels (e.g. a very long flat `a + a + a + …` chain) is a
+parse error, never a stack overflow. This applies to the legacy bare-identifier grammar too.
 
 If any argument evaluates to `null` (e.g. an unset field), the whole call's result is `null`
 (same null-propagation as the binary operators) rather than an error. **`coalesce` is the exception.**
@@ -315,7 +330,7 @@ wire:
 - String literals, `concat`, `substring`, `lower`, `upper` → `string`
 - `length`, `floor`, `ceil`, `round`, `mod`, `abs`, `seconds_between` → `float`
 - `date_trunc`, `add_days` → `timestamp` (the value is an ISO-8601 string)
-- `+` → `string` if either operand infers `string`, `timestamp` or `boolean`, else `float`
+- `+` → `string` if either operand infers `string`, `string-body`, `timestamp` or `boolean`, else `float`
 - `true`, `false`, comparisons, `and`, `or`, `not` → `boolean`; a boolean column referenced alone → `boolean`
 - `if` → `boolean`-condition required (else an error naming `if`); its result is the **common type of its two
   branches**, by the `coalesce` rule below

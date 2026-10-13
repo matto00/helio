@@ -13,6 +13,7 @@ import {
 } from "./dashboardsSlice";
 import { LAYOUT_CONFLICT_MESSAGE } from "./layoutConflict";
 import type { Dashboard, DashboardLayout, DashboardLayoutItem } from "../types/dashboard";
+import { panelsReducer } from "../../panels/state/panelsSlice";
 
 jest.mock("../services/dashboardService", () => ({
   ...jest.requireActual("../services/dashboardService"),
@@ -56,7 +57,7 @@ const conflict = (current: Dashboard) => ({
 
 function makeStore(local: Dashboard) {
   return configureStore({
-    reducer: { dashboards: dashboardsReducer },
+    reducer: { dashboards: dashboardsReducer, panels: panelsReducer },
     preloadedState: {
       dashboards: {
         items: [local],
@@ -167,7 +168,9 @@ describe("updateDashboardLayout 409 (HEL-1457)", () => {
     const store = makeStore(dashboard([item("a", 4)], 1));
     const result = await store.dispatch(updateDashboardLayout(args));
     expect(updateMock).toHaveBeenCalledTimes(1);
-    expect(updateDashboardLayout.rejected.match(result) && result.payload).toBe("bad");
+    expect(updateDashboardLayout.rejected.match(result) && result.payload).toBe(
+      "Failed to save dashboard layout.",
+    );
   });
 });
 
