@@ -95,6 +95,9 @@ export interface GroupedAggregate {
   /** HEL-1305 — the field the rows were grouped by, so the chart can tell a timestamp-typed group key
    *  (time axis) from a string one. Absent → category axis. */
   groupBy?: string;
+  /** HEL-1424 -- the records hold a strict-`null` group value, so a "null" category is the blank group
+   *  and renders as "(blank)". Absent/false -> a "null" category is literal text and stays "null". */
+  hasNullGroup?: boolean;
 }
 
 /** Group `rows` by `groupBy` and compute one `agg(yField)` per group, using

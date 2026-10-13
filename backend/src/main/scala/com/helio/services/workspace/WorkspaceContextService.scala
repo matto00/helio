@@ -385,15 +385,14 @@ final class WorkspaceContextService(
    *  Vector.empty` rather than failing the whole assembly — mirrors `buildPipeline`'s per-entry
    *  degrade discipline (design.md D5 of the parent HEL-371 change). */
   private[services] def toDataTypeEntry(output: Output, user: AuthenticatedUser): Future[WorkspaceContextOutput] = {
-    // HEL-904 task 3.12: `output.schema` (`Vector[SchemaField]`, `{name, type}` only — no
-    // `nullable`/`displayName`) is adapted into the existing `Vector[DataField]`-shaped
-    // classification/stats machinery below (`classifySemanticRole`/`computeColumnStats`/
-    // `sanitizeSampleRows`) via a synthetic, non-persisted `DataField` per field
-    // (`nullable = false` — inferredSchema carries no nullability signal at all, so this is a
-    // deliberate, documented default, not a lossy guess about a real value) — reuses every
+    // HEL-904 task 3.12: `output.schema` (`Vector[SchemaField]`) is adapted into the existing
+    // `Vector[DataField]`-shaped classification/stats machinery below
+    // (`classifySemanticRole`/`computeColumnStats`/`sanitizeSampleRows`) via a synthetic,
+    // non-persisted `DataField` per field (HEL-1424: `nullable` is the stored value, `true` for a
+    // legacy field that recorded none -- conservative, no migration) — reuses every
     // already-tested field-category/semantic-role/stats function UNCHANGED rather than forking a
     // second parallel implementation over a different input shape.
-    val fields: Vector[DataField] = output.schema.map(sf => DataField(sf.name, sf.name, sf.`type`, nullable = false))
+    val fields: Vector[DataField] = output.schema.map(sf => DataField(sf.name, sf.name, sf.`type`, nullable = sf.nullable.getOrElse(true)))
 
     // HEL-373 design.md D1: ONE shared fetch (limit = StatsRowLimit, 500)
     // serves both sampleRows and columnStats — no second query path.

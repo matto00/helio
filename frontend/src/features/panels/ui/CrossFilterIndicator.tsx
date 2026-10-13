@@ -1,3 +1,4 @@
+import { selectionValueLabel } from "../../../utils/blankLabel";
 import "./CrossFilterIndicator.css";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
@@ -21,7 +22,11 @@ export function CrossFilterIndicator() {
     <div className="cross-filter-indicator" role="status" aria-live="polite">
       <span className="cross-filter-indicator__text">
         Filtered by {crossFilter.dimension} ={" "}
-        <span className="mono cross-filter-indicator__value">{crossFilter.value}</span>
+        <span
+          className={`${crossFilter.value === "" ? "selection-value--blank" : "mono"} cross-filter-indicator__value`}
+        >
+          {selectionValueLabel(crossFilter.value)}
+        </span>
       </span>
       <IconButton
         icon="×"

@@ -250,12 +250,12 @@ final case class CreateSourceResponse(
  *  source-facing wire shapes. */
 final case class InferredFieldResponse(name: String, displayName: String, dataType: String, nullable: Boolean)
 object InferredFieldResponse {
-  /** HEL-909: projects a source's raw `SchemaField`s (`{name, type}`) into the
-   *  richer response shape — `displayName` defaults to `name`, `nullable`
-   *  defaults to `false` (the source-level inferred schema carries no
-   *  per-field nullability today). */
-  def fromDomain(fields: Vector[SchemaField]): Vector[InferredFieldResponse] =
-    fields.map(f => InferredFieldResponse(f.name, f.name, f.`type`, nullable = false))
+  /** HEL-909: projects a source's raw `SchemaField`s into the richer response shape --
+   *  `displayName` defaults to `name`. HEL-1424: a recorded `nullable` always wins; a field
+   *  without one reads `legacyNullable`, which is per source kind (CSV `true`, every other kind
+   *  `false`, i.e. exactly what those kinds reported before). */
+  def fromDomain(fields: Vector[SchemaField], legacyNullable: Boolean): Vector[InferredFieldResponse] =
+    fields.map(f => InferredFieldResponse(f.name, f.name, f.`type`, nullable = f.nullable.getOrElse(legacyNullable)))
 }
 final case class InferredSchemaResponse(fields: Vector[InferredFieldResponse])
 
@@ -442,7 +442,7 @@ object DataSourceResponse {
         updatedAt = c.updatedAt.toString,
         config    = CsvSourceConfigPayload(c.config.path, c.config.sourceUrl),
         tag       = c.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(c.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(c.inferredSchema, legacyNullable = true)
       )
     case r: RestSource =>
       RestSourceResponse(
@@ -452,7 +452,7 @@ object DataSourceResponse {
         updatedAt = r.updatedAt.toString,
         config    = SecretRedaction.redact(RestApiConfigPayload.fromDomain(r.config)),
         tag       = r.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(r.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(r.inferredSchema, legacyNullable = false)
       )
     case s: SqlSource =>
       SqlSourceResponse(
@@ -462,7 +462,7 @@ object DataSourceResponse {
         updatedAt = s.updatedAt.toString,
         config    = SecretRedaction.redact(SqlSourceConfigPayload.fromDomain(s.config)),
         tag       = s.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema, legacyNullable = false)
       )
     case s: DatasetSource =>
       StaticSourceResponse(
@@ -471,7 +471,7 @@ object DataSourceResponse {
         createdAt = s.createdAt.toString,
         updatedAt = s.updatedAt.toString,
         tag       = s.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(s.inferredSchema, legacyNullable = false)
       )
     case t: TextSource =>
       TextSourceResponse(
@@ -481,7 +481,7 @@ object DataSourceResponse {
         updatedAt = t.updatedAt.toString,
         config    = TextSourceConfigPayload(t.config.path, t.config.sourceUrl),
         tag       = t.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(t.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(t.inferredSchema, legacyNullable = false)
       )
     case p: PdfSource =>
       PdfSourceResponse(
@@ -491,7 +491,7 @@ object DataSourceResponse {
         updatedAt = p.updatedAt.toString,
         config    = PdfSourceConfigPayload(p.config.path, p.config.sourceUrl),
         tag       = p.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(p.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(p.inferredSchema, legacyNullable = false)
       )
     case i: ImageSource =>
       ImageSourceResponse(
@@ -501,7 +501,7 @@ object DataSourceResponse {
         updatedAt = i.updatedAt.toString,
         config    = ImageSourceConfigPayload(i.config.path, i.config.sourceUrl),
         tag       = i.tag,
-        inferredSchema = InferredFieldResponse.fromDomain(i.inferredSchema)
+        inferredSchema = InferredFieldResponse.fromDomain(i.inferredSchema, legacyNullable = false)
       )
   }
 }

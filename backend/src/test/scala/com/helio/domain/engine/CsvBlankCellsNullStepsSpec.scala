@@ -186,6 +186,8 @@ class CsvBlankCellsNullStepsSpec extends AnyWordSpec with Matchers with CsvLoadS
       val out = runStep(step, frame, ctx)
       out.filter(_("team") == null).map(_("label")).toSet shouldBe Set("BLANK")
       out.filter(_("team") == "a").map(_("label")).toSet shouldBe Set("A")
+      // HEL-1424 (HEL-1408 evaluator nit): the null-key rows are counted explicitly, not just their label set.
+      out.count(_("team") == null) shouldBe 2
     }
   }
 

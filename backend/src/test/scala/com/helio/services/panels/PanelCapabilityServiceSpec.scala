@@ -126,6 +126,24 @@ class PanelCapabilityServiceSpec extends AnyWordSpec with Matchers with BeforeAn
 
   "PanelCapabilityService.getCapabilities" should {
 
+    // HEL-1424: columns report the stored nullability; a legacy field without it reads true.
+    "report stored nullability, and true for a legacy field with none" in {
+      cleanDb()
+      val pid = insertPipeline(ownerA)
+      val output = insertOutput(
+        pid,
+        schema = Vector(
+          SchemaField("a", "string", Some(false)),
+          SchemaField("b", "string", Some(true)),
+          SchemaField("legacy", "string")
+        )
+      )
+      writeRows(pid, count = 1)
+
+      val resp = await(service.getCapabilities(OutputId(output.id.value), userA)).toOption.get
+      resp.columns.map(c => c.name -> c.nullable).toMap shouldBe Map("a" -> false, "b" -> true, "legacy" -> true)
+    }
+
     // Task 5.1 — spec.md "Numeric multi-row pipeline-output type"
     "mark chart/table/metric/collection bindable for a numeric multi-row pipeline-output type" in {
       cleanDb()

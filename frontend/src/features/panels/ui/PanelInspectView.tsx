@@ -1,3 +1,4 @@
+import { selectionValueLabel } from "../../../utils/blankLabel";
 import { useCallback, useMemo } from "react";
 import { MousePointerClick } from "lucide-react";
 
@@ -127,7 +128,7 @@ export function PanelInspectView({
   );
 
   const headerLabel = selection
-    ? `Showing rows for ${selection.dimension}: ${selection.value}${
+    ? `Showing rows for ${selection.dimension}: ${selectionValueLabel(selection.value)}${
         selection.series ? ` / ${selection.series}` : ""
       }`
     : null;
@@ -155,7 +156,9 @@ export function PanelInspectView({
               onClick={handleFilterDashboard}
             >
               Filter dashboard by {selection.dimension} ={" "}
-              <span className="mono">{selection.value}</span>
+              <span className={selection.value === "" ? "selection-value--blank" : "mono"}>
+                {selectionValueLabel(selection.value)}
+              </span>
             </button>
           )}
           <button

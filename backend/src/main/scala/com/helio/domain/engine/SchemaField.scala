@@ -19,8 +19,12 @@ import com.helio.domain.model.DataFieldType
  *  `canonicalizeLegacy` still has into a fail-loud bug instead of a silently-corrupted row.
  *  `SchemaFieldStructuralGuardSpec` asserts this directly (constructing a `SchemaField` with a
  *  garbage type throws), so a future refactor that removes this `require` fails a test, not just
- *  a review. */
-final case class SchemaField(name: String, `type`: String) {
+ *  a review.
+ *
+ *  HEL-1424: `nullable` is the optional persisted nullability of a stored CSV-source / Output
+ *  column. `None` means "not recorded" (analyze-derived fields, other source kinds, legacy rows):
+ *  readers pick a per-kind default. "Same columns" comparisons must use name + type only. */
+final case class SchemaField(name: String, `type`: String, nullable: Option[Boolean] = None) {
   require(
     DataFieldType.fromString(`type`).isDefined,
     s"SchemaField: '${`type`}' is not a canonical DataFieldType wire value for field '$name'. " +
