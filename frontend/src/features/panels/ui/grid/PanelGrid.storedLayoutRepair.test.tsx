@@ -18,6 +18,7 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { AUTO_SAVE_INTERVAL_MS } from "../../hooks/usePanelUpdatesFlush";
 import { PanelGrid } from "./PanelGrid";
 
+const mockPanels: unknown[] = [];
 jest.mock("react-grid-layout", () => {
   const React = require("react");
   return {
@@ -44,7 +45,7 @@ jest.mock("../../hooks/usePanelData", () => ({
 }));
 jest.mock("../../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../../services/panelService", () => ({
-  fetchPanels: jest.fn(),
+  fetchPanels: jest.fn().mockImplementation(async () => mockPanels),
   createPanel: jest.fn(),
   updatePanelsBatch: jest.fn().mockResolvedValue({ panels: [] }),
 }));
@@ -64,6 +65,7 @@ const OWNER = "user-owner";
 const panels = ["a", "b"].map((id) =>
   makeOutputPanel({ id, dashboardId: "d1", title: id.toUpperCase() }),
 );
+mockPanels.push(...panels);
 const lg = [
   { panelId: "a", x: 0, y: 0, w: 6, h: 5 },
   { panelId: "b", x: 6, y: 0, w: 6, h: 5 },

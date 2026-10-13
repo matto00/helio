@@ -2,8 +2,11 @@ package com.helio.services.dashboards
 
 import com.helio.services.ServiceError
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.services.panels.{LayoutPolicy, LayoutWritePolicy}
+import com.helio.infrastructure.persistence.dashboards.{DashboardRepository, DashboardWriteResult, LayoutCas}
+import com.helio.services.panels.{LayoutCasRetry, LayoutPolicy, LayoutWritePolicy}
+import com.helio.services.panels.LayoutCasRetry.Attempt
+
+import DashboardWrites.Fields
 
 import java.time.Instant
 import java.util.UUID
@@ -33,66 +36,47 @@ private[dashboards] final class DashboardWrites(
     dashboardRepo.insert(dashboard)
   }
 
+  /** Applies `fields` to the dashboard `existing` was read from. Only the supplied fields are stored (HEL-1457), so a
+   *  layout save never rewrites a concurrent rename or appearance change; a supplied layout is a compare-and-set
+   *  against the layout version it was resolved from, see [[LayoutCasRetry]]. */
   def applyUpdate(
       dashboardId: DashboardId,
       existing: Dashboard,
-      nameOpt: Option[String],
-      appearanceOpt: Option[DashboardAppearance],
-      layoutPatchOpt: Option[LayoutPolicy.Patch],
+      fields: Fields,
       layoutPolicy: LayoutWritePolicy
   ): Future[Either[ServiceError, Dashboard]] =
-    // HEL-1456 D5: every layout this write can store, the supplied breakpoints AND the stored ones it
-    // writes back (the full layout column is rewritten), is first restricted to the dashboard's live
-    // panels, so no update of any kind stores an item for a panel that is not on the dashboard.
-    dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
-      // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write — including
-      // the rename below — so a rejected layout saves nothing.
-      val (liveLayout, layoutResolved) = LayoutPolicy.resolveOnLive(existing.layout, layoutPatchOpt, panelIds, layoutPolicy)
-      val live                         = existing.copy(layout = liveLayout)
-      layoutResolved match {
-        case Left(msg)        => Future.successful(Left(ServiceError.BadRequest(msg)))
-        case Right(layoutOpt) => writeUpdate(dashboardId, live, nameOpt, appearanceOpt, layoutOpt, panelIds)
-      }
-    }
-
-  private def writeUpdate(
-      dashboardId: DashboardId,
-      existing: Dashboard,
-      nameOpt: Option[String],
-      appearanceOpt: Option[DashboardAppearance],
-      layoutOpt: Option[DashboardLayout],
-      panelIds: Set[PanelId]
-  ): Future[Either[ServiceError, Dashboard]] = {
-    val now = Instant.now()
-    nameOpt match {
-      case Some(name) =>
-        dashboardRepo.updateName(dashboardId, name, now).flatMap {
-          case None => Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
-          case Some(renamed) =>
-            if (appearanceOpt.isEmpty && layoutOpt.isEmpty) {
-              Future.successful(Right(renamed))
-            } else {
-              val updated = renamed.copy(
-                appearance = appearanceOpt.getOrElse(renamed.appearance),
-                layout     = layoutOpt.getOrElse(LayoutPolicy.onlyPanels(renamed.layout, panelIds)),
-                meta       = renamed.meta.copy(lastUpdated = now)
-              )
-              dashboardRepo.update(updated).map {
-                case Some(d) => Right(d)
-                case None    => Left(ServiceError.NotFound("Dashboard not found"))
-              }
+    LayoutCasRetry.run(existing, fields.expectedLayoutVersion) { read =>
+      // HEL-1456 D5: every layout this write can store, the supplied breakpoints AND the stored ones it
+      // writes back, is first restricted to the dashboard's live panels, so no update of any kind stores an
+      // item for a panel that is not on the dashboard.
+      dashboardRepo.panelIdsInternal(dashboardId).flatMap { panelIds =>
+        // HEL-1071: resolve (and, under `Validate`, validate) the layout BEFORE any write, including the
+        // rename, so a rejected layout saves nothing.
+        val (liveLayout, layoutResolved) = LayoutPolicy.resolveOnLive(read.layout, fields.layoutPatch, panelIds, layoutPolicy)
+        layoutResolved match {
+          case Left(msg) => Future.successful(Attempt.Finished(Left(ServiceError.BadRequest(msg))))
+          case Right(layoutOpt) =>
+            // An appearance update that supplies no layout still drops stored ghost items (HEL-1456 D5), as a
+            // compare-and-set like any layout write; a rename-only update never touches the layout.
+            val written = layoutOpt.orElse(Option.when(fields.appearance.isDefined && liveLayout != read.layout)(liveLayout))
+            val cas     = written.map(LayoutCas(read.layoutVersion, _))
+            dashboardRepo.writeFields(dashboardId, read.ownerId, cas, fields.name, fields.appearance, Instant.now()).map {
+              case DashboardWriteResult.Written(d)      => Attempt.Finished(Right(d))
+              case DashboardWriteResult.NotFound        => Attempt.Finished(Left(ServiceError.NotFound("Dashboard not found")))
+              case DashboardWriteResult.LayoutMoved(d)  => Attempt.Moved(d)
             }
         }
-      case None =>
-        val updated = existing.copy(
-          appearance = appearanceOpt.getOrElse(existing.appearance),
-          layout     = layoutOpt.getOrElse(existing.layout),
-          meta       = existing.meta.copy(lastUpdated = now)
-        )
-        dashboardRepo.update(updated).map {
-          case Some(d) => Right(d)
-          case None    => Left(ServiceError.NotFound("Dashboard not found"))
-        }
+      }
     }
-  }
+}
+
+private[dashboards] object DashboardWrites {
+
+  /** The validated fields of one dashboard update; `expectedLayoutVersion` is only ever set with `layoutPatch`. */
+  final case class Fields(
+      name: Option[String],
+      appearance: Option[DashboardAppearance],
+      layoutPatch: Option[LayoutPolicy.Patch],
+      expectedLayoutVersion: Option[Long]
+  )
 }

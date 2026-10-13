@@ -47,14 +47,16 @@ export async function deleteDashboard(dashboardId: string): Promise<void> {
   await httpClient.delete(`/api/dashboards/${dashboardId}`);
 }
 
-/** PATCHes only the breakpoints present in `layout`; the server preserves the rest (HEL-1071). */
+/** PATCHes only the breakpoints present in `layout`; the server preserves the rest (HEL-1071). With
+ *  `expectedLayoutVersion` the server refuses (409) unless the stored layout is still that version (HEL-1457). */
 export async function updateDashboardLayout(
   dashboardId: string,
   layout: Partial<DashboardLayout>,
+  expectedLayoutVersion?: number,
 ): Promise<Dashboard> {
   const response = await httpClient.patch<Dashboard>(`/api/dashboards/${dashboardId}/update`, {
     fields: ["layout"],
-    dashboard: { layout },
+    dashboard: expectedLayoutVersion === undefined ? { layout } : { layout, expectedLayoutVersion },
   });
   return response.data;
 }

@@ -26,6 +26,11 @@
         },
         "layout": {
           "$ref": "dashboard-layout-patch.schema.json"
+        },
+        "expectedLayoutVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HEL-1457: only valid with `layout`. The write is refused with 409 (body: `{message, dashboard}`) unless the stored layout is still at this `layoutVersion`."
         }
       }
     }

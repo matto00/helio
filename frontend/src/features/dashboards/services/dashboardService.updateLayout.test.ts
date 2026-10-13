@@ -34,3 +34,25 @@ describe("updateDashboardLayout", () => {
     expect(Object.keys(body.dashboard.layout)).toEqual(["lg", "md", "sm", "xs"]);
   });
 });
+
+describe("updateDashboardLayout expectedLayoutVersion (HEL-1457)", () => {
+  beforeEach(() => {
+    mockedPatch.mockReset();
+    mockedPatch.mockResolvedValue({ data: { id: "d1" } });
+  });
+
+  it("sends the version beside the layout when one is given, including 0", async () => {
+    const xs = [{ panelId: "a", x: 0, y: 0, w: 2, h: 3 }];
+    await updateDashboardLayout("d1", { xs }, 0);
+    expect(mockedPatch).toHaveBeenCalledWith("/api/dashboards/d1/update", {
+      fields: ["layout"],
+      dashboard: { layout: { xs }, expectedLayoutVersion: 0 },
+    });
+  });
+
+  it("omits the field when no version is known", async () => {
+    await updateDashboardLayout("d1", { xs: [] });
+    const body = mockedPatch.mock.calls[0][1] as { dashboard: object };
+    expect(body.dashboard).not.toHaveProperty("expectedLayoutVersion");
+  });
+});

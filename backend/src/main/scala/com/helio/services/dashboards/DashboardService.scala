@@ -194,13 +194,13 @@ final class DashboardService(
           case None =>
             Future.successful(Left(ServiceError.NotFound("Dashboard not found")))
           case Some(existing) if existing.ownerId == user.id =>
-            writes.applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
+            writes.applyUpdate(dashboardId, existing, DashboardWrites.Fields(nameOpt, appearanceOpt, layoutOpt, request.expectedLayoutVersion), layoutPolicy)
           case Some(existing) =>
             // Non-owner grantee: check role before allowing mutation.
             accessChecker.requireAccess("dashboard", dashboardId.value, Some(user), "Dashboard not found").flatMap {
               case Left(err)                        => Future.successful(Left(err))
               case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
-              case Right(_)                         => writes.applyUpdate(dashboardId, existing, nameOpt, appearanceOpt, layoutOpt, layoutPolicy)
+              case Right(_)                         => writes.applyUpdate(dashboardId, existing, DashboardWrites.Fields(nameOpt, appearanceOpt, layoutOpt, request.expectedLayoutVersion), layoutPolicy)
             }
         }
     }

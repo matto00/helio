@@ -5,7 +5,8 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.dashboards.AutoLayoutRequest
 import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DashboardLayout, DashboardLayoutItem, PanelId, Page, ResourceAccess}
-import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.dashboards.{DashboardRepository, DashboardWriteResult, LayoutCas}
+import com.helio.services.panels.LayoutCasRetry.Attempt
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.services.panels.PanelPacker.PackInput
 import spray.json.JsObject
@@ -21,7 +22,7 @@ private final case class Targets(breakpoints: Vector[String], sourceCols: Int)
  *
  *  Composes [[PanelPacker]] (pure geometry) with the same ACL + persistence pattern
  *  [[DashboardContentsService]] uses: `dashboardRepo.findById` for the sharing-aware existence/ACL
- *  check, then `dashboardRepo.update` for the write.
+ *  check, then a compare-and-set `dashboardRepo.writeFields` for the write (HEL-1457).
  *
  *  Without `breakpoint`, EVERY breakpoint is packed independently at its own column count
  *  (`LayoutBreakpointScaling.breakpointCols`): request `w` is in `cols` units (default 12) and is
@@ -82,29 +83,33 @@ final class AutoLayoutService(
       targets: Targets,
       user: AuthenticatedUser
   ): Future[Either[ServiceError, Dashboard]] =
-    // HEL-1485: the stored layout is restricted to the dashboard's live panels (`panelIdsInternal`,
-    // privileged and unpaged, the read `DashboardWrites.applyUpdate` uses) before packing, so a ghost item
-    // in the stored row is neither kept nor written back. The read-then-write is still unlocked: a panel
-    // deleted after these reads is stripped by V122 and then written back as a ghost, the same
-    // last-write-wins window a layout PATCH has (HEL-1457), deliberately not closed here.
-    for {
-      livePanelIds <- dashboardRepo.panelIdsInternal(dashboardId)
-      // MaxLimit-capped (Page.MaxLimit = 500): the pagination ceiling every dashboard-scoped panel
-      // listing uses; panels beyond it would be treated as "unknown" if referenced (pre-existing limit).
-      paged  <- panelRepo.findAllByDashboardId(dashboardId, Some(user), Page(offset = 0, limit = Page.MaxLimit))
-      packed  = pack(LayoutPolicy.onlyPanels(existing.layout, livePanelIds), existing, paged.items.map(p => p.id -> p.kind).toMap, request, targets)
-      result <- packed match {
-        case Left(err) => Future.successful(Left(err))
-        case Right(updated) =>
-          dashboardRepo.update(updated).map {
-            case Some(d) =>
-              // HEL-477 design.md Decision 9: reuses dashboard.update — layout is a dashboard-owned field.
-              audit("dashboard.update", Some(dashboardId.value), user)
-              Right(d)
-            case None => Left(ServiceError.NotFound("Dashboard not found"))
-          }
-      }
-    } yield result
+    // HEL-1457: the write is a compare-and-set on the layout version it packed from (layout and `last_updated`
+    // only), retried against the fresh row when a caller gave no `expectedLayoutVersion`; see [[LayoutCasRetry]].
+    LayoutCasRetry.run(existing, request.expectedLayoutVersion) { read =>
+      // HEL-1485: the stored layout is restricted to the dashboard's live panels (`panelIdsInternal`,
+      // privileged and unpaged, the read `DashboardWrites.applyUpdate` uses) before packing, so a ghost item
+      // in the stored row is neither kept nor written back.
+      for {
+        livePanelIds <- dashboardRepo.panelIdsInternal(dashboardId)
+        // MaxLimit-capped (Page.MaxLimit = 500): the pagination ceiling every dashboard-scoped panel
+        // listing uses; panels beyond it would be treated as "unknown" if referenced (pre-existing limit).
+        paged  <- panelRepo.findAllByDashboardId(dashboardId, Some(user), Page(offset = 0, limit = Page.MaxLimit))
+        packed  = pack(LayoutPolicy.onlyPanels(read.layout, livePanelIds), read, paged.items.map(p => p.id -> p.kind).toMap, request, targets)
+        result <- packed match {
+          case Left(err) => Future.successful(Attempt.Finished(Left(err)))
+          case Right(updated) =>
+            val cas = LayoutCas(read.layoutVersion, updated.layout)
+            dashboardRepo.writeFields(dashboardId, read.ownerId, Some(cas), None, None, updated.meta.lastUpdated).map {
+              case DashboardWriteResult.Written(d) =>
+                // HEL-477 design.md Decision 9: reuses dashboard.update — layout is a dashboard-owned field.
+                audit("dashboard.update", Some(dashboardId.value), user)
+                Attempt.Finished(Right(d))
+              case DashboardWriteResult.NotFound       => Attempt.Finished(Left(ServiceError.NotFound("Dashboard not found")))
+              case DashboardWriteResult.LayoutMoved(d) => Attempt.Moved(d)
+            }
+        }
+      } yield result
+    }
 
   private def pack(
       liveLayout: DashboardLayout,

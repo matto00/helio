@@ -144,7 +144,10 @@ class DashboardLayoutRepairRlsSpec extends AnyWordSpec with Matchers with Before
     "write only the layout: a rename and lastUpdated survive" in {
       val id       = seedDashboard(badXs, 2)
       val expected = layoutOf(id)
-      val renamed  = await(repo.updateName(id, "renamed-meanwhile", Instant.parse("2031-01-01T00:00:00Z"))).get
+      val renamed  = await(repo.writeFields(id, owner, None, Some("renamed-meanwhile"), None, Instant.parse("2031-01-01T00:00:00Z"))) match {
+        case DashboardWriteResult.Written(d) => d
+        case other                           => fail(s"rename did not land: $other")
+      }
       await(repo.updateLayoutIfUnchanged(id, owner, expected, layoutFromJson(fixedXs))) shouldBe true
       val after = await(repo.findByIdInternal(id)).get
       after.name shouldBe "renamed-meanwhile"

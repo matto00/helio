@@ -1,5 +1,7 @@
 package com.helio.services
 
+import com.helio.domain.model.Dashboard
+
 /** Domain failure model returned by services on the `Left` channel of
  *  `Future[Either[ServiceError, A]]`.
  *
@@ -21,6 +23,15 @@ object ServiceError {
   final case class NotFound(message: String = "Not found") extends ServiceError
   final case class Forbidden(message: String = "Forbidden") extends ServiceError
   final case class Conflict(message: String) extends ServiceError
+  /** 409 for a dashboard layout write whose layout version moved since the writer read it (HEL-1457): the write
+   *  was refused and nothing was stored. Carries the dashboard as it is now so a client can rebase without a list
+   *  refetch. Same status as [[Conflict]]; `ServiceResponse.completeError` emits the richer body. */
+  final case class LayoutConflict(current: Dashboard) extends ServiceError {
+    override def message: String = LayoutConflict.Message
+  }
+  object LayoutConflict {
+    val Message: String = "This dashboard's layout was changed elsewhere; the layout was not saved."
+  }
   /** 422 Unprocessable Entity — the request was well-formed but couldn't be
    *  processed due to semantic issues (e.g. pipeline source type unsupported,
    *  execution failed for a request-supplied input). */

@@ -143,7 +143,7 @@ describe("DesktopPanelGrid — in-flight layout PATCH response (HEL-1230)", () =
     expect(isPending()).toBe(true);
     await flush();
     expect(patchMock).toHaveBeenCalledTimes(2);
-    expect(patchMock).toHaveBeenLastCalledWith("d1", { lg: [item(8)] });
+    expect(patchMock).toHaveBeenLastCalledWith("d1", { lg: [item(8)] }, undefined);
     await respond(1, layoutAt(8));
     expect(storeLg()[0].x).toBe(8);
     expect(isPending()).toBe(false);
@@ -160,7 +160,7 @@ describe("DesktopPanelGrid — in-flight layout PATCH response (HEL-1230)", () =
     expect(isPending()).toBe(true); // x=0 differs from the server's x=4 and must be saved
     await flush();
     expect(patchMock).toHaveBeenCalledTimes(2);
-    expect(patchMock).toHaveBeenLastCalledWith("d1", { lg: [item(0)] });
+    expect(patchMock).toHaveBeenLastCalledWith("d1", { lg: [item(0)] }, undefined);
   });
 
   it("a newer local layout that already equals the response's layout clears pending and does not block the next edit", async () => {

@@ -237,7 +237,10 @@ final case class Dashboard(
     // last, defaulted to None, so every pre-existing positional
     // `Dashboard(...)` construction (tests, DashboardRepository) keeps
     // compiling unchanged.
-    tag: Option[String] = None
+    tag: Option[String] = None,
+    // HEL-1457 (V127): database-maintained, bumped whenever the stored layout changes. Appended last and
+    // defaulted so every positional `Dashboard(...)` construction keeps compiling; never written by the app.
+    layoutVersion: Long = 0L
 )
 // `PanelQuery`/`GET /api/panels/:id/query` removed outright (HEL-904 task
 // 4.1) — HEL-292 panel-level aggregation and this route are retired, not

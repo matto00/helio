@@ -21,6 +21,11 @@
       "type": "string",
       "enum": ["lg", "md", "sm", "xs"],
       "description": "Pack only this breakpoint and leave the others untouched. Omit to pack every breakpoint at its own column count."
+    },
+    "expectedLayoutVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "HEL-1457: refuse with 409 (body: `{message, dashboard}`) unless the stored layout is still at this `layoutVersion`."
     }
   },
   "additionalProperties": false
