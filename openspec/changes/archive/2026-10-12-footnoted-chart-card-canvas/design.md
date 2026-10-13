@@ -28,28 +28,31 @@ nowrap stay under the existing width+height query. Full text is already on each 
 bar 94.4 -> ~114 (2 footnotes), 69.6 -> ~98 (3). w=2 is already compacted, so it is unchanged by D1.
 Alternative rejected: merging all footnotes into one inline row -- unreadable at w=2 (174px canvas width).
 
-**D2. Inline a one-control bar on short footnoted chart cards (OWNER REVIEW).** Under the same height query, scoped
-to a footnoted chart card (`.panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)`, the same
-scope HEL-1398 uses) whose bar holds exactly one control (`.output-viewer-control-bar:has(> :only-child)`; orphaned
-controls are never rendered, so children = visible controls) that is NOT a range control
-(`:not(.output-viewer-control-bar__control--range)` -- numeric-range and date-range both carry it; label + two
-80/140px inputs cannot fit one row at w=2, so a lone range control stays stacked, unchanged), the text/dropdown
-control becomes a row (label beside input, centered) and its input flexes to the remaining width (`flex: 1 1 auto;
-min-width: 0`, and the text input's fixed 160px width yields to `width: auto` in this scope only) so it fits on one
-row at w=2, and the bar's bottom padding drops to
-`--space-1`. Saves ~21px (57 -> ~36). Markup is unchanged: each control keeps its existing labelling (text/range use
-`<label for>`; the dropdown uses its visible span plus the select's `ariaLabel`) -- CSS only. A bar with two or more
-controls is untouched: inline labels roughly double each control's width (66 -> ~136px) and would wrap two dropdowns
-at w=2 onto two rows (~80px vs 57px today), a regression. A chart with no footnote is untouched. Alternatives rejected: hiding the label (loses the visible name of the control); a taller minimum card
-height for charts with controls (rewrites stored layouts of existing dashboards, not freely reversible).
+**D2. Inline a one-control bar on short chart-output cards (OWNER REVIEW).** Under the same height query, scoped
+to a chart-output card's bar -- `.output-viewer-control-bar--chart`, a class `PanelCardBody` sets from the resolved
+Output's kind (`output?.kind === "chart"`), i.e. from config, not from rendered data -- whose bar holds exactly one
+control (`:has(> .output-viewer-control-bar__control:only-child ...)`; orphaned controls are never rendered, so children
+= visible controls) that is NOT a range control (`:not(.output-viewer-control-bar__control--range)` -- numeric-range and
+date-range both carry it; label + two 80/140px inputs cannot fit one row at w=2, so a lone range control stays stacked,
+unchanged), the text/dropdown control becomes a row (label beside input, centered, label `flex: 0 0 auto` so its text is
+never truncated) and its input flexes to the remaining width (`flex: 1 1 auto; min-width: 0`, and the text input's fixed
+160px width yields to `width: auto` in this scope only) so it fits on one row at w=2, and the bar's bottom padding drops
+to `--space-1`. Saves ~21px (57 -> ~36). Markup is otherwise unchanged: each control keeps its existing labelling. A bar
+with two or more controls is untouched, and so is a bar on a non-chart panel (table, metric, ...).
+*Cycle 2 (skeptic-final-1 CR3):* the first design keyed this on footnote presence
+(`:has(.chart-panel__annotation, ...)`). Typing into the text control until the result was empty unmounted the
+footnotes, the scope stopped matching and the bar restacked under the focused input. The HEL-1398 title/footer
+tightening also now matches a card with a chart control bar for the same reason. Keying on the Output's kind keeps the
+layout identical through loading, empty and error states, and gives a footnote-less chart the same layout as a
+footnoted sibling. Alternatives rejected: hiding the label (loses the visible name of the control); a taller minimum
+card height for charts with controls (rewrites stored layouts of existing dashboards, not freely reversible).
 Floors in specs are stated for a one-control text/dropdown bar. Two floors have ~1.2-1.6px margin; the e2e asserts
 the floors exactly at both 1440 and 1900, and a miss is escalated, never loosened.
 
-**Load-time shift (accepted).** D1-D3 key on the footnote elements, which exist only once the chart has data. While
-a footnoted chart with a one-control bar is loading or errored, the bar is stacked; when data lands it goes inline
-(~21px). This is accepted: it happens in the same frame the chart and its footnotes first paint (the canvas region is
-a skeleton/error state until then, nothing drawn moves), and it matches HEL-1398's own title/footer tightening, which
-keys on the same elements. Keying on the panel's config instead would need new markup for a cosmetic gain.
+**Load-time shift (superseded in cycle 2).** D2 now keys on the Output's kind, so the bar layout no longer changes
+when data lands. Only the Output metadata fetch (a few frames after mount) can flip a chart card's bar from stacked
+to inline; nothing the user is typing into is mounted before then. D1 and D3 still key on footnote elements, which
+do not hold a focus.
 
 **D3. Annotation yields to the control bar on narrow short chart cards (OWNER REVIEW).** Under HEL-1398's existing
 width+height query (w=2 only), when the card has an `.output-viewer-control-bar`, `.chart-panel__annotation` is

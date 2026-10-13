@@ -50,7 +50,12 @@ function build(
 type YAxis = {
   type?: string;
   splitNumber?: number;
-  axisLabel?: { hideOverlap?: boolean; showMinLabel?: boolean; showMaxLabel?: boolean };
+  axisLabel?: {
+    hideOverlap?: boolean;
+    showMinLabel?: boolean;
+    showMaxLabel?: boolean;
+    lineHeight?: number;
+  };
 };
 const yAxisOf = (o: EChartsOption) => o.yAxis as YAxis;
 
@@ -79,6 +84,8 @@ describe("buildChartOption value-axis label cap (HEL-1444)", () => {
     expect(y.axisLabel?.showMinLabel).toBe(true);
     expect(y.axisLabel?.showMaxLabel).toBe(true);
     expect(y.axisLabel?.hideOverlap).toBe(true);
+    // zrender sizes the overlap box from the text ink (~6px); a line box makes hideOverlap honest.
+    expect(y.axisLabel?.lineHeight).toBe(12);
   });
 
   it.each([

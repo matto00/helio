@@ -10,9 +10,11 @@ footnote and chrome space before its chart canvas does, in both light and dark t
   tooltip and to assistive technology;
 - at the narrowest width (w=2) only, the truncation note uses its short form, the card title is clamped to two lines
   and the footer stays on one line (unchanged from HEL-1398);
-- when the card also carries a viewer-control bar with exactly ONE control and that control is a text or dropdown
-  control, its label SHALL sit beside its input on one row; a lone numeric-range or date-range control, and a bar with
-  two or more controls, keep labels above inputs and SHALL be no taller than they are today;
+- when the card is a chart-output card (known from the Output's kind, never from rendered data, so the layout is the
+  same while the chart loads, errors, is empty or shows footnotes) carrying a viewer-control bar with exactly ONE
+  control and that control is a text or dropdown control, its label SHALL sit beside its input on one row, show its full
+  text, and stay put when a filter empties the result; a lone numeric-range or date-range control, a bar with two or
+  more controls, and any non-chart panel keep labels above inputs and SHALL be no taller than they are today;
 - at the narrowest width (w=2) only, when the card also carries a viewer-control bar, the annotation footnote SHALL be
   visually hidden (it remains in the accessibility tree and is shown unchanged on the fullscreen and detail views);
   the truncation, skipped-values and time-axis notes stay visible at every width.
@@ -39,8 +41,12 @@ kinds, a chart with no footnote, and the mobile stack (HEL-1438) keep their curr
 - **THEN** each label stays above its input and the bar is no taller than the same bar on unchanged main
 
 #### Scenario: other cards keep their chrome
-- **WHEN** a table panel, or a chart panel with no annotation and no truncation note, is placed at w=2, h=4
-- **THEN** its title is not line-clamped, and a chart with no footnote keeps its control labels above their inputs
+- **WHEN** a table panel, or a chart panel with no annotation, no truncation note and no control bar, is placed at w=2, h=4
+- **THEN** its title is not line-clamped; a table panel with a one-control bar keeps its label above its input, while a footnote-less chart with a one-control bar lays the label beside its input like a footnoted one
+
+#### Scenario: a filter that empties the result does not move the control being typed into
+- **WHEN** a viewer types into the one text control of a chart panel at w=2, h=4 until the result is empty and the footnotes unmount
+- **THEN** the input's position and size are unchanged
 
 #### Scenario: taller chart cards are unchanged
 - **WHEN** a footnoted chart panel with a viewer-control bar is placed at h=5 or taller

@@ -500,9 +500,15 @@
   }
 
   /* Card chrome (title, footer) is only tightened on a chart card that carries a footnote; every
-   * other kind at this size, and a footnote-less chart, keeps the base wrapping title and
-   * footer. */
-  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+   * other kind at this size, and a footnote-less chart without a control bar, keeps the base
+   * wrapping title and footer. A chart-output control bar counts too (HEL-1444): it is there from
+   * config, so the header never reflows when a filter empties the result and unmounts the
+   * footnotes under a focused control. */
+  .panel-grid-card:has(
+      .chart-panel__annotation,
+      .chart-panel__truncation-note,
+      .output-viewer-control-bar--chart
+    )
     .panel-grid-card__title {
     display: -webkit-box;
     overflow: hidden;
@@ -512,7 +518,11 @@
     word-break: break-word;
   }
 
-  .panel-grid-card:has(.chart-panel__annotation, .chart-panel__truncation-note)
+  .panel-grid-card:has(
+      .chart-panel__annotation,
+      .chart-panel__truncation-note,
+      .output-viewer-control-bar--chart
+    )
     .panel-grid-card__footer {
     gap: var(--space-1);
     flex-wrap: nowrap;

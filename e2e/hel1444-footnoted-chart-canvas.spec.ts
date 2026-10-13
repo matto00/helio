@@ -23,11 +23,11 @@ const MAIN_BAR_HEIGHT = { two: { 2: 57, 4: 57 }, range: { 2: 57, 4: 57 } } as Re
   Record<number, number>
 >;
 
-type Kind = "bar" | "hist";
+type Kind = "bar" | "hist" | "bare" | "table";
 interface Variant {
   tag: string;
   kind: Kind;
-  ctl: "none" | "one" | "two" | "range";
+  ctl: "none" | "one" | "text" | "two" | "range";
   w: number;
   h: number;
   x: number;
@@ -53,6 +53,10 @@ function variants(): Variant[] {
       out.push({ tag: `${kind}-${ctl}-w${w}`, kind, ctl, w, h: 4, x, y: row * 4 });
     }
   });
+  // One TEXT control (HEL-1444 cycle 2): its label must not be truncated.
+  for (const { w, x } of WIDTHS) {
+    out.push({ tag: `bar-text-w${w}`, kind: "bar", ctl: "text", w, h: 4, x, y: 25 });
+  }
   // Bars that must not get taller: two controls and a lone range, at w=2 and w=4 (side by side).
   out.push({ tag: "bar-two-w2", kind: "bar", ctl: "two", w: 2, h: 4, x: 0, y: 16 });
   out.push({ tag: "bar-two-w4", kind: "bar", ctl: "two", w: 4, h: 4, x: 2, y: 16 });
@@ -64,11 +68,13 @@ function variants(): Variant[] {
 }
 
 // Short enough to stay on one line at w=4 and w=6 (the floors assume a one-line header there).
+const isOne = (v: { ctl: Variant["ctl"] }) => v.ctl === "one" || v.ctl === "text";
 const titleOf = (v: Variant) => `Revenue ${v.tag}`;
 
 function controlsFor(ctl: Variant["ctl"]) {
   const region = { id: "c1", kind: "dropdown", column: "region", label: "Region" };
   if (ctl === "one") return [region];
+  if (ctl === "text") return [{ id: "c4", kind: "text", column: "region", label: "Region" }];
   if (ctl === "two")
     return [region, { id: "c2", kind: "dropdown", column: "region", label: "Area" }];
   if (ctl === "range")
@@ -118,6 +124,36 @@ async function seed(request: Parameters<typeof deleteExact>[0], list: Variant[])
     annotation: ANNOTATION,
   });
   await post(`/api/pipelines/${pipeline.id}/run`, {});
+  // Footnote-less outputs (3 rows: no truncation; no annotation) for the D2 keying tests.
+  let extra: { pipeline: string; source: string; chart: string; table: string } | null = null;
+  if (list.some((v) => v.kind === "bare" || v.kind === "table")) {
+    const small = await post<{ id: string }>("/api/data-sources", {
+      name: "HEL-1444 small source",
+      type: "static",
+      columns: [
+        { name: "region", type: "string", required: true },
+        { name: "revenue", type: "integer", required: true },
+      ],
+      rows: [
+        ["East", 10],
+        ["West", 150],
+        ["North", 90],
+      ],
+    });
+    const p2 = await post<{ id: string }>("/api/pipelines", {
+      name: "HEL-1444 small pipeline",
+      roots: [{ sourceId: small.id }],
+    });
+    const out2 = (kind: string, name: string, config: unknown) =>
+      post<{ id: string }>(`/api/pipelines/${p2.id}/outputs`, { kind, name, config });
+    const chart = await out2("chart", "HEL-1444 bare", {
+      chartType: "bar",
+      fieldMapping: { xAxis: "region", yAxis: "revenue" },
+    });
+    const table = await out2("table", "HEL-1444 table", {});
+    await post(`/api/pipelines/${p2.id}/run`, {});
+    extra = { pipeline: p2.id, source: small.id, chart: chart.id, table: table.id };
+  }
   const items: Array<{ panelId: string; x: number; y: number; w: number; h: number }> = [];
   for (const v of list) {
     const panel = await post<{ id: string }>("/api/panels", {
@@ -125,7 +161,12 @@ async function seed(request: Parameters<typeof deleteExact>[0], list: Variant[])
       title: titleOf(v),
       type: "output",
       config: {
-        outputId: (v.kind === "bar" ? bar : hist).id,
+        outputId: {
+          bar: bar.id,
+          hist: hist.id,
+          bare: extra?.chart,
+          table: extra?.table,
+        }[v.kind],
         ...(v.ctl === "none" ? {} : { controls: controlsFor(v.ctl) }),
       },
     });
@@ -141,7 +182,7 @@ async function seed(request: Parameters<typeof deleteExact>[0], list: Variant[])
     headers: { [CSRF_HEADER]: "1" },
   });
   expect(upd.status(), await upd.text()).toBe(200);
-  return { dashboard: dash.id, pipeline: pipeline.id, source: source.id };
+  return { dashboard: dash.id, pipeline: pipeline.id, source: source.id, extra };
 }
 
 interface Rect {
@@ -164,6 +205,7 @@ interface Measure {
   footer: Rect | null;
   footerOverrunPx: number;
   label: Rect | null;
+  labelClipped: boolean;
   input: Rect | null;
   titleAttr: string | null;
   titleText: string;
@@ -210,6 +252,7 @@ async function measure(card: Locator): Promise<Measure> {
       footer: rect(footer),
       footerOverrunPx: footer ? footer.getBoundingClientRect().bottom - contentBoxBottom : 0,
       label: rect(label),
+      labelClipped: label ? label.scrollWidth > label.clientWidth + 0.5 : false,
       input: rect(input),
       titleAttr: h3?.getAttribute("title") ?? null,
       titleText: h3?.textContent ?? "",
@@ -231,6 +274,8 @@ type YAxisProbe = {
   /** What the option asked for, and the canvas / plot area it was asked for (evidence only). */
   splitNumber: number | null;
   chartHeight: number;
+  /** The y-axis label font size (the compact 10px, or ECharts' 12px default). */
+  fontSize: number;
   plotHeight: number;
 } | null;
 
@@ -273,7 +318,9 @@ async function yAxisProbe(card: Locator): Promise<YAxisProbe> {
                   };
                 };
               };
-              getOption(): { yAxis?: Array<{ splitNumber?: number }> };
+              getOption(): {
+                yAxis?: Array<{ splitNumber?: number; axisLabel?: { fontSize?: number } }>;
+              };
               getHeight(): number;
               getZr(): { storage: { getDisplayList(u?: boolean, ignored?: boolean): TextEl[] } };
             };
@@ -303,6 +350,7 @@ async function yAxisProbe(card: Locator): Promise<YAxisProbe> {
               drawn,
               splitNumber: chart.getOption().yAxis?.[0]?.splitNumber ?? null,
               chartHeight: chart.getHeight(),
+              fontSize: chart.getOption().yAxis?.[0]?.axisLabel?.fontSize ?? 12,
               plotHeight: grid.coordinateSystem.getRect().height,
             };
           }
@@ -354,7 +402,7 @@ for (const theme of ["light", "dark"] as const) {
           await page.mouse.move(0, 0);
           await page.waitForTimeout(200);
           const m = await measure(card);
-          const y = v.ctl === "one" && v.h === 4 ? await yAxisProbe(card) : null;
+          const y = isOne(v) && v.h === 4 ? await yAxisProbe(card) : null;
           all[v.tag] = { m, y };
           const tag = `${theme}-${width}-${v.tag}`;
           await card.screenshot({ path: evidencePath("HEL-1444", `card-${tag}.png`) });
@@ -422,7 +470,7 @@ for (const theme of ["light", "dark"] as const) {
           }
 
           // Footnotes: one line each; the annotation yields (sr-only) only at w=2 with a bar.
-          const hidesAnnotation = v.w === 2 && v.ctl === "one";
+          const hidesAnnotation = v.w === 2 && isOne(v);
           for (const [i, f] of footnotes.entries()) {
             expect.soft(f.height, `${where}: note${i} visible`).toBeGreaterThan(8);
             expect.soft(f.lines, `${where}: note${i} one line`).toBe(1);
@@ -442,11 +490,11 @@ for (const theme of ["light", "dark"] as const) {
             expect.soft(annotation!.lines, `${where}: annotation one line`).toBe(1);
           }
 
-          const floors = v.ctl === "one" ? FLOOR.ctl : FLOOR.plain;
+          const floors = isOne(v) ? FLOOR.ctl : FLOOR.plain;
           const floor = v.kind === "hist" ? floors.three : floors.two;
           expect.soft(canvas!.height, `${where}: canvas height`).toBeGreaterThanOrEqual(floor);
 
-          if (v.ctl === "one") {
+          if (isOne(v)) {
             // The label sits beside its input on one row, inside the bar.
             const { label, input } = m;
             const mid = (label!.top + label!.bottom) / 2;
@@ -456,6 +504,7 @@ for (const theme of ["light", "dark"] as const) {
             expect
               .soft(mid, `${where}: label on the input's row`)
               .toBeLessThanOrEqual(input!.bottom + TOL);
+            expect.soft(m.labelClipped, `${where}: label text is not truncated`).toBe(false);
             expect
               .soft(label!.right, `${where}: label left of input`)
               .toBeLessThanOrEqual(input!.left + TOL);
@@ -467,7 +516,7 @@ for (const theme of ["light", "dark"] as const) {
 
         // Value axis (C2): the labels ECharts draws never overprint; at least one is drawn, and when two fit
         // (a plot area of at least one label pitch) the axis minimum and maximum are both labelled.
-        for (const v of list.filter((x) => x.ctl === "one" && x.h === 4)) {
+        for (const v of list.filter((x) => isOne(x) && x.h === 4)) {
           const probe = (all[v.tag] as { y: YAxisProbe }).y;
           const where = `${v.tag} @${width} ${theme}`;
           expect(probe, `${where}: y axis readable`).not.toBeNull();
@@ -475,10 +524,17 @@ for (const theme of ["light", "dark"] as const) {
           expect
             .soft(drawn.length, `${where}: at least one y label drawn`)
             .toBeGreaterThanOrEqual(1);
+          // zrender's text rect is only ~6px tall for 10px text (the glyph ink), so comparing rects hides
+          // labels whose line boxes overlap (HEL-1444 cycle 2: "60/30/0" drawn 7.5px apart passed). Drawn
+          // labels must be at least one font line box (1.2 x the font size) apart, top to top.
+          const lineBox = Math.ceil(probe!.fontSize * 1.2);
           for (let i = 1; i < drawn.length; i++) {
             expect
-              .soft(drawn[i].top, `${where}: y labels ${JSON.stringify(drawn)} overprint`)
-              .toBeGreaterThanOrEqual(drawn[i - 1].bottom - 0.5);
+              .soft(
+                drawn[i].top - drawn[i - 1].top,
+                `${where}: y labels ${JSON.stringify(drawn)} closer than a ${lineBox}px line box`,
+              )
+              .toBeGreaterThanOrEqual(lineBox - 0.01);
           }
           // Two labels fit when the plot area is at least one label pitch (12px for the 10px font).
           if (probe!.ticks.length >= 2 && probe!.plotHeight >= 12) {
@@ -497,9 +553,122 @@ for (const theme of ["light", "dark"] as const) {
         await deleteExact(request, `/api/dashboards/${ids.dashboard}`);
         await deleteExact(request, `/api/pipelines/${ids.pipeline}`);
         await deleteExact(request, `/api/data-sources/${ids.source}`);
+        if (ids.extra) {
+          await deleteExact(request, `/api/pipelines/${ids.extra.pipeline}`);
+          await deleteExact(request, `/api/data-sources/${ids.extra.source}`);
+        }
       }
     });
   }
+}
+
+// HEL-1444 cycle 2 -- D2 (the inline one-control bar) is keyed on the chart OUTPUT, not on rendered
+// footnotes: a footnote-less chart inlines too, a non-chart panel keeps its stacked bar, and typing a
+// filter that empties the result (which unmounts the footnotes) never moves the focused input.
+test("HEL-1444 D2 is keyed on the chart output (footnote-less chart inlines, table stays stacked)", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  await registerAndLogin(page, request, {
+    prefix: "hel1444k",
+    label: "keyed",
+    displayName: "HEL-1444 keyed",
+    isolate: true,
+  });
+  const list: Variant[] = [
+    { tag: "bare-one-w2", kind: "bare", ctl: "one", w: 2, h: 4, x: 0, y: 0 },
+    { tag: "bare-text-w2", kind: "bare", ctl: "text", w: 2, h: 4, x: 2, y: 0 },
+    { tag: "table-one-w2", kind: "table", ctl: "one", w: 2, h: 4, x: 4, y: 0 },
+  ];
+  const ids = await seed(request, list);
+  try {
+    await page.setViewportSize({ width: 1900, height: 1000 });
+    await page.goto(`/dashboards/${ids.dashboard}`);
+    for (const v of list) {
+      await expect(
+        page
+          .locator(".react-grid-item", { hasText: titleOf(v) })
+          .locator(".output-viewer-control-bar"),
+      ).toBeVisible({ timeout: 25_000 });
+    }
+    await page.waitForTimeout(1_200);
+    for (const v of list) {
+      const card = page.locator(".react-grid-item", { hasText: titleOf(v) });
+      const m = await measure(card);
+      await card.screenshot({ path: evidencePath("HEL-1444", `keyed-${v.tag}.png`) });
+      expect(m.footnotes.length, `${v.tag}: no footnote`).toBe(0);
+      if (v.kind === "table") {
+        expect
+          .soft(m.label!.bottom, `${v.tag}: table label above input`)
+          .toBeLessThanOrEqual(m.input!.top + TOL);
+      } else {
+        const mid = (m.label!.top + m.label!.bottom) / 2;
+        expect
+          .soft(mid, `${v.tag}: label on the input's row`)
+          .toBeGreaterThanOrEqual(m.input!.top - TOL);
+        expect
+          .soft(mid, `${v.tag}: label on the input's row`)
+          .toBeLessThanOrEqual(m.input!.bottom + TOL);
+        expect
+          .soft(m.label!.right, `${v.tag}: label left of input`)
+          .toBeLessThanOrEqual(m.input!.left + TOL);
+        expect.soft(m.labelClipped, `${v.tag}: label text is not truncated`).toBe(false);
+      }
+    }
+  } finally {
+    await deleteExact(request, `/api/dashboards/${ids.dashboard}`);
+    await deleteExact(request, `/api/pipelines/${ids.pipeline}`);
+    await deleteExact(request, `/api/data-sources/${ids.source}`);
+    if (ids.extra) {
+      await deleteExact(request, `/api/pipelines/${ids.extra.pipeline}`);
+      await deleteExact(request, `/api/data-sources/${ids.extra.source}`);
+    }
+  }
+});
+
+for (const width of [1440, 1900]) {
+  test(`HEL-1444 typing into a footnoted chart's text control never moves the input @${width}px`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(180_000);
+    await registerAndLogin(page, request, {
+      prefix: "hel1444t",
+      label: `typing-${width}`,
+      displayName: "HEL-1444 typing",
+      isolate: true,
+    });
+    const v: Variant = { tag: "bar-text-w2", kind: "bar", ctl: "text", w: 2, h: 4, x: 0, y: 0 };
+    const ids = await seed(request, [v]);
+    try {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/dashboards/${ids.dashboard}`);
+      const card = page.locator(".react-grid-item", { hasText: titleOf(v) });
+      await expect(card.locator(".chart-panel__truncation-note")).toBeVisible({ timeout: 25_000 });
+      await page.waitForTimeout(1_200);
+      const input = card.getByRole("textbox", { name: "Region" });
+      const box = async () => (await input.boundingBox())!;
+      const before = await box();
+      await input.click();
+      await input.fill("zzzz"); // matches no region: the result is empty and the footnotes unmount
+      await expect(card.locator(".chart-panel__truncation-note")).toHaveCount(0, {
+        timeout: 15_000,
+      });
+      await page.waitForTimeout(500);
+      const after = await box();
+      await card.screenshot({ path: evidencePath("HEL-1444", `typing-${width}-empty.png`) });
+      for (const k of ["x", "y", "width", "height"] as const) {
+        expect
+          .soft(after[k], `input ${k} unchanged after an empty result`)
+          .toBeCloseTo(before[k], 0);
+      }
+    } finally {
+      await deleteExact(request, `/api/dashboards/${ids.dashboard}`);
+      await deleteExact(request, `/api/pipelines/${ids.pipeline}`);
+      await deleteExact(request, `/api/data-sources/${ids.source}`);
+    }
+  });
 }
 
 // The phone stack is HEL-1438's: reported (screenshots) and asserted unchanged by canvas height only.
