@@ -7,7 +7,7 @@ import spray.json._
 
 import java.util.UUID
 
-/** HEL-1515: each stage of the shared reference-check chain (ownership -> lane -> upsert target), and the order
+/** HEL-1515: each stage of the shared reference-check chain (access -> ownership -> lane -> upsert target), and the order
  *  create settles them in, pinned on EACH write path SEPARATELY. The older specs exercise create, update and
  *  duplicate inside one test, so a stage that broke on one path could hide behind another path's earlier
  *  assertion; every test here drives exactly one path, which is what makes a per-stage, per-path mutation
@@ -100,21 +100,25 @@ class StepReferenceCheckChainSpec extends AnyWordSpec with Matchers with StepWri
   }
 
   "the order create settles its checks in" should {
-    "answer a viewer's ancestor lane with the lane 400, before the pipeline-access 403" in {
+    // HEL-1523 (moved expectation): access is now the FIRST stage, so a viewer's ancestor lane gets the editor 403
+    // instead of the lane 400 -- the old order let a caller without edit access learn the pipeline's structure.
+    "answer a viewer's ancestor lane with the pipeline-access 403, before the lane 400" in {
       val owner = newUser(); val viewer = newUser(); val pid = emptyPipeline(owner); grant(pid, viewer, "viewer")
       val head = seedStep(pid, "rename", rename, None, 0)
       createJoin(viewer, pid, head) {
-        withClue(responseAs[String]) { status shouldBe StatusCodes.BadRequest }
-        responseAs[String] should include("it is an ancestor of this step")
+        withClue(responseAs[String]) { status shouldBe StatusCodes.Forbidden }
+        responseAs[String] should not include "ancestor"
       }
     }
 
-    "answer a caller with no access to the pipeline and a foreign source with 'Data source not found', not 'Pipeline not found'" in {
+    // HEL-1523 (moved expectation): access precedes ownership, so a stranger gets the pipeline 404; the old
+    // 'Data source not found' answer told them nothing extra but the new order discloses strictly less.
+    "answer a caller with no access to the pipeline and a foreign source with 'Pipeline not found', not 'Data source not found'" in {
       val owner = newUser(); val stranger = newUser(); val pid = emptyPipeline(owner)
       Post(s"/pipelines/${pid.value}/steps", JsObject("type" -> JsString("join"), "config" -> sourceJoin(newSource(owner)).parseJson)) ~>
         routesFor(stranger) ~> check {
         withClue(responseAs[String]) { status shouldBe StatusCodes.NotFound }
-        responseAs[String] should include("Data source not found")
+        responseAs[String] should include("Pipeline not found")
       }
     }
 

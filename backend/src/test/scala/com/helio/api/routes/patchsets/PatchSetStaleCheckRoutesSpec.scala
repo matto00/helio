@@ -302,6 +302,43 @@ class PatchSetStaleCheckRoutesSpec
       await(pipelineStepRepo.findByIdInternal(stepId)) should not be empty
     }
 
+    // HEL-1523: staleness is checked before any edit is resolved or written, so an edit that is BOTH stale and
+    // lane-cyclic reports the HEL-1458 409, not the lane-cycle 400 the write itself would have produced.
+    "answer an edit that is both stale and lane-cyclic with the 409 PATCH_SET_STALE, changing nothing" in {
+      val ds       = await(pipelineDataSource())
+      val pipeline = await(pipelineService.create(CreatePipelineRequest("Pipe " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(ds.id.value)))), userA)) match {
+        case Right(p) => p
+        case Left(e)  => fail(s"pipeline seed failed: $e")
+      }
+      val pid = PipelineId(pipeline.id)
+      def addStep(kind: String, config: JsObject, parent: Option[String]) =
+        await(pipelineService.addStep(pid, CreatePipelineStepRequest(kind, config, parentStepId = parent), userA)) match {
+          case Right(s) => s
+          case Left(e)  => fail(s"step seed failed: $e")
+        }
+      def joinCfg(kind: String, ref: String, key: String) =
+        s"""{"secondaryInput":{"kind":"$kind","$ref":""},"joinKey":"$key","joinType":"inner"}""".parseJson.asJsObject
+      val a = addStep("join", joinCfg("source", "dataSourceId", "id"), None)
+      val b = addStep("limit", JsObject("count" -> JsNumber(5)), Some(a.id))
+      // The cyclic edit: a's lane reference names b, which is a's own descendant.
+      val cyclicConfig = s"""{"secondaryInput":{"kind":"lane","stepId":"${b.id}"},"joinKey":"id","joinType":"inner"}"""
+      val body = s"""{"edits":[{"target":{"kind":"pipelineStep","id":"${a.id}"},"op":"update","patch":{"config":$cyclicConfig}}]}"""
+      val sent = withFingerprint(body, fingerprintsOf(body))
+      // Change the target after the preview, making the edit stale.
+      await(pipelineService.updateStep(PipelineStepId(a.id), UpdatePipelineStepRequest(None, Some(joinCfg("source", "dataSourceId", "other")), None), userA))
+      val before = await(pipelineStepRepo.findByIdInternal(PipelineStepId(a.id))).map(_.configValue)
+      val applicationsBefore = applicationCount()
+
+      Post("/patch-sets/apply", json(sent)) ~> routesFor(userA) ~> check {
+        withClue(responseAs[String]) {
+          status shouldBe StatusCodes.Conflict
+          responseAs[String].parseJson.asJsObject.fields("code") shouldBe JsString("PATCH_SET_STALE")
+        }
+      }
+      await(pipelineStepRepo.findByIdInternal(PipelineStepId(a.id))).map(_.configValue) shouldBe before
+      applicationCount() shouldBe applicationsBefore
+    }
+
     "apply nothing, journal nothing and name every stale target when one of several edits is stale" in {
       val stalePanel   = seedPanel("Stale panel")
       val freshPanel   = seedPanel("Fresh panel")

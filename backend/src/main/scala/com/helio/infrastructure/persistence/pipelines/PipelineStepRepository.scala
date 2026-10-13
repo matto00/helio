@@ -6,7 +6,7 @@ import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
 import com.helio.domain._
 import com.helio.domain.model._
-import com.helio.domain.pipelines.PipelineCycleValidator
+import com.helio.domain.pipelines.{LaneCycleOnReorderException, LaneCycleViolations, PipelineCycleValidator}
 import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import slick.jdbc.PostgresProfile.api._
@@ -907,7 +907,19 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           for {
             _         <- DBIO.sequence(updates)
             finalRows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
-          } yield Right(executionOrder(finalRows.toVector.map(rowToDomain))): Either[String, Vector[PipelineStep]]
+            finalSteps = finalRows.toVector.map(rowToDomain)
+            // HEL-1523: a reorder may not leave a stored `lane` reference naming its own step's ancestor or
+            // descendant where it did not before. Checked against the rows this transaction just wrote and
+            // raised with `DBIO.failed` so the relink ROLLS BACK -- a `Left` here would commit the updates.
+            // (READ COMMITTED, no row locks: this narrows the window against a concurrent step update, it does
+            // not close it; the run-time rejection is the backstop.)
+            _         <- LaneCycleViolations.introduced(steps, finalSteps).headOption match {
+              case Some(v) => DBIO.failed(new LaneCycleOnReorderException(
+                s"Reorder would create a cycle: step '${v.stepId}' has a lane reference to '${v.targetId}', which would be ${v.relation.describe}."
+              ))
+              case None => DBIO.successful(())
+            }
+          } yield Right(executionOrder(finalSteps)): Either[String, Vector[PipelineStep]]
       }
     } yield result
     ctx.withSystemContext(action.transactionally)
