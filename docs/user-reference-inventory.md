@@ -89,7 +89,7 @@ Each outcome below is pinned by `V119OwnerFkMigrationSpec` with an explicit lane
   sources are removed after the delete commits, by any path including this cascade: V128's row triggers queue each
   deleted row's key and the scheduler tick drains the queue. Objects orphaned BEFORE that (V119's cleanup, earlier
   deletes) are not removed; the read-only measurement and the owner's procedure are in
-  `openspec/changes/delete-blobs-with-rows/measurements.md`. Known gaps: `TRUNCATE` fires no row trigger.
+  `openspec/changes/archive/2026-10-12-delete-blobs-with-rows/measurements.md`. Known gaps: `TRUNCATE` fires no row trigger.
 
 These are follow-ups for HEL-1301's account-deletion design. V119 itself never reaches any of this on deploy: its guard
 aborts, before deleting anything, if a data source it would delete is still referenced.
