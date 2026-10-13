@@ -1,0 +1,13 @@
+- `backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala` — `union` added to `sourceDependencyOf` and `secondarySourceIdOf`; doc comments updated
+- `backend/src/main/scala/com/helio/domain/engine/MultiInputSchemaInference.scala` — doc comments (union and lookup) updated
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineServiceSupport.scala` — `resolveSecondarySourceSchemas` doc names union
+- `backend/src/test/scala/com/helio/domain/engine/TimestampNumberParitySpec.scala` — KNOWN GAP guard replaced by collision / reverse / passthrough assertions
+- `backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala` — source-union projection, empty id, absent-from-map, id-function coverage
+- `backend/src/test/scala/com/helio/domain/engine/AnalyzeSchemaWarningsSpec.scala` — resolved source union is name-complete
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineAnalyzeUnionSourceSpec.scala` — new seam spec (analyze, capabilities, proposal, transactional create widening)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineCreateInlineSourceCleanupSpec.scala` — stale "join/lookup only" comment corrected
+- `helio-mcp/src/tools/write.ts` — union tool description no longer calls analyzed schema a passthrough
+- `docs/compute-expression-grammar.md` — "Known limitation: a timestamp-typed column that carries a number" section only
+- `openspec/changes/union-source-secondary-analyze/tasks.md` — tasks ticked
+- `openspec/changes/union-source-secondary-analyze/files-modified.md` — this handoff
+- `openspec/changes/union-source-secondary-analyze/tasks.md` — added "## Task results" (tasks 1.2/1.3/1.4 record)

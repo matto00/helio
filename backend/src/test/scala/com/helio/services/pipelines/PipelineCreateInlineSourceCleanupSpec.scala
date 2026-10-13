@@ -107,7 +107,7 @@ class PipelineCreateInlineSourceCleanupSpec extends AnyWordSpec with Matchers wi
     await(dataSourceRepo.insert(source, owner)).id
   }
 
-  /** A join step with a source-kind secondary (join/lookup only -- see `secondarySourceIdOf`): forces `resolveSecondarySourceSchemas` to call `findByIdInternal`. */
+  /** A join step with a source-kind secondary (join/union/lookup -- see `secondarySourceIdOf`; a union step now takes this path too, HEL-1520): forces `resolveSecondarySourceSchemas` to call `findByIdInternal`. */
   private def joinStep(secondary: DataSourceId) = CreatePipelineTransactionalStepRequest(
     "j", "join",
     JsObject("secondaryInput" -> JsObject("kind" -> JsString("source"), "dataSourceId" -> JsString(secondary.value)), "joinKey" -> JsString("amount"), "joinType" -> JsString("inner"))

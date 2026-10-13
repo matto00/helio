@@ -11,9 +11,10 @@ private[engine] object MultiInputSchemaInference {
 
   /** lookup (HEL-386) — design.md Decision 7: additive, family-(b) best-effort
    *  typing (like `stringops`/`window`'s fallback case) rather than the
-   *  identity-passthrough group `join`/`union` belong to. The reference
-   *  source's schema isn't resolvable at this layer (no repo access, same
-   *  limitation `union` already documents), so each name in `config.columns`
+   *  schema-merging group `join`/`union` belong to. For a `source`-kind
+   *  secondary, `PipelineAnalyzeService.sourceDependencyOf` deliberately
+   *  excludes `lookup` (unlike `join`/`union`, HEL-1520), so the reference
+   *  source's schema is never supplied and each name in `config.columns`
    *  is appended typed `string` (or the lane secondary's real type). A column
    *  colliding with an input field is appended as `right_<name>` (HEL-1250,
    *  shared `JoinColumnNaming` rule, same as the runtime), never replacing the
@@ -54,13 +55,15 @@ private[engine] object MultiInputSchemaInference {
    *  both sides' field names (parent lane's own type wins on a name collision -- runtime
    *  row VALUES carry no notion of a "winning type" either, since `Map[String, Any]` values
    *  are untyped at execution; this is a schema-layer-only convention). For a `source`-kind
-   *  secondary input (unresolved -- no repo access to a `DataSource`'s schema), this
-   *  degrades to the pre-existing documented best-effort passthrough, unchanged.
+   *  secondary input, `analyzeNodes` receives the data source's inferred schema from the
+   *  caller (HEL-1520: `PipelineServiceSupport.resolveSecondarySourceSchemas`, as for `join`) and projects it
+   *  exactly like a lane; only a source that is missing, unconfigured (`""`) or has no inferred schema degrades
+   *  to the documented best-effort passthrough.
    *
    *  HEL-1491: a collision of `timestamp` with `integer`/`float` (either direction) is reported as a
    *  step error; the projection is unchanged (parent type still wins), so this flags and does not
-   *  remove the disagreement. Other collisions are not checked, and a `source`-kind secondary never
-   *  reaches this check (its schema is unresolved for `union`: a known, documented gap). */
+   *  remove the disagreement. Other collisions are not checked, and a `source`-kind secondary reaches
+   *  this check only when its schema was resolved (HEL-1520). */
   private[engine] def inferUnion(
       inputSchema:     Vector[SchemaField],
       secondarySchema: Option[Vector[SchemaField]]
