@@ -13,7 +13,9 @@ import { useToast } from "../../toasts/hooks/useToast";
 import { applyPatchSet, previewPatchSet, undoPatchSet } from "../state/patchSetsSlice";
 import { PatchSetReview } from "./PatchSetReview";
 import { undoSuccessToast } from "./undoToast";
-import type { PatchSet, PatchSetPreviewResponse } from "../types/patchSet";
+import { isPatchSetStale } from "../types/patchSet";
+import type { PatchSet, PatchSetPreviewResponse, PatchSetStaleRejection } from "../types/patchSet";
+import { stampFingerprints } from "./stampFingerprints";
 import { Columns3 } from "lucide-react";
 
 /** Route container for the Patch Set Review UI (HEL-408), mirroring
@@ -46,6 +48,9 @@ export function PatchSetReviewPage() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // HEL-1458: set when apply answered 409 (a target changed since the preview); cleared by re-previewing.
+  const [conflict, setConflict] = useState<PatchSetStaleRejection | null>(null);
+  const [previewNonce, setPreviewNonce] = useState(0);
 
   const patchSet = statePatchSet ?? demoPatchSet;
 
@@ -80,14 +85,22 @@ export function PatchSetReviewPage() {
     return () => {
       active = false;
     };
-  }, [patchSet, dispatch]);
+  }, [patchSet, dispatch, previewNonce]);
+
+  const handleRepreview = () => {
+    setConflict(null);
+    setApplyError(null);
+    setApplying(false);
+    setPreview(null);
+    setPreviewNonce((n) => n + 1);
+  };
 
   const handleAccept = async () => {
-    if (!patchSet) return;
+    if (!patchSet || !preview) return;
     setApplying(true);
     setApplyError(null);
     try {
-      const response = await dispatch(applyPatchSet(patchSet)).unwrap();
+      const response = await dispatch(applyPatchSet(stampFingerprints(patchSet, preview))).unwrap();
       // design.md D6: `applicationId` is present exactly when this apply was
       // successfully journaled — only then is there anything for the "Undo"
       // action to restore. `duration: 0` is REQUIRED here (not the shared
@@ -124,9 +137,11 @@ export function PatchSetReviewPage() {
           },
         });
       }
-      navigate("/");
+      // HEL-1458: replace, so Back cannot restore this review (and its still-enabled Apply) after a successful apply.
+      navigate("/", { replace: true });
     } catch (err) {
-      setApplyError(typeof err === "string" ? err : "Failed to apply the patch set.");
+      if (isPatchSetStale(err)) setConflict(err);
+      else setApplyError(typeof err === "string" ? err : "Failed to apply the patch set.");
       setApplying(false);
     }
   };
@@ -202,6 +217,8 @@ export function PatchSetReviewPage() {
         preview={preview}
         applying={applying}
         error={applyError}
+        conflict={conflict}
+        onRepreview={handleRepreview}
         onAccept={handleAccept}
         onReject={handleReject}
       />

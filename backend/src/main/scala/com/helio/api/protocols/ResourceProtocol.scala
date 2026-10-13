@@ -12,6 +12,10 @@ final case class ErrorResponse(message: String)
  *  `reason` is the step's own problem description without that prefix. Titled
  *  `StepConfigErrorResponse` in `schemas/shared/`. */
 final case class StepConfigErrorResponse(message: String, code: String, stepId: String, stepKind: String, reason: String)
+/** HEL-1458: 409 body for a patch-set apply refused because targets changed since the preview.
+ *  Titled `PatchSetStaleResponse` in `schemas/shared/`. */
+final case class StaleTargetResponse(index: Int, kind: String, id: String)
+final case class PatchSetStaleResponse(message: String, code: String, staleTargets: Vector[StaleTargetResponse])
 final case class HealthResponse(status: String)
 
 object ResourceMetaResponse {
@@ -33,5 +37,9 @@ trait ResourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val errorResponseFormat: RootJsonFormat[ErrorResponse]   = jsonFormat1(ErrorResponse.apply)
   implicit val stepConfigErrorResponseFormat: RootJsonFormat[StepConfigErrorResponse] =
     jsonFormat5(StepConfigErrorResponse.apply)
+  implicit val staleTargetResponseFormat: RootJsonFormat[StaleTargetResponse] =
+    jsonFormat3(StaleTargetResponse.apply)
+  implicit val patchSetStaleResponseFormat: RootJsonFormat[PatchSetStaleResponse] =
+    jsonFormat3(PatchSetStaleResponse.apply)
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(HealthResponse.apply)
 }

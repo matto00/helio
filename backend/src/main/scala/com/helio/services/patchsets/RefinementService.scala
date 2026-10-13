@@ -122,10 +122,13 @@ final class RefinementService(
   private def parseAndValidate(text: String, user: AuthenticatedUser): Future[Either[String, PatchSet]] =
     RefinementParsing.parsePatchSet(text) match {
       case Left(err) => Future.successful(Left(err))
-      case Right(patchSet) =>
+      case Right(parsed) =>
+        // HEL-1458: the preview that validates the patch set also issues its fingerprints; the stamped set is what is
+        // returned and stored, so a later apply (including MCP's) refuses targets that changed since.
+        val patchSet = PatchSetFingerprintStamping.strip(parsed)
         patchSetPreviewService.preview(patchSet, user).map {
-          case Right(_)  => Right(patchSet)
-          case Left(err) => Left(err.message)
+          case Right(preview) => Right(PatchSetFingerprintStamping.stamp(patchSet, preview))
+          case Left(err)      => Left(err.message)
         }
     }
 

@@ -191,6 +191,35 @@ class RefinementRoutesSpec
       }
     }
 
+    "stamp the validating preview's fingerprint on the returned and stored patch set, replacing a model-invented one (HEL-1458)" in {
+      val modelOutput =
+        s"""{"summary":"s","edits":[{"target":{"kind":"panel","id":"$panelId","fingerprint":"v1:model-invented"},"op":"update","patch":{"title":"T"}}]}"""
+      val service = serviceWith(new FakeClaudeTransport(Vector(cannedResponse(modelOutput))))
+
+      Post("/refinements", jsonEntity(requestBody("rename the panel"))) ~> routesFor(Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+        val obj         = responseAs[String].parseJson.asJsObject
+        val fingerprint = obj.fields("patchSet").asJsObject.fields("edits").convertTo[Vector[JsObject]].head
+          .fields("target").asJsObject.fields("fingerprint").convertTo[String]
+        fingerprint should fullyMatch regex "v1:[0-9a-f]{64}"
+        val stored = await(conversationRepo.findById(AuthoringConversationId(obj.fields("conversationId").convertTo[String]), user))
+        stored.flatMap(_.latestPatchSet).map(_.edits.head.target.fingerprint) shouldBe Some(Some(fingerprint))
+      }
+    }
+
+    "strip a model-invented fingerprint from a create edit instead of failing (HEL-1458)" in {
+      val modelOutput =
+        s"""{"summary":"s","edits":[{"target":{"kind":"panel","fingerprint":"v1:model-invented"},"op":"create","patch":{"dashboardId":"$dashboardId","type":"divider"}}]}"""
+      val service = serviceWith(new FakeClaudeTransport(Vector(cannedResponse(modelOutput))))
+
+      Post("/refinements", jsonEntity(requestBody("add a divider"))) ~> routesFor(Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+        val target = responseAs[String].parseJson.asJsObject.fields("patchSet").asJsObject.fields("edits")
+          .convertTo[Vector[JsObject]].head.fields("target").asJsObject
+        target.fields.get("fingerprint") shouldBe None
+      }
+    }
+
     "degrade to a clean 503 when the service is unavailable (missing ANTHROPIC_API_KEY/DbContext), not a route-registration failure" in {
       Post("/refinements", jsonEntity(requestBody("rename the panel"))) ~> routesFor(None) ~> check {
         status shouldBe StatusCodes.ServiceUnavailable

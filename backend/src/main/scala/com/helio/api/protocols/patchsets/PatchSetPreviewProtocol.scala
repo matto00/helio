@@ -25,13 +25,16 @@ final case class EditPreview(
     op: String,
     before: Option[JsValue],
     after: Option[JsValue],
-    impact: Vector[String]
+    impact: Vector[String],
+    // HEL-1458: opaque content hash of an update/delete target's editable state (`PatchSetTargetFingerprint`);
+    // absent for a `create` edit. The client echoes it back as `target.fingerprint` on apply.
+    fingerprint: Option[String] = None
 )
 
 final case class PatchSetPreviewResponse(edits: Vector[EditPreview])
 
 trait PatchSetPreviewProtocol extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val editPreviewFormat: RootJsonFormat[EditPreview] = jsonFormat6(EditPreview.apply)
+  implicit val editPreviewFormat: RootJsonFormat[EditPreview] = jsonFormat7(EditPreview.apply)
   implicit val patchSetPreviewResponseFormat: RootJsonFormat[PatchSetPreviewResponse] =
     jsonFormat1(PatchSetPreviewResponse.apply)
 }

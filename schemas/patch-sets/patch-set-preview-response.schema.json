@@ -47,6 +47,11 @@
             "type": "string"
           },
           "description": "Cascade/staleness hints a user should know about before accepting this edit (design.md D4). Empty when the edit has no such consequence."
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "HEL-1458: opaque `v1:` hash of the target's current editable state (for dataSource and pipeline, the name only). Present on update and delete edits, absent on create. Send it back as `target.fingerprint` when applying so a target changed since this preview is refused with 409 PATCH_SET_STALE."
         }
       },
       "additionalProperties": false

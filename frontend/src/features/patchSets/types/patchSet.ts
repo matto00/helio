@@ -25,6 +25,9 @@ export interface EditTarget {
   /** Names the parent resource a not-yet-existing CHILD resource is created under -- required for a
    *  `create` targeting a child kind (currently only `pipelineStep`), omitted for update/delete. */
   parentId?: string;
+  /** HEL-1458: opaque hash of the target's editable state, issued by preview on update/delete edits and echoed on
+   *  apply so the server refuses (409 PATCH_SET_STALE) a target changed since that preview. Never set on a create. */
+  fingerprint?: string;
 }
 
 /** One targeted edit. `patch`'s real shape reuses the existing per-resource
@@ -57,6 +60,8 @@ export interface EditPreview {
   before?: Record<string, unknown> | null;
   after?: Record<string, unknown> | null;
   impact: string[];
+  /** HEL-1458: present on update/delete entries, absent on create. Send back as `target.fingerprint` on apply. */
+  fingerprint?: string;
 }
 
 /** Response of `POST /api/patch-sets/preview`. Read-only — computing this
@@ -114,4 +119,26 @@ export interface InlineSourceUndoOutcome {
 /** Response of `POST /api/patch-sets/:id/undo`. */
 export interface PatchSetUndoResponse {
   edits: EditUndoOutcome[];
+}
+
+/** One edit that changed since the preview its fingerprint came from (HEL-1458). */
+export interface StaleTarget {
+  index: number;
+  kind: string;
+  id: string;
+}
+
+/** Rejection value of the apply thunk for `409 PATCH_SET_STALE`: nothing was applied. */
+export interface PatchSetStaleRejection {
+  code: "PATCH_SET_STALE";
+  message: string;
+  staleTargets: StaleTarget[];
+}
+
+export function isPatchSetStale(value: unknown): value is PatchSetStaleRejection {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { code?: unknown }).code === "PATCH_SET_STALE"
+  );
 }

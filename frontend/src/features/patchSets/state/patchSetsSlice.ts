@@ -20,6 +20,7 @@ import type {
   PatchSet,
   PatchSetApplyResponse,
   PatchSetPreviewResponse,
+  PatchSetStaleRejection,
   PatchSetUndoResponse,
 } from "../types/patchSet";
 
@@ -242,13 +243,23 @@ export function invalidateAffectedState(
 export const applyPatchSet = createAsyncThunk<
   PatchSetApplyResponse,
   PatchSet,
-  { state: RootState; rejectValue: string }
+  { state: RootState; rejectValue: string | PatchSetStaleRejection }
 >("patchSets/applyPatchSet", async (patchSet, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await applyPatchSetRequest(patchSet);
     invalidateAffectedState(patchSet, response.edits, dispatch, getState);
     return response;
   } catch (err) {
+    // HEL-1458: a 409 means nothing was applied because targets changed since the preview; the caller needs the
+    // structured targets to offer a re-preview, not just a message.
+    if (
+      isAxiosError(err) &&
+      err.response?.status === 409 &&
+      err.response.data?.code === "PATCH_SET_STALE"
+    ) {
+      const { message, staleTargets } = err.response.data as PatchSetStaleRejection;
+      return rejectWithValue({ code: "PATCH_SET_STALE", message, staleTargets });
+    }
     const serverMessage =
       isAxiosError(err) && typeof err.response?.data?.message === "string"
         ? err.response.data.message
@@ -315,7 +326,10 @@ const patchSetsSlice = createSlice({
       })
       .addCase(applyPatchSet.rejected, (state, action) => {
         state.applyStatus = "failed";
-        state.applyError = action.payload ?? "Failed to apply the patch set.";
+        const payload = action.payload;
+        state.applyError =
+          (typeof payload === "string" ? payload : payload?.message) ??
+          "Failed to apply the patch set.";
       })
       .addCase(undoPatchSet.pending, (state) => {
         state.undoStatus = "loading";

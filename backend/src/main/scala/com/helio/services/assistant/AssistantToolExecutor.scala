@@ -1,7 +1,7 @@
 package com.helio.services.assistant
 
 import com.helio.services.panels.PanelCapabilityService
-import com.helio.services.patchsets.PatchSetPreviewService
+import com.helio.services.patchsets.{PatchSetFingerprintStamping, PatchSetPreviewService}
 import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
 import com.helio.services.sources.SourceService
@@ -320,7 +320,9 @@ final class AssistantToolExecutor(
       case Left(err) =>
         proposeDecodeFailuresCounter.incrementAndGet()
         Future.successful(Left(err))
-      case Right(patchSet) =>
+      case Right(decoded) =>
+        // HEL-1458: a model-emitted fingerprint is discarded; the review page stamps its own from the preview it shows.
+        val patchSet = PatchSetFingerprintStamping.strip(decoded)
         patchSetPreviewService.preview(patchSet, user).map {
           case Left(err) =>
             proposeValidationFailuresCounter.incrementAndGet()

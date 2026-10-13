@@ -29,6 +29,10 @@ export const editTargetSchema = z.object({
    *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`) and
    *  must be OMITTED for update/delete. */
   parentId: z.string().optional(),
+  /** HEL-1458: the server-issued hash of the target's state when the patch set was proposed/previewed. Zod strips
+   *  unknown keys, so without this field the fingerprint `propose_patch_set` stamps would be silently dropped here and
+   *  `apply_patch_set` left unprotected. */
+  fingerprint: z.string().min(1).optional(),
 });
 
 export const editSchema = z.object({
