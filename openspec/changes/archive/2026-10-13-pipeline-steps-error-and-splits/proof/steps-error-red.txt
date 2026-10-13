@@ -1,0 +1,1392 @@
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+FAIL src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx (9.507 s)
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › shows the steps error with Retry, not the empty editor, when the steps fetch rejects
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      166 |     await settled(renderPage());
+      167 |
+    > 168 |     expect(await screen.findByText(STEPS_ERROR)).toBeInTheDocument();
+          |                         ^
+      169 |     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+      170 |     expect(screen.queryByText("No steps yet")).toBeNull();
+      171 |     expect(screen.queryByRole("button", { name: "+ Add step" })).toBeNull();
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:168:25)
+
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › does not report a step count while the steps are unknown (no '0 steps')
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      178 |     await settled(renderPage());
+      179 |
+    > 180 |     await screen.findByText(STEPS_ERROR);
+          |                  ^
+      181 |     expect(footerStats()).toBeNull();
+      182 |     expect(screen.queryByText(/\b0 steps\b/)).toBeNull();
+      183 |   });
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:180:18)
+
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › Retry shows the steps skeleton while in flight, then the persisted step cards
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      186 |     getPipelineStepsMock.mockRejectedValueOnce(new Error("boom"));
+      187 |     await settled(renderPage());
+    > 188 |     await screen.findByText(STEPS_ERROR);
+          |                  ^
+      189 |
+      190 |     let release: (steps: PipelineStep[]) => void = () => {};
+      191 |     getPipelineStepsMock.mockReturnValueOnce(
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:188:18)
+
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › Retry that fails again shows the error again
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      212 |     getPipelineStepsMock.mockRejectedValue(new Error("boom"));
+      213 |     await settled(renderPage());
+    > 214 |     await screen.findByText(STEPS_ERROR);
+          |                  ^
+      215 |
+      216 |     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+      217 |
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:214:18)
+
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › when analyze also failed at mount, a successful Retry re-requests analyze once
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      226 |     analyzePipelineMock.mockRejectedValueOnce(new Error("boom"));
+      227 |     await settled(renderPage());
+    > 228 |     await screen.findByText(STEPS_ERROR);
+          |                  ^
+      229 |     expect(analyzePipelineMock).toHaveBeenCalledTimes(1);
+      230 |
+      231 |     getPipelineStepsMock.mockResolvedValueOnce(persistedSteps);
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:228:18)
+
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › when analyze succeeded at mount, Retry does not re-request it
+
+    Unable to find an element with the text: Couldn't load this pipeline's steps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+    Ignored nodes: comments, script, style
+    [36m<body>[39m
+      [36m<div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pipeline-detail-page"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pipeline-detail-header"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSource[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__source-chips"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"pipeline-detail-header__source-chip"[39m
+                  [36m>[39m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-name"[39m
+                    [36m>[39m
+                      [0mTest Source[0m
+                    [36m</span>[39m
+                    [36m<button[39m
+                      [33maria-label[39m=[32m"Remove source Test Source"[39m
+                      [33mclass[39m=[32m"pipeline-detail-header__source-chip-remove"[39m
+                      [33mdisabled[39m=[32m""[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [0m×[0m
+                    [36m</button>[39m
+                  [36m</span>[39m
+                [36m</div>[39m
+                [36m<button[39m
+                  [33maria-label[39m=[32m"Add source"[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__add-source-btn"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0m+[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__type-name"[39m
+                [36m>[39m
+                  [0mOutputs ([0m
+                  [0m0[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__group"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-label"[39m
+              [36m>[39m
+                [0mSchedule[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-header__group-value"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"pipeline-detail-header__schedule-empty"[39m
+                [36m>[39m
+                  [0mNo schedule set[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-header__actions"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"popover actions-menu"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33maria-expanded[39m=[32m"false"[39m
+                  [33maria-haspopup[39m=[32m"menu"[39m
+                  [33maria-label[39m=[32m"Pipeline actions"[39m
+                  [33mclass[39m=[32m"popover__trigger actions-menu__trigger"[39m
+                  [33mtitle[39m=[32m"Pipeline actions"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"actions-menu__dots"[39m
+                  [36m>[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                    [36m<span />[39m
+                  [36m</span>[39m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Pipeline sections"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabs"[39m
+            [33mrole[39m=[32m"tablist"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+              [33maria-selected[39m=[32m"true"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab pipeline-detail-page__tab--active"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-steps"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"0"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSteps[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-controls[39m=[32m"pipeline-detail-page__tabpanel-outputs"[39m
+              [33maria-selected[39m=[32m"false"[39m
+              [33mclass[39m=[32m"pipeline-detail-page__tab"[39m
+              [33mid[39m=[32m"pipeline-detail-page__tab-outputs"[39m
+              [33mrole[39m=[32m"tab"[39m
+              [33mtabindex[39m=[32m"-1"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOutputs ([0m
+              [0m0[0m
+              [0m)[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-labelledby[39m=[32m"pipeline-detail-page__tab-steps"[39m
+            [33mclass[39m=[32m"pipeline-detail-page__tabpanel"[39m
+            [33mid[39m=[32m"pipeline-detail-page__tabpanel-steps"[39m
+            [33mrole[39m=[32m"tabpanel"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"pipeline-detail-page__river"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"pipeline-detail-page__root-columns"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"pipeline-detail-page__river-inner"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"pipeline-detail-page__empty-state"[39m
+                  [36m>[39m
+                    [36m<div[39m
+                      [33maria-label[39m=[32m"No steps yet"[39m
+                      [33mclass[39m=[32m"ui-empty-state ui-empty-state--sidebar"[39m
+                    [36m>[39m
+                      [36m<div[39m
+                        [33maria-hidden[39m=[32m"true"[39m
+                        [33mclass[39m=[32m"ui-empty-state__icon-wrap"[39m
+                      [36m>[39m
+                        [36m<span[39m
+                          [33mclass[39m=[32m"ui-empty-state__icon"[39m
+                        [36m>[39m
+                          [36m<svg[39m
+                            [33maria-hidden[39m=[32m"true"[39m
+                            [33mclass[39m=[32m"lucide lucide-git-branch"[39m
+                            ...
+
+      243 |     getPipelineStepsMock.mockRejectedValueOnce(new Error("boom"));
+      244 |     await settled(renderPage());
+    > 245 |     await screen.findByText(STEPS_ERROR);
+          |                  ^
+      246 |     expect(analyzePipelineMock).toHaveBeenCalledTimes(1);
+      247 |
+      248 |     getPipelineStepsMock.mockResolvedValueOnce(persistedSteps);
+
+      at waitForWrapper (node_modules/@testing-library/dom/dist/wait-for.js:163:27)
+      at node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+      at Object.<anonymous> (src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx:245:18)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 6 total
+Snapshots:   0 total
+Time:        10.019 s
+Ran all test suites matching src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx.

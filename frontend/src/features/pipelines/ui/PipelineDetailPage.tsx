@@ -7,7 +7,7 @@ import { PipelineRiverView } from "./PipelineRiverView";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
-import { Skeleton } from "../../../shared/ui/Skeleton";
+import { PipelineRiverSkeleton } from "./PipelineRiverSkeleton";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { OutputsGalleryTab } from "./OutputsGalleryTab";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
@@ -18,6 +18,10 @@ import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 
 import "./PipelineDetailPage.css";
 import { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
+
+/** HEL-1501: shown in place of the step river when this mount's steps fetch failed. Mirrors the
+ *  page-level title "Couldn't load this pipeline"; the raw rejection text is not user copy. */
+const STEPS_LOAD_ERROR = "Couldn't load this pipeline's steps.";
 
 type DetailTab = "steps" | "outputs";
 
@@ -44,6 +48,8 @@ function PipelineDetailPageContent() {
   const {
     id,
     stepsLoading,
+    stepsFailed,
+    retryStepsLoad,
     steps,
     dropdownOpenAt,
     setDropdownOpenAt,
@@ -283,11 +289,19 @@ function PipelineDetailPageContent() {
           {stepsLoading ? (
             // HEL-1483 (D2a): this mount's steps fetch hasn't landed, so "No steps yet" (and its
             // live Add buttons) would be false. Same placeholder the page-level load shows.
-            <div className="pipeline-detail-page__river" role="status" aria-label="Loading steps">
-              <div className="pipeline-detail-page__river-inner pipeline-detail-page__river-inner--skeleton">
-                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
-                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
-                <Skeleton variant="block" className="pipeline-detail-page__ribbon" />
+            <PipelineRiverSkeleton ariaLabel="Loading steps" />
+          ) : stepsFailed ? (
+            // HEL-1501: the steps are unknown, so the empty editor ("No steps yet" + live Add
+            // buttons) would be false. A section error with Retry (DESIGN.md §7).
+            // Same frame as the skeleton and the river, so it gets their inset and centred column.
+            <div className="pipeline-detail-page__river">
+              <div className="pipeline-detail-page__river-inner">
+                <PageStatus
+                  status="failed"
+                  size="section"
+                  message={STEPS_LOAD_ERROR}
+                  onRetry={retryStepsLoad}
+                />
               </div>
             </div>
           ) : (
@@ -393,7 +407,7 @@ function PipelineDetailPageContent() {
         pipelineName={pipelineName}
         setOutputName={setOutputName}
         setEditingOutputName={setEditingOutputName}
-        stepCount={stepsLoading ? null : steps.length}
+        stepCount={stepsLoading || stepsFailed ? null : steps.length}
         outputSchema={steps.length > 0 ? getAnalyzeOutputSchema(steps[steps.length - 1].id) : []}
         sseData={sseData}
         runStatus={runStatus}

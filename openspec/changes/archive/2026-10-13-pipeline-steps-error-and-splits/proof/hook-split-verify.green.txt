@@ -1,0 +1,13 @@
+OK   base L49-91 verbatim in usePipelineOwnPipeline.ts
+OK   base L93-119 verbatim in usePipelineAnalyzeState.ts
+OK   base L123-220 verbatim in usePipelineEditorState.ts
+OK   base L287-310 verbatim in usePipelineStepsFingerprint.ts
+OK   base L346-355 verbatim in usePipelineClearRunOnLeave.ts
+OK   base L371-400 verbatim in usePipelineDirtyAndOwner.ts
+OK   call-site insert: const { sources, sourcesStatus, runStatus, runError, runIsDry, runResult, runStepRowCounts
+OK   call-site insert: const { analyzeResult, analyzeStatus, analyzeStatusRef, pipelineSchedule } = usePipelineAn
+OK   call-site insert: const { steps, setSteps, stepsRef, pendingDraftMetaRef, pendingDraftIds, setPendingDraftId
+OK   enumerated edit: '[],' -> '[setStepsFetch],'
+OK   call-site insert: const stepsFingerprint = usePipelineStepsFingerprint({ steps, pendingDraftIds, stepsFinger
+OK   call-site insert: usePipelineClearRunOnLeave({ dispatch, id });
+OK   call-site insert: const { isDirty, pipelineName, sourceByRootId, isOwner } = usePipelineDirtyAndOwner({ id, 

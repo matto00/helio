@@ -1,0 +1,6 @@
+# red 1: delete runtime re-export fetchPipelines
+    - Expected  - 1
+    + Received  + 0
+    -   "fetchPipelines",
+Tests:       1 failed, 2 passed, 3 total
+exit=1

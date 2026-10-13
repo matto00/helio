@@ -1,0 +1,5 @@
+PipelineDetailPage.test:     373     An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+PipelineDetailPage.test:       2     An update to PipelineShareDialog inside a test was not wrapped in act(...).
+PipelineDetailPage.test:       1 Tests:       132 passed, 132 total
+PipelineDetailPage.creatingStep.test:       1 Tests:       4 passed, 4 total
+PipelineDetailPage.draftCreate.test:       1 Tests:       12 passed, 12 total

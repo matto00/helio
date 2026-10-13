@@ -1,0 +1,10 @@
+# mutation 1: Retry never re-dispatches analyze
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › when analyze also failed at mount, a successful Retry re-requests analyze once
+Tests:       1 failed, 5 passed, 6 total
+# mutation 2: Retry always re-dispatches analyze
+ 1 file changed, 34 insertions(+), 1 deletion(-)
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › when analyze succeeded at mount, Retry does not re-request it
+Tests:       1 failed, 5 passed, 6 total
+# mutation 3: footer count not nulled while failed
+  ● PipelineDetailPage -- steps fetch failure (HEL-1501) › does not report a step count while the steps are unknown (no '0 steps')
+Tests:       1 failed, 5 passed, 6 total

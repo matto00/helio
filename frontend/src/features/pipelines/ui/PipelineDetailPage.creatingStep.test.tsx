@@ -18,6 +18,7 @@ import { pipelinesReducer } from "../state/pipelinesSlice";
 import { outputsReducer } from "../state/outputsSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
+import { settled } from "./pipelineDetailPageTestUtils";
 import {
   analyzePipeline,
   createPipelineStep,
@@ -187,13 +188,8 @@ function renderPage(store = makeStore()) {
   );
 }
 
-/** `renderPage`, then lets the mount\'s own steps fetch settle (HEL-1483: until it lands the steps
- *  area shows a loading skeleton, not the editor / empty state). */
-async function renderPageSettled(store = makeStore()) {
-  const result = renderPage(store);
-  await act(async () => {});
-  return result;
-}
+/** `renderPage`, then lets the mount's own steps fetch settle. */
+const renderPageSettled = (store = makeStore()) => settled(renderPage(store));
 
 /** HEL-1345 — the create-immediately paths no longer issue a post-create steps GET (they apply the
  *  create response's delta), so the in-flight window is the CREATE request itself: hold it on a

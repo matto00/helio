@@ -170,6 +170,14 @@ function renderAt(path: string) {
   return store;
 }
 
+/** Ids `getPipelineById` was called with after the first `since` calls (A's own mount call is
+ *  legitimately before the switch, so the no-refetch assertions scope to calls after it). */
+const getPipelineByIdIdsSince = (since: number) =>
+  jest
+    .mocked(getPipelineById)
+    .mock.calls.slice(since)
+    .map((c) => c[0]);
+
 const stepButtons = () => screen.queryAllByRole("button", { name: /limit/i, expanded: false });
 
 let aSteps: PipelineStep[];
@@ -288,10 +296,12 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(await screen.findByText("No steps yet")).toBeInTheDocument();
   });
 
-  it("a rejected steps fetch does not leave the skeleton forever (shows the empty editor, as a cold open does)", async () => {
+  it("a rejected steps fetch does not leave the skeleton forever (HEL-1501: shows the steps error with Retry, not the empty editor)", async () => {
     jest.mocked(getPipelineSteps).mockRejectedValue(new Error("boom"));
     renderAt("/pipelines/B");
-    expect(await screen.findByText("No steps yet")).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load this pipeline's steps.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("No steps yet")).toBeNull();
   });
 
   it("drops a pending debounced step save for A when the page switches to B", async () => {
@@ -326,6 +336,8 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(store.getState().pipelines.currentPipeline?.id).toBe("B");
     expect(screen.getByText("Pipeline B")).toBeInTheDocument();
     expect(store.getState().pipelines.currentPipelineStatus).toBe("succeeded");
+    // The page's own (latest) request was for B; A's held request is not re-issued after the switch.
+    expect(getPipelineById).toHaveBeenLastCalledWith("B");
   });
 
   it("A failing to load does not block B's load nor show A's error on B's page (D5a)", async () => {
@@ -355,6 +367,9 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     act(() => navigateTo("/pipelines/B"));
     expect(screen.queryByText("Pipeline A")).toBeNull();
     expect(stepButtons()).toHaveLength(0);
+    // Let B's mount fetches (steps, analyze, ...) land inside act, not after the test returns.
+    await act(async () => {});
+    expect(screen.queryByText("Pipeline A")).toBeNull();
   });
 
   it("A's late run result does not land on B (D5b)", async () => {
@@ -383,9 +398,10 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(s.runStepRowCounts).toEqual({});
   });
 
-  // Skeptic final-gate CR1: the unmounted A page's root add/remove continuation dispatches
-  // fetchPipelineById(A) AFTER the switch; B's page must still converge to B's own data.
-  it("B converges to its own pipeline and steps when A's add-root continuation refetches A late", async () => {
+  // Skeptic final-gate CR1: A's root add/remove continuation resolves AFTER the switch. Its page is
+  // unmounted, so it must issue no refetch of A (`mountedRef` gate in
+  // `usePipelineRootAndToggleActions`); B's page converges to B's own data.
+  it("B converges to its own pipeline and steps when A's add-root continuation resolves after the switch, with no refetch of A", async () => {
     let resolveAdd: (v: unknown) => void = () => {};
     jest.mocked(addPipelineRoot).mockImplementation(
       () =>
@@ -397,6 +413,7 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await waitFor(() => expect(stepButtons()).toHaveLength(3));
     const addRootOnA = mockHeader.props!.onAddRoot;
     act(() => addRootOnA("src-1"));
+    const callsAtSwitch = jest.mocked(getPipelineById).mock.calls.length;
     // Hold B's own pipeline response so A's late refetch lands while B's is outstanding.
     let resolveB: (p: PipelineSummary) => void = () => {};
     jest.mocked(getPipelineById).mockImplementation((id: string) =>
@@ -416,9 +433,10 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await waitFor(() => expect(screen.getByText("Pipeline B")).toBeInTheDocument());
     await waitFor(() => expect(stepButtons()).toHaveLength(1));
     expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
+    expect(getPipelineByIdIdsSince(callsAtSwitch)).not.toContain("A");
   });
 
-  it("B converges when A's remove-root continuation refetches A late", async () => {
+  it("B converges when A's remove-root continuation resolves after the switch, with no refetch of A", async () => {
     let resolveRemove: (v: unknown) => void = () => {};
     jest.mocked(removePipelineRoot).mockImplementation(
       () =>
@@ -430,6 +448,7 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await waitFor(() => expect(stepButtons()).toHaveLength(3));
     const removeRootOnA = mockHeader.props!.onRemoveRoot;
     act(() => removeRootOnA("root-A"));
+    const callsAtSwitch = jest.mocked(getPipelineById).mock.calls.length;
     let resolveB: (p: PipelineSummary) => void = () => {};
     jest.mocked(getPipelineById).mockImplementation((id: string) =>
       id === "B"
@@ -448,12 +467,14 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await waitFor(() => expect(screen.getByText("Pipeline B")).toBeInTheDocument());
     await waitFor(() => expect(stepButtons()).toHaveLength(1));
     expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
+    expect(getPipelineByIdIdsSince(callsAtSwitch)).not.toContain("A");
   });
 
-  // Evaluator cycle 3 CR1: B fully loaded, then A's late refetch supersedes the singleton. B's
+  // Evaluator cycle 3 CR1: B fully loaded, then A's root continuation resolves after the switch. A's
+  // page is unmounted, so it issues no refetch of A (which would supersede the singleton); B's
   // editor must stay mounted (no page skeleton), so a pending debounced edit on B still lands.
   it.each(["add-root", "remove-root"])(
-    "keeps B's editor (and its pending edit) when A's %s continuation refetches A late",
+    "keeps B's editor (and its pending edit) when A's %s continuation resolves after the switch, with no refetch of A",
     async (name) => {
       let resolveRoot: (v: unknown) => void = () => {};
       const held = new Promise((r) => {
@@ -468,16 +489,18 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
           ? mockHeader.props!.onAddRoot.bind(null, "src-1")
           : mockHeader.props!.onRemoveRoot.bind(null, "root-A");
       act(() => start());
+      const callsAtSwitch = jest.mocked(getPipelineById).mock.calls.length;
       act(() => navigateTo("/pipelines/B"));
       await waitFor(() => expect(stepButtons()).toHaveLength(1));
       fireEvent.click(stepButtons()[0]);
       fireEvent.change(await screen.findByRole("spinbutton", { name: /row limit/i }), {
         target: { value: "55" },
       });
-      // Inside the 400ms debounce window: A's continuation refetches A.
+      // Inside the 400ms debounce window: A's continuation resolves (and, unmounted, refetches nothing).
       await act(async () => {
         resolveRoot({ removedStepCount: 0, removedOutputCount: 0 });
       });
+      expect(getPipelineByIdIdsSince(callsAtSwitch)).not.toContain("A");
       expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
       await waitFor(() => expect(updatePipelineStep).toHaveBeenCalledWith("b1", { count: 55 }));
       expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
