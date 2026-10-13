@@ -33,7 +33,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 | `outputs`                     | `owner_id`             | NO ACTION |
 | `panels`                      | `owner_id`             | NO ACTION |
 | `patch_set_applications`      | `owner_id`             | NO ACTION |
-| `pipeline_run_rate_window`    | `user_id`              | NO ACTION |
+| `pipeline_run_rate_window`    | `user_id`              | CASCADE   |
 | `pipeline_runs`               | `triggered_by_user_id` | SET NULL  |
 | `pipelines`                   | `owner_id`             | NO ACTION |
 | `product_events`              | `user_id`              | CASCADE   |
@@ -68,7 +68,7 @@ Since V119 (HEL-1347), `DELETE FROM users` cascades into `data_sources` (and fro
 Each outcome below is pinned by `V119OwnerFkMigrationSpec` with an explicit lane length.
 
 - **Blocked, nothing deleted:** a user who owns a dashboard, panel, pipeline, output, alert rule or event,
-  conversation, patch-set, invite code, daily-usage or rate-window row (all `NO ACTION`).
+  conversation, patch-set, invite code or daily-usage row (all `NO ACTION`).
 - **Blocked, nothing deleted:** a cascade that would remove a pipeline's last root. For a one-step lane the V99 zero-root
   trigger raises (`P0001`); for a lane of two or more steps the `parent_step_id` foreign key fails first (`23503`).
   Which error surfaces depends on RI trigger order, so treat "rejected, nothing deleted" as the guarantee, not the code.

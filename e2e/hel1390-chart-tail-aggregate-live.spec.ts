@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { evidencePath } from "./support/evidencePath";
+import { expectDeleted } from "./support/expectDeleted";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 
@@ -112,9 +113,7 @@ test("chart Output 'Add as tail with aggregate' stores xAxis/yAxis slots", async
     await page.screenshot({ path: evidencePath("HEL-1390", "after-tail.png") });
   } finally {
     console.log(`[HEL-1390 e2e] deleting pipeline ${created.pipeline} source ${created.source}`);
-    if (created.pipeline)
-      await request.delete(`/api/pipelines/${created.pipeline}`, { headers: CSRF });
-    if (created.source)
-      await request.delete(`/api/data-sources/${created.source}`, { headers: CSRF });
+    if (created.pipeline) await expectDeleted(request, `/api/pipelines/${created.pipeline}`, CSRF);
+    if (created.source) await expectDeleted(request, `/api/data-sources/${created.source}`, CSRF);
   }
 });

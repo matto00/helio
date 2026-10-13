@@ -185,7 +185,7 @@ describe("OutputEditorSheet edit Save -- config patch (HEL-1389)", () => {
   it("drops fieldMapping.annotation when the annotation binding is switched to a literal", async () => {
     const stored = {
       chartType: "bar",
-      fieldMapping: { category: "a", value: "b", annotation: "c" },
+      fieldMapping: { xAxis: "a", yAxis: "b", annotation: "c" },
     };
     await openAndWaitForColumns(outputOf("chart", stored));
     const mode = await screen.findByRole("group", { name: "Annotation mode" });
@@ -195,32 +195,32 @@ describe("OutputEditorSheet edit Save -- config patch (HEL-1389)", () => {
     });
     const body = await saveEdit();
     const after = merged(stored, body);
-    expect(after.fieldMapping).toEqual({ category: "a", value: "b" });
+    expect(after.fieldMapping).toEqual({ xAxis: "a", yAxis: "b" });
     expect(after.annotation).toBe("Plain note");
   });
 
   it("drops fieldMapping.annotation when the annotation field binding is removed", async () => {
     const stored = {
       chartType: "bar",
-      fieldMapping: { category: "a", value: "b", annotation: "c" },
+      fieldMapping: { xAxis: "a", yAxis: "b", annotation: "c" },
     };
     await openAndWaitForColumns(outputOf("chart", stored));
     await choose("Annotation field", "— None —");
     const body = await saveEdit();
-    expect(merged(stored, body).fieldMapping).toEqual({ category: "a", value: "b" });
+    expect(merged(stored, body).fieldMapping).toEqual({ xAxis: "a", yAxis: "b" });
   });
 
   it("repairs an already-damaged chart (literal annotation + stale fieldMapping.annotation) on an untouched save", async () => {
     const stored = {
       chartType: "bar",
-      fieldMapping: { category: "a", value: "b", annotation: "c" },
+      fieldMapping: { xAxis: "a", yAxis: "b", annotation: "c" },
       annotation: "Plain note",
     };
     await openAndWaitForColumns(outputOf("chart", stored));
     await screen.findByRole("group", { name: "Annotation mode" });
     const body = await saveEdit();
     expect(Object.keys(body.config ?? {})).toEqual(["fieldMapping"]);
-    expect(merged(stored, body).fieldMapping).toEqual({ category: "a", value: "b" });
+    expect(merged(stored, body).fieldMapping).toEqual({ xAxis: "a", yAxis: "b" });
   });
 
   it("repairs an already-damaged aggregated metric (literal label + stale fieldMapping.label), keeping it bound", async () => {
@@ -259,7 +259,7 @@ describe("OutputEditorSheet edit Save -- config patch (HEL-1389)", () => {
       [
         "chart with a bound annotation",
         "chart",
-        { chartType: "bar", fieldMapping: { category: "a", value: "b", annotation: "c" } },
+        { chartType: "bar", fieldMapping: { xAxis: "a", yAxis: "b", annotation: "c" } },
       ],
       ["chart with a literal annotation", "chart", { chartType: "line", annotation: "Note" }],
       ["table", "table", { fieldMapping: {}, columnOrder: ["b", "a"] }],
