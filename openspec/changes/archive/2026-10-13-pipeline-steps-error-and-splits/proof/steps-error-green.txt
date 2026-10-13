@@ -1,0 +1,257 @@
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+  console.error
+    Error: AggregateError
+        at Object.dispatchError (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:62:19)
+        at Request.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+        at Request.emit (node:events:531:35)
+        at ClientRequest.<anonymous> (/home/matt/Development/helio/.claude/worktrees/task/pipeline-editor-steps-error-split/HEL-1501/frontend/node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+        at ClientRequest.emit (node:events:519:28)
+        at emitErrorEvent (node:_http_client:108:11)
+        at Socket.socketErrorListener (node:_http_client:575:5)
+        at Socket.emit (node:events:519:28)
+        at emitErrorNT (node:internal/streams/destroy:170:8)
+        at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+        at processTicksAndRejections (node:internal/process/task_queues:89:21) {
+      type: 'XMLHttpRequest'
+    }
+
+      at VirtualConsole.<anonymous> (node_modules/@jest/environment-jsdom-abstract/build/index.js:87:23)
+      at Object.dispatchError (node_modules/jsdom/lib/jsdom/living/xhr/xhr-utils.js:65:53)
+      at Request.<anonymous> (node_modules/jsdom/lib/jsdom/living/xhr/XMLHttpRequest-impl.js:655:18)
+      at ClientRequest.<anonymous> (node_modules/jsdom/lib/jsdom/living/helpers/http-request.js:127:14)
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        6.618 s, estimated 10 s
+Ran all test suites matching src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx.

@@ -12,6 +12,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
+import java.nio.file.{Files, Paths}
+
 /** HEL-700 tasks.md 3.1 — decode-pin coverage for the worked `"examples"` array each `propose_*`
  *  tool's `inputSchema` now carries (design.md D2). Every entry is decoded via the SAME spray-json
  *  target type `AssistantToolExecutor.decode` applies to a real `tool_use.input` — an example that
@@ -32,8 +34,7 @@ class AssistantProposalToolSchemasSpec
       .asJsObject
       .fields
       .getOrElse("examples", fail(s"'$toolName' inputSchema carries no top-level 'examples' array"))
-      .asInstanceOf[JsArray]
-      .elements
+      .convertTo[Vector[JsValue]]
 
   // HEL-756 tasks.md 2.1 — decode-pins test_connection's two examples through the SAME `config` ->
   // RestApiConfigPayload/SqlSourceConfigPayload conversion path AssistantToolExecutor.
@@ -260,7 +261,7 @@ class AssistantProposalToolSchemasSpec
   // key table (one KeysDoc string) on the Output config / patch description ITSELF.
   private def descriptionAt(json: JsValue, path: String*): String =
     path.foldLeft(json)((node, key) => node.asJsObject.fields.getOrElse(key, fail(s"no '$key' on the way to ${path.mkString(".")}")))
-      .asJsObject.fields("description").asInstanceOf[JsString].value
+      .asJsObject.fields("description").convertTo[String]
 
   private def findFirst(json: JsValue, key: String): Option[JsValue] = json match {
     case o: JsObject => o.fields.get(key).collect { case v: JsObject if v.fields.contains("items") => v: JsValue }.orElse(o.fields.values.view.flatMap(findFirst(_, key)).headOption)
@@ -321,7 +322,7 @@ class AssistantProposalToolSchemasSpec
         o.fields.get("outputs").toVector.flatMap {
           case JsArray(els) =>
             els.collect { case out: JsObject =>
-              val kind = out.fields("kind").asInstanceOf[JsString].value
+              val kind = out.fields("kind").convertTo[String]
               kind -> out.fields.get("config").collect { case c: JsObject => c }.getOrElse(JsObject.empty)
             }
           case _ => Vector.empty
@@ -367,6 +368,41 @@ class AssistantProposalToolSchemasSpec
     "show aggregation on at least one example Output's config" in {
       val aggregations = exampleOutputConfigs.flatMap(_._2.fields.get("aggregation"))
       aggregations.filterNot(_ == JsNull) should not be empty
+    }
+  }
+
+  // HEL-1440: the four inert panel-level fields are marked deprecated on both the assistant tool schema and the
+  // dashboard proposal JSON schema file, and nothing else on a ProposalPanel is.
+  "ProposalPanel's deprecated panel-level fields" should {
+    val Deprecated = Set("fieldMapping", "aggregation", "label", "unit")
+
+    def deprecatedIn(props: JsObject): Set[String] =
+      props.fields.collect { case (name, v: JsObject) if v.fields.get("deprecated").contains(JsTrue) => name }.toSet
+
+    def panelProps(panelSchema: JsValue): JsObject = panelSchema.asJsObject.fields("properties").asJsObject
+
+    def assertMarked(props: JsObject): Unit = {
+      deprecatedIn(props) shouldBe Deprecated
+      Deprecated.foreach { name =>
+        val description = props.fields(name).asJsObject.fields("description").convertTo[String]
+        withClue(s"$name description: ") {
+          description should include("Deprecated and ignored")
+          description should include("Output's `config`")
+        }
+      }
+    }
+
+    "be deprecated with a description on the propose_dashboard tool schema, and no other property is" in {
+      val schema = AssistantProtocol.assistantTools.find(_.name == "propose_dashboard").getOrElse(fail("no propose_dashboard")).inputSchema
+      val panel = schema.asJsObject.fields("properties").asJsObject.fields("panels").asJsObject.fields("items")
+      assertMarked(panelProps(panel))
+    }
+
+    "be deprecated with a description in schemas/dashboards/dashboard-proposal.schema.json, and no other property is" in {
+      val path = Seq("schemas", "../schemas", "../../schemas").map(Paths.get(_, "dashboards", "dashboard-proposal.schema.json")).find(Files.exists(_))
+        .getOrElse(fail("dashboard-proposal.schema.json not found from the test working directory"))
+      val doc = new String(Files.readAllBytes(path), "UTF-8").parseJson.asJsObject
+      assertMarked(panelProps(doc.fields("$defs").asJsObject.fields("ProposalPanel")))
     }
   }
 }

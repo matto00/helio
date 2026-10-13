@@ -60,14 +60,26 @@ const layoutSchema = z.object({
 // own field descriptions: "legacy field, decoded but never applied") but are
 // deliberately NOT part of this tool's description below, since none of
 // them do anything anymore.
+// HEL-1440: `fieldMapping`/`aggregation`/`label`/`unit` are marked deprecated and ignored (zod 3 has no emitted
+// `deprecated` flag, so the description carries it): the settings belong on the Output's `config`.
+export const DEPRECATED_PANEL_FIELD_DESCRIPTION =
+  "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's " +
+  "`config` instead. Still accepted so existing callers keep working.";
+
 export const panelSchema = z.object({
   title: z.string().min(1),
   type: z.enum(PANEL_TYPES),
   outputId: z.string().optional(),
   // HEL-1148: a `form` panel's dataset-source binding (the source twin of `outputId`).
   dataSourceId: z.string().optional(),
-  fieldMapping: z.record(z.string(), z.string()).optional(),
-  aggregation: z.record(z.string(), z.unknown()).optional(),
+  fieldMapping: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe(DEPRECATED_PANEL_FIELD_DESCRIPTION),
+  aggregation: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(DEPRECATED_PANEL_FIELD_DESCRIPTION),
   // Initial config for non-data panels, applied at create time.
   content: z.string().optional(),
   url: z.string().optional(),
@@ -76,8 +88,8 @@ export const panelSchema = z.object({
   xAxisLabel: z.string().optional(),
   yAxisLabel: z.string().optional(),
   seriesColors: z.array(z.string()).optional(),
-  label: z.string().optional(),
-  unit: z.string().optional(),
+  label: z.string().optional().describe(DEPRECATED_PANEL_FIELD_DESCRIPTION),
+  unit: z.string().optional().describe(DEPRECATED_PANEL_FIELD_DESCRIPTION),
   sort: z.enum(["asc", "desc"]).optional(),
   layout: layoutSchema.optional(),
   // Generic passthrough merged over the config derived from the flat fields

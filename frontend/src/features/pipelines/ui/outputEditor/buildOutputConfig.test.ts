@@ -147,18 +147,18 @@ describe("buildOutputConfig", () => {
 
   it("chart fieldMapping never inherits a stored annotation slot; a bound annotation re-adds it", () => {
     const stale = buildOutputConfig(
-      baseParams({ kind: "chart", chartFieldMapping: { category: "a", annotation: "old" } }),
+      baseParams({ kind: "chart", chartFieldMapping: { xAxis: "a", annotation: "old" } }),
     );
-    expect(stale.fieldMapping).toEqual({ category: "a" });
+    expect(stale.fieldMapping).toEqual({ xAxis: "a" });
 
     const bound = buildOutputConfig(
       baseParams({
         kind: "chart",
-        chartFieldMapping: { category: "a", annotation: "old" },
+        chartFieldMapping: { xAxis: "a", annotation: "old" },
         annotationState: boundOrLiteral({ mode: "field", fieldValue: "n", fieldMappingValue: "n" }),
       }),
     );
-    expect(bound.fieldMapping).toEqual({ category: "a", annotation: "n" });
+    expect(bound.fieldMapping).toEqual({ xAxis: "a", annotation: "n" });
   });
 
   it("metric config carries format (HEL-876) and rejects an unrecognized value", () => {

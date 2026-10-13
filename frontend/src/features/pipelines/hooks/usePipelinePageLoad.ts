@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { MutableRefObject } from "react";
 
 import { fetchSources } from "../../sources/state/sourcesSlice";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -23,6 +24,11 @@ type UsePipelinePageLoadArgs = {
   loadRunHistoryWhenTruncated: ReturnType<typeof useRunHistory>["loadRunHistoryWhenTruncated"];
   /** HEL-1483: called once the steps fetch this mount dispatched settles (`ok` = fulfilled). */
   onStepsSettled: (ok: boolean) => void;
+  /** HEL-1501: puts the steps-fetch phase back to "pending" when the steps error's Retry is used. */
+  onStepsRetry: () => void;
+  /** HEL-1501: the page's own analyze status, read at settle time to decide whether Retry must also
+   *  re-request analyze (a same-outage failure would otherwise leave the recovered cards schema-less). */
+  analyzeStatusRef: MutableRefObject<"idle" | "loading" | "succeeded" | "failed" | null>;
 };
 
 /**
@@ -39,6 +45,8 @@ export function usePipelinePageLoad({
   sourcesStatus,
   loadRunHistoryWhenTruncated,
   onStepsSettled,
+  onStepsRetry,
+  analyzeStatusRef,
 }: UsePipelinePageLoadArgs) {
   // 3.1 Fetch pipeline and steps on mount / id change.
   // Use a ref to prevent re-dispatching for the same id (avoids loops).
@@ -107,5 +115,30 @@ export function usePipelinePageLoad({
     if (!id) return;
     loadRunHistoryWhenTruncated(id, dispatch(fetchPipelineById(id)));
   }, [dispatch, id, loadRunHistoryWhenTruncated]);
-  return { retryPipelineLoad };
+
+  // HEL-1501: the steps error's Retry. Re-issues ONLY the steps fetch (no pipeline refetch) and
+  // routes its settle through `onStepsSettled`, so seeding after a recovered fetch is the same
+  // derived-state path a first open uses. The seed bumps `seedToken`, which the debounced
+  // re-analyze effect consumes without dispatching, so when this pipeline's mount-time analyze had
+  // also failed it is re-requested here -- exactly once, and never when analyze already succeeded
+  // (F-105: no duplicate analyze). Both run only while this page is still mounted, like the
+  // continuations in `usePipelineRootAndToggleActions`.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const retryStepsLoad = useCallback(() => {
+    if (!id) return;
+    onStepsRetry();
+    void dispatch(fetchPipelineSteps(id)).then((action) => {
+      if (!mountedRef.current) return;
+      const ok = fetchPipelineSteps.fulfilled.match(action);
+      onStepsSettled(ok);
+      if (ok && analyzeStatusRef.current === "failed") void dispatch(analyzePipeline(id));
+    });
+  }, [dispatch, id, onStepsRetry, onStepsSettled, analyzeStatusRef]);
+  return { retryPipelineLoad, retryStepsLoad };
 }

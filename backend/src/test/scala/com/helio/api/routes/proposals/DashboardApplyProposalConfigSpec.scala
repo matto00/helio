@@ -76,5 +76,30 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
       }
       dashboardCount() shouldBe (before + 1)
     }
+
+    // HEL-1440: the panel-level fieldMapping/aggregation/label/unit are deprecated on every agent-facing schema but
+    // stay accepted -- a proposal carrying them is not rejected and creates the same panel config as without them.
+    "accept the deprecated panel-level fieldMapping/aggregation/label/unit and leave them inert (HEL-1440)" in {
+      val before = dashboardCount()
+      val body =
+        s"""{
+           |  "dashboardName": "Deprecated Fields",
+           |  "panels": [
+           |    {"title":"Total","type":"output","outputId":"$pipelineOutputId",
+           |     "fieldMapping":{"value":"amount"},"aggregation":{"function":"sum"},"label":"Revenue","unit":"USD"}
+           |  ]
+           |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val obj    = responseAs[String].parseJson.asJsObject
+        val panels = obj.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        val metric = panels.find(_.fields("title").convertTo[String] == "Total").get
+        metric.fields("config").asJsObject shouldBe JsObject(
+          "outputId" -> JsString(pipelineOutputId),
+          "controls" -> JsArray()
+        )
+      }
+      dashboardCount() shouldBe (before + 1)
+    }
   }
 }

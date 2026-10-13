@@ -14,6 +14,7 @@ import { pipelinesReducer } from "../state/pipelinesSlice";
 import { outputsReducer } from "../state/outputsSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
+import { settled } from "./pipelineDetailPageTestUtils";
 import {
   runPipeline,
   fetchRunHistory,
@@ -349,13 +350,9 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
   );
 }
 
-/** `renderDetailPage`, then lets the mount\'s own steps fetch settle (HEL-1483: until it lands the
- *  steps area shows a loading skeleton, not the editor / empty state). */
-async function renderDetailPageSettled(id = "pipe-1", store = makeStore()) {
-  const result = renderDetailPage(id, store);
-  await act(async () => {});
-  return result;
-}
+/** `renderDetailPage`, then lets the mount's own steps fetch settle. */
+const renderDetailPageSettled = (id = "pipe-1", store = makeStore()) =>
+  settled(renderDetailPage(id, store));
 
 /** The page's single actions menu, in the header. Holds "Edit source"/"Edit
  *  type"/"Edit schedule"/"Set schedule" (design.md D5) AND "Run history"/

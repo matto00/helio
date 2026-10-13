@@ -40,6 +40,15 @@ private[protocols] trait AssistantProposalToolSchemas {
     "required" -> JsArray(Vector("x", "y", "w", "h").map(JsString(_)))
   )
 
+  /** HEL-1440: the four panel-level fields below are decoded but never applied (an `output` panel's data config is
+   *  only `{outputId}`); the settings live on the Output's `config`. Kept accepted so existing callers do not break. */
+  private val DeprecatedPanelFieldDescription: String =
+    "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's " +
+      "`config` instead. Still accepted so existing callers keep working."
+
+  private def deprecatedPanelField(jsonType: String): JsObject =
+    JsObject("type" -> JsString(jsonType), "deprecated" -> JsTrue, "description" -> JsString(DeprecatedPanelFieldDescription))
+
   private val ProposalPanelSchema: JsObject = JsObject(
     "type" -> JsString("object"),
     "properties" -> JsObject(
@@ -72,8 +81,8 @@ private[protocols] trait AssistantProposalToolSchemas {
             "config.dataSourceId. A form with none, a non-dataset source, or another tenant's source is rejected."
         )
       ),
-      "fieldMapping" -> JsObject("type" -> JsString("object")),
-      "aggregation"  -> JsObject("type" -> JsString("object")),
+      "fieldMapping" -> deprecatedPanelField("object"),
+      "aggregation"  -> deprecatedPanelField("object"),
       "content"      -> JsObject("type" -> JsString("string")),
       "url"          -> JsObject("type" -> JsString("string")),
       "orientation"  -> enumSchema("horizontal", "vertical"),
@@ -81,8 +90,8 @@ private[protocols] trait AssistantProposalToolSchemas {
       "xAxisLabel"   -> JsObject("type" -> JsString("string")),
       "yAxisLabel"   -> JsObject("type" -> JsString("string")),
       "seriesColors" -> JsObject("type" -> JsString("array"), "items" -> JsObject("type" -> JsString("string"))),
-      "label"        -> JsObject("type" -> JsString("string")),
-      "unit"         -> JsObject("type" -> JsString("string")),
+      "label"        -> deprecatedPanelField("string"),
+      "unit"         -> deprecatedPanelField("string"),
       "sort"         -> enumSchema("asc", "desc"),
       "layout"       -> ProposalPanelLayoutSchema,
       "config"       -> JsObject("type" -> JsString("object")),
