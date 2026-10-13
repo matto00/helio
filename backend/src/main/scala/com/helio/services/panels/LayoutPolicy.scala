@@ -126,5 +126,16 @@ object LayoutPolicy {
   }
 }
 
-/** The item a new panel was placed at in each breakpoint (HEL-1071, design D4/D11). */
-final case class PlacedLayouts(lg: DashboardLayoutItem, md: DashboardLayoutItem, sm: DashboardLayoutItem, xs: DashboardLayoutItem)
+/** The item a new panel was placed at in each breakpoint (HEL-1071, design D4/D11).
+ *
+ *  `layoutVersion` (HEL-1525) is the dashboard's stored `layout_version` read back inside the placement
+ *  transaction, after the layout UPDATE. Pure placement ([[CreatePlacement.append]]) cannot know it, so it
+ *  is `None` there and `PanelLayoutPlacement.insertAndAppend` fills it; there is deliberately no numeric
+ *  default, so an unread version can never be serialised as a real one. */
+final case class PlacedLayouts(
+    lg: DashboardLayoutItem,
+    md: DashboardLayoutItem,
+    sm: DashboardLayoutItem,
+    xs: DashboardLayoutItem,
+    layoutVersion: Option[Long] = None
+)

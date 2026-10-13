@@ -56,7 +56,10 @@ final case class PanelResponse(
     config: JsValue,
     dataAsOf: Option[String],
     layout: Option[PanelLayoutResponse] = None,
-    layouts: Option[PanelLayoutsResponse] = None
+    layouts: Option[PanelLayoutsResponse] = None,
+    // HEL-1525: the dashboard's layout version right after this placement committed. Set ONLY by the
+    // create/duplicate responses (`PanelRoutes.placedResponse`); every other producer leaves it `None`.
+    layoutVersion: Option[Long] = None
 )
 final case class PanelsResponse(items: Vector[PanelResponse])
 
@@ -114,7 +117,8 @@ final case class CreatePanelBatchItem(
     appearance: Option[PanelAppearancePayload] = None
 )
 final case class CreatePanelsBatchRequest(dashboardId: Option[String], panels: Vector[CreatePanelBatchItem])
-final case class CreatePanelsBatchResponse(panels: Vector[PanelResponse])
+/** `layoutVersion` (HEL-1525): the one version the whole batch placement produced; `None` when nothing was created. */
+final case class CreatePanelsBatchResponse(panels: Vector[PanelResponse], layoutVersion: Option[Long] = None)
 
 /** HEL-1087 design.md D2: request body for `POST /api/panels/:id/submit` — `{"values":
  *  {"<sourceField>": <typed JSON>}}`, and NOTHING else. The write target is the panel's own
@@ -166,6 +170,7 @@ object PanelResponse {
       dataAsOf: Option[String] = None,
       layout: Option[PanelLayoutResponse] = None,
       layouts: Option[PanelLayoutsResponse] = None,
+      layoutVersion: Option[Long] = None,
       orphanedControlIds: Option[Set[String]] = None,
       includeOwnerId: Boolean = true
   ): PanelResponse =
@@ -180,7 +185,8 @@ object PanelResponse {
       config      = configJsonFor(panel, orphanedControlIds),
       dataAsOf    = dataAsOf,
       layout      = layout,
-      layouts     = layouts
+      layouts     = layouts,
+      layoutVersion = layoutVersion
     )
 
   private def configJsonFor(panel: Panel, orphanedControlIds: Option[Set[String]]): JsValue =
@@ -233,7 +239,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val panelAppearanceResponseFormat: RootJsonFormat[PanelAppearanceResponse] = jsonFormat4(PanelAppearanceResponse.apply)
   implicit val panelLayoutResponseFormat: RootJsonFormat[PanelLayoutResponse]         = jsonFormat4(PanelLayoutResponse.apply)
   implicit val panelLayoutsResponseFormat: RootJsonFormat[PanelLayoutsResponse]       = jsonFormat4(PanelLayoutsResponse.apply)
-  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat11(PanelResponse.apply)
+  implicit val panelResponseFormat: RootJsonFormat[PanelResponse]                     = jsonFormat12(PanelResponse.apply)
   implicit val panelsResponseFormat: RootJsonFormat[PanelsResponse]                   = jsonFormat1(PanelsResponse.apply)
 
   /** Create request — typed `config` raw `JsValue` field is resolved by
@@ -301,7 +307,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
    *  unlike the PATCH batch formats above: every field is create-time only). */
   implicit val createPanelBatchItemFormat: RootJsonFormat[CreatePanelBatchItem] = jsonFormat4(CreatePanelBatchItem.apply)
   implicit val createPanelsBatchRequestFormat: RootJsonFormat[CreatePanelsBatchRequest] = jsonFormat2(CreatePanelsBatchRequest.apply)
-  implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat1(CreatePanelsBatchResponse.apply)
+  implicit val createPanelsBatchResponseFormat: RootJsonFormat[CreatePanelsBatchResponse] = jsonFormat2(CreatePanelsBatchResponse.apply)
 
   /** HEL-1087 design.md D2: hand-rolled, strict — `values` is the ONLY recognized key; any other
    *  top-level key (e.g. a `dataSourceId` attempting to redirect the write) is a decode failure,

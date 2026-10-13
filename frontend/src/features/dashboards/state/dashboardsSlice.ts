@@ -337,11 +337,30 @@ const dashboardsSlice = createSlice({
     },
     setDashboardLayoutLocally(
       state,
-      action: PayloadAction<{ dashboardId: string; layout: DashboardLayout }>,
+      action: PayloadAction<{
+        dashboardId: string;
+        layout: DashboardLayout;
+        /** HEL-1525: the version a own panel create/duplicate response reported. Adopted into the store only when
+         *  it is exactly the store's version + 1 AND the layout grew in every breakpoint: then the server layout
+         *  at that version is the layout this one was derived from plus exactly the placement, so the store's
+         *  (layout, layoutVersion) pair stays valid (I1). Any other value changes the layout only. */
+        placedLayoutVersion?: number;
+      }>,
     ) {
-      const { dashboardId, layout } = action.payload;
+      const { dashboardId, layout, placedLayoutVersion } = action.payload;
       const dashboard = state.items.find((d) => d.id === dashboardId);
       if (dashboard) {
+        const appendedEverywhere = (["lg", "md", "sm", "xs"] as const).every(
+          (bp) => layout[bp].length > dashboard.layout[bp].length,
+        );
+        if (
+          placedLayoutVersion !== undefined &&
+          dashboard.layoutVersion !== undefined &&
+          placedLayoutVersion === dashboard.layoutVersion + 1 &&
+          appendedEverywhere
+        ) {
+          dashboard.layoutVersion = placedLayoutVersion;
+        }
         dashboard.layout = layout;
       }
     },
