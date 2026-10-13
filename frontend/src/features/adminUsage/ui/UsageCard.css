@@ -44,23 +44,7 @@
 }
 
 .usage-card__summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-sm);
   font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--app-text-muted);
-  cursor: pointer;
-  border-radius: var(--app-radius-sm);
-}
-
-.usage-card__summary:hover {
-  color: var(--app-text);
-}
-
-.usage-card__summary:focus-visible {
-  outline: var(--app-focus-ring);
-  outline-offset: 2px;
 }
 
 .usage-card__table-scroll {

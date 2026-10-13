@@ -1,0 +1,21 @@
+- `backend/src/main/scala/com/helio/domain/engine/TimestampParsing.scala` — D1 Postgres offsets (both separators), D2 strict MM/dd/yyyy + syntactic [id] suffix, D5 epoch 0001-9999 bound, new `epochInstant`; `looksLikeTimestamp` untouched (C2)
+- `backend/src/main/scala/com/helio/domain/steps/CastStep.scala` — D3 keep iff shared parser accepts; D4 numeric epoch emitted as ISO instant
+- `backend/src/main/scala/com/helio/services/firstrun/ColumnClassifier.scala` — scaladoc: MM/dd/yyyy and Postgres-offset columns are date-like
+- `backend/src/test/scala/com/helio/domain/engine/TimestampParsingSpec.scala` — offsets, MM/dd/yyyy, region suffix, epoch bound. Expectation changed: "MM/dd/yyyy is not a shared shape" (07/01/2026 rejected) became accepted — owner ruling `widen-parser`; 1/5/2026 and 02/30/2026 added as rejected
+- `backend/src/test/scala/com/helio/domain/engine/ChartTimestampParsingParitySpec.scala` — one parity test over every fixture case with a minimum count; "frontend-only extension" test removed (D6)
+- `backend/src/test/scala/com/helio/domain/steps/CastStepSpec.scala` — Expectation changed: Long/Double epoch cast was the numeric string (`"1751371200"`, `"1.7513712E9"`), now the ISO instant — owner ruling `iso-instant-both`; added numeric-string-unchanged, bound, shape-kept cases
+- `backend/src/test/scala/com/helio/domain/steps/TimestampAgreementSpec.scala` — new shapes in accepted/rejected, GUARD cast->datebucket/date_trunc, seconds_between -5400 scenario
+- `backend/src/test/scala/com/helio/domain/steps/DateBucketCharacterisationSpec.scala` — Expectation changed: `07/01/2026` buckets to `2026-07-01` (was null) — owner ruling `widen-parser`
+- `backend/src/test/scala/com/helio/services/firstrun/FirstRunPlannerSpec.scala` — Expectation inverted: MM/dd/yyyy column is date-like (ruling `widen-parser`); Postgres-offset column and all-digit id cases added
+- `shared-test-fixtures/chart-timestamp-parsing.json` — `backendParseInstant` dropped; D1/D2/D5 cases added (99 total)
+- `frontend/src/utils/chartTimeAxis.ts` — D1 offset grammar (T or space, HH<=18, total<=18:00), D2 [id] suffix, D5 epoch bound
+- `frontend/src/utils/chartTimeAxis.test.ts` — fixture type without `backendParseInstant`; minimum case count
+- `frontend/src/shared/ui/disclosureSummary.css` — shared summary recipe (chevron, marker suppression, focus ring)
+- `frontend/src/main.tsx` — global import of the recipe
+- `frontend/src/features/pipelines/ui/stepConfigs/ComputeFunctionReference.tsx` — use the recipe; duplicate declarations removed; list gap `--space-2`
+- `frontend/src/features/adminUsage/ui/UsageCard.tsx`, `UsageCard.css` — use the recipe (own class keeps only font-size)
+- `frontend/src/features/pipelines/ui/stepConfigs/ComputeFieldConfig.test.tsx`, `frontend/src/features/adminUsage/ui/AdminUsagePage.test.tsx` — assert `disclosure-summary tap-expand-44`
+- `frontend/src/theme/motionTokenGuard.css.test.ts`, `elevationTokenGuard.css.test.ts` — CSS file count pin 131 -> 132 for the new stylesheet
+
+- `frontend/src/shared/ui/disclosureSummary.css.test.ts` — guard for the shared summary recipe
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — compute Functions summary uses the shared recipe; duplicate declarations removed; list gap `--space-2`

@@ -33,7 +33,9 @@ export function UsageCard({ title, note, children, table }: UsageCardProps) {
       </header>
       <div className="usage-card__visual">{children}</div>
       <details className="usage-card__details">
-        <summary className="usage-card__summary">View as table</summary>
+        <summary className="usage-card__summary disclosure-summary tap-expand-44">
+          View as table
+        </summary>
         <div className="usage-card__table-scroll">
           <table className="usage-card__table">
             <caption className="sr-only">{table.caption}</caption>

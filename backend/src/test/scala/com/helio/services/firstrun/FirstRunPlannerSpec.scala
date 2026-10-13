@@ -26,9 +26,19 @@ class FirstRunPlannerSpec extends AnyWordSpec with Matchers {
       kindsOf(datedHeaders, dated) shouldBe Map("day" -> ColumnKind.DateLike, "region" -> ColumnKind.Categorical, "amount" -> ColumnKind.Numeric)
     }
 
-    "NOT treat an MM/dd/yyyy column as date-like, since datebucket cannot parse it" in {
+    "treat an MM/dd/yyyy column as date-like, since datebucket now parses it (HEL-1502)" in {
       val rows = Vector(Vector("01/02/2026"), Vector("01/03/2026"), Vector("01/04/2026"))
-      kindsOf(Vector("when"), rows)("when") should not be ColumnKind.DateLike
+      kindsOf(Vector("when"), rows)("when") shouldBe ColumnKind.DateLike
+    }
+
+    "treat a Postgres-offset timestamptz column as date-like (HEL-1502)" in {
+      val rows = Vector(Vector("2026-07-01 12:00:00+00"), Vector("2026-07-02 12:00:00+00"), Vector("2026-07-03 12:00:00+00"))
+      kindsOf(Vector("at"), rows)("at") shouldBe ColumnKind.DateLike
+    }
+
+    "keep an all-digit id column out of date-like" in {
+      val rows = Vector(Vector("1001"), Vector("1002"), Vector("1003"))
+      kindsOf(Vector("id"), rows)("id") should not be ColumnKind.DateLike
     }
 
     "keep an epoch-numeric column numeric even though datebucket would accept epochs" in {
