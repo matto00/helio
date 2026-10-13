@@ -136,3 +136,25 @@ describe("OutputViewerControlBar (design.md D1)", () => {
     expect(onChange).toHaveBeenCalledWith("c1", "last7d");
   });
 });
+
+describe("OutputViewerControlBar chart marker (HEL-1444)", () => {
+  const controls = [{ id: "c1", kind: "text" as const, column: "region", label: "Region" }];
+  const props = {
+    controls,
+    values: {},
+    onChange: () => undefined,
+    onClear: () => undefined,
+    fetchDistinctValues: () => Promise.resolve([]),
+  };
+
+  it("carries the --chart class only for a chart-output card", () => {
+    const { rerender } = render(<OutputViewerControlBar {...props} chartCard />);
+    expect(screen.getByRole("group", { name: "Panel controls" })).toHaveClass(
+      "output-viewer-control-bar--chart",
+    );
+    rerender(<OutputViewerControlBar {...props} />);
+    expect(screen.getByRole("group", { name: "Panel controls" })).not.toHaveClass(
+      "output-viewer-control-bar--chart",
+    );
+  });
+});

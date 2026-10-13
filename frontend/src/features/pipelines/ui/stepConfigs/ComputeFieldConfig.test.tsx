@@ -98,13 +98,13 @@ describe("ComputeFieldConfig", () => {
     expect(emitted.type).toBe("number");
   });
 
-  it("calls onChange on blur of column name input", () => {
+  it.each(["Output field name", "Expression"])("does not call onChange on blur of %s", (name) => {
     const onChange = jest.fn();
     render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={onChange} />);
 
-    fireEvent.blur(screen.getByRole("textbox", { name: "Output field name" }));
+    fireEvent.blur(screen.getByRole("textbox", { name }));
 
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("renders the validationError message inline when present", () => {

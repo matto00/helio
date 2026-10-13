@@ -13,6 +13,8 @@ import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/ap
 import type { Theme } from "../../../theme/theme";
 import { applyChartTypeOptions } from "../../../utils/chartTypeOptions";
 import type { GroupedAggregate } from "../../../utils/aggregate";
+import { COMPACT_AXIS_LABEL_FONT_SIZE, COMPACT_GRID_INSET_PX } from "./compactChartMetrics";
+import { applyValueAxisSplitCap } from "./valueAxisLabels";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
 import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
@@ -47,18 +49,7 @@ export const defaultOption: EChartsOption = {
   series: [{ type: "line" }],
 };
 
-/** `compact` mode (HEL-301, phone stack + F-094/F-026 measured-small panels):
- *  axis-label font size, shrunk from ECharts' default to fit a narrow width
- *  (W5: "fix via ECharts config, not CSS" — this is an ECharts option value,
- *  not a CSS token). */
-export const COMPACT_AXIS_LABEL_FONT_SIZE = 10;
-
-/** F-028 — compact-mode grid inset (px). Paired with `containLabel: true` so
- *  ECharts reserves exactly the space the (now-shrunk) axis labels/names
- *  need instead of its own default percentage-based margins, which — on a
- *  ~140px-tall mobile chart canvas — consumed nearly the entire box and left
- *  the plotted series a near-invisible sliver. */
-export const COMPACT_GRID_INSET_PX = 8;
+export { COMPACT_AXIS_LABEL_FONT_SIZE, COMPACT_GRID_INSET_PX };
 
 /** HEL-1351 design D6 — extra grid inset on the legend's side when a compact chart keeps its legend
  *  because an overlay is drawn: a one-row 10px legend (horizontal) or a narrow label column
@@ -104,6 +95,9 @@ export interface BuildChartOptionParams {
    *  (line, scatter, vertical bar); absent -> every chart keeps its category axis. */
   fieldTypes?: ChartFieldTypes | null;
   effectiveCompact: boolean;
+  /** HEL-1444: the most value-axis splits that fit the measured canvas (`valueAxisSplitCap`);
+   *  absent when the default split count fits. Only a value-type y axis is capped. */
+  valueAxisSplitCap?: number;
   measuredPieLegendOverlap: boolean;
   themeTokens: ChartThemeTokens;
   theme: Theme;
@@ -124,6 +118,7 @@ export function buildChartOption({
   referenceMarks,
   fieldTypes,
   effectiveCompact,
+  valueAxisSplitCap,
   measuredPieLegendOverlap,
   themeTokens,
   theme,
@@ -415,6 +410,9 @@ export function buildChartOption({
       },
     };
   }
+
+  // HEL-1444 -- a short canvas gets fewer value-axis labels instead of overprinted ones.
+  if (!isPie) built = applyValueAxisSplitCap(built, valueAxisSplitCap);
 
   return built;
 }

@@ -248,4 +248,52 @@ describe("ChartPanel — measured compact from ResizeObserver (F-094/F-026)", ()
 
     expect(getOption(screen.getByTestId("echarts"))).toMatchObject({ legend: { show: true } });
   });
+
+  // HEL-1444 -- a short canvas gets a capped value axis (fewer labels, never overprinted); a tall one
+  // keeps ECharts' default split count.
+  describe("value-axis label cap (HEL-1444)", () => {
+    const rows = [
+      ["East", "10"],
+      ["West", "150"],
+    ];
+    const mapping = { xAxis: "region", yAxis: "revenue" };
+    const yAxis = () =>
+      (getOption(screen.getByTestId("echarts")) as { yAxis: { splitNumber?: number } }).yAxis;
+
+    it.each([
+      [45, 1],
+      [60, 2],
+    ])("caps the value axis at a measured %ipx canvas", (height, cap) => {
+      renderChart(
+        <ChartPanel
+          appearance={appearance}
+          headers={["region", "revenue"]}
+          rawRows={rows}
+          fieldMapping={mapping}
+        />,
+      );
+      act(() => {
+        observerCallback?.([{ contentRect: { height } }]);
+      });
+      expect(yAxis().splitNumber).toBe(cap);
+    });
+
+    it.each([120, 180, 400])(
+      "keeps the default split count at a measured %ipx canvas",
+      (height) => {
+        renderChart(
+          <ChartPanel
+            appearance={appearance}
+            headers={["region", "revenue"]}
+            rawRows={rows}
+            fieldMapping={mapping}
+          />,
+        );
+        act(() => {
+          observerCallback?.([{ contentRect: { height } }]);
+        });
+        expect(yAxis().splitNumber).toBeUndefined();
+      },
+    );
+  });
 });

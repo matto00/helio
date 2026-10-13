@@ -107,6 +107,7 @@ describe("ConvertFormatConfig", () => {
     const input = screen.getByRole("textbox", { name: /destination field/i });
     fireEvent.change(input, { target: { value: "convertedContent" } });
     fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ outputField: "convertedContent" }),
     );

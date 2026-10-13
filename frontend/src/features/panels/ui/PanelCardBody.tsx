@@ -242,6 +242,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
           onChange={setControlValue}
           onClear={clearControlValue}
           fetchDistinctValues={fetchDistinctValues}
+          chartCard={output?.kind === "chart"}
         />
       )}
       <PanelContent
