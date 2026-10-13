@@ -144,8 +144,10 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
     }
 
     // HEL-384 — union: documented best-effort passthrough (design.md Decision
-    // 6). The other source's schema isn't resolved at analyze time, so the
-    // output schema is exactly the input schema unchanged, and — unlike
+    // 6) for an UNRESOLVED source secondary. This harness supplies no
+    // `secondarySourceSchemas` entry for `ds-2`, so the output schema is
+    // exactly the input schema unchanged (HEL-1520: a supplied schema is
+    // projected instead, see the cases further down), and — unlike
     // JoinStep, which has no case here at all — this is a real dispatch case,
     // so no validationError is emitted.
     "union — identity passthrough: outputSchema equals inputSchema, no validationError" in {
@@ -1334,6 +1336,48 @@ class PipelineAnalyzeServiceSpec extends AnyWordSpec with Matchers {
       )
       val result = analyzeNodes(Vector(laneA, union), baseSchema)
       result("union1").outputSchema shouldBe result("laneA").outputSchema
+    }
+
+    // HEL-1520. Red on base / under mutation M-proj (remove `union` from sourceDependencyOf).
+    "a source-kind union secondary whose schema is supplied appends its secondary-only fields after the parent's" in {
+      val union = nodeStep(
+        "union1", None, "union",
+        """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-1"}}""",
+        position = 0
+      )
+      val secondary = Vector(field("order_id", "integer"), field("extra", "boolean"))
+      val result = PipelineAnalyzeService.analyzeNodes(Vector(union), Map("" -> baseSchema), Map("ds-1" -> secondary))
+      result("union1").validationError shouldBe None
+      result("union1").outputSchema shouldBe baseSchema ++ Vector(field("extra", "boolean"))
+    }
+
+    "a source-kind union secondary with an empty dataSourceId passes through even if the map has an empty-id entry" in {
+      val union = nodeStep(
+        "union1", None, "union",
+        """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":""}}""",
+        position = 0
+      )
+      val result = PipelineAnalyzeService.analyzeNodes(Vector(union), Map("" -> baseSchema), Map("" -> Vector(field("extra", "boolean"))))
+      result("union1").outputSchema shouldBe baseSchema
+    }
+
+    "a source-kind union secondary absent from the supplied map passes through" in {
+      val union = nodeStep(
+        "union1", None, "union",
+        """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-1"}}""",
+        position = 0
+      )
+      val result = PipelineAnalyzeService.analyzeNodes(Vector(union), Map("" -> baseSchema), Map("other" -> Vector(field("extra", "boolean"))))
+      result("union1").outputSchema shouldBe baseSchema
+    }
+
+    "secondarySourceIdOf / sourceDependencyOf: union is covered by both, lookup only by the first" in {
+      val src = """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds-9"}}"""
+      PipelineAnalyzeService.sourceDependencyOf("union", src) shouldBe Some("ds-9")
+      PipelineAnalyzeService.secondarySourceIdOf("union", src) shouldBe Some("ds-9")
+      val lk = """{"secondaryInput":{"kind":"source","dataSourceId":"ds-9"},"sourceKey":"a","lookupKey":"b","columns":[]}"""
+      PipelineAnalyzeService.sourceDependencyOf("lookup", lk) shouldBe None
+      PipelineAnalyzeService.secondarySourceIdOf("lookup", lk) shouldBe Some("ds-9")
     }
 
     // HEL-913 task 5.9: root-keyed schema resolution, not a bare `getOrElse` onto ONE implicit

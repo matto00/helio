@@ -459,9 +459,12 @@ export function registerWriteTools(server: McpServer, api: HelioApi): void {
         "stack onto the current row set. `byPosition` (default) appends rows as-is with no column " +
         "reconciliation — use when both sides share identical columns. `byName` unions the two " +
         "sides' column sets (derived from each side's first row) and backfills a column missing on " +
-        "either side with null for that side's rows. Row count is additive; output schema is a " +
-        "best-effort passthrough of the input schema — verify the union's actual shape with " +
-        "preview/run rather than trusting the analyzed schema. A missing/unresolvable " +
+        "either side with null for that side's rows. Row count is additive; output schema is the " +
+        "input schema followed by the secondary's extra columns when the secondary's schema is " +
+        "known to analyze (a lane, or a data source with an inferred schema; a timestamp/numeric " +
+        "type clash on a shared column is reported as a step error); with an unconfigured or " +
+        "schema-less data-source secondary it is a best-effort passthrough — verify the union's " +
+        "actual shape with preview/run rather than trusting the analyzed schema. A missing/unresolvable " +
         "`secondaryInput` or an unrecognized `mode` fails at execute time naming the problem. " +
         "There is NO legacy flat `otherDataSourceId` field — a config carrying it is rejected " +
         "outright, not silently upgraded; " +
