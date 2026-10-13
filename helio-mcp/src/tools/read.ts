@@ -180,7 +180,9 @@ export function registerReadTools(server: McpServer, api: HelioApi): void {
         "string key vs an integer key, so the join may return no rows; the same code also covers lookup keys, " +
         "sourceKey vs lookupKey, with a message starting `lookup:`), join-column-renamed (a " +
         "right-side column collides with an input column and will appear as right_<name>), numeric-op-on-text-field " +
-        "(a compute expression uses a text/boolean field, e.g. an uncast CSV column, where a number is required — add a cast step first). They do " +
+        "(a compute expression uses a text/boolean field, e.g. an uncast CSV column, where a number is required — add a cast step first), " +
+        "text-function-on-numeric-field (a trusted integer/float field is passed to length/lower/upper/substring, which need text), " +
+        "literal-type-mismatch (a string literal where a number is required, or a number literal given to a text function). They do " +
         "NOT affect canRun, autoRunnable or costVerdict.reasons and never set a validationError; " +
         "the stored inferred schema can be stale, so treat each as a hint to check, not proof. " +
         "These are distinct from propose_pipeline's warnings (strings that drive applyReady) and " +

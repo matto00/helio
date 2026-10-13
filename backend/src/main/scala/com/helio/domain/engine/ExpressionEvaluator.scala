@@ -208,6 +208,16 @@ object ExpressionEvaluator {
   def numericContextTextFields(expr: String, fieldTypes: Map[String, String]): Vector[(String, Vector[String])] =
     parse(expr).toOption.fold(Vector.empty[(String, Vector[String])])(ExpressionNumericContexts.textFieldsInNumericContext(_, fieldTypes))
 
+  /** HEL-1455: `(field, functions)` for each `integer`/`float` field of the STRICT parse of `expr` passed as the text
+   *  argument of `length`/`lower`/`upper`/`substring`; none when the argument also references an `untrusted` field. */
+  def numericFieldsInTextFunction(expr: String, fieldTypes: Map[String, String], untrusted: Set[String]): Vector[(String, Vector[String])] =
+    parse(expr).toOption.fold(Vector.empty[(String, Vector[String])])(ExpressionNumericContexts.numericFieldsInTextFunction(_, fieldTypes, untrusted))
+
+  /** HEL-1455: `(literal, context)` for each wrong-type literal (a string literal where a number is required, a
+   *  number literal as a text function's argument) that fails on every row. Independent of field types. */
+  def wrongTypeLiterals(expr: String): Vector[(String, String)] =
+    parse(expr).toOption.fold(Vector.empty[(String, String)])(ExpressionNumericContexts.wrongTypeLiterals)
+
   /** An expression parsed once (HEL-888 design.md Decision 6), ready to be
    *  evaluated against any number of rows without re-parsing. The AST type
    *  is intentionally not exposed — callers get a compiled unit of behavior,
