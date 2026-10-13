@@ -34,6 +34,20 @@ describe("patchSetSchema (apply_patch_set's hand-authorable PatchSet shape)", ()
     expect(edit.patch?.attachAsTail).toBe(true);
   });
 
+  it("keeps target.fingerprint instead of stripping it as an unknown key (HEL-1458)", () => {
+    const raw = {
+      edits: [
+        {
+          target: { kind: "panel", id: "panel-1", fingerprint: "v1:abc" },
+          op: "update",
+          patch: {},
+        },
+      ],
+    };
+
+    expect(patchSetSchema.parse(raw).edits[0]!.target.fingerprint).toBe("v1:abc");
+  });
+
   it("decodes every real target.kind the backend accepts, including output (previously missing)", () => {
     for (const kind of ["panel", "dashboard", "dataSource", "pipeline", "pipelineStep", "output"]) {
       const raw = { edits: [{ target: { kind, id: "res-1" }, op: "update", patch: {} }] };

@@ -377,6 +377,12 @@ private[protocols] trait AssistantProposalToolSchemas {
             "REQUIRED for a create targeting a child kind (currently only pipelineStep, whose parentId " +
             "is the existing parent pipeline's id) and must be OMITTED for update/delete."
         )
+      ),
+      "fingerprint" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Server-assigned. Omit; any value sent is discarded."
+        )
       )
     ),
     "required" -> JsArray(Vector(JsString("kind")))

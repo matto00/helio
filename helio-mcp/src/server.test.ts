@@ -324,6 +324,15 @@ describe("control tool copy states the observed status codes (HEL-1193 C2)", () 
     expect(description).toContain("control not eligible");
   });
 
+  it("apply_patch_set documents the 409 PATCH_SET_STALE refusal and to re-propose rather than retry (HEL-1458)", async () => {
+    const tools = await listRegisteredTools();
+    const description = tools.find((t) => t.name === "apply_patch_set")?.description ?? "";
+
+    expect(description).toContain("HTTP 409");
+    expect(description).toContain("PATCH_SET_STALE");
+    expect(description).toContain("do not retry");
+  });
+
   // HEL-1313: every tool that writes Output config lists the per-kind keys and aggregation shapes and
   // no longer claims the dead legend/tooltip deep merge.
   it.each([

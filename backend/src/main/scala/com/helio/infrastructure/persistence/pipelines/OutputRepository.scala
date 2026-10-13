@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
@@ -160,6 +161,22 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       ctx.withSystemContext(
         table.filter(_.id.inSet(ids)).map(r => (r.id, r.config)).result
       ).map(_.toMap)
+
+  /** The alert rules targeting any of `ids`, as `(id, metric, condition, name, enabled, severity)` per Output, for the
+   *  patch-set stale check (HEL-1458): deleting an Output deletes these rules (V94 `ON DELETE CASCADE`). ACL-bypassing,
+   *  on the same basis as [[findConfigsByIdsInternal]]: the ids come from a pipeline the caller was already resolved as
+   *  the owner of. Timestamps are left out. */
+  def findAlertRuleDefinitionsInternal(ids: Vector[String]): Future[Map[String, Vector[(String, String, String, String, Boolean, String)]]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        TableQuery[AlertRuleRepository.AlertRuleTable]
+          .filter(_.targetOutputId.inSet(ids))
+          .sortBy(_.id)
+          .map(r => (r.targetOutputId, r.id, r.metric, r.condition, r.name, r.enabled, r.severity))
+          .result
+      ).map(_.collect { case (Some(outputId), id, metric, condition, name, enabled, severity) => outputId -> (id, metric, condition, name, enabled, severity) }
+        .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).toVector })
 
   /** Owner-scoped read (not merely sharing-aware) — used by
    *  `AlertRuleService.create` (task 3.1) to validate a rule's

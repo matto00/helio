@@ -8,6 +8,7 @@ import com.helio.services.proposals.{CombinedProposalService, DashboardProposalS
 import com.helio.services.sources.SourceService
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.helio.api.protocols.assistant.AssistantProposal
+import com.helio.api.protocols.patchsets.{PatchSet, PatchSetPreviewResponse}
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal, ProposalPanel}
 import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
@@ -15,8 +16,9 @@ import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.{any, eq => meq}
-import org.mockito.Mockito.{mock, when}
+import org.mockito.Mockito.{mock, verify, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
@@ -310,6 +312,30 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     "return Left for unparseable input without touching the patch-set preview service" in {
       val executor = newExecutor()
       await(executor.execute("propose_patch_set", JsObject("edits" -> JsNumber(1)))) shouldBe a[Left[_, _]]
+    }
+  }
+
+  "execute(\"propose_patch_set\", ...) fingerprints (HEL-1458)" should {
+
+    "discard a model-emitted fingerprint before previewing and capture the stripped patch set" in {
+      val previewService = mock(classOf[PatchSetPreviewService])
+      when(previewService.preview(any[PatchSet](), any[AuthenticatedUser]()))
+        .thenReturn(Future.successful(Right(PatchSetPreviewResponse(Vector.empty))))
+      val executor = newExecutor(patchSetPreviewService = previewService)
+      val input = JsObject(
+        "edits" -> JsArray(JsObject(
+          "target" -> JsObject("kind" -> JsString("panel"), "id" -> JsString("p1"), "fingerprint" -> JsString("v1:model-invented")),
+          "op"     -> JsString("update"),
+          "patch"  -> JsObject("title" -> JsString("T"))
+        ))
+      )
+
+      await(executor.execute("propose_patch_set", input)) shouldBe a[Right[_, _]]
+
+      val captor = ArgumentCaptor.forClass(classOf[PatchSet])
+      verify(previewService).preview(captor.capture(), any[AuthenticatedUser]())
+      captor.getValue.edits.head.target.fingerprint shouldBe None
+      executor.proposal.collect { case AssistantProposal.Patch(patchSet, _) => patchSet.edits.head.target.fingerprint } shouldBe Some(None)
     }
   }
 

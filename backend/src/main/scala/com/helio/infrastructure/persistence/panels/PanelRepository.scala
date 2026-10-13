@@ -109,6 +109,17 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
     )
   }
 
+  /** The ids of the panels bound to each of `outputIds` (`panels.output_id`), for the patch-set stale check (HEL-1458):
+   *  deleting an Output deletes its bound panels (V94 `ON DELETE CASCADE`). ACL-bypassing: the ids come from a pipeline
+   *  the caller was already resolved as the owner of. */
+  def findIdsByOutputIdsInternal(outputIds: Vector[String]): Future[Map[String, Vector[String]]] =
+    if (outputIds.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        table.filter(_.outputId.inSet(outputIds)).map(r => (r.outputId, r.id)).result
+      ).map(_.collect { case (Some(outputId), id) => outputId -> id }
+        .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).sorted.toVector })
+
   /** No-ACL read. Documented callers:
    *  - `ResourceTypeRegistry` owner-resolver (privileged; resolves ownership for ACL check)
    *  Do NOT call from routes or services that own the ACL decision. */

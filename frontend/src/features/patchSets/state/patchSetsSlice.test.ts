@@ -106,6 +106,19 @@ describe("patchSetsSlice", () => {
     expect(state.applyError).toBe("Cannot delete Output: one or more panels are bound to it");
   });
 
+  it("carries the message of a structured PATCH_SET_STALE rejection into applyError (HEL-1458)", () => {
+    const action = applyPatchSet.rejected(new Error("Rejected"), "req-1", samplePatchSet, {
+      code: "PATCH_SET_STALE",
+      message: "Nothing was applied: changed since the preview: edit 0 (panel p-1).",
+      staleTargets: [{ index: 0, kind: "panel", id: "p-1" }],
+    });
+    const state = patchSetsReducer(undefined, action);
+    expect(state.applyStatus).toBe("failed");
+    expect(state.applyError).toBe(
+      "Nothing was applied: changed since the preview: edit 0 (panel p-1).",
+    );
+  });
+
   const sampleUndoArg = { applicationId: "app-1", patchSet: samplePatchSet };
   const sampleUndoResponse: PatchSetUndoResponse = {
     edits: [{ index: 0, status: "restored" }],
