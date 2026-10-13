@@ -159,7 +159,7 @@ describe("PanelCard — HEL-588 cross-filter application (tasks.md 6.5)", () => 
   // page-0 fetch resolves. Without this seed, this test previously passed
   // while the live app's Table grid never actually narrowed (only its
   // truncation disclosure, built from `rawRows`, did) — see
-  // `PanelCard.tsx`'s `filteredPaginationRows` for the fix this test guards.
+  // `OutputPanelContent.tsx`'s `filteredPaginationRows` for the fix this test guards.
   it("narrows a sibling table panel to the matching subset", async () => {
     getOutputByIdMock.mockResolvedValue(makeTableOutput());
     renderPanelCard("panel-sibling", { seedPaginationRows: paginationRows });

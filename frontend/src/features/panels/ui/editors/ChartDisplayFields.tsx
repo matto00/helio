@@ -1,11 +1,12 @@
-// HEL-248 — Chart panel per-chart-type display controls for the panel detail
-// modal's edit pane. Purely presentational: all state + save/dirty/reset
-// plumbing lives in `useChartDisplayState` (owned by `BindingEditor`),
+// HEL-248 — Chart per-chart-type display controls, rendered by the Output
+// editor (`OutputKindFields.tsx`). Purely presentational: the display state
+// and its save/dirty/reset plumbing are owned by the Output editor,
 // mirroring how `TableDisplayFields` / `ChartAggregationFields` are driven.
 //
 // Exactly one chart type's controls render at a time, chosen by the *live*
-// chart type selected in the Appearance section — so changing the type swaps
-// the Display controls before save. Every control maps to a real ECharts
+// chart type selected in the Output editor's `Chart type` select
+// (`OutputKindFields.tsx`) — so changing the type swaps the Display controls
+// before save. Every control maps to a real ECharts
 // construct (see `ChartPanel.tsx`).
 
 import { Select, TextField, type SelectOption } from "../../../../shared/ui/index";
@@ -52,7 +53,7 @@ interface ChartDisplayFieldsProps {
   isBound: boolean;
   /** HEL-318 / HEL-323: the annotation source (static subtitle/footnote text
    *  OR a bound DataType column). Driven by a `useBoundOrLiteralState` instance
-   *  owned by `BindingEditor`: "Fixed text" persists `config.annotation`,
+   *  owned by the Output editor: "Fixed text" persists `config.annotation`,
    *  "Bind to field" persists `fieldMapping.annotation`. */
   annotationState: BoundOrLiteralState;
 }

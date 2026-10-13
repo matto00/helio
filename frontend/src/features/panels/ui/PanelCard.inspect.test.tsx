@@ -12,7 +12,7 @@ import { PanelCard } from "./PanelCard";
 // HEL-572 — a dedicated file (mirrors ChartPanel.click.test.tsx's own
 // rationale) covering tasks.md 4.2 (grid click → inspect, listing exactly
 // the matching rows) and 5.1 (ActionsMenu "Inspect" item), rather than
-// growing the already-large PanelCard.test.tsx further.
+// growing the then-large PanelCard test file further.
 
 type MockClickHandlers = Record<string, (params: unknown) => void>;
 interface MockChartNode extends HTMLDivElement {

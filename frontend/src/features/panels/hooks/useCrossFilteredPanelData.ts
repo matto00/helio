@@ -30,7 +30,7 @@ export interface CrossFilteredPanelData {
 }
 
 /** design.md D4 (evaluation-1.md CR1/CR2, cycle 2 revision) — used ONLY by
- *  `PanelCard` to derive the filtered `rawRows`/`headers` it threads to
+ *  `usePanelCardInspect` (the desktop `PanelCard`'s inspect hook) to derive the filtered `rawRows`/`headers` it threads to
  *  `PanelInspectView` (both the grid-context and fullscreen-context mounts),
  *  which render their own `DataGrid` directly from these props rather than
  *  going through `PanelContent`/`OutputPanelContent`. Every OTHER consumer
@@ -42,7 +42,7 @@ export interface CrossFilteredPanelData {
  *  probe-confirmed race a first version of this hook introduced by requiring
  *  `MobileStackPanelBody` to add ITS OWN new `useOutputMeta` call (mobile had
  *  none before this ticket). `output` here is the SAME `useOutputMeta` result
- *  `PanelCard` already resolves for `chartInspectConfig` — never a second
+ *  `usePanelCardInspect` already resolves for `chartInspectConfig` — never a second
  *  fetch on the desktop path, matching HEL-572 D1/D5's established "second,
  *  independent fetch is fine; a THIRD is not" precedent. */
 export function useCrossFilteredPanelData(
