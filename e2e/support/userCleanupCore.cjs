@@ -21,7 +21,9 @@ const PLAIN_EMAIL_LOCAL = /^[A-Za-z0-9._+-]+$/;
 
 /** Tables whose rows reference `users` with ON DELETE NO ACTION/RESTRICT, as `[table, ownerColumn]`,
  *  in dependency order (children before parents). Every other `users` FK cascades. A newly added
- *  NO ACTION FK makes the final user delete fail loudly rather than leave residue silently. */
+ *  NO ACTION FK makes the final user delete fail loudly rather than leave residue silently.
+ *  `pipeline_run_rate_window` stays listed although V133 (HEL-1440) made its FK cascade: the shared dev DB and any
+ *  database below V133 still has NO ACTION there, and an explicit delete of zero rows is harmless after V133. */
 const BLOCKING_OWNED_TABLES = [
   ["alert_events", "owner_id"],
   ["alert_rules", "owner_id"],

@@ -168,7 +168,7 @@ const EDIT_CASES: [string, OutputKind, Record<string, unknown>, Partial<Output>?
     "chart",
     {
       chartType: "bar",
-      fieldMapping: { category: "a", value: "b", annotation: "c" },
+      fieldMapping: { xAxis: "a", yAxis: "b", annotation: "c" },
       aggregation: { groupBy: "a", agg: "sum", yField: "b" },
       chartOptions: { bar: { orientation: "horizontal", stacking: "stacked", barGapPct: 30 } },
       compare: "7d",
@@ -286,7 +286,7 @@ describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
     it("keeps a chart's stored non-default fieldMapping keys when only the annotation binding changes", async () => {
       const stored = {
         chartType: "bar",
-        fieldMapping: { xAxis: "a", yAxis: "b", category: "c", value: "a" },
+        fieldMapping: { xAxis: "a", yAxis: "b", series: "c" },
       };
       await renderSheet(outputOf("chart", stored));
       await choose("Annotation field", "b");
@@ -298,8 +298,7 @@ describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
       expect(body.config.fieldMapping).toEqual({
         xAxis: "a",
         yAxis: "b",
-        category: "c",
-        value: "a",
+        series: "c",
         annotation: "b",
       });
     });

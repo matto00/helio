@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
 
 import { evidencePath } from "./support/evidencePath";
+import { expectDeleted } from "./support/expectDeleted";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
@@ -323,11 +324,10 @@ for (const theme of ["light", "dark"] as const) {
         `[HEL-1351 e2e] deleting dashboard ${created.dashboard} pipeline ${created.pipeline} source ${created.source}`,
       );
       if (created.dashboard)
-        await request.delete(`/api/dashboards/${created.dashboard}`, { headers: CSRF });
+        await expectDeleted(request, `/api/dashboards/${created.dashboard}`, CSRF);
       if (created.pipeline)
-        await request.delete(`/api/pipelines/${created.pipeline}`, { headers: CSRF });
-      if (created.source)
-        await request.delete(`/api/data-sources/${created.source}`, { headers: CSRF });
+        await expectDeleted(request, `/api/pipelines/${created.pipeline}`, CSRF);
+      if (created.source) await expectDeleted(request, `/api/data-sources/${created.source}`, CSRF);
     }
   });
 }

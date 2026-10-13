@@ -44,11 +44,13 @@
         },
         "fieldMapping": {
           "type": "object",
-          "description": "Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the outputId description above) — fieldMapping is not passed through. Also not used by text/markdown/image panels — TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
+          "deprecated": true,
+          "description": "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's `config` instead. Still accepted so existing callers keep working. Previously: Legacy field, decoded but never applied: buildDataConfig emits only {outputId} for an `output` panel (see the outputId description above) \u2014 fieldMapping is not passed through. Also not used by text/markdown/image panels \u2014 TextPanelConfig/MarkdownPanelConfig carry no data binding to map fields against (pipelines-and-outputs remodel, HEL-903/904)."
         },
         "aggregation": {
           "type": "object",
-          "description": "Legacy field, decoded but never applied: viz-level aggregation belonged to the metric/chart panel kinds, which were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the aggregation concept those kinds carried. Retained on the wire for schema stability only."
+          "deprecated": true,
+          "description": "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's `config` instead. Still accepted so existing callers keep working. Previously: Legacy field, decoded but never applied: viz-level aggregation belonged to the metric/chart panel kinds, which were deleted by the pipelines-and-outputs remodel (HEL-903/904) along with the aggregation concept those kinds carried. Retained on the wire for schema stability only."
         },
         "content": {
           "type": "string",
@@ -85,11 +87,13 @@
         },
         "label": {
           "type": "string",
-          "description": "Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
+          "deprecated": true,
+          "description": "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's `config` instead. Still accepted so existing callers keep working. Previously: Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "unit": {
           "type": "string",
-          "description": "Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
+          "deprecated": true,
+          "description": "Deprecated and ignored: this panel-level field has no effect on the applied panel; set it on the Output's `config` instead. Still accepted so existing callers keep working. Previously: Legacy field, decoded but never applied: the metric panel kind was deleted by the pipelines-and-outputs remodel (HEL-903/904). Retained on the wire for schema stability only."
         },
         "sort": {
           "type": "string",
