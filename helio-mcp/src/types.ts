@@ -47,6 +47,9 @@ export interface DashboardResponse {
   meta: ResourceMeta;
   appearance: { background: string; gridBackground: string };
   layout: DashboardLayout;
+  /** HEL-1457/HEL-1524: server-maintained layout compare-and-set version. Echo it as
+   *  `expectedLayoutVersion` on a layout write to refuse a stale one. */
+  layoutVersion: number;
   ownerId: string;
   /** HEL-907 evaluator-1 CR3 (V95): free-form grouping tag, HEL-366's
    *  existing convention extended to dashboards. Omitted on the wire when
@@ -626,7 +629,9 @@ export interface AnalyzeWarning {
     | "field-not-in-input-schema"
     | "join-key-type-mismatch"
     | "join-column-renamed"
-    | "numeric-op-on-text-field";
+    | "numeric-op-on-text-field"
+    | "text-function-on-numeric-field"
+    | "literal-type-mismatch";
   message: string;
 }
 

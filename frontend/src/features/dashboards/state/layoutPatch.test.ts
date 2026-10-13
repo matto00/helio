@@ -36,4 +36,36 @@ describe("buildLayoutPatch", () => {
     const resolved = { ...next, xs: [item("a", 0, 0), item("b", 0, 2)] };
     expect(buildLayoutPatch(next, baseline, resolved)).toEqual({ xs: next.xs });
   });
+
+  // HEL-1527: the loaded panels are a, b, c; "u" is a panel this tab has not loaded.
+  it("keeps an unloaded panel's authored item when it substitutes a breakpoint", () => {
+    const next = {
+      ...baseline,
+      xs: [item("a", 0, 0), item("b", 0, 1, 1, 2), item("c", 0, 1), item("u", 0, 8)],
+    };
+    const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0), item("c", 0, 2)] };
+    expect(buildLayoutPatch(next, baseline, resolved)).toEqual({
+      xs: [...resolved.xs, item("u", 0, 8)],
+    });
+  });
+
+  it("skips blank-id and repeated unloaded items when it keeps them", () => {
+    const next = {
+      ...baseline,
+      xs: [item("a", 0, 0), item("b", 0, 0), item("u", 0, 8), item("u", 0, 9), item(" ", 0, 12)],
+    };
+    const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0)] };
+    expect(buildLayoutPatch(next, baseline, resolved)).toEqual({
+      xs: [...resolved.xs, item("u", 0, 8)],
+    });
+  });
+
+  it("sends a ghost item as authored; it is not judged client-side (the server drops it)", () => {
+    const next = {
+      ...baseline,
+      xs: [item("a", 0, 0), item("b", 0, 1, 1, 2), item("c", 0, 1), item("ghost", 0, 2)],
+    };
+    const resolved = { ...next, xs: [item("a", 0, 0), item("b", 1, 0), item("c", 0, 2)] };
+    expect(buildLayoutPatch(next, baseline, resolved).xs).toContainEqual(item("ghost", 0, 2));
+  });
 });

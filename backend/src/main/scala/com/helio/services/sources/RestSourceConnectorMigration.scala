@@ -26,12 +26,12 @@ import scala.util.{Failure, Success, Try}
  *  snapshot/backup than bespoke in-app rollback code that would itself need to be trusted not
  *  to further corrupt data on the way back.
  *
- *  Branches every `rest_api` row into exactly one of four outcomes (Decision 6/7), never
+ *  Branches every `rest_api` row into exactly one of three outcomes (Decision 6/7), never
  *  conflated:
  *   1. Already migrated (`decodeRest` returns `Right`) -> skip, no-op.
- *   2. Legacy + owned (`Left("legacy-unmigrated")`, `owner_id` non-null) -> migrate.
- *   3. Legacy + ownerless (`owner_id IS NULL`, round-3 CR5) -> log at `error`, skip.
- *   4. Malformed (`Left("malformed: ...")`) -> log at `error`, skip.
+ *   2. Legacy (`Left("legacy-unmigrated")`) -> migrate under the row's owner (`owner_id` is NOT NULL since V119,
+ *      so every row has one).
+ *   3. Malformed (`Left("malformed: ...")`) -> log at `error`, skip.
  *
  *  Safe to run on every boot — an already-migrated row is a no-op (branch 1). */
 object RestSourceConnectorMigration {
@@ -93,7 +93,7 @@ object RestSourceConnectorMigration {
   )(implicit ec: ExecutionContext): Future[Unit] =
     dataSourceRepo.findAllRestApiRawInternal().flatMap { rows =>
       Future
-        .sequence(rows.map { case (id, ownerIdOpt, name, rawConfig) => migrateOne(dataSourceRepo, connectorRepo, id, ownerIdOpt, name, rawConfig, logger) })
+        .sequence(rows.map { case (id, ownerUuid, name, rawConfig) => migrateOne(dataSourceRepo, connectorRepo, id, ownerUuid, name, rawConfig, logger) })
         .map(_ => ())
     }
 
@@ -101,7 +101,7 @@ object RestSourceConnectorMigration {
       dataSourceRepo: DataSourceRepository,
       connectorRepo: ConnectorRepository,
       id: String,
-      ownerIdOpt: Option[UUID],
+      ownerUuid: UUID,
       name: String,
       rawConfig: String,
       logger: Logger
@@ -111,47 +111,39 @@ object RestSourceConnectorMigration {
         // Already migrated — no-op (idempotency).
         Future.successful(())
       case Left("legacy-unmigrated") =>
-        ownerIdOpt match {
-          case None =>
-            // design.md Decision 7 revised (round-3 CR5): ownerless legacy row — no owner to
-            // synthesize a Connector under. Skipped, never mis-owned to a default account.
-            logger.error("RestSourceConnectorMigration: skipping ownerless legacy rest_api source id={}", id)
+        val ownerId = UserId(ownerUuid.toString)
+        Try(JsonParser(rawConfig).convertTo[LegacyRestApiConfigPayload]) match {
+          case Failure(e) =>
+            logger.error(s"RestSourceConnectorMigration: skipping malformed-legacy rest_api source id=$id", e)
             Future.successful(())
-          case Some(ownerUuid) =>
-            val ownerId = UserId(ownerUuid.toString)
-            Try(JsonParser(rawConfig).convertTo[LegacyRestApiConfigPayload]) match {
-              case Failure(e) =>
-                logger.error(s"RestSourceConnectorMigration: skipping malformed-legacy rest_api source id=$id", e)
-                Future.successful(())
-              case Success(legacy) =>
-                val (baseUrl, endpoint, queryParams) = splitUrl(legacy.url)
-                val auth = toAuth(legacy.auth)
-                val (connName, configJson, credentialPlaintext, credentialName) =
-                  ImplicitConnectorConfig.forLegacySource(s"Migrated: $name", baseUrl, auth)
-                connectorRepo
-                  .create(
-                    ownerId             = ownerId,
-                    name                = connName,
-                    kind                = "rest_api",
-                    baseUrl             = baseUrl,
-                    config              = configJson,
-                    credentialPlaintext = credentialPlaintext,
-                    credentialName      = credentialName
-                  )
-                  .flatMap { connector =>
-                    val newConfig = RestApiConfig(
-                      connectorId = connector.id.value,
-                      endpoint    = endpoint,
-                      method      = legacy.method.getOrElse("GET"),
-                      queryParams = queryParams,
-                      headers     = legacy.headers.getOrElse(Map.empty)
-                    )
-                    dataSourceRepo.updateConfigInternal(DataSourceId(id), DataSourceConfigCodec.encodeRest(newConfig)).map(_ => ())
-                  }
-                  .recover { case e =>
-                    logger.error(s"RestSourceConnectorMigration: failed to migrate rest_api source id=$id", e)
-                  }
-            }
+          case Success(legacy) =>
+            val (baseUrl, endpoint, queryParams) = splitUrl(legacy.url)
+            val auth = toAuth(legacy.auth)
+            val (connName, configJson, credentialPlaintext, credentialName) =
+              ImplicitConnectorConfig.forLegacySource(s"Migrated: $name", baseUrl, auth)
+            connectorRepo
+              .create(
+                ownerId             = ownerId,
+                name                = connName,
+                kind                = "rest_api",
+                baseUrl             = baseUrl,
+                config              = configJson,
+                credentialPlaintext = credentialPlaintext,
+                credentialName      = credentialName
+              )
+              .flatMap { connector =>
+                val newConfig = RestApiConfig(
+                  connectorId = connector.id.value,
+                  endpoint    = endpoint,
+                  method      = legacy.method.getOrElse("GET"),
+                  queryParams = queryParams,
+                  headers     = legacy.headers.getOrElse(Map.empty)
+                )
+                dataSourceRepo.updateConfigInternal(DataSourceId(id), DataSourceConfigCodec.encodeRest(newConfig)).map(_ => ())
+              }
+              .recover { case e =>
+                logger.error(s"RestSourceConnectorMigration: failed to migrate rest_api source id=$id", e)
+              }
         }
       case Left(malformed) =>
         logger.error("RestSourceConnectorMigration: skipping malformed rest_api source id={}: {}", id, malformed)

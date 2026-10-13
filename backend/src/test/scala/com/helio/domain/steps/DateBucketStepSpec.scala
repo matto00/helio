@@ -142,4 +142,13 @@ class DateBucketStepSpec extends AnyWordSpec with Matchers {
       result should have size 3
     }
   }
+
+  // HEL-1532: step-level coverage of the epoch-bound positives (the boundary instants of years 0001-9999).
+  "DateBucketStep.apply epoch bounds" should {
+    Seq("253402300799999" -> "9999-12-31", "-62135596800000" -> "0001-01-01").foreach { case (in, out) =>
+      s"bucket $in to $out" in {
+        DateBucketStep.apply(Seq(Map[String, Any]("ts" -> in)), DateBucketConfig("ts", "day", None), identity).head("ts") shouldBe out
+      }
+    }
+  }
 }
