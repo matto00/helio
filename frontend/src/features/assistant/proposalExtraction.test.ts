@@ -1,6 +1,69 @@
 import { extractProposal } from "./proposalExtraction";
 import type { ClaudeToolMessageDto } from "./types";
 
+describe("extractProposal patch proposalId (HEL-1522)", () => {
+  const MINTED = "0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10";
+  const edits = [{ target: { kind: "panel", id: "p1" }, op: "update", patch: { title: "T" } }];
+
+  // The transcript as AssistantConversationRepository serves it after a reload: the model's own tool_use input,
+  // plus the persisted tool_result carrying the preview and the server-minted id.
+  const transcript = (modelWritten: unknown, resultBody: string): ClaudeToolMessageDto[] => [
+    {
+      role: "assistant",
+      content: [
+        {
+          blockType: "tool_use",
+          id: "tu-1",
+          name: "propose_patch_set",
+          input: { edits, ...(modelWritten === undefined ? {} : { proposalId: modelWritten }) },
+        },
+      ],
+    },
+    {
+      role: "user",
+      content: [
+        { blockType: "tool_result", toolUseId: "tu-1", content: resultBody, isError: false },
+      ],
+    },
+  ];
+
+  it("hands off the server-minted id from the stored tool result, not a model-written one", () => {
+    const result = JSON.stringify({ edits: [], proposalId: MINTED });
+    expect(extractProposal(transcript("model-wrote-this", result))).toEqual({
+      kind: "patch",
+      input: { edits, proposalId: MINTED },
+    });
+  });
+
+  it("drops a model-written id when the stored result carries no UUID", () => {
+    for (const body of [
+      JSON.stringify({ edits: [] }),
+      JSON.stringify({ proposalId: "nope" }),
+      "not json",
+    ]) {
+      expect(extractProposal(transcript("model-wrote-this", body))).toEqual({
+        kind: "patch",
+        input: { edits },
+      });
+    }
+  });
+
+  it("leaves other proposal kinds' input untouched", () => {
+    const input = { dashboardName: "X", panels: [], proposalId: "kept" };
+    const dashboard: ClaudeToolMessageDto[] = [
+      {
+        role: "assistant",
+        content: [{ blockType: "tool_use", id: "tu-2", name: "propose_dashboard", input }],
+      },
+      {
+        role: "user",
+        content: [{ blockType: "tool_result", toolUseId: "tu-2", content: "{}", isError: false }],
+      },
+    ];
+    expect(extractProposal(dashboard)).toEqual({ kind: "dashboard", input });
+  });
+});
+
 describe("extractProposal", () => {
   it("returns null for a transcript with no propose_* tool calls", () => {
     const transcript: ClaudeToolMessageDto[] = [

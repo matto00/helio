@@ -17,7 +17,7 @@
  *                           exactly as the frontend's usePanelData does.
  */
 
-import { HelioApiError, type HelioHttpClient } from "./httpClient.js";
+import { HelioApiError, HelioLayoutConflictError, type HelioHttpClient } from "./httpClient.js";
 import { computeRunWarnings, type RunWarning } from "./runWarnings.js";
 import type {
   AgentMemoryEntryResponse,
@@ -1346,8 +1346,14 @@ export class HelioApi {
         { panelId: string; x: number; y: number; w: number; h: number }[]
       >
     >,
+    expectedLayoutVersion: number,
   ): Promise<DashboardResponse> {
-    return this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, { layout });
+    return this.withLayoutConflict(expectedLayoutVersion, () =>
+      this.http.patch<DashboardResponse>(`/api/dashboards/${dashboardId}`, {
+        layout,
+        expectedLayoutVersion,
+      }),
+    );
   }
 
   /** Pack `{panelId, w, h}` sizes into non-overlapping `{x,y,w,h}` positions
@@ -1366,11 +1372,39 @@ export class HelioApi {
     items: { panelId: string; w: number; h: number }[],
     cols?: number,
     breakpoint?: "lg" | "md" | "sm" | "xs",
+    expectedLayoutVersion?: number,
   ): Promise<DashboardResponse> {
-    return this.http.post<DashboardResponse>(`/api/dashboards/${dashboardId}/auto-layout`, {
-      items,
-      cols,
-      breakpoint,
-    });
+    return this.withLayoutConflict(expectedLayoutVersion ?? null, () =>
+      this.http.post<DashboardResponse>(`/api/dashboards/${dashboardId}/auto-layout`, {
+        items,
+        cols,
+        breakpoint,
+        ...(expectedLayoutVersion !== undefined ? { expectedLayoutVersion } : {}),
+      }),
+    );
+  }
+
+  /** Run one layout write; a 409 carrying the server's current dashboard becomes a
+   *  `HelioLayoutConflictError`. Never re-sends (HEL-1524): the caller decides how to recompute. */
+  private async withLayoutConflict<T>(
+    expectedLayoutVersion: number | null,
+    send: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await send();
+    } catch (err) {
+      if (err instanceof HelioApiError && err.status === 409) {
+        const current = (err.body as { dashboard?: unknown } | undefined)?.dashboard;
+        if (current !== null && typeof current === "object") {
+          throw new HelioLayoutConflictError(
+            err.url,
+            err.message,
+            current as DashboardResponse,
+            expectedLayoutVersion,
+          );
+        }
+      }
+      throw err;
+    }
   }
 }

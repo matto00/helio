@@ -248,6 +248,23 @@ class RefinementServiceSpec
       persisted.get.latestProposal shouldBe empty
     }
 
+    "mint a server-side proposalId, store the same one, and replace one the model wrote (HEL-1522)" in {
+      val user  = newUser()
+      val dash  = createDashboardFor(user)
+      val panel = createPanelFor(dash.id, user)
+      val written = "model-wrote-this"
+      val withModelId = panelUpdateJson(panel.id.value, "New title").stripSuffix("}") + s""","proposalId":"$written"}"""
+
+      val service = newRefinementService(new FakeClaudeTransport(Vector(cannedResponse(withModelId))))
+      val response = await(service.refine(RefinementRequest(RefinementTarget("dashboard", dash.id.value), "rename the panel"), user)).toOption.get
+
+      val minted = response.patchSet.proposalId.getOrElse(fail("no proposalId minted"))
+      minted should not be written
+      UUID.fromString(minted).toString shouldBe minted
+      val persisted = await(conversationRepo.findById(AuthoringConversationId(response.conversationId), user)).get
+      persisted.latestPatchSet.flatMap(_.proposalId) shouldBe Some(minted)
+    }
+
     "reject a nonexistent dashboard target before any Claude call" in {
       val user      = newUser()
       val transport = new FakeClaudeTransport()

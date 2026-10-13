@@ -3,6 +3,8 @@ package com.helio.domain.engine
 import ExpressionEvaluator.SupportedFunctions
 import ExpressionTokenizer.{Token, tokenize}
 
+import scala.collection.mutable.Stack
+
 // Strict and legacy recursive-descent parsers and the AST they build.
 private[engine] object ExpressionParser {
 
@@ -70,13 +72,70 @@ private[engine] object ExpressionParser {
       case _                                                               => Left(ExpressionDateTimeFunctions.UnitsMessage)
     } else Right(())
 
+  /** HEL-1455: bound on bracket / call-argument / unary `-` / `not` nesting (the recursive-descent depth). */
+  private[engine] val MaxNestingDepth = 100
+  /** HEL-1455: bound on the depth of a parsed tree (nodes on the longest root-to-leaf path), which also caps a long
+   *  flat operator chain. 200 is measured: the worst in-limit shapes fit a 512 KB stack, half the 1 MB JDK default
+   *  that production runs on (see `ExpressionDepthLimitSpec`). Every recursive consumer of the AST is bounded by it. */
+  private[engine] val MaxTreeDepth = 200
+
+  private val NestingMsg =
+    s"Expression is nested too deeply (at most $MaxNestingDepth levels of brackets, function arguments, unary '-' or 'not')"
+  private val TreeDepthMsg =
+    s"Expression tree is too deep (at most $MaxTreeDepth levels); split a long chain of operators across several steps"
+
+  /** Depth of `root` (a lone literal is 1), computed with an explicit stack so it cannot overflow. */
+  private def treeDepth(root: Expr): Int = {
+    var deepest = 0
+    val stack   = Stack[(Expr, Int)]((root, 1))
+    while (stack.nonEmpty) {
+      val (e, d) = stack.pop()
+      if (d > deepest) deepest = d
+      e match {
+        case BinOp(_, l, r) => stack.push((l, d + 1)); stack.push((r, d + 1))
+        case Cmp(_, l, r)   => stack.push((l, d + 1)); stack.push((r, d + 1))
+        case And(l, r)      => stack.push((l, d + 1)); stack.push((r, d + 1))
+        case Or(l, r)       => stack.push((l, d + 1)); stack.push((r, d + 1))
+        case Neg(x)         => stack.push((x, d + 1))
+        case Not(x)         => stack.push((x, d + 1))
+        case Call(_, args)  => args.foreach(a => stack.push((a, d + 1)))
+        case _              => ()
+      }
+    }
+    deepest
+  }
+
+  private def boundTree(ast: Expr): Either[String, Expr] =
+    if (treeDepth(ast) > MaxTreeDepth) Left(TreeDepthMsg) else Right(ast)
+
+  /** Maximum running `(` depth of the token stream, iteratively: the legacy parser's only recursion is brackets. */
+  private def maxParenDepth(tokens: Vector[Token]): Int = {
+    var depth = 0; var max = 0
+    tokens.foreach {
+      case Token.LParen => depth += 1; if (depth > max) max = depth
+      case Token.RParen => depth -= 1
+      case _            => ()
+    }
+    max
+  }
+
   // ── Strict parser (used by parse()/validate() — no legacy fallback) ─────────
 
   private final class StrictParser(tokens: Vector[Token]) {
     private var pos: Int = 0
+    private var depth: Int = 0
 
     private def peek: Token     = if (pos < tokens.length) tokens(pos) else Token.EOF
     private def advance(): Unit = if (pos < tokens.length) pos += 1
+
+    /** Runs a recursive production one nesting level deeper, or fails before recursing past [[MaxNestingDepth]]. */
+    private def nested[A](body: => Either[String, A]): Either[String, A] =
+      if (depth >= MaxNestingDepth) Left(NestingMsg)
+      else {
+        depth += 1
+        try body
+        finally depth -= 1
+      }
 
     def parseAll(): Either[String, Expr] =
       parseExpr().flatMap { expr =>
@@ -114,7 +173,7 @@ private[engine] object ExpressionParser {
       if (atKeyword("not")) {
         advance()
         if (peek == Token.EOF || peek == Token.RParen || peek == Token.Comma) Left(reservedWordMsg("not"))
-        else parseNot().map(Not(_))
+        else nested(parseNot()).map(Not(_))
       } else parseCmp()
 
     /** `cmpExpr -> sum (CMP sum)?`: non-associative, so a second comparison is a parse error. */
@@ -161,7 +220,7 @@ private[engine] object ExpressionParser {
     /** `unary -> '-' unary | factor`: binds tighter than `*`/`/`, applies to the single following
      *  factor, and repeats (`--x` = `x`). Unary plus is deliberately not part of the grammar. */
     private def parseUnary(): Either[String, Expr] =
-      if (peek == Token.Minus) { advance(); parseUnary().map(Neg(_)) }
+      if (peek == Token.Minus) { advance(); nested(parseUnary()).map(Neg(_)) }
       else parseFactor()
 
     /** `firstArgError` rewrites a failure of the FIRST argument only (see `date_trunc`'s unit). */
@@ -197,8 +256,8 @@ private[engine] object ExpressionParser {
           // A bare word in date_trunc's unit position (`date_trunc(day, $ts)`, `-day`, `lower(day)`) is
           // the units error, not the `$`-prefix one, which would send it to the legacy parser.
           val argsE =
-            if (name == "date_trunc") parseArgs(m => if (m == DollarPrefixRequiredMsg) ExpressionDateTimeFunctions.UnitsMessage else m)
-            else parseArgs()
+            if (name == "date_trunc") nested(parseArgs(m => if (m == DollarPrefixRequiredMsg) ExpressionDateTimeFunctions.UnitsMessage else m))
+            else nested(parseArgs())
           argsE.flatMap { args =>
             if (peek != Token.RParen) Left("Expected closing ')' in function call")
             else {
@@ -210,8 +269,9 @@ private[engine] object ExpressionParser {
       case Token.Ident(_) => Left(DollarPrefixRequiredMsg)
       case Token.LParen =>
         advance()
-        val inner = parseExpr()
-        if (peek != Token.RParen) Left("Expected closing ')'")
+        val inner = nested(parseExpr())
+        if (inner == Left(NestingMsg)) inner // only the limit error escapes; any other failure keeps the old closing-bracket error
+        else if (peek != Token.RParen) Left("Expected closing ')'")
         else { advance(); inner }
       case Token.EOF => Left("Unexpected end of expression")
       case other     => Left(s"Unexpected token in expression: $other")
@@ -273,11 +333,14 @@ private[engine] object ExpressionParser {
 
   private[engine] def parse(expr: String): Either[String, Expr] =
     if (expr.trim.isEmpty) Left("Expression is empty")
-    else tokenize(expr).flatMap(ts => new StrictParser(ts).parseAll())
+    else tokenize(expr).flatMap(ts => new StrictParser(ts).parseAll()).flatMap(boundTree)
 
   private[engine] def parseLegacy(expr: String): Either[String, Expr] =
     if (expr.trim.isEmpty) Left("Expression is empty")
-    else tokenize(expr).flatMap(ts => new LegacyParser(ts).parseAll())
+    else tokenize(expr).flatMap { ts =>
+      if (maxParenDepth(ts) > MaxNestingDepth) Left(NestingMsg)
+      else new LegacyParser(ts).parseAll().flatMap(boundTree)
+    }
 
   private[engine] def isDollarPrefixError(msg: String): Boolean = msg == DollarPrefixRequiredMsg
 }

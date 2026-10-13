@@ -485,6 +485,13 @@ class FlywayNonSuperuserMigrationSpec extends AnyWordSpec with Matchers {
           await(migratedDb.run(
             sql"SELECT count(*) FROM pg_class WHERE relname IN ('data_sources', 'image_uploads', 'pipeline_roots', 'pipeline_steps', 'panels') AND relforcerowsecurity".as[Int].head
           )) shouldBe 5
+          // HEL-1522: V131 (after the V118 target the list above is checked at) creates and FORCEs
+          // patch_set_applied_proposals as this same non-superuser role.
+          withClue("Table 'patch_set_applied_proposals' should have FORCE ROW LEVEL SECURITY after the full chain: ") {
+            await(migratedDb.run(
+              sql"SELECT relforcerowsecurity FROM pg_class WHERE relname = 'patch_set_applied_proposals' AND relkind = 'r'".as[Boolean].head
+            )) shouldBe true
+          }
         } finally migratedDb.close()
       } finally embeddedPostgres.close()
     }

@@ -14,6 +14,8 @@ import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPay
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
+import com.helio.infrastructure.ai.ClaudeContentBlock
+import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import org.mockito.ArgumentCaptor
@@ -336,6 +338,56 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       verify(previewService).preview(captor.capture(), any[AuthenticatedUser]())
       captor.getValue.edits.head.target.fingerprint shouldBe None
       executor.proposal.collect { case AssistantProposal.Patch(patchSet, _) => patchSet.edits.head.target.fingerprint } shouldBe Some(None)
+    }
+  }
+
+  "execute(\"propose_patch_set\", ...) proposalId (HEL-1522)" should {
+
+    def patchInput(extra: (String, JsValue)*): JsObject = JsObject(Map(
+      "edits" -> JsArray(JsObject(
+        "target" -> JsObject("kind" -> JsString("panel"), "id" -> JsString("p1")),
+        "op"     -> JsString("update"),
+        "patch"  -> JsObject("title" -> JsString("T"))
+      ))
+    ) ++ extra)
+
+    def executorWithPreview(): AssistantToolExecutor = {
+      val previewService = mock(classOf[PatchSetPreviewService])
+      when(previewService.preview(any[PatchSet](), any[AuthenticatedUser]()))
+        .thenReturn(Future.successful(Right(PatchSetPreviewResponse(Vector.empty))))
+      newExecutor(patchSetPreviewService = previewService)
+    }
+
+    "mint a UUID proposalId, return it in the tool result and capture the same id" in {
+      val executor = executorWithPreview()
+      val result   = await(executor.execute("propose_patch_set", patchInput())).toOption.get.parseJson.asJsObject
+      val minted   = result.fields("proposalId").asInstanceOf[JsString].value
+      UUID.fromString(minted).toString shouldBe minted
+      executor.proposal.collect { case AssistantProposal.Patch(patchSet, _) => patchSet.proposalId } shouldBe Some(Some(minted))
+    }
+
+    // Producer-side pin of the stored transcript shape the review hand-off reads (`extractProposal`).
+    "persist the tool result as a tool_result block whose string content carries the minted proposalId" in {
+      val executor = executorWithPreview()
+      val content  = await(executor.execute("propose_patch_set", patchInput())).toOption.get
+      val stored = AssistantConversationRepository.claudeContentBlockFormat
+        .write(ClaudeContentBlock.ToolResult("tu-1", content, isError = false)).asJsObject
+      stored.fields.keySet shouldBe Set("blockType", "toolUseId", "content", "isError")
+      stored.fields("blockType") shouldBe JsString("tool_result")
+      val body = stored.fields("content").asInstanceOf[JsString].value.parseJson.asJsObject
+      body.fields("proposalId") shouldBe JsString(executor.proposal.collect { case AssistantProposal.Patch(ps, _) => ps.proposalId.get }.get)
+      body.fields should contain key "edits"
+    }
+
+    "replace a model-written proposalId, including one that is not a UUID, without failing the proposal" in {
+      Seq(JsString("model-wrote-this"), JsString(UUID.randomUUID().toString), JsNumber(7)).foreach { written =>
+        val executor = executorWithPreview()
+        val result   = await(executor.execute("propose_patch_set", patchInput("proposalId" -> written)))
+        result shouldBe a[Right[_, _]]
+        val minted = result.toOption.get.parseJson.asJsObject.fields("proposalId")
+        minted should not be written
+        executor.proposal.collect { case AssistantProposal.Patch(patchSet, _) => patchSet.proposalId.map(JsString(_)) } shouldBe Some(Some(minted))
+      }
     }
   }
 

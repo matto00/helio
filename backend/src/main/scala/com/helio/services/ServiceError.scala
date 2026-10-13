@@ -47,6 +47,10 @@ object ServiceError {
    *  `ServiceResponse.completeError` emits it as `PatchSetStaleResponse`; `message` itself names every
    *  stale target because MCP clients forward only `message`. */
   final case class PatchSetStale(staleTargets: Vector[StaleTarget], message: String) extends ServiceError
+  /** 409 for a patch-set apply refused because the same caller already applied this `proposalId` (HEL-1522).
+   *  `ServiceResponse.completeError` emits it as `PatchSetAlreadyAppliedResponse` (a plain `Conflict` renders without
+   *  a `code`, and clients distinguish 409s only by `code`). */
+  final case class PatchSetAlreadyApplied(message: String) extends ServiceError
   /** Upstream / external service failure — used by connector preview / refresh
    *  paths that propagate REST or SQL fetch errors back as 502. */
   final case class BadGateway(message: String) extends ServiceError

@@ -517,7 +517,9 @@ object ExistenceNotLeakedRoutesSpec {
   /** Pinned inventory of `ServiceError.Forbidden(` producers; every entry is classified in
    *  forbidden-classification.md (all legitimate: the caller demonstrably already sees the
    *  resource, or the denial is not about a specific resource). The `PipelineRunPreview.scala` entry is
-   *  the step-preview AI-closure gate, moved unchanged out of `PipelineRunService.scala` (HEL-1393). */
+   *  the single pre-execute access re-check (`guardedExecution`, HEL-1516) that replaced the step-preview AI-closure
+   *  gate (HEL-1393): reached only after `previewAtNode`'s `findByIdShared(.., Some(user))` returned the pipeline, so
+   *  the caller already knew it existed; a just-revoked caller can tell 403 from 404 (HEL-1503 ruling A). */
   val expectedForbiddenProducers: Map[String, Int] = Map(
     "AccessCheckerImpl.scala"        -> 1,
     "AutoLayoutService.scala"        -> 1,

@@ -19,6 +19,15 @@ const preview: PatchSetPreviewResponse = {
 };
 
 describe("stampFingerprints", () => {
+  it("keeps the server-minted proposalId so apply can be refused a second time (HEL-1522)", () => {
+    const stamped = stampFingerprints(
+      { ...patchSet, proposalId: "0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10" },
+      preview,
+    );
+    expect(stamped.proposalId).toBe("0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10");
+    expect(stampFingerprints(patchSet, preview)).not.toHaveProperty("proposalId");
+  });
+
   it("copies each update and delete entry's fingerprint onto the matching target", () => {
     const stamped = stampFingerprints(patchSet, preview);
     expect(stamped.edits[0].target).toEqual({ kind: "panel", id: "p1", fingerprint: "v1:a" });

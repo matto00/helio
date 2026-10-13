@@ -289,6 +289,32 @@ describe("PatchSetReviewPage", () => {
     expect(screen.getByRole("button", { name: /accept & apply/i })).toBeEnabled();
   });
 
+  it("shows a final already-applied state, with no Apply or Re-preview action, when apply answers 409 PATCH_SET_ALREADY_APPLIED (HEL-1522)", async () => {
+    mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
+    mockedApplyPatchSet.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { message: "This proposal was already applied.", code: "PATCH_SET_ALREADY_APPLIED" },
+      },
+    });
+
+    renderPage({
+      patchSet: { ...explicitPatchSet, proposalId: "0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10" },
+    });
+    await screen.findByRole("button", { name: /accept & apply/i });
+    fireEvent.click(screen.getByRole("button", { name: /accept & apply/i }));
+
+    expect(await screen.findByText(/this proposal was already applied/i)).toBeInTheDocument();
+    expect(screen.getByText(/ask for a new proposal/i)).toBeInTheDocument();
+    expect(mockedApplyPatchSet.mock.calls[0][0].proposalId).toBe(
+      "0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10",
+    );
+    expect(screen.queryByRole("button", { name: /accept & apply/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /re-preview/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("home-route")).not.toBeInTheDocument();
+  });
+
   it("Accept pushes an Undo toast with duration 0 when the apply response carries an applicationId", async () => {
     mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
     mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponseWithApplicationId);

@@ -89,8 +89,9 @@ private[pipelines] final class PipelineStepWrites(
                               pipelineStepRepo.listByPipelineInternal(PipelineId(existing.pipelineId.value)).map { current =>
                                 // HEL-1515 (owner ruling, reject-at-write): a lane to one of this step's own
                                 // descendants could never be scheduled.
-                                val descendants = PipelineService.descendantStepIds(Set(existing.id.value), current) - existing.id.value
-                                LaneScope(current, PipelineService.ancestorChainOf(existing.parentStepId, current), descendants, selfId = Some(existing.id.value))
+                                // HEL-1521: and a step that depends on this one through lane links (the reverse closure
+                                // never follows this step's own stored lane edge, so re-saving it cannot false-positive).
+                                LaneScope.of(current, existing.parentStepId, Set(existing.id.value), selfId = Some(existing.id.value))
                               }
                             refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
                               case Left(err) => Future.successful(Left(err))
@@ -258,11 +259,13 @@ private[pipelines] final class PipelineStepWrites(
                       // same as every other parentStepId-anchored call site (task 7.3e).
                       // HEL-1514/HEL-1515: create's reference checks, run through the shared chain against the clone's
                       // prospective position (directly after `existing`, so its ancestors are `existing` plus
-                      // `existing`'s own chain). The clone takes over ALL of `existing`'s children, so a reference
-                      // into them is already a cycle on `existing` itself: no descendants to add here.
+                      // `existing`'s own chain). HEL-1521: the clone takes over ALL of `existing`'s children
+                      // (`spliceInsertAtInternal` with anchor `existing.id`), so those are its re-parented seeds. A
+                      // `Some` anchor never consults the root map, hence `Map.empty` (no extra DB read).
                       def laneScopeF: Future[LaneScope] =
                         pipelineStepRepo.listByPipelineInternal(pipeline.id).map { current =>
-                          LaneScope(current, PipelineService.ancestorChainOf(Some(existing.id), current), Set.empty, selfId = None)
+                          val reparented = StepPlacement.reparentedIds(CreateAnchor(Some(existing.id), None, attachAsTail = false), current, Map.empty)
+                          LaneScope.of(current, Some(existing.id), reparented, selfId = None)
                         }
                       refChecks.referenceChecksF[Pipeline](typedConfig, user, laneScopeF, Future.successful(Right(pipeline)), _.ownerId).flatMap {
                         case Left(err) => Future.successful(Left(err))

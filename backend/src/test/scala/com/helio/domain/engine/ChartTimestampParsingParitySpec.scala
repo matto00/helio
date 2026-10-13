@@ -20,7 +20,7 @@ class ChartTimestampParsingParitySpec extends AnyWordSpec with Matchers {
 
   "TimestampParsing.parseInstant" should {
     "agree with every case of the shared chart timestamp fixture" in {
-      cases.size should be >= 99
+      cases.size should be >= 125
       cases.foreach { c =>
         val input    = c.fields("input").asInstanceOf[JsString].value
         val expected = c.fields("epochMillis") match {

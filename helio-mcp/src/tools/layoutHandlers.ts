@@ -32,9 +32,11 @@ export async function updateDashboardLayoutHandler(
     items?: LayoutItem[];
     breakpoint?: LayoutBreakpoint;
     layouts?: BreakpointLayouts;
+    /** The `layoutVersion` of the dashboard the agent last read (HEL-1524). */
+    expectedLayoutVersion: number;
   },
 ): Promise<DashboardResponse> {
-  const { dashboardId, items, breakpoint, layouts } = input;
+  const { dashboardId, items, breakpoint, layouts, expectedLayoutVersion } = input;
   if ((items === undefined) === (layouts === undefined)) {
     throw new Error("Pass exactly one of `items` (one breakpoint) or `layouts` (per-breakpoint).");
   }
@@ -47,5 +49,5 @@ export async function updateDashboardLayoutHandler(
   if (LAYOUT_BREAKPOINTS.every((bp) => named[bp] === undefined)) {
     throw new Error("`layouts` must name at least one of lg, md, sm, xs.");
   }
-  return api.updateDashboardLayout(dashboardId, named);
+  return api.updateDashboardLayout(dashboardId, named, expectedLayoutVersion);
 }

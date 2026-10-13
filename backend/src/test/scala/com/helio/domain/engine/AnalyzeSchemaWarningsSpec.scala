@@ -168,13 +168,26 @@ class AnalyzeSchemaWarningsSpec extends AnyWordSpec with Matchers {
 
     // D3a completeness negatives (a)-(g)
 
-    "(a) not warn for a secondary-only column after a union with a source-kind secondary" in {
+    "(a) not warn for a secondary-only column after a union with an UNRESOLVED source-kind secondary" in {
       val roots = Map("L" -> Vector(f("a")))
       val steps = Vector(
         node("u", None, 0, "union", """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds"}}"""),
         node("s", Some("u"), 1, "select", """{"fields":["only_in_secondary"]}""")
       )
       warnings(steps, roots) shouldBe empty
+    }
+
+    // HEL-1520. Red on base and under EITHER mutation: M-proj (remove `union` from sourceDependencyOf --
+    // the projection then lacks `only_in_secondary`, so the first assertion warns) or M-ids (remove it
+    // from secondarySourceIdOf -- the source is then not name-complete, so the second assertion no
+    // longer warns). Both were run; each reddens this test.
+    "a union with a RESOLVED source-kind secondary is name-complete: warns on a column in neither input, not on a source-only one" in {
+      val roots = Map("L" -> Vector(f("a")))
+      val sec   = Map("ds" -> Vector(f("only_in_secondary")))
+      val u     = node("u", None, 0, "union", """{"mode":"byName","secondaryInput":{"kind":"source","dataSourceId":"ds"}}""")
+      warnings(Vector(u, node("s", Some("u"), 1, "select", """{"fields":["only_in_secondary"]}""")), roots, sec) shouldBe empty
+      codes(warnings(Vector(u, node("s", Some("u"), 1, "select", """{"fields":["in_neither"]}""")), roots, sec)) shouldBe
+        Vector("s" -> Missing)
     }
 
     "(b) not warn for a right-side column after a join with an unresolvable source secondary" in {
