@@ -3,6 +3,7 @@ package com.helio.services.telemetry
 import com.helio.api.protocols.admin.{AdminUsageProtocol, AdminUsageResponse}
 import com.helio.domain.model.UserId
 import com.helio.domain.util.Clock
+import com.helio.infrastructure.persistence.sources.StoredObjectDeletionRepository
 import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository
 import com.helio.testsupport.{JsonSchemaValidation, ProductTelemetryDbHarness}
 import org.scalatest.matchers.should.Matchers
@@ -30,7 +31,7 @@ class AdminUsageTotalsSpec extends AnyWordSpec with Matchers with ProductTelemet
   private def events()  = new ProductEventService(repo, clock)
   private def rollup()  = new ProductEventRollupService(repo, ProductTelemetryConfig(rateLimitPerWindow = 60, retentionDays = Retention), clock)
   private def usage(days: String = "30"): AdminUsageResponse =
-    await(new AdminUsageService(new ProductUsageRepository(ctx), clock).usage(Some(days))).toOption.get
+    await(new AdminUsageService(new ProductUsageRepository(ctx), new StoredObjectDeletionRepository(ctx), clock).usage(Some(days))).toOption.get
 
   private def provenance(user: UserId, d: LocalDate): Unit = {
     now = at(d)
@@ -65,6 +66,14 @@ class AdminUsageTotalsSpec extends AnyWordSpec with Matchers with ProductTelemet
     provenance(u6, day(1))
     now = at(day(2), "12:00:00")
     await(rollup().tickAt(now))
+  }
+
+  /** Replaces the whole queue with one row per `(key, attempts)`; an `image_uploads`-shaped source table. */
+  private def seedQueue(rows: (String, Int)*): Unit = {
+    priv(sqlu"DELETE FROM stored_object_deletions")
+    rows.foreach { case (k, attempts) =>
+      priv(sqlu"INSERT INTO stored_object_deletions (storage_key, source_table, attempts) VALUES (${s"images/$k.png"}, 'image_uploads', $attempts)")
+    }
   }
 
   "totals over the prod-like fixture (8 users 53..166 days old plus the system user)" should {
@@ -104,13 +113,49 @@ class AdminUsageTotalsSpec extends AnyWordSpec with Matchers with ProductTelemet
       t.activeLast30Days shouldBe None
     }
 
+    "count queued and stuck stored-object deletions live: stuck exactly at the cap, never below, independent of days" in {
+      seedProdLike()
+      seedQueue("q-below-1" -> 0, "q-below-2" -> 9, "q-at" -> 10, "q-above" -> 14)
+      Seq("1", "30", "365").foreach { d =>
+        val t = usage(d).totals
+        withClue(s"days=$d: ")((t.storedObjectDeletionsQueued, t.storedObjectDeletionsStuck) shouldBe ((4L, 2L)))
+      }
+      // a re-arm (attempts reset) is visible at once: counts are live, not rolled up
+      priv(sqlu"UPDATE stored_object_deletions SET attempts = 0 WHERE storage_key = 'images/q-at.png'")
+      val t = usage().totals
+      (t.storedObjectDeletionsQueued, t.storedObjectDeletionsStuck) shouldBe ((4L, 1L))
+    }
+
+    "count the queue before anything is rolled up, and report zeros for an empty queue" in {
+      priv(sqlu"DELETE FROM stored_object_deletions")
+      val empty = usage().totals
+      (empty.storedObjectDeletionsQueued, empty.storedObjectDeletionsStuck) shouldBe ((0L, 0L))
+      seedQueue("n-1" -> 10, "n-2" -> 3)
+      val resp = usage()
+      resp.rolledThrough shouldBe None
+      (resp.totals.storedObjectDeletionsQueued, resp.totals.storedObjectDeletionsStuck) shouldBe ((2L, 1L))
+    }
+
+    "carry no key, source table or queue id in the serialised body" in {
+      seedProdLike()
+      seedQueue("secret-key" -> 10)
+      val id = priv(sql"SELECT id FROM stored_object_deletions WHERE storage_key = 'images/secret-key.png'".as[Long].head)
+      val text = usage().toJson.compactPrint
+      text should not include "secret-key"
+      text should not include "image_uploads"
+      text should not include "storage_key"
+      usage().toJson.asJsObject.fields("totals").asJsObject.fields.view.filterKeys(_.startsWith("storedObject")).toMap shouldBe
+        Map("storedObjectDeletionsQueued" -> JsNumber(1), "storedObjectDeletionsStuck" -> JsNumber(1))
+      id should be > 0L
+    }
+
     "carry no user identifier anywhere in the serialised response, totals included" in {
       seedProdLike()
       val text = usage().toJson.compactPrint
       (Seq(userA, userB).map(_.value) :+ SystemId).foreach(id => text should not include id)
       text should not include "userId"
       usage().toJson.asJsObject.fields("totals").asJsObject.fields.keySet shouldBe
-        Set("totalUsers", "activeLast7Days", "activeLast30Days", "asOf")
+        Set("totalUsers", "activeLast7Days", "activeLast30Days", "asOf", "storedObjectDeletionsQueued", "storedObjectDeletionsStuck")
     }
 
     "serialise to a body that validates against admin-usage-response.schema.json, nulls included" in {

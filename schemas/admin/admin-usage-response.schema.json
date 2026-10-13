@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/admin/admin-usage-response.schema.json",
   "title": "AdminUsageResponse",
-  "description": "200 body of GET /api/admin/usage?days=N (HEL-1211, HEL-1420), owner-tier only (403 TIER_FORBIDDEN otherwise; 400 for days that is not an integer in 1..365, never clamped). Aggregates read from the product-telemetry rollups, plus one identifier-free count of registered users in `totals`; no user identifier. The window is the last `days` UTC days ending at `rolledThrough`, or ending today when `rolledThrough` is null (nothing rolled up yet). Count series are zero-filled; weeklyActiveUsers and TTFD percentiles are null (a gap, never 0) for a day without data.",
+  "description": "200 body of GET /api/admin/usage?days=N (HEL-1211, HEL-1420), owner-tier only (403 TIER_FORBIDDEN otherwise; 400 for days that is not an integer in 1..365, never clamped). Aggregates read from the product-telemetry rollups, plus identifier-free counts in `totals` (registered users, and the live stored-object deletion queue size and stuck count); no user identifier. The window is the last `days` UTC days ending at `rolledThrough`, or ending today when `rolledThrough` is null (nothing rolled up yet). Count series are zero-filled; weeklyActiveUsers and TTFD percentiles are null (a gap, never 0) for a day without data.",
   "type": "object",
   "properties": {
     "days": { "type": "integer", "minimum": 1, "maximum": 365 },
@@ -57,14 +57,23 @@
     "provenanceOpensPerDay": { "type": "array", "items": { "$ref": "#/$defs/dayCount" } },
     "totals": {
       "type": "object",
-      "description": "All-time headline totals, independent of `days`. totalUsers counts registered users excluding the system user. activeLast7Days/activeLast30Days are distinct users with any TRACKED product event in the trailing 7/30 UTC days ending at asOf (= rolledThrough); null (never 0) when the rollup has no value for that day, and both null with asOf null when nothing has been rolled up.",
+      "description": "All-time headline totals, independent of `days`. totalUsers counts registered users excluding the system user. activeLast7Days/activeLast30Days are distinct users with any TRACKED product event in the trailing 7/30 UTC days ending at asOf (= rolledThrough); null (never 0) when the rollup has no value for that day, and both null with asOf null when nothing has been rolled up. storedObjectDeletionsQueued/storedObjectDeletionsStuck are LIVE counts (not rolled up, always present, also when nothing has been rolled up) of the stored-object deletion queue: all queued rows, and those that reached the retry cap (a stuck row is re-armed 24 h after its last attempt). Counts only; no key, source table or row id.",
       "properties": {
         "totalUsers": { "type": "integer", "minimum": 0 },
         "activeLast7Days": { "type": ["integer", "null"], "minimum": 0 },
         "activeLast30Days": { "type": ["integer", "null"], "minimum": 0 },
-        "asOf": { "type": ["string", "null"], "format": "date" }
+        "asOf": { "type": ["string", "null"], "format": "date" },
+        "storedObjectDeletionsQueued": { "type": "integer", "minimum": 0 },
+        "storedObjectDeletionsStuck": { "type": "integer", "minimum": 0 }
       },
-      "required": ["totalUsers", "activeLast7Days", "activeLast30Days", "asOf"],
+      "required": [
+        "totalUsers",
+        "activeLast7Days",
+        "activeLast30Days",
+        "asOf",
+        "storedObjectDeletionsQueued",
+        "storedObjectDeletionsStuck"
+      ],
       "additionalProperties": false
     },
     "activeUsers": {

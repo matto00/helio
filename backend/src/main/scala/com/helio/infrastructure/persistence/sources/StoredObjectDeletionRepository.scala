@@ -11,6 +11,9 @@ import scala.concurrent.{ExecutionContext, Future}
 /** One claimed `stored_object_deletions` row: the queue id and the storage key to remove. */
 final case class QueuedObjectDeletion(id: Long, storageKey: String)
 
+/** Live queue sizes for the owner admin view: every queued row, and those at the attempt cap (HEL-1531). */
+final case class QueueCounts(queued: Long, stuck: Long)
+
 /** What still references a queued key (HEL-1530, design.md D5).
  *
  *  - [[Authoritative]]: a row whose own delete re-queues this exact key, so the entry is dequeued without deleting.
@@ -71,6 +74,31 @@ class StoredObjectDeletionRepository(ctx: DbContext)(implicit ec: ExecutionConte
         .as[(Long, String)]
     ).map(_.map { case (id, key) => QueuedObjectDeletion(id, key) }.toVector)
   }
+
+  /** Re-arms rows stuck at the attempt cap whose last attempt is at or before `cutoff` (HEL-1531, design.md D1):
+   *  `attempts` back to 0 and the lease cleared, so the normal claim and backoff apply again. A new-style row
+   *  (`not_before` non-null) keeps `claimed_at = 'infinity'`; a legacy row's `claimed_at` is cleared. A capped row
+   *  with no `last_attempt_at` is left stuck (hand SQL only; the drain always stamps it). Returns rows re-armed. */
+  def rearm(cutoff: Instant, maxAttempts: Int): Future[Int] = {
+    val cutoffTs = Timestamp.from(cutoff)
+    ctx.withSystemContext(
+      sqlu"""UPDATE stored_object_deletions
+             SET attempts    = 0,
+                 claimed_at  = CASE WHEN not_before IS NULL THEN NULL ELSE claimed_at END,
+                 lease_until = NULL
+             WHERE attempts >= $maxAttempts
+               AND last_attempt_at IS NOT NULL
+               AND last_attempt_at <= $cutoffTs"""
+    )
+  }
+
+  /** Queue size and the number of rows at the attempt cap, in one statement. Privileged pool: the app pool would
+   *  read 0 rows (FORCE RLS, no policy) without any error. */
+  def queueCounts(maxAttempts: Int): Future[QueueCounts] =
+    ctx.withSystemContext(
+      sql"""SELECT count(*), count(*) FILTER (WHERE attempts >= $maxAttempts) FROM stored_object_deletions"""
+        .as[(Long, Long)].head
+    ).map { case (queued, stuck) => QueueCounts(queued, stuck) }
 
   /** Classifies each of `keys` once for the whole claimed batch (one statement per table family, not per key).
    *  Authoritative holders are `image_uploads`, file-backed `data_sources` (the trigger's own key expression),

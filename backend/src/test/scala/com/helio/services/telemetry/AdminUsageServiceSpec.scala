@@ -3,6 +3,7 @@ package com.helio.services.telemetry
 import com.helio.api.protocols.admin.{AdminUsageDayCount, AdminUsageProtocol, AdminUsageResponse}
 import com.helio.domain.model.UserId
 import com.helio.domain.util.Clock
+import com.helio.infrastructure.persistence.sources.StoredObjectDeletionRepository
 import com.helio.infrastructure.persistence.telemetry.ProductUsageRepository
 import com.helio.services.ServiceError
 import com.helio.testsupport.ProductTelemetryDbHarness
@@ -31,7 +32,7 @@ class AdminUsageServiceSpec extends AnyWordSpec with Matchers with ProductTeleme
   private def rollup(): ProductEventRollupService =
     new ProductEventRollupService(repo, ProductTelemetryConfig(rateLimitPerWindow = 60, retentionDays = Retention), clock)
   private def usage(days: Option[String] = Some("7")): Either[ServiceError, AdminUsageResponse] =
-    await(new AdminUsageService(new ProductUsageRepository(ctx), clock).usage(days))
+    await(new AdminUsageService(new ProductUsageRepository(ctx), new StoredObjectDeletionRepository(ctx), clock).usage(days))
 
   private def emit(user: UserId, when: Instant, json: String): Unit = {
     now = when

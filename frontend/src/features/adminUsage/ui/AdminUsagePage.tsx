@@ -13,6 +13,7 @@ import { formatCount, formatDuration, formatPercent, shortDay } from "../format"
 import { Stat } from "./Stat";
 import { UsageCard } from "./UsageCard";
 import { UsageChart } from "./UsageChart";
+import { StorageCleanup } from "./StorageCleanup";
 import { UsageTotals } from "./UsageTotals";
 import "./AdminUsagePage.css";
 
@@ -285,6 +286,7 @@ export function AdminUsagePage() {
             )}
           </p>
           <UsageTotals totals={data.totals} />
+          <StorageCleanup totals={data.totals} />
           {data.rolledThrough === null ? (
             <EmptyState
               variant="main"

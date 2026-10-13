@@ -29,7 +29,14 @@ describe("AdminUsage response contract (schemas/admin/admin-usage-response.schem
     const unrolled: AdminUsage = {
       ...usage,
       rolledThrough: null,
-      totals: { totalUsers: 8, activeLast7Days: null, activeLast30Days: null, asOf: null },
+      totals: {
+        totalUsers: 8,
+        activeLast7Days: null,
+        activeLast30Days: null,
+        asOf: null,
+        storedObjectDeletionsQueued: 3,
+        storedObjectDeletionsStuck: 1,
+      },
     };
     expect(errors(unrolled)).toEqual([]);
   });
@@ -40,6 +47,13 @@ describe("AdminUsage response contract (schemas/admin/admin-usage-response.schem
     const { asOf: _asOf, ...partialTotals } = usage.totals;
     expect(errors({ ...usage, totals: partialTotals })).not.toEqual([]);
     expect(errors({ ...usage, days: 366 })).not.toEqual([]);
+  });
+
+  it("rejects totals that omit a stored-object deletion queue count", () => {
+    const { storedObjectDeletionsQueued: _q, ...noQueued } = usage.totals;
+    expect(errors({ ...usage, totals: noQueued })).not.toEqual([]);
+    const { storedObjectDeletionsStuck: _s, ...noStuck } = usage.totals;
+    expect(errors({ ...usage, totals: noStuck })).not.toEqual([]);
   });
 
   it("rejects any extra field on totals (the response stays identifier-free)", () => {

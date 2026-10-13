@@ -351,7 +351,7 @@ final class ApiRoutes(
   // HEL-1208: AuthService takes the product-event service as an Option (its own optionality is
   // unchanged by this ticket), so the always-present service is passed as `Some`.
   // HEL-1211: owner-only usage view; reads the rollup tables only via ProductUsageRepository.
-  private val adminUsageService = new AdminUsageService(new ProductUsageRepository(dbContext), SystemClock)
+  private val adminUsageService = new AdminUsageService(new ProductUsageRepository(dbContext), new StoredObjectDeletionRepository(dbContext), SystemClock)
   private val adminAccessService = new AdminAccessService(userRepo)
 
   private val productEventService = new ProductEventService(new ProductEventRepository(dbContext), SystemClock)

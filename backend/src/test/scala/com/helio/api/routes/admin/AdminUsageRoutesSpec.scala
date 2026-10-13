@@ -195,7 +195,7 @@ class AdminUsageRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest
         b.fields("templateChoices") shouldBe JsArray(JsObject("template" -> JsString("streamer"), "count" -> JsNumber(1)))
         n(b.fields("activeUsers").asInstanceOf[JsArray].elements.map(_.asJsObject).find(_.fields("day") == JsString(today.toString)).get.fields("dailyActiveUsers")) shouldBe 2L
         val totals = b.fields("totals").asJsObject
-        totals.fields.keySet shouldBe Set("totalUsers", "activeLast7Days", "activeLast30Days", "asOf")
+        totals.fields.keySet shouldBe Set("totalUsers", "activeLast7Days", "activeLast30Days", "asOf", "storedObjectDeletionsQueued", "storedObjectDeletionsStuck")
         n(totals.fields("totalUsers")) shouldBe 3L
         totals.fields("asOf") shouldBe b.fields("rolledThrough")
         val text = responseAs[String]

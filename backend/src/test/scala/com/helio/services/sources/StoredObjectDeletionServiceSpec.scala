@@ -184,7 +184,7 @@ class StoredObjectDeletionServiceSpec extends AnyWordSpec with Matchers with Bef
       val stale    = queuedRow(); sql(sqlu"UPDATE stored_object_deletions SET claimed_at = ${Timestamp.from(now.minusSeconds(301))} WHERE storage_key = $stale")
       val backoff  = queuedRow(); sql(sqlu"UPDATE stored_object_deletions SET attempts = 1, last_attempt_at = ${Timestamp.from(now.minusSeconds(30))} WHERE storage_key = $backoff")
       val due      = queuedRow(); sql(sqlu"UPDATE stored_object_deletions SET attempts = 1, last_attempt_at = ${Timestamp.from(now.minusSeconds(90))} WHERE storage_key = $due")
-      val capped   = queuedRow(); sql(sqlu"UPDATE stored_object_deletions SET attempts = 10, last_attempt_at = ${Timestamp.from(now.minusSeconds(100000))} WHERE storage_key = $capped")
+      val capped   = queuedRow(); sql(sqlu"UPDATE stored_object_deletions SET attempts = 10, last_attempt_at = ${Timestamp.from(now.minusSeconds(3600))} WHERE storage_key = $capped")
       pass()
       present(leased) shouldBe true
       present(backoff) shouldBe true
