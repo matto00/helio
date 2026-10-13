@@ -590,8 +590,11 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       fromCsv(csv).fields.head.dataType shouldBe StringType
     }
 
+    // HEL-1424: was a single-column `"val\n1\n\n3"`. In a one-column file an empty cell IS a blank line,
+    // which the row loader skips (no row), so it is no longer evidence of nullability; the blank CELL is
+    // now expressed in a two-column file. Same intent, corrected fixture shape.
     "mark field nullable when any cell is empty" in {
-      val csv = "val\n1\n\n3"
+      val csv = "val,other\n1,a\n,b\n3,c"
       fromCsv(csv).fields.head.nullable shouldBe true
     }
 
@@ -609,16 +612,15 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       schema.fields.find(_.name == "score").get.nullable shouldBe true
     }
 
-    "cap sampling at 100 rows" in {
-      // Rows 1-100 are integers; row 101 is "hello" — should NOT affect the result
-      // (HEL-893: type is StringType regardless, but the 100-row cap on nullability
-      // sampling is what this test actually pins -- add a 101st empty cell that must
-      // NOT be sampled).
-      val dataRows = (1 to 100).map(_.toString) ++ Seq("")
-      val csv = "val\n" + dataRows.mkString("\n")
+    // HEL-1424: replaces "cap sampling at 100 rows" (which pinned that a blank at row 101 was NOT seen).
+    // Nullability now folds over every data row, so that blank IS seen; type is still StringType.
+    "sample every row, not only the first 100 (HEL-1424)" in {
+      val dataRows = (1 to 100).map(i => s"$i,x") ++ Seq(",x")
+      val csv = "val,other\n" + dataRows.mkString("\n")
       val schema = fromCsv(csv)
       schema.fields.head.dataType shouldBe StringType
-      schema.fields.head.nullable shouldBe false
+      schema.fields.head.nullable shouldBe true
+      schema.fields(1).nullable shouldBe false
     }
 
     "handle a CSV with only a header row" in {
@@ -721,8 +723,31 @@ class SchemaInferenceEngineSpec extends AnyWordSpec with Matchers {
       fromCsv("   \n1,2").fields shouldBe empty
     }
 
-    "still treat the trailing empty line after a final newline as a sampled empty row" in {
-      fromCsv("a,b\n1,2\n").fields.map(_.nullable) shouldBe Seq(true, true)
+    // HEL-1424: was `Seq(true, true)` ("trailing empty line is a sampled empty row"). The row loader
+    // (InProcessPipelineEngine) skips blank lines, so that line is not a data row; counting it advertised every
+    // column of every newline-terminated CSV as nullable. Deliberate expectation change, not a fixture tweak.
+    "not treat the trailing empty line after a final newline as a data row" in {
+      fromCsv("a,b\n1,2\n").fields.map(_.nullable) shouldBe Seq(false, false)
+    }
+
+    "skip blank and whitespace-only lines but still mark a blank CELL nullable (HEL-1424)" in {
+      fromCsv("a,b\n1,2\n\n   \n3,4\n").fields.map(_.nullable) shouldBe Seq(false, false)
+      fromCsv("a,b\n1,\n\n3,4\n").fields.map(_.nullable) shouldBe Seq(false, true)
+    }
+
+    "report an all-blank column as nullable (HEL-1424)" in {
+      fromCsv("id,notes\n1,\n2,\n3,\n").fields.map(f => f.name -> f.nullable) shouldBe Seq("id" -> false, "notes" -> true)
+    }
+
+    "see a blank beyond the first hundred data rows (HEL-1424)" in {
+      val csv = "id,score\n" + (1 to 150).map(i => if (i == 150) s"$i," else s"$i,x").mkString("\n") + "\n"
+      fromCsv(csv).fields.map(f => f.name -> f.nullable) shouldBe Seq("id" -> false, "score" -> true)
+      fromCsvBytes(csv.getBytes("UTF-8")) shouldBe fromCsv(csv)
+    }
+
+    "infer shallow nullability from JsNull and absent keys (HEL-1424)" in {
+      val objs = Vector("""{"a":1,"b":null,"c":1}""", """{"a":2,"b":null}""").map(_.parseJson.asJsObject)
+      inferShallowFromJsObjects(objs).map(f => f.name -> f.nullable) shouldBe Seq("a" -> false, "b" -> true, "c" -> true)
     }
 
     "give byte-input inference and preview identical results to the String input, including multi-byte text" in {

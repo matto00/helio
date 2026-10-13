@@ -104,7 +104,7 @@ class CsvBlankCellsNullSnapshotSpec
 
     "eq \"\" matches fresh null cells AND a legacy stored \"\" cell, for every cast (design D10b)" in {
       val pid = seed(Vector(legacyBlank))
-      for (cast <- Vector(SortCast.AsText, SortCast.AsNumeric)) {
+      for (cast <- Vector(SortCast.AsText, SortCast.AsNumeric, SortCast.AsTimestamp)) {
         val filter = FilterSpec(None, Vector.empty, Map.empty, Vector(OpSpec.Eq("team", cast, "")))
         withClue(s"cast=$cast ") { scores(pid, Some(filter)).toSet shouldBe Set("2", "4", "9") }
       }

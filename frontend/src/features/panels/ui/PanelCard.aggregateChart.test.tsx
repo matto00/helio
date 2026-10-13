@@ -145,7 +145,7 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
     renderCard();
     const chart = await screen.findByTestId("echarts");
     const opt = optionOf(chart);
-    expect(opt.xAxis?.data).toEqual(["east", "null", "west"]);
+    expect(opt.xAxis?.data).toEqual(["east", "(blank)", "west"]);
     expect(opt.series?.[0]).toMatchObject({ type: "bar", name: "sum(amount)", data: [15, 2, 7] });
   });
 
@@ -187,16 +187,41 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
     expect(screen.getByText("r-east-2")).toBeInTheDocument();
   });
 
-  it("the null group plots as 'null' but a click selects blank (HEL-1408 D10a) and Inspect lists its null-keyed record", async () => {
+  it("the null group plots as '(blank)' but a click selects blank (HEL-1408 D10a / HEL-1424) and Inspect lists its null-keyed record", async () => {
     renderCard();
     const chart = (await screen.findByTestId("echarts")) as MockChartNode;
     act(() => {
-      chart.__onEvents?.click({ componentType: "series", name: "null", seriesName: "sum(amount)" });
+      chart.__onEvents?.click({
+        componentType: "series",
+        name: "(blank)",
+        seriesName: "sum(amount)",
+      });
     });
-    // The blank selection header reads `region: ` (empty); whitespace collapses in the matcher.
-    expect(await screen.findByText("Showing rows for region: / sum(amount)")).toBeInTheDocument();
+    // The blank selection (value "") header reads "(blank)".
+    expect(
+      await screen.findByText("Showing rows for region: (blank) / sum(amount)"),
+    ).toBeInTheDocument();
     expect(screen.getByText("r-null-1")).toBeInTheDocument();
     expect(screen.queryByText("r-east-1")).not.toBeInTheDocument();
+  });
+
+  it("click (blank) -> Filter dashboard stores the cross-filter value as the empty string (HEL-1424 C1)", async () => {
+    const { store } = renderCard();
+    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    act(() => {
+      chart.__onEvents?.click({
+        componentType: "series",
+        name: "(blank)",
+        seriesName: "sum(amount)",
+      });
+    });
+    const button = await screen.findByRole("button", { name: /Filter dashboard by region/ });
+    expect(button).toHaveTextContent("Filter dashboard by region = (blank)");
+    act(() => {
+      button.click();
+    });
+    // Presentation says "(blank)"; the stored value that siblings match null rows on stays "".
+    expect(store.getState().panels.crossFilter).toMatchObject({ dimension: "region", value: "" });
   });
 
   it("a panel whose stored type is scatter on an aggregated bar Output keeps xAxis keying", async () => {

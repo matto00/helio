@@ -18,6 +18,7 @@ import { applyValueAxisSplitCap } from "./valueAxisLabels";
 import { buildAggregateDataOption, buildDataOption } from "./chartDataOptions";
 import type { ChartOverlay } from "../history/chartOverlay";
 import { applyChartOverlay } from "./chartOverlayOption";
+import { relabelBlankCategory } from "../../../utils/blankLabel";
 import type { ReferenceMarks } from "../../../utils/referenceMarks";
 import { applyReferenceMarks } from "./referenceMarksOption";
 import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
@@ -271,6 +272,13 @@ export function buildChartOption({
   built = applyChartOverlay(built, chartType, chartOptions, overlay, themeTokens);
   // `applyChartOverlay` returns its input unchanged whenever it draws nothing.
   const overlayApplied = built !== beforeOverlay;
+
+  // HEL-1424 -- an aggregate's null group shows as "(blank)". Done AFTER the overlay aligned on the raw
+  // "null" key (so a history overlay keeps its blank-group point) and before every measuring/compact
+  // pass below, so anything sized from the category labels sees the rendered "(blank)", not "null".
+  if (plan.source === "aggregate" && chartAggregate?.hasNullGroup) {
+    built = relabelBlankCategory(built);
+  }
 
   // HEL-1342 — a pie's slice labels are attached text: they ignore the global `textStyle` and, with
   // no colour of their own, fall back to zrender's `#333` fill plus an auto light outline (1.40:1

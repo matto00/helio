@@ -141,7 +141,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
                   // over this node's own row set. Two Outputs on the same node get independently
                   // derived (but identical) schemas -- no sharing/caching needed at this scale.
                   val inferredFields = SchemaInferenceEngine.inferShallowFromJsObjects(nodeJsRows)
-                  val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType))).toVector
+                  val schema = inferredFields.map(f => SchemaField(f.name, DataFieldType.asString(f.dataType), Some(f.nullable))).toVector
                   Future
                     .sequence(nodeOutputs.map(o => outputRepo.updateSchemaInternal(o.id, schema)))
                     .map(_ => ())

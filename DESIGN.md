@@ -606,6 +606,20 @@ like the most-recent or the smallest — `useSortedRows` special-cases `null`/
 `undefined` OUTSIDE the ascending/descending sign flip, so it lands last
 regardless of which direction is active.
 
+**A null or blank category or selection value reads "(blank)".** In a
+client-aggregated chart (axis, pie slice, legend, tooltip, including the Output
+editor preview), in an Output history grouped series, and in a selection
+header/button (cross-filter indicator, Inspect header and its "Filter
+dashboard" button), a null or empty value is shown as "(blank)", never as
+"null" or an empty string. This is presentation only: the stored selection
+value stays `""`, so click-to-select and "Filter dashboard" still match the
+blank rows. Where the value sits in its own span (the cross-filter indicator
+and the Inspect button) the placeholder is set in the body face, italic, not
+in monospace (it is copy, not a data value); the Inspect header is plain text.
+Unchanged: a non-aggregated chart's blank x label, and data grids keep their
+existing null rendering (the table panel's "—", the Inspect grid's empty
+cell). Take the text from `BLANK_LABEL` in `utils/blankLabel.ts`.
+
 **Date-typed columns compare as dates, not as strings.** Every date on the
 wire is `java.time.Instant.toString()`, which emits 0/3/6/9 fractional
 digits depending on the value (trailing zero groups drop) — a plain string
