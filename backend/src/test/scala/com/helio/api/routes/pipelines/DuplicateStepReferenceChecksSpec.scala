@@ -2,7 +2,7 @@ package com.helio.api.routes.pipelines
 
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.Directives.concat
 import com.helio.api.JsonProtocols
@@ -144,6 +144,14 @@ class DuplicateStepReferenceChecksSpec
         withClue(responseAs[String]) { status shouldBe StatusCodes.UnprocessableEntity }
       }
       stepCountOf(owner, pid) shouldBe before
+      // HEL-1515 AC2: duplicate says the SAME message as update and create, not just the same status.
+      val expected  = s"Lane reference '$lane' does not exist in this pipeline."
+      val updateMsg = messageOf(Patch(s"/pipeline-steps/$join", JsObject("config" -> storedConfigOf(join))), owner)
+      val createMsg = messageOf(Post(s"/pipelines/${pid.value}/steps", JsObject("type" -> JsString("join"), "config" -> laneJoin(lane).parseJson)), owner)
+      val dupMsg    = messageOf(Post(s"/pipeline-steps/$join/duplicate"), owner)
+      dupMsg shouldBe expected
+      updateMsg shouldBe dupMsg
+      createMsg shouldBe dupMsg
     }
 
     "400 (cycle) for a join whose lane target became an ancestor via a trunk reorder" in {
@@ -162,6 +170,15 @@ class DuplicateStepReferenceChecksSpec
         withClue(responseAs[String]) { status shouldBe StatusCodes.BadRequest }
       }
       stepCountOf(owner, pid) shouldBe before
+      // HEL-1515 AC2: same message as update and as a create anchored at the clone's position (under `join`).
+      val expected  = s"Lane reference '$target' would create a cycle (it is an ancestor of this step)."
+      val updateMsg = messageOf(Patch(s"/pipeline-steps/$join", JsObject("config" -> storedConfigOf(join))), owner)
+      val createMsg = messageOf(Post(s"/pipelines/${pid.value}/steps",
+        JsObject("type" -> JsString("join"), "config" -> laneJoin(target).parseJson, "parentStepId" -> JsString(join))), owner)
+      val dupMsg    = messageOf(Post(s"/pipeline-steps/$join/duplicate"), owner)
+      dupMsg shouldBe expected
+      updateMsg shouldBe dupMsg
+      createMsg shouldBe dupMsg
     }
   }
 
@@ -232,6 +249,13 @@ class DuplicateStepReferenceChecksSpec
       val join = seedStep(pid, "join", laneJoin(lane), Some(head), 0)
       Post(s"/pipeline-steps/$join/duplicate") ~> routesFor(editor) ~> check { status shouldBe StatusCodes.Created }
     }
+  }
+
+  /** The `message` of the error response `request` gets as `user`. */
+  private def messageOf(request: HttpRequest, user: AuthenticatedUser): String = {
+    var message = ""
+    request ~> routesFor(user) ~> check { message = responseAs[String].parseJson.asJsObject.fields("message").convertTo[String] }
+    message
   }
 
   private def storedConfigOf(id: String): JsObject = {

@@ -141,7 +141,10 @@ class PatchSetUndoLaneSpec extends PatchSetUndoServiceFixture {
       seedPipelineStep(
         PipelineId(pipeline.id), userA, "union",
         JsObject("secondaryInput" -> JsObject("kind" -> JsString("lane"), "stepId" -> JsString(createdStepId)), "mode" -> JsString("byPosition")),
-        parentStepId = Some(anchor.id)
+        parentStepId = Some(anchor.id),
+        // HEL-1515 (fixture only): attach as a SIBLING, as the comment above says. The default splice re-parented
+        // the lane under this step, a cyclic graph that is now rejected at write time.
+        attachAsTail = Some(true)
       )
 
       await(undoService.undo(PatchSetApplicationId(applicationId), userA)) match {

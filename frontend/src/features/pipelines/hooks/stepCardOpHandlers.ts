@@ -90,31 +90,42 @@ export function buildStepCardOpHandlers({
     // straight through to the wire's `secondaryInput` -- the HEL-911
     // unconditional `{kind:"source"}` this replaced would silently
     // overwrite a stored lane reference on any subsequent edit.
-    persist({
-      secondaryInput: newConfig.secondary,
-      mode: newConfig.mode,
-    });
+    // HEL-1515: opts into `saveError` -- the backend now rejects a lane reference to a step that
+    // depends on this one (400), and swallowing it would silently lose the edit.
+    persist(
+      {
+        secondaryInput: newConfig.secondary,
+        mode: newConfig.mode,
+      },
+      true,
+    );
   }
 
   function onLookupChange(newConfig: LookupConfigValue) {
     setLookupConfig(newConfig);
     // HEL-912: same straight-through widening as onUnionChange above.
-    persist({
-      secondaryInput: newConfig.secondary,
-      sourceKey: newConfig.sourceKey,
-      lookupKey: newConfig.lookupKey,
-      columns: newConfig.columns,
-    });
+    persist(
+      {
+        secondaryInput: newConfig.secondary,
+        sourceKey: newConfig.sourceKey,
+        lookupKey: newConfig.lookupKey,
+        columns: newConfig.columns,
+      },
+      true,
+    );
   }
 
   function onJoinChange(newConfig: JoinConfigValue) {
     setJoinConfig(newConfig);
     // Exactly the wire key set {secondaryInput, joinKey, joinType} (HEL-958 D4).
-    persist({
-      secondaryInput: newConfig.secondary,
-      joinKey: newConfig.joinKey,
-      joinType: newConfig.joinType,
-    });
+    persist(
+      {
+        secondaryInput: newConfig.secondary,
+        joinKey: newConfig.joinKey,
+        joinType: newConfig.joinType,
+      },
+      true,
+    );
   }
 
   function onAssertChange(newConfig: AssertConfigValue) {
