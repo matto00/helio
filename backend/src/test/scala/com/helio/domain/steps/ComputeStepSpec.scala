@@ -103,4 +103,14 @@ class ComputeStepSpec extends AnyWordSpec with Matchers {
       ComputeStep.companion.validateRawConfig(config("v", "mod($a)")).get should include("mod requires 2 arguments")
     }
   }
+
+  // HEL-1532: step-level coverage that a bracketed id never overrides the written offset.
+  "ComputeStep.apply date_trunc over bracketed-id inputs" should {
+    Seq("2026-07-01T17:00:00+05:00[Europe/Paris]", "2026-07-01T14:00:00+02:00[Bogus/Zone]").foreach { in =>
+      s"read $in at its written offset" in {
+        val out = ComputeStep.apply(Seq(Map[String, Any]("ts" -> in)), ComputeConfig("out", """date_trunc("hour", $ts)""", None))
+        out.head("out") shouldBe "2026-07-01T12:00:00Z"
+      }
+    }
+  }
 }

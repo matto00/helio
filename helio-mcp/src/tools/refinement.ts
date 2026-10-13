@@ -56,7 +56,8 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "target across turns — history is server-owned, never re-send it. Review the patch set " +
         "(in-app at /patch-sets/review, or by inspection), then apply it with apply_patch_set. " +
         "The preview check does NOT evaluate output-panel controls: a `config.controls` edit is " +
-        "validated only when applied. " +
+        "validated only when applied. When you later edit a dashboard `layout` through the patch " +
+        "set, include `expectedLayoutVersion` in that edit's `patch` (see apply_patch_set). " +
         "This calls the model, so it is tier-gated exactly like the workspace assistant " +
         "(observed live): a `free`-tier account is refused with HTTP 403 and code " +
         "TIER_FORBIDDEN; a `beta` account is capped per UTC day (shared with chat) and, once the " +
@@ -106,6 +107,7 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "200 with `edits: []` and `failure: \"control not eligible: column '<c>', kind '<k>'\"`, " +
         "and every earlier edit in the set is rolled back (observed live). For an `output` " +
         "update edit, `patch` is `{ name?, config? }` and `patch.config` is shallow-merged. " +
+        'A dashboard `update` edit whose `patch` sets `layout` SHOULD also carry `expectedLayoutVersion` (the `layoutVersion` you last read via get_dashboard/list_dashboards) so a layout changed since is refused instead of overwritten. On a stale version apply answers HTTP 200 with no `applicationId` (omitted, not null) and `failure: "This dashboard\'s layout was changed elsewhere; the layout was not saved."`, the WHOLE set is rolled back, and no dashboard is returned: re-read with get_dashboard, rebuild the layout patch, and resubmit with the new `layoutVersion`. ' +
         OUTPUT_CONFIG_KEYS_DOC,
       inputSchema: {
         patchSet: patchSetSchema,

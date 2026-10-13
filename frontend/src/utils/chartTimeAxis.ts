@@ -96,7 +96,7 @@ function utcMillis(
   s = 0,
   fraction = "",
 ): number | null {
-  if (h > 23 || mi > 59 || s > 59) return null;
+  if (y < 1 || h > 23 || mi > 59 || s > 59) return null;
   const date = new Date(0);
   date.setUTCFullYear(y, mo - 1, d);
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) {
@@ -124,7 +124,9 @@ function offsetSeconds(offset: string): number | null {
  *  whole-number epochs (seconds, milliseconds above 9999999999), ISO instants and offset date-times,
  *  Postgres numeric offsets (`+HH`, `+HHMM`, `+HH:MM`, `+HH:MM:SS`) on a `T` or space separator, a
  *  `[Region/Id]` suffix read at the written offset, time-zone-less date-times read as UTC, bare
- *  `yyyy-MM-dd` and `MM/dd/yyyy` as midnight UTC. Epochs are bounded to years 0001-9999. Never throws. */
+ *  `yyyy-MM-dd` and `MM/dd/yyyy` as midnight UTC. Epochs are bounded to years 0001-9999, as is a written year (HEL-1532: `0000` is not a timestamp). Never
+ *  clamps, rolls or folds: `24:00`, `:60` and impossible dates are `null`, as is a fraction without seconds.
+ *  Never throws. */
 export function parseChartInstant(raw: string | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   const s = raw.trim();
@@ -150,6 +152,7 @@ export function parseChartInstant(raw: string | null | undefined): number | null
   const local = ISO_LOCAL.exec(s);
   if (local) {
     const [, y, mo, d, h, mi, sec, fraction] = local;
+    if (fraction !== undefined && sec === undefined) return null; // the backend's fraction needs seconds
     return utcMillis(+y, +mo, +d, +h, +mi, sec ? +sec : 0, fraction);
   }
   const date = ISO_DATE.exec(s);
