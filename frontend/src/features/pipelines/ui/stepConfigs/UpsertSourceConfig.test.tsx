@@ -105,6 +105,15 @@ describe("UpsertSourceConfig — target picker (design.md Decision 3)", () => {
       target: { kind: "newSource", name: "enriched_users" },
     });
   });
+
+  it("typing then blurring the new-source name emits once, not again on blur", () => {
+    const onChange = renderConfig({ mode: "append" });
+    fireEvent.click(screen.getByLabelText("Create new source"));
+    const input = screen.getByLabelText("New source name");
+    fireEvent.change(input, { target: { value: "enriched_users" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("UpsertSourceConfig — multiple cards on one page (evaluation change request 1)", () => {

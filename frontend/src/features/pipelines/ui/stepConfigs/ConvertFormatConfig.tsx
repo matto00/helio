@@ -117,7 +117,6 @@ export function ConvertFormatConfig({ config, analyzeSchema, onChange }: Convert
           placeholder={config.field || "e.g. convertedContent"}
           value={config.outputField ?? ""}
           onChange={(e) => handleOutputFieldChange(e.target.value)}
-          onBlur={(e) => handleOutputFieldChange(e.target.value)}
           aria-label="Destination field"
         />
         {config.field && (
