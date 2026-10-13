@@ -11,7 +11,9 @@ constructor, every ACL / `Forbidden` / 404 preamble, `audit`), the concerns spli
 (HEL-1253) -- `ResolvedPanelPatch` (the validated update snapshot), `PanelBindingChecks`
 (output / data-source existence, form consistency, default placement size, plus the pure panel
 extractors), `PanelCreateBuilder` (`buildForCreate` / `buildAllForCreate`),
-`PanelFormFileSubmission` (the file-attached form-submit path), `PanelUpdateValidation` (`update`'s
+`PanelFormFileSubmission` (the file-attached form-submit path; since HEL-1530 a failed append future queues its
+stored objects behind a grace window for the guarded deletion drain, and a partial file-write failure removes the files
+already written), `PanelUpdateValidation` (`update`'s
 post-authorize validation chain), `PanelBatchWrites` (`batchUpdate` / `batchCreate` post-ACL
 bodies) and `PanelLifecycleWrites` (`create` / `delete` / `duplicate` post-ACL tails) -- plus the layout
 rules (HEL-1071): `LayoutValidator` (pure bounds/overlap geometry, mirrors the
