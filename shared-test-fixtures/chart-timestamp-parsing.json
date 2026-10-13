@@ -493,5 +493,135 @@
     "input": "2026-07-01 12:00.5+00",
     "epochMillis": null,
     "note": "a fraction needs seconds on an offset date-time"
+  },
+  {
+    "input": "2026-07-01T12:00:00.Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A4: empty fraction before Z"
+  },
+  {
+    "input": "2026-07-01T12:00:00.",
+    "epochMillis": null,
+    "note": "HEL-1532 A4: empty fraction, tz-less T"
+  },
+  {
+    "input": "2026-07-01 12:00:00.",
+    "epochMillis": null,
+    "note": "HEL-1532 A4: empty fraction, tz-less space"
+  },
+  {
+    "input": "2026-07-01T23:59:60Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A3: leap second is not folded to :59"
+  },
+  {
+    "input": "2026-07-01T12:00:60.5Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A3: leap second with fraction"
+  },
+  {
+    "input": "+12026-07-01T12:00:00Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: extended year"
+  },
+  {
+    "input": "-0001-07-01T12:00:00Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: negative extended year"
+  },
+  {
+    "input": "0000-07-01T12:00:00Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: year 0000, ISO instant"
+  },
+  {
+    "input": "0000-07-01T12:00",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: year 0000, T-local"
+  },
+  {
+    "input": "0000-07-01",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: year 0000, bare date"
+  },
+  {
+    "input": "0000-07-01 12:00",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: year 0000, space-local"
+  },
+  {
+    "input": "07/01/0000",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: year 0000, MM/dd/yyyy"
+  },
+  {
+    "input": "2026-02-29 12:00",
+    "epochMillis": null,
+    "note": "HEL-1532 A1: impossible date is not clamped"
+  },
+  {
+    "input": "2026-07-01 24:00",
+    "epochMillis": null,
+    "note": "HEL-1532 A2: hour 24 space-local is not rolled"
+  },
+  {
+    "input": "2026-07-01T24:00",
+    "epochMillis": null,
+    "note": "HEL-1532 A2: hour 24 T-local"
+  },
+  {
+    "input": "2026-07-01T24:00:00Z",
+    "epochMillis": null,
+    "note": "HEL-1532 A2: hour 24 instant"
+  },
+  {
+    "input": "2026-07-01 12:00.5",
+    "epochMillis": null,
+    "note": "HEL-1532 A6: fraction without seconds, space-local"
+  },
+  {
+    "input": "07/01/+12026",
+    "epochMillis": null,
+    "note": "HEL-1532 A5: signed extended year in MM/dd/yyyy"
+  },
+  {
+    "input": "2026-07-01T12:00.5",
+    "epochMillis": null,
+    "note": "HEL-1532 A6: fraction without seconds, T-local"
+  },
+  {
+    "input": "0001-01-01T00:30:00+01:00",
+    "epochMillis": -62135598600000,
+    "note": "HEL-1532: written year 0001 stays in range even though the UTC instant is year 0000"
+  },
+  {
+    "input": "9999-12-31T23:00:00-05:00",
+    "epochMillis": 253402315200000,
+    "note": "HEL-1532: written year 9999 stays in range"
+  },
+  {
+    "input": "0001-01-01",
+    "epochMillis": -62135596800000,
+    "note": "HEL-1532: lower year bound"
+  },
+  {
+    "input": "9999-12-31 23:59:59.999",
+    "epochMillis": 253402300799999,
+    "note": "HEL-1532: upper year bound with fraction"
+  },
+  {
+    "input": "2024-02-29 12:00",
+    "epochMillis": 1709208000000,
+    "note": "HEL-1532: leap-year 29 Feb is real"
+  },
+  {
+    "input": "2026-07-01T23:59:59Z",
+    "epochMillis": 1782950399000,
+    "note": "HEL-1532: second 59 stays valid"
+  },
+  {
+    "input": "2026-07-01 00:00",
+    "epochMillis": 1782864000000,
+    "note": "HEL-1532: hour 00 stays valid"
   }
 ]
