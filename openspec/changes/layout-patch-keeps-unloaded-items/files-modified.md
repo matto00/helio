@@ -1,9 +1,0 @@
-- `frontend/src/features/dashboards/state/layoutPatch.ts` — substitution keeps unloaded panels' authored items (D1/D2)
-- `frontend/src/features/dashboards/state/layoutPatch.test.ts` — unloaded-item keep, blank/dup skip, ghost-as-authored tests
-- `frontend/src/features/dashboards/state/dashboardsSlice.ts` — updateDashboardLayout non-conflict rejections use existing client copy (D3)
-- `frontend/src/features/dashboards/state/dashboardsSlice.layoutReject.test.ts` — rejection-copy matrix (400/500/stale/failed/retry)
-- `frontend/src/features/dashboards/state/dashboardsSlice.layoutConflict.test.ts` — panels reducer in store; 400 now generic copy
-- `frontend/src/features/dashboards/state/layoutGhostWriteSeam.test.ts` — panels reducer in store (thunk state type)
-- `openspec/changes/layout-patch-keeps-unloaded-items/reachability.md` — D5 finding with file:line evidence
-- `openspec/changes/layout-patch-keeps-unloaded-items/red-evidence.txt` — layoutPatch tests run against pre-fix layoutPatch.ts (3 failed)
-- `openspec/changes/layout-patch-keeps-unloaded-items/tasks.md` — tasks ticked
