@@ -58,6 +58,8 @@ class PipelineRepository(
     * - `PipelineRunExecutor.runPipeline`'s empty-roots branch (HEL-1503): a read-only existence check keyed by the id
     *   `PipelineRunService.submit` has just authorized, telling a pipeline deleted mid-submit (404) from a genuinely
     *   root-less one (422)
+    * - `PipelineRunPreview.previewAtNode`'s empty-roots branch (HEL-1516): the same read-only existence check keyed by
+    *   the id `findByIdShared` has just authorized, telling a pipeline deleted mid-preview (404) from a root-less one (422)
     *
     * Do not call from a request-bound service method. */
   def findByIdInternal(id: PipelineId): Future[Option[Pipeline]] =
@@ -193,6 +195,29 @@ class PipelineRepository(
         .result
         .headOption
     )
+
+  /** HEL-1516 (design.md D3): privileged, read-only re-verification that `user` may still preview `id`, made
+    * immediately before a preview executes. No pipeline row -> `PipelineGone`; the owner -> `Authorized`; otherwise a
+    * `pipeline` grant for the caller -- of role `editor` when `requireEditor` (a closure with an enabled AI step, whose
+    * model call is charged to the owner), of any role otherwise -- -> `Authorized`; else `NotAuthorized`.
+    * Same owner-or-editor predicate as `PipelineRunRepository.submitterMayRunAction` (a private method there, named
+    * here for cross-reference only); the viewer arm exists because HEL-279/HEL-1108 let a viewer preview non-AI closures. */
+  def checkPreviewAccessInternal(id: PipelineId, user: AuthenticatedUser, requireEditor: Boolean): Future[PipelineRunRepository.RunAuthorization] = {
+    import PipelineRunRepository.RunAuthorization._
+    val userUuid = UUID.fromString(user.id.value)
+    val action: DBIO[PipelineRunRepository.RunAuthorization] =
+      pipelinesTable.filter(_.id === id.value).map(_.ownerId).result.headOption.flatMap {
+        case None => DBIO.successful(PipelineGone)
+        case Some(ownerUuid) if ownerUuid == userUuid => DBIO.successful(Authorized)
+        case Some(_) =>
+          val grants = permTable.filter(p => p.resourceType === "pipeline" && p.resourceId === id.value && p.granteeId === userUuid)
+          (if (requireEditor) grants.filter(_.role === "editor") else grants).exists.result
+            .map(ok => if (ok) Authorized else NotAuthorized)
+      }
+    // withSystemContext: a read-only access check keyed on the id the preview's findByIdShared just authorized; RLS
+    // would hide the owner's pipeline row from a grantee.
+    ctx.withSystemContext(action)
+  }
 
   private def rowToPipeline(row: PipelineRow): Pipeline =
     Pipeline(
@@ -593,10 +618,21 @@ class PipelineRepository(
       pipelinesTable.filter(_.id === id.value).map(_.lastSourceSchema).update(Some(schemaJson))
     ).map(_ => ())
 
+  /** HEL-1516 (design.md D1): the schema-drift baseline keyed by an already-authorized pipeline id, read as the pipeline
+    * owner sees it -- the read counterpart of [[updateLastSourceSchemaInternal]]. `None`: no baseline yet, or no such
+    * pipeline. */
+  def findLastSourceSchemaInternal(id: PipelineId): Future[Option[String]] =
+    // withSystemContext: analyze's findByIdShared already confirmed the caller's access to this pipeline; an owner-scoped
+    // read would hide the owner's baseline from a grantee (HEL-1516 D1).
+    ctx.withSystemContext(
+      pipelinesTable.filter(_.id === id.value).map(_.lastSourceSchema).result.headOption
+    ).map(_.flatten)
+
   /** Owner-scoped baseline read (HEL-462). Returns the raw JSON string of the
     * last successful run's source schema, or `None` when the pipeline has no
     * baseline yet (never run successfully) or does not exist / is not owned
-    * by the caller. Callers are responsible for parsing. */
+    * by the caller. Callers are responsible for parsing. Analyze no longer calls this (HEL-1516: it reads
+    * [[findLastSourceSchemaInternal]] so a grantee sees the owner's baseline); it remains the owner's own measurement. */
   def findLastSourceSchema(id: PipelineId, user: AuthenticatedUser): Future[Option[String]] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(

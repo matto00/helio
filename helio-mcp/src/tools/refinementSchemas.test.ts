@@ -68,3 +68,18 @@ describe("patchSetSchema (apply_patch_set's hand-authorable PatchSet shape)", ()
     expect(parsed.edits[0]!.target.parentId).toBeUndefined();
   });
 });
+
+describe("patchSetSchema keeps a dashboard layout edit's expectedLayoutVersion (HEL-1524)", () => {
+  it("passes patch.expectedLayoutVersion through to the apply request body", () => {
+    const parsed = patchSetSchema.parse({
+      edits: [
+        {
+          target: { kind: "dashboard", id: "dash-1" },
+          op: "update",
+          patch: { layout: { lg: [] }, expectedLayoutVersion: 7 },
+        },
+      ],
+    });
+    expect(parsed.edits[0]?.patch).toEqual({ layout: { lg: [] }, expectedLayoutVersion: 7 });
+  });
+});

@@ -14,18 +14,35 @@ export interface ScrollEdgeState {
    *  scroll-only affordance (e.g. a keyboard tab stop) on "can this
    *  actually scroll" rather than "is it scrolled right now". */
   overflowing: boolean;
+  /** True once the container has scrolled away from its top edge — there is
+   *  more (already-seen) content off-screen above. */
+  top: boolean;
+  /** True while the container hasn't reached its bottom edge yet — there is
+   *  more content to scroll to below. */
+  bottom: boolean;
+  /** Vertical counterpart of `overflowing`: true whenever the content is
+   *  taller than the container, regardless of scroll position. (`overflowing`
+   *  itself stays horizontal-only.) */
+  overflowingY: boolean;
 }
 
-const NO_EDGES: ScrollEdgeState = { left: false, right: false, overflowing: false };
+const NO_EDGES: ScrollEdgeState = {
+  left: false,
+  right: false,
+  overflowing: false,
+  top: false,
+  bottom: false,
+  overflowingY: false,
+};
 
 /**
- * Tracks whether a horizontally-scrollable container has more content
- * off-screen to the left/right, so callers can render a scroll-shadow
+ * Tracks whether a scrollable container has more content off-screen to the
+ * left/right (horizontal axis) and above/below (vertical axis), so callers can render a scroll-shadow
  * affordance — a wide table on a phone viewport otherwise gives zero
  * indication that scrolling reveals more columns (HEL a11y/ux sweep F-164).
  *
  * Attach the returned `ref` to the scrollable element itself (the one with
- * `overflow-x: auto`). Re-measures on scroll, on window resize, and via a
+ * `overflow: auto`, on whichever axis the caller reads). Re-measures on scroll, on window resize, and via a
  * `ResizeObserver` on both the container and its direct children — the
  * latter is required because a `<table>` growing/shrinking (new rows,
  * column-resize) changes the *content*'s width without changing the
@@ -47,10 +64,14 @@ export function useScrollEdges<T extends HTMLElement>(): {
     const el = ref.current;
     if (!el) return;
     const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    const maxScrollTop = el.scrollHeight - el.clientHeight;
     setEdges({
       left: el.scrollLeft > 1,
       right: maxScrollLeft - el.scrollLeft > 1,
       overflowing: maxScrollLeft > 1,
+      top: el.scrollTop > 1,
+      bottom: maxScrollTop - el.scrollTop > 1,
+      overflowingY: maxScrollTop > 1,
     });
   }, []);
 

@@ -437,7 +437,8 @@ private[protocols] trait AssistantProposalToolSchemas {
     "type" -> JsString("object"),
     "properties" -> JsObject(
       "summary" -> JsObject("type" -> JsString("string")),
-      "edits"   -> JsObject("type" -> JsString("array"), "items" -> EditSchema)
+      "edits"   -> JsObject("type" -> JsString("array"), "items" -> EditSchema),
+      "proposalId" -> JsObject("type" -> JsString("string"), "description" -> JsString("Server-assigned. Omit."))
     ),
     "required" -> JsArray(Vector(JsString("edits"))),
     "examples" -> JsArray(Vector(PatchSetExample))

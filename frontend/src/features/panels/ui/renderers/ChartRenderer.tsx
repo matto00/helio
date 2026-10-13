@@ -15,7 +15,7 @@ import { binHistogram } from "../../../../utils/histogramBins";
 // initial JS payload. `ChartPanel` is a named export (not default), so `React.lazy` — which
 // requires a promise resolving to a `{ default }` shape — needs this adapter. See design.md
 // Decision 1: only this internal import becomes lazy; `ChartRenderer`'s own export/signature (and
-// `PanelContent.tsx`'s static import of it) are unchanged.
+// `ChartOutputPanel.tsx`'s static import of it) are unchanged.
 const ChartPanel = lazy(() => import("../ChartPanel").then((m) => ({ default: m.ChartPanel })));
 
 interface ChartRendererProps {

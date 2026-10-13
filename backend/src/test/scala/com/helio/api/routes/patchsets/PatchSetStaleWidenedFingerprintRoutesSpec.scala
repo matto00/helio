@@ -33,6 +33,7 @@ import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, StatusCod
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.JsonProtocols
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import com.helio.testkit.VerifiedEmbeddedPostgres
@@ -383,10 +384,12 @@ class PatchSetStaleWidenedFingerprintRoutesSpec
     "return the same fingerprint when a pipeline run completes between two previews" in {
       val pipelineId = newPipeline(newDataset("value"))
       newStep(pipelineId)
-      newOutput(pipelineId)
+      val output = newOutput(pipelineId)
       val body   = edit("pipeline", pipelineId.value, "update")
       val before = previewFingerprint(body)
       await(pipelineRepo.updateLastRun(pipelineId, "succeeded", Instant.now(), Some(7L), userA, Some(false)))
+      // A run also rewrites each Output's stored schema (HEL-1522): server-maintained, so not fingerprinted.
+      await(outputRepo.updateSchemaInternal(output.id, Vector(SchemaField("value", "integer"))))
       previewFingerprint(body) shouldBe before
     }
   }

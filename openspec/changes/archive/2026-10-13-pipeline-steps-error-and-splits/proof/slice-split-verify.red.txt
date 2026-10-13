@@ -1,0 +1,8 @@
+OK   base L44-72 (SummaryWire+normalize) verbatim in pipelinesThunks.ts
+FAIL base L182-365 (core thunks) verbatim in pipelinesThunks.ts
+OK   base L34-43 (extractErrorMessage) verbatim in pipelineScheduleThunks.ts
+OK   base L367-413 (schedule thunks) verbatim in pipelineScheduleThunks.ts
+OK   base L415-707 (isStale + slice + exports) verbatim in pipelinesSlice.ts
+OK   base L73-180 (state+initialState, 2 enumerated export-keyword diffs) in pipelinesState.ts
+uncovered non-blank base lines 34-707: none
+exit=1

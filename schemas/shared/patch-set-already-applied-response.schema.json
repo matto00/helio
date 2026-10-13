@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/shared/patch-set-already-applied-response.schema.json",
+  "title": "PatchSetAlreadyAppliedResponse",
+  "description": "409 body for POST /api/patch-sets/apply refused because the caller already applied a patch set carrying the same proposalId (HEL-1522). Nothing was applied. Not retryable: ask for a new proposal.",
+  "type": "object",
+  "required": ["message", "code"],
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "code": {
+      "const": "PATCH_SET_ALREADY_APPLIED"
+    }
+  },
+  "additionalProperties": false
+}

@@ -236,7 +236,7 @@
 }
 
 /* `.panel-content__spinner` is now the shared `Spinner` primitive (size `xl`, its exact 24px/3px
- * match) — see PanelContent.tsx / TableRenderer.tsx (F-190). */
+ * match) — see TableRenderer.tsx (F-190). */
 
 .panel-content__state-label {
   font-size: var(--text-xs);

@@ -1,0 +1,5 @@
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        8.53 s, estimated 9 s
+Ran all test suites matching src/features/pipelines/ui/PipelineDetailPage.switch.test.tsx.

@@ -3,7 +3,7 @@
 // path (`TableRenderer` → `ColumnDef.render`) and the filter path
 // (`tableFilterPredicate`) through ONE resolver (design D6b) so the two can
 // never drift. Sort does NOT use this module — it reads raw values
-// (`TableRenderer.tsx:243`), and that asymmetry is deliberate (design D6).
+// (`useTableRows.ts`'s `sortColumns`), and that asymmetry is deliberate (design D6).
 
 import { formatCell } from "../../../../shared/ui/index";
 import { formatDuration } from "./formatDuration";

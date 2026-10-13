@@ -1,0 +1,4 @@
+42c42
+< useCallback((ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"), [])
+---
+> useCallback((ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"), [setStepsFetch])

@@ -108,7 +108,7 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
     count: 1,
     note: "triple-ring zero-blur focus indicator (D0), HEL-1050 D5/3.8 — recolours the ring to the contrast-derived focus-ring token and adds a third, neutral-and-therefore-backdrop-independent layer so :focus-visible stays visually distinct from --selected above even for the zero-darkening accent presets (evaluator cycle-2 correction: a --app-surface-strong 3rd layer is invisible in this picker's one real render context and, for those presets, left the two states pixel-identical).",
   },
-  // D0 / task 2.1b — the 13 scroll-fade insets, in FOUR distinct values
+  // D0 / task 2.1b — the 13 horizontal scroll-fade insets, in FOUR distinct values
   // (not byte-identical). Reported as a spinoff candidate for the scroll-
   // fade duplication itself, not absorbed here.
   {
@@ -201,6 +201,31 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
       "box-shadow: inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent), inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);",
     count: 1,
     note: "scroll-fade inset, combined form (D0)",
+  },
+  // HEL-1449 (owner ruling scroll-hint) — the panel edit form's VERTICAL scroll-fades: three more
+  // distinct values (top, bottom, combined), all on the pointer-transparent overlay that
+  // `EditFormScrollArea` renders over the form (an inset shadow on the form itself would paint
+  // under its opaque children). Same 12px/35% family as the horizontal fades above.
+  {
+    file: "features/panels/ui/detailModal/PanelDetailModal.css",
+    declaration:
+      "box-shadow: inset 0 12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);",
+    count: 1,
+    note: "scroll-fade inset, top edge, edit-form overlay (HEL-1449)",
+  },
+  {
+    file: "features/panels/ui/detailModal/PanelDetailModal.css",
+    declaration:
+      "box-shadow: inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);",
+    count: 1,
+    note: "scroll-fade inset, bottom edge, edit-form overlay (HEL-1449)",
+  },
+  {
+    file: "features/panels/ui/detailModal/PanelDetailModal.css",
+    declaration:
+      "box-shadow: inset 0 12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent), inset 0 -12px 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);",
+    count: 1,
+    note: "scroll-fade inset, combined top+bottom, edit-form overlay (HEL-1449)",
   },
 ];
 

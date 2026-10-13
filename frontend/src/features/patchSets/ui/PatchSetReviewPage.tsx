@@ -13,7 +13,7 @@ import { useToast } from "../../toasts/hooks/useToast";
 import { applyPatchSet, previewPatchSet, undoPatchSet } from "../state/patchSetsSlice";
 import { PatchSetReview } from "./PatchSetReview";
 import { undoSuccessToast } from "./undoToast";
-import { isPatchSetStale } from "../types/patchSet";
+import { isPatchSetAlreadyApplied, isPatchSetStale } from "../types/patchSet";
 import type { PatchSet, PatchSetPreviewResponse, PatchSetStaleRejection } from "../types/patchSet";
 import { stampFingerprints } from "./stampFingerprints";
 import { Columns3 } from "lucide-react";
@@ -50,6 +50,8 @@ export function PatchSetReviewPage() {
   const [applyError, setApplyError] = useState<string | null>(null);
   // HEL-1458: set when apply answered 409 (a target changed since the preview); cleared by re-previewing.
   const [conflict, setConflict] = useState<PatchSetStaleRejection | null>(null);
+  // HEL-1522: set when apply answered 409 PATCH_SET_ALREADY_APPLIED; final -- nothing on the page can submit it again.
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
 
   const patchSet = statePatchSet ?? demoPatchSet;
@@ -140,7 +142,8 @@ export function PatchSetReviewPage() {
       // HEL-1458: replace, so Back cannot restore this review (and its still-enabled Apply) after a successful apply.
       navigate("/", { replace: true });
     } catch (err) {
-      if (isPatchSetStale(err)) setConflict(err);
+      if (isPatchSetAlreadyApplied(err)) setAlreadyApplied(true);
+      else if (isPatchSetStale(err)) setConflict(err);
       else setApplyError(typeof err === "string" ? err : "Failed to apply the patch set.");
       setApplying(false);
     }
@@ -158,6 +161,19 @@ export function PatchSetReviewPage() {
           icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        />
+      </PageShell>
+    );
+  }
+
+  if (alreadyApplied) {
+    return (
+      <PageShell>
+        <EmptyState
+          icon={<Columns3 />}
+          title="This proposal was already applied"
+          description="Ask for a new proposal to change anything else."
           cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
         />
       </PageShell>

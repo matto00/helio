@@ -55,4 +55,25 @@ class PatchSetFingerprintWireSpec extends AnyWordSpec with Matchers with JsonPro
       JsonSchemaValidation.validationErrors(staleSchema, json) shouldBe empty
     }
   }
+
+  "a patch set carrying a proposalId (HEL-1522)" should {
+    val withId = """{"proposalId":"0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10","edits":[{"target":{"kind":"panel","id":"p1"},"op":"update","patch":{"title":"T"}}]}"""
+
+    "validate against patch-set.schema.json, decode and round-trip" in {
+      JsonSchemaValidation.validationErrors(patchSetSchema, withId) shouldBe empty
+      val decoded = withId.parseJson.convertTo[PatchSet]
+      decoded.proposalId shouldBe Some("0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10")
+      decoded.toJson.asJsObject.fields("proposalId") shouldBe JsString("0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10")
+    }
+
+    "stay valid without it, and omit the key when writing" in {
+      JsonSchemaValidation.validationErrors(patchSetSchema, stampedPatchSet) shouldBe empty
+      stampedPatchSet.parseJson.convertTo[PatchSet].toJson.asJsObject.fields should not contain key("proposalId")
+    }
+
+    "decode a non-UUID or non-string proposalId leniently (the UUID rule is enforced on apply only)" in {
+      withId.replace("0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10", "anything").parseJson.convertTo[PatchSet].proposalId shouldBe Some("anything")
+      withId.replace("\"0b8b5c4e-3d0a-4f3b-9d77-2a8d3c1f6a10\"", "7").parseJson.convertTo[PatchSet].proposalId shouldBe None
+    }
+  }
 }

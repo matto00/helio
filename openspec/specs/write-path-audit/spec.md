@@ -182,12 +182,12 @@ update endpoint.
 
 | File | Role |
 |------|------|
-| `frontend/src/services/dashboardService.ts` | Dashboard HTTP calls |
-| `frontend/src/services/panelService.ts` | Panel HTTP calls |
-| `frontend/src/features/dashboards/dashboardsSlice.ts` | Dashboard thunks and triggers |
-| `frontend/src/features/panels/panelsSlice.ts` | Panel thunks and triggers |
+| `frontend/src/features/dashboards/services/dashboardService.ts` | Dashboard HTTP calls |
+| `frontend/src/features/panels/services/panelService.ts` | Panel HTTP calls |
+| `frontend/src/features/dashboards/state/dashboardsSlice.ts` | Dashboard thunks and triggers |
+| `frontend/src/features/panels/state/panelThunks.ts` | Panel thunks and triggers (re-exported by `panelsSlice.ts`) |
 | `frontend/src/features/panels/hooks/useLayoutSave.ts` | Layout drag/resize/undo/redo staging and flush (no debounce) |
 | `frontend/src/features/panels/hooks/usePanelUpdatesFlush.ts` | 30 s auto-save tick and Save now |
-| `frontend/src/components/PanelDetailModal.tsx` | Panel appearance and data binding saves |
-| `frontend/src/components/DashboardAppearanceEditor.tsx` | Dashboard appearance save |
-| `frontend/src/components/DashboardList.tsx` | Dashboard create, rename, duplicate, import |
+| `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` | Panel appearance and data binding saves |
+| `frontend/src/features/dashboards/ui/DashboardAppearanceEditor.tsx` | Dashboard appearance save |
+| `frontend/src/features/dashboards/ui/DashboardList.tsx` | Dashboard create, rename, duplicate, import |
