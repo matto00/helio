@@ -192,6 +192,17 @@ describe("PanelCard — F-128 header actions (delete-confirm crowding + tooltips
     expect(screen.queryByText("Confirm")).not.toBeInTheDocument();
   });
 
+  // HEL-1444 -- a footnoted narrow card line-clamps its title to ~1.5 words; the full text must stay
+  // reachable as a native tooltip and as the heading's accessible name.
+  it("exposes the full panel title as a native tooltip and as the heading's accessible name", () => {
+    const title = "Revenue by region this quarter, all channels combined";
+    const panel = makeOutputPanel({ title });
+    renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });
+
+    const heading = screen.getByRole("heading", { name: title });
+    expect(heading).toHaveAttribute("title", title);
+  });
+
   it("gives the drag handle a native title tooltip mirroring its aria-label (F-221)", () => {
     const panel = makeOutputPanel({ title: "Revenue" });
     renderWithStore(<PanelCard panel={panel} {...noopProps} />, { panels: { items: [] } });

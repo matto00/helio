@@ -184,7 +184,6 @@ export function UpsertSourceConfig({
             placeholder="e.g. enriched_users"
             value={newSourceName}
             onChange={(e) => handleNewSourceNameChange(e.target.value)}
-            onBlur={(e) => handleNewSourceNameChange(e.target.value)}
             aria-label="New source name"
           />
         )}

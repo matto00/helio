@@ -64,7 +64,6 @@ export function ComputeFieldConfig({
           placeholder="e.g. revenue_per_user"
           value={config.column}
           onChange={handleColumnChange}
-          onBlur={handleColumnChange}
           aria-label="Output field name"
         />
       </div>
@@ -79,7 +78,6 @@ export function ComputeFieldConfig({
           placeholder='e.g. $revenue / $users, or concat($first_name, " ", $last_name)'
           value={config.expression}
           onChange={handleExpressionChange}
-          onBlur={handleExpressionChange}
           aria-label="Expression"
         />
         <InlineError error={validationError ?? null} />
