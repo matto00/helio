@@ -11,7 +11,7 @@ import com.helio.domain.panels._
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.services.panels.PanelServiceHelpers._
 import spray.json._
@@ -65,7 +65,10 @@ final class PanelService(
     // entirely (only that one kind needs it; text/numeric-range/date-range eligibility is derived
     // purely from the Output's declared schema, zero DB cost — design.md D3), only exercised once a
     // caller actually adds/rebinds a `dropdown` control on an "output"-kind panel.
-    nodeSnapshotRepo: NodeSnapshotRepository = null
+    nodeSnapshotRepo: NodeSnapshotRepository = null,
+    // HEL-1530: nullable-optional wiring, same convention as `fileSystem` -- a `null` repo only disables the
+    // failed-append compensation of a file-attached form submit (the stored objects are then left, never deleted).
+    storedObjectDeletionRepo: StoredObjectDeletionRepository = null
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "PanelService requires an OutputRepository")
@@ -78,7 +81,7 @@ final class PanelService(
   // / `Forbidden` / 404 preamble stays below in this file.
   private val bindingChecks    = new PanelBindingChecks(outputRepo, dataSourceRepo)
   private val createBuilder    = new PanelCreateBuilder(bindingChecks, outputControlsValidator)
-  private val formFiles        = new PanelFormFileSubmission(dataSourceRepo, dataSourceService, fileSystem)
+  private val formFiles        = new PanelFormFileSubmission(dataSourceRepo, dataSourceService, fileSystem, storedObjectDeletionRepo)
   private val updateValidation = new PanelUpdateValidation(bindingChecks, outputControlsValidator)
   private val batchWrites      = new PanelBatchWrites(panelRepo, bindingChecks, createBuilder, batchControlsCheck, audit)
   private val lifecycleWrites  = new PanelLifecycleWrites(panelRepo, bindingChecks, createBuilder, audit)

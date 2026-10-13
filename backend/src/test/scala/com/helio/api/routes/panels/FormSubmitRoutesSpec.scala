@@ -11,7 +11,9 @@ import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.api.{ApiRoutes, JsonProtocols}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
+import com.helio.infrastructure.persistence.sources.{DataSourceRepository, StoredObjectDeletionRepository}
+import com.helio.services.sources.StoredObjectDeletionService
+import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
@@ -200,6 +202,7 @@ class FormSubmitRoutesSpec
     db.close(); embeddedPostgres.close(); super.afterAll()
   }
 
+  private def graceClock(offsetSeconds: Long): Clock = new Clock { def now(): Instant = Instant.now().plusSeconds(offsetSeconds) }
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
   private def sessionCookie(token: String) = Cookie(SessionCookies.Name -> token)
   private def csrfHeader = RawHeader(AuthDirectives.CsrfHeaderName, AuthDirectives.CsrfHeaderValue)
@@ -535,10 +538,11 @@ class FormSubmitRoutesSpec
       deletedPaths.synchronized(deletedPaths.toList) should contain(written.head)
     }
 
-    // HEL-1434 safety property: a FAILED append future is ambiguous (the append may have committed), so the stored
-    // objects are NOT removed. The wrong-shaped (but valid JSONB) declared schema makes the in-lock append throw
-    // after phase 1 already read the real schema.
-    "leave the stored objects in place when the in-lock append future fails (HEL-1434)" in {
+    // HEL-1434 safety property, completed by HEL-1530: a FAILED append future is ambiguous (the append may have
+    // committed), so the stored objects are NOT removed at once. They are queued behind a grace window and the drain
+    // deletes one only when no committed row holds its key. The wrong-shaped (but valid JSONB) declared schema makes
+    // the in-lock append throw after phase 1 already read the real schema -- a rolled-back append, no row.
+    "queue the stored objects behind a grace window when the in-lock append future fails, and remove them after it (HEL-1530)" in {
       val src = seedDataset(ownerId, "src-file-append-failed", schemaJson = fileSchemaJson)
       val dashboardId = seedDashboard(ownerId)
       val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
@@ -558,11 +562,28 @@ class FormSubmitRoutesSpec
       } finally afterWrite = () => ()
       val written = writtenPaths.synchronized(writtenPaths.toList).diff(writtenBefore)
       written should have size 1
-      written.head should startWith("form-uploads/")
-      deletedPaths.synchronized(deletedPaths.toList) should not contain written.head
+      val key = written.head
+      key should startWith("form-uploads/")
+      deletedPaths.synchronized(deletedPaths.toList) should not contain key
       await(ctx.withSystemContext(
         sql"""SELECT count(*) FROM dataset_rows WHERE data_source_id = $src""".as[Int].head
       )) shouldBe 0
+      // queued as a new-style row held back by the grace window (900 s)
+      val queued = await(ctx.withSystemContext(
+        sql"""SELECT source_table, claimed_at = 'infinity', EXTRACT(EPOCH FROM (not_before - now()))
+              FROM stored_object_deletions WHERE storage_key = $key""".as[(String, Boolean, Double)]
+      ))
+      queued should have size 1
+      queued.head._1 shouldBe "form_submit_failed"
+      queued.head._2 shouldBe true
+      queued.head._3 should (be > 800.0 and be <= 900.0)
+      // inside the grace window the drain leaves it; after it, no committed row holds the key, so it is removed
+      val drain = new StoredObjectDeletionService(new StoredObjectDeletionRepository(ctx)(routeEc), stubFileSystem, graceClock(0))(routeEc)
+      await(drain.runPass())
+      deletedPaths.synchronized(deletedPaths.toList) should not contain key
+      val later = new StoredObjectDeletionService(new StoredObjectDeletionRepository(ctx)(routeEc), stubFileSystem, graceClock(1000))(routeEc)
+      await(later.runPass())
+      deletedPaths.synchronized(deletedPaths.toList) should contain(key)
     }
 
     "never let the submitted filename become the storage key (path-traversal safe)" in {
