@@ -1,7 +1,7 @@
 package com.helio.services.panels
 
 import com.helio.services.{FormSubmitError, ServiceError}
-import com.helio.services.sources.{DataSourceService, RowWriteResult}
+import com.helio.services.sources.{DataSourceService, RowWriteResult, StoredObjectCleanup}
 import com.helio.domain.engine.DatasetRowValidator
 import com.helio.domain.model._
 import com.helio.domain.panels._
@@ -50,11 +50,29 @@ private[panels] final class PanelFormFileSubmission(
               val realValues = values ++ refsByField
               val build: (Vector[DatasetFieldDeclaration], Instant) => Either[Vector[DatasetRowValidator.FieldError], Vector[JsValue]] =
                 (decl, now) => FormSubmission.buildRow(panel.config, decl, realValues, now)
-              dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user)
+              dataSourceService.appendFormRow(panel.config.dataSourceId, build, panelId, user).flatMap {
+                case right @ Right(_) => Future.successful(right)
+                // HEL-1434: a refused in-lock append (source gone, schema changed, row limit) wrote no row, so the
+                // objects stored for it are unreferenced -- remove them. Only a returned `Left` is compensated: a
+                // FAILED future is ambiguous (the append may have committed), and a leak is safer than deleting the
+                // object of a committed row.
+                case left @ Left(_) => removeStored(refsByField.values).map(_ => left)
+              }
             }
         }
     }
   }
+
+  /** Best-effort removal of the objects behind `binary-ref` objects (never fails; see [[StoredObjectCleanup]]). */
+  private def removeStored(refs: Iterable[JsValue]): Future[Unit] =
+    Future.traverse(refs.toVector) {
+      case JsObject(fields) =>
+        fields.get("storageKey") match {
+          case Some(JsString(key)) => StoredObjectCleanup.delete(fileSystem, key, "PanelFormFileSubmission").map(_ => ())
+          case _                   => Future.unit
+        }
+      case _ => Future.unit
+    }.map(_ => ())
 
   /** `{sourceField -> (filename, bytes)}` folded into `values` as the presence-marker placeholder
    *  `FormSubmission.buildRow`'s file-control branch validates (design.md D2). Overwrites any
