@@ -1,21 +1,39 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.PipelineStepConfigCodec
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineStep, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineStep, PipelineStepId, UserId}
+import com.helio.domain.pipelines.LaneCycleViolations
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.services.ServiceError
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** What [[StepReferenceChecks.referenceChecksF]] needs to validate a `lane` reference (HEL-1515): the pipeline's
- *  steps and, for the step being written, its prospective `ancestors` and `descendants` (its own parent-chain
- *  descendants, including steps a create re-parents under it), plus `selfId` when the step already exists. */
+ *  steps and, for the step being written, its prospective `ancestors`, its parent-chain `descendants` (including
+ *  steps a create re-parents under it) and its `dependents` (HEL-1521: parent-chain descendants plus steps that
+ *  depend on it through lane links), plus `selfId` when the step already exists. Build it with [[LaneScope.of]]. */
 private[pipelines] final case class LaneScope(
-    steps:      Vector[PipelineStep],
-    ancestors:  Set[String],
+    steps:       Vector[PipelineStep],
+    ancestors:   Set[String],
     descendants: Set[String],
-    selfId:     Option[String]
+    dependents:  Set[String],
+    selfId:      Option[String]
 )
+
+private[pipelines] object LaneScope {
+
+  /** The one construction create, update and duplicate use; every set comes from `LaneCycleViolations`. `seeds` are
+   *  the steps that end up below the written step (update: the step itself; create/duplicate: the steps the insert
+   *  re-parents under the new step); the step's own id is never in its own descendants/dependents. */
+  def of(steps: Vector[PipelineStep], prospectiveParent: Option[PipelineStepId], seeds: Set[String], selfId: Option[String]): LaneScope =
+    LaneScope(
+      steps,
+      LaneCycleViolations.ancestorsFrom(prospectiveParent, steps),
+      LaneCycleViolations.descendantsOf(seeds, steps) -- selfId,
+      LaneCycleViolations.dependentsOf(seeds, steps) -- selfId,
+      selfId
+    )
+}
 
 /** The ONE reference-check chain step create, update and duplicate share (HEL-1515, extracted from three inline
  *  copies): the caller's access to the pipeline FIRST (HEL-1523: create's pipeline lookup and editor check; update
@@ -51,11 +69,11 @@ private[pipelines] final class StepReferenceChecks(
     }
 
   /** HEL-911 (Engine contract items 6a/7): a `lane` secondaryInput must name an existing step of THIS pipeline
-    * that is neither the step itself, one of its ancestors, nor (HEL-1515) one of its descendants. */
+    * that is neither the step itself, one of its ancestors, nor (HEL-1515/HEL-1521) a step that depends on it. */
   private def laneCheckF(typedConfig: Any, laneScopeF: => Future[LaneScope]): Future[Either[ServiceError, Unit]] =
     PipelineStepConfigCodec.secondaryLaneStepId(typedConfig) match {
       case None    => Future.successful(Right(()))
-      case Some(_) => laneScopeF.map(s => PipelineService.validateLaneReference(typedConfig, s.steps, s.ancestors, s.descendants, s.selfId))
+      case Some(_) => laneScopeF.map(s => PipelineService.validateLaneReference(typedConfig, s.steps, s.ancestors, s.descendants, s.dependents, s.selfId))
     }
 }
 

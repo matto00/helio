@@ -91,9 +91,9 @@ private[pipelines] final class PipelineStepCreate(
               // HEL-1515 (owner ruling, reject-at-write): the steps this insert re-parents under the new step (and
               // their parent-chain descendants) cannot be lane targets either; a placement that is rejected
               // re-parents nothing.
-              val descendants = placement
-                .fold(_ => Set.empty[String], anchor => PipelineService.descendantStepIds(StepPlacement.reparentedIds(anchor, current, rootIdOfStep), current))
-              LaneScope(current, PipelineService.ancestorChainOf(prospectiveParent, current), descendants, selfId = None)
+              // HEL-1521: the same seeds feed the lane-linked dependents (anything that would depend on the new step).
+              val reparented = placement.fold(_ => Set.empty[String], anchor => StepPlacement.reparentedIds(anchor, current, rootIdOfStep))
+              LaneScope.of(current, prospectiveParent, reparented, selfId = None)
             }
           def pipelineAccessF: Future[Either[ServiceError, Pipeline]] =
             pipelineRepo.findByIdShared(pipelineId, Some(user)).flatMap {

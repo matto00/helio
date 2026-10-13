@@ -1,6 +1,11 @@
 // laneLayout.test.ts — HEL-912 task 2.3.
 
-import { computeAncestorIds, computeLaneLayout, laneOutputSubtitle } from "./laneLayout";
+import {
+  computeAncestorIds,
+  computeDependentIds,
+  computeLaneLayout,
+  laneOutputSubtitle,
+} from "./laneLayout";
 import { buildLaneGraph } from "./stepTree";
 import type { LaneGraphRoot } from "./stepTree";
 import { OP_TYPES } from "./stepNarrowing";
@@ -131,6 +136,41 @@ describe("computeAncestorIds", () => {
     const ancestors = computeAncestorIds(steps, "b");
     expect(ancestors.has("c")).toBe(false);
     expect(ancestors.has("a")).toBe(true);
+  });
+});
+
+describe("computeDependentIds (HEL-1521)", () => {
+  it("includes parent-chain descendants and steps that lane to a member, transitively", () => {
+    const a = step("a");
+    const d = step("d", "a");
+    const x = unionStep("x", "a", { kind: "lane", stepId: "d" });
+    const y = unionStep("y", "a", { kind: "lane", stepId: "x" });
+    const z = step("z", "a");
+    const dependents = computeDependentIds([a, d, x, y, z], "a");
+    expect([...dependents].sort()).toEqual(["d", "x", "y", "z"]);
+    expect(computeDependentIds([a, d, x, y, z], "d").has("y")).toBe(true);
+    expect(computeDependentIds([a, d, x, y, z], "d").has("z")).toBe(false);
+  });
+
+  it("handles a diamond and never includes the step itself", () => {
+    const a = step("a");
+    const b = step("b", "a");
+    const m = unionStep("m", "b", { kind: "lane", stepId: "a" });
+    const end = step("end", "m");
+    const dependents = computeDependentIds([a, b, m, end], "a");
+    expect([...dependents].sort()).toEqual(["b", "end", "m"]);
+  });
+
+  it("terminates on a legacy cyclic graph", () => {
+    const p = unionStep("p", "q", { kind: "lane", stepId: "q" });
+    const q = unionStep("q", "p", { kind: "lane", stepId: "p" });
+    expect([...computeDependentIds([p, q], "p")]).toEqual(["q"]);
+  });
+
+  it("does not follow the step's own outgoing lane edge", () => {
+    const t = step("t");
+    const a = unionStep("a", "t", { kind: "lane", stepId: "t" });
+    expect(computeDependentIds([t, a], "a").size).toBe(0);
   });
 });
 
