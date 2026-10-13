@@ -22,6 +22,7 @@ import spray.json.JsValue
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** Applies a reviewed `PatchSet` (HEL-403's schema/protocol) atomically — N
  *  targeted edits (update/delete/create) across EXISTING resources either
@@ -77,15 +78,21 @@ final class PatchSetApplyService(
     PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService, outputService)
 
   def apply(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetApplyResponse]] =
-    PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {
-      case Left(err) => Future.successful(Left(err))
-      case Right(resolved) =>
-        // HEL-1458: after authorization (a 403/404 wins, so a fingerprint never reveals existence) and before any write.
-        staleTargets(patchSet, resolved, user).flatMap {
-          case stale if stale.nonEmpty => Future.successful(Left(PatchSetStaleMessage.error(stale)))
-          case _                       => applyResolved(resolved, user)
+    patchSet.proposalId.filterNot(isUuid) match {
+      case Some(_) => Future.successful(Left(ServiceError.BadRequest("proposalId must be a UUID")))
+      case None =>
+        PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(resolved) =>
+            // HEL-1458: after authorization (a 403/404 wins, so a fingerprint never reveals existence) and before any write.
+            staleTargets(patchSet, resolved, user).flatMap {
+              case stale if stale.nonEmpty => Future.successful(Left(PatchSetStaleMessage.error(stale)))
+              case _                       => PatchSetApplyOnce.run(applicationRepo, patchSet.proposalId, user)(applyResolved(resolved, user))
+            }
         }
     }
+
+  private def isUuid(value: String): Boolean = Try(UUID.fromString(value)).isSuccess
 
   /** Every edit whose supplied fingerprint no longer matches its target's current editable state; edits that
    *  supplied none are not checked. */

@@ -33,6 +33,7 @@ three columns and the `| Table | Column | ON DELETE |` header exactly.
 | `outputs`                     | `owner_id`             | NO ACTION |
 | `panels`                      | `owner_id`             | NO ACTION |
 | `patch_set_applications`      | `owner_id`             | NO ACTION |
+| `patch_set_applied_proposals` | `owner_id`             | CASCADE   |
 | `pipeline_run_rate_window`    | `user_id`              | NO ACTION |
 | `pipeline_runs`               | `triggered_by_user_id` | SET NULL  |
 | `pipelines`                   | `owner_id`             | NO ACTION |

@@ -14,6 +14,8 @@ package object api {
   val ErrorResponse: protocols.ErrorResponse.type = protocols.ErrorResponse
   type PatchSetStaleResponse = protocols.PatchSetStaleResponse
   val PatchSetStaleResponse: protocols.PatchSetStaleResponse.type = protocols.PatchSetStaleResponse
+  type PatchSetAlreadyAppliedResponse = protocols.PatchSetAlreadyAppliedResponse
+  val PatchSetAlreadyAppliedResponse: protocols.PatchSetAlreadyAppliedResponse.type = protocols.PatchSetAlreadyAppliedResponse
   type StaleTargetResponse = protocols.StaleTargetResponse
   val StaleTargetResponse: protocols.StaleTargetResponse.type = protocols.StaleTargetResponse
   type HealthResponse = protocols.HealthResponse

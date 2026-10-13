@@ -9,14 +9,15 @@ class PatchSetTargetFingerprintSpec extends AnyWordSpec with Matchers {
   private val SampleValue: JsValue = JsObject("v" -> JsNumber(1))
 
   /** Written out independently of the implementation: what each kind's update request can write, plus, for a dataSource
-   *  and a pipeline, everything their delete removes. */
+   *  and a pipeline, everything their delete removes; an output and a pipelineStep add DELETE-only cascade keys
+   *  (HEL-1522: `panelIds`/`alertRules`, `removedSteps`/`outputs`) that their update states simply lack. */
   private val WritableFields: Map[String, Vector[String]] = Map(
     "panel"        -> Vector("title", "appearance", "type", "config"),
     "dashboard"    -> Vector("name", "appearance", "layout"),
     "dataSource"   -> Vector("name", "type", "config", "tag", "inferredSchema", "declaredSchema"),
     "pipeline"     -> Vector("name", "tag", "roots", "steps", "outputs", "schedule"),
-    "pipelineStep" -> Vector("type", "config", "position", "enabled"),
-    "output"       -> Vector("name", "config")
+    "pipelineStep" -> Vector("type", "config", "position", "enabled", "removedSteps", "outputs"),
+    "output"       -> Vector("name", "config", "panelIds", "alertRules")
   )
 
   private def stateWith(kind: String): JsObject =

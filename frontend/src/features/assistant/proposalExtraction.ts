@@ -29,6 +29,26 @@ export interface AssistantProposalExtraction {
   input: unknown;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** HEL-1522: a patch set's `proposalId` is server-minted and travels in the persisted `propose_patch_set` tool
+ *  result (the review hand-off reads `tool_use.input`, which the model wrote). Whatever `proposalId` the model put in
+ *  the input is discarded; the one from the paired result replaces it, only when it is a UUID. */
+function withMintedProposalId(input: unknown, result: ClaudeToolResultBlockDto): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  const { proposalId: _modelWritten, ...rest } = input as Record<string, unknown>;
+  void _modelWritten;
+  let minted: unknown;
+  try {
+    minted = (JSON.parse(result.content) as { proposalId?: unknown } | null)?.proposalId;
+  } catch {
+    minted = undefined;
+  }
+  return typeof minted === "string" && UUID_RE.test(minted)
+    ? { ...rest, proposalId: minted }
+    : rest;
+}
+
 /** Pure function: scans a transcript (in order) for the LATEST successful `propose_*` tool call —
  *  no I/O (design.md D4). "Latest" rather than "first": a multi-turn conversation may propose, be
  *  asked to revise, and propose again, and the most recent successful attempt is the one that
@@ -54,7 +74,10 @@ export function extractProposal(
       if (kind === undefined) continue;
       const result = resultsByToolUseId.get(block.id);
       if (result === undefined || result.isError) continue;
-      latest = { kind, input: block.input };
+      latest = {
+        kind,
+        input: kind === "patch" ? withMintedProposalId(block.input, result) : block.input,
+      };
     }
   }
   return latest;
