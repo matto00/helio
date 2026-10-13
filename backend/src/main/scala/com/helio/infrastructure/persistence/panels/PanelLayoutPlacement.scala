@@ -53,6 +53,9 @@ private[persistence] object PanelLayoutPlacement {
             .filter(_.id === dashboardId.value)
             .map(r => (r.layout, r.lastUpdated))
             .update((next, Instant.now()))
-        ).map(_ => placed)
+        ).andThen(
+          // HEL-1525: read the version the V127 trigger just assigned (the row is still locked FOR UPDATE).
+          dashboards.filter(_.id === dashboardId.value).map(_.layoutVersion).result.head
+        ).map(version => placed.map(_.copy(layoutVersion = Some(version))))
     }
 }

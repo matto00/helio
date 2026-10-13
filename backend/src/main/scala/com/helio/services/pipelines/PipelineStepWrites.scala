@@ -3,6 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{DeletePipelineStepResponse, PipelineStepConfigCodec, PipelineStepResponse, ReorderPipelineStepsRequest, UpdatePipelineStepRequest}
 import com.helio.domain.model.{AuthenticatedUser, Pipeline, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.pipelines.LaneCycleOnReorderException
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -194,7 +195,11 @@ private[pipelines] final class PipelineStepWrites(
                     Right(steps.map(s => PipelineStepResponse.fromDomain(s, rootIdOfStep.map { case (k, v) => k.value -> v.value })))
                   }
               }
-              .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+              .recover {
+                // HEL-1523: the relink already rolled back; this is the lane-cycle family's 400, not a 500.
+                case ex: LaneCycleOnReorderException => Left(ServiceError.BadRequest(ex.getMessage))
+                case ex                              => Left(PipelineService.classifyDbError(ex))
+              }
         }
     }
 

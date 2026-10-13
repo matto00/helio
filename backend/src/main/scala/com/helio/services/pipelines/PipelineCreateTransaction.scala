@@ -122,10 +122,10 @@ private[pipelines] final class PipelineCreateTransaction(
               // unguarded-empty-id bug this change closes elsewhere -- union/lookup already
               // `.nonEmpty`-guarded); now driven by the one shared extractor so this call site
               // cannot drift from PipelineService.addStep/updateStep the way it already had.
-              val crossOwnerF: Future[Either[ServiceError, Unit]] = PipelineStepConfigCodec.secondaryDataSourceId(typedConfig) match {
-                case Some(id) => checkOwnedSource(id, user)
-                case None     => Future.successful(Right(()))
-              }
+              val crossOwnerF: Future[Either[ServiceError, Unit]] =
+                StepReferenceChecks.secondarySourceOwnershipF(dataSourceRepo, typedConfig, user).map(_.left.map(id =>
+                  ServiceError.NotFound(s"Data source not found: $id")
+                ))
               crossOwnerF.flatMap {
                 case Left(err) => Future.successful(Left(err))
                 case Right(()) =>
@@ -139,12 +139,6 @@ private[pipelines] final class PipelineCreateTransaction(
       }
     }
   }
-
-  private def checkOwnedSource(dataSourceId: String, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    dataSourceRepo.findByIdOwned(DataSourceId(dataSourceId), user).map {
-      case None    => Left(ServiceError.NotFound(s"Data source not found: $dataSourceId"))
-      case Some(_) => Right(())
-    }
 
   /** HEL-911 skeptic-final-1.md cycle 3: `buildStepsAction`'s counterpart to its own
    *  `parentClientIdOpt.map(clientIdMap(_))` line -- a decoded `join`/`union`/`lookup` config

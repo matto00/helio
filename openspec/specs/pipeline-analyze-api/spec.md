@@ -203,9 +203,12 @@ Analyze SHALL project a schema for every node in every lane across every root. A
 - **THEN** the projected schema reflects both inputs per the configured mode, rather than the parent lane alone
 
 #### Scenario: A source-kind secondary input falls back to best-effort projection
-- **WHEN** analyze is requested for a `union` step whose `secondaryInput` is `source`-kind
+- **WHEN** analyze is requested for a `union` step whose `secondaryInput` is `source`-kind and the data source's schema cannot be resolved (empty `dataSourceId`, missing or invisible source, or no inferred schema)
 - **THEN** the projected schema is the parent lane's schema unchanged, and no validation error is raised
-- **THEN** the secondary data source's schema is not resolved — see HEL-965
+
+#### Scenario: A resolved source-kind secondary input is projected
+- **WHEN** analyze is requested for a `union` step whose `secondaryInput` is `source`-kind and the data source has an inferred schema `{a, c}` while the parent lane projects `{a, b}`
+- **THEN** the projected schema is `{a, b, c}` (the parent lane's fields followed by the source-only fields), on the persisted analyze, node-capabilities, proposal-analyze and transactional-create paths alike
 
 #### Scenario: A pipeline with one tail has two node projections
 - **WHEN** `GET /api/pipelines/:id/analyze` is called on a pipeline with a trunk and one tail

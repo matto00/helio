@@ -5,9 +5,28 @@
 
 import { areBreakpointLayoutsEqual, dashboardGridCols } from "./dashboardLayout";
 import { breakpointOrder, isLayoutValid } from "./breakpointLayout";
-import type { DashboardLayout } from "../types/dashboard";
+import type { DashboardLayout, DashboardLayoutItem } from "../types/dashboard";
 
 export type DashboardLayoutPatch = Partial<DashboardLayout>;
+
+/**
+ * HEL-1527: the authored items of panels the resolution does not cover (panels this tab has not loaded).
+ * They are sent as authored, never judged here: the server drops a deleted panel's item and rejects an
+ * overlap with a live one. Blank and repeated ids are skipped, as `resolveDashboardLayout` does.
+ */
+function unloadedItems(
+  authored: DashboardLayoutItem[],
+  resolved: DashboardLayoutItem[],
+): DashboardLayoutItem[] {
+  const seen = new Set(resolved.map((item) => item.panelId));
+  const kept: DashboardLayoutItem[] = [];
+  for (const item of authored) {
+    if (item.panelId.trim().length === 0 || seen.has(item.panelId)) continue;
+    seen.add(item.panelId);
+    kept.push(item);
+  }
+  return kept;
+}
 
 /**
  * @param next      the latest authored layout
@@ -25,7 +44,10 @@ export function buildLayoutPatch(
   for (const bp of breakpointOrder) {
     if (areBreakpointLayoutsEqual(next[bp], baseline[bp])) continue;
     const cols = dashboardGridCols[bp] ?? 0;
-    patch[bp] = resolved && !isLayoutValid(next[bp], cols) ? resolved[bp] : next[bp];
+    patch[bp] =
+      resolved && !isLayoutValid(next[bp], cols)
+        ? [...resolved[bp], ...unloadedItems(next[bp], resolved[bp])]
+        : next[bp];
   }
   return patch;
 }

@@ -331,10 +331,33 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         .update((status, Some(completedAt), rowCount, errorLog, truncatedReadsJson))
     ).map(_ > 0)
 
-  /** HEL-1511 (design.md D4): whether the run is still non-terminal. The success chain checks it before any
-    * side effect, so a run that was reaped while its instance stalled cannot write snapshots or write-backs. */
-  def isRunOpenInternal(runId: PipelineRunId): Future[Boolean] =
-    ctx.withSystemContext(runsTable.filter(r => r.id === runId.value && r.completedAt.isEmpty).exists.result)
+  /** HEL-1511 (design.md D4) / HEL-1518 (design.md D1): the run's state -- open, terminal (reaped or otherwise
+    * finalized) or missing (deleted with its pipeline, or pruned). The success chain reads it before any side effect,
+    * so a run reaped while its instance stalled cannot write snapshots or write-backs. */
+  def runStateInternal(runId: PipelineRunId): Future[RunState] =
+    // Privileged: keyed by the server-generated run id the executor itself inserted. An editor-admitted run belongs to
+    // the pipeline OWNER under the owner-JOIN RLS, so the user pool would not see it and would misread it as missing.
+    ctx.withSystemContext(sql"SELECT completed_at IS NULL FROM pipeline_runs WHERE id = ${runId.value}".as[Boolean].headOption).map {
+      case Some(true)  => RunState.Open
+      case Some(false) => RunState.Terminal
+      case None        => RunState.Missing
+    }
+
+  /** HEL-1518 (design.md D3): the in-transaction run guard, composed as the FIRST action of a node's snapshot
+    * transaction. Locks the pipeline row `FOR KEY SHARE` (so a pipeline delete, whose `FOR UPDATE` conflicts, either
+    * finishes first or waits for this transaction -- the delete's lock order stays pipeline row before cascaded rows)
+    * and then the run row `FOR SHARE` (which conflicts with the reaper's non-key UPDATE, so a reap waits for this
+    * transaction to commit). Fails the transaction with [[RunNoLongerOpen]] -- before anything was written -- when
+    * the run is gone or was finalized by anything other than its own `succeeded` terminal write (that write is an
+    * eager sibling of the node fold, so on a healthy run it can commit before a node's write). Must run inside an
+    * already-privileged (`withSystemContext`) transaction: it reads rows the user pool's RLS may hide. */
+  def runGuardAction(pipelineId: PipelineId, runId: PipelineRunId): DBIO[Unit] =
+    (sql"SELECT 1 FROM pipelines WHERE id = ${pipelineId.value} FOR KEY SHARE".as[Int] andThen
+      sql"SELECT status, completed_at IS NULL FROM pipeline_runs WHERE id = ${runId.value} FOR SHARE".as[(String, Boolean)].headOption).flatMap {
+      case None                                                  => DBIO.failed(RunNoLongerOpen(RunState.Missing))
+      case Some((status, open)) if open || status == "succeeded" => DBIO.successful(())
+      case Some(_)                                               => DBIO.failed(RunNoLongerOpen(RunState.Terminal))
+    }
 
   /** HEL-1511 (design.md D1): one conditional UPDATE refreshing the heartbeat of the given live runs. Always
     * system context: on the RLS user pool there is no request-bound user, so it would match 0 rows in prod. An
@@ -645,6 +668,17 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object PipelineRunRepository {
+
+  /** HEL-1518: where a run stands. `Missing` = no row (deleted with its pipeline, or pruned). */
+  sealed trait RunState
+  object RunState {
+    case object Open     extends RunState
+    case object Terminal extends RunState
+    case object Missing  extends RunState
+  }
+
+  /** HEL-1518: thrown by [[PipelineRunRepository.runGuardAction]] to roll a node's snapshot transaction back untouched. */
+  final case class RunNoLongerOpen(state: RunState) extends RuntimeException(s"Run is no longer open ($state)")
 
   /** One run finalized by [[PipelineRunRepository.reapStaleRunsInternal]] (HEL-1511). */
   final case class ReapedRun(runId: PipelineRunId, pipelineId: PipelineId, ownerId: UserId, startedAt: Instant, reason: String)
