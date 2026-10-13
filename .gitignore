@@ -93,15 +93,17 @@ frontend/src/features/assistant/.hel993-locked-dir/
 # a crashed run must not leave a committable artifact behind.
 /scripts/.hel1369-selftest-mutated-ignore-set.mjs
 
-# Concertino
-.concertino/
-# Stray render artifacts leaked from a dirty upstream Concertino checkout
-# (unreviewed WIP, never invoked from helio) — HEL-812.
-scripts/concertino/pricing-table.json
-scripts/concertino/report-cost.sh
-
-# Rendered by `concertino sync`; machine-local, never committed (CON-210)
-scripts/concertino/.instrumentation-manifest.json
+# Concertino rendered output (`concertino sync`); setup-worktree.sh copies it into each worktree (CON-253).
+# Run `concertino sync` in the main checkout before starting lanes. Never edit these files by hand.
+/.concertino/
+/scripts/concertino/
+/.claude/agents/concertino-*.md
+/.claude/commands/concertino-*.md
+/.codex/agents/concertino-*.toml
+/.codex/prompts/concertino-*.md
+/.codex/roles/concertino-*.md
+/.opencode/agents/concertino-*.md
+/.opencode/commands/concertino-*.md
 
 # E2E evidence screenshots (HEL-1363): one per-worktree dir written by e2e/support/evidencePath.ts
 /e2e-evidence/

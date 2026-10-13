@@ -117,5 +117,14 @@
     "launchPad": {
       "enabled": true
     }
+  },
+  "models": {
+    "claude-code": {
+      "orchestrator": "opus",
+      "evaluator": "opus",
+      "skeptic": "opus",
+      "executor": "sonnet",
+      "auditor": "sonnet"
+    }
   }
 }
