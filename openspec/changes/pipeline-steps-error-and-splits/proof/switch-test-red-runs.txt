@@ -1,0 +1,11 @@
+# red 1: drop mountedRef gate in handleAddRoot
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  ● PipelineDetailPage -- in-app pipeline switch (HEL-1483) › B converges to its own pipeline and steps when A's add-root continuation resolves after the switch, with no refetch of A
+  ● PipelineDetailPage -- in-app pipeline switch (HEL-1483) › keeps B's editor (and its pending edit) when A's add-root continuation resolves after the switch, with no refetch of A
+Tests:       2 failed, 15 passed, 17 total
+# red 2: drop mountedRef gate in handleRemoveRoot
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+  ● PipelineDetailPage -- in-app pipeline switch (HEL-1483) › B converges when A's remove-root continuation resolves after the switch, with no refetch of A
+  ● PipelineDetailPage -- in-app pipeline switch (HEL-1483) › keeps B's editor (and its pending edit) when A's remove-root continuation resolves after the switch, with no refetch of A
+Tests:       2 failed, 15 passed, 17 total
+0

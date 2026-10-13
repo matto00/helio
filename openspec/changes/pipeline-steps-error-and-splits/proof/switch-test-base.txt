@@ -1,0 +1,454 @@
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at forceStoreRerender (node_modules/react-dom/cjs/react-dom-client.development.js:8262:24)
+      at Object.callback (node_modules/react-dom/cjs/react-dom-client.development.js:8247:11)
+      at node_modules/react-redux/src/utils/Subscription.ts:29:20
+      at defaultNoopBatch (node_modules/react-redux/src/utils/batch.ts:3:3)
+      at Object.notify (node_modules/react-redux/src/utils/Subscription.ts:26:7)
+      at Object.notifyNestedSubs (node_modules/react-redux/src/utils/Subscription.ts:124:15)
+      at handleChangeWrapper (node_modules/react-redux/src/utils/Subscription.ts:129:20)
+      at listener (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:93:67)
+      at node_modules/redux/src/createStore.ts:220:7
+          at Map.forEach (<anonymous>)
+      at Object.dispatch (node_modules/redux/src/createStore.ts:219:15)
+      at dispatch (node_modules/@reduxjs/toolkit/src/autoBatchEnhancer.ts:126:22)
+      at node_modules/@reduxjs/toolkit/src/serializableStateInvariantMiddleware.ts:169:22
+      at node_modules/redux-thunk/dist/cjs/redux-thunk.cjs:32:12
+      at node_modules/@reduxjs/toolkit/src/immutableStateInvariantMiddleware.ts:183:34
+      at node_modules/@reduxjs/toolkit/src/actionCreatorInvariantMiddleware.ts:29:12
+      at dispatch (node_modules/redux/src/applyMiddleware.ts:52:38)
+      at node_modules/@reduxjs/toolkit/src/createAsyncThunk.ts:399:13
+
+  console.error
+    An update to PipelineDetailPageContent inside a test was not wrapped in act(...).
+    
+    When testing, code that causes React state updates should be wrapped into act(...):
+    
+    act(() => {
+      /* fire events that update state */
+    });
+    /* assert on the output */
+    
+    This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      271 |
+      272 |   const onStepsSettled = useCallback(
+    > 273 |     (ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"),
+          |                      ^
+      274 |     [],
+      275 |   );
+      276 |   const { retryPipelineLoad } = usePipelinePageLoad({
+
+      at node_modules/react-dom/cjs/react-dom-client.development.js:18758:19
+      at runWithFiberInDEV (node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-dom/cjs/react-dom-client.development.js:18757:9)
+      at scheduleUpdateOnFiber (node_modules/react-dom/cjs/react-dom-client.development.js:16409:11)
+      at dispatchSetStateInternal (node_modules/react-dom/cjs/react-dom-client.development.js:9170:13)
+      at dispatchSetState (node_modules/react-dom/cjs/react-dom-client.development.js:9127:7)
+      at src/features/pipelines/hooks/usePipelineDetailPage.ts:273:22
+      at src/features/pipelines/hooks/usePipelinePageLoad.ts:57:7
+
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        9.827 s
+Ran all test suites matching src/features/pipelines/ui/PipelineDetailPage.switch.test.tsx.

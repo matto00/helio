@@ -1,0 +1,9 @@
+# green after split
+Tests:       2 passed, 2 total
+23:  const stepsRef = { current: steps };
+# red: stepsRef no longer a stable ref
+    - Expected  - 1
+    + Received  + 1
+    - Expected  - 1
+    + Received  + 1
+Tests:       2 failed, 2 total
