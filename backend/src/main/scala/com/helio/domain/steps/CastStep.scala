@@ -83,9 +83,10 @@ object CastStep {
       // and like a JSON number (HEL-1436 D2).
       case "double" | "float" | "number" => Try(str.toDouble).getOrElse(null)
       case "boolean" => Try(str.toBoolean).getOrElse(null)
-      // Keep the ORIGINAL string when either platform timestamp reader accepts it, else null
-      // (HEL-1436 D3, owner rulings 1 and 3). A non-String input is emitted as its string form.
-      case "date" | "timestamp" => if (isTimestampLike(v, str)) str else null
+      // Keep exactly what the shared parser reads, so every kept value is readable by datebucket, compute
+      // and the window day frames (HEL-1436 D3 aligned by HEL-1502 `widen-parser`). A kept string keeps
+      // its ORIGINAL text; a non-String numeric epoch is emitted as its UTC ISO instant (`iso-instant-both`).
+      case "date" | "timestamp" => castTimestamp(v, str)
       // Explicit, owner-ruled passthrough (HEL-1436 D5) for a target stored before the write
       // validator started rejecting it (`string-body`, `binary-ref`, unrecognised). The ORIGINAL
       // value is kept. Unreachable for new writes.
@@ -93,10 +94,10 @@ object CastStep {
     }
   }
 
-  /** Accepted by EITHER platform timestamp reader (HEL-1436 D3): source schema inference or the shared
-   *  instant parser. The parser gets the RAW value so a JSON-number epoch is kept, not just its string. */
-  private def isTimestampLike(raw: Any, str: String): Boolean =
-    TimestampParsing.looksLikeTimestamp(str) || TimestampParsing.parseInstant(raw).isDefined
+  private def castTimestamp(raw: Any, str: String): Any = raw match {
+    case _: String => if (TimestampParsing.parseInstant(str).isDefined) str else null
+    case _         => TimestampParsing.epochInstant(raw).map(_.toString).orElse(TimestampParsing.parseInstant(raw).map(_ => str)).orNull
+  }
 
   /** WRITE-only (HEL-1436 D4): names every unsupported target of the `casts` map. Never part of
    *  `validateRawConfig`, so analyze and the run gates keep admitting stored legacy targets. */

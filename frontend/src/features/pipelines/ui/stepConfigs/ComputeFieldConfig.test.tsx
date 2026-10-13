@@ -133,6 +133,14 @@ describe("ComputeFieldConfig", () => {
       expect(screen.getByText("Functions and operators").tagName).toBe("SUMMARY");
     });
 
+    it("uses the shared disclosure-summary recipe with the 44px touch floor", () => {
+      render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
+      expect(screen.getByText("Functions and operators")).toHaveClass(
+        "disclosure-summary",
+        "tap-expand-44",
+      );
+    });
+
     it("lists the date/time functions once toggled open", () => {
       render(<ComputeFieldConfig config={emptyConfig} analyzeColumns={[]} onChange={jest.fn()} />);
       fireEvent.click(screen.getByText("Functions and operators"));

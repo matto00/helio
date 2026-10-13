@@ -2071,45 +2071,10 @@
   color: var(--app-text-muted);
 }
 
-.pipeline-detail-page__compute-functions-summary {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-sm);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-  border-radius: var(--app-radius-sm);
-}
-
-/* An explicit chevron: `display: inline-flex` removes the native summary marker. */
-.pipeline-detail-page__compute-functions-summary::before {
-  content: "";
-  flex: none;
-  width: var(--space-2);
-  height: var(--space-2);
-  margin-right: var(--space-2);
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(-45deg);
-}
-
-.pipeline-detail-page__compute-functions[open]
-  > .pipeline-detail-page__compute-functions-summary::before {
-  transform: rotate(45deg);
-}
-
-.pipeline-detail-page__compute-functions-summary:hover {
-  color: var(--app-text);
-}
-
-.pipeline-detail-page__compute-functions-summary:focus-visible {
-  outline: var(--app-focus-ring);
-  outline-offset: 2px;
-}
-
 .pipeline-detail-page__compute-functions-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   margin: var(--space-1) 0 0;
   padding: 0;
   list-style: none;

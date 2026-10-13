@@ -25,9 +25,7 @@ function ReferenceList({ label, items }: { label: string; items: readonly Comput
 export function ComputeFunctionReference() {
   return (
     <details className="pipeline-detail-page__compute-functions">
-      <summary className="pipeline-detail-page__compute-functions-summary tap-expand-44">
-        Functions and operators
-      </summary>
+      <summary className="disclosure-summary tap-expand-44">Functions and operators</summary>
       <ReferenceList label="Expression functions" items={COMPUTE_FUNCTION_REFERENCE} />
       <ReferenceList
         label="Expression operators"
