@@ -9,6 +9,7 @@ import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository.AuthoringConversationRecord
 
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 /** `POST /api/refinements` (design.md, this ticket) — turns a user's natural-language message about
@@ -127,7 +128,8 @@ final class RefinementService(
         // returned and stored, so a later apply (including MCP's) refuses targets that changed since.
         val patchSet = PatchSetFingerprintStamping.strip(parsed)
         patchSetPreviewService.preview(patchSet, user).map {
-          case Right(preview) => Right(PatchSetFingerprintStamping.stamp(patchSet, preview))
+          // HEL-1522: the stored copy carries a server-minted proposalId, so re-opening it yields the same id.
+          case Right(preview) => Right(PatchSetFingerprintStamping.stamp(patchSet, preview).copy(proposalId = Some(UUID.randomUUID().toString)))
           case Left(err)      => Left(err.message)
         }
     }

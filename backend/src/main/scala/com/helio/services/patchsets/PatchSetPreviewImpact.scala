@@ -1,6 +1,6 @@
 package com.helio.services.patchsets
 
-import com.helio.domain.model.{AuthenticatedUser, Page}
+import com.helio.domain.model.{AuthenticatedUser, Page, PanelId, PipelineId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,8 +36,8 @@ private[services] object PatchSetPreviewImpact {
       // once at run time -- no edit here triggers an automatic re-run.
       case ResolvedAction.PipelineUpdate(_, _, _) =>
         Future.successful(Vector(StaleRowsHint))
-      case ResolvedAction.PipelineDelete(_, _) =>
-        Future.successful(Vector(StaleRowsHint, PipelineDeleteCascadeHint))
+      case ResolvedAction.PipelineDelete(id, _) =>
+        removedBoundHints(id, user, ctx, overlay).map(Vector(StaleRowsHint, PipelineDeleteCascadeHint) ++ _)
       case ResolvedAction.PipelineStepUpdate(_, _, _) =>
         Future.successful(Vector(StaleRowsHint))
       case ResolvedAction.PipelineStepDelete(_, _) =>
@@ -71,5 +71,42 @@ private[services] object PatchSetPreviewImpact {
       // Every other (kind, op): an ordinary rename/content edit has no
       // cascade/staleness consequence beyond the diff itself.
       case _ => Future.successful(Vector.empty)
+    }
+
+  private val NameCap = 5
+
+  /** HEL-1522: what a pipeline delete removes through its Outputs -- the bound panels and targeting alert rules.
+   *  Names come only from caller-scoped reads (a panel via `findById(.., Some(user))`, a rule via the caller's visible
+   *  ids); anything the caller cannot read is counted, never named. Panels an earlier edit of the set already deletes
+   *  are skipped, and a panel renamed earlier shows its new title. Known gaps (not handled): a panel created, rebound
+   *  onto or away from one of the Outputs by an earlier edit of the same set is not tracked per Output. */
+  private def removedBoundHints(id: PipelineId, user: AuthenticatedUser, ctx: PatchSetApplyContext, overlay: PatchSetPreviewOverlay)(
+      implicit ec: ExecutionContext
+  ): Future[Vector[String]] =
+    for {
+      outputs    <- ctx.outputRepo.listByPipelineInternal(id)
+      outputIds   = outputs.map(_.id.value)
+      panelIds   <- ctx.panelRepo.findIdsByOutputIdsInternal(outputIds)
+      alertRules <- ctx.outputRepo.findAlertRuleDefinitionsInternal(outputIds)
+      livePanels  = panelIds.values.flatten.toVector.distinct.sorted.filterNot(overlay.isRemoved("panel", _))
+      titles     <- Future.traverse(livePanels)(pid => ctx.panelRepo.findById(PanelId(pid), Some(user)).map(_.map(p => overlay.panel(p).title)))
+      rules       = alertRules.values.flatten.toVector.distinctBy(_._1).sortBy(_._1)
+      visible    <- ctx.outputRepo.findVisibleAlertRuleIds(rules.map(_._1), user)
+    } yield {
+      val panelNames = titles.flatten
+      val ruleNames  = rules.collect { case (rid, _, _, name, _, _) if visible(rid) => name }
+      namingHint("panel(s)", livePanels.size, panelNames) ++ namingHint("alert rule(s)", rules.size, ruleNames)
+    }
+
+  private def namingHint(noun: String, total: Int, names: Vector[String]): Vector[String] =
+    if (total == 0) Vector.empty
+    else {
+      val shown     = names.take(NameCap).map(n => "\"" + n + "\"")
+      val more      = names.size - shown.size
+      val invisible = total - names.size
+      val listed    = (if (shown.nonEmpty) ": " + shown.mkString(", ") else "") +
+        (if (more > 0) s" and $more more" else "") +
+        (if (invisible > 0) (if (shown.nonEmpty || more > 0) "; " else ": ") + s"$invisible you cannot see" else "")
+      Vector(s"Removes $total $noun$listed.")
     }
 }

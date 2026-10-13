@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Optional human-readable description of the whole patch set (e.g. an agent's one-line summary of the refinement)."
     },
+    "proposalId": {
+      "type": "string",
+      "description": "Server-assigned (HEL-1522) when refinement or the assistant proposes the patch set. Clients keep it unchanged and send it back on apply; the server applies a given proposalId at most once per user (409 PATCH_SET_ALREADY_APPLIED). Optional: a patch set without it is applied exactly as before."
+    },
     "edits": {
       "type": "array",
       "items": {

@@ -17,6 +17,7 @@ import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceReso
 import com.helio.domain.model.{AuthenticatedUser, OutputId, WorkspaceResourceType}
 import spray.json._
 
+import java.util.UUID
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -328,8 +329,10 @@ final class AssistantToolExecutor(
             proposeValidationFailuresCounter.incrementAndGet()
             Left(err.message)
           case Right(preview) =>
-            capturedProposal.set(Some(AssistantProposal.Patch(patchSet, preview)))
-            Right(preview.toJson.compactPrint)
+            // HEL-1522: the review hand-off reads the persisted tool_result, so the minted id travels there.
+            val proposalId = UUID.randomUUID().toString
+            capturedProposal.set(Some(AssistantProposal.Patch(patchSet.copy(proposalId = Some(proposalId)), preview)))
+            Right(JsObject(preview.toJson.asJsObject.fields + ("proposalId" -> JsString(proposalId))).compactPrint)
         }
     }
   }

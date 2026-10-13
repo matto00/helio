@@ -119,6 +119,16 @@ describe("patchSetsSlice", () => {
     );
   });
 
+  it("carries the message of a structured PATCH_SET_ALREADY_APPLIED rejection into applyError (HEL-1522)", () => {
+    const action = applyPatchSet.rejected(new Error("Rejected"), "req-1", samplePatchSet, {
+      code: "PATCH_SET_ALREADY_APPLIED",
+      message: "This proposal was already applied.",
+    });
+    const state = patchSetsReducer(undefined, action);
+    expect(state.applyStatus).toBe("failed");
+    expect(state.applyError).toBe("This proposal was already applied.");
+  });
+
   const sampleUndoArg = { applicationId: "app-1", patchSet: samplePatchSet };
   const sampleUndoResponse: PatchSetUndoResponse = {
     edits: [{ index: 0, status: "restored" }],
