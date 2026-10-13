@@ -1,8 +1,0 @@
-- `frontend/src/features/pipelines/ui/stepConfigs/ConvertFormatConfig.tsx` — remove redundant onBlur re-emit on Destination field
-- `frontend/src/features/pipelines/ui/stepConfigs/ComputeFieldConfig.tsx` — remove redundant onBlur on Output field name and Expression
-- `frontend/src/features/pipelines/ui/stepConfigs/UpsertSourceConfig.tsx` — remove redundant onBlur on New source name
-- `frontend/src/features/pipelines/ui/stepConfigs/ComputeFieldConfig.test.tsx` — blur-does-not-call-onChange for both inputs
-- `frontend/src/features/pipelines/ui/stepConfigs/ConvertFormatConfig.test.tsx` — change-then-blur emits exactly once
-- `frontend/src/features/pipelines/ui/stepConfigs/UpsertSourceConfig.test.tsx` — change-then-blur emits exactly once
-- `frontend/src/features/pipelines/ui/StepCard.blurNoRepatch.test.tsx` — StepCard fake-timer tests: one save per edit, zero for blur without edit
-- `openspec/changes/step-config-blur-no-repatch/probe-notes.md` — enumeration, before/after live probes, cleanup record
