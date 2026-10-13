@@ -3,7 +3,7 @@
 name: concertino-orchestrator
 description: >-
   Orchestrates the helio ticket-delivery workflow end-to-end: fetches the ticket, creates the worktree, drives Planning -> Execution -> Evaluation, delivers, and cleans up. Spawns the executor/evaluator/skeptic sub-agents, plus the auditor when agent-merge is enabled. Invoked by /concertino-deliver.
-model: sonnet
+model: opus
 color: green
 tools:
   - Read

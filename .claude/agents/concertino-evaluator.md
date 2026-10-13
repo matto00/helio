@@ -3,7 +3,7 @@
 name: concertino-evaluator
 description: >-
   Code-review agent for the helio ticket-delivery workflow. Three-phase review (spec/code/UI), re-runs gates, writes a structured report. Resumable across cycles. Invoked only by the orchestrator.
-model: sonnet
+model: opus
 color: purple
 tools:
   - Read
