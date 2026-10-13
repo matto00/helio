@@ -6,12 +6,14 @@ import com.helio.domain.model.{AssistantConversationId, AuthenticatedUser}
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository
 import com.helio.infrastructure.storage.FileSystem
+import com.helio.services.sources.StoredObjectCleanup
 import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Business logic for HEL-663's assistant-conversation persistence — composes
  *  `AssistantConversationRepository` (Postgres metadata) with the existing `FileSystem`
@@ -48,19 +50,26 @@ final class AssistantConversationService(
 
     fileSystem.write(path, serialize(transcript)).flatMap { _ =>
       val now = Instant.now()
-      repo
-        .create(
-          AssistantConversationRecord(
-            id         = id,
-            ownerId    = user.id,
-            title      = resolvedTitle,
-            pinned     = false,
-            gcsBodyRef = path,
-            createdAt  = now,
-            updatedAt  = now
+      // HEL-1434: a failed row create removes the blob just written (best effort, never replacing the original error).
+      Future.unit
+        .flatMap(_ =>
+          repo.create(
+            AssistantConversationRecord(
+              id         = id,
+              ownerId    = user.id,
+              title      = resolvedTitle,
+              pinned     = false,
+              gcsBodyRef = path,
+              createdAt  = now,
+              updatedAt  = now
+            )
           )
         )
-        .map(record => AssistantConversationDetail(record, transcript.toJson))
+        .transformWith {
+          case Success(record) => Future.successful(AssistantConversationDetail(record, transcript.toJson))
+          case Failure(ex) =>
+            StoredObjectCleanup.delete(fileSystem, path, "AssistantConversationService.create").transformWith(_ => Future.failed(ex))
+        }
     }
   }
 

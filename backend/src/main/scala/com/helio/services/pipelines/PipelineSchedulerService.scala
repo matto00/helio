@@ -4,6 +4,7 @@ import com.helio.api.routes.pipelines.PipelineRunRegistry
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.services.sources.StoredObjectDeletionService
 import com.helio.services.telemetry.ProductEventRollupService
 import org.slf4j.LoggerFactory
 
@@ -55,7 +56,10 @@ final class PipelineSchedulerService(
     autoRunTriggerService: AutoRunTriggerService = null,
     // HEL-1511 (design.md D3): nullable-optional like the collaborators above -- receives the terminal `failed`
     // event of each reaped run so an open editor stops spinning. A fixture that passes none publishes nothing.
-    registry: PipelineRunRegistry = null
+    registry: PipelineRunRegistry = null,
+    // HEL-1434: nullable-optional like the collaborators above -- drains the stored-object deletion queue (V128) so the
+    // object of a deleted image_uploads / file-backed data_sources row is removed. Skipped when not wired.
+    storedObjectDeletionService: StoredObjectDeletionService = null
 )(implicit ec: ExecutionContext) {
 
   require(pipelineStepRepo != null, "PipelineSchedulerService: pipelineStepRepo is required (HEL-1384 fire-time config gate)")
@@ -136,6 +140,15 @@ final class PipelineSchedulerService(
       val _ = Future.delegate(outputHistoryRetentionService.purgeIfDue(now)).recover { case ex =>
         log.error("PipelineSchedulerService: output history retention failed", ex)
         None
+      }
+    }
+    // HEL-1434: stored-object deletion drain. STARTED, not awaited (storage deletes over the network must never delay
+    // scheduled fires); the service's own in-flight guard keeps one pass per process and the recover only guards a
+    // synchronous throw or a surprise failed future -- a failure is logged and can never reach the tick.
+    if (storedObjectDeletionService != null) {
+      val _ = Future.delegate(storedObjectDeletionService.runPass()).recover { case ex =>
+        log.error("PipelineSchedulerService: stored-object deletion drain failed", ex)
+        0
       }
     }
     candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).map(_ => ())

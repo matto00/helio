@@ -31,7 +31,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json.JsString
 
-import java.nio.file.Files
+import java.nio.file.{Files, Path}
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
@@ -78,6 +78,7 @@ class WorkspaceTeardownServiceSpec
   private var appDb: JdbcBackend.Database        = _
   private var privilegedDb: JdbcBackend.Database = _
   private var ctx: DbContext                     = _
+  private var tmpDir: Path                       = _
 
   private var dataSourceRepo: DataSourceRepository = _
   private var pipelineRepo: PipelineRepository     = _
@@ -143,8 +144,8 @@ class WorkspaceTeardownServiceSpec
     panelRepo      = new PanelRepository(ctx)(routeEc)
     dashboardRepo  = new DashboardRepository(ctx)(routeEc)
 
-    val tmpDir = newTempDir("helio-teardown-spec")
-    val fs     = new LocalFileSystem(tmpDir)
+    tmpDir = newTempDir("helio-teardown-spec")
+    val fs = new LocalFileSystem(tmpDir)
     dataSourceService = new DataSourceService(dataSourceRepo, fs)(routeEc, mat, typedSystem)
 
     val teardownRepo = new WorkspaceTeardownRepository(ctx)(routeEc)
@@ -374,6 +375,22 @@ class WorkspaceTeardownServiceSpec
     }
   }
 
+
+  // HEL-1434 G2 [guard]: green before and after the change (teardown already removed the object post-commit).
+  "teardown (HEL-1434 G2 stored-object removal)" should {
+    "G2 [guard] remove the stored object of a tagged csv source" in {
+      val tag = freshTag()
+      val csv = await(dataSourceService.createCsv("g2", "a,b\n1,2\n".getBytes("UTF-8"), Vector.empty, userA, Some(tag))) match {
+        case Right(c: CsvSource) => c
+        case other               => fail(s"expected a csv source, got $other")
+      }
+      val file = tmpDir.resolve(csv.config.path)
+      Files.exists(file) shouldBe true
+      teardown(userA, tag)
+      sourceExists(csv.id, userA) shouldBe false
+      Files.exists(file) shouldBe false
+    }
+  }
 
   "teardown (6.4 DataSource -> Pipeline dependent guard)" should {
     "block the whole call when the dependent pipeline is untagged, then succeed once it is tagged in" in {

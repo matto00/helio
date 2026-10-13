@@ -10,6 +10,7 @@ import spray.json.JsObject
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** Business logic for standalone panel-literal image uploads (HEL-246):
  *  extension validation, size enforcement, `FileSystem` write at
@@ -76,12 +77,22 @@ final class ImageUploadService(
             createdAt  = Instant.now()
           )
           fileSystem.write(storageKey, bytes).flatMap { _ =>
-            repo.insert(upload).map { inserted =>
+            // HEL-1434: a failed insert removes the object just written (best effort, never replacing the original error).
+            compensatingOnFailure(storageKey)(repo.insert(upload)).map { inserted =>
               audit(Some(inserted.id.value), user)
               Right(inserted)
             }
           }
         }
+    }
+
+  /** HEL-1434: runs the row insert and, when it FAILS, removes the object this request just wrote before re-raising the
+   *  original failure unchanged; a cleanup failure is logged and never replaces it (the HEL-1494 shape). */
+  private def compensatingOnFailure[A](storageKey: String)(insert: => Future[A]): Future[A] =
+    Future.unit.flatMap(_ => insert).transformWith {
+      case Success(value) => Future.successful(value)
+      case Failure(ex) =>
+        StoredObjectCleanup.delete(fileSystem, storageKey, "ImageUploadService.upload").transformWith(_ => Future.failed[A](ex))
     }
 
   /** Serve path backing `GET /api/uploads/image/:id`: privileged metadata

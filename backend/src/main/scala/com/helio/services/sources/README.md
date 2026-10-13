@@ -2,7 +2,7 @@
 
 Data-source ingestion: CSV/image/PDF/connection-test support, schema inference facade, source CRUD.
 
-Holds: `ConnectionTest`, `ContentSourceSupport`, `CreateSourceEnvelope`, `DataSourceCsvSupport`, `DataSourceService`, `ImageSourceSupport`, `ImageUploadService`, `PdfTextSupport`, `SchemaInferenceFacade`, `SourceConfigParsing`, `SourceService`.
+Holds: `ConnectionTest`, `ContentSourceSupport`, `CreateSourceEnvelope`, `DataSourceCsvSupport`, `DataSourceService`, `ImageSourceSupport`, `ImageUploadService`, `PdfTextSupport`, `SchemaInferenceFacade`, `SourceConfigParsing`, `SourceService`, `StoredObjectCleanup`, `StoredObjectDeletionService`.
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/sources/`) — this directory's files call

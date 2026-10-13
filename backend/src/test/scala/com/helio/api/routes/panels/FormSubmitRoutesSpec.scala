@@ -31,6 +31,7 @@ import spray.json._
 
 import java.time.Instant
 import java.util.UUID
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -79,15 +80,20 @@ class FormSubmitRoutesSpec
 
   // HEL-1086 tasks.md 3.1/3.2: records every `write` call so a test can assert "no file written"
   // (C3) by before/after count, without a real FileSystem backend.
-  private val writtenPaths = scala.collection.mutable.ArrayBuffer.empty[String]
+  private val writtenPaths = ArrayBuffer.empty[String]
+  // HEL-1434: paths the service asked the file system to delete, and a one-shot hook run after a successful write
+  // (used to make the in-lock append fail AFTER the objects were stored).
+  private val deletedPaths = ArrayBuffer.empty[String]
+  @volatile private var afterWrite: () => Unit = () => ()
 
   private val stubFileSystem: FileSystem = new FileSystem {
     def write(path: String, bytes: Array[Byte]): Future[Unit] = {
       writtenPaths.synchronized(writtenPaths += path)
+      afterWrite()
       Future.successful(())
     }
     def read(path: String): Future[Array[Byte]]                                                 = Future.successful(Array.empty)
-    def delete(path: String): Future[Unit]                                                       = Future.successful(())
+    def delete(path: String): Future[Unit]                                                       = { deletedPaths.synchronized(deletedPaths += path); Future.successful(()) }
     def exists(path: String): Future[Boolean]                                                    = Future.successful(false)
     def list(prefix: String, cursor: Option[String] = None, pageSize: Int = 1000): Future[ListPage] = Future.successful(ListPage(Seq.empty, None))
   }
@@ -505,6 +511,58 @@ class FormSubmitRoutesSpec
       val photoCell = row(2).asJsObject
       photoCell.fields("storageKey") shouldBe JsString(writtenPaths.last)
       photoCell.fields("filename") shouldBe JsString("report.pdf")
+    }
+
+    // HEL-1434 probe: phase 1 passes, the files are stored, then the in-lock append is refused (here: the bound source
+    // vanishes between the two). The append returned `Left`, no row exists, so the stored objects are unreferenced.
+    "remove the stored objects when the in-lock append is refused after the files were written (HEL-1434)" in {
+      val src = seedDataset(ownerId, "src-file-append-refused", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+      val writtenBefore = writtenPaths.synchronized(writtenPaths.toList)
+      afterWrite = () => { await(ctx.withSystemContext(sqlu"""DELETE FROM data_sources WHERE id = $src""")); () }
+      try {
+        submitMultipart(
+          panelId,
+          """{"quantity":3,"note":"hello"}""",
+          Seq(("photo", "report.pdf", "file bytes".getBytes("UTF-8")))
+        ) ~> routes ~> check {
+          status shouldBe StatusCodes.NotFound
+        }
+      } finally afterWrite = () => ()
+      val written = writtenPaths.synchronized(writtenPaths.toList).diff(writtenBefore)
+      written should have size 1
+      deletedPaths.synchronized(deletedPaths.toList) should contain(written.head)
+    }
+
+    // HEL-1434 safety property: a FAILED append future is ambiguous (the append may have committed), so the stored
+    // objects are NOT removed. The wrong-shaped (but valid JSONB) declared schema makes the in-lock append throw
+    // after phase 1 already read the real schema.
+    "leave the stored objects in place when the in-lock append future fails (HEL-1434)" in {
+      val src = seedDataset(ownerId, "src-file-append-failed", schemaJson = fileSchemaJson)
+      val dashboardId = seedDashboard(ownerId)
+      val panelId = seedFormPanel(dashboardId, ownerId, formConfig(fileFieldsJson).replace("__DS__", src))
+      val writtenBefore = writtenPaths.synchronized(writtenPaths.toList)
+      afterWrite = () => {
+        await(ctx.withSystemContext(sqlu"""UPDATE data_sources SET dataset_schema = '{"x":1}'::jsonb WHERE id = $src"""))
+        ()
+      }
+      try {
+        submitMultipart(
+          panelId,
+          """{"quantity":3,"note":"hello"}""",
+          Seq(("photo", "report.pdf", "file bytes".getBytes("UTF-8")))
+        ) ~> routes ~> check {
+          status.isSuccess() shouldBe false
+        }
+      } finally afterWrite = () => ()
+      val written = writtenPaths.synchronized(writtenPaths.toList).diff(writtenBefore)
+      written should have size 1
+      written.head should startWith("form-uploads/")
+      deletedPaths.synchronized(deletedPaths.toList) should not contain written.head
+      await(ctx.withSystemContext(
+        sql"""SELECT count(*) FROM dataset_rows WHERE data_source_id = $src""".as[Int].head
+      )) shouldBe 0
     }
 
     "never let the submitted filename become the storage key (path-traversal safe)" in {
