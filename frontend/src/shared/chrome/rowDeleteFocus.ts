@@ -1,10 +1,25 @@
 /** Keyboard focus management for the overview tables' row Delete (HEL-1574). A delete confirm and, after a success,
  *  the row itself unmount, which would drop focus on <body>; these helpers keep it somewhere sensible. */
 
-/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). A stable
+/** Whether the confirm should be scrolled into view. Only a keyboard activation (`click` with `detail === 0`) does:
+ *  that user cannot scroll to it by pointing, and nothing else is about to click. A pointer activation may be the
+ *  first half of a double-click, and moving the page under the pointer between its two clicks sends the second one
+ *  to whatever slid under it (HEL-1604); the confirm is inserted directly below the row just clicked, so a pointer
+ *  user finds it where they are. Deterministic: no timers. */
+let revealImmediately = false;
+
+/** Record how Delete was activated; called from the row Delete button's click handler. */
+export function noteDeleteActivation(clickDetail: number): void {
+  revealImmediately = clickDetail === 0;
+}
+
+/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). Focus never
+ *  scrolls the page by itself (`preventScroll`); a keyboard activation then reveals the confirm explicitly. A stable
  *  function, so React calls it on mount only. */
 export function focusOnMount(element: HTMLElement | null): void {
-  element?.focus();
+  if (element === null) return;
+  element.focus({ preventScroll: true });
+  if (revealImmediately) element.scrollIntoView?.({ block: "nearest" });
 }
 
 function deleteButtonSelector(name: string): string {

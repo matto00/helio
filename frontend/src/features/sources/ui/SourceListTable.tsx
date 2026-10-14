@@ -1,3 +1,4 @@
+import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
 import { Fragment, useMemo, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -182,7 +183,10 @@ export function SourceListTable({
                     <button
                       type="button"
                       className="source-list-table__delete-btn"
-                      onClick={() => onRequestDelete(source)}
+                      onClick={(event) => {
+                        noteDeleteActivation(event.detail);
+                        onRequestDelete(source);
+                      }}
                       aria-label={`Delete ${source.name}`}
                     >
                       Delete

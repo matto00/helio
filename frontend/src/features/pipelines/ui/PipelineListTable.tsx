@@ -1,3 +1,4 @@
+import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -233,7 +234,10 @@ export function PipelineListTable({
                       <button
                         type="button"
                         className="pipeline-list-table__delete-btn"
-                        onClick={() => onRequestDelete(pipeline)}
+                        onClick={(event) => {
+                          noteDeleteActivation(event.detail);
+                          onRequestDelete(pipeline);
+                        }}
                         aria-label={`Delete ${pipeline.name}`}
                       >
                         Delete
