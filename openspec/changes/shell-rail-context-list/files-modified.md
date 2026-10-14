@@ -1,0 +1,121 @@
+- `DESIGN.md` — DESIGN.md sections 9, 10, 12 updated (D11)
+- `backend/src/main/resources/db/migration/V134__dashboard_folders.sql` — V134: per-user dashboard_folders and dashboard_folder_assignments, FORCE RLS owner policies, composite FK
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — Wiring: preferences on login/register/OAuth/MFA/beta redeem//me, folder and preference routes
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — Wiring: preferences on login/register/OAuth/MFA/beta redeem//me, folder and preference routes
+- `backend/src/main/scala/com/helio/api/protocols/auth/AuthProtocol.scala` — Shell preferences: PATCH /api/users/me/preferences, JSON-merge writes, preferences on every user response (D2)
+- `backend/src/main/scala/com/helio/api/protocols/dashboards/DashboardFolderProtocol.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineScheduleProtocol.scala` — GET /api/pipeline-schedules: items plus sources feeding them in two queries (D9)
+- `backend/src/main/scala/com/helio/api/routes/auth/BetaAccessRoutes.scala` — Wiring: preferences on login/register/OAuth/MFA/beta redeem//me, folder and preference routes
+- `backend/src/main/scala/com/helio/api/routes/auth/UserPreferencesRoutes.scala` — Shell preferences: PATCH /api/users/me/preferences, JSON-merge writes, preferences on every user response (D2)
+- `backend/src/main/scala/com/helio/api/routes/dashboards/DashboardFolderRoutes.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineScheduleRoutes.scala` — GET /api/pipeline-schedules: items plus sources feeding them in two queries (D9)
+- `backend/src/main/scala/com/helio/domain/model/DashboardFolder.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/main/scala/com/helio/domain/model/PipelineScheduleList.scala` — GET /api/pipeline-schedules: items plus sources feeding them in two queries (D9)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/UserPreferenceRepository.scala` — Shell preferences: PATCH /api/users/me/preferences, JSON-merge writes, preferences on every user response (D2)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardFolderRepository.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineScheduleRepository.scala` — GET /api/pipeline-schedules: items plus sources feeding them in two queries (D9)
+- `backend/src/main/scala/com/helio/services/auth/AuthService.scala` — Wiring: preferences on login/register/OAuth/MFA/beta redeem//me, folder and preference routes
+- `backend/src/main/scala/com/helio/services/auth/MfaService.scala` — Wiring: preferences on login/register/OAuth/MFA/beta redeem//me, folder and preference routes
+- `backend/src/main/scala/com/helio/services/auth/UserResponseAssembler.scala` — Shell preferences: PATCH /api/users/me/preferences, JSON-merge writes, preferences on every user response (D2)
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardFolderService.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineScheduleService.scala` — GET /api/pipeline-schedules: items plus sources feeding them in two queries (D9)
+- `backend/src/test/scala/com/helio/api/routes/auth/BetaAccessRoutesSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/api/routes/auth/UserPreferencesRoutesSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/api/routes/dashboards/DashboardFolderRoutesSpec.scala` — Dashboard folder CRUD and move (HEL-1574 D7/D8)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/PipelineScheduleListRoutesSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/infrastructure/persistence/DashboardFolderRlsSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/services/auth/MfaServiceSpec.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `backend/src/test/scala/com/helio/testsupport/TwoUserRlsApiFixture.scala` — Backend specs: folders, schedule list, preferences, auth responses, RLS under NOBYPASSRLS
+- `e2e/hel1003-actions-menu-keyboard-reach.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1023-breakpoint-layout-derivation.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1275-metric-delta-sparkline.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1392-remount-request-burst.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1398-chart-narrow-footnotes.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1444-footnoted-chart-canvas.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1512-category-axis-labels.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/hel1574-shell-rail.spec.ts` — New Playwright spec for the shell
+- `e2e/hel813-mobile-touch-target-floor.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/state-surface-contrast-guard.spec.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `e2e/support/gridProcessedWidth.ts` — Existing spec adapted to the new chrome geometry (rail + 248px list = 352px, was 288px)
+- `frontend/src/app/App.css` — Shell grid; logo and avatar move to the rail above 768px
+- `frontend/src/app/App.test.tsx` — Shell grid; logo and avatar move to the rail above 768px
+- `frontend/src/app/App.tsx` — Shell grid; logo and avatar move to the rail above 768px
+- `frontend/src/app/AppShell.rail.test.tsx` — Shell grid; logo and avatar move to the rail above 768px
+- `frontend/src/app/CommandBar.tsx` — Shell grid; logo and avatar move to the rail above 768px
+- `frontend/src/app/README.md` — README mention of the new shell modules
+- `frontend/src/app/ShareDialogFocusRestore.test.tsx` — Shell tests updated for the rail and list
+- `frontend/src/app/Sidebar.tsx` — Deleted: the retired desktop sidebar code path
+- `frontend/src/app/shell/AppRail.css` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/AppRail.test.tsx` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/AppRail.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/AssistantContextList.css` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/AssistantContextList.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/ContextList.css` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/ContextList.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/ContextListBody.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/ContextListSeparator.test.tsx` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/ContextListSeparator.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/ScheduledContextList.test.tsx` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/ScheduledContextList.tsx` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/contextListLayout.ts` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/formatNextRun.ts` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/shell.css.test.ts` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/useContextListLayout.test.tsx` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/useContextListLayout.ts` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/app/shell/useIsPhoneShell.test.tsx` — Tests for the rail, list, separator, layout hook, phone query and shell stylesheet contract
+- `frontend/src/app/shell/useIsPhoneShell.ts` — Icon rail, resizable collapsible context list and per-section bodies (D1-D5, D10)
+- `frontend/src/features/auth/services/authService.ts` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/auth/state/authSlice.test.ts` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/auth/state/authSlice.ts` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/auth/types/user.ts` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/auth/ui/UserMenu.test.tsx` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/auth/ui/UserMenu.tsx` — Preferences in the auth slice (optimistic merge, setAuth keeps them), Usage in the avatar menu
+- `frontend/src/features/dashboards/README.md` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/services/dashboardFolderService.ts` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/state/dashboardFoldersSlice.test.ts` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/state/dashboardFoldersSlice.ts` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/types/dashboardFolder.ts` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardFolderGroup.tsx` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardList.css` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardList.folders.test.tsx` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardList.test.tsx` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardList.tsx` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/dashboards/ui/DashboardMovePicker.tsx` — Folders: slice, service, grouped DashboardList, move picker
+- `frontend/src/features/pipelines/services/pipelineScheduleListService.ts` — Scheduled items slice and service for the Pipelines/Sources lists
+- `frontend/src/features/pipelines/state/scheduledItemsSlice.ts` — Scheduled items slice and service for the Pipelines/Sources lists
+- `frontend/src/features/pipelines/types/pipelineSchedule.ts` — Scheduled items slice and service for the Pipelines/Sources lists
+- `frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx` — Delete moves to the detail page header (D12)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — Delete moves to the detail page header (D12)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — Delete moves to the detail page header (D12)
+- `frontend/src/features/sources/ui/SourceDetailPanel.test.tsx` — Delete moves to the detail page header (D12)
+- `frontend/src/features/sources/ui/SourceDetailPanel.tsx` — Delete moves to the detail page header (D12)
+- `frontend/src/shared/README.md` — README mention of the new shell modules
+- `frontend/src/shared/chrome/BottomNav.test.tsx` — Home alias leading the phone bottom nav (D5)
+- `frontend/src/shared/chrome/BottomNav.tsx` — Home alias leading the phone bottom nav (D5)
+- `frontend/src/shared/chrome/SidebarBody.css` — Deleted: the retired desktop sidebar code path
+- `frontend/src/shared/chrome/SidebarBody.test.tsx` — Deleted: the retired desktop sidebar code path
+- `frontend/src/shared/chrome/SidebarBody.tsx` — Deleted: the retired desktop sidebar code path
+- `frontend/src/shared/chrome/SidebarItemList.tsx` — hideHeading prop (the list header names the section)
+- `frontend/src/shared/chrome/navDestinations.ts` — Home alias leading the phone bottom nav (D5)
+- `frontend/src/shared/chrome/pickerEmptyState.test.tsx` — Copy lock now only against the Assistant list
+- `frontend/src/shared/chrome/pickerEmptyState.tsx` — Copy lock now only against the Assistant list
+- `frontend/src/store/store.ts` — Register the new slices
+- `frontend/src/test/renderWithStore.tsx` — Register the new slices
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — File-count pins updated for the new stylesheets
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — File-count pins updated for the new stylesheets
+- `schemas/auth/update-user-preferences-request.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/auth/user-preferences.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/create-dashboard-folder-request.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/dashboard-folder-assignment.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/dashboard-folder-list-response.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/dashboard-folder.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/move-dashboard-folder-request.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/dashboards/update-dashboard-folder-request.schema.json` — JSON Schema contract for the new endpoints
+- `schemas/pipelines/pipeline-schedule-list-response.schema.json` — JSON Schema contract for the new endpoints
+- `scripts/check-schema-drift.mjs` — Guard scripts: comma-safe case-class parsing, new skips/allowlist entry
+- `scripts/check-tokens.mjs` — Guard scripts: comma-safe case-class parsing, new skips/allowlist entry
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — Completeness row for PUT dashboard folder (declared at delivery; changed in cycle 1)
+- `docs/user-reference-inventory.md` — Lists the two folder tables for the V119 FK inventory (declared at delivery; changed in cycle 1)
+- `frontend/src/features/dashboards/state/shareDialogContext.tsx` — Stale `.app-sidebar` comment corrected (declared at delivery; changed in cycle 2)

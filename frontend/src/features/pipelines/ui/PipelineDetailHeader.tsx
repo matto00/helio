@@ -115,6 +115,9 @@ interface PipelineDetailHeaderProps {
   isOwner: boolean;
   /** Opens the share dialog. Only invoked when `isOwner` is true. */
   onOpenShare: () => void;
+  /** HEL-1574 D12: starts deleting this pipeline (the page owns the confirm). Delete moved here from the retired
+   *  sidebar list; visibility matches the sidebar rows (no new gating, the server enforces ownership). */
+  onDelete?: () => void;
 }
 
 export function PipelineDetailHeader({
@@ -131,6 +134,7 @@ export function PipelineDetailHeader({
   onOpenHistory,
   isOwner,
   onOpenShare,
+  onDelete,
 }: PipelineDetailHeaderProps) {
   const nextRun = schedule !== null ? formatNextRun(schedule.nextRunAt) : null;
   const [addRootOpen, setAddRootOpen] = useState(false);
@@ -200,6 +204,7 @@ export function PipelineDetailHeader({
     { label: schedule === null ? "Set schedule" : "Edit schedule", onClick: onEditSchedule },
     { label: "Run history", onClick: onOpenHistory },
     ...(isOwner ? [{ label: "Share", onClick: onOpenShare }] : []),
+    ...(onDelete ? [{ label: "Delete pipeline", onClick: onDelete, danger: true }] : []),
   ];
 
   // HEL-1022 — one render path for both the visible row and the overflow

@@ -58,7 +58,7 @@ import { registerUser } from "./support/auth";
 // live on `/settings`: the guard covered 2 of 36 in-`<main>` interactive
 // elements (5.5%). Fixed two ways, not one: (1) chrome is now probed
 // EXACTLY ONCE per theme, as its own view (`chrome`), scoped to
-// `.app-command-bar, .app-sidebar__nav-row`; every route view is scoped to
+// the whole body minus `<main>` and the context list (command bar + icon rail); every route view is scoped to
 // `page.locator("main")` so it measures page content only, never chrome.
 // (2) `collectCandidates` now visibility-filters the FULL matched set
 // first, then SAMPLES evenly across it (not `slice(0, cap)`), and returns
@@ -537,8 +537,9 @@ type Counts = {
 
 // The chrome (command bar + sidebar nav row) is probed once per theme, scoped to `body` excluding
 // `<main>` and the sidebar's per-route rail. See the unsplit guard's history: the `.app-skip-link`
-// sits OUTSIDE `.app-command-bar`/`.app-sidebar__nav-row`, so a container scope cannot reach it.
-const CHROME_EXCLUDE = "main, .app-sidebar > :not(.app-sidebar__nav-row)";
+// sits OUTSIDE `.app-command-bar`/`.app-rail`, so a container scope cannot reach it. HEL-1574: the rail
+// is chrome (probed with the command bar); the context list has its own per-route view.
+const CHROME_EXCLUDE = "main, .context-list";
 
 async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   // HEL-1330: idle the page on about:blank before any API seeding. A fresh page already is, and the
@@ -869,19 +870,18 @@ test.describe("HEL-866 state-surface contrast guard", () => {
         // sidebar rail where the rail lists seeded data, must have rendered before anything is
         // stamped or probed. A fixed sleep let a fresh, concurrently loaded page be probed with a
         // half-rendered rail (`/sources:sidebar-rail` measured 1/1 and 3/0 on CI vs 3/3 on main).
-        const sidebar = page.locator(".app-sidebar");
+        const sidebar = page.locator(".context-list");
         const seeded = (scope: Locator, text: string) =>
           expect(scope.getByText(text, { exact: true }).first()).toBeVisible();
         if (routeKey === "/home") {
           await seeded(sidebar, DASH_NAME);
         } else if (routeKey === "/sources") {
-          await seeded(sidebar, SOURCE_NAME);
+          // HEL-1574: the sources / pipelines context lists are compact Recent + Scheduled groups, not a
+          // copy of the table, so the seeded names are read from `<main>` only.
           await seeded(page.locator("main"), SOURCE_NAME);
         } else if (routeKey === "/pipelines") {
-          await seeded(sidebar, PIPELINE_NAME);
           await seeded(page.locator("main"), PIPELINE_NAME);
         } else if (routeKey === "pipeline-detail") {
-          await seeded(sidebar, PIPELINE_NAME);
           await seeded(page.locator("main"), PIPELINE_NAME);
         } else if (routeKey === "/settings") {
           await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
@@ -912,10 +912,9 @@ test.describe("HEL-866 state-surface contrast guard", () => {
           client,
           `${viewName}:sidebar-rail`,
           theme,
-          page.locator(".app-sidebar"),
+          page.locator(".context-list"),
           results,
           counts,
-          ".app-sidebar__nav-row",
         );
         const main = page.locator("main");
         await expect(main).toBeVisible();

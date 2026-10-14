@@ -20,6 +20,7 @@ import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu"
 import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
 import { ICON_SIZE } from "../shared/ui/iconSize";
+import { useIsPhoneShell } from "./shell/useIsPhoneShell";
 
 interface CommandBarProps {
   isMobileNavSheetOpen: boolean;
@@ -48,6 +49,9 @@ export function CommandBar({
   const navigate = useNavigate();
   const location = useLocation();
   const { flush } = useSaveState();
+  // HEL-1574: above the phone breakpoint the icon rail owns the logo mark and the avatar menu, so exactly one of each
+  // is in the accessibility tree at any width (conditional render, not CSS-only hiding).
+  const isPhoneShell = useIsPhoneShell();
 
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
   const authStatus = useAppSelector((state) => state.auth.status);
@@ -129,12 +133,16 @@ export function CommandBar({
             __left`'s flex/gap layout: the wordmark link and desktop
             breadcrumb aren't adjacent to the trigger in the flex row. */}
         <div className="app-command-bar__inert-group" inert={isMobileNavSheetOpen}>
-          {/* F-185: the wordmark is a real link home, not inert chrome. */}
-          <Link to="/home" className="app-command-bar__logo" aria-label="Helio home">
-            <OrbitMark />
-            <span className="app-command-bar__wordmark">Helio</span>
-          </Link>
-          <span className="app-command-bar__sep" aria-hidden="true" />
+          {/* F-185: the wordmark is a real link home, not inert chrome. Phone only: the rail carries it above 768px. */}
+          {isPhoneShell && (
+            <>
+              <Link to="/home" className="app-command-bar__logo" aria-label="Helio home">
+                <OrbitMark />
+                <span className="app-command-bar__wordmark">Helio</span>
+              </Link>
+              <span className="app-command-bar__sep" aria-hidden="true" />
+            </>
+          )}
           <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
             <span>{pickerSelection.heading}</span>
             {onDashboardView && selectedDashboard !== null && (
@@ -195,8 +203,8 @@ export function CommandBar({
         )}
         <div className="app-command-bar__inert-group" inert={isMobileNavSheetOpen}>
           {/* HEL-746 — phone-only "New chat" affordance: the desktop trigger
-              (`SidebarBody.tsx`'s `SidebarItemList` `onAdd`) lives inside
-              `.app-sidebar`, which is `display: none` below 768px, leaving no
+              (the Assistant context list's `SidebarItemList` `onAdd`) lives inside
+              the context list, which is not rendered at 768px and below, leaving no
               phone-reachable way to start a fresh conversation. Mirrors that
               trigger's action (`startNewConversation()`) and `aria-label`
               exactly; gated on `pickerId === "chat"` (not just phone width)
@@ -283,7 +291,7 @@ export function CommandBar({
         {onDashboardView && selectedDashboard !== null && (
           <ActionsMenu label="Dashboard actions" items={dashboardActionItems} />
         )}
-        {authStatus === "authenticated" && currentUser !== null && (
+        {isPhoneShell && authStatus === "authenticated" && currentUser !== null && (
           <UserMenu
             currentUser={currentUser}
             onNavigateToSettings={() => navigate("/settings")}

@@ -30,7 +30,7 @@ import {
 import { setAddSourceModalOpen } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
-import { isDashboardViewPath } from "../shared/chrome/sections";
+import { isDashboardViewPath, pickerIdForPathname } from "../shared/chrome/sections";
 import { resolveDashboardBackground } from "../theme/appearance";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
 import { DashboardAppearancePreviewContext } from "../features/dashboards/hooks/dashboardAppearancePreviewContext";
@@ -40,12 +40,16 @@ import { ToastViewport } from "../shared/ui/Toast";
 import { ErrorBoundary } from "../shared/chrome/ErrorBoundary";
 import { AppRoutes } from "./AppRoutes";
 import { CommandBar } from "./CommandBar";
-import { Sidebar } from "./Sidebar";
+import { AppRail } from "./shell/AppRail";
+import { ContextList } from "./shell/ContextList";
+import { ContextListBody, contextListSectionFor } from "./shell/ContextListBody";
+import { useContextListLayout } from "./shell/useContextListLayout";
+import { useIsPhoneShell } from "./shell/useIsPhoneShell";
 import { MobileShell } from "./MobileShell";
 import { rehydrateAuth } from "../features/auth/state/authSlice";
 
 /** The authenticated app shell - rendered only when the user is signed in.
- * Owns only what's genuinely cross-cutting between `CommandBar`/`Sidebar`/
+ * Owns only what's genuinely cross-cutting between `CommandBar`/`AppRail`/`ContextList`/
  * `MobileShell` and can't be owned by one of them (design.md "App.tsx split
  * boundary"): shared open/collapsed state, the appearance-preview draft,
  * `document.title`, the beforeunload guard, and the shell-level modals. */
@@ -53,16 +57,11 @@ export function AppShell() {
   const dispatch = useAppDispatch();
   const pendingPanelUpdates = useAppSelector((state) => state.panels.pendingPanelUpdates);
   const { theme } = useTheme();
-  // F-018: persisted across reloads so collapsing the sidebar isn't undone by
-  // the next page load. Guarded against storage being unavailable (private
-  // browsing / quota) — collapse state simply won't persist in that case.
-  const [isDashboardListCollapsed, setIsDashboardListCollapsed] = useState<boolean>(() => {
-    try {
-      return window.localStorage.getItem("helio.sidebarCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // HEL-1574: the context list's width and collapsed state live in the user's server-side preferences (already in
+  // the auth slice before this shell first renders, so there is no default flash), replacing the retired
+  // `localStorage["helio.sidebarCollapsed"]` flag, which `useContextListLayout` migrates once.
+  const contextListLayout = useContextListLayout();
+  const isPhoneShell = useIsPhoneShell();
   const [isMobileNavSheetOpen, setIsMobileNavSheetOpen] = useState(false);
   const [isRefinementOpen, setIsRefinementOpen] = useState(false);
   const [isQuickLauncherOpen, setIsQuickLauncherOpen] = useState(false);
@@ -131,15 +130,6 @@ export function AppShell() {
 
   const saveStateContextValue = useSaveStateRegistry();
 
-  // F-018: persist the collapsed/expanded sidebar preference across reloads.
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("helio.sidebarCollapsed", String(isDashboardListCollapsed));
-    } catch {
-      // Storage unavailable — the initializer above already tolerates this.
-    }
-  }, [isDashboardListCollapsed]);
-
   // F-019: most routes render no page-level heading and `document.title`
   // never changed on navigation. The visible per-route heading itself lives
   // in each page (out of this package's ownership); `document.title` is
@@ -186,7 +176,14 @@ export function AppShell() {
   const effectiveDashboardAppearance =
     (onDashboardView && draftAppearance) || selectedDashboard?.appearance;
 
-  const shellStyle =
+  const listSection = contextListSectionFor(pickerIdForPathname(location.pathname));
+  const showRail = !isPhoneShell;
+  const showList = showRail && listSection !== null && !contextListLayout.collapsed;
+  const shellClassName = ["app-shell", showList ? null : "app-shell--no-list"]
+    .filter(Boolean)
+    .join(" ");
+
+  const dashboardBackgroundStyle =
     onDashboardView &&
     effectiveDashboardAppearance !== undefined &&
     effectiveDashboardAppearance.background !== "transparent"
@@ -197,6 +194,10 @@ export function AppShell() {
           ),
         } as CSSProperties)
       : undefined;
+  const shellStyle = {
+    ...dashboardBackgroundStyle,
+    "--context-list-width": `${contextListLayout.width}px`,
+  } as CSSProperties;
 
   return (
     <ShareDialogProvider>
@@ -207,7 +208,23 @@ export function AppShell() {
         <a href="#app-main-content" className="app-skip-link">
           Skip to content
         </a>
-        <div className="app-shell" style={shellStyle}>
+        <div className={shellClassName} style={shellStyle}>
+          {showRail && (
+            <AppRail
+              sectionHasList={listSection !== null}
+              listCollapsed={contextListLayout.collapsed}
+              onExpandList={() => contextListLayout.setCollapsed(false)}
+            />
+          )}
+          {showList && listSection !== null && (
+            <ContextList
+              layout={contextListLayout}
+              heading={listSection.heading}
+              noun={listSection.noun}
+            >
+              <ContextListBody pickerId={pickerIdForPathname(location.pathname)} />
+            </ContextList>
+          )}
           <CommandBar
             isMobileNavSheetOpen={isMobileNavSheetOpen}
             // HEL-773 design.md D2 — the trigger now toggles: tapping it again
@@ -220,12 +237,8 @@ export function AppShell() {
             setDraftAppearance={setDraftAppearance}
           />
 
-          {/* -- BODY (sidebar + content) -- */}
+          {/* -- BODY (content; the rail and context list are grid siblings above) -- */}
           <div className="app-body">
-            <Sidebar
-              isDashboardListCollapsed={isDashboardListCollapsed}
-              onToggleCollapse={() => setIsDashboardListCollapsed((collapsed) => !collapsed)}
-            />
             {/* F-088: the routed page content is the real <main> landmark now —
               <header>/<aside> are chrome, siblings of it, not its ancestors. */}
             <main className="app-content" id="app-main-content">
@@ -324,9 +337,9 @@ export function AppShell() {
             <CommandPalette />
           </HelpOverlayHost>
         </CommandPaletteProvider>
-        {/* HEL-590 (evaluation-1.md CR4) — mounted at shell level, a sibling of Sidebar/MobileShell
-          above, not nested inside `.app-sidebar` (which is `display: none` below the desktop
-          breakpoint and would hide this dialog's entire subtree, including the native <dialog>'s
+        {/* HEL-590 (evaluation-1.md CR4) — mounted at shell level, a sibling of AppRail/MobileShell
+          above, not nested inside the context list (which is not rendered at phone widths
+          or while collapsed, and would hide this dialog's entire subtree, including the native <dialog>'s
           own top-layer promotion, along with it). */}
         <ShareDialogHost />
       </SaveStateContext.Provider>

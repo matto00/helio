@@ -449,12 +449,12 @@ recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 All at `--control-sm/md` height, `--app-radius-sm`, `--weight-medium`,
 `--text-xs/sm`. **[judgment]** A new button style is a defect, not a variant.
 
-**Chrome surfaces are borderless.** Inside `.app-command-bar` and
-`.app-sidebar`, every trigger drops its hairline at every width (`cmd-btn`,
+**Chrome surfaces are borderless.** Inside `.app-command-bar`, the rail
+and the context list, every trigger drops its hairline at every width (`cmd-btn`,
 `ui-icon-btn`, `actions-menu__trigger`, `user-menu__trigger`) — these surfaces
 FRAME the app rather than being content, and a row of controls each in its own
 box reads heavier than what it frames. Hover backgrounds are kept, so feedback
-survives. This is scoped to those two surfaces, deliberately NOT to the
+survives. This is scoped to those surfaces, deliberately NOT to the
 primitives: the same recipes keep their border everywhere else, and especially
 on panel cards, where it separates a control from busy content rather than
 from flat chrome. Note each recipe re-asserts `border-color` on hover, so a
@@ -925,25 +925,58 @@ black|white)`) is not a conforming focus colour** — Yellow measures
 
 The app shell is a **56px icon rail**, a **resizable, collapsible context
 list**, and a **tab bar** with a `⌘K` box. This section is the binding target
-for HEL-1574 (rail + context list), HEL-1575/1576 (tabs, meta row) and HEL-1578
-(Home); until those land the running app still has the v2 sidebar and command
-bar, and nothing here licenses restyling them ahead of those tickets. The
-boards put chrome darker than cards while the v2 sidebar paints
-`--app-surface` (lighter than the canvas); resolving that is HEL-1574's job.
-Numbers the design boards do not fix are marked "adjustable by the owning
-ticket with a DESIGN.md edit".
+for HEL-1575/1576 (tabs, meta row) and HEL-1578 (Home). The rail and the context
+list shipped in HEL-1574; the tab bar and the `⌘K` box have not, and until they
+land the command bar still sits above the page content. Numbers the design
+boards do not fix are marked "adjustable by the owning ticket with a DESIGN.md
+edit".
 
-- **Rail.** 56px wide, always visible, so every page stays reachable when the
-  context list is collapsed. Icon-only: every item has a tooltip (`title`) and
-  an `aria-label` (§5). The active item is an `--app-accent-dim` wash with an
-  `--app-accent` icon; the user avatar sits at the foot. Usage is not a
-  primary-nav item. **[mechanical]** (accessible names, tokens) **[judgment]**
+- **Surfaces.** Chrome is darker than cards: the rail paints `--app-bg`, the
+  context list `--app-surface-soft`, and cards stay `--app-surface` (#1a1816,
+  owner ruling 2026-10-13: it does not change). A hairline `--app-border-subtle`
+  separates them. **[mechanical]** (tokens only)
+- **Where it applies (the 768 boundary).** The rail grid is the **default**
+  shell layout and is overridden under the existing `(max-width: 768px)` query,
+  because §4 allows no other breakpoint values and every page stylesheet already
+  treats 768px as a phone. So exactly 768px is a phone layout, and the ticket's
+  ">=768px" reads as "above the canonical 768 breakpoint". JS that branches on it
+  uses `useIsPhoneShell()` (the same query), never `useIsNarrowerThan(768)`
+  (which is `max-width: 767px`). **[mechanical]**
+- **Rail.** 56px wide, always visible above that boundary, so every page stays
+  reachable when the context list is collapsed. Icon-only: every item has a
+  tooltip (`title`) and an `aria-label` (§5). Order: the logo mark, **Home**,
+  Dashboards, Data Sources, Data Pipelines, Connectors, Assistant, then at the
+  foot Settings and the user avatar menu. The active item is an
+  `--app-accent-dim` wash with an accent icon (`--app-accent-text`, the
+  contrast-guaranteed accent-as-text token) and carries `aria-current="page"`;
+  it is static until the motion foundation (HEL-1573) adds the indicator slide.
+  Usage is not a primary-nav item: owners reach it from the avatar menu.
+  **Home** aliases `/home` (the app's dashboards view) until HEL-1578 repoints it, and is
+  therefore never marked current, so exactly one item is active; the phone
+  `BottomNav` leads with the same Home alias (owner ruling 2026-10-13: the phone
+  has no rail). **[mechanical]** (accessible names, tokens) **[judgment]**
   (composition)
 - **Context list.** Resizable by a drag handle, collapsible to the rail.
-  Width: min 200px, default 248px, max 400px (adjustable by the owning ticket
-  with a DESIGN.md edit). Width and collapsed state persist per user. For
-  dashboards it shows folders with counts. The handle is keyboard-operable and
-  announced, not pointer-only. **[judgment]**
+  Width: min 200px, default 248px, max 400px (owner ruling 2026-10-13). Width
+  and collapsed state persist **server-side per user** (in the user's
+  preferences, returned on every sign-in and `/me` response so the first paint
+  has them: no default flash, and one write per drag, never one per frame). The
+  handle is a WAI-ARIA window splitter: `role="separator"`, vertical,
+  `aria-valuenow/min/max`, `aria-controls` the list and a section-named
+  `aria-label`; Arrow Left/Right step 16px (Shift 64px), Home/End jump to the
+  clamps, Enter or a double-click collapses; the hit area is wider than the 1px
+  hairline and focus takes the shared focus ring. A button in the list header
+  collapses it, and an "Expand list" button at the rail foot restores it.
+  **[mechanical]** **[judgment]**
+- **Per-section content (owner rulings 2026-10-13).** Dashboards: a filter plus
+  the user's own **folders** (collapsible, with mono counts, create, rename,
+  delete, "Move to…") and an "Unfiled" group; folders are per-user and persisted
+  server-side. Data Pipelines and Data Sources: a compact **Recent** group and a
+  **Scheduled** group with each item's next run (sources show the soonest run
+  among the scheduled pipelines they feed), never a copy of the section's table;
+  each links to "View all". Assistant keeps its conversation list. Connectors,
+  Settings and the review routes have no list. Pipeline and source **delete**
+  live in the detail pages' header actions, not in a list. **[judgment]**
 - **Tabs.** One tab per open dashboard; the active tab is marked by an
   `--app-accent` indicator on its top edge that slides between tabs (§10).
   Open tabs persist server-side with a TTL: returning within it is instant
@@ -1033,11 +1066,9 @@ single deceleration shape.
 - The root attribute is `data-motion="full|subtle|off"`, owned by HEL-1572,
   which also owns the per-user persistence.
 
-**Provenance, stated honestly.** "No saved preference plus OS reduce means Off"
-and "an explicit choice beats the OS" are **driver defaults**, not owner
-rulings: the boards do not settle Off versus Subtle, and HEL-1572's own
-acceptance criteria allow either. Treat both as _default, revisit with the
-owner in HEL-1572_.
+**Provenance.** "No saved preference plus OS reduce means Off" and "an explicit
+choice beats the OS" are **owner rulings** (2026-10-13, recorded under HEL-1571;
+this section used to label them driver defaults). HEL-1572 implements them.
 
 **Interim implementation (today's tree).** `data-motion` and the saved
 preference do not exist yet. The global `@media (prefers-reduced-motion:
@@ -1089,6 +1120,13 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   defect this replaces. **[mechanical]**
 - **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
   the desktop context list. **[judgment]**
+- **Home tab (HEL-1574).** Until glass nav v2 lands, the bottom nav leads with a
+  **Home** tab that aliases `/home` and is never marked active (owner ruling
+  2026-10-13: the phone has no rail), so it shows six tabs, seven for an owner
+  (who keeps Usage there). At 375px each tab is at least 44px wide and none
+  overlap; at 320px the owner's seven tabs (7 x 44 = 308px) exceed the roughly
+  278px usable width and overflow, which is accepted and handed to HEL-1583,
+  which decides the final tab set. **[mechanical]**
 - **Glass nav v2.** Five tabs; the **active tab expands to show its label**
   (a width transition on `--motion-duration-standard` with
   `--motion-ease-out`; Off swaps instantly). The HEL-774 carve-out (§3) still

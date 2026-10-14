@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/auth/update-user-preferences-request.schema.json",
+  "title": "UpdateShellPreferencesRequest",
+  "description": "Body of PATCH /api/users/me/preferences (HEL-1574): any non-empty subset of the shell keys; unknown fields and out-of-range values are rejected with 400. Only the fields present are stored.",
+  "type": "object",
+  "properties": {
+    "contextListWidth": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 400
+    },
+    "contextListCollapsed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

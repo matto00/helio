@@ -114,6 +114,9 @@ class RlsPolicyGuardSpec extends AnyWordSpec with Matchers with BeforeAndAfterAl
     "patch_set_applications" -> None,
     // V131 — patch_set_applied_proposals, direct owner (HEL-1522)
     "patch_set_applied_proposals" -> None,
+    // V134 — dashboard_folders + dashboard_folder_assignments, direct owner (HEL-1574)
+    "dashboard_folders" -> None,
+    "dashboard_folder_assignments" -> None,
     // V80 — assistant_conversations, direct owner (HEL-663)
     "assistant_conversations" -> None,
     // V81 — agent_preferences, direct owner (user_id is itself the PK) (HEL-472 / 420-A)

@@ -1,0 +1,257 @@
+import { expect, test, type Page } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+
+// Every test registers its own user and seeds its own data, so tests are independently schedulable.
+test.describe.configure({ mode: "parallel" });
+
+// HEL-1574 -- live verification of the icon rail and the resizable, collapsible context list. jsdom evaluates
+// no media queries or layout, so the breakpoint boundary (768 is a phone, 769 is the rail shell), the persisted
+// width and the phone tab tiling can only be observed in a real browser.
+
+const AUTH = { prefix: "hel1574", displayName: "HEL-1574", domain: "example.com" } as const;
+const CSRF_HEADER = "X-Helio-Requested-With";
+
+async function shellRenders(page: Page) {
+  return {
+    rail: await page.locator(".app-rail").count(),
+    list: await page.locator(".context-list").count(),
+    bottomNav: await page.locator(".bottom-nav").isVisible(),
+  };
+}
+
+test.describe("HEL-1574 shell rail and context list", () => {
+  for (const width of [769, 820, 1280]) {
+    test(`renders the rail and the dashboards list at ${width}px, and no bottom nav`, async ({
+      page,
+      request,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await registerAndLogin(page, request, { ...AUTH, label: `rail${width}`, waitForShell: true });
+      const rail = page.getByRole("navigation", { name: "Main navigation" });
+      await expect(rail).toBeVisible();
+      for (const name of [
+        "Home",
+        "Dashboards",
+        "Data Sources",
+        "Data Pipelines",
+        "Connectors",
+        "Assistant",
+      ]) {
+        await expect(rail.getByRole("link", { name })).toBeVisible();
+      }
+      expect((await page.locator(".app-rail").boundingBox())?.width).toBe(56);
+      expect(await shellRenders(page)).toEqual({ rail: 1, list: 1, bottomNav: false });
+      await expect(rail.getByRole("link", { name: "Dashboards" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      await expect(rail.getByRole("link", { name: "Home" })).not.toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
+  }
+
+  test("exactly 768px is the phone shell: no rail, no context list, the glass bottom nav with Home first", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "phone768" });
+    await expect(page.locator(".bottom-nav")).toBeVisible();
+    expect(await shellRenders(page)).toEqual({ rail: 0, list: 0, bottomNav: true });
+    await expect(
+      page.getByRole("navigation", { name: "Primary" }).getByRole("link").first(),
+    ).toHaveAttribute("aria-label", "Home");
+    await expect(page.getByRole("button", { name: "User menu" })).toHaveCount(1);
+  });
+
+  test("at 375px the bottom nav tabs are each at least 44px wide and do not overlap", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await registerAndLogin(page, request, { ...AUTH, label: "tabs375" });
+    const tabs = page.locator(".bottom-nav__tab");
+    await expect(tabs).toHaveCount(6); // a non-owner: Home + the five sections
+    const boxes = await tabs.evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, width: r.width };
+      }),
+    );
+    for (const box of boxes) expect(box.width).toBeGreaterThanOrEqual(44);
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right - 0.5);
+    }
+    // An owner adds a seventh tab (Usage). Owners cannot be registered here, so prove the same tiling
+    // arithmetic from the measured bar: seven 44px tabs must fit the usable width.
+    const usable = await page.locator(".bottom-nav").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    });
+    expect(usable).toBeGreaterThanOrEqual(7 * 44);
+  });
+
+  test("resizes from the keyboard within 200..400 and the width survives a reload", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "resize", waitForShell: true });
+    const separator = page.getByRole("separator", { name: "Resize dashboard list" });
+    await expect(separator).toHaveAttribute("aria-valuenow", "248");
+    await separator.focus();
+    await page.keyboard.press("Shift+ArrowRight");
+    await expect(separator).toHaveAttribute("aria-valuenow", "312");
+    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowRight");
+    await expect(separator).toHaveAttribute("aria-valuenow", "400");
+    await page.keyboard.press("Home");
+    await expect(separator).toHaveAttribute("aria-valuenow", "200");
+    await page.keyboard.press("Shift+ArrowRight");
+    const saved = page.waitForResponse(
+      (r) => r.url().includes("/api/users/me/preferences") && r.request().method() === "PATCH",
+    );
+    expect((await saved).status()).toBe(200);
+    await page.reload();
+    await expect(page.getByRole("separator", { name: "Resize dashboard list" })).toHaveAttribute(
+      "aria-valuenow",
+      "264",
+    );
+    expect((await page.locator(".context-list").boundingBox())?.width).toBeCloseTo(264, 0);
+  });
+
+  test("a pointer drag clamps at the maximum and issues one preference write", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "drag", waitForShell: true });
+    const writes: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/api/users/me/preferences")) writes.push(r.method());
+    });
+    const box = (await page
+      .getByRole("separator", { name: "Resize dashboard list" })
+      .boundingBox())!;
+    const y = box.y + 200;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    for (let x = 300; x <= 900; x += 60) await page.mouse.move(x, y);
+    await page.mouse.up();
+    await expect(page.getByRole("separator", { name: "Resize dashboard list" })).toHaveAttribute(
+      "aria-valuenow",
+      "400",
+    );
+    await page.waitForTimeout(600);
+    expect(writes).toEqual(["PATCH"]);
+  });
+
+  test("collapses to rail-only, keeps every section one click away, and stays collapsed after a reload", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "collapse", waitForShell: true });
+    await page.getByRole("button", { name: "Collapse list" }).click();
+    await expect(page.locator(".context-list")).toHaveCount(0);
+    await page.waitForResponse((r) => r.url().includes("/api/users/me/preferences"));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Expand list" })).toBeVisible();
+    await expect(page.locator(".context-list")).toHaveCount(0);
+    await page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Data Pipelines" })
+      .click();
+    await expect(page).toHaveURL(/\/pipelines$/);
+    await page.getByRole("button", { name: "Expand list" }).click();
+    await expect(page.getByRole("complementary", { name: "Data Pipelines list" })).toBeVisible();
+  });
+
+  test("creates a folder, files a dashboard in it, and both survive a reload", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "folders", isolate: true });
+    const created = await page.request.post("/api/dashboards", {
+      data: { name: "HEL-1574 Markets" },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(created.status()).toBe(201);
+    await page.goto("/home");
+    await page.getByRole("button", { name: "New folder" }).click();
+    await page.getByRole("textbox", { name: "Folder name" }).fill("Daily");
+    await page.getByRole("button", { name: "Create folder" }).click();
+    await expect(page.getByRole("region", { name: "Folder Daily" })).toBeVisible();
+    await page.getByRole("button", { name: "HEL-1574 Markets actions" }).click();
+    await page.getByRole("menuitem", { name: "Move to…" }).click();
+    await page
+      .getByRole("group", { name: "Move to" })
+      .getByRole("button", { name: "Daily" })
+      .click();
+    const folder = page.getByRole("region", { name: "Folder Daily" });
+    await expect(
+      folder.getByRole("button", { name: "HEL-1574 Markets", exact: true }),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page
+        .getByRole("region", { name: "Folder Daily" })
+        .getByRole("button", { name: "HEL-1574 Markets", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Daily 1" })).toBeVisible();
+  });
+
+  test("the Pipelines list is a compact Recent and Scheduled list, not a copy of the table", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "pipelines", waitForShell: true });
+    await page.goto("/pipelines");
+    const list = page.getByRole("complementary", { name: "Data Pipelines list" });
+    await expect(list.getByRole("region", { name: "Recent" })).toBeVisible();
+    await expect(list.getByRole("region", { name: "Scheduled" })).toBeVisible();
+    await expect(list.getByRole("link", { name: "View all pipelines" })).toBeVisible();
+  });
+
+  test("the folder holding the open dashboard can be collapsed, and the saved state survives a reload", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: "activefolder", isolate: true });
+    const created = await page.request.post("/api/dashboards", {
+      data: { name: "HEL-1574 Active" },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(created.status()).toBe(201);
+    const dashboardId = ((await created.json()) as { id: string }).id;
+    const folder = await page.request.post("/api/dashboard-folders", {
+      data: { name: "Holder" },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    const folderId = ((await folder.json()) as { id: string }).id;
+    const filed = await page.request.put(`/api/dashboards/${dashboardId}/folder`, {
+      data: { folderId },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(filed.status()).toBe(204);
+    await page.goto("/home");
+    const toggle = page.getByRole("button", { name: "Holder 1" });
+    const row = page.getByRole("button", { name: "HEL-1574 Active", exact: true });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(row).toHaveCount(0);
+    await page.reload();
+    // The saved state is collapsed; navigating into the open dashboard's folder reveals it once.
+    await expect(page.getByRole("button", { name: "Holder 1" })).toBeVisible();
+    await page.getByRole("button", { name: "Holder 1" }).click();
+    await expect(page.getByRole("button", { name: "Holder 1" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+});

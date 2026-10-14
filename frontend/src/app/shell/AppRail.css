@@ -1,0 +1,103 @@
+/* The 56px icon rail (DESIGN.md §9). Chrome paints `--app-bg`, darker than cards (`--app-surface`). Tokens only: no
+   literal colours, fonts or durations. The active indicator is static until HEL-1573 ships the slide primitive. */
+.app-rail {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--rail-width);
+  min-height: 0;
+  padding: var(--space-3) 0;
+  background: var(--app-bg);
+  border-right: 1px solid var(--app-border-subtle);
+  position: relative;
+  z-index: 4;
+}
+
+.app-rail__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  margin-bottom: var(--space-3);
+  border-radius: var(--app-radius-sm);
+}
+
+.app-rail__logo:hover {
+  background: var(--app-surface-strong);
+}
+
+.app-rail__logo:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
+
+.app-rail__nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.app-rail__foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-rail__item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color var(--motion-duration-quick) var(--motion-ease-standard),
+    color var(--motion-duration-quick) var(--motion-ease-standard);
+}
+
+/* The rail's own backdrop is `--app-bg`; `--app-surface-strong` is the one step that clears the 1.10 state-surface
+   contrast floor against it in both themes (soft 1.057 dark / 1.054 light and, in dark, the plain surface 1.089 do not; strong is 1.234 dark / 1.119 light, from the token values). */
+.app-rail__item:hover {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
+/* The one accent-washed item: `--app-accent-dim` wash, accent icon (DESIGN.md §9). The glyph uses `--app-accent-text`,
+   the contrast-guaranteed accent-as-text token (HEL-1048); raw `--app-accent` never colours text or glyphs. */
+.app-rail__item--active {
+  background: var(--app-accent-dim);
+  color: var(--app-accent-text);
+}
+
+/* Hovering the active item must still change something visible (HEL-866 D4a): a stronger step of the same wash. */
+.app-rail__item--active:hover {
+  background: var(--app-accent-mid);
+  color: var(--app-accent-text);
+}
+
+.app-rail__item:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
+
+.app-rail .user-menu__trigger,
+.app-rail .user-menu__trigger:hover {
+  border-color: transparent;
+}
+
+/* The trigger's own base hover is `--app-surface-soft`, which does not clear the contrast floor against `--app-bg`. */
+.app-rail .user-menu__trigger:hover {
+  background: var(--app-surface-strong);
+}

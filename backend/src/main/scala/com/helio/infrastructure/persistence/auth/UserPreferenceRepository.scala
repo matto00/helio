@@ -7,10 +7,14 @@ import spray.json._
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 final case class UserPreferencesData(
     accentColor: Option[String],
-    zoomLevels: Map[String, Double]
+    zoomLevels: Map[String, Double],
+    // HEL-1574: shell layout keys in the same `users.preferences` JSON; None = never set.
+    contextListWidth: Option[Int] = None,
+    contextListCollapsed: Option[Boolean] = None
 )
 
 class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
@@ -35,28 +39,51 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
       .result
 
     db.run(globalPrefsQuery.zip(zoomQuery)).map { case (maybeJsonb, zoomRows) =>
-      val accentColor = maybeJsonb.flatten.flatMap { jsonStr =>
-        JsonParser(jsonStr).asJsObject.fields.get("accentColor") match {
-          case Some(JsString(color)) => Some(color)
-          case _                     => None
-        }
+      val fields: Map[String, JsValue] = maybeJsonb.flatten
+        .flatMap(jsonStr => Try(JsonParser(jsonStr).asJsObject.fields).toOption)
+        .getOrElse(Map.empty)
+
+      val accentColor = fields.get("accentColor") match {
+        case Some(JsString(color)) => Some(color)
+        case _                     => None
+      }
+      // Invalid stored values are dropped so the client falls back to its defaults.
+      val width = fields.get("contextListWidth") match {
+        case Some(JsNumber(n)) if n.isValidInt && n.toInt >= ContextListMinWidth && n.toInt <= ContextListMaxWidth =>
+          Some(n.toInt)
+        case _ => None
+      }
+      val collapsed = fields.get("contextListCollapsed") match {
+        case Some(JsBoolean(b)) => Some(b)
+        case _                  => None
       }
 
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
-      UserPreferencesData(accentColor, zoomMap)
+      UserPreferencesData(accentColor, zoomMap, width, collapsed)
     }
   }
 
-  def upsertGlobalPrefs(userId: UserId, accentColor: String): Future[Unit] = {
-    val userIdUuid = UUID.fromString(userId.value)
-    val jsonStr    = JsObject("accentColor" -> JsString(accentColor)).compactPrint
+  def upsertGlobalPrefs(userId: UserId, accentColor: String): Future[Unit] =
+    mergePrefs(userId, JsObject("accentColor" -> JsString(accentColor)))
 
-    val action = users
-      .filter(_.id === userIdUuid)
-      .map(_.preferences)
-      .update(Some(jsonStr))
+  /** HEL-1574: merges only the shell keys present; every other stored key is untouched. The caller has validated the
+   *  ranges. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
+  def patchShellPrefs(userId: UserId, width: Option[Int], collapsed: Option[Boolean]): Future[Unit] = {
+    val fields = Vector(
+      width.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
+      collapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue))
+    ).flatten.toMap
+    if (fields.isEmpty) Future.unit else mergePrefs(userId, JsObject(fields))
+  }
 
+  /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. */
+  private def mergePrefs(userId: UserId, patch: JsObject): Future[Unit] = {
+    val patchStr   = patch.compactPrint
+    val action =
+      sqlu"""UPDATE users
+             SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
+             WHERE id = ${userId.value}::uuid"""
     db.run(action).map(_ => ())
   }
 
@@ -74,6 +101,9 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
 }
 
 object UserPreferenceRepository {
+
+  val ContextListMinWidth: Int = 200
+  val ContextListMaxWidth: Int = 400
 
   final case class UserDashboardZoomRow(
       userId: UUID,

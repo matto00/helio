@@ -31,6 +31,10 @@ final class PipelineScheduleService(
       auditService.record(Some(user.id), user.tokenId, user.source, action, "pipeline_schedule", Some(pipelineId.value), JsObject.empty)
 
 
+  /** HEL-1574: the caller's enabled schedules and the sources feeding them (two queries total). */
+  def listEnabled(user: AuthenticatedUser): Future[PipelineScheduleList] =
+    scheduleRepo.listEnabledWithSources(user)
+
   def find(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, PipelineSchedule]] =
     pipelineRepo.findByIdOwned(pipelineId, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Pipeline not found")))

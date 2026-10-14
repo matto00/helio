@@ -1,0 +1,77 @@
+BEGIN
+CREATE ROLE
+CREATE ROLE
+GRANT
+GRANT
+ALTER TABLE
+ALTER TABLE
+INSERT 0 2
+INSERT 0 2
+=== relrowsecurity/force
+           relname            | relrowsecurity | relforcerowsecurity 
+------------------------------+----------------+---------------------
+ dashboard_folders            | t              | t
+ dashboard_folder_assignments | t              | t
+(2 rows)
+
+##### ROLE eval1574_owner (table owner; FORCE RLS)
+SET
+  current_user  | rolsuper | rolbypassrls 
+----------------+----------+--------------
+ eval1574_owner | f        | f
+(1 row)
+
+--- no context select (expect error)
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:20: ERROR:  unrecognized configuration parameter "app.current_user_id"
+SET
+INSERT 0 1
+INSERT 0 1
+SET
+--- B sees A rows? (expect 0 0)
+ folders_of_a | assignments_visible 
+--------------+---------------------
+            0 |                   0
+(1 row)
+
+--- B inserts folder owned by A (expect RLS error)
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:28: ERROR:  new row violates row-level security policy for table "dashboard_folders"
+--- B inserts assignment owned by A (expect RLS error)
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:30: ERROR:  new row violates row-level security policy for table "dashboard_folder_assignments"
+--- B files own row into A folder (expect FK error)
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:32: ERROR:  insert or update on table "dashboard_folder_assignments" violates foreign key constraint "dashboard_folder_assignments_folder_id_owner_id_fkey"
+DETAIL:  Key is not present in table "dashboard_folders".
+--- B update/delete A folder (expect UPDATE 0 / DELETE 0)
+UPDATE 0
+DELETE 0
+##### ROLE eval1574_app (non-owner)
+RESET
+SET
+ current_user | rolsuper | rolbypassrls 
+--------------+----------+--------------
+ eval1574_app | f        | f
+(1 row)
+
+SET
+ folders_of_a | assignments_visible 
+--------------+---------------------
+            0 |                   0
+(1 row)
+
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:42: ERROR:  new row violates row-level security policy for table "dashboard_folders"
+SET
+--- A sees own (expect 1 1)
+ count | count 
+-------+-------
+     1 |     1
+(1 row)
+
+--- A moves own folder to B (expect WITH CHECK error)
+psql:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/rls.sql:47: ERROR:  new row violates row-level security policy for table "dashboard_folders"
+RESET
+ROLLBACK
+--- after rollback, leftovers (expect 0 0)
+ count | count 
+-------+-------
+     0 |     0
+(1 row)
+

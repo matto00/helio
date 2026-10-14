@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.MfaService
 import com.helio.api.protocols.auth.{MfaConfirmRequest, MfaReauthRequest, MfaVerifyRequest}
 import com.helio.domain.model.{AuthenticatedUser, User, UserId}
-import com.helio.infrastructure.persistence.auth.{MfaRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import com.helio.testkit.VerifiedEmbeddedPostgres
@@ -190,6 +190,21 @@ class MfaServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       val result = await(service.verifyLogin(MfaVerifyRequest(challengeToken, totpCodeFor(secret))))
       result.isRight shouldBe true
       await(mfaRepo.findChallengeByToken(challengeToken)) shouldBe None
+    }
+
+    "carry the user's saved shell preferences in the verified session response (HEL-1574)" in {
+      cleanDb()
+      val prefRepo       = new UserPreferenceRepository(db)
+      val withPrefs      = new MfaService(mfaRepo, userRepo, preferenceRepo = Some(prefRepo))
+      val user           = seedUser()
+      val (secret, _)    = enableMfa(user)
+      await(prefRepo.patchShellPrefs(user.id, Some(320), Some(true)))
+      val profile        = await(userRepo.findById(user.id)).get
+      val challengeToken = await(withPrefs.createLoginChallenge(profile)).get
+
+      val prefs = await(withPrefs.verifyLogin(MfaVerifyRequest(challengeToken, totpCodeFor(secret)))).toOption.get.response.user.preferences.get
+      prefs.contextListWidth shouldBe Some(320)
+      prefs.contextListCollapsed shouldBe Some(true)
     }
 
     "verify with an unused backup code, marking it used" in {

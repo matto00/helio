@@ -100,20 +100,18 @@
     color var(--app-transition);
 }
 
-/* HEL-866 skeptic-final-1B.md CR1 — `DashboardList` renders inside
-   `.app-sidebar` (the sidebar content rail, `--app-surface` backdrop —
-   family 2, not the family-1 assumption `files-modified.md` originally
-   recorded) as well as inside `MobileNavSheet` (`--app-surface-strong`,
-   family 1, where `--app-surface-soft` alone is already correct). Scoped
-   to `.app-sidebar` specifically, matching the `App.css` chrome pattern,
-   so the `MobileNavSheet` host is unaffected. Measured live: soft-on-
-   `.app-sidebar` (`rgb(26,24,22)`) is 1.030 in dark, below threshold. */
+/* `DashboardList` renders inside `.context-list` (backdrop `--app-surface-soft`: #161514 dark, #efece6 light) and
+   inside `MobileNavSheet` (`--app-surface-strong`, where a soft hover is already visible). On the context list a soft
+   hover is the SAME colour as its backdrop (ratio 1.000 in both themes, so no visible change), while
+   `--app-surface-strong` clears it: 1.167 dark (#262320), 1.179 light (#ffffff). The `.context-list` overrides below
+   and in `ContextList.css` therefore use strong; the sheet host is unaffected. Ratios computed from the token values
+   with the WCAG relative-luminance formula. */
 .dashboard-list__filter-clear:hover {
   background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
-:root[data-theme="dark"] .app-sidebar .dashboard-list__filter-clear:hover {
+:root[data-theme="dark"] .context-list .dashboard-list__filter-clear:hover {
   background: var(--app-surface-strong);
 }
 
@@ -328,14 +326,13 @@
     color var(--app-transition);
 }
 
-/* HEL-866 skeptic-final-1B.md CR1 — same `.app-sidebar` scoping as
-   `.dashboard-list__filter-clear` above. */
+/* Same `.context-list` scoping and strong-on-soft step as `.dashboard-list__filter-clear` above. */
 .dashboard-list__row-action-btn:hover {
   background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
-:root[data-theme="dark"] .app-sidebar .dashboard-list__row-action-btn:hover {
+:root[data-theme="dark"] .context-list .dashboard-list__row-action-btn:hover {
   background: var(--app-surface-strong);
 }
 
@@ -491,18 +488,15 @@
     color var(--app-transition);
 }
 
-/* HEL-866 skeptic-final-1B.md CR1 — the regression this change request
-   named directly: measured live, `rgb(22,21,20)` on the sidebar's real
-   `rgb(26,24,22)` backdrop is 1.030 dark (fails); the hovered row shows no
-   perceptible background band at all. Same `.app-sidebar` scoping as the
-   siblings above. */
+/* A hovered row on the context list: soft on the soft backdrop is 1.000 (no visible band); strong is 1.167 dark and
+   1.179 light (see the filter-clear note above). Same `.context-list` scoping as the siblings. */
 .dashboard-list__button:hover {
   background: var(--app-surface-soft);
   color: var(--app-text);
   text-decoration: none;
 }
 
-:root[data-theme="dark"] .app-sidebar .dashboard-list__button:hover {
+:root[data-theme="dark"] .context-list .dashboard-list__button:hover {
   background: var(--app-surface-strong);
 }
 
@@ -754,15 +748,14 @@
     color var(--app-transition);
 }
 
-/* HEL-866 skeptic-final-1B.md CR1 — same `.app-sidebar` scoping as the
-   siblings above. */
+/* Same `.context-list` scoping and strong-on-soft step as the siblings above. */
 .dashboard-list__import-label:hover {
   border-color: var(--app-border-strong);
   background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
-:root[data-theme="dark"] .app-sidebar .dashboard-list__import-label:hover {
+:root[data-theme="dark"] .context-list .dashboard-list__import-label:hover {
   background: var(--app-surface-strong);
 }
 
@@ -774,4 +767,120 @@
 .dashboard-list__import-input:disabled + .dashboard-list__import-label {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* HEL-1574: folders in the dashboards context list. */
+.dashboard-list__groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dashboard-list__folder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-list__folder-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.dashboard-list__folder-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dashboard-list__folder-toggle:hover {
+  background: var(--app-surface-strong);
+  color: var(--app-text);
+}
+
+.dashboard-list__folder-toggle:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
+
+.dashboard-list__folder-static-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+}
+
+.dashboard-list__folder-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Counts are data: mono, tabular (DESIGN.md §3). */
+.dashboard-list__folder-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted);
+}
+
+.dashboard-list__folder-warning {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.dashboard-list__move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.dashboard-list__move-title {
+  width: 100%;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.dashboard-list__move-option {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.dashboard-list__move-option:hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
+.dashboard-list__move-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dashboard-list__move-option:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
 }

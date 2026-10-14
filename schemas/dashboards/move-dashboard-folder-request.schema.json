@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/move-dashboard-folder-request.schema.json",
+  "title": "MoveDashboardFolderRequest",
+  "description": "PUT /api/dashboards/:id/folder body (HEL-1574): file the dashboard in the caller's folder, or unfile it with null. The key is required.",
+  "type": "object",
+  "properties": {
+    "folderId": {
+      "type": ["string", "null"]
+    }
+  },
+  "required": ["folderId"],
+  "additionalProperties": false
+}

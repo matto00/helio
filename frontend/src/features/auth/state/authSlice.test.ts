@@ -4,6 +4,7 @@ import * as authService from "../services/authService";
 import type { AuthResponse, MfaRequiredResponse, User } from "../types/user";
 import {
   authReducer,
+  applyShellPreferences,
   clearAuth,
   handleOAuthCallback,
   login,
@@ -412,5 +413,73 @@ describe("rehydrateAuth with preferences", () => {
 
     expect(store.getState().auth.currentUser).toEqual(testUser);
     expect(document.documentElement.style.getPropertyValue("--app-accent")).toBe("");
+  });
+});
+
+describe("shell preferences (HEL-1574)", () => {
+  const withPrefs: User = {
+    ...testUser,
+    preferences: { accentColor: "#f97316", zoomLevels: {}, contextListWidth: 320 },
+  };
+
+  it("setAuth keeps this session's preferences when the same user arrives without any", () => {
+    const store = makeStore();
+    store.dispatch(setAuth({ user: withPrefs }));
+    store.dispatch(setAuth({ user: { ...testUser } }));
+    expect(store.getState().auth.currentUser?.preferences?.contextListWidth).toBe(320);
+  });
+
+  it("setAuth never carries preferences across to a different user", () => {
+    const store = makeStore();
+    store.dispatch(setAuth({ user: withPrefs }));
+    store.dispatch(setAuth({ user: { ...testUser, id: "someone-else" } }));
+    expect(store.getState().auth.currentUser?.preferences).toBeUndefined();
+  });
+
+  it("setAuth prefers the incoming preferences when it carries them", () => {
+    const store = makeStore();
+    store.dispatch(setAuth({ user: withPrefs }));
+    store.dispatch(
+      setAuth({
+        user: {
+          ...testUser,
+          preferences: { accentColor: null, zoomLevels: {}, contextListWidth: 210 },
+        },
+      }),
+    );
+    expect(store.getState().auth.currentUser?.preferences?.contextListWidth).toBe(210);
+  });
+
+  it("applyShellPreferences merges only the keys sent and keeps accent and zoom", () => {
+    const store = makeStore();
+    store.dispatch(setAuth({ user: withPrefs }));
+    store.dispatch(applyShellPreferences({ contextListCollapsed: true }));
+    expect(store.getState().auth.currentUser?.preferences).toEqual({
+      accentColor: "#f97316",
+      zoomLevels: {},
+      contextListWidth: 320,
+      contextListCollapsed: true,
+    });
+  });
+
+  it("an accent write afterwards keeps the shell keys", async () => {
+    mockedAuthService.updateUserPreferencesRequest.mockResolvedValue({
+      accentColor: "#3b82f6",
+      zoomLevels: {},
+    });
+    const store = makeStore();
+    store.dispatch(setAuth({ user: withPrefs }));
+    await store.dispatch(
+      updateUserPreferences({ fields: ["accentColor"], user: { accentColor: "#3b82f6" } }),
+    );
+    const prefs = store.getState().auth.currentUser?.preferences;
+    expect(prefs?.accentColor).toBe("#3b82f6");
+    expect(prefs?.contextListWidth).toBe(320);
+  });
+
+  it("applyShellPreferences is a no-op when signed out", () => {
+    const store = makeStore();
+    store.dispatch(applyShellPreferences({ contextListWidth: 300 }));
+    expect(store.getState().auth.currentUser).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.infrastructure.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
-import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserTierConfig}
+import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserResponseAssembler, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
 import com.helio.services.firstrun.FirstRunDashboardService
@@ -42,7 +42,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
-import com.helio.services.dashboards.{DashboardContentsService, DashboardService}
+import com.helio.services.dashboards.{DashboardContentsService, DashboardFolderService, DashboardService}
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -66,7 +66,7 @@ import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorC
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.infrastructure.persistence.dashboards.{DashboardFolderRepository, DashboardRepository}
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
@@ -337,6 +337,8 @@ final class ApiRoutes(
   // MDC put/remove is negligible and keeps the traced scope uniform.
   private val traceContext = new TraceContextDirective()
 
+  // HEL-1574: builds every user-returning auth response with the saved preferences attached.
+  private val userResponses     = new UserResponseAssembler(Option(userPreferenceRepo))
   private val accessChecker     = new AccessCheckerImpl(permissionRepo, registry)
   // HEL-703: read once, shared by authService (register/login/OAuth tier assignment) and
   // chatAccessServiceOpt (beta daily cap) below — mirrors cookieConfig's fromEnv-once convention.
@@ -345,7 +347,8 @@ final class ApiRoutes(
   // below — fixtures that don't pass an MfaRepository get `mfaServiceOpt =
   // None`, which AuthService's own defaulted ctor param treats identically
   // to the feature being entirely absent (design.md D3).
-  private val mfaServiceOpt: Option[MfaService] = Option(mfaRepo).map(new MfaService(_, userRepo, auditService))
+  private val mfaServiceOpt: Option[MfaService] =
+    Option(mfaRepo).map(new MfaService(_, userRepo, auditService, Option(userPreferenceRepo)))
   // HEL-1019: OAuthStateRepository doesn't touch the DB at construction time.
   private val oauthStateStore   = new OAuthStateRepository(dbContext)
   // HEL-1208: AuthService takes the product-event service as an Option (its own optionality is
@@ -355,7 +358,8 @@ final class ApiRoutes(
   private val adminAccessService = new AdminAccessService(userRepo)
 
   private val productEventService = new ProductEventService(new ProductEventRepository(dbContext), SystemClock)
-  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService))
+  private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService), Option(userPreferenceRepo))
+  private val dashboardFolderService = new DashboardFolderService(new DashboardFolderRepository(dbContext), accessChecker)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
@@ -840,16 +844,15 @@ final class ApiRoutes(
                   pathPrefix("auth") {
                     path("me") {
                       get {
-                        val userFuture = userRepo.findById(authenticatedUser.id)
-                        val prefsFuture = userPreferenceRepo.getPreferences(authenticatedUser.id)
+                        val responseFuture = userRepo.findById(authenticatedUser.id).flatMap {
+                          case Some(user) => userResponses(user).map(Option(_))
+                          case None       => Future.successful(None)
+                        }
 
-                        onComplete(userFuture.zip(prefsFuture)) {
-                          case Success((Some(user), prefs)) =>
-                            val userResponse = UserResponse.fromDomain(user).copy(
-                              preferences = Some(UserPreferences(prefs.accentColor, prefs.zoomLevels))
-                            )
+                        onComplete(responseFuture) {
+                          case Success(Some(userResponse)) =>
                             complete(StatusCodes.OK, userResponse)
-                          case Success((None, _)) =>
+                          case Success(None) =>
                             complete(StatusCodes.Unauthorized, ErrorResponse("Unauthorized"))
                           case Failure(ex) =>
                             // HEL-311: log the full exception server-side; never echo
@@ -885,7 +888,7 @@ final class ApiRoutes(
                           val updateFuture = Future.sequence(futures.toSeq)
                           onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
                             case Success(prefs) =>
-                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels))
+                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed))
                             case Failure(ex) =>
                               // HEL-311: log the full exception server-side; never echo
                               // raw exception text in the client-facing body.
@@ -896,9 +899,11 @@ final class ApiRoutes(
                       }
                     }
                   },
+                  new UserPreferencesRoutes(userPreferenceRepo, authenticatedUser).routes,
                   new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
                   new DashboardContentsRoutes(dashboardContentsService, authenticatedUser).routes,
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
+                  new DashboardFolderRoutes(dashboardFolderService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                   // HEL-904: `BoundPanelRoutes`/`POST /api/panels/bound` removed
@@ -1007,7 +1012,7 @@ final class ApiRoutes(
                   agentMemoryServiceOpt.fold(reject: Route)(svc => new AgentMemoryRoutes(svc, authenticatedUser).routes),
                   // HEL-704: a missing RESEND_API_KEY/HELIO_EMAIL_FROM degrades only the
                   // request-access endpoint internally (BetaAccessService), not this mount.
-                  new BetaAccessRoutes(betaAccessService, authenticatedUser).routes,
+                  new BetaAccessRoutes(betaAccessService, authenticatedUser, Option(userPreferenceRepo)).routes,
                   // HEL-488: same `.fold(reject)`-gated optional-wiring pattern as the repos
                   // above — fixtures that don't pass an AuditEventRepository simply don't get
                   // the GET /api/audit-events route mounted.

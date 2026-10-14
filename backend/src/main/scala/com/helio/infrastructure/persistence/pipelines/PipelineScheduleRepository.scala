@@ -5,6 +5,7 @@ import com.helio.domain.model._
 import slick.jdbc.PostgresProfile.api._
 import PipelineRepository.instantColumnType
 
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,6 +63,37 @@ class PipelineScheduleRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
       pipeline <- pipelinesTable if pipeline.id === schedule.pipelineId && pipeline.ownerId === ownerUuid
     } yield schedule
     ctx.withUserContext(user.id.value)(query.result.headOption).map(_.map(rowToDomain))
+  }
+
+  /** HEL-1574: every enabled schedule on a pipeline the caller owns, plus the sources feeding them, in exactly two
+   *  queries regardless of pipeline/source counts. `sources` carries one row per distinct source: the soonest
+   *  non-null `next_run_at` among its scheduled pipelines (nulls last, ties by pipeline name). Data sources are read
+   *  under the caller's RLS context, so only sources the caller can access appear. */
+  def listEnabledWithSources(user: AuthenticatedUser): Future[PipelineScheduleList] = {
+    val owner = user.id.value
+    val itemsQuery =
+      sql"""SELECT s.pipeline_id, p.name, s.kind, s.expression, s.timezone, s.next_run_at, s.last_run_at
+            FROM pipeline_schedules s JOIN pipelines p ON p.id = s.pipeline_id
+            WHERE p.owner_id = $owner::uuid AND s.enabled
+            ORDER BY s.next_run_at ASC NULLS LAST, p.name""".as[(String, String, String, String, String, Option[Timestamp], Option[Timestamp])]
+    val sourcesQuery =
+      sql"""SELECT DISTINCT ON (ds.id) ds.id, ds.name, s.next_run_at, p.id, p.name
+            FROM pipeline_roots r
+            JOIN pipeline_schedules s ON s.pipeline_id = r.pipeline_id AND s.enabled
+            JOIN pipelines p ON p.id = r.pipeline_id AND p.owner_id = $owner::uuid
+            JOIN data_sources ds ON ds.id = r.data_source_id
+            ORDER BY ds.id, s.next_run_at ASC NULLS LAST, p.name""".as[(String, String, Option[Timestamp], String, String)]
+    ctx.withUserContext(user.id.value)(itemsQuery.zip(sourcesQuery)).map { case (items, sources) =>
+      val sortedSources = sources
+        .map { case (id, name, next, pid, pname) => ScheduledSourceItem(id, name, next.map(_.toInstant), pid, pname) }
+        .sortBy(src => (src.nextRunAt.isEmpty, src.nextRunAt.map(_.toEpochMilli).getOrElse(0L), src.sourceName))
+      PipelineScheduleList(
+        items.map { case (pid, name, kind, expr, tz, next, last) =>
+          ScheduledPipelineItem(pid, name, kind, expr, tz, next.map(_.toInstant), last.map(_.toInstant))
+        },
+        sortedSources
+      )
+    }
   }
 
   /** Owner-scoped create-or-replace, keyed by the row's primary key `id`.

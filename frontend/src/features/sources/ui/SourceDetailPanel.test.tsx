@@ -254,3 +254,87 @@ describe("SourceDetailPanel", () => {
     });
   });
 });
+
+// HEL-1574 D12: Delete moved here from the retired sidebar list, keeping the HEL-1258 reference warning and the
+// HEL-989 conflict notice.
+describe("SourceDetailPanel delete (HEL-1574)", () => {
+  beforeEach(() => {
+    deleteSourceMock.mockReset();
+  });
+
+  function startDelete() {
+    fireEvent.click(screen.getByRole("button", { name: "Sales CSV actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete source" }));
+  }
+
+  it("confirms, deletes and navigates to the section overview", async () => {
+    deleteSourceMock.mockResolvedValue(undefined);
+    renderWithStore(
+      <SourceDetailPanel source={csvSource} />,
+      { sources: { items: [csvSource], status: "succeeded" } },
+      "/sources/src-1",
+    );
+    startDelete();
+    expect(deleteSourceMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales CSV" }));
+    await waitFor(() => expect(deleteSourceMock).toHaveBeenCalledWith("src-1"));
+  });
+
+  it("shows the server's reference warning in the confirm, from the summary fetched on mount", async () => {
+    renderWithStore(
+      <SourceDetailPanel source={csvSource} />,
+      {
+        sources: {
+          items: [csvSource],
+          status: "succeeded",
+          references: {
+            "src-1": {
+              sourceId: "src-1",
+              pipelines: [],
+              panels: [],
+              hiddenPipelineCount: 2,
+              hiddenPanelCount: 0,
+            },
+          },
+        },
+      },
+      "/sources/src-1",
+    );
+    startDelete();
+    expect(screen.getByText(/2 pipelines reference this source/)).toBeInTheDocument();
+  });
+
+  it("renders the conflict notice and keeps the source when the server answers 409", async () => {
+    deleteSourceMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { message: "in use", pipelines: [{ id: "p-1", name: "Orders" }], panels: [] },
+      },
+    });
+    renderWithStore(
+      <SourceDetailPanel source={csvSource} />,
+      { sources: { items: [csvSource], status: "succeeded" } },
+      "/sources/src-1",
+    );
+    startDelete();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales CSV" }));
+    expect(await screen.findByText(/still referenced by/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sales CSV" })).toBeInTheDocument();
+  });
+
+  it("is reachable for a dataset source, whose header has no Preview button", () => {
+    const dataset: DataSource = {
+      ...csvSourceNoSchema,
+      id: "src-3",
+      name: "Static",
+      type: "dataset",
+    };
+    renderWithStore(
+      <SourceDetailPanel source={dataset} />,
+      { sources: { items: [dataset], status: "succeeded" } },
+      "/sources/src-3",
+    );
+    expect(screen.getByRole("button", { name: "Static actions" })).toBeInTheDocument();
+  });
+});

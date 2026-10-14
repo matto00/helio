@@ -15,12 +15,14 @@ import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
+import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
 import { fetchSources as fetchSourcesRequest } from "../features/sources/services/dataSourceService";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
@@ -32,6 +34,18 @@ import { listShareTokens } from "../features/dashboards/services/shareTokenServi
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { App } from "./App";
+
+jest.mock("../features/dashboards/services/dashboardFolderService", () => ({
+  fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
+  createDashboardFolder: jest.fn(),
+  updateDashboardFolder: jest.fn(),
+  deleteDashboardFolder: jest.fn(),
+  moveDashboardToFolder: jest.fn(),
+}));
+
+jest.mock("../features/pipelines/services/pipelineScheduleListService", () => ({
+  fetchPipelineScheduleList: jest.fn().mockResolvedValue({ items: [], sources: [] }),
+}));
 
 jest.mock("../features/dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
@@ -86,6 +100,7 @@ function renderApp() {
     reducer: {
       assistantConversations: assistantConversationsReducer,
       auth: authReducer,
+      dashboardFolders: dashboardFoldersReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
@@ -93,6 +108,7 @@ function renderApp() {
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
       outputs: outputsReducer,
+      scheduledItems: scheduledItemsReducer,
       toasts: toastsReducer,
       shareTokens: shareTokensReducer,
     },

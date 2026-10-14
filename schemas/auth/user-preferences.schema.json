@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/auth/user-preferences.schema.json",
+  "title": "UserPreferences",
+  "description": "The signed-in user's saved preferences (HEL-1574), returned as `preferences` on every user-returning auth response and by PATCH /api/users/me/preferences. `contextListWidth`/`contextListCollapsed` are absent until the user sets them (the client then uses 248px, expanded).",
+  "type": "object",
+  "properties": {
+    "accentColor": {
+      "type": ["string", "null"]
+    },
+    "zoomLevels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "contextListWidth": {
+      "type": "integer",
+      "minimum": 200,
+      "maximum": 400
+    },
+    "contextListCollapsed": {
+      "type": "boolean"
+    }
+  },
+  "required": ["zoomLevels"],
+  "additionalProperties": false
+}

@@ -36,9 +36,11 @@ describe("BottomNav", () => {
     // No visible label (HEL-774 dropped it) — the accessible name IS the
     // entire identifying information a screen-reader user gets, so it must
     // equal the full destination label, not a shortened form.
-    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual(
-      navDestinations.map((d) => d.label),
-    );
+    // HEL-1574: Home leads (owner ruling 2026-10-13: the phone has no rail).
+    expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
+      "Home",
+      ...navDestinations.map((d) => d.label),
+    ]);
     for (const destination of navDestinations) {
       expect(within(nav).getByRole("link", { name: destination.label })).toBeInTheDocument();
     }
@@ -97,6 +99,7 @@ describe("BottomNav", () => {
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
+      "Home",
       ...navDestinations.map((d) => d.label),
       "Usage",
     ]);
@@ -104,5 +107,30 @@ describe("BottomNav", () => {
       "href",
       "/admin/usage",
     );
+  });
+
+  it("never marks Home active: on '/home' only the Dashboards tab is (HEL-1574)", () => {
+    renderAt("/home");
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    const home = within(nav).getByRole("link", { name: "Home" });
+    expect(home).toHaveAttribute("href", "/home");
+    expect(home).not.toHaveClass("bottom-nav__tab--active");
+    expect(home).not.toHaveAttribute("aria-current");
+    const active = within(nav)
+      .getAllByRole("link")
+      .filter((link) => link.classList.contains("bottom-nav__tab--active"));
+    expect(active.map((link) => link.getAttribute("aria-label"))).toEqual(["Dashboards"]);
+  });
+
+  it("shows six tabs for a non-owner and seven for an owner, Home first", () => {
+    const nonOwner = renderAt("/", "free");
+    expect(
+      within(screen.getByRole("navigation", { name: "Primary" })).getAllByRole("link"),
+    ).toHaveLength(6);
+    nonOwner.unmount();
+    renderAt("/", "owner");
+    const links = within(screen.getByRole("navigation", { name: "Primary" })).getAllByRole("link");
+    expect(links).toHaveLength(7);
+    expect(links[0]).toHaveAttribute("aria-label", "Home");
   });
 });

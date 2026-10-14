@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-folder-list-response.schema.json",
+  "title": "DashboardFolderListResponse",
+  "description": "GET /api/dashboard-folders (HEL-1574): the caller's folders (creation order) and their filings, only for dashboards the caller can currently access.",
+  "type": "object",
+  "properties": {
+    "folders": {
+      "type": "array",
+      "items": {
+        "$ref": "dashboard-folder.schema.json"
+      }
+    },
+    "assignments": {
+      "type": "array",
+      "items": {
+        "$ref": "dashboard-folder-assignment.schema.json"
+      }
+    }
+  },
+  "required": ["folders", "assignments"],
+  "additionalProperties": false
+}

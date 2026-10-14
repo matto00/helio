@@ -9,14 +9,15 @@ import { isolateLivePage } from "./support/isolateLivePage";
 import { deleteExact, seedBurstDashboard, type BurstSeed } from "./support/remountBurstSeed";
 
 // HEL-1392 — crossing the 768px grid-CONTAINER boundary swaps the desktop grid for the phone stack
-// (container = viewport - 288px sidebar) and remounts every card. This spec counts EVERY /api
+// (container = viewport - 352px of rail, context list and padding) and remounts every card. This spec counts EVERY /api
 // request across N=3 crossings in the real app. HEL1392_MODE=baseline records the numbers without
 // asserting (run on the unmodified tree); the default asserts zero rows / zero /api/outputs/:id
 // requests per crossing. React.StrictMode doubles effects in the dev build, so absolute dev numbers
 // are roughly twice the production ones; the zero assertions hold in both.
 
 const MODE = process.env.HEL1392_MODE === "baseline" ? "baseline" : "after";
-const DESKTOP = { width: 1400, height: 900 };
+// HEL-1574: 1464 keeps the grid container at 1112px with the rail and the default context list open (was 1400).
+const DESKTOP = { width: 1464, height: 900 };
 const PHONE = { width: 1000, height: 900 };
 const CROSSINGS = 3;
 

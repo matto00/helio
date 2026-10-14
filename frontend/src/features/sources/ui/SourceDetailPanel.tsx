@@ -3,8 +3,19 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import "./SourceDetailPanel.css";
 import { fetchCsvPreview, fetchRestPreview } from "../services/dataSourceService";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { updateSource } from "../state/sourcesSlice";
+import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import {
+  deleteSource,
+  fetchSourceReferences,
+  isSourceDeleteConflict,
+  updateSource,
+  type SourceDeleteConflict,
+} from "../state/sourcesSlice";
+import { sourceDeleteWarning } from "../utils/sourceReferences";
+import { SourceDeleteConflictNotice } from "./SourceDeleteConflictNotice";
+import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import type { DataSource, DataSourceKind } from "../types/dataSource";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import {
@@ -44,6 +55,13 @@ function labelForKind(kind: DataSourceKind): string {
 
 export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  // HEL-1574 D12: Delete moved here from the retired sidebar list. The reference summary is fetched on mount (the
+  // thunk's `condition` dedupes it) so the warning survives a deep link or a reload.
+  const references = useAppSelector((state) => state.sources.references);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConflict, setDeleteConflict] = useState<SourceDeleteConflict | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[] | null>(null);
   const [previewHeaders, setPreviewHeaders] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +94,31 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
   useEffect(() => {
     setIsRenaming(false);
     setRenameError(null);
+    setConfirmingDelete(false);
+    setDeleteConflict(null);
+    setDeleteError(null);
   }, [source.id]);
+
+  useEffect(() => {
+    void dispatch(fetchSourceReferences());
+  }, [dispatch]);
+
+  async function handleDelete() {
+    setConfirmingDelete(false);
+    setDeleteConflict(null);
+    setDeleteError(null);
+    const result = await dispatch(deleteSource(source.id));
+    if (deleteSource.rejected.match(result)) {
+      // A refused delete leaves the source in place: stay on the page and say why.
+      if (isSourceDeleteConflict(result.payload)) setDeleteConflict(result.payload);
+      else
+        setDeleteError(
+          typeof result.payload === "string" ? result.payload : "Failed to delete source.",
+        );
+      return;
+    }
+    navigate("/sources");
+  }
 
   useEffect(() => {
     if (isRenaming && renameStatus === "idle") {
@@ -213,19 +255,52 @@ export function SourceDetailPanel({ source }: SourceDetailPanelProps) {
         {/* HEL-1080 design.md Decision 7: a dataset-kind source's rows ARE its data —
             `DatasetRowGrid` below replaces the read-only Preview entirely for this kind, so the
             Preview button (which would only duplicate/shadow the editable grid) is hidden here. */}
-        {source.type !== "dataset" && (
-          <div className="source-detail-panel__header-actions">
-            <button
-              type="button"
-              className="source-detail-panel__preview-btn"
-              onClick={() => void handlePreview()}
-              disabled={isLoading}
-            >
-              {isLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
-            </button>
-          </div>
-        )}
+        <div className="source-detail-panel__header-actions">
+          <ActionsMenu
+            label={`${source.name} actions`}
+            items={[
+              {
+                label: "Delete source",
+                onClick: () => {
+                  setDeleteConflict(null);
+                  setDeleteError(null);
+                  setConfirmingDelete(true);
+                },
+                danger: true,
+              },
+            ]}
+          />
+          {source.type !== "dataset" && (
+            <>
+              <button
+                type="button"
+                className="source-detail-panel__preview-btn"
+                onClick={() => void handlePreview()}
+                disabled={isLoading}
+              >
+                {isLoading ? "Loading…" : previewRows !== null ? "Reload" : "Preview"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
+      {confirmingDelete ? (
+        <ConfirmInline
+          label={`Delete ${source.name}? ${sourceDeleteWarning(references[source.id]) ?? ""}`.trim()}
+          confirmLabel="Delete"
+          confirmAriaLabel={`Confirm delete ${source.name}`}
+          onConfirm={() => void handleDelete()}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      ) : null}
+      {deleteConflict !== null ? (
+        <SourceDeleteConflictNotice
+          sourceName={source.name}
+          conflict={deleteConflict}
+          onDismiss={() => setDeleteConflict(null)}
+        />
+      ) : null}
+      <InlineError error={deleteError} variant="banner" />
       {isRenaming ? <InlineError error={renameError} variant="banner" /> : null}
 
       {source.inferredSchema.length > 0 ? (

@@ -1,6 +1,13 @@
-import { LayoutDashboard, Plus, SearchX, X } from "lucide-react";
+import { FolderPlus, LayoutDashboard, Plus, SearchX, X } from "lucide-react";
 
-import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 import "./DashboardList.css";
 import {
@@ -14,13 +21,21 @@ import {
 } from "../state/dashboardsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
-import type { DashboardSnapshot } from "../types/dashboard";
+import type { Dashboard, DashboardSnapshot } from "../types/dashboard";
+import {
+  createDashboardFolder,
+  fetchDashboardFolders,
+  moveDashboardToFolder,
+} from "../state/dashboardFoldersSlice";
+import { DashboardFolderGroup } from "./DashboardFolderGroup";
+import { DashboardMovePicker } from "./DashboardMovePicker";
 import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { SidebarRowsSkeleton } from "../../../shared/chrome/SidebarRowsSkeleton";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { IconButton } from "../../../shared/ui/IconButton";
+import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import { TextField } from "../../../shared/ui/TextField";
 import { useShareDialog } from "../state/shareDialogContext";
 
@@ -36,7 +51,16 @@ function escapeAttributeSelectorValue(value: string): string {
 export function DashboardList() {
   const dispatch = useAppDispatch();
   const { items, selectedDashboardId, status, error } = useAppSelector((state) => state.dashboards);
+  const {
+    folders,
+    assignments,
+    error: foldersError,
+  } = useAppSelector((state) => state.dashboardFolders);
   const [isCreateMode, setIsCreateMode] = useState(false);
+  const [isFolderCreateMode, setIsFolderCreateMode] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [folderCreateError, setFolderCreateError] = useState<string | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -58,6 +82,34 @@ export function DashboardList() {
   // for why (this component's DOM subtree is hidden entirely below the desktop breakpoint).
   const shareDialog = useShareDialog();
   const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    void dispatch(fetchDashboardFolders());
+  }, [dispatch]);
+
+  async function handleCreateFolder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = folderName.trim();
+    if (trimmed.length === 0) return;
+    setFolderCreateError(null);
+    try {
+      await dispatch(createDashboardFolder({ name: trimmed })).unwrap();
+      setFolderName("");
+      setIsFolderCreateMode(false);
+    } catch (err) {
+      setFolderCreateError(typeof err === "string" ? err : "Failed to create folder.");
+    }
+  }
+
+  async function handleMove(dashboardId: string, folderId: string | null) {
+    setMovingId(null);
+    setActionError(null);
+    try {
+      await dispatch(moveDashboardToFolder({ dashboardId, folderId })).unwrap();
+    } catch {
+      setActionError({ dashboardId, message: "Failed to move dashboard." });
+    }
+  }
   const { isPending: isDuplicatePending, guardedRun: guardedDuplicateRun } =
     useInFlightGuard<string>();
 
@@ -201,11 +253,201 @@ export function DashboardList() {
     return active ? [active, ...matches] : matches;
   })();
 
+  // HEL-1574: folders are per-user and server-side. A filing whose folder no longer exists counts as unfiled.
+  const folderIds = new Set(folders.map((folder) => folder.id));
+  const folderOf = (dashboardId: string): string | null => {
+    const folderId = assignments[dashboardId];
+    return folderId !== undefined && folderIds.has(folderId) ? folderId : null;
+  };
+  // Navigating into a folder saved as collapsed reveals it once. After that the disclosure always flips what is shown
+  // (and what it saves), so the folder holding the open dashboard can still be closed. React's "adjust state while
+  // rendering" pattern: the reveal is keyed on (open dashboard, its folder), so it fires on navigation and when the
+  // folder list first arrives, never on a later re-render.
+  const activeFolderId = selectedDashboardId === null ? null : folderOf(selectedDashboardId);
+  const revealKey = `${selectedDashboardId ?? ""}:${activeFolderId ?? ""}`;
+  const [seenRevealKey, setSeenRevealKey] = useState(revealKey);
+  const [revealedFolderIds, setRevealedFolderIds] = useState<ReadonlySet<string>>(new Set());
+  if (seenRevealKey !== revealKey) {
+    setSeenRevealKey(revealKey);
+    const folder = folders.find((f) => f.id === activeFolderId);
+    if (folder?.collapsed) setRevealedFolderIds((ids) => new Set(ids).add(folder.id));
+  }
+  const folderGroups = folders
+    .map((folder) => ({
+      folder,
+      dashboards: visibleItems.filter((d) => folderOf(d.id) === folder.id),
+      total: items.filter((d) => folderOf(d.id) === folder.id).length,
+    }))
+    // A filter hides the folders it leaves empty; unfiltered, an empty folder still shows.
+    .filter((group) => normalizedQuery.length === 0 || group.dashboards.length > 0);
+  const unfiledItems = visibleItems.filter((d) => folderOf(d.id) === null);
+  const unfiledTotal = items.filter((d) => folderOf(d.id) === null).length;
+
+  function renderRow(dashboard: Dashboard) {
+    const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);
+    const isActive = dashboard.id === selectedDashboardId;
+    const isOutsideFilter = !matchesQuery && isActive && normalizedQuery.length > 0;
+    const itemClassName = isOutsideFilter
+      ? "dashboard-list__item dashboard-list__item--outside-filter"
+      : "dashboard-list__item";
+
+    const isConfirmingDelete = confirmDeleteId === dashboard.id;
+    return (
+      <li key={dashboard.id} className={`${itemClassName} dashboard-list__item--row`}>
+        <div className="dashboard-list__item-row">
+          {editingId === dashboard.id ? (
+            <div className="dashboard-list__rename">
+              <input
+                className="dashboard-list__rename-input"
+                type="text"
+                value={editingName}
+                autoFocus
+                disabled={renameStatus === "saving"}
+                aria-label="Dashboard name"
+                onChange={(e) => {
+                  setEditingName(e.target.value);
+                  setEditingError(null);
+                }}
+                onKeyDown={(e) => handleRenameKeyDown(e, dashboard.id)}
+                onBlur={() => {
+                  // Disabling the input while a save is in flight blurs it
+                  // (a disabled element can't hold focus) — that's not a
+                  // user-initiated blur, so it must not double-commit.
+                  if (renameStatus === "saving") return;
+                  void commitRename(dashboard.id);
+                }}
+              />
+              <InlineError error={editingError} />
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="dashboard-list__button"
+              aria-label={dashboard.name}
+              aria-pressed={selectedDashboardId === dashboard.id}
+              onClick={() => {
+                setConfirmDeleteId(null);
+                dispatch(setSelectedDashboardId(dashboard.id));
+              }}
+            >
+              <span className="dashboard-list__name-group">
+                <span className="dashboard-list__name">{dashboard.name}</span>
+                {isOutsideFilter && (
+                  <span className="dashboard-list__pinned-badge" aria-hidden="true">
+                    active
+                  </span>
+                )}
+              </span>
+              {selectedDashboardId === dashboard.id && (
+                <span className="dashboard-list__active-dot" aria-label="Active dashboard" />
+              )}
+            </button>
+          )}
+          {editingId !== dashboard.id && !isConfirmingDelete ? (
+            <ActionsMenu
+              label={`${dashboard.name} actions`}
+              items={[
+                {
+                  label: "Rename",
+                  onClick: () => startEditing(dashboard.id, dashboard.name),
+                },
+                {
+                  label: "Duplicate",
+                  onClick: () =>
+                    guardedDuplicateRun(dashboard.id, () => handleDuplicateDashboard(dashboard.id)),
+                  disabled: isDuplicatePending(dashboard.id),
+                },
+                {
+                  label: "Share",
+                  onClick: () =>
+                    shareDialog.open({
+                      dashboardId: dashboard.id,
+                      dashboardName: dashboard.name,
+                      // HEL-590 (evaluation-2.md CR-E): this ActionsMenu's own trigger
+                      // button carries `aria-label={`${dashboard.name} actions`}` --
+                      // see ActionsMenu.tsx. Restoring focus to it on close is the
+                      // sensible target, since the item just clicked unmounts along
+                      // with the popover in the same commit the dialog opens in.
+                      restoreFocusSelector: `button[aria-label="${escapeAttributeSelectorValue(`${dashboard.name} actions`)}"]`,
+                    }),
+                },
+                {
+                  label: "Export",
+                  onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
+                },
+                ...(folders.length > 0
+                  ? [
+                      {
+                        label: "Move to…",
+                        onClick: () => {
+                          setConfirmDeleteId(null);
+                          setMovingId(dashboard.id);
+                        },
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Delete",
+                  onClick: () => setConfirmDeleteId(dashboard.id),
+                  danger: true,
+                },
+              ]}
+            />
+          ) : null}
+        </div>
+        {isConfirmingDelete ? (
+          <div className="dashboard-list__delete-confirm-row">
+            <div className="dashboard-list__delete-confirm-actions">
+              <button
+                type="button"
+                className="dashboard-list__delete-confirm-btn"
+                onClick={() => void handleDeleteDashboard(dashboard.id)}
+              >
+                Confirm
+              </button>
+              <button
+                type="button"
+                className="dashboard-list__delete-cancel-btn"
+                onClick={() => {
+                  setConfirmDeleteId(null);
+                  setActionError(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {movingId === dashboard.id ? (
+          <DashboardMovePicker
+            folders={folders}
+            currentFolderId={folderOf(dashboard.id)}
+            onPick={(folderId) => void handleMove(dashboard.id, folderId)}
+            onCancel={() => setMovingId(null)}
+          />
+        ) : null}
+        {actionError?.dashboardId === dashboard.id ? (
+          <InlineError error={actionError.message} />
+        ) : null}
+      </li>
+    );
+  }
+
   return (
     <section className="dashboard-list" aria-label="dashboards">
       <header className="dashboard-list__header">
-        <h2 className="eyebrow">Dashboards</h2>
+        <span />
         <div className="dashboard-list__header-actions">
+          <IconButton
+            icon={<FolderPlus size={ICON_SIZE.sm} />}
+            variant="secondary"
+            size="xs"
+            aria-label={isFolderCreateMode ? "Cancel folder create" : "New folder"}
+            onClick={() => {
+              setIsFolderCreateMode((open) => !open);
+              setFolderCreateError(null);
+            }}
+          />
           <IconButton
             icon="+"
             variant="secondary"
@@ -245,6 +487,32 @@ export function DashboardList() {
           ) : null}
         </div>
       </div>
+      {isFolderCreateMode ? (
+        <form className="dashboard-list__create" onSubmit={handleCreateFolder}>
+          <label className="dashboard-list__create-label" htmlFor="dashboard-folder-name">
+            Folder name
+          </label>
+          <TextField
+            id="dashboard-folder-name"
+            className="dashboard-list__create-input"
+            type="text"
+            value={folderName}
+            onChange={(event) => setFolderName(event.target.value)}
+            placeholder="Daily"
+            aria-label="Folder name"
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="dashboard-list__create-submit"
+            disabled={folderName.trim().length === 0}
+          >
+            Create folder
+          </button>
+          <InlineError error={folderCreateError} variant="banner" />
+        </form>
+      ) : null}
+      {foldersError !== null ? <InlineError error={foldersError} /> : null}
       {isCreateMode ? (
         <form className="dashboard-list__create" onSubmit={handleCreateDashboard}>
           <label className="dashboard-list__create-label" htmlFor="dashboard-create-name">
@@ -331,143 +599,40 @@ export function DashboardList() {
             />
           )
         ) : (
-          <ul className="dashboard-list__items">
-            {visibleItems.map((dashboard) => {
-              const matchesQuery = dashboard.name.toLowerCase().includes(normalizedQuery);
-              const isActive = dashboard.id === selectedDashboardId;
-              const isOutsideFilter = !matchesQuery && isActive && normalizedQuery.length > 0;
-              const itemClassName = isOutsideFilter
-                ? "dashboard-list__item dashboard-list__item--outside-filter"
-                : "dashboard-list__item";
-
-              const isConfirmingDelete = confirmDeleteId === dashboard.id;
-              return (
-                <li key={dashboard.id} className={`${itemClassName} dashboard-list__item--row`}>
-                  <div className="dashboard-list__item-row">
-                    {editingId === dashboard.id ? (
-                      <div className="dashboard-list__rename">
-                        <input
-                          className="dashboard-list__rename-input"
-                          type="text"
-                          value={editingName}
-                          autoFocus
-                          disabled={renameStatus === "saving"}
-                          aria-label="Dashboard name"
-                          onChange={(e) => {
-                            setEditingName(e.target.value);
-                            setEditingError(null);
-                          }}
-                          onKeyDown={(e) => handleRenameKeyDown(e, dashboard.id)}
-                          onBlur={() => {
-                            // Disabling the input while a save is in flight blurs it
-                            // (a disabled element can't hold focus) — that's not a
-                            // user-initiated blur, so it must not double-commit.
-                            if (renameStatus === "saving") return;
-                            void commitRename(dashboard.id);
-                          }}
-                        />
-                        <InlineError error={editingError} />
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="dashboard-list__button"
-                        aria-label={dashboard.name}
-                        aria-pressed={selectedDashboardId === dashboard.id}
-                        onClick={() => {
-                          setConfirmDeleteId(null);
-                          dispatch(setSelectedDashboardId(dashboard.id));
-                        }}
-                      >
-                        <span className="dashboard-list__name-group">
-                          <span className="dashboard-list__name">{dashboard.name}</span>
-                          {isOutsideFilter && (
-                            <span className="dashboard-list__pinned-badge" aria-hidden="true">
-                              active
-                            </span>
-                          )}
-                        </span>
-                        {selectedDashboardId === dashboard.id && (
-                          <span
-                            className="dashboard-list__active-dot"
-                            aria-label="Active dashboard"
-                          />
-                        )}
-                      </button>
-                    )}
-                    {editingId !== dashboard.id && !isConfirmingDelete ? (
-                      <ActionsMenu
-                        label={`${dashboard.name} actions`}
-                        items={[
-                          {
-                            label: "Rename",
-                            onClick: () => startEditing(dashboard.id, dashboard.name),
-                          },
-                          {
-                            label: "Duplicate",
-                            onClick: () =>
-                              guardedDuplicateRun(dashboard.id, () =>
-                                handleDuplicateDashboard(dashboard.id),
-                              ),
-                            disabled: isDuplicatePending(dashboard.id),
-                          },
-                          {
-                            label: "Share",
-                            onClick: () =>
-                              shareDialog.open({
-                                dashboardId: dashboard.id,
-                                dashboardName: dashboard.name,
-                                // HEL-590 (evaluation-2.md CR-E): this ActionsMenu's own trigger
-                                // button carries `aria-label={`${dashboard.name} actions`}` --
-                                // see ActionsMenu.tsx. Restoring focus to it on close is the
-                                // sensible target, since the item just clicked unmounts along
-                                // with the popover in the same commit the dialog opens in.
-                                restoreFocusSelector: `button[aria-label="${escapeAttributeSelectorValue(`${dashboard.name} actions`)}"]`,
-                              }),
-                          },
-                          {
-                            label: "Export",
-                            onClick: () => void handleExportDashboard(dashboard.id, dashboard.name),
-                          },
-                          {
-                            label: "Delete",
-                            onClick: () => setConfirmDeleteId(dashboard.id),
-                            danger: true,
-                          },
-                        ]}
-                      />
-                    ) : null}
-                  </div>
-                  {isConfirmingDelete ? (
-                    <div className="dashboard-list__delete-confirm-row">
-                      <div className="dashboard-list__delete-confirm-actions">
-                        <button
-                          type="button"
-                          className="dashboard-list__delete-confirm-btn"
-                          onClick={() => void handleDeleteDashboard(dashboard.id)}
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          type="button"
-                          className="dashboard-list__delete-cancel-btn"
-                          onClick={() => {
-                            setConfirmDeleteId(null);
-                            setActionError(null);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {actionError?.dashboardId === dashboard.id ? (
-                    <InlineError error={actionError.message} />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <div className="dashboard-list__groups">
+            {folders.length === 0 ? (
+              <ul className="dashboard-list__items">{unfiledItems.map(renderRow)}</ul>
+            ) : (
+              <>
+                {folderGroups.map(({ folder, dashboards, total }) => (
+                  <DashboardFolderGroup
+                    key={folder.id}
+                    folder={folder}
+                    count={total}
+                    expanded={!folder.collapsed || revealedFolderIds.has(folder.id)}
+                    onToggle={() =>
+                      setRevealedFolderIds((ids) => {
+                        const next = new Set(ids);
+                        next.delete(folder.id);
+                        return next;
+                      })
+                    }
+                  >
+                    <ul className="dashboard-list__items">{dashboards.map(renderRow)}</ul>
+                  </DashboardFolderGroup>
+                ))}
+                {unfiledItems.length > 0 && (
+                  <section className="dashboard-list__folder" aria-label="Unfiled">
+                    <h3 className="dashboard-list__folder-static-title">
+                      <span className="dashboard-list__folder-name">Unfiled</span>
+                      <span className="dashboard-list__folder-count">{unfiledTotal}</span>
+                    </h3>
+                    <ul className="dashboard-list__items">{unfiledItems.map(renderRow)}</ul>
+                  </section>
+                )}
+              </>
+            )}
+          </div>
         )
       }
     </section>

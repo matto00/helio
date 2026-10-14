@@ -8,7 +8,7 @@ import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import type { User } from "../types/user";
 import "../../../shared/chrome/Popover.css";
 import "./UserMenu.css";
-import { CircleQuestionMark, LogOut, Settings, User as UserIcon } from "lucide-react";
+import { BarChart3, CircleQuestionMark, LogOut, Settings, User as UserIcon } from "lucide-react";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 /** Render the user's avatar image, falling back to their initial and then to a
@@ -53,9 +53,17 @@ interface UserMenuProps {
   currentUser: User;
   onNavigateToSettings: () => void;
   onLogout: () => void;
+  /** `rail`: the trigger sits at the foot of the icon rail (HEL-1574), so the menu opens up and to the right of it
+   *  rather than below and flush right. */
+  placement?: "bar" | "rail";
 }
 
-export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMenuProps) {
+export function UserMenu({
+  currentUser,
+  onNavigateToSettings,
+  onLogout,
+  placement = "bar",
+}: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const panelRef = useRef<HTMLDivElement>(null);
   // HEL-554 D9 — `UserMenu` is prop-driven and rendered only at
@@ -130,7 +138,11 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
     if (isOpen) {
       close();
     } else {
-      handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
+      handleOpen((rect) =>
+        placement === "rail"
+          ? { bottom: window.innerHeight - rect.bottom, left: rect.right + 8 }
+          : { top: rect.bottom + 8, right: window.innerWidth - rect.right },
+      );
     }
   }
 
@@ -159,9 +171,10 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
               onKeyDown={handleMenuKeyDown}
               style={{
                 position: "fixed",
-                top: panelPos.top,
-                right: panelPos.right,
-                left: "auto",
+                top: panelPos.top ?? "auto",
+                bottom: panelPos.bottom ?? "auto",
+                right: panelPos.right ?? "auto",
+                left: panelPos.left ?? "auto",
               }}
             >
               <div className="user-menu__header">
@@ -196,6 +209,23 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
                 <Settings size={ICON_SIZE.sm} />
                 Settings
               </button>
+              {/* HEL-1574: Usage is not a primary-nav item. Owners reach it here. Hiding it is a
+                  convenience; the server's 403 on `GET /api/admin/usage` is the real gate. */}
+              {currentUser.tier === "owner" && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="user-menu__item user-menu__item--usage"
+                  onClick={() => {
+                    close();
+                    navigate("/admin/usage");
+                  }}
+                  aria-label="Usage"
+                >
+                  <BarChart3 size={ICON_SIZE.sm} />
+                  Usage
+                </button>
+              )}
               {/* HEL-554 D9 — the re-open affordance every onboarding scenario
                   needs: reachable regardless of whether the account currently
                   has content (`workspace-create-actions`' own requirement —

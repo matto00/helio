@@ -36,6 +36,7 @@ import {
   duplicatePipelineStep,
   listPipelinePermissions,
   removePipelineRoot,
+  deletePipeline,
 } from "../services/pipelineService";
 import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type {
@@ -78,6 +79,7 @@ jest.mock("../services/pipelineService", () => ({
   revokePipelinePermission: jest.fn(),
   addPipelineRoot: jest.fn(),
   removePipelineRoot: jest.fn(),
+  deletePipeline: jest.fn(),
 }));
 
 const runPipelineMock = jest.mocked(runPipeline);
@@ -99,6 +101,7 @@ const reorderPipelineStepsMock = jest.mocked(reorderPipelineSteps);
 const updatePipelineStepEnabledMock = jest.mocked(updatePipelineStepEnabled);
 const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
 const listPipelinePermissionsMock = jest.mocked(listPipelinePermissions);
+const deletePipelineMock = jest.mocked(deletePipeline);
 const removePipelineRootMock = jest.mocked(removePipelineRoot);
 
 /** Minimal AxiosError-shaped rejection, matching `pipelinesSlice.ts`'s
@@ -4150,6 +4153,53 @@ describe("PipelineDetailPage — root removal (HEL-968)", () => {
       expect(toasts[0].message).toBe(
         "Failed to remove source: Cannot remove the last root of a pipeline.",
       );
+    });
+  });
+
+  // HEL-1574 D12: Delete moved here from the retired sidebar list.
+  describe("Delete pipeline (HEL-1574)", () => {
+    beforeEach(() => {
+      deletePipelineMock.mockReset();
+    });
+
+    function startDelete() {
+      openPipelineActionsMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: "Delete pipeline" }));
+    }
+
+    it("confirms with the bound-Outputs warning, deletes, and returns to the section overview", async () => {
+      deletePipelineMock.mockResolvedValue(undefined);
+      renderDetailPage("pipe-1", makeStore([], { currentPipeline: defaultPipeline }));
+      await screen.findByText("Run pipeline");
+      startDelete();
+      expect(
+        screen.getByText(/Any panels bound to this pipeline's Outputs will stop working\./),
+      ).toBeInTheDocument();
+      expect(deletePipelineMock).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Confirm delete pipeline" }));
+      expect(await screen.findByText("Pipelines List")).toBeInTheDocument();
+      expect(deletePipelineMock).toHaveBeenCalledWith("pipe-1");
+    });
+
+    it("cancelling leaves the pipeline alone", async () => {
+      renderDetailPage("pipe-1", makeStore([], { currentPipeline: defaultPipeline }));
+      await screen.findByText("Run pipeline");
+      startDelete();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(
+        screen.queryByRole("button", { name: "Confirm delete pipeline" }),
+      ).not.toBeInTheDocument();
+      expect(deletePipelineMock).not.toHaveBeenCalled();
+    });
+
+    it("stays on the page and says so when the delete is refused", async () => {
+      deletePipelineMock.mockRejectedValue(axiosError(500));
+      renderDetailPage("pipe-1", makeStore([], { currentPipeline: defaultPipeline }));
+      await screen.findByText("Run pipeline");
+      startDelete();
+      fireEvent.click(screen.getByRole("button", { name: "Confirm delete pipeline" }));
+      expect(await screen.findByText("Failed to delete pipeline.")).toBeInTheDocument();
+      expect(screen.queryByText("Pipelines List")).not.toBeInTheDocument();
     });
   });
 });

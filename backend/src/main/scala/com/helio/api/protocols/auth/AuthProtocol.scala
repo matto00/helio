@@ -7,7 +7,13 @@ import spray.json._
 
 final case class RegisterRequest(email: String, password: String, displayName: Option[String])
 final case class LoginRequest(email: String, password: String)
-final case class UserPreferences(accentColor: Option[String], zoomLevels: Map[String, Double])
+/** HEL-1574: `contextListWidth`/`contextListCollapsed` are the shell layout; absent means never set. */
+final case class UserPreferences(
+    accentColor: Option[String],
+    zoomLevels: Map[String, Double],
+    contextListWidth: Option[Int] = None,
+    contextListCollapsed: Option[Boolean] = None
+)
 final case class UserResponse(
     id: String,
     email: String,
@@ -30,6 +36,9 @@ final case class UserPreferencePayload(zoomLevel: Option[Double], accentColor: O
 final case class UpdateUserPreferenceRequest(fields: Vector[String], user: UserPreferencePayload)
 
 object UserResponse {
+  def fromDomain(user: User, preferences: Option[UserPreferences]): UserResponse =
+    fromDomain(user).copy(preferences = preferences)
+
   def fromDomain(user: User): UserResponse =
     UserResponse(
       id          = user.id.value,
@@ -44,7 +53,7 @@ object UserResponse {
 trait AuthProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val registerRequestFormat: RootJsonFormat[RegisterRequest] = jsonFormat3(RegisterRequest.apply)
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
-  implicit val userPreferencesFormat: RootJsonFormat[UserPreferences] = jsonFormat2(UserPreferences.apply)
+  implicit val userPreferencesFormat: RootJsonFormat[UserPreferences] = jsonFormat4(UserPreferences.apply)
   implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat7(UserResponse.apply)
   implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat2(AuthResponse.apply)
 

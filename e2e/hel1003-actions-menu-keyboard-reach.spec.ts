@@ -91,10 +91,11 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
 
     await page.mouse.move(5, 5);
 
-    // Resting: row button ~215px, unaffected by the hidden trigger.
+    // Resting: row button ~223px, unaffected by the hidden trigger. HEL-1574: the context list's default width
+    // is 248px (the retired sidebar was 240px), so every width below is 8px wider than it used to be.
     const restingWidth = await rowButton.evaluate((el) => el.getBoundingClientRect().width);
-    expect(Math.round(restingWidth)).toBeGreaterThanOrEqual(210);
-    expect(Math.round(restingWidth)).toBeLessThanOrEqual(220);
+    expect(Math.round(restingWidth)).toBeGreaterThanOrEqual(218);
+    expect(Math.round(restingWidth)).toBeLessThanOrEqual(228);
 
     // Reveal via hover.
     await row.hover();
@@ -126,8 +127,8 @@ test.describe("HEL-1003 dashboard-row ActionsMenu keyboard reachability (desktop
     expect(revealed.wrapperHeight).toBeGreaterThan(1);
     expect(Math.round(revealed.triggerWidth)).toBe(24);
     expect(Math.round(revealed.triggerHeight)).toBe(24);
-    expect(Math.round(revealed.rowButtonWidth)).toBeGreaterThanOrEqual(183);
-    expect(Math.round(revealed.rowButtonWidth)).toBeLessThanOrEqual(191);
+    expect(Math.round(revealed.rowButtonWidth)).toBeGreaterThanOrEqual(191);
+    expect(Math.round(revealed.rowButtonWidth)).toBeLessThanOrEqual(199);
   });
 
   test("keyboard: Tab reaches trigger, Enter opens menu, Escape restores focus (no-regression, not the red-arm proof)", async ({

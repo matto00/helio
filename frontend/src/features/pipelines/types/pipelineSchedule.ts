@@ -31,3 +31,29 @@ export interface PutPipelineScheduleRequest {
   enabled?: boolean;
   timezone: string;
 }
+
+/** One enabled schedule in `GET /api/pipeline-schedules` (HEL-1574). Mirrors
+ *  `schemas/pipelines/pipeline-schedule-list-response.schema.json`. */
+export interface ScheduledPipelineItem {
+  pipelineId: string;
+  pipelineName: string;
+  kind: ScheduleKind;
+  expression: string;
+  timezone: string;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+}
+
+/** A source feeding a scheduled pipeline, with the soonest run among those pipelines. */
+export interface ScheduledSourceItem {
+  sourceId: string;
+  sourceName: string;
+  nextRunAt: string | null;
+  pipelineId: string;
+  pipelineName: string;
+}
+
+export interface PipelineScheduleList {
+  items: ScheduledPipelineItem[];
+  sources: ScheduledSourceItem[];
+}

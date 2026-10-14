@@ -7,7 +7,7 @@ import com.github.t3hnar.bcrypt._
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.auth.{AuthResponse, GoogleProfile, LoginRequest, RegisterRequest, UserResponse}
 import com.helio.domain.model.{AuditSource, User, UserId, UserSession, UserTier}
-import com.helio.infrastructure.persistence.auth.UserRepository
+import com.helio.infrastructure.persistence.auth.{UserPreferenceRepository, UserRepository}
 import spray.json.{JsObject, JsString}
 
 import java.security.SecureRandom
@@ -44,12 +44,12 @@ final case class AuthResult(token: String, response: AuthResponse)
  *  never the reverse, so it cannot call `AuthService`'s private
  *  `authResultOf`. Byte-identical to that private method. */
 object AuthResult {
-  def of(session: UserSession, user: User): AuthResult =
+  def of(session: UserSession, user: UserResponse): AuthResult =
     AuthResult(
       token = session.token,
       response = AuthResponse(
         expiresAt = session.expiresAt.toString,
-        user      = UserResponse.fromDomain(user)
+        user      = user
       )
     )
 }
@@ -88,10 +88,14 @@ final class AuthService(
     stateStore: OAuthStateStore,
     // HEL-1208: best-effort signup telemetry; `None` (default) keeps every existing positional
     // call site compiling and simply records no event.
-    productEventService: Option[ProductEventService] = None
+    productEventService: Option[ProductEventService] = None,
+    // HEL-1574: when present, every session-returning response carries the user's preferences.
+    preferenceRepo: Option[UserPreferenceRepository] = None
 )(implicit ec: ExecutionContext) {
 
   import AuthService._
+
+  private val userResponses = new UserResponseAssembler(preferenceRepo)
 
   /** HEL-477: `actorUserId = None` for a failed login (no established
    *  identity to attribute the row to — design.md Decision 4); every other
@@ -125,12 +129,13 @@ final class AuthService(
             for {
               createdUser    <- userRepo.insert(user, Some(passwordHash))
               createdSession <- userRepo.createSession(session)
+              result         <- authResultOf(createdSession, createdUser)
               // HEL-1208: after the users row has committed (product_events.user_id is an FK to
               // it); recordSignup swallows its own failures so it can never fail registration.
               _              <- productEventService.fold(Future.successful(()))(_.recordSignup(createdUser.id))
             } yield {
               audit(Some(createdUser.id), "auth.register")
-              Right(authResultOf(createdSession, createdUser))
+              Right(result)
             }
         }
     }
@@ -238,14 +243,8 @@ final class AuthService(
     stateStore.validateAndConsume(state)
 
 
-  private def authResultOf(session: UserSession, user: User): AuthResult =
-    AuthResult(
-      token = session.token,
-      response = AuthResponse(
-        expiresAt = session.expiresAt.toString,
-        user      = UserResponse.fromDomain(user)
-      )
-    )
+  private def authResultOf(session: UserSession, user: User): Future[AuthResult] =
+    userResponses(user).map(AuthResult.of(session, _))
 
   //
   // Single call site inserted at both session-establishment points above
@@ -271,7 +270,7 @@ final class AuthService(
 
   private def mintSession(user: User): Future[LoginOutcome] = {
     val session = buildSession(user.id, Instant.now())
-    userRepo.createSession(session).map(created => LoginOutcome.SessionEstablished(authResultOf(created, user)))
+    userRepo.createSession(session).flatMap(created => authResultOf(created, user).map(LoginOutcome.SessionEstablished(_)))
   }
 }
 

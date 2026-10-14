@@ -56,13 +56,32 @@ const proposalReviewTsx = join(repoRoot, "frontend/src/features/dashboards/ui/Pr
 // PipelineProtocol.scala (HEL-873): fields with an `= Foo()`-shaped default are kept LAST in
 // their case class. Fix properly by brace/paren-balancing this regex (or parsing params via a
 // real tokenizer) rather than adding more field-ordering workarounds at every call site.
+// HEL-1574: split a param list on commas outside `[...]`, so a type application such as
+// `Map[String, Double]` stays one parameter instead of yielding a bogus `Double]` field.
+function splitTopLevelCommas(text) {
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of text) {
+    if (ch === "[") depth += 1;
+    if (ch === "]") depth -= 1;
+    if (ch === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts;
+}
+
 function parseCaseClasses(src) {
   const map = new Map();
   const re = /case class\s+(\w+)\s*\(([^)]*)\)/gs;
   for (const match of src.matchAll(re)) {
     const [, name, paramsRaw] = match;
-    const fields = paramsRaw
-      .split(",")
+    const fields = splitTopLevelCommas(paramsRaw)
       .map((p) => p.trim())
       .filter(Boolean)
       .map((p) => {
@@ -123,6 +142,10 @@ const SKIP = new Set([
   "PanelAppearancePatch", // HEL-362: UpdatePanelRequest/PanelBatchItem.appearance is a raw
   // JsValue (mirroring `config`), decoded by PanelAppearance.Patch —
   // no matching case class to diff against.
+  "UpdateShellPreferencesRequest", // HEL-1574: PATCH /api/users/me/preferences is validated from raw JSON
+  // (an explicit unknown-key check; spray-json would ignore unknown fields), so no case class exists.
+  "MoveDashboardFolderRequest", // HEL-1574: PUT /api/dashboards/:id/folder reads raw JSON because the
+  // `folderId` key must be present (null unfiles), which an Option field cannot express.
   "DataSourceResponse", // HEL-933: response composed across the sealed trait's 7 case-class
   // subtypes (Csv/Rest/Sql/Static/Text/Pdf/Image), each with its own field list.
 ]);

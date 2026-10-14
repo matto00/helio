@@ -88,6 +88,8 @@ export function extractReferences(text) {
 // CSSProperties) had to be traced before it earned this entry.
 export const ALLOWLIST = {
   "--dashboard-background-override": "app/App.tsx",
+  "--context-list-width":
+    "app/App.tsx (inline style from the saved preference) and app/shell/useContextListLayout.ts (live drag preview)",
   "--dashboard-grid-background-override": "features/panels/ui/PanelList.tsx",
   "--panel-surface-override": "features/panels/ui/PanelCard.tsx",
   "--panel-text-override": "features/panels/ui/PanelCard.tsx",

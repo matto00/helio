@@ -1,6 +1,6 @@
 // HEL-590 (evaluation-1.md CR4) -- owns the share-dialog's open target at the APP SHELL level
-// (mirrors `OverlayProvider`'s shape), NOT inside `DashboardList`/`.app-sidebar`. The sidebar is
-// `display: none` below the desktop breakpoint (`Sidebar.css`), which hides its entire subtree --
+// (mirrors `OverlayProvider`'s shape), NOT inside `DashboardList`/the context list. The list is
+// not rendered at phone widths (and is collapsible), which hides its entire subtree --
 // a component mounted inside it, even a native `<dialog>` promoted via `showModal()`, is hidden
 // along with it and measures 0x0 (verified live in evaluation-1.md). Mounting `DashboardShareDialog`
 // as a sibling of `Sidebar`/`MobileShell` in `AppShell` (see `App.tsx`) keeps it reachable

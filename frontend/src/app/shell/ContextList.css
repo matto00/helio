@@ -1,0 +1,203 @@
+/* The context list (DESIGN.md §9). Chrome paints `--app-surface-soft`, darker than cards in dark and a step below
+   the canvas in light; the rail is `--app-bg`. Tokens only: no literal colours, fonts or durations. */
+.context-list {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--app-surface-soft);
+  border-right: 1px solid var(--app-border-subtle);
+  z-index: 3;
+}
+
+.context-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) 0 var(--space-4);
+}
+
+.context-list__title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-list__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Chrome controls drop their hairline here, as in the command bar. */
+.context-list .ui-icon-btn,
+.context-list .ui-icon-btn:hover:not(:disabled),
+.context-list .actions-menu__trigger,
+.context-list .actions-menu__trigger:hover {
+  border-color: transparent;
+}
+
+/* Row hover on the list's own backdrop: `--app-surface-strong` is the one step that clears it in both themes (a soft
+   wash on a soft backdrop would be invisible). */
+.context-list .dashboard-list__button:hover,
+.context-list .context-list__row:hover,
+.context-list .ui-icon-btn--secondary:hover:not(:disabled),
+.context-list .actions-menu__trigger:hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
+/* Resize handle: an 8px-wide hit area straddling the list's trailing edge, drawing a 1px hairline that takes the
+   focus ring when keyboard-focused. */
+.context-list__separator {
+  position: absolute;
+  top: 0;
+  right: calc(var(--space-1) * -1);
+  bottom: 0;
+  width: var(--space-2);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.context-list__separator::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: transparent;
+  transition: background-color var(--motion-duration-quick) var(--motion-ease-standard);
+}
+
+.context-list__separator:hover::after,
+.context-list__separator[data-dragging="true"]::after {
+  background: var(--app-border-strong);
+}
+
+.context-list__separator:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Shared row recipes of the Pipelines / Sources / Assistant bodies. */
+.context-list__section {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.context-list__section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.context-list__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-list__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+/* The open item is a selection: an accent wash, with a stronger step on hover so hovering it still shows something. */
+.context-list__row[aria-current="page"] {
+  background: var(--app-accent-dim);
+}
+
+.context-list .context-list__row[aria-current="page"]:hover {
+  background: var(--app-accent-mid);
+}
+
+.context-list__row:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: -2px;
+}
+
+.context-list__row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-list__row-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-list__empty {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.context-list__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.context-list__link {
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.context-list__link:hover {
+  color: var(--app-text);
+}
+
+.context-list__link:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+.context-list__locked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
@@ -12,6 +12,10 @@ import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { OutputsGalleryTab } from "./OutputsGalleryTab";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
 import { OutputHistoryModal } from "./outputHistory/OutputHistoryModal";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
+import { InlineError } from "../../../shared/chrome/InlineError";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { deletePipeline } from "../state/pipelinesSlice";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
@@ -45,6 +49,11 @@ export function PipelineDetailPage() {
 }
 
 function PipelineDetailPageContent() {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  // HEL-1574 D12: Delete moved here from the retired sidebar list, behind the same confirm and warning.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const {
     id,
     stepsLoading,
@@ -198,7 +207,28 @@ function PipelineDetailPageContent() {
         onOpenHistory={openRunHistory}
         isOwner={isOwner}
         onOpenShare={() => setShareOpen(true)}
+        onDelete={() => {
+          setDeleteError(null);
+          setConfirmingDelete(true);
+        }}
       />
+      {confirmingDelete && id !== undefined ? (
+        <ConfirmInline
+          label="Delete this pipeline? Any panels bound to this pipeline's Outputs will stop working."
+          confirmLabel="Delete"
+          confirmAriaLabel="Confirm delete pipeline"
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            void dispatch(deletePipeline(id))
+              .unwrap()
+              .then(() => navigate("/pipelines"))
+              // A refused delete leaves the pipeline in place: stay on the page and say so.
+              .catch(() => setDeleteError("Failed to delete pipeline."));
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      ) : null}
+      <InlineError error={deleteError} variant="banner" />
 
       {/* ── HEL-861: run-truncation warning — shown only when the last run's source read (or a
           join/union/lookup secondary read) was capped. Renders the server-composed notice
