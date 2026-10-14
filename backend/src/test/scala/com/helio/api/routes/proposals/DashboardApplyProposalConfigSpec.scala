@@ -49,6 +49,30 @@ class DashboardApplyProposalConfigSpec extends ApplyProposalSpecBase {
       dashboardCount() shouldBe (before + 1)
     }
 
+    // HEL-1466: the `config` passthrough makes the CURRENT literal-content surfaces expressible
+    // (markdown/text `content`, image `imageUrl`/`caption`) — the spec scenario "Literal markdown
+    // content via proposal config".
+    "carry literal content and image fields through config for the current panel types (HEL-1466)" in {
+      val body =
+        """{
+          |  "dashboardName": "Config Passthrough",
+          |  "panels": [
+          |    {"title":"Notes","type":"markdown","config":{"content":"# Notes"}},
+          |    {"title":"Plain","type":"text","config":{"content":"Hello"}},
+          |    {"title":"Logo","type":"image","config":{"imageUrl":"https://example.com/l.png","caption":"Our logo"}}
+          |  ]
+          |}""".stripMargin
+      apply(body) ~> routes ~> check {
+        status shouldBe StatusCodes.Created
+        val panels = responseAs[String].parseJson.asJsObject.fields("panels").convertTo[Vector[JsValue]].map(_.asJsObject)
+        def cfg(title: String) = panels.find(_.fields("title").convertTo[String] == title).get.fields("config").asJsObject
+        cfg("Notes").fields("content") shouldBe JsString("# Notes")
+        cfg("Plain").fields("content") shouldBe JsString("Hello")
+        cfg("Logo").fields("imageUrl") shouldBe JsString("https://example.com/l.png")
+        cfg("Logo").fields("caption") shouldBe JsString("Our logo")
+      }
+    }
+
     // Regression: a proposal with no `config` field produces byte-for-byte the
     // same created-panel config as before this change — merge is a no-op when
     // `config` is absent. HEL-1189 added `controls` to `OutputPanelConfig`'s

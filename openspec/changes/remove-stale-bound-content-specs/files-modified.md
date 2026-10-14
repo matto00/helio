@@ -1,0 +1,7 @@
+- `CLAUDE.md` — single-file test command documentation only (root form does not narrow)
+- `frontend/src/features/panels/ui/renderers/TextRenderer.tsx` — remove dead bound `data` prop/read
+- `frontend/src/features/panels/ui/PanelContent.tsx` — drop `data={data}` at the text branch
+- `frontend/src/features/panels/ui/PanelContent.test.tsx` — delete bound-text tests, add LITERAL-vs-BOUND guard
+- `backend/src/test/scala/com/helio/api/routes/panels/PanelContentOwnershipSpec.scala` — route-level probe/guard for markdown-panel delta claims
+- `backend/src/test/scala/com/helio/api/routes/proposals/DashboardApplyProposalConfigSpec.scala` — config passthrough content/image case
+- `openspec/changes/remove-stale-bound-content-specs/**` — deltas, evidence.md, tasks, files-modified

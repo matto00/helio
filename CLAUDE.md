@@ -19,10 +19,10 @@ npm run format       # Format with Prettier
 npm run format:check # Check formatting without modifying
 ```
 
-Run a single test file:
+Run a single test file (from the repo root; from `frontend/` use `npm test -- --testPathPatterns=...`). Root `npm test -- --testPathPatterns=X` does NOT narrow: its script is `jest && npm --prefix frontend test`, so the flag lands on the inner `npm` and the full frontend suite runs:
 
 ```bash
-npm test -- --testPathPatterns=dashboardsSlice
+npm --prefix frontend test -- --testPathPatterns=dashboardsSlice
 ```
 
 ### Backend (run from `backend/`)
