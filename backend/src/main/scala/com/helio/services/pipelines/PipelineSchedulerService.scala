@@ -212,10 +212,12 @@ final class PipelineSchedulerService(
         val owner = AuthenticatedUser(pipeline.ownerId, source = AuditSource.System, tokenId = None)
         // PipelineRunService.submit's own PipelineRunExecutor.executeRun already records a
         // pipeline-execution failure in run history (its Failure branch
-        // returns a successful Future carrying Left(...)) — the `Failure` case of
-        // `gatedSubmit`'s `transform` only guards tick() against an unexpected exception
-        // outside that path (e.g. a pre-submit DB lookup failure), so bookkeeping below
-        // still runs either way.
+        // returns a successful Future carrying Left(...)) — the `Failure` case of the
+        // submit branch's inner `.transform` in `gatedSubmit` (not its outer `transformWith`)
+        // only guards tick() against an unexpected exception outside that path (e.g. a failure
+        // of submit's own pre-run lookups, `findByIdShared` / `findGrantRole`). It is one guard
+        // among several (the outer `transformWith` and the recordUnrunnable branch's `.transform`
+        // also return a successful Future), and together they keep the bookkeeping below running.
         gatedSubmit(schedule, owner)
           .flatMap { _ =>
             val next = nextFireTimeLogged(schedule, now)

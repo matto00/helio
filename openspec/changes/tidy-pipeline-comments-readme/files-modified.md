@@ -1,0 +1,4 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineSchedulerService.scala` — gatedSubmit comment names the submit branch's inner `.transform`
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunBackfill.scala` — explicitRootId comment names the PipelineRunService pass-through
+- `backend/src/main/scala/com/helio/services/pipelines/README.md` — re-derived file list (all 52 files), re-derive command, no completeness claim
+- `backend/src/test/scala/com/helio/services/pipelines/FireTimeRunConfigGateSpec.scala` — removed four section banners

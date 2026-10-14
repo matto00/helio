@@ -223,10 +223,6 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
     } finally { logger.detachAppender(appender); logger.setLevel(prior) }
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // Gap 2: scheduled (cron) runs
-  // ---------------------------------------------------------------------------------------------
-
   "a scheduled fire of a pipeline with a misconfigured enabled step (gap 2)" should {
 
     "record a failed never-attempted run: no HEL-505 budget, no submit audit, scheduled trigger, schedule advances" in {
@@ -276,10 +272,6 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
       rs.maxBy(_.startedAt).errorLog.getOrElse("") should startWith(SkipPrefix)
     }
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // Gaps 1 and 3: debounced auto-run
-  // ---------------------------------------------------------------------------------------------
 
   "a debounced auto-run fire" should {
 
@@ -343,10 +335,6 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
     }
   }
 
-  // ---------------------------------------------------------------------------------------------
-  // RED-FIRST, undecodable step config (fails on assertions on pre-HEL-1384 code, 1bf11f55)
-  // ---------------------------------------------------------------------------------------------
-
   "fire-time evaluation error: undecodable step config (red-first)" should {
 
     "never submit, advance the schedule and not re-attempt, for an undecodable step config" in {
@@ -387,10 +375,6 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
       submitAttempted(s) shouldBe false
     }
   }
-
-  // ---------------------------------------------------------------------------------------------
-  // GUARDS (green on main by design; each shown red against a deliberate mutation)
-  // ---------------------------------------------------------------------------------------------
 
   "negative controls (GUARD)" should {
 
