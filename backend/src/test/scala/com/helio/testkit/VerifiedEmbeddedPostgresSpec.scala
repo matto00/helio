@@ -6,11 +6,15 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.IOException
+import java.nio.charset.StandardCharsets
 import java.net.{InetAddress, InetSocketAddress, ServerSocket, Socket}
 import java.nio.file.{Files, Path, Paths}
 import java.sql.{Connection, SQLException}
+import java.time.Duration
 import java.util.Comparator
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import scala.util.control.NonFatal
 
 /** HEL-1445 regression: a zonky embedded-Postgres instance that loses its port silently adopts
  *  whichever other cluster is listening there. Cluster A is the "foreign" cluster; every scenario
@@ -190,6 +194,127 @@ class VerifiedEmbeddedPostgresSpec extends AnyWordSpec with Matchers with Before
         calls.get shouldBe 1
         Files.exists(dir) shouldBe false
         portRefused(port) shouldBe true
+      } finally removeIfLeft(dir)
+    }
+  }
+
+  /** True while `pid` is a live process (read-only observation; a short bounded poll absorbs the unreaped-zombie window). */
+  private def stillAlive(pid: Long, waitMillis: Long = 5000): Boolean = {
+    val deadline = System.nanoTime() + waitMillis * 1000000L
+    def alive    = ProcessHandle.of(pid).map[java.lang.Boolean](_.isAlive).orElse(false)
+    while (alive && System.nanoTime() < deadline) Thread.sleep(100)
+    alive
+  }
+
+  /** `pg_ctl -D <dir> status` for the test's own directory (read-only). The binary is the sibling of the postgres
+   *  named by the dir's postmaster.opts. */
+  private def pgCtlStatus(dir: Path): String = {
+    val binary = new String(Files.readAllBytes(dir.resolve("postmaster.opts")), StandardCharsets.UTF_8).trim.takeWhile(_ != '"').trim
+    val proc   = new ProcessBuilder(Paths.get(binary).resolveSibling("pg_ctl").toString, "-D", dir.toString, "status").redirectErrorStream(true).start()
+    val out    = new String(proc.getInputStream.readAllBytes(), StandardCharsets.UTF_8).trim.replace('\n', ' ')
+    if (!proc.waitFor(60, TimeUnit.SECONDS)) { proc.destroyForcibly(); "pg_ctl status timed out" }
+    else s"exit=${proc.exitValue()} $out"
+  }
+
+  "a zonky start that throws after the postmaster launched (HEL-1586)" should {
+    "stop the postmaster on its own data directory, delete it, and propagate the library's error" in {
+      val dir      = Files.createTempDirectory("hel1586-postlaunch") // temp-dir-hygiene: reviewed — the helper under test deletes it; removeIfLeft in finally
+      val captured = new AtomicReference[EmbeddedPostgres]()
+      val pidRef   = new AtomicReference[java.lang.Long]()
+      val calls    = new AtomicInteger(0)
+      val injected = new IOException("hel1586 injected")
+      try {
+        val thrown = the[IOException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder(),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = showDataDirectory,
+            newDataDirectory = () => { calls.incrementAndGet(); dir },
+            afterLibraryStart = pg => {
+              captured.set(pg)
+              pidRef.set(Files.readAllLines(dir.resolve("postmaster.pid")).get(0).trim.toLong)
+              println(s"HEL1586-RECORDED pid=${pidRef.get} port=${pg.getPort} dir=$dir")
+              println("HEL1586-STATUS-BEFORE " + pgCtlStatus(dir)) // observation only: `pg_ctl -D <own dir> status`
+              throw injected
+            }
+          )
+        (thrown should be).theSameInstanceAs(injected)
+        calls.get shouldBe 1
+        Files.exists(dir) shouldBe false
+        portRefused(captured.get.getPort) shouldBe true
+        stillAlive(pidRef.get) shouldBe false
+      } finally {
+        // Only reached with a live handle when the helper under test failed to stop it; close() is `pg_ctl -D <own dir> stop`.
+        Option(captured.get).foreach(pg => try pg.close() catch { case NonFatal(_) => () })
+        removeIfLeft(dir)
+      }
+    }
+  }
+
+  "a zonky start that gives up waiting for the server (HEL-1586 realism guard)" should {
+    "delete the attempt's data directory, leave nothing listening and propagate zonky's own error" in {
+      val dir   = Files.createTempDirectory("hel1586-gaveup") // temp-dir-hygiene: reviewed — the helper under test deletes it; removeIfLeft in finally
+      val port  = freePort()
+      val calls = new AtomicInteger(0)
+      try {
+        val ex = the[IOException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder().setPort(port).setPGStartupWait(Duration.ZERO),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = showDataDirectory,
+            newDataDirectory = () => { calls.incrementAndGet(); dir }
+          )
+        ex.getMessage should include("Gave up waiting")
+        calls.get shouldBe 1
+        Files.exists(dir) shouldBe false
+        portRefused(port) shouldBe true
+      } finally removeIfLeft(dir)
+    }
+  }
+
+  "a failed start whose postmaster stop cannot be confirmed (HEL-1586)" should {
+    "keep the data directory, report why in a suppressed exception and rethrow the original" in {
+      val dir = Files.createTempDirectory("hel1586-unconfirmed") // temp-dir-hygiene: reviewed — removed in finally; the helper keeps it on this path by design
+      Files.write(dir.resolve("epg-lock"), Array.emptyByteArray)
+      Files.write(dir.resolve("postmaster.pid"), "hel1586-not-a-pid\n".getBytes) // never a real PID; no process exists, no pg_ctl runs on this path
+      try {
+        val ex = the[IllegalStateException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder().setPort(freePort()).setLocaleConfig("locale", "hel1586-no-such-locale"),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = showDataDirectory,
+            newDataDirectory = () => dir,
+            postLaunchWait = Duration.ofSeconds(1)
+          )
+        ex.getMessage should include("initdb")
+        Files.exists(dir) shouldBe true
+        ex.getSuppressed.map(_.getMessage).mkString should (include(dir.toString) and include("postmaster.opts never appeared"))
+      } finally removeIfLeft(dir)
+    }
+  }
+
+  "a post-launch failed start pinned to another cluster's port (HEL-1586)" should {
+    "stop and delete only its own directory and leave the foreign cluster intact" in {
+      val a    = clusterA
+      val aDir = showDataDirectory(a)
+      val dir  = Files.createTempDirectory("hel1586-foreign") // temp-dir-hygiene: reviewed — the helper under test deletes it; removeIfLeft in finally
+      try {
+        val ex = the[IOException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder().setPort(a.getPort).setPGStartupWait(Duration.ZERO),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = showDataDirectory,
+            newDataDirectory = () => dir,
+            postLaunchWait = Duration.ofSeconds(5)
+          )
+        ex.getMessage should include("Gave up waiting")
+        Files.exists(dir) shouldBe false
+        assertForeignClusterIntact()
+        showDataDirectory(a) shouldBe aDir
       } finally removeIfLeft(dir)
     }
   }
