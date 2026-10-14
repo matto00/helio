@@ -14,6 +14,7 @@ import java.sql.DriverManager
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.io.Source
 
 /** HEL-913 tasks 3.2-3.6b: proof obligations for V98 (`pipeline_roots`), the migration that
  *  replaces `pipelines.source_data_source_id` (one source per pipeline) with N roots per
@@ -265,7 +266,7 @@ class V98PipelineRootsMigrationSpec extends AnyWordSpec with Matchers with Befor
         // Load V98's OWN shipped SQL text and remove ONLY the `pipelines` bracket line -- every
         // other statement, including the step-8 guard, is byte-identical to what actually ships.
         val v98Sql = {
-          val src = scala.io.Source.fromResource("db/migration/V98__pipeline_roots.sql")
+          val src = Source.fromResource("db/migration/V98__pipeline_roots.sql")
           try src.mkString finally src.close()
         }
         val bracketLine = "ALTER TABLE pipelines      NO FORCE ROW LEVEL SECURITY;"

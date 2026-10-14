@@ -128,7 +128,7 @@ object CastStep {
     // the HEL-860 wording is attempted first and the generic strict-decode
     // message is the fallback for the cases it cannot describe.
     override def validateRawConfig(raw: String): Option[String] =
-      scala.util.Try(StepCodecUtil.asObject(raw)).toOption
+      Try(StepCodecUtil.asObject(raw)).toOption
         .flatMap(obj =>
           StepCodecUtil.requireStringMap(
             obj, "casts", Kind,

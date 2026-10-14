@@ -1,0 +1,5 @@
+# raw sweep: grep -rnE "(^|[^A-Za-z0-9_.])scala\.[a-z]+\." backend/src --include=*.scala, minus import/package/comment lines, minus hits only inside "..." literals
+string/comment-only: backend/src/test/scala/com/helio/services/sharing/ShareTokenGenerationSpec.scala:45:    "never reach for scala.util.Random or Math.random" in {
+string/comment-only: backend/src/test/scala/com/helio/services/sharing/ShareTokenGenerationSpec.scala:56:      src should not include "scala.util.Random"
+splice probe (${...scala.x.}): 
+(none above = zero splice hits)

@@ -40,7 +40,7 @@ object ConvertFormatStep {
 
   /** design.md D1/D6 -- the single source of truth for which `from`/`to` pairs are accepted,
    *  shared by the write-path validator ([[ConvertFormatConfig.pairError]]), the run-path
-   *  dispatch ([[convert]]) and analyze inference (`PipelineAnalyzeService.inferConvertFormat`),
+   *  dispatch ([[convert]]) and analyze inference (`TextSchemaInference.inferConvertFormat`),
    *  so the three surfaces cannot diverge. */
   val SupportedPairs: Set[(String, String)] =
     Set("csv" -> "json", "json" -> "csv", "text" -> "markdown", "markdown" -> "text")

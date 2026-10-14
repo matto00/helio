@@ -17,6 +17,7 @@ import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.collection.mutable
 
 /** HEL-1107 (design.md D1/D3/D4, tasks.md 3.1-3.6): enforcement coverage for the `generatetext`
  *  step, run over a hand-written fake `ClaudeTransport` behind the REAL `ClaudeClient` (tasks.md
@@ -44,7 +45,7 @@ class GenerateTextStepSpec extends AnyWordSpec with Matchers with CsvLoadSupport
    *  multi-row sequencing tests can assert exact per-call responses in order. */
   private class FakeTransport(results: Future[ClaudeApiResponse]*) extends ClaudeTransport {
     val sendInvocations: AtomicInteger = new AtomicInteger(0)
-    private val queue = scala.collection.mutable.Queue(results: _*)
+    private val queue = mutable.Queue(results: _*)
 
     override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] = {
       sendInvocations.incrementAndGet()

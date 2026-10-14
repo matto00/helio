@@ -29,7 +29,7 @@ import java.net.InetAddress
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** HEL-879 (design.md): SSRF egress-guard coverage for the REST connector path.
  *
@@ -166,7 +166,7 @@ class RestConnectorEgressGuardSpec extends AnyWordSpec with Matchers with HelioR
     // two outcomes, not just that a well-formed URL happens to work.
     "create a Connector whose baseUrl is well-formed but currently unresolvable (not a disallowed-address refusal)" in {
       val unresolvableResolver: String => Try[Array[InetAddress]] =
-        host => scala.util.Failure(new java.net.UnknownHostException(host))
+        host => Failure(new java.net.UnknownHostException(host))
       val svc    = connectorEntityService(unresolvableResolver)
       val result = await(svc.create(createReq("https://not-yet-provisioned.internal.egress-guard.test/"), user))
       result.isRight shouldBe true

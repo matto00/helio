@@ -314,7 +314,7 @@ where either part is blank. Supply a fallback with `coalesce`:
 
 Parse/validation errors surface as a human-readable message (e.g. `"Column references require a
 '$' prefix"`, `"Unknown field: foo"`, `"'reverse' is not a recognized function; supported functions: abs, add_days, ceil, coalesce, concat, date_trunc, floor, if, length, lower, mod, round, seconds_between, substring, upper"`,
-`"substring requires 3 arguments"`). At **analyze time** (`PipelineAnalyzeService.inferCompute`),
+`"substring requires 3 arguments"`). At **analyze time** (`ColumnSchemaInference.inferCompute`),
 this message is set on `AnalyzedStep.validationError` and rendered inline under the expression
 input in the step-card UI (`ComputeFieldConfig`). At **row-execution time**
 (`ComputeStep.apply`), any evaluation failure for a given row
@@ -397,7 +397,7 @@ Expressions persisted before this grammar existed used bare identifiers with no 
 `price * quantity`). These keep **running** unmodified: `ExpressionEvaluator.evaluate` (the
 row-execution entry point) retries a bare-identifier-only legacy grammar if strict parsing fails
 specifically on the "`$` prefix required" error. Live validation (`validate`, used by
-`PipelineAnalyzeService.inferCompute` for the step-card UI) never falls back — a legacy expression
+`ColumnSchemaInference.inferCompute` for the step-card UI) never falls back — a legacy expression
 still shows a `validationError` as a nudge to update it, even though it continues to execute
 correctly. There is no data migration; this is a pure code-level compatibility shim.
 

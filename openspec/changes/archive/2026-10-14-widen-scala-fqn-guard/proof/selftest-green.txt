@@ -1,0 +1,2 @@
+check-scala-quality selftest: 35 passed
+exit=0

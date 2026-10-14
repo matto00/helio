@@ -12,7 +12,7 @@ import com.helio.domain.model.DataFieldType
  *  call site (they should already be canonical, e.g. via `DataFieldType.asString`/
  *  `canonicalizeLegacy`) -- the two BOUNDARY call sites that accept a raw, unvalidated
  *  caller-supplied `type` string over the wire (`DataSourceService.createStatic`,
- *  `PipelineAnalyzeService.inferAggregate`'s `groupBy`) validate with `DataFieldType.fromString`
+ *  `ColumnSchemaInference.inferAggregate`'s `groupBy`) validate with `DataFieldType.fromString`
  *  and return a clean 400 BEFORE ever reaching this constructor, so a malformed request never
  *  hits this `require` in practice -- it exists to catch any FUTURE producer that skips that
  *  boundary check, converting the old silent-`case other => other`-passthrough gap

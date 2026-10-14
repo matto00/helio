@@ -99,5 +99,5 @@ left column is never renamed, overwritten or dropped; a colliding right/brought
 column becomes `right_<name>` (then `right_<name>_2`, ...), in sorted-name
 order. For `lookup` the "right" names are the requested `columns`, and the
 brought copy of the key is dropped only when `sourceKey == lookupKey`. Runtime
-(`LookupStep.evaluate`) and analyze (`PipelineAnalyzeService.inferLookup`) must
+(`LookupStep.evaluate`) and analyze (`MultiInputSchemaInference.inferLookup`) must
 call `JoinColumnNaming.resolveWithKey` so their column names agree.

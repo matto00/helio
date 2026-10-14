@@ -1,0 +1,20 @@
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/backend/)
+04:16:23,344 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:18:06,145 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:19:15,706 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:20:37,575 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+[info] - a ScalaTest summary with no readable Tests: line fails closed
+04:21:49,691 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:22:22.276 INFO  [pool-1-thread-1-ScalaTest-running-LocalFileSystemSpec] c.h.i.storage.LocalFileSystem$ - Uploads root: /home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-
+04:22:46,732 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:24:47,890 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:26:03,353 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/back
+04:26:37.157 INFO  [pool-1-thread-1-ScalaTest-running-SparkJobSubmitterSpec] o.a.spark.sql.internal.SharedState - Warehouse path is 'file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-
+04:26:40.984 INFO  [pool-37-thread-1] o.a.spark.sql.internal.SharedState - Warehouse path is 'file:/home/matt/Development/helio/.claude/worktrees/task/scala-fqn-guard-widen/HEL-1446/backend/spark-ware
+[info] Total number of tests run: 8079
+[info] Suites: completed 615, aborted 0
+[info] Tests: succeeded 8079, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 676 s (0:11:16.0), cache 28%, 183 disk cache hits, 461 onsite tasks
+exit=0

@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import com.helio.domain.model._
 import com.helio.domain.panels._
 import spray.json._
+import scala.collection.mutable
 
 
 final case class PanelAppearancePayload(
@@ -253,7 +254,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val updatePanelRequestFormat: RootJsonFormat[UpdatePanelRequest] =
     new RootJsonFormat[UpdatePanelRequest] {
       def write(r: UpdatePanelRequest): JsValue = {
-        val fields = scala.collection.mutable.Map.empty[String, JsValue]
+        val fields = mutable.Map.empty[String, JsValue]
         r.title.foreach(v => fields("title") = JsString(v))
         r.appearance.foreach(v => fields("appearance") = v)
         r.`type`.foreach(v => fields("type") = JsString(v))
@@ -275,7 +276,7 @@ trait PanelProtocol extends SprayJsonSupport with DefaultJsonProtocol with Resou
   implicit val panelBatchItemFormat: RootJsonFormat[PanelBatchItem] =
     new RootJsonFormat[PanelBatchItem] {
       def write(item: PanelBatchItem): JsValue = {
-        val fields = scala.collection.mutable.Map.empty[String, JsValue]
+        val fields = mutable.Map.empty[String, JsValue]
         fields("id") = JsString(item.id)
         item.title.foreach(v => fields("title") = JsString(v))
         item.appearance.foreach(v => fields("appearance") = v)

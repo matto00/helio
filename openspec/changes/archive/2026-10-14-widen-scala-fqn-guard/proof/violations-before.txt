@@ -1,0 +1,332 @@
+Scala file-size warnings:
+  backend/src/main/scala/com/helio/api/ApiRoutes.scala is 1032 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/JsonProtocols.scala is 137 lines (soft budget 80); consider splitting
+  backend/src/main/scala/com/helio/api/package.scala is 385 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala is 560 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/dashboards/DashboardProtocol.scala is 256 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/panels/PanelProtocol.scala is 336 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineAnalyzeProtocol.scala is 453 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProposalProtocol.scala is 278 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala is 402 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineStepProtocol.scala is 458 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/sources/DataSourceProtocol.scala is 823 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/protocols/workspace/WorkspaceContextProtocol.scala is 275 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/routes/assistant/AssistantConversationRoutes.scala is 288 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala is 255 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/api/routes/sources/DataSourceRoutes.scala is 395 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/app/Main.scala is 343 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/connectors/RestApiConnectorDriver.scala is 506 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala is 307 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/AnalyzeSchemaWarnings.scala is 304 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala is 271 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/ExpressionInterpreter.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/ExpressionParser.scala is 347 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala is 845 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala is 361 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/engine/SchemaInferenceEngine.scala is 320 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/model/DataSource.scala is 298 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/model/PipelineStep.scala is 381 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/model/model.scala is 1045 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/panels/FormPanel.scala is 383 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/steps/AssertStep.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/steps/ConvertFormatStep.scala is 345 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala is 253 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/domain/steps/WindowStep.scala is 365 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala is 312 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/alerts/AlertEventRepository.scala is 293 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/assistant/AssistantConversationRepository.scala is 281 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala is 259 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRepository.scala is 424 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala is 368 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala is 386 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala is 765 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepository.scala is 790 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala is 1451 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/sources/ConnectorRepository.scala is 378 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala is 1229 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/assistant/AssistantToolExecutor.scala is 351 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/auth/AuthService.scala is 310 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/auth/MfaService.scala is 259 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/dashboards/DashboardService.scala is 292 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/panels/PanelService.scala is 324 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/patchsets/PatchSetApplyRollback.scala is 372 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineStepResolvers.scala is 263 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala is 367 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/patchsets/RefinementEditShape.scala is 290 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/OutputService.scala is 336 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineAnalyzeReads.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineCreateTransaction.scala is 279 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineProposalAnalyze.scala is 360 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineProposalService.scala is 611 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala is 449 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineRunPreview.scala is 315 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala is 391 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineRunSucceededWrites.scala is 358 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineRunTerminalWrites.scala is 257 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineSchedulerService.scala is 279 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineService.scala is 449 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/pipelines/PipelineStepWrites.scala is 295 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala is 441 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/proposals/ProposalPanelSupport.scala is 336 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/sources/ContentSourceSupport.scala is 434 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/sources/DataSourceService.scala is 1482 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/sources/SourceService.scala is 484 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/workspace/WorkspaceContextBudget.scala is 308 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/workspace/WorkspaceContextComputations.scala is 539 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/services/workspace/WorkspaceContextService.scala is 484 lines (soft budget 250); consider splitting
+  backend/src/main/scala/com/helio/spark/SparkJobSubmitter.scala is 353 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/ApiRoutesSpec.scala is 3677 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/ApiTokenAuthSpec.scala is 571 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/AuditMutationInstrumentationSpec.scala is 1230 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/OutputHistoryPayloadsAvailableSpec.scala is 266 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/http/AclDirectiveSpec.scala is 282 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala is 541 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala is 409 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/protocols/patchsets/PatchSetProtocolSpec.scala is 343 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/protocols/pipelines/PipelineStepConfigCodecSpec.scala is 486 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/protocols/sources/DataSourceProtocolSpec.scala is 411 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/ResourceTaggingSpec.scala is 282 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/agents/AgentMemoryRoutesSpec.scala is 278 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/alerts/AlertEventRoutesSpec.scala is 329 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/alerts/AlertRuleRoutesSpec.scala is 356 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/assistant/AssistantConversationRoutesSpec.scala is 641 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/auth/GoogleOAuthRoutesSpec.scala is 683 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/auth/MfaApiRoutesSpec.scala is 423 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/dashboards/DashboardLayoutValidationSpec.scala is 350 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/dashboards/DashboardPanelAclSpec.scala is 658 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/dashboards/PublicDashboardRoutesSpec.scala is 645 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala is 326 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/dashboards/ShareTokenPublicAccessSpec.scala is 271 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/hooks/HookRoutesSpec.scala is 341 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/panels/AutoLayoutRouteSpec.scala is 253 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/panels/FormPanelRoundTripSpec.scala is 393 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/panels/FormSubmitRoutesSpec.scala is 819 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/panels/PanelCreatePlacementSpec.scala is 330 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleCheckRoutesSpec.scala is 417 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/patchsets/PatchSetStaleWidenedFingerprintRoutesSpec.scala is 397 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/patchsets/RefinementRoutesSpec.scala is 259 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/DuplicateStepReferenceChecksSpec.scala is 271 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/InlineSourceLeakPathsRoutesSpec.scala is 251 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala is 296 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/OutputHistoryRoutesSpec.scala is 368 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala is 2037 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineAclSpec.scala is 421 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineAnalyzeProposalRoutesSpec.scala is 706 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineAnalyzeRoutesSpec.scala is 730 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalRollbackSpec.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineApplyProposalSpecBase.scala is 268 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineCapabilitiesRoutesSpec.scala is 349 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRootRoutesSpec.scala is 425 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineRunRoutesSpec.scala is 1222 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineScheduleRoutesSpec.scala is 276 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepReparentRoutesSpec.scala is 274 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRootIdPlacementRoutesSpec.scala is 326 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala is 2164 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/StepConfigInvalidRoutesSpec.scala is 335 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/pipelines/UpsertTargetWritableRoutesSpec.scala is 370 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/proposals/ApplyProposalSpecBase.scala is 352 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/proposals/ClaudeRoutesChatGateSpec.scala is 336 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/proposals/DashboardAuthoringRoutesSpec.scala is 278 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/sources/ConnectorEntityRoutesSpec.scala is 352 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/sources/CsvUploadLimitsRoutesSpec.scala is 384 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/sources/DataSourceRoutesSpec.scala is 2781 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/api/routes/sources/UploadRoutesSpec.scala is 254 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/connectors/RestApiConnectorDriverQueryParamsSpec.scala is 252 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/connectors/RestApiConnectorDriverTemplatingSpec.scala is 376 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/AnalyzeSchemaWarningsSpec.scala is 570 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/CsvBlankCellsNullStepsSpec.scala is 264 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/DatasetSchemaMigrationSpec.scala is 360 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/ExpressionBooleanEvalSpec.scala is 298 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/ExpressionEvaluatorSpec.scala is 857 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineSpec.scala is 2840 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineTreeWalkSpec.scala is 494 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineUrlRefetchSpec.scala is 311 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/MapAwareJsonFlatteningSpec.scala is 342 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala is 1594 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/engine/SchemaInferenceEngineSpec.scala is 769 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/model/PanelSpec.scala is 285 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/panels/FormSubmissionSpec.scala is 298 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/AggregateStepSpec.scala is 415 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/AnalyzeWithAiStepSpec.scala is 265 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/AssertStepSpec.scala is 345 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/ConvertFormatStepSpec.scala is 486 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/GenerateTextStepSpec.scala is 265 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/PipelineStepRequiredConfigSpec.scala is 548 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/domain/steps/UpsertSourceConfigSpec.scala is 285 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/ai/ClaudeClientSpec.scala is 737 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/ai/HttpClaudeTransportSpec.scala is 277 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/FlywayNonSuperuserMigrationSpec.scala is 500 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/FormAndConversationObjectDeletionsMigrationSpec.scala is 257 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/NodePayloadTrimPurgeLockOrderSpec.scala is 329 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/PipelineSharingAclSpec.scala is 372 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/RetentionLockGuardSpec.scala is 297 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/RlsOwnerTablesSpec.scala is 1083 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala is 376 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/RlsPrivilegedDmlSpec.scala is 463 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/RlsSharingAwareTablesSpec.scala is 410 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/V100ZeroRootGuardNonSuperuserSpec.scala is 565 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/V117DeadOutputConfigKeysMigrationSpec.scala is 295 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/V118LegacyMetricFormatMigrationSpec.scala is 283 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/V98PipelineRootsMigrationSpec.scala is 466 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/agents/AgentMemoryRepositorySpec.scala is 333 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/alerts/AlertEventRepositorySpec.scala is 412 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/alerts/AlertRuleRepositorySpec.scala is 302 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/assistant/AssistantConversationRepositorySpec.scala is 314 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/audit/AuditEventRepositorySpec.scala is 367 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/audit/AuditEventsAppendOnlySpec.scala is 315 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/auth/ConnectorCredentialRepositorySpec.scala is 297 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/auth/OAuthStateRepositorySpec.scala is 280 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryBatchedThinSpec.scala is 252 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputHistoryRepositorySpec.scala is 351 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineAutoRunDebounceRepositorySpec.scala is 384 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepositorySpec.scala is 337 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunGuardRepositorySpec.scala is 261 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRunRepositorySpec.scala is 663 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpliceSpec.scala is 799 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala is 1064 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/proposals/AuthoringConversationRepositorySpec.scala is 359 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala is 605 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/sources/CounterEventRowModelSpec.scala is 268 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/sources/DataSourceReferenceGuardNonSuperuserSpec.scala is 741 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/persistence/sources/DataSourceRepositorySpec.scala is 898 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/storage/GcsFileSystemSpec.scala is 260 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/infrastructure/storage/LocalFileSystemSpec.scala is 380 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/alerts/AlertEvaluationServiceSpec.scala is 495 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/alerts/AlertEventServiceSpec.scala is 265 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/alerts/AlertRuleServiceSpec.scala is 411 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/assistant/AssistantConversationServiceSpec.scala is 275 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/assistant/AssistantServiceSpec.scala is 668 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/assistant/AssistantTelemetrySpec.scala is 330 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/assistant/AssistantToolExecutorSpec.scala is 651 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/auth/MfaServiceSpec.scala is 341 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/dashboards/EditorGrantCoverageSpec.scala is 255 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/panels/PanelCapabilityServiceSpec.scala is 251 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/panels/PanelServiceDefaultLayoutSpec.scala is 266 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/patchsets/PatchSetApplyServiceSpec.scala is 1343 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala is 341 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewServiceSpec.scala is 727 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/patchsets/RefinementEditShapeSpec.scala is 395 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/patchsets/RefinementServiceSpec.scala is 431 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/AutoRunGuardBurstProofSpec.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/AutoRunTriggerServiceSpec.scala is 424 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunDroppedFireSpec.scala is 385 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/DatasetWriteAutoRunEndToEndSpec.scala is 325 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/FireTimeRunConfigGateSpec.scala is 460 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/Hel1503EditorRunGapsSpec.scala is 377 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/Hel1516GranteeDriftPreviewSpec.scala is 378 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/Hel914Ac1EndToEndSpec.scala is 279 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/LiveRunReaperSpec.scala is 259 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/OutputHistoryRetentionServiceSpec.scala is 285 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineAnalyzeSchemaWarningsSpec.scala is 282 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineCreateTransactionalSpec.scala is 735 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala is 815 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala is 515 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunGuardIntegrationSpec.scala is 408 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceSpec.scala is 2710 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala is 642 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceUpsertSourceSpec.scala is 328 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/PipelineScheduleServiceSpec.scala is 395 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/pipelines/ProvenanceServiceSpec.scala is 261 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/proposals/AuthoringTelemetrySpec.scala is 536 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringServiceSpec.scala is 761 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/ConnectorCompletionServiceSpec.scala is 410 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/ContentSourceSupportSpec.scala is 345 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/CsvUrlFetchSpec.scala is 268 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/DataSourceCreateFailureCleanupSpec.scala is 287 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/DataSourceServiceCsvUrlSpec.scala is 277 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/DataSourceServiceDeniedPipelinesSpec.scala is 286 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/DataSourceServiceSpec.scala is 1105 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/FormAndConversationObjectDrainSpec.scala is 442 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/InlineSourceCleanupUnifiedRuleSpec.scala is 265 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/RestConnectorEgressGuardSpec.scala is 332 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/sources/SourceServiceSpec.scala is 627 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceAgentContextSpec.scala is 274 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceApplyBudgetSpec.scala is 448 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceComputeColumnStatsSpec.scala is 439 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceComputeJoinHintsSpec.scala is 268 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala is 1250 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala is 415 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala is 567 lines (soft budget 250); consider splitting
+  backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala is 463 lines (soft budget 250); consider splitting
+
+Scala code-quality check failed — 76 violation(s):
+
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:51:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:54:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:57:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:60:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:106:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:109:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:116:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:121:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:123:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:125:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:127:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:130:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:136:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:138:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:140:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:142:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:144:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:147:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/http/AclDirective.scala:152:16: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/panels/PanelProtocol.scala:256:22: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/panels/PanelProtocol.scala:278:22: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala:102:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/patchsets/PatchSetProtocol.scala:134:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProposalProtocol.scala:177:22: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProposalProtocol.scala:225:22: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala:361:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/proposals/DashboardProposalProtocol.scala:79:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/protocols/proposals/DashboardProposalProtocol.scala:111:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/routes/auth/OAuthRoutes.scala:84:17: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunNotifyBus.scala:148:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRunRegistry.scala:55:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/connectors/SqlConnectorDriver.scala:192:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala:313:17: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala:815:19: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/JsonFlattener.scala:132:72: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/MultiInputSchemaInference.scala:110:23: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/NodeDependencyClosure.scala:53:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/NodeDependencyClosure.scala:57:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/PipelineAnalyzeService.scala:299:19: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/engine/SchemaInferenceEngine.scala:279:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/model/PipelineStep.scala:217:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/model/PipelineStep.scala:218:14: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/AnalyzeWithAiStep.scala:192:39: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/AnalyzeWithAiStep.scala:198:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/CastStep.scala:131:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/DedupeStep.scala:101:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/DedupeStep.scala:110:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/FillNullStep.scala:142:20: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/FillNullStep.scala:209:24: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/GenerateTextStep.scala:96:39: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/GenerateTextStep.scala:102:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/LimitStep.scala:101:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/LimitStep.scala:102:35: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/RenameStep.scala:86:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala:98:36: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala:106:33: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/StepCodecUtil.scala:142:11: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/domain/steps/UpsertSourceStep.scala:83:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala:70:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala:86:15: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala:140:13: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala:190:7: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala:464:18: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/main/scala/com/helio/services/auth/EncryptedSecretBackend.scala:96:54: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/domain/steps/GenerateTextStepSpec.scala:47:25: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/infrastructure/persistence/V98PipelineRootsMigrationSpec.scala:268:21: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/assistant/CredentialSurfaceEnumerationSpec.scala:48:21: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/audit/AuditTestFixture.scala:46:17: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:91:36: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:92:36: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/sources/RestConnectorEgressGuardSpec.scala:169:17: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/services/sources/RestSourceConstructionSiteSpec.scala:80:26: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala:35:32: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/spark/SparkJobSubmitterSpec.scala:36:34: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/testkit/TempDirectorySupport.scala:24:28: inline FQN 'scala.…' — add a top-of-file import instead
+  backend/src/test/scala/com/helio/testsupport/OwnerIdGuard.scala:26:17: inline FQN 'scala.…' — add a top-of-file import instead
+
+See CONTRIBUTING.md 'Imports & Qualifiers'. Fix with a top-of-file import.
+exit=1
