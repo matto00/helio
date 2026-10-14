@@ -1,0 +1,227 @@
+<!doctype html>
+<!-- THROWAWAY prototype for HEL-1580 (live draft preview latency). Never imported by frontend/backend. See README.md. -->
+<html>
+<head>
+<meta charset="utf-8" />
+<title>HEL-1580 live draft preview prototype</title>
+<style>
+  body { font: 12px monospace; margin: 0; display: grid; grid-template-columns: 220px 1fr 320px; gap: 12px; padding: 12px; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { padding: 2px 6px; border-bottom: 1px solid #ccc; text-align: left; }
+  .tile { display: inline-block; border: 1px solid #888; padding: 6px 10px; margin: 4px; }
+  svg { width: 100%; height: 160px; border: 1px solid #888; }
+</style>
+</head>
+<body>
+<div id="spine"></div>
+<div id="preview"></div>
+<div id="output"><svg id="chart" viewBox="0 0 300 100" preserveAspectRatio="none"></svg><div id="tiles"></div></div>
+<script>
+"use strict";
+// ---------- deterministic 1,000-row `runs` source (board shape: date, status, duration_s) ----------
+function makeRuns(n) {
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const rows = [];
+  const base = Date.UTC(2023, 0, 1);
+  for (let i = 0; i < n; i++) {
+    const d = new Date(base + i * 86400000).toISOString().slice(0, 10);
+    rows.push({
+      date: d,
+      status: rnd() < 0.9 ? "success" : "failed",
+      duration_s: Math.round(180 + rnd() * 180 + 40 * Math.sin(i / 20)),
+    });
+  }
+  // shuffle so the sort step has real work
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [rows[i], rows[j]] = [rows[j], rows[i]];
+  }
+  return rows;
+}
+
+// ---------- minimal expression tokenizer + Pratt parser + interpreter (+ - * /, parens, round(x[,d]), idents, numbers) ----------
+function tokenize(src) {
+  const toks = [];
+  const re = /\s*(?:(\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_]*)|(.))/gy;
+  let m;
+  while (re.lastIndex < src.length && (m = re.exec(src))) {
+    if (m[1] !== undefined) toks.push({ t: "num", v: parseFloat(m[1]) });
+    else if (m[2] !== undefined) toks.push({ t: "id", v: m[2] });
+    else if (m[3] !== undefined) toks.push({ t: "op", v: m[3] });
+  }
+  return toks;
+}
+function parse(src) {
+  const toks = tokenize(src);
+  let p = 0;
+  const peek = () => toks[p];
+  const next = () => toks[p++];
+  const prec = { "+": 1, "-": 1, "*": 2, "/": 2 };
+  function primary() {
+    const tk = next();
+    if (!tk) throw new Error("unexpected end");
+    if (tk.t === "num") return { k: "num", v: tk.v };
+    if (tk.t === "id") {
+      if (peek() && peek().v === "(") {
+        next();
+        const args = [];
+        if (peek().v !== ")") {
+          args.push(expr(0));
+          while (peek().v === ",") { next(); args.push(expr(0)); }
+        }
+        next();
+        return { k: "call", f: tk.v, args };
+      }
+      return { k: "id", v: tk.v };
+    }
+    if (tk.v === "(") { const e = expr(0); next(); return e; }
+    if (tk.v === "-") return { k: "neg", e: primary() };
+    throw new Error("bad token " + tk.v);
+  }
+  function expr(min) {
+    let lhs = primary();
+    for (;;) {
+      const o = peek();
+      if (!o || o.t !== "op" || !(o.v in prec) || prec[o.v] < min) break;
+      next();
+      const rhs = expr(prec[o.v] + 1);
+      lhs = { k: "bin", o: o.v, l: lhs, r: rhs };
+    }
+    return lhs;
+  }
+  return expr(0);
+}
+function evalNode(n, row) {
+  switch (n.k) {
+    case "num": return n.v;
+    case "id": { const v = row[n.v]; const x = typeof v === "number" ? v : Number(String(v)); return Number.isFinite(x) ? x : null; }
+    case "neg": { const v = evalNode(n.e, row); return v === null ? null : -v; }
+    case "call": { const a = evalNode(n.args[0], row); return a === null ? null : n.f === "round" ? Math.round(a) : a; }
+    case "bin": {
+      const l = evalNode(n.l, row), r = evalNode(n.r, row);
+      if (l === null || r === null) return null; // three-valued: null in -> null out
+      if (n.o === "+") return l + r;
+      if (n.o === "-") return l - r;
+      if (n.o === "*") return l * r;
+      return r === 0 ? null : l / r;
+    }
+  }
+}
+
+// ---------- the three board steps ----------
+function num(v) { if (v === null || v === undefined) return null; const x = typeof v === "number" ? v : Number(String(v)); return Number.isFinite(x) ? x : null; }
+function stepFilter(rows, cfg) { // duration_s >= threshold, numeric coercion, non-numeric -> false
+  const out = [];
+  for (let i = 0; i < rows.length; i++) { const x = num(rows[i][cfg.field]); if (x !== null && x >= cfg.value) out.push(rows[i]); }
+  return out;
+}
+function stepSort(rows, cfg) { // stable, ascending; numeric tier before lexicographic tier, nulls last
+  const f = cfg.field;
+  const dir = cfg.dir === "desc" ? -1 : 1;
+  const keyed = rows.map((r, i) => ({ r, i, n: num(r[f]), s: r[f] === null || r[f] === undefined ? null : String(r[f]) }));
+  keyed.sort((a, b) => {
+    if (a.s === null || b.s === null) return a.s === b.s ? a.i - b.i : a.s === null ? 1 : -1;
+    let c;
+    if (a.n !== null && b.n !== null) c = a.n - b.n;
+    else if (a.n !== null) c = -1;
+    else if (b.n !== null) c = 1;
+    else c = a.s < b.s ? -1 : a.s > b.s ? 1 : 0;
+    return c !== 0 ? c * dir : a.i - b.i;
+  });
+  return keyed.map((k) => k.r);
+}
+function stepCompute(rows, cfg) {
+  const ast = parse(cfg.expression); // parse once per step evaluation, counted in the timing
+  const out = new Array(rows.length);
+  for (let i = 0; i < rows.length; i++) { const r = rows[i]; out[i] = Object.assign({}, r, { [cfg.column]: evalNode(ast, r) }); }
+  return out;
+}
+const RUNNERS = [stepFilter, stepSort, stepCompute];
+
+// ---------- pipeline state: per-step cached rows (the change unit: recompute from the edited step down) ----------
+let SOURCE = makeRuns(1000);
+const draft = [
+  { field: "duration_s", value: 260 },
+  { field: "date", dir: "asc" },
+  { column: "duration_min", expression: "duration_s / 60" },
+];
+let cache = [null, null, null];
+function recomputeFrom(k) {
+  for (let i = k; i < 3; i++) cache[i] = RUNNERS[i](i === 0 ? SOURCE : cache[i - 1], draft[i]);
+  return cache[2];
+}
+
+// ---------- render: step spine counts, preview table, SVG line, two metric tiles ----------
+const $ = (id) => document.getElementById(id);
+function render() {
+  const out = cache[2];
+  $("spine").innerHTML = cache.map((r, i) => `<div>${i + 1}. step <b>${r.length}</b></div>`).join("");
+  const cols = ["date", "status", "duration_s", "duration_min"];
+  const body = out.slice(0, 25).map((r) => "<tr>" + cols.map((c) => `<td>${r[c] === null ? "" : typeof r[c] === "number" ? Math.round(r[c] * 10) / 10 : r[c]}</td>`).join("") + "</tr>").join("");
+  $("preview").innerHTML = `<div>Rows after step 3: ${out.length} rows</div><table><thead><tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`;
+  let max = 0, sum = 0, cnt = 0;
+  for (const r of out) { const v = r.duration_min; if (v !== null) { if (v > max) max = v; sum += v; cnt++; } }
+  const pts = [];
+  const n = out.length;
+  for (let i = 0; i < n; i++) { const v = out[i].duration_min; if (v !== null) pts.push((n > 1 ? (i / (n - 1)) * 300 : 0).toFixed(1) + "," + (100 - (v / (max || 1)) * 100).toFixed(1)); }
+  $("chart").innerHTML = `<polyline fill="none" stroke="#e60" stroke-width="1" points="${pts.join(" ")}"/>`;
+  $("tiles").innerHTML = `<div class="tile">ROWS OUT<br><b>${n}</b></div><div class="tile">AVG MINUTES<br><b>${cnt ? (sum / cnt).toFixed(2) : "-"}</b></div>`;
+  return $("preview").offsetHeight + $("output").offsetHeight; // force synchronous style + layout
+}
+const nextFrame = () => new Promise((res) => requestAnimationFrame(() => { const ch = new MessageChannel(); ch.port1.onmessage = () => res(); ch.port2.postMessage(0); }));
+
+// ---------- harness ----------
+const threshold = (k) => 180 + ((k * 37) % 181); // deterministic sweep of the column's range
+const naiveCount = (t) => { let c = 0; for (const r of SOURCE) if (r.duration_s >= t) c++; return c; };
+const stats = (a) => { const s = a.slice().sort((x, y) => x - y); const q = (p) => s[Math.min(s.length - 1, Math.floor(p * s.length))]; return { n: s.length, median: q(0.5), p95: q(0.95), max: s[s.length - 1], mean: s.reduce((x, y) => x + y, 0) / s.length }; };
+
+window.proto = {
+  setRows(n) { SOURCE = makeRuns(n); recomputeFrom(0); return SOURCE.length; },
+  info() { return { sourceRows: SOURCE.length, ua: navigator.userAgent }; },
+  verify(edits) { // correctness check, untimed: counts vs a naive loop, ordering, compute values
+    const seen = new Set(); let bad = 0;
+    for (let k = 0; k < edits; k++) {
+      draft[0].value = threshold(k); const out = recomputeFrom(0);
+      seen.add(out.length);
+      if (out.length !== naiveCount(draft[0].value)) bad++;
+      for (let i = 1; i < out.length; i++) if (out[i - 1].date > out[i].date) { bad++; break; }
+      if (out.length && Math.abs(out[0].duration_min - out[0].duration_s / 60) > 1e-9) bad++;
+    }
+    return { edits, bad, distinctRowCounts: seen.size, sample: [recomputeFrom(0).length] };
+  },
+  // kind: "filter-drag" (edit step 1, recompute 3 steps) or "expr-edit" (edit step 3, upstream cached)
+  recompute(kind, warm, measured) {
+    const times = []; let sink = 0;
+    const total0 = performance.now();
+    for (let k = 0; k < warm + measured; k++) {
+      let t0;
+      if (kind === "filter-drag") { draft[0].value = threshold(k); t0 = performance.now(); sink += recomputeFrom(0).length; }
+      else { recomputeFrom(0); draft[2].expression = `duration_s / ${60 + (k % 7)}`; t0 = performance.now(); sink += recomputeFrom(2).length; }
+      const t = performance.now() - t0;
+      if (k >= warm) times.push(t);
+    }
+    draft[0].value = 260; draft[2].expression = "duration_s / 60"; recomputeFrom(0);
+    return { kind, ...stats(times), sink };
+  },
+  async recomputeRender(kind, warm, measured) {
+    const sync = [], frame = [], rc = [];
+    for (let k = 0; k < warm + measured; k++) {
+      let t0, t1;
+      if (kind === "filter-drag") { draft[0].value = threshold(k); t0 = performance.now(); recomputeFrom(0); }
+      else { recomputeFrom(0); draft[2].expression = `duration_s / ${60 + (k % 7)}`; t0 = performance.now(); recomputeFrom(2); }
+      t1 = performance.now();
+      render(); // includes forced sync layout
+      const t2 = performance.now();
+      await nextFrame();
+      const t3 = performance.now();
+      if (k >= warm) { rc.push(t1 - t0); sync.push(t2 - t0); frame.push(t3 - t0); }
+    }
+    draft[0].value = 260; draft[2].expression = "duration_s / 60"; recomputeFrom(0);
+    return { kind, recompute: stats(rc), recomputePlusRenderSyncLayout: stats(sync), timeToNextFrame: stats(frame) };
+  },
+};
+recomputeFrom(0); render();
+</script>
+</body>
+</html>
