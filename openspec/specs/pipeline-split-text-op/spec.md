@@ -4,7 +4,9 @@
 Defines the `splittext` pipeline op, which splits a `string-body` content field into one output
 row per paragraph or Markdown-heading-delimited segment, plus its schema-inference and
 step-card-UI behavior.
+
 ## Requirements
+
 ### Requirement: Split-text op splits a string-body field into one row per segment
 The execution engine SHALL support the `splittext` op. The step config SHALL contain: `field`
 (string, the source column name), `mode` (string, `"paragraph"` or `"heading"`), `headingLevel`
@@ -51,7 +53,7 @@ the first matching heading is dropped.
 - **THEN** zero output rows are produced for that input row
 
 ### Requirement: Split-text op schema inference validates the field is a string-body field
-`PipelineAnalyzeService.inferSplitText` SHALL look up `config.field` in the step's `inputSchema`.
+`TextSchemaInference.inferSplitText` SHALL look up `config.field` in the step's `inputSchema`.
 If the field is absent, `AnalyzedStep.validationError` SHALL be set to a message identifying the
 unknown field, and the output schema SHALL pass through unchanged (identity fallback). If the
 field is present but its type is not `"string-body"`, `validationError` SHALL be set to a message
@@ -104,4 +106,3 @@ render empty (no fields offered) rather than falling back to all columns.
 - **WHEN** a `splittext` step card is expanded and the analyze response's `inputSchema` contains
   no `string-body` fields
 - **THEN** the field dropdown renders with no options
-

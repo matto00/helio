@@ -1,0 +1,8 @@
+FAIL: flags scala.util.Try — got []
+FAIL: flags scala.util.Success — got []
+FAIL: flags scala.collection.mutable. — got []
+FAIL: flags scala.collection.immutable. — got []
+FAIL: flags scala.io.Source — got []
+
+check-scala-quality selftest: 5 failed, 30 passed
+exit=1

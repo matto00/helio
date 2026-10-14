@@ -5,6 +5,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
 import scala.jdk.CollectionConverters._
+import scala.io.Source
 
 /** HEL-829 tasks.md 3.5 (design.md Decision 4c) — the AC's "enumerate every surface, verify each
  *  — in both directions" requirement, direction 1 (does anything already send a credential toward
@@ -45,7 +46,7 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
 
   private def matchesToken(file: File, token: String): Boolean =
     try {
-      val content = scala.io.Source.fromFile(file, "UTF-8")
+      val content = Source.fromFile(file, "UTF-8")
       try content.mkString.toLowerCase.contains(token.toLowerCase)
       finally content.close()
     } catch {

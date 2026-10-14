@@ -20,6 +20,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.mutable
 
 class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
@@ -461,7 +462,7 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       rows:    Seq[Map[String, Any]]
   ): DBIO[DataSourceId] = {
     val columnOrder: Vector[String] = {
-      val seen = scala.collection.mutable.LinkedHashSet.empty[String]
+      val seen = mutable.LinkedHashSet.empty[String]
       rows.foreach(r => r.keys.foreach(seen += _))
       seen.toVector
     }

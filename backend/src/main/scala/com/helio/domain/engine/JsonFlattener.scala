@@ -3,6 +3,7 @@ package com.helio.domain.engine
 import spray.json._
 
 import scala.collection.mutable
+import scala.collection.immutable
 
 /** HEL-599 design.md D1 — the single traversal both schema inference and row materialisation
  *  must derive from. Before this existed, `SchemaInferenceEngine.flattenObject` recursed into
@@ -129,7 +130,7 @@ object JsonFlattener {
     // consumer -- including `SchemaInferenceEngine.flattenObject`, which builds an
     // `InferredField` `Seq` directly from this and never folds it into a `Map` itself -- sees
     // exactly one entry per path. Then re-sort for a stable, readable order.
-    val deduped = walk(obj, prefix = "", depth = 0, mapPaths).foldLeft(scala.collection.immutable.ListMap.empty[String, JsValue]) {
+    val deduped = walk(obj, prefix = "", depth = 0, mapPaths).foldLeft(immutable.ListMap.empty[String, JsValue]) {
       case (acc, (path, value)) => acc.updated(path, value)
     }
     deduped.toSeq.sortBy(_._1)

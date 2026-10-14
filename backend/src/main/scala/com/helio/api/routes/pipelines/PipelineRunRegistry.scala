@@ -12,6 +12,7 @@ import spray.json._
 import java.util.concurrent.ConcurrentHashMap
 import java.util.{Set => JSet}
 import scala.jdk.CollectionConverters._
+import scala.collection.mutable
 
 
 /** HEL-913 R15: `nodeKind` is the explicit wire discriminator distinguishing a `nodeId` that
@@ -52,7 +53,7 @@ object RunStatusEvent {
    *   \n
    */
   def toSseBytes(event: RunStatusEvent): ByteString = {
-    val fields = scala.collection.mutable.LinkedHashMap[String, JsValue](
+    val fields = mutable.LinkedHashMap[String, JsValue](
       "status" -> JsString(event.status)
     )
     event.rowCount.foreach(n => fields("rowCount") = JsNumber(n))

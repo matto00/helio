@@ -50,7 +50,6 @@ function renderCommandBar(initialPath: string, store = makeStore()) {
               onOpenMobileNavSheet={jest.fn()}
               onOpenRefinement={jest.fn()}
               onOpenQuickLauncher={jest.fn()}
-              draftAppearance={null}
               setDraftAppearance={jest.fn()}
             />
           </MemoryRouter>

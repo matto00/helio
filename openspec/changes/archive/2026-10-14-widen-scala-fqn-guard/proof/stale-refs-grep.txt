@@ -1,0 +1,55 @@
+# D5 zero-hit (excluding openspec/specs, updated via deltas)
+(end)
+# line-number citation probe
+(end)
+# distinct members referenced
+      3 PipelineAnalyzeService._
+      3 PipelineAnalyzeService.analyze
+      8 PipelineAnalyzeService.AnalyzedStep
+     53 PipelineAnalyzeService.analyzeNodes
+      2 PipelineAnalyzeService.computeExpressionProblem
+      4 PipelineAnalyzeService.getClass
+      2 PipelineAnalyzeService.inferOutputSchema
+      1 PipelineAnalyzeService.laneDependencyOf
+     16 PipelineAnalyzeService.NodeStepInput
+      2 PipelineAnalyzeService.PipelineStepInput
+      1 PipelineAnalyzeService.SchemaField
+      9 PipelineAnalyzeService.schemaFieldJsonFormat
+      5 PipelineAnalyzeService.secondarySourceIdOf
+      4 PipelineAnalyzeService.sourceDependencyOf
+      7 PipelineAnalyzeService.StepConfigInvalidCode
+      4 PipelineAnalyzeService.stepConfigProblem
+# members on object
+13:object PipelineAnalyzeService {
+15:  private val log = LoggerFactory.getLogger(getClass)
+20:  val StepConfigInvalidCode: String = "step-config-invalid"
+25:  def stepConfigProblem(op: String, rawConfig: String): Option[String] =
+32:  private def checkEnabledStep(
+47:  def computeExpressionProblem(expression: String, inputSchema: Vector[SchemaField]): Option[String] = {
+48:    val config = JsObject("column" -> JsString("__validate_expression__"), "expression" -> JsString(expression)).comp
+84:      val base: Map[String, JsValue] = Map("name" -> JsString(f.name), "type" -> JsString(f.`type`))
+89:      val obj  = json.asJsObject
+90:      val name = obj.fields("name").convertTo[String]
+91:      val raw  = obj.fields("type").convertTo[String]
+92:      val canonicalized = DataFieldType.canonicalizeLegacy(raw)
+93:      val resolvedType = DataFieldType.fromString(canonicalized) match {
+105:      val nullable = obj.fields.get("nullable") match {
+114:  final case class PipelineStepInput(
+121:  final case class AnalyzedStep(
+143:  def analyze(steps: Vector[PipelineStepInput], sourceSchema: Vector[SchemaField]): Vector[AnalyzedStep] = {
+153:      val analyzed = AnalyzedStep(
+187:  final case class NodeStepInput(
+199:  private val DefaultRootKey = ""
+205:  def secondarySourceIdOf(op: String, config: String): Option[String] =
+240:  private[engine] def laneDependencyOf(op: String, config: String): Option[String] = {
+241:    def laneId(si: SecondaryInput): Option[String] = si match {
+258:  def sourceDependencyOf(op: String, config: String): Option[String] =
+283:  def analyzeNodes(steps: Vector[NodeStepInput], sourceSchema: Vector[SchemaField]): Map[String, AnalyzedStep] =
+294:  def analyzeNodes(
+299:    val results = mutable.LinkedHashMap.empty[String, AnalyzedStep]
+301:    def schemaAt(step: NodeStepInput): Vector[SchemaField] =
+305:    def isReady(step: NodeStepInput): Boolean =
+309:    def processNode(step: NodeStepInput): Unit = {
+310:      val inputSchema     = schemaAt(step)
+314:      val secondarySchema = laneDependencyOf(step.op, step.config).flatMap(results.get).map(_.outputSchema)
+353:  private[engine] def inferOutputSchema(

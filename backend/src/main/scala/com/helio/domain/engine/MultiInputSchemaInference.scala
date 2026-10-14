@@ -5,6 +5,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import StepSchemaInference.parseConfig
+import scala.util.Try
 
 /** HEL-1385: multi-input per-op schema inference (lookup, union, join). */
 private[engine] object MultiInputSchemaInference {
@@ -107,7 +108,7 @@ private[engine] object MultiInputSchemaInference {
   ): (Vector[SchemaField], Option[String]) =
     secondarySchema match {
       case Some(secondary) =>
-        val joinKey = scala.util.Try(JoinConfig.decode(config).joinKey).getOrElse("")
+        val joinKey = Try(JoinConfig.decode(config).joinKey).getOrElse("")
         val mapping = JoinColumnNaming.resolve(inputSchema.map(_.name), secondary.map(_.name), joinKey)
         val right   = secondary.flatMap(f => mapping.get(f.name).map(n => f.copy(name = n)))
         (inputSchema ++ right, None)

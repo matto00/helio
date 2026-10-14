@@ -11,6 +11,7 @@ import spray.json._
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 /** HEL-1106 (design.md section 6) -- the first AI pipeline step: for every input row, sends
  *  `cfg.instruction` plus the row's `cfg.inputField` content to the model (through
@@ -189,12 +190,12 @@ object AnalyzeWithAiStep {
      *  that case degrades to `None` here (the pre-existing "invalid config" category the calling
      *  surfaces already report from their own decode `Try`) rather than an uncaught exception. */
     override def validateRawConfig(raw: String): Option[String] =
-      strictDecodeProblem(raw).orElse(scala.util.Try(AnalyzeWithAiConfig.validate(AnalyzeWithAiConfig.decode(raw))).getOrElse(None))
+      strictDecodeProblem(raw).orElse(Try(AnalyzeWithAiConfig.validate(AnalyzeWithAiConfig.decode(raw))).getOrElse(None))
 
     /** design.md D1 -- `inputField`/`instruction`/`outputSchema` are required to run/analyze;
      *  reuses the same shared validator as the write path so the two surfaces cannot disagree.
      *  Same malformed-input `Try` guard as `validateRawConfig` above. */
     override def requiredConfigProblems(raw: String): Vector[String] =
-      scala.util.Try(AnalyzeWithAiConfig.validate(AnalyzeWithAiConfig.decode(raw)).toVector).getOrElse(Vector.empty)
+      Try(AnalyzeWithAiConfig.validate(AnalyzeWithAiConfig.decode(raw)).toVector).getOrElse(Vector.empty)
   }
 }

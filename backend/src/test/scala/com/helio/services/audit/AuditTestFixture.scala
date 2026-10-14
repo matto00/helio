@@ -6,6 +6,7 @@ import com.helio.infrastructure.persistence.audit.AuditEventRepository
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.mutable
 
 /** HEL-477 tasks.md 1.2 — shared test fixture for every service spec whose
  *  constructor now takes an `AuditService` param, so each spec doesn't have
@@ -43,7 +44,7 @@ object AuditTestFixture {
    *  test-only) — for specs that assert on the exact action/resource/actor
    *  an audit call site produced. */
   final class CapturingAuditEventRepository(implicit ec: ExecutionContext) extends AuditEventRepository(ctx = null) {
-    val events: scala.collection.mutable.ArrayBuffer[NewAuditEvent] = scala.collection.mutable.ArrayBuffer.empty
+    val events: mutable.ArrayBuffer[NewAuditEvent] = mutable.ArrayBuffer.empty
     override def append(event: NewAuditEvent): Future[AuditEventId] = {
       events += event
       Future.successful(AuditEventId(UUID.randomUUID().toString))

@@ -2,7 +2,7 @@ package com.helio.services.auth
 
 import java.security.SecureRandom
 import javax.crypto.spec.SecretKeySpec
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** The wrapped-data-key + ciphertext shape produced by [[EncryptedSecretBackend.encrypt]] --
  *  exactly the four BYTEA-ish columns `connector_credentials` persists (design.md Decision 2):
@@ -93,7 +93,7 @@ object EncryptedSecretBackend {
   private def asSecretKey(bytes: Array[Byte]) =
     new SecretKeySpec(bytes, "AES")
 
-  implicit private class TryEither[A](private val t: scala.util.Try[A]) extends AnyVal {
+  implicit private class TryEither[A](private val t: Try[A]) extends AnyVal {
     def toEither: Either[Throwable, A] = t match {
       case Success(v) => Right(v)
       case Failure(e) => Left(e)

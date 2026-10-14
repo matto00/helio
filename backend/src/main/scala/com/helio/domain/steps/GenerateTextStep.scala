@@ -7,6 +7,7 @@ import spray.json._
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** HEL-1107 (design.md D1/D3/D4) -- the second AI pipeline step: for every input row, sends
  *  `cfg.instruction` plus the row's `cfg.inputField` content to the model (through
@@ -93,12 +94,12 @@ object GenerateTextStep {
      *  input -- wrapped in `Try` (mirrors `AnalyzeWithAiStep.companion`'s identical guard) so
      *  that case degrades to `None` here rather than an uncaught exception. */
     override def validateRawConfig(raw: String): Option[String] =
-      strictDecodeProblem(raw).orElse(scala.util.Try(GenerateTextConfig.validate(GenerateTextConfig.decode(raw))).getOrElse(None))
+      strictDecodeProblem(raw).orElse(Try(GenerateTextConfig.validate(GenerateTextConfig.decode(raw))).getOrElse(None))
 
     /** design.md D2 -- `inputField`/`instruction`/`outputField` are required to run/analyze;
      *  reuses the same shared validator as the write path so the two surfaces cannot disagree.
      *  Same malformed-input `Try` guard as `validateRawConfig` above. */
     override def requiredConfigProblems(raw: String): Vector[String] =
-      scala.util.Try(GenerateTextConfig.validate(GenerateTextConfig.decode(raw)).toVector).getOrElse(Vector.empty)
+      Try(GenerateTextConfig.validate(GenerateTextConfig.decode(raw)).toVector).getOrElse(Vector.empty)
   }
 }

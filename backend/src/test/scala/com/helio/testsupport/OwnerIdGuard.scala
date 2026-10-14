@@ -1,6 +1,7 @@
 package com.helio.testsupport
 
 import spray.json._
+import scala.util.Try
 
 /** HEL-1216: generic owner-id leak guard. Walks a serialized response recursively and reports every
  *  object KEY or string/number/boolean VALUE that CONTAINS `ownerId` (contains-match, not equality,
@@ -23,7 +24,7 @@ object OwnerIdGuard {
   /** Throws with every offending path (and the raw body) when the id appears anywhere. A body that is
    *  not JSON is checked as a raw string, so a plain-text error body cannot hide the id either. */
   def assertNoOwnerId(rawBody: String, ownerId: String, context: String): Unit = {
-    val found = scala.util.Try(rawBody.parseJson).toOption match {
+    val found = Try(rawBody.parseJson).toOption match {
       case Some(json) => leaks(json, ownerId)
       case None       => if (rawBody.contains(ownerId)) Vector(s"non-JSON body contains id") else Vector.empty
     }
