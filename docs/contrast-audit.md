@@ -63,13 +63,18 @@ All PASS at >= 4.5:1.
 
 ### Dark theme
 
+> HEL-1571 (DESIGN.md v3): the dark `--app-bg` canvas moved from the v2 canvas to `#0f0e0d`
+> (surfaces unchanged), so every `--app-bg` cell in the dark tables below was
+> re-measured with the regeneration recipe above. The "before" columns remain
+> the pre-HEL-533 figures on the v2 ramp and are not re-measured.
+
 | foreground                   | `--app-bg` | `--app-surface` | `--app-surface-soft` | `--app-surface-raised` | `--app-surface-strong` |
 | ---------------------------- | ---------- | --------------- | -------------------- | ---------------------- | ---------------------- |
-| `--app-text` `#f2efe9`       | 16.44      | 15.43           | 15.89                | 14.16                  | 13.62                  |
-| `--app-text-muted` `#aaa49c` | 7.63       | 7.17            | 7.38                 | 6.58                   | 6.33                   |
-| `--app-success` `#4cc38a`    | 8.51       | 7.99            | 8.23                 | 7.34                   | 7.06                   |
-| `--app-warning` `#f5b944`    | 10.69      | 10.04           | 10.34                | 9.21                   | 8.86                   |
-| `--app-error` `#f17b67`      | 6.98       | 6.55            | 6.75                 | 6.01                   | 5.78                   |
+| `--app-text` `#f2efe9`       | 16.80      | 15.43           | 15.89                | 14.16                  | 13.62                  |
+| `--app-text-muted` `#aaa49c` | 7.81       | 7.17            | 7.38                 | 6.58                   | 6.33                   |
+| `--app-success` `#4cc38a`    | 8.71       | 7.99            | 8.23                 | 7.34                   | 7.06                   |
+| `--app-warning` `#f5b944`    | 10.93      | 10.04           | 10.34                | 9.21                   | 8.86                   |
+| `--app-error` `#f17b67`      | 7.13       | 6.55            | 6.75                 | 6.01                   | 5.78                   |
 
 All PASS at >= 4.5:1 (dark's neutral-surface pairs were already clean before
 this change and remain so — `--app-error` was untouched here; its edit below
@@ -107,7 +112,7 @@ worst-case backdrop that sized each token's correction (design.md D4).
 | ------------------------------------------------ | ---------------------------------- | --------- | -------------------------- |
 | `--app-success` on `--app-success-surface` (14%) | `--app-bg`..`--app-surface-strong` | 5.45-6.79 | unchanged (already >= 4.5) |
 | `--app-warning` on `--app-warning-surface` (14%) | `--app-bg`..`--app-surface-strong` | 6.50-8.17 | unchanged (already >= 4.5) |
-| `--app-error` on `--app-error-surface` (14%)     | `--app-bg`                         | 5.53      | 5.74                       |
+| `--app-error` on `--app-error-surface` (14%)     | `--app-bg`                         | 5.53      | 5.92                       |
 | `--app-error` on `--app-error-surface` (14%)     | `--app-surface`                    | 5.10      | 5.30                       |
 | `--app-error` on `--app-error-surface` (14%)     | `--app-surface-soft`               | 5.29      | 5.50                       |
 | `--app-error` on `--app-error-surface` (14%)     | `--app-surface-raised`             | 4.64      | 4.81                       |
@@ -141,7 +146,7 @@ obligation (D8) — it is not only a neutral-surface token.
 
 | parent                 | success-tint | warning-tint     | error-tint   |
 | ---------------------- | ------------ | ---------------- | ------------ |
-| `--app-bg`             | 5.01 -> 6.09 | 4.80 -> 5.83     | 5.21 -> 6.28 |
+| `--app-bg`             | 5.01 -> 6.29 | 4.80 -> 6.03     | 5.21 -> 6.48 |
 | `--app-surface`        | 4.62 -> 5.61 | 4.40 -> 5.35     | 4.81 -> 5.80 |
 | `--app-surface-soft`   | 4.79 -> 5.82 | 4.58 -> 5.56     | 4.99 -> 6.01 |
 | `--app-surface-raised` | 4.19 -> 5.10 | 3.98 -> 4.84     | 4.38 -> 5.27 |

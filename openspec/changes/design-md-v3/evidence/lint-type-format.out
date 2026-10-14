@@ -1,0 +1,8 @@
+> eslint src --max-warnings=0
+
+lint=0
+
+typecheck=0
+Checking formatting...
+All matched files use Prettier code style!
+format=0

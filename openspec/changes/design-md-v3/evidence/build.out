@@ -1,0 +1,7 @@
+PWA v1.3.0
+mode      generateSW
+precache  36 entries (2337.19 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-acf3c99e.js
+build exit=0

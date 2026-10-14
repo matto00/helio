@@ -20,7 +20,7 @@ import { ACCENT_PRESETS, DefaultAccentColorByTheme } from "./theme";
 // assumption: it RE-READS every `--app-bg`/`--app-surface*` literal-hex
 // declaration from theme.css itself on every run (not a hardcoded
 // `#efece6`/`#262320` pair, and not the palette extremes `#ffffff`/
-// `#121110` — see design.md D1 on why the round-1 defect was exactly a
+// the v2 canvas — see design.md D1 on why the round-1 defect was exactly a
 // hardcoded, wrong binding pair). If theme.css's surface set changes (e.g.
 // HEL-866), this guard re-derives the new minimum and fails if the current
 // token no longer clears it — it does not assert a value pinned at write

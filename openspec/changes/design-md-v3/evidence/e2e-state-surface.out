@@ -1,0 +1,30 @@
+[HEL-866 guard] view "/chat:sidebar-rail" (light): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] view "/chat" (light): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] elements probed: 4, resolved=4, unresolved=0, pass=2, fail=0, advisory=2 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/chat(light)" unresolvedFraction=0.000
+  ✓  14 e2e/state-surface-contrast-guard.spec.ts:852:11 › HEL-866 state-surface contrast guard › /chat: every interactive state background differs measurably from its resolved backdrop (light) (4.3s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1791945016796-44433@example.test
+[HEL-866 guard] view "/connectors:sidebar-rail" (dark): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/connectors" (dark): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] elements probed: 2, resolved=2, unresolved=0, pass=1, fail=0, advisory=1 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/connectors(dark)" unresolvedFraction=0.000
+  ✓  15 e2e/state-surface-contrast-guard.spec.ts:852:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (dark) (4.0s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1791945020838-17597@example.test
+[HEL-866 guard] view "/connectors:sidebar-rail" (light): 0 visible interactive element(s), sampled 0
+[HEL-866 guard] view "/connectors" (light): 1 visible interactive element(s), sampled 1
+[HEL-866 guard] elements probed: 2, resolved=2, unresolved=0, pass=1, fail=0, advisory=1 — 50% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "/connectors(light)" unresolvedFraction=0.000
+  ✓  16 e2e/state-surface-contrast-guard.spec.ts:852:11 › HEL-866 state-surface contrast guard › /connectors: every interactive state background differs measurably from its resolved backdrop (light) (2.9s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1791945023742-84277@example.test
+[HEL-866 guard] view "chrome" (dark): 12 visible interactive element(s), sampled 12
+[HEL-866 guard] elements probed: 23, resolved=23, unresolved=0, pass=12, fail=0, advisory=11 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "chrome(dark)" unresolvedFraction=0.000
+  ✓  17 e2e/state-surface-contrast-guard.spec.ts:942:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (dark) (7.1s)
+[HEL-1300 e2e] throwaway user: hel866-guard-1791945030879-44944@example.test
+[HEL-866 guard] view "chrome" (light): 12 visible interactive element(s), sampled 12
+[HEL-866 guard] elements probed: 23, resolved=23, unresolved=0, pass=12, fail=0, advisory=11 — 52% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+[HEL-866 guard] cell "chrome(light)" unresolvedFraction=0.000
+  ✓  18 e2e/state-surface-contrast-guard.spec.ts:942:9 › HEL-866 state-surface contrast guard › chrome: every interactive state background differs measurably from its resolved backdrop (light) (7.2s)
+[HEL-1301 e2e] deleted 18 recorded throwaway user(s)
+
+  18 passed (3.1m)

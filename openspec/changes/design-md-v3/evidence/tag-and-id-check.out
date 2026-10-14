@@ -1,0 +1,6 @@
+$ tagcheck.sh DESIGN.md(v2, HEAD) DESIGN.md(v3)
+/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/DESIGN.v2.md: mechanical=22 judgment=12
+DESIGN.md: mechanical=40 judgment=31
+HEL ids v2=18 v3=30
+ids in v2 missing from v3 (comm -23):
+(end)

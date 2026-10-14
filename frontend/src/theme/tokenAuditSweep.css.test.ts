@@ -15,7 +15,7 @@ import path from "path";
 //   - color:       #[0-9a-fA-F]{3,8}\b|rgba?\(
 //   - font-size:   font-size:\s*[0-9.]+(px|rem|em|%)
 //   - font-weight: font-weight:\s*[0-9]+
-//   - font-family: font-family: ... not var(--font-sans|--font-display|--font-mono)
+//   - font-family: font-family: ... not var(--font-sans|--font-display|--font-heading|--font-mono)
 //                  and not inherit/initial/unset
 //
 // For each category, every surviving hit in a swept file MUST appear in
@@ -204,7 +204,9 @@ const FONT_WEIGHT_BASELINE: BaselineEntry[] = [];
 
 const FONT_FAMILY_PATTERN = /font-family:/;
 const fontFamilyIsDisallowed = (line: string): boolean =>
-  !/var\(--font-sans\)|var\(--font-display\)|var\(--font-mono\)|inherit|initial|unset/.test(line);
+  !/var\(--font-sans\)|var\(--font-display\)|var\(--font-heading\)|var\(--font-mono\)|inherit|initial|unset/.test(
+    line,
+  );
 const FONT_FAMILY_BASELINE: BaselineEntry[] = [];
 
 runCategoryGuard(

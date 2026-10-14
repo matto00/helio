@@ -9,12 +9,12 @@ import type { ManifestOptions } from "vite-plugin-pwa";
  * `pwa-installability`.
  *
  * Colours are literal copies of `--app-bg` from `src/theme/theme.css` (light:
- * #f4f2ed, dark: #121110). The manifest is static JSON generated at build
+ * #f4f2ed, dark: #0f0e0d). The manifest is static JSON generated at build
  * time and cannot read CSS custom properties — if theme.css's `--app-bg`
  * values ever change, update them here too.
  */
 export const APP_BG_LIGHT = "#f4f2ed";
-export const APP_BG_DARK = "#121110";
+export const APP_BG_DARK = "#0f0e0d";
 
 export const pwaManifest: Partial<ManifestOptions> = {
   name: "Helio",
