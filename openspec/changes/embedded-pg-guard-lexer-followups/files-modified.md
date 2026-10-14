@@ -1,8 +1,0 @@
-- `CONTRIBUTING.md` — note: backend specs start embedded Postgres only via `VerifiedEmbeddedPostgres.start`; the guard enforces it
-- `backend/src/test/scala/com/helio/testkit/EmbeddedPostgresGuardLexer.scala` — new: the comment-stripping lexer split out of the guard spec; `$"` escape and `\x` pairing in `raw` strings fixed
-- `backend/src/test/scala/com/helio/testkit/EmbeddedPostgresStartGuard.scala` — new: scan rules (`violations`, `offendersIn`, regexes) and whole-tree helpers split out of the guard spec
-- `backend/src/test/scala/com/helio/testkit/EmbeddedPostgresGuardLexerSpec.scala` — new: lexer cases (escape rejects/accepts, fail-closed GUARDs, balanced failable variants, whole-tree STATS)
-- `backend/src/test/scala/com/helio/testkit/EmbeddedPostgresStartGuardSpec.scala` — now only the assertion cases (allowlist, bypasses, exemptions, whole-tree offender scan); 401 -> 124 lines
-- `backend/src/test/scala/com/helio/testkit/VerifiedEmbeddedPostgres.scala` — fatal throwable during the ownership check closes the instance and deletes the dir; `newDataDirectory` test seam
-- `backend/src/test/scala/com/helio/testkit/VerifiedEmbeddedPostgresSpec.scala` — tests: fatal-path cleanup (instance closed, dir deleted, same throwable) and pre-postmaster zonky start failure (dir deleted)
-- `openspec/changes/archive/2026-10-10-embedded-postgres-port-race-guard/design.md` — D7 wording corrected (no "raw without escapes", softened "cover each construct", gap 3 residual members), dated HEL-1474 note
