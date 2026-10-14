@@ -37,6 +37,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
+  private val deletedRecovery = new PipelineRunDeletedRecovery(pipelineRepo)
   import support.truncatedReadsToJson
   import terminal.{afterTerminalWin, persistAssertions, publishTerminalAfter, writeLastRun, writeTerminal}
 
@@ -273,7 +274,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
             log.warn(s"HEL-462: schema-drift baseline capture failed for pipeline ${pipelineId.value}", ex)
             Future.successful(())
           }
-        for {
+        val chain: Future[Option[String]] = for {
           _ <- materializedWrites
           _ <- binaryRefsUpsert
           _ <- alertEvaluation
@@ -283,13 +284,21 @@ private[pipelines] final class PipelineRunSucceededWrites(
           _ <- baselineUpsert
           _ <- failIfLostTerminalWrite(runId, won)
         } yield None
+        // HEL-1564: a failure after the run's own `succeeded` write won, with the pipeline gone, answers success.
+        deletedRecovery.recover(
+          pipelineId = pipelineId, runId = runId, chain = chain, won = updateRun,
+          siblings = Seq(materializedWrites, binaryRefsUpsert, alertEvaluation, updateMeta, assertionsInsert, baselineUpsert)
+        )
     }
     // HEL-1366: `succeeded` is published only after the whole chain (snapshots, run status,
     // last-run metadata, ...) has completed, so a subscriber reading on the event sees this run's
-    // results. Edge: `for` fails fast, so if `materializedWrites` fails the event can fire while the
-    // eagerly-started `updateRun` is still in flight (write-failure path only).
+    // results. A failed chain is settled first (HEL-1564: `PipelineRunDeletedRecovery` awaits the eager sibling writes
+    // and `updateRun` before the failure or recovery is returned), so the event never fires with a write still in flight.
     // HEL-1518 (design.md D4): a run guard trip (the run was reaped or deleted mid-chain) publishes NOTHING -- the
     // reaper's `failed` event, or the pipeline's deletion, already ended that run's lifecycle.
+    // HEL-1564: EXCEPT when the run's own `succeeded` write had already won and the pipeline was deleted after it --
+    // `PipelineRunDeletedRecovery` turns that chain into a success, so `succeeded` is published and the caller gets
+    // `Right` whatever the timing.
     publishTerminalAfter(
       pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)), writesChain(),
       skipPublishOn = { case _: PipelineRunRepository.RunNoLongerOpen => true; case _ => false }
@@ -297,7 +306,8 @@ private[pipelines] final class PipelineRunSucceededWrites(
   }
 
   /** HEL-1518 (design.md D7): the run's own `succeeded` terminal write lost (`won = false`) -- the run was reaped, or
-   *  deleted with its pipeline, outside any node write's guard (e.g. after the last node, or before the Output list was
+   *  deleted with its pipeline BEFORE the write (a delete after a winning write is HEL-1564's success),
+   *  outside any node write's guard (e.g. after the last node, or before the Output list was
    *  read, when the cascade had already emptied it). First terminal write wins, so this execution is a late finisher:
    *  fail the chain with the run's actual state, which publishes no `succeeded` and maps to 404 / 409 in the executor.
    *  No-op when this write won, or (fixtures) no run repository is wired. */

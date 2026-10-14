@@ -1,0 +1,6 @@
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunDeletedRecovery.scala` -- new: HEL-1564 recovery (won AND pipeline gone -> success; lost AND gone AND non-RunNoLongerOpen failure -> RunNoLongerOpen(Missing); settles sibling writes)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunSucceededWrites.scala` -- wraps the success chain in the recovery; scaladoc/comments updated
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala` -- new: shared fixture (seams, seed/count/submit helpers) extracted from the spec
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherDeleteAfterWonSpec.scala` -- new: HEL-1544/HEL-1564 delete-after-won, narrowness control and D1b tests
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherRunSpec.scala` -- now HEL-1518 tests only; also flipped HEL-1544 404 pin, new forced-ordering tests (between nodes, binary-ref FK, narrowness control, D1b), item-2 sequencing, exact-one succeeded count
+- `openspec/changes/late-delete-after-won-succeeds/{tasks.md,evidence.md,files-modified.md}` -- task ticks, red/mutation/determinism evidence, handoff
