@@ -1,0 +1,232 @@
+# RED: helper with ONLY the fatal-path catch reverted (the newDataDirectory seam kept); diff below is exactly what was reverted. The test closes the captured instance in a finally, so the red run leaks no postmaster.
+76,82d75
+<           case fatal: Throwable =>
+<             // A fatal throwable (e.g. an interruption) must not be swallowed or retried, but it must not leak this
+<             // attempt's postmaster or data directory either: clean up, then rethrow the same throwable.
+<             try pg.close()
+<             catch { case t: Throwable => fatal.addSuppressed(t) }
+<             deleteQuietly(dir)
+<             throw fatal
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.VerifiedEmbeddedPostgresSpec"   # old helper behaviour, seam kept
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] VerifiedEmbeddedPostgresSpec:
+[info] an unverified direct start pinned to a port another cluster holds
+17:14:49,575 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+17:14:49,575 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78aa0c19 - No custom configurators were discovered as a service.
+17:14:49,575 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78aa0c19 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:14:49,576 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78aa0c19 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+17:14:49,577 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+17:14:49,579 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/task/embedded-pg-guard-lexer-followups/HEL-1474/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+17:14:49,610 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+17:14:49,612 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6ebf458 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+17:14:49,612 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+17:14:49,618 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+17:14:49,619 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6ebf458 - value "plain" substituted for "${LOG_APPENDER}"
+17:14:49,619 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+17:14:49,619 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+17:14:49,619 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+17:14:49,622 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+17:14:49,637 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+17:14:49,637 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+17:14:49,637 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+17:14:49,637 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6ebf458 - value "INFO" substituted for "${LOG_LEVEL}"
+17:14:49,637 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+17:14:49,637 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@6ebf458 - value "plain" substituted for "${LOG_APPENDER}"
+17:14:49,637 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+17:14:49,637 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@10e6deff - End of configuration.
+17:14:49,637 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@4f31cfc9 - Registering current configuration as safe fallback point
+17:14:49,639 |-INFO in ch.qos.logback.classic.util.ContextInitializer@78aa0c19 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 62 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] - should silently attach to that other cluster (the defect)
+[info] VerifiedEmbeddedPostgres.start pinned to a port another cluster holds
+17:14:50.832 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster 0012278f-4315-40b8-96eb-bb270801c370
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg8727059523769864785, stop, -m, fast, -t, 5, -w] failed
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.system(EmbeddedPostgres.java:633)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.pgCtl(EmbeddedPostgres.java:423)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.close(EmbeddedPostgres.java:390)
+	at com.helio.testkit.VerifiedEmbeddedPostgres$.startWith(VerifiedEmbeddedPostgres.scala:83)
+	at com.helio.testkit.VerifiedEmbeddedPostgres$.start(VerifiedEmbeddedPostgres.scala:30)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.$anonfun$new$4(VerifiedEmbeddedPostgresSpec.scala:83)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.org$scalatest$BeforeAndAfterAll$$super$run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.internal.worker1.ForkTestMain$Run.lambda$runTest$1(ForkTestMain.java:436)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should end on its own cluster on a different port and leave the foreign cluster untouched
+17:14:51.689 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster 9b83896a-40fa-48d9-b238-a7128a7ab770
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg16176529486606763174, stop, -m, fast, -t, 5, -w] failed
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.system(EmbeddedPostgres.java:633)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.pgCtl(EmbeddedPostgres.java:423)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.close(EmbeddedPostgres.java:390)
+	at com.helio.testkit.VerifiedEmbeddedPostgres$.startWith(VerifiedEmbeddedPostgres.scala:83)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.$anonfun$new$7(VerifiedEmbeddedPostgresSpec.scala:97)
+	at org.scalatest.matchers.MatchersHelper$.checkExpectedException(MatchersHelper.scala:304)
+	at org.scalatest.matchers.dsl.ResultOfTheTypeInvocation.thrownBy(ResultOfTheTypeInvocation.scala:48)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.$anonfun$new$6(VerifiedEmbeddedPostgresSpec.scala:97)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.org$scalatest$BeforeAndAfterAll$$super$run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.internal.worker1.ForkTestMain$Run.lambda$runTest$1(ForkTestMain.java:436)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+17:14:51.993 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster 1f5e9948-90eb-4a11-9131-ca2f359abac0
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg11016238227802079681, stop, -m, fast, -t, 5, -w] failed
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.system(EmbeddedPostgres.java:633)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.pgCtl(EmbeddedPostgres.java:423)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.close(EmbeddedPostgres.java:390)
+	at com.helio.testkit.VerifiedEmbeddedPostgres$.startWith(VerifiedEmbeddedPostgres.scala:83)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.$anonfun$new$7(VerifiedEmbeddedPostgresSpec.scala:97)
+	at org.scalatest.matchers.MatchersHelper$.checkExpectedException(MatchersHelper.scala:304)
+	at org.scalatest.matchers.dsl.ResultOfTheTypeInvocation.thrownBy(ResultOfTheTypeInvocation.scala:48)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.$anonfun$new$6(VerifiedEmbeddedPostgresSpec.scala:97)
+	at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+	at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+	at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+	at org.scalatest.Transformer.apply(Transformer.scala:22)
+	at org.scalatest.Transformer.apply(Transformer.scala:20)
+	at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+	at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+	at org.scalatest.TestSuite.withFixture$(TestSuite.scala:195)
+	at org.scalatest.wordspec.AnyWordSpec.withFixture(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.invokeWithFixture$1(AnyWordSpecLike.scala:1238)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTest$1(AnyWordSpecLike.scala:1250)
+	at org.scalatest.SuperEngine.runTestImpl(Engine.scala:306)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest(AnyWordSpecLike.scala:1250)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTest$(AnyWordSpecLike.scala:1232)
+	at org.scalatest.wordspec.AnyWordSpec.runTest(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$runTests$1(AnyWordSpecLike.scala:1309)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:413)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:390)
+	at org.scalatest.SuperEngine.$anonfun$runTestsInBranch$1(Engine.scala:427)
+	at scala.collection.immutable.List.foreach(List.scala:334)
+	at org.scalatest.SuperEngine.traverseSubNodes$1(Engine.scala:401)
+	at org.scalatest.SuperEngine.runTestsInBranch(Engine.scala:396)
+	at org.scalatest.SuperEngine.runTestsImpl(Engine.scala:475)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests(AnyWordSpecLike.scala:1309)
+	at org.scalatest.wordspec.AnyWordSpecLike.runTests$(AnyWordSpecLike.scala:1308)
+	at org.scalatest.wordspec.AnyWordSpec.runTests(AnyWordSpec.scala:1880)
+	at org.scalatest.Suite.run(Suite.scala:1114)
+	at org.scalatest.Suite.run$(Suite.scala:1096)
+	at org.scalatest.wordspec.AnyWordSpec.org$scalatest$wordspec$AnyWordSpecLike$$super$run(AnyWordSpec.scala:1880)
+	at org.scalatest.wordspec.AnyWordSpecLike.$anonfun$run$1(AnyWordSpecLike.scala:1354)
+	at org.scalatest.SuperEngine.runImpl(Engine.scala:535)
+	at org.scalatest.wordspec.AnyWordSpecLike.run(AnyWordSpecLike.scala:1354)
+	at org.scalatest.wordspec.AnyWordSpecLike.run$(AnyWordSpecLike.scala:1352)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.org$scalatest$BeforeAndAfterAll$$super$run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.BeforeAndAfterAll.liftedTree1$1(BeforeAndAfterAll.scala:213)
+	at org.scalatest.BeforeAndAfterAll.run(BeforeAndAfterAll.scala:210)
+	at org.scalatest.BeforeAndAfterAll.run$(BeforeAndAfterAll.scala:208)
+	at com.helio.testkit.VerifiedEmbeddedPostgresSpec.run(VerifiedEmbeddedPostgresSpec.scala:16)
+	at org.scalatest.tools.Framework.org$scalatest$tools$Framework$$runSuite(Framework.scala:321)
+	at org.scalatest.tools.Framework$ScalaTestTask.execute(Framework.scala:517)
+	at sbt.internal.worker1.ForkTestMain$Run.lambda$runTest$1(ForkTestMain.java:436)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should fail loudly naming every directory when all attempts collide, leaving the foreign cluster intact
+[info] a failed ownership check (the closed-connection shape)
+[info] - should discard the attempt's own data directory and retry
+[info] - should carry the recorded error in the exhaustion message instead of propagating it as-is
+[info] a fatal throwable during the ownership check (HEL-1474)
+[info] - should close the attempt's instance, delete its data directory and propagate the same throwable without a retry *** FAILED ***
+[info]   true was not equal to false (VerifiedEmbeddedPostgresSpec.scala:162)
+[info] a zonky start that fails before launching a postmaster (HEL-1474)
+[info] - should delete the attempt's data directory and propagate the library's error unchanged
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 5 seconds, 159 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.VerifiedEmbeddedPostgresSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 6 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+# GREEN counterpart: see testkit-green.txt (VerifiedEmbeddedPostgresSpec 7/7 incl. both new tests)

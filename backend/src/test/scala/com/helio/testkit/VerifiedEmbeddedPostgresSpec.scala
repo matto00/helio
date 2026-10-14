@@ -5,8 +5,11 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.nio.file.{Files, Paths}
+import java.io.IOException
+import java.net.{InetAddress, InetSocketAddress, ServerSocket, Socket}
+import java.nio.file.{Files, Path, Paths}
 import java.sql.{Connection, SQLException}
+import java.util.Comparator
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 /** HEL-1445 regression: a zonky embedded-Postgres instance that loses its port silently adopts
@@ -40,6 +43,25 @@ class VerifiedEmbeddedPostgresSpec extends AnyWordSpec with Matchers with Before
   private def assertForeignClusterIntact(): Unit = {
     hasMarker(clusterA) shouldBe true
     showDataDirectory(clusterA) should not be empty
+  }
+
+  /** True when nothing listens on `port` (a postmaster that was stopped, or never started). */
+  private def portRefused(port: Int): Boolean = {
+    val sock = new Socket()
+    try { sock.connect(new InetSocketAddress(InetAddress.getLoopbackAddress, port), 500); false }
+    catch { case _: IOException => true }
+    finally sock.close()
+  }
+
+  private def freePort(): Int = {
+    val ss = new ServerSocket(0, 1, InetAddress.getLoopbackAddress)
+    try ss.getLocalPort finally ss.close()
+  }
+
+  private def removeIfLeft(dir: Path): Unit = {
+    val stream = if (Files.exists(dir)) Some(Files.walk(dir)) else None
+    try stream.foreach(_.sorted(Comparator.reverseOrder[Path]()).forEach(p => Files.deleteIfExists(p)))
+    finally stream.foreach(_.close())
   }
 
   override protected def afterAll(): Unit = {
@@ -119,6 +141,56 @@ class VerifiedEmbeddedPostgresSpec extends AnyWordSpec with Matchers with Before
           observeDataDirectory = _ => throw new SQLException("This connection has been closed.")
         )
       ex.getMessage should include("This connection has been closed.")
+    }
+  }
+
+  "a fatal throwable during the ownership check (HEL-1474)" should {
+    "close the attempt's instance, delete its data directory and propagate the same throwable without a retry" in {
+      val dir      = Files.createTempDirectory("hel1474-fatal") // temp-dir-hygiene: reviewed — the helper under test deletes it; removeIfLeft in finally
+      val captured = new AtomicReference[EmbeddedPostgres]()
+      val calls    = new AtomicInteger(0)
+      val fatal    = new InterruptedException("hel1474 fatal")
+      try {
+        val thrown = the[InterruptedException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder(),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = pg => { calls.incrementAndGet(); captured.set(pg); throw fatal },
+            newDataDirectory = () => dir
+          )
+        (thrown should be).theSameInstanceAs(fatal)
+        calls.get shouldBe 1
+        Files.exists(dir) shouldBe false
+        portRefused(captured.get.getPort) shouldBe true
+      } finally {
+        Option(captured.get).foreach(_.close())
+        removeIfLeft(dir)
+      }
+    }
+  }
+
+  "a zonky start that fails before launching a postmaster (HEL-1474)" should {
+    "delete the attempt's data directory and propagate the library's error unchanged" in {
+      val dir   = Files.createTempDirectory("hel1474-initdb") // temp-dir-hygiene: reviewed — the helper under test deletes it; removeIfLeft in finally
+      val port  = freePort()
+      val calls = new AtomicInteger(0)
+      try {
+        // An invalid locale makes initdb exit non-zero inside the constructor, before the postmaster launch
+        // and its shutdown hook (zonky 2.0.7 EmbeddedPostgres.java:157 vs :275/:283; proof/zonky-start-failure.txt).
+        val ex = the[IllegalStateException] thrownBy
+          VerifiedEmbeddedPostgres.startWith(
+            EmbeddedPostgres.builder().setPort(port).setLocaleConfig("locale", "hel1474-no-such-locale"),
+            maxAttempts = 3,
+            nextPort = () => 0,
+            observeDataDirectory = showDataDirectory,
+            newDataDirectory = () => { calls.incrementAndGet(); dir }
+          )
+        ex.getMessage should include("initdb")
+        calls.get shouldBe 1
+        Files.exists(dir) shouldBe false
+        portRefused(port) shouldBe true
+      } finally removeIfLeft(dir)
     }
   }
 }

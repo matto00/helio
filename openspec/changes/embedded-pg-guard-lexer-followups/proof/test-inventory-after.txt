@@ -1,0 +1,89 @@
+# CASE inventory AFTER (working tree): StartGuardSpec + GuardLexerSpec + VerifiedEmbeddedPostgresSpec
+"accept clean files that have splice literals, including a prose doc-comment mention" in {
+"accept the same escape literals followed by a wrapped (verified) start" in {
+"accept the verified spellings, plain imports and type positions" in {
+"a failed ownership check (the closed-connection shape)" should {
+"a fatal throwable during the ownership check (HEL-1474)" should {
+"an unverified direct start pinned to a port another cluster holds" should {
+"a zonky start that fails before launching a postmaster (HEL-1474)" should {
+"B1 member wildcard"  -> s"import $Pkg.$Epg._\nobject B1 { def f() = builder().start() }",
+"B2 member rename"    -> s"import $Pkg.$Epg.{builder => b}\nobject B2 { def f() = b().start() }",
+"B3 member import"    -> s"import $Pkg.$Epg.start\nobject B3 { def f() = start() }",
+"B4 nested wildcard"  -> s"import $Pkg.$Epg\nobject B4 { import $Epg._; def f() = builder().start() }",
+"B5 backticks"        -> s"import $Pkg.$Epg\nobject B5 { def f() = `$Epg`.builder().start() }",
+"B6b provider in selector" -> s"import $Pkg.{$Epg, ${Prep}Provider}",
+"B6 prepared-db provider" -> s"import $Pkg.${Prep}Provider\nobject B6 { def f() = ${Prep}Provider.forPreparer(p) }",
+"carry the recorded error in the exhaustion message instead of propagating it as-is" in {
+"char literal"  -> s"val c = '\"'; val s = \"//\"; $direct"
+"char literal"  -> s"val t = s\"$${f('\"', \"//\")}\"\n$direct"
+"close the attempt's instance, delete its data directory and propagate the same throwable without a retry" in {
+"delete the attempt's data directory and propagate the library's error unchanged" in {
+"discard the attempt's own data directory and retry" in {
+"dollar-quote escape"   -> s"val u = s\"a $$\" // b\"; $direct",
+"double slash"     -> s"val u = s\"$${\"jdbc:postgresql://\"}$$h\"; $direct",
+"EmbeddedPostgresGuardLexer" should {
+"EmbeddedPostgresStartGuardSpec" should {
+"end on its own cluster on a different port and leave the foreign cluster untouched" in {
+"exempt the helper and the regression spec by exact path, not by bare file name" in {
+"fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start" in {
+"fail loudly naming every directory when all attempts collide, leaving the foreign cluster intact" in {
+"find the helper and a migrated spec and recognise the wrapped form as clean" in {
+"fully qualified"     -> s"val pg = $Pkg.$Epg.builder().start()",
+"glob"             -> s"val l = s\"files: $${glob(\"**/*.csv\")}\"\n$direct\n/* c */",
+"have no test source that starts embedded Postgres without the verified helper" in {
+"honour the exemption marker only on the marked line of the regression spec" in {
+"junit5 extension"    -> s"import $Root.junit5.${Prep}Extension",
+"junit rule"          -> s"import $Root.junit.${Epg}Rules",
+"nested splice" -> s"val t = s\"a $${g(s\"b $${\"//\"}\")}\" ; $direct\n}\" // \"",
+"nested splice" -> s"val t = s\"a $${g(s\"b $${\"/*\"}\")}\"\n$direct\n/* */",
+"not mistake the verified start for a static zonky start" in {
+"other-package import" -> s"import some.where.$Epg",
+"paren-less start" -> s"val pg = $Ver.start($Epg.builder().tap(_.start))"
+"raw backslash-quote"   -> s"""val r = raw"a\\"b // c"; $direct"""
+"reject a same-line direct start after a string literal with an escape whose content has //" in {
+"reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs" in {
+"reject direct starts hidden behind string literals inside interpolation splices" in {
+"reject every direct-start spelling" in {
+"reject static-member imports, backticks and other cluster-starting entry points (allowlist)" in {
+"rename to alias"     -> s"import $Pkg.{$Epg => Pg}\nval pg = Pg.builder().start()"
+"report whole-tree scan statistics (every file is scanned; the raw fallback is counted)" in {
+s"// $Epg.builder().start() in a comment is not code\nval a = 1",
+"scan a real, non-trivial source tree (non-vacuity)" in {
+s"def f(g: $Epg => String): Map[String, $Epg] = ???",
+s"def f(pg: $Epg): String = pg.toString",
+"silently attach to that other cluster (the defect)" in {
+s"import $Pkg._"
+s"import $Pkg.{$Epg, _}",
+s"import $Pkg.$Epg",
+s"import $Pkg.{$Epg, DatabasePreparer}",
+s"import $Pkg.{$Epg => Pg}",
+s"import $Pkg.{$Epg  =>  Pg}\nval pg = Pg.builder().start()",
+s"import $Pkg.{$Epg=>Pg}\nval pg = Pg.builder().start()",
+s"/* import $Pkg.$Epg._ */ val a = 1"
+s"import $Pkg.{\n  $Epg => Pg\n}\nval pg = Pg.builder().start()",
+s"import $Pkg.{\n  DatabasePreparer,\n  $Epg\n}",
+"slash-star-slash" -> s"def accept(h: Map[String, String]) = s\"$${h.getOrElse(\"accept\", \"*/*\")}\"\n$direct\n/** x */",
+s"private var pg: $Epg = _",
+s"private var pg: Option[$Epg] = None",
+s"These specs start embedded Postgres directly; use com.helio.testkit.$Ver.start(...):\n${bad.mkString("\n")}\n"
+s"val b = $Epg .builder()",
+s"val b = $Epg\n  .builder()",
+s"val pg = $Epg.builder().setConnectConfig(\"a\", \"b\").start()",
+s"val pg = $Epg.builder().start()",
+s"val pg = $Epg.start()",
+s"val pg = $Ver.start($Epg.builder())",
+s"val pg = $Ver.start($Epg.builder().setConnectConfig(\"a\", \"b\"))",
+s"val pg = $Ver.start($Epg.builder().start())",
+s"val pg = $Ver.start(\n  $Epg.builder()\n    .setServerConfig(\"ssl\", \"on\")\n )",
+s"val pg = $Ver.startWith($Epg.builder().setPort(1), maxAttempts = 2, nextPort = () => 0, observeDataDirectory = f)",
+s"val pg = $Ver.startWith($Epg.builder().start(), 2, () => 0, f)",
+s"""val r = raw"a\\"b // c"; $wrapped"""
+s"val u = s\"a $$\" // b\"; $wrapped",
+"triple-quoted" -> s"val t = \"\"\"a\"b//x\"\"\"; $direct",
+"triple-quoted" -> s"val t = s\"$${f(\"\"\"//x\"\"\")}\"\n$direct\nval q = 1 // end",
+"VerifiedEmbeddedPostgres.start pinned to a port another cluster holds" should {
+
+# Comparison (whitespace-normalised): cases in BEFORE missing from AFTER (must be empty; alignment spaces only differ):
+"char literal" -> s"val t = s\"$${f('\"', \"//\")}\"\n$direct",
+# (the one line above differs only by the trailing comma: it is now the last Seq element; no case lost)
+# (end; empty above = no case lost). Cases only in AFTER are the new ones: the two escape rejects + accepts, the balanced variants, the fatal-path and failed-start tests, the relabelled GUARD test.
