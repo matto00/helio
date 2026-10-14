@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
-// HEL-1289 / HEL-1300 — the seed-while-`/`-is-live race.
+// HEL-1289 / HEL-1300 — the seed-while-`/home`-is-live race.
 //
-// After a UI login the page stays live on `/`: it fetches dashboards, auto-selects the most recent
+// After a UI login the page stays live on `/home`: it fetches dashboards, auto-selects the most recent
 // one, fetches that board's panels and runs its effects (the owner layout repair, the recent-visit
 // recorder, an SSE subscription, and, for a user with no dashboard, the onboarding checklist's
 // sources/pipelines fetch). A spec that then seeds through the API races those effects, so the page
@@ -17,12 +17,12 @@ import type { Page } from "@playwright/test";
 //
 // HAZARD: `about:blank` has no app origin. Never follow it with `page.reload()` (it reloads a blank
 // page), `page.evaluate`, or a localStorage step before the next app-origin `page.goto`. Where a spec
-// wanted "a fresh document on `/`" from a `page.reload()`, use `page.goto("/")` instead.
+// wanted "a fresh document on `/home`" from a `page.reload()`, use `page.goto("/home")` instead.
 export async function isolateLivePage(page: Page): Promise<void> {
   await page.goto("about:blank");
 }
 
-/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/`. Never isolates. */
+/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/home`. Never isolates. */
 export async function uiLogin(
   page: Page,
   credentials: { email: string; password: string },
@@ -31,10 +31,10 @@ export async function uiLogin(
   await page.fill("#email", credentials.email);
   await page.fill("#password", credentials.password);
   await page.click("button[type=submit]");
-  await page.waitForURL("/");
+  await page.waitForURL("/home");
 }
 
-/** The UI login (`uiLogin`), then idle the post-login `/` on `about:blank`. */
+/** The UI login (`uiLogin`), then idle the post-login `/home` on `about:blank`. */
 export async function loginThenIsolate(
   page: Page,
   credentials: { email: string; password: string },

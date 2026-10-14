@@ -51,9 +51,9 @@ const CSRF_HEADER = "X-Helio-Requested-With";
 // HEL-1298: sign in through the API on the PAGE's own request context (`page.request` shares the
 // browser context's cookie jar, so the register response's session cookie authenticates both the
 // seeding calls and the first `page.goto`). The previous UI login spent a full app boot (login
-// page, submit, redirect, live `/` render) of unmeasured wall-clock inside the 30s test budget --
+// page, submit, redirect, live `/home` render) of unmeasured wall-clock inside the 30s test budget --
 // ~4.5-5.5s under CPU contention -- without being part of the scenario under test. Seeding now
-// also happens BEFORE the first page load, so no page is live on `/` while the API seeds.
+// also happens BEFORE the first page load, so no page is live on `/home` while the API seeds.
 const AUTH = { prefix: "hel910", displayName: "HEL-910", domain: "example.com" } as const;
 
 /** Design.md decision 8's exact click-counting helper: wraps every real
@@ -167,7 +167,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     // (no demo data), and `fetchDashboards.fulfilled` auto-selects the most
     // recently created dashboard when none is selected yet -- no explicit
     // "switch dashboard" interaction needed.
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByRole("heading", { name: /HEL-910 Flow Dashboard/ })).toBeVisible();
 
     for (let i = 0; i < outputNames.length; i++) {
@@ -232,7 +232,7 @@ test.describe("HEL-910 place an already-existing Output on a dashboard (<= 2 int
     });
     expect(outputRes.status()).toBe(201);
 
-    await page.goto("/");
+    await page.goto("/home");
     await expect(
       page.getByRole("heading", { name: /HEL-910 Existing Output Dashboard/ }),
     ).toBeVisible();

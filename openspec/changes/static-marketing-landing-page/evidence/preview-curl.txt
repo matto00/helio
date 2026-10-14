@@ -1,0 +1,15 @@
+GET / -> HTTP/1.1 200 OK | root-div:0 hero:3 og:image:4 canonical:1 bytes:17301
+GET /?ref=x -> HTTP/1.1 200 OK | root-div:0 hero:3 og:image:4 canonical:1 bytes:17301
+GET /home -> HTTP/1.1 200 OK | root-div:1 hero:0 og:image:0 canonical:0 bytes:3638
+GET /dashboards/abc -> HTTP/1.1 200 OK | root-div:1 hero:0 og:image:0 canonical:0 bytes:3638
+GET /login -> HTTP/1.1 200 OK | root-div:1 hero:0 og:image:0 canonical:0 bytes:3638
+GET /auth/callback -> HTTP/1.1 200 OK | root-div:1 hero:0 og:image:0 canonical:0 bytes:3638
+GET /index.html -> HTTP/1.1 200 OK | root-div:0 hero:3 og:image:4 canonical:1 bytes:17301
+GET /manifest.webmanifest -> HTTP/1.1 200 OK | root-div:0 hero:0 og:image:0 canonical:0 bytes:388
+--- / excerpt
+<title>Helio: give me a dashboard for…</title>
+<link rel="canonical" href="https://helioapp.dev/" />
+<meta property="og:title" content="Helio: give me a dashboard for…" />
+<meta property="og:url" content="https://helioapp.dev/" />
+<meta property="og:image" content="https://helioapp.dev/landing/og.jpg" />
+50 messages a day

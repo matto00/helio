@@ -143,7 +143,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
       });
       expect(layoutRes.status()).toBe(200);
 
-      await page.goto("/");
+      await page.goto("/home");
       const form = page.getByRole("form", { name: "HEL-1087 Order Form" });
       await expect(form).toBeVisible();
 
@@ -201,7 +201,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
       });
       expect(layoutRes.status()).toBe(200);
 
-      await page.goto("/");
+      await page.goto("/home");
       const form = page.getByRole("form", { name: "HEL-1087 Order Form" });
       await expect(form).toBeVisible();
 
@@ -245,7 +245,7 @@ test.describe("HEL-1087 form submit path (real backend)", () => {
       const beforeA = await rowCount(request, sourceA.id);
       const beforeB = await rowCount(request, sourceB.id);
 
-      await page.goto("/");
+      await page.goto("/home");
       const form = page.getByRole("form", { name: "HEL-1087 Order Form" });
       await expect(form).toBeVisible();
 

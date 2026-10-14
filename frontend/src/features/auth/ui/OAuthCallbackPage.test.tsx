@@ -47,7 +47,7 @@ function renderCallbackPage(search: string) {
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/login" element={<div data-testid="login-page" />} />
           <Route path="/login/verify" element={<div data-testid="mfa-verify-page" />} />
-          <Route path="/" element={<div data-testid="home-page" />} />
+          <Route path="/home" element={<div data-testid="home-page" />} />
           <Route path="/pipelines/abc-123" element={<div data-testid="deep-link-target" />} />
         </Routes>
       </MemoryRouter>
@@ -63,7 +63,7 @@ describe("OAuthCallbackPage", () => {
     window.sessionStorage.clear();
   });
 
-  it("navigates to / on successful OAuth callback", async () => {
+  it("navigates to /home on successful OAuth callback", async () => {
     mockedAuthService.oauthCallbackRequest.mockResolvedValue(oauthResponse);
 
     renderCallbackPage("?code=valid-code");

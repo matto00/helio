@@ -1,0 +1,106 @@
+
+> helio-mcp@0.1.0 build
+> tsc
+
+throwaway account landing-captures-1791947750419-3511b8@example.test (id 9c91e68e-a1d5-4d94-865b-279bb14e09f4)
+helio-mcp: targeting http://localhost:9901
+helio-mcp: ready (stdio)
+  helio · create_pipeline
+  helio · create_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · run_pipeline
+  helio · run_pipeline
+  helio · set_pipeline_schedule
+  helio · create_dashboard
+  helio · place_outputs
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_dashboard
+  helio · place_outputs
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_dashboard
+  helio · place_outputs
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · create_dashboard
+  helio · place_outputs
+  history: Daily signups <- earlier run recorded
+  history: API p95 latency <- earlier run recorded
+  history: Daily revenue <- earlier run recorded
+  history: Daily stars <- earlier run recorded
+  history: Weekly scores <- earlier run recorded
+  history: Daily signups <- current run recorded
+  history: API p95 latency <- current run recorded
+  history: Daily revenue <- current run recorded
+  history: Daily stars <- current run recorded
+  history: Weekly scores <- current run recorded
+  config: Signups, last 30 days <- compare
+  config: Daily signups <- referenceLines
+  config: API p95 latency (ms) <- compare, referenceLines
+  config: Revenue, last 30 days <- compare
+  config: Daily revenue <- referenceLines
+  config: MRR by plan <- chartType
+  config: New stars, last 30 days <- compare
+  config: Stars per day <- annotation
+  config: Points this season <- compare
+  config: Weekly score <- referenceLines
+  helio · create_dashboard
+  helio · create_content_panel
+  helio · update_panel_appearance
+  helio · create_content_panel
+  helio · update_panel_appearance
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  helio · create_dashboard
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  helio · create_pipeline
+helio-mcp: 429 rate limited on POST http://localhost:9901/api/pipelines/cc19cd58-06ae-4b1a-bdec-9aec109efb5a/run; retrying in 2000ms (attempt 1/5)
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  helio · create_pipeline
+  helio · run_pipeline
+  helio · place_outputs
+  helio · update_panel_appearance
+  captured launch/light
+  captured revenue/light
+  captured oss/light
+  captured fantasy/light
+  captured news/light
+  captured helio/light
+  captured launch/dark
+  captured revenue/dark
+  captured oss/dark
+  captured fantasy/dark
+  captured news/dark
+  captured helio/dark
+panel rectangles: [[264,72,450,262],[732,72,684,262],[264,352,567,332],[849,352,567,332]]
+done: shots, rects.json and og.jpg written
+deleted throwaway user 9c91e68e-a1d5-4d94-865b-279bb14e09f4

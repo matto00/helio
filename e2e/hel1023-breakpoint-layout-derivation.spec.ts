@@ -371,7 +371,7 @@ test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {
     const { email } = await registerAndLogin(page, request, AUTH);
     // Logged per registration (was an `afterAll` summary, which would forbid parallel mode).
     console.log(`[HEL-1023 e2e] throwaway user registered: ${email}`);
-    // HEL-1300: seeding below must not race the live post-login `/` (its mount fetches and the
+    // HEL-1300: seeding below must not race the live post-login `/home` (its mount fetches and the
     // owner layout repair); the first app load is then openAt's goto.
     await isolateLivePage(page);
     seeded = await seedDashboard(request);

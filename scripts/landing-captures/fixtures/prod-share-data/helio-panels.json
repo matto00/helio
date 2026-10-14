@@ -1,0 +1,139 @@
+{
+  "items": [
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "Helio now returns a layoutVersion on panel create and batch responses, enabling the client to detect stale writes; lock ordering for multi‑panel writers has been unified into a single id‑ordered row lock, preventing deadlocks during dashboard updates. Reference checks were expanded to cover all registered step kinds, with preview coverage enforced and a shared reference‑check chain that rejects self‑referencing lanes and invalid join/union saves. UI improvements include blank categories rendered as “(blank)”, footnoted short chart cards remaining usable, and scatter pickers showing the “— None —” option only once; the editor now stops re‑saving step configs on blur and refreshes its schema‑drift baseline after mid‑submit deletes. Backend changes clean up orphaned resources: Auto Connectors are removed when a source creation fails or is deleted, pipeline runs are reaped via a heartbeat, and stored objects are deleted alongside their rows."
+      },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "id": "62113945-197e-4d39-9cb2-969e10ae0928",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:56.209610Z",
+        "lastUpdated": "2026-10-13T14:22:56.209610Z"
+      },
+      "title": "What Shipped",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "2c632b67-b785-48f1-a2cf-18f868f89e26" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:41.801880Z",
+      "id": "15798fd3-2a58-4241-b3a5-3466952c28e0",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:42.450152Z",
+        "lastUpdated": "2026-10-13T14:22:42.450152Z"
+      },
+      "title": "Oldest Open Tickets",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "line",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "f354454b-9671-4926-a73e-990925eb0e08" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:32.442507Z",
+      "id": "a9b1ec05-60f0-4d52-90c0-1a9a991c4391",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:39.369582Z",
+        "lastUpdated": "2026-10-13T14:22:39.476953Z"
+      },
+      "title": "Throughput (7-day rolling)",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "53fd3056-1e36-46a3-9a43-03942cf01fe0" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:31.946484Z",
+      "id": "e1ade0e9-5a8f-4bc5-848c-1c677779eb1c",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:39.059869Z",
+        "lastUpdated": "2026-10-13T14:22:39.059869Z"
+      },
+      "title": "Open Tickets",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "2fe14840-d4a3-4853-914d-773d73cf44a5" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:31.946748Z",
+      "id": "6f8c61c7-4c26-45e3-8ef8-109fed7dc0a2",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:38.863567Z",
+        "lastUpdated": "2026-10-13T14:22:38.863567Z"
+      },
+      "title": "Open Bugs",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "6e74f9df-0170-41e9-89dd-7d4d58bc56ed" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:16.258130Z",
+      "id": "df064b21-d1ba-4d78-9ba7-bf5a12e4d265",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:17.251514Z",
+        "lastUpdated": "2026-10-13T14:22:17.251514Z"
+      },
+      "title": "Avg Cycle Time",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "bar",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "4d8e4191-afe6-480c-8a20-c665de106f0a" },
+      "dashboardId": "42d02d0d-d3d3-4494-90bc-b373ff2ad601",
+      "dataAsOf": "2026-10-13T14:22:13.750391Z",
+      "id": "e8b65644-8605-46ac-994f-ab947f549c33",
+      "meta": {
+        "createdAt": "2026-10-13T14:22:14.840354Z",
+        "lastUpdated": "2026-10-13T14:22:15.238414Z"
+      },
+      "title": "Velocity",
+      "type": "output"
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 7
+}

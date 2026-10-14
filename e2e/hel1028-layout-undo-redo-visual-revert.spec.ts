@@ -164,7 +164,7 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
           });
           // Registered users have no delete API; log each so residue is traceable by exact email.
           console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
-          // HEL-1300: seeding below must not race the live post-login `/`.
+          // HEL-1300: seeding below must not race the live post-login `/home`.
           await isolateLivePage(page);
           const dashboardId = await seedDashboard(request);
           try {
@@ -224,7 +224,7 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
       });
       // Registered users have no delete API; log each so residue is traceable by exact email.
       console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
-      // HEL-1300: seeding below must not race the live post-login `/`.
+      // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
       try {
@@ -257,7 +257,7 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
       });
       // Registered users have no delete API; log each so residue is traceable by exact email.
       console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
-      // HEL-1300: seeding below must not race the live post-login `/`.
+      // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
       const dashboardId = await seedDashboard(request);
       try {
@@ -284,7 +284,7 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     const { email } = await registerAndLogin(page, request, { ...AUTH, label: "xs" });
     // Registered users have no delete API; log each so residue is traceable by exact email.
     console.log(`[HEL-1028 e2e] throwaway user registered: ${email}`);
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardId = await seedDashboard(request);
     try {

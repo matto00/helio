@@ -233,7 +233,7 @@ for (const theme of ["light", "dark"] as const) {
         200,
       );
 
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1351 ${theme}`).first().click();
       const tallCard = page.locator(".react-grid-item", { hasText: "HEL-1351 Tall" });

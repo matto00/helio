@@ -14,13 +14,13 @@
 const RETURN_TO_STORAGE_KEY = "helio.auth.returnTo";
 
 /** Stash `path` for `consumeReturnTo` to pick up after an OAuth round trip.
- *  Skips storage entirely for `/` (or nothing) since that's the default
+ *  Skips storage entirely for `/home` (or nothing) since that's the default
  *  destination anyway. Silently no-ops if `sessionStorage` is unavailable
  *  (private browsing / quota) — the OAuth flow still completes, it just
- *  lands on `/` instead of the deep link. */
+ *  lands on `/home` instead of the deep link. */
 export function rememberReturnTo(path: string | null | undefined): void {
   try {
-    if (path && path !== "/") {
+    if (path && path !== "/home") {
       window.sessionStorage.setItem(RETURN_TO_STORAGE_KEY, path);
     } else {
       window.sessionStorage.removeItem(RETURN_TO_STORAGE_KEY);

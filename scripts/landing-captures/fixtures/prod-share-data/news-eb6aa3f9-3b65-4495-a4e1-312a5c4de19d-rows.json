@@ -1,0 +1,12 @@
+{
+  "items": [
+    { "domain": "tech", "stories": 3.0 },
+    { "domain": "ai", "stories": 2.0 },
+    { "domain": "politics", "stories": 1.0 },
+    { "domain": "world", "stories": 1.0 },
+    { "domain": "sports", "stories": 1.0 }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 5
+}

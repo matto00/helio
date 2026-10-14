@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 import { ChatPage } from "../features/assistant/ui/ChatPage";
 import { ProtectedRoute } from "../features/auth/ui/ProtectedRoute";
@@ -57,7 +57,7 @@ const AdminUsagePage = lazy(() =>
 
 /** Rendered for any route that doesn't match a real page — including while
  * unauthenticated, so it never depends on `AppShell`/auth context (design.md
- * D-shell). Replaces the previous silent `<Navigate to="/" />` redirect
+ * D-shell). Replaces the previous silent redirect to app home
  * (F-188): a genuinely unknown URL now says so instead of pretending nothing
  * happened. */
 function NotFoundPage() {
@@ -68,7 +68,7 @@ function NotFoundPage() {
         icon={<Compass />}
         title="Page not found"
         description="That page doesn't exist or may have moved."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
       />
     </div>
   );
@@ -81,7 +81,11 @@ function NotFoundPage() {
 export function AppRoutes() {
   return (
     <Routes>
-      {/* Public-only routes (redirect to / when already authenticated) */}
+      {/* HEL-1562: `/` is the static landing page on the server; this only catches an in-app
+          navigation (or old router state) to `/`, which means "app home". */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
+
+      {/* Public-only routes (redirect to /home when already authenticated) */}
       <Route element={<PublicOnlyRoute />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/verify" element={<MfaVerifyPage />} />
@@ -105,7 +109,7 @@ export function AppRoutes() {
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/" element={<PanelList />} />
+          <Route path="/home" element={<PanelList />} />
           {/* HEL-1209: the first-run landing URL; the public viewer is the longer
               `/dashboards/:id/panels`, registered above outside ProtectedRoute. */}
           <Route path="/dashboards/:id" element={<DashboardRoute />} />

@@ -38,12 +38,12 @@ export type SectionEntry =
  * — no component hardcodes an independent one.
  *
  * Order is most-specific-first (kept from the old `sectionFromPathname`):
- * `/` is the only exact-match (`end: true`) entry, since every path starts
- * with "/" — everything else prefix-matches, which also covers nested detail
+ * `/home` is the only exact-match (`end: true`) entry —
+ * everything else prefix-matches, which also covers nested detail
  * routes (`/pipelines/:id`). */
 export const sections: SectionEntry[] = [
   {
-    path: "/",
+    path: "/home",
     end: true,
     pickerId: "dashboards",
     label: "Dashboards",
@@ -152,11 +152,11 @@ export function isNavSection(
   return section.showInNav;
 }
 
-/** True on the routes that render a dashboard's panel grid: `/` (the Redux-selected dashboard)
+/** True on the routes that render a dashboard's panel grid: `/home` (the Redux-selected dashboard)
  *  and the authenticated `/dashboards/:id` landing route (HEL-1209). Gates the dashboard-only
  *  command-bar controls (rename, zoom, appearance, share) so they appear on both. */
 export function isDashboardViewPath(pathname: string): boolean {
-  return pathname === "/" || pathname.startsWith("/dashboards/");
+  return pathname === "/home" || pathname.startsWith("/dashboards/");
 }
 
 function findSection(pathname: string): SectionEntry | undefined {

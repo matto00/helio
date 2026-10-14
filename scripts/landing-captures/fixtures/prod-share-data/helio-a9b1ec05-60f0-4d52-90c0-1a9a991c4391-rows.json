@@ -1,0 +1,658 @@
+{
+  "items": [
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-13",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-14",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-15",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-16",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-17",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-07-18",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 1.0,
+      "completed_7d": 1.0,
+      "date": "2026-07-19",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 1.0,
+      "date": "2026-07-20",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 2.0,
+      "completed_7d": 3.0,
+      "date": "2026-07-21",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 9.0,
+      "date": "2026-07-22",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 1.0,
+      "completed_7d": 10.0,
+      "date": "2026-07-23",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 8.0,
+      "completed_7d": 18.0,
+      "date": "2026-07-24",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 13.0,
+      "completed_7d": 31.0,
+      "date": "2026-07-25",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 13.0,
+      "completed_7d": 43.0,
+      "date": "2026-07-26",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 13.0,
+      "completed_7d": 56.0,
+      "date": "2026-07-27",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 59.0,
+      "date": "2026-07-28",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 53.0,
+      "date": "2026-07-29",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 52.0,
+      "date": "2026-07-30",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 44.0,
+      "date": "2026-07-31",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 31.0,
+      "date": "2026-08-01",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 18.0,
+      "date": "2026-08-02",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 5.0,
+      "date": "2026-08-03",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-04",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-05",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-06",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-07",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-08",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-09",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 0.0,
+      "date": "2026-08-10",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 2.0,
+      "completed_7d": 2.0,
+      "date": "2026-08-11",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 2.0,
+      "completed_7d": 4.0,
+      "date": "2026-08-12",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 9.0,
+      "date": "2026-08-13",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 9.0,
+      "completed_7d": 18.0,
+      "date": "2026-08-14",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 7.0,
+      "completed_7d": 25.0,
+      "date": "2026-08-15",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 11.0,
+      "completed_7d": 36.0,
+      "date": "2026-08-16",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 26.0,
+      "completed_7d": 62.0,
+      "date": "2026-08-17",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 11.0,
+      "completed_7d": 71.0,
+      "date": "2026-08-18",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 75.0,
+      "date": "2026-08-19",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 76.0,
+      "date": "2026-08-20",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 72.0,
+      "date": "2026-08-21",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 8.0,
+      "completed_7d": 73.0,
+      "date": "2026-08-22",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 4.0,
+      "completed_7d": 66.0,
+      "date": "2026-08-23",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 40.0,
+      "date": "2026-08-24",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 2.0,
+      "completed_7d": 31.0,
+      "date": "2026-08-25",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 3.0,
+      "completed_7d": 28.0,
+      "date": "2026-08-26",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 18.0,
+      "completed_7d": 40.0,
+      "date": "2026-08-27",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 8.0,
+      "completed_7d": 43.0,
+      "date": "2026-08-28",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 41.0,
+      "date": "2026-08-29",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 42.0,
+      "date": "2026-08-30",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 10.0,
+      "completed_7d": 52.0,
+      "date": "2026-08-31",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 50.0,
+      "date": "2026-09-01",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 4.0,
+      "completed_7d": 51.0,
+      "date": "2026-09-02",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 4.0,
+      "completed_7d": 37.0,
+      "date": "2026-09-03",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 9.0,
+      "completed_7d": 38.0,
+      "date": "2026-09-04",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 3.0,
+      "completed_7d": 35.0,
+      "date": "2026-09-05",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 12.0,
+      "completed_7d": 42.0,
+      "date": "2026-09-06",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 10.0,
+      "completed_7d": 42.0,
+      "date": "2026-09-07",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 48.0,
+      "date": "2026-09-08",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 14.0,
+      "completed_7d": 58.0,
+      "date": "2026-09-09",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 9.0,
+      "completed_7d": 63.0,
+      "date": "2026-09-10",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 11.0,
+      "completed_7d": 65.0,
+      "date": "2026-09-11",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 9.0,
+      "completed_7d": 71.0,
+      "date": "2026-09-12",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 64.0,
+      "date": "2026-09-13",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 10.0,
+      "completed_7d": 64.0,
+      "date": "2026-09-14",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 58.0,
+      "date": "2026-09-15",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 49.0,
+      "date": "2026-09-16",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 4.0,
+      "completed_7d": 44.0,
+      "date": "2026-09-17",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 1.0,
+      "completed_7d": 34.0,
+      "date": "2026-09-18",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 9.0,
+      "completed_7d": 34.0,
+      "date": "2026-09-19",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 29.0,
+      "date": "2026-09-20",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 1.0,
+      "completed_7d": 20.0,
+      "date": "2026-09-21",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 20.0,
+      "date": "2026-09-22",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 21.0,
+      "date": "2026-09-23",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 22.0,
+      "date": "2026-09-24",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 6.0,
+      "completed_7d": 27.0,
+      "date": "2026-09-25",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 23.0,
+      "date": "2026-09-26",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 3.0,
+      "completed_7d": 26.0,
+      "date": "2026-09-27",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 0.0,
+      "completed_7d": 25.0,
+      "date": "2026-09-28",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 1.0,
+      "completed_7d": 26.0,
+      "date": "2026-09-29",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 5.0,
+      "completed_7d": 25.0,
+      "date": "2026-09-30",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 11.0,
+      "completed_7d": 31.0,
+      "date": "2026-10-01",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 10.0,
+      "completed_7d": 35.0,
+      "date": "2026-10-02",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 7.0,
+      "completed_7d": 37.0,
+      "date": "2026-10-03",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 11.0,
+      "completed_7d": 45.0,
+      "date": "2026-10-04",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 8.0,
+      "completed_7d": 53.0,
+      "date": "2026-10-05",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 17.0,
+      "completed_7d": 69.0,
+      "date": "2026-10-06",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 35.0,
+      "completed_7d": 99.0,
+      "date": "2026-10-07",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 22.0,
+      "completed_7d": 110.0,
+      "date": "2026-10-08",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 34.0,
+      "completed_7d": 134.0,
+      "date": "2026-10-09",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 35.0,
+      "completed_7d": 162.0,
+      "date": "2026-10-10",
+      "open_bugs": null,
+      "open_tickets": null
+    },
+    {
+      "completed": 24.0,
+      "completed_7d": 175.0,
+      "date": "2026-10-11",
+      "open_bugs": 15.0,
+      "open_tickets": 457.0
+    },
+    {
+      "completed": 27.0,
+      "completed_7d": 194.0,
+      "date": "2026-10-12",
+      "open_bugs": 11.0,
+      "open_tickets": 453.0
+    },
+    {
+      "completed": 17.0,
+      "completed_7d": 194.0,
+      "date": "2026-10-13",
+      "open_bugs": 7.0,
+      "open_tickets": 461.0
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 93
+}

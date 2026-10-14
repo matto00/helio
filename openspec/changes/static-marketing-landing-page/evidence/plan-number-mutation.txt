@@ -1,0 +1,8 @@
+## green baseline
+Tests:       2 passed, 2 total
+## mutation: planNumbers.ts = 51 (backend default stays 50)
+    Expected: 50
+    Received: 51
+Tests:       1 failed, 1 passed, 2 total
+## reverted
+Tests:       2 passed, 2 total

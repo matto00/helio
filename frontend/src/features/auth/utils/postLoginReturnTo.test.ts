@@ -21,7 +21,7 @@ describe("postLoginReturnTo", () => {
   });
 
   it("rememberReturnTo skips storage for the root path", () => {
-    rememberReturnTo("/");
+    rememberReturnTo("/home");
     expect(consumeReturnTo()).toBeNull();
   });
 
@@ -33,7 +33,7 @@ describe("postLoginReturnTo", () => {
 
   it("rememberReturnTo clears a previously stashed path when passed the root path", () => {
     rememberReturnTo("/pipelines/abc-123");
-    rememberReturnTo("/");
+    rememberReturnTo("/home");
     expect(consumeReturnTo()).toBeNull();
   });
 

@@ -16,7 +16,7 @@ function LoginPageStub() {
   return <div>Login page{from ? ` (from ${from.pathname})` : ""}</div>;
 }
 
-function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {
+function renderWithAuth(authState: Partial<AuthState>, initialPath = "/home") {
   const fullState: AuthState = {
     currentUser: null,
     status: "idle",
@@ -41,7 +41,7 @@ function renderWithAuth(authState: Partial<AuthState>, initialPath = "/") {
   render(
     <Routes>
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<div>Protected content</div>} />
+        <Route path="/home" element={<div>Protected content</div>} />
         <Route path="/pipelines/:id" element={<div>Protected content</div>} />
       </Route>
       <Route path="/login" element={<LoginPageStub />} />
@@ -62,7 +62,7 @@ describe("ProtectedRoute", () => {
   it("redirects to /login when status is unauthenticated", () => {
     renderWithAuth({ status: "unauthenticated" });
     // F-081: ProtectedRoute always carries `state={{ from: location }}`, so
-    // the stub's rendered text includes the current path (here "/") —
+    // the stub's rendered text includes the current path (here "/home") —
     // matched loosely rather than pinned to the no-`from` copy.
     expect(screen.getByText(/^Login page/)).toBeInTheDocument();
     expect(screen.queryByText("Protected content")).not.toBeInTheDocument();

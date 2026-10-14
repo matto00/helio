@@ -241,7 +241,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
       page,
       request,
     );
-    await page.goto("/");
+    await page.goto("/home");
 
     const chartCard = page
       .locator(".panel-grid-card")
@@ -323,7 +323,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
     // — the breakpoint sweep below only needs to resize AFTER the filter is
     // already active, since it's checking the INDICATOR's layout, not the
     // click geometry.
-    await page.goto("/");
+    await page.goto("/home");
 
     const chartCard = page
       .locator(".panel-grid-card")
@@ -512,7 +512,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
       headers: { [CSRF_HEADER]: "1" },
     });
 
-    await page.goto("/");
+    await page.goto("/home");
 
     const chartCard = page
       .locator(".panel-grid-card")
@@ -747,7 +747,7 @@ test.describe("HEL-588 cross-filter panels (real backend, real browser)", () => 
       headers: { [CSRF_HEADER]: "1" },
     });
 
-    await page.goto("/");
+    await page.goto("/home");
 
     // Step 1 — click Panel A's pie, open Inspect, set the cross-filter from
     // WHICHEVER quarter the pixel-scan actually landed on (never assumed).

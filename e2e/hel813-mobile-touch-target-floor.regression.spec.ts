@@ -249,14 +249,14 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
     try {
       await page.setViewportSize({ width: 430, height: 900 });
       await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
-      // HEL-1300: seeding below must not race the live post-login `/`.
+      // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
       const dashboardRes = await page.request.post("/api/dashboards", {
         data: { name: "HEL-813 Regression Nav" },
         headers: { [CSRF_HEADER]: "1" },
       });
       expect(dashboardRes.status()).toBe(201);
-      await page.goto("/");
+      await page.goto("/home");
       await page.getByRole("button", { name: /Switch dashboards/i }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();

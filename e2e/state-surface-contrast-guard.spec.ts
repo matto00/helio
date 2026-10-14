@@ -509,7 +509,7 @@ const SOURCE_NAME = "HEL-866 Guard Source";
 // left implicit, per design.md D6.2. Runtime ids are resolved inside the cell; titles and logged
 // view names use the static label.
 type RouteKey =
-  | "/"
+  | "/home"
   | "/sources"
   | "/pipelines"
   | "pipeline-detail"
@@ -522,7 +522,7 @@ const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
   "pipeline-detail",
   "/sources",
   "/pipelines",
-  "/",
+  "/home",
   "/chat",
   "/connectors",
 ];
@@ -543,7 +543,7 @@ const CHROME_EXCLUDE = "main, .app-sidebar > :not(.app-sidebar__nav-row)";
 async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   // HEL-1330: idle the page on about:blank before any API seeding. A fresh page already is, and the
   // seed below runs before this cell's first app `goto`; stating it keeps a future earlier `goto`
-  // from reintroducing the seed-while-`/`-is-live race (HEL-1289). The theme stays an
+  // from reintroducing the seed-while-`/home`-is-live race (HEL-1289). The theme stays an
   // `addInitScript`, never an `evaluate`: there is no live app page to evaluate on (C3).
   await isolateLivePage(page);
   const client = await page.context().newCDPSession(page);
@@ -611,7 +611,7 @@ async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   expect(loginRes.status()).toBe(200);
   await page.context().addCookies((await request.storageState()).cookies);
   await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-  await page.goto("/");
+  await page.goto("/home");
   await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
   return { client, pipelineId: pipeline.id as string };
 }
@@ -764,13 +764,13 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       const results: ElementResult[] = [];
       const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
 
-      // The unsplit walk reached the palette having visited, in order, `/` -> `/sources` ->
-      // `/pipelines` -> `/pipelines/<id>` -> `/connectors` -> `/chat` -> `/settings` -> `/`, which
+      // The unsplit walk reached the palette having visited, in order, `/home` -> `/sources` ->
+      // `/pipelines` -> `/pipelines/<id>` -> `/connectors` -> `/chat` -> `/settings` -> `/home`, which
       // fills the palette's empty-query Recent section ({dashboard, pipeline}; localStorage
       // `helio.recentVisits`). Replay EXACTLY that sequence (never `/sources/<id>`, which the
       // unsplit walk never visits) so the palette population is the same SET, gating each step on
       // a readiness signal instead of a bare `goto` chain.
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
       await page.goto("/sources");
@@ -788,7 +788,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       await expect(page.locator("main")).toBeVisible();
       await page.goto("/settings");
       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
 
       // Overlay: command palette (this ticket's canonical defect surface).
@@ -821,10 +821,10 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       await expect(modal).toHaveCount(0);
       await page.waitForTimeout(150);
 
-      // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — navigate to `/`, where the
+      // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — navigate to `/home`, where the
       // dashboard row genuinely renders, and assert the trigger exists rather than conditionally
       // skipping — a missing overlay fails loudly.
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
       const row = page.locator(".dashboard-list__item-row", { hasText: DASH_NAME });
       await expect(row).toHaveCount(1);
@@ -863,7 +863,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         // `location.href` re-checked before every reading, per CON-165.
         await expect(page).toHaveURL(
-          new RegExp(`${route === "/" ? "/$" : route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+          new RegExp(`${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
         );
         // Readiness gate (HEL-1288 evaluation-1): the route's OWN content, in `<main>` and in the
         // sidebar rail where the rail lists seeded data, must have rendered before anything is
@@ -872,7 +872,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
         const sidebar = page.locator(".app-sidebar");
         const seeded = (scope: Locator, text: string) =>
           expect(scope.getByText(text, { exact: true }).first()).toBeVisible();
-        if (routeKey === "/") {
+        if (routeKey === "/home") {
           await seeded(sidebar, DASH_NAME);
         } else if (routeKey === "/sources") {
           await seeded(sidebar, SOURCE_NAME);
@@ -946,7 +946,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       const { client } = await newCell(page, request, theme);
       const results: ElementResult[] = [];
       const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator(".app-command-bar")).toBeVisible();
       await page.waitForTimeout(200);

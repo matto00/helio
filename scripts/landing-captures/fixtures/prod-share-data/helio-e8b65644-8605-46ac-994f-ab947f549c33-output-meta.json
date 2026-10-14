@@ -1,0 +1,11 @@
+{
+  "config": {
+    "fieldMapping": { "xAxis": "completedAt", "yAxis": "ticketsCompleted" },
+    "referenceLines": [{ "label": "90d avg", "value": 49.9 }]
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "completedAt", "type": "timestamp" },
+    { "name": "ticketsCompleted", "type": "integer" }
+  ]
+}

@@ -1,0 +1,43 @@
+openspec/specs/trace-context-logging/spec.md:13:trace id is the substring of the header value before the first `/` (Cloud Run format
+openspec/specs/marketing-landing-page/spec.md:4:A static marketing landing page at the site root (`/`) that crawlers and link previews can read without running
+openspec/specs/marketing-landing-page/spec.md:11:A request for `/` SHALL return the landing page as a complete HTML document. The response body SHALL contain the hero
+openspec/specs/marketing-landing-page/spec.md:19:- **WHEN** a client without JavaScript requests `/` from the production build
+openspec/specs/marketing-landing-page/spec.md:29:Every navigation to a path other than `/` that does not name a built file SHALL be served the app shell. This SHALL
+openspec/specs/marketing-landing-page/spec.md:40:- **WHEN** the browser requests `/`
+openspec/specs/marketing-landing-page/spec.md:44:The app's home view (the dashboard list formerly at `/`) SHALL be served at `/home`. An in-app client-side navigation
+openspec/specs/marketing-landing-page/spec.md:45:to `/` SHALL redirect to `/home`. Every in-app link, button or redirect whose destination is "app home" SHALL target
+openspec/specs/marketing-landing-page/spec.md:64:- **WHEN** a user who has signed in on this browser visits `/`
+openspec/specs/marketing-landing-page/spec.md:73:- **WHEN** the user logs out and then visits `/`
+openspec/specs/timestamp-value-parsing/spec.md:21:  letters, digits, `_`, `+`, `-`, `/` or `:` (e.g. `2026-07-01T12:00:00+02:00[Europe/Paris]`), read at its written
+openspec/specs/pipeline-upsertsource-config/spec.md:66:  `"append"`/`"replace"`
+openspec/specs/pipeline-zero-root-db-guard/spec.md:24:raises `42704`/`22P02` on the outer DELETE before the trigger is ever reached — that shape is
+openspec/specs/pipeline-string-ops-op/spec.md:36:- **WHEN** a stringops step with `{"operation": "split", "field": "path", "separator": "/",
+openspec/specs/pipeline-string-ops-op/spec.md:41:- **WHEN** a stringops step with `{"operation": "split", "field": "path", "separator": "/",
+openspec/specs/pwa-installability/spec.md:10:`display: "standalone"`, `start_url: "/home"`, `scope: "/"`, and `background_color`/`theme_color` matching the
+openspec/specs/pwa-installability/spec.md:16:- **THEN** `app.html` links a manifest whose `display` is `standalone`, whose `scope` is `/` and whose `start_url` is
+openspec/specs/pwa-installability/spec.md:48:- **WHEN** a first-time visitor loads `/`
+openspec/specs/pwa-installability/spec.md:79:`navigateFallbackDenylist` SHALL exclude `/`, so a navigation to `/` is never answered with `app.html` by the
+openspec/specs/pwa-installability/spec.md:80:navigation fallback, including when the URL carries a query string. A browser that installed the service worker from a build where `/` was the app SHALL see the
+openspec/specs/pwa-installability/spec.md:81:landing page at `/` once the new service worker has activated.
+openspec/specs/pwa-installability/spec.md:84:- **WHEN** a browser controlled by the previous build's service worker visits `/` after the new build is deployed and
+openspec/specs/pwa-installability/spec.md:86:- **THEN** the landing page is shown at `/`
+openspec/specs/pipeline-analyze-schema-warnings/spec.md:146:For an enabled `compute` step with no `validationError` whose projected input types are trusted to equal the run-time value types (the same trust rule the join-key type c
+openspec/specs/pipeline-analyze-schema-warnings/spec.md:267:For an enabled `compute` step with no `validationError`, the system SHALL emit one `literal-type-mismatch` warning per distinct literal and context where a string literal
+openspec/specs/outputs-model/spec.md:58:`"grid"`/`"list"`; `"asc"`/`"desc"`), and the live key is absent or JSON null. Otherwise the dead key SHALL be dropped. A
+openspec/specs/frontend-pipelines-page/spec.md:45:#### Scenario: Breadcrumb shows Dashboards on /
+openspec/specs/echarts-chart-panel/spec.md:78:  `axisLabels.y.label` are `"Rating"`/`"Count"`
+openspec/specs/dataset-row-grid/spec.md:90:interactive elements SHALL expose correct accessible names/roles (`role="grid"`/`"row"`/
+openspec/specs/form-panel-rendering/spec.md:17:`+`/`-` step affordances honouring the field's `step` (see the dedicated counter-control and
+openspec/specs/form-panel-rendering/spec.md:57:the arrow keys and commits with Enter; the checkbox toggles with Space; a `counter` control's `+`/`-`
+openspec/specs/form-panel-rendering/spec.md:191:### Requirement: A `counter`-control field renders compact `+`/`-`/value chrome with computed ARIA state
+openspec/specs/form-panel-rendering/spec.md:200:ARIA state — never by the presence of a `+`/`-` DOM node alone. `step` defaults to `1` when unconfigured.
+openspec/specs/form-panel-rendering/spec.md:253:compact single-field layout: the counter's value/`+`/`-`/step chrome fills the panel body, in place of the
+openspec/specs/frontend-data-sources-page/spec.md:13:#### Scenario: Navigating to / shows dashboard view
+openspec/specs/form-panel-submit/spec.md:322:- **WHEN** a counter's `+`/`-` control is activated and the resulting submit request has not yet
+openspec/specs/compute-expression-language/spec.md:141:`-`, `*`, and `/` SHALL require both operands to evaluate to numbers; a non-numeric operand (a string or a boolean,
+openspec/specs/compute-expression-language/spec.md:182:- A comparison whose operands infer different kinds (numeric `"integer"`/`"float"`; text `"string"`/`"string-body"`/
+openspec/specs/compute-expression-language/spec.md:185:- A boolean-valued sub-expression other than a bare field reference used as an operand of `-`, `*`, `/`, unary `-` or
+openspec/specs/compute-expression-language/spec.md:311:`-`/`*`/`/` operators. If any argument is `null`, the result SHALL be `null`. `floor` SHALL round toward negative
+openspec/specs/compute-expression-language/spec.md:316:division-by-zero evaluation error, yielding `null` for that row, consistent with `/`. No numeric function result
+openspec/specs/compute-expression-language/spec.md:404:than `*` and `/` and apply to the single operand that immediately follows it (`-$a * $b` is `(-$a) * $b`;
+openspec/specs/compute-expression-language/spec.md:558:comparison, `+`/`-`, `*`/`/`, unary `-`; `and`/`or` are left-associative and parentheses override. Operands of `and`,

@@ -1,0 +1,10 @@
+## mutation: .closing-line font-family -> var(--font-display)
+Tests:       2 failed, 1 passed, 3 total
+  ✘  1 e2e/hel1562-landing-page.spec.ts:159:7 › HEL-1562 landing page › the wordmark, headlines and closing line use the heading face token (2.5s)
+    Expected: [32m"\"Schibsted Grotesk\""[39m
+    Received: [31m"Fraunces"[39m
+  1 failed
+## mutation: add Fraunces back to the landing font link
+Tests:       1 failed, 2 passed, 3 total
+## reverted
+Tests:       3 passed, 3 total

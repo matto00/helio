@@ -19,6 +19,7 @@ import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
+import { registerSignedInHintListener } from "../features/auth/state/signedInHint";
 import { addRecentVisitsListeners } from "../features/commandPalette/state/recentVisitsListeners";
 
 // Register all toast listeners before the store is finalised.
@@ -26,6 +27,8 @@ addToastListeners(startAppListening);
 // HEL-519 design.md D2 — dashboards' recording mechanism (a state-transition listener) plus
 // the prune listeners for all three kinds. See `recentVisitsListeners.ts`.
 addRecentVisitsListeners(startAppListening);
+// HEL-1562: keeps the landing page's "signed in" hint in step with `auth.status`.
+registerSignedInHintListener(startAppListening);
 
 export const store = configureStore({
   reducer: {

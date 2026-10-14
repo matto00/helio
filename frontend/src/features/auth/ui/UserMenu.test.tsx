@@ -150,7 +150,7 @@ describe("UserMenu", () => {
 
   // HEL-554 D9/task 4.4/4.5 — the re-open affordance. Dispatches rather than
   // writing storage itself (D7's single-owner requirement) and navigates to
-  // "/", the only surface that renders the checklist.
+  // "/home", the only surface that renders the checklist.
   describe("Getting started (HEL-554)", () => {
     it("renders a 'Getting started' item in the popover", () => {
       renderMenu();

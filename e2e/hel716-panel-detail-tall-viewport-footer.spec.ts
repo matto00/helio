@@ -49,8 +49,8 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    await page.waitForURL("/home");
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
 
     const dashboardRes = await page.request.post("/api/dashboards", {
@@ -68,7 +68,7 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     });
     expect(panelRes.status()).toBe(201);
 
-    await page.goto("/");
+    await page.goto("/home");
     await page.getByText("Total value").click();
 
     const dialog = page.getByRole("dialog").first();

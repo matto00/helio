@@ -45,7 +45,7 @@ function renderLoginPage(search = "") {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/verify" element={<div data-testid="mfa-verify-page" />} />
-          <Route path="/" element={<div data-testid="home-page" />} />
+          <Route path="/home" element={<div data-testid="home-page" />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -132,7 +132,7 @@ describe("LoginPage", () => {
     });
   });
 
-  it("navigates to / when login returns a normal session", async () => {
+  it("navigates to /home when login returns a normal session", async () => {
     mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
     renderLoginPage();
 

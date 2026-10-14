@@ -245,7 +245,7 @@ test.describe("HEL-520 demonstrated-RED regression harness", () => {
       await client.send("CSS.enable");
 
       await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
-      // HEL-1300: seeding below must not race the live post-login `/`.
+      // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
       const sourceRes = await page.request.post("/api/data-sources", {
         data: {

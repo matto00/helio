@@ -124,7 +124,7 @@ test.describe("HEL-1085 form field renderers — keyboard completion (real backe
       });
       expect(layoutRes.status()).toBe(200);
 
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.getByRole("heading", { name: "HEL-1085 e2e Dashboard" })).toBeVisible();
       await expect(page.locator(".react-grid-item")).toHaveCount(1);
 

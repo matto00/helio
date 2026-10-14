@@ -53,7 +53,7 @@ export function LoginPage() {
           ? "/login/verify"
           : from
             ? pathFromLocation(from)
-            : "/",
+            : "/home",
       );
     } else {
       setError((result.payload as string | undefined) ?? "Login failed.");

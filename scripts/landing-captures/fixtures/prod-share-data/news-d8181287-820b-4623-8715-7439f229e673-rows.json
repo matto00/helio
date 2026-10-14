@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "articles": 348.0,
+      "boards_built": 7.0,
+      "boards_total": 7.0,
+      "date": "2026-10-13",
+      "duration_min": 25.8,
+      "duration_s": 1549.0,
+      "status": "ok",
+      "stories": 8.0
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 1
+}

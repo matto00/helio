@@ -1,0 +1,5 @@
+{
+  "config": { "fieldMapping": { "value": "avgCycleSeconds" }, "format": "duration" },
+  "kind": "metric",
+  "schema": [{ "name": "avgCycleSeconds", "type": "float" }]
+}

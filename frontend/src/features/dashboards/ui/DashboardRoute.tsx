@@ -44,7 +44,7 @@ export function DashboardRoute() {
         icon={<Compass />}
         title="Dashboard not found"
         description="That dashboard doesn't exist or you don't have access to it."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
       />
     );
   }

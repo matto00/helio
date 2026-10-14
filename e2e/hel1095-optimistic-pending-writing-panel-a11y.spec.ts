@@ -120,7 +120,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
         });
         expect(layoutRes.status()).toBe(200);
 
-        await page.goto("/");
+        await page.goto("/home");
         const control = page.getByRole("spinbutton", { name: "Widgets" });
         await expect(control).toBeVisible();
         // Theme switch AFTER the dashboard has fully rendered (mirrors hel1088/hel1090's own
@@ -198,7 +198,7 @@ test.describe("HEL-1095 optimistic pending/rollback ARIA state (real backend)", 
         });
         expect(layoutRes.status()).toBe(200);
 
-        await page.goto("/");
+        await page.goto("/home");
         const control = page.getByRole("spinbutton", { name: "Widgets" });
         await expect(control).toBeVisible();
         // Theme switch AFTER the dashboard has fully rendered — see the sibling test's comment.

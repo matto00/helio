@@ -85,14 +85,14 @@ export function CombinedProposalReviewPage() {
     if (!proposal || unresolvedConnectorRefs.length > 0) return;
     try {
       await dispatch(applyCombinedProposal(proposal)).unwrap();
-      navigate("/");
+      navigate("/home");
     } catch {
       // The rejected reducer already populated `combinedProposals.error`
       // (read via `applyError` above) — nothing further to do here.
     }
   };
 
-  const handleReject = () => navigate("/");
+  const handleReject = () => navigate("/home");
 
   // F-002: no proposal handed off via navigation state, and not a DEV build
   // — there is nothing to review and no reasonable proposal to synthesize.
@@ -103,7 +103,7 @@ export function CombinedProposalReviewPage() {
           icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a combined proposal handed off from another flow. Start from the dashboards list instead."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
         />
       </PageShell>
     );
