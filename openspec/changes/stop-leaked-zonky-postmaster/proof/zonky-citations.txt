@@ -1,0 +1,11 @@
+Re-verified 2026-10-14 against
+~/.cache/coursier/v1/https/repo1.maven.org/maven2/io/zonky/test/embedded-postgres/2.0.7/embedded-postgres-2.0.7-sources.jar
+(EmbeddedPostgres.java):
+  :90   LOCK_FILE_NAME = "epg-lock"          (the lock file is epg-lock; the HEL-1474 proof's ".epg-lock" is a typo)
+  :160  lock()                               (creates <dir>/epg-lock)
+  :161  startPostmaster()
+  :254  startPostmaster() definition; :275 builder.start() launches `pg_ctl -D <dir> ... -w start`, not waited on
+  :283  Runtime.getRuntime().addShutdownHook(newCloserThread())
+  :335  throw new IOException("Gave up waiting for server to start after ...ms", lastCause)
+  :576  Builder.start()
+  :770  prepareBinaries is private (no pg_ctl path exposed)

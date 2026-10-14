@@ -1,0 +1,36 @@
+HEL-1586 proof: red (pre-fix helper) vs green (fixed helper). Own recorded PID / own data directory only; nothing signalled.
+
+== RED: task 1.1 seam applied, cleanup still pre-fix (try b.start() catch { deleteQuietly; throw }) ==
+Command: cd backend && nice -n 19 sbt -J-Xmx3g "testOnly com.helio.testkit.VerifiedEmbeddedPostgresSpec -- -z HEL-1586"
+HEL1586-RECORDED pid=1999944 port=41023 dir=/tmp/hel1586-postlaunch7452120232654978427
+[info] - should stop the postmaster on its own data directory, delete it, and propagate the library's error *** FAILED ***
+[info]   false was not equal to true (VerifiedEmbeddedPostgresSpec.scala:241 in the final file; :230 in the red run's earlier file revision)     <- portRefused(port) shouldBe true: the port is still listening
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+(In this run the test's finally-close was temporarily skipped so the leak stayed observable; it was restored afterwards.
+ An earlier identical red run with the finally-close in place failed at the same assertion.)
+
+ps -o pid,etimes,args -p 1999944   (taken 03:54:49 PDT, after the red run's JVM had exited and the directory was deleted)
+    PID ELAPSED COMMAND
+1999944       3 /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/postgres -D /tmp/hel1586-postlaunch7452120232654978427 -p 41023 -F -c synchronous_commit=off -c max_connections=300 -c timezone=UTC
+=> a postmaster for the attempt's own (now deleted) directory outlived the failed attempt and the JVM.
+
+== Leaked postmaster, no signal from us ==
+pid 1999944 was alive at 03:54:49 PDT (above). `ps -o pid,etimes,args -p 1999944` at 03:56:36 PDT printed only the header:
+the process was gone. We sent it no signal; it exited by itself between 03:54:49 and 03:56:36 (<= ~107 s after the
+observation above, ~2.3 min after launch), consistent with Postgres rechecking its lock file about once a minute and shutting
+down once the data directory was deleted. In between, it held port 41023 on a deleted directory.
+
+== GREEN: fixed helper (D2/D3 cleanup) ==
+Command: cd backend && nice -n 19 sbt -J-Xmx3g "testOnly com.helio.testkit.VerifiedEmbeddedPostgresSpec"
+HEL1586-RECORDED pid=2005473 port=44549 dir=/tmp/hel1586-postlaunch5370269805965394661
+HEL1586-STATUS-BEFORE exit=0 pg_ctl: server is running (PID: 2005473) /tmp/embedded-pg/.../bin/postgres "-D" "/tmp/hel1586-postlaunch5370269805965394661" "-p" "44549" ...
+[info] - should stop the postmaster on its own data directory, delete it, and propagate the library's error
+        (asserts: same IOException instance, one attempt, dir deleted, port refused, ProcessHandle.of(2005473) not alive after a bounded poll)
+[info] - should delete the attempt's data directory, leave nothing listening and propagate zonky's own error
+[info] - should keep the data directory, report why in a suppressed exception and rethrow the original
+[info] - should stop and delete only its own directory and leave the foreign cluster intact
+[info] Tests: succeeded 11, failed 0, canceled 0, ignored 0, pending 0
+
+Realism guard (-z HEL-1586) 3 consecutive runs: Tests: succeeded 4, failed 0 (x3).
+Task 3.4: VerifiedEmbeddedPostgresSpec + EmbeddedPostgresStartGuardSpec + EmbeddedPostgresGuardLexerSpec + ProductEventRoutesSpec:
+Suites: completed 4, aborted 0; Tests: succeeded 35, failed 0.
