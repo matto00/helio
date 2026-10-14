@@ -1,80 +1,7 @@
 ## Purpose
 Defines how each panel type renders its body content area inside the dashboard grid, including placeholder states when no data is bound and live states when data is present.
+
 ## Requirements
-### Requirement: Each panel type renders a visually distinct body
-The panel grid MUST render a different body content area for each panel type (`metric`, `chart`,
-`text`, `table`, `markdown`, `image`). When a panel has live mapped data or content, it SHALL
-display that data; when unbound or empty, it SHALL display an appropriate placeholder.
-
-The metric panel body SHALL render three lines when trend data is present: value (with unit, if
-mapped), label, and trend indicator. When `trend` is absent the metric panel body renders value
-(with unit, if mapped) and label only (two lines). The label line is omitted entirely — not
-replaced with a "No data" fallback — when a value is present but no label is mapped; a "No data"
-fallback is shown only when the value itself is absent.
-
-#### Scenario: Unbound metric panel renders a large value placeholder
-- **WHEN** a panel with `type: "metric"` and no `typeId` is displayed in the grid
-- **THEN** the panel body shows a large placeholder value (e.g. "--") with a sub-label and no trend indicator
-
-#### Scenario: Bound metric panel renders live value and label
-- **WHEN** a panel with `type: "metric"` has a `typeId` and data has been fetched and `trend` is not in the data map
-- **THEN** the panel body shows the mapped `value` slot as a large value and `label` slot as a sub-label
-
-#### Scenario: Bound metric panel renders unit alongside value
-- **WHEN** a panel with `type: "metric"` has a `typeId` and the mapped data includes a non-empty `unit` slot
-- **THEN** the panel body shows the `unit` slot rendered immediately adjacent to the `value` slot (e.g. "84 /100")
-
-#### Scenario: Bound metric panel with a value but no label omits the label line
-- **WHEN** a panel with `type: "metric"` has a mapped `value` slot but the `label` slot is absent or unresolved
-- **THEN** the panel body shows the value (and unit, if mapped) with no label line and no "No data" text
-
-#### Scenario: Bound metric panel with no value shows a "No data" fallback
-- **WHEN** a panel with `type: "metric"` has data fetched but the mapped `value` slot is absent, null, or empty
-- **THEN** the panel body shows the "No data" fallback text in place of the label line
-
-#### Scenario: Bound metric panel with trend renders three lines
-- **WHEN** a panel with `type: "metric"` has a `typeId` and bound data contains a `trend` field
-- **THEN** the panel body shows value, label, and trend indicator in vertical sequence
-
-#### Scenario: Unbound chart panel renders an empty ECharts instance
-- **WHEN** a panel with `type: "chart"` and no `typeId` is displayed in the grid
-- **THEN** the panel body shows an empty line chart with placeholder axes rendered by ECharts
-
-#### Scenario: Bound chart panel renders an ECharts instance
-- **WHEN** a panel with `type: "chart"` has a `typeId` and data has been fetched
-- **THEN** the panel body shows an ECharts instance (chart configuration for bound data is handled in future work)
-
-#### Scenario: Unbound text panel renders placeholder text lines
-- **WHEN** a panel with `type: "text"` and no `typeId` is displayed in the grid
-- **THEN** the panel body shows faded placeholder text lines
-
-#### Scenario: Bound text panel renders live content
-- **WHEN** a panel with `type: "text"` has a `typeId` and data has been fetched
-- **THEN** the panel body shows the mapped `content` slot value
-
-#### Scenario: Unbound table panel renders a table skeleton
-- **WHEN** a panel with `type: "table"` and no `typeId` is displayed in the grid
-- **THEN** the panel body shows a table structure with header row and placeholder data rows
-
-#### Scenario: Bound table panel renders live rows
-- **WHEN** a panel with `type: "table"` has a `typeId` and data has been fetched
-- **THEN** the panel body shows actual column headers and data rows from the preview response
-
-#### Scenario: Markdown panel with content renders CommonMark HTML
-- **WHEN** a panel with `type: "markdown"` has non-null and non-empty `content` in the grid
-- **THEN** the panel body renders the content as CommonMark-compliant HTML (headings, paragraphs, lists)
-
-#### Scenario: Markdown panel with no content renders placeholder
-- **WHEN** a panel with `type: "markdown"` has null or empty `content`
-- **THEN** the panel body shows a faded placeholder indicating the user should add content
-
-#### Scenario: Image panel with URL renders the image
-- **WHEN** a panel with `type: "image"` has a non-null `imageUrl`
-- **THEN** the panel body shows an `<img>` element with `src` set to `imageUrl` and `object-fit` set to the `imageFit` value (defaulting to `contain`)
-
-#### Scenario: Image panel without URL renders a placeholder
-- **WHEN** a panel with `type: "image"` has a null `imageUrl`
-- **THEN** the panel body shows a grey placeholder with an image icon
 
 ### Requirement: Unknown panel types degrade gracefully
 If a panel has an unrecognised or missing type value, the grid MUST render a fallback body rather than crashing or leaving the body blank.
@@ -88,7 +15,7 @@ Each panel card in the grid MUST display the panel's type as a small visible lab
 
 #### Scenario: Type badge shown on panel card
 - **WHEN** any panel is displayed in the grid
-- **THEN** a small type badge (e.g. "metric", "chart") is visible on the card
+- **THEN** a small type badge showing the panel's kind (e.g. "output", "text") is visible on the card
 
 ### Requirement: Markdown panel type badge is displayed correctly
 The type badge on a markdown panel card SHALL display the label "markdown" (consistent with other
@@ -114,26 +41,86 @@ as a selectable option alongside the existing types.
 - **WHEN** the panel type selector is opened
 - **THEN** `image` is listed as a valid selectable type
 
-### Requirement: Metric panel literal label/unit takes precedence over field-mapped values
-The rendered label/unit text SHALL use a metric panel config's literal `label`/`unit` (see
-`panel-datatype-binding`) instead of the value resolved from `fieldMapping`, when the literal value is
-present. When the literal value is absent, rendering SHALL fall back to the existing
-`fieldMapping`-resolved value unchanged. The literal label/unit SHALL NOT affect the "No data"
-fallback, which remains keyed on the presence of the mapped `value` slot only.
+### Requirement: Each canonical panel kind renders a visually distinct body
 
-#### Scenario: Literal label overrides the field-mapped label
-- **WHEN** a metric panel has `config.label: "Revenue"` and a `fieldMapping.label` bound to a column
-- **THEN** the panel body shows "Revenue" as the label, not the column's value
+The panel grid MUST render a body for each canonical panel kind (`output`, `text`, `markdown`, `image`, `divider`,
+`form`). A content kind (`text`, `markdown`, `image`) SHALL display its literal config when set and a placeholder when
+it is empty. An `output` panel's body SHALL be chosen by the kind of the Output it is bound to (`chart`, `table`,
+`metric`, `markdown`, `collection`, `timeline`). No panel kind has a `typeId` binding, and a `text` panel has no data
+binding of any kind.
 
-#### Scenario: Literal unit overrides the field-mapped unit
-- **WHEN** a metric panel has `config.unit: "$"` and a `fieldMapping.unit` bound to a column
-- **THEN** the panel body shows "$" adjacent to the value, not the column's value
+#### Scenario: Text panel with literal content renders it
+- **WHEN** a panel with `type: "text"` has a non-empty `config.content`
+- **THEN** the panel body shows that literal content
 
-#### Scenario: Absent literal label falls back to field-mapped label
-- **WHEN** a metric panel has no `config.label` but has `fieldMapping.label` bound to a column
-- **THEN** the panel body shows the column's resolved value as the label, unchanged from today
+#### Scenario: Text panel without content renders placeholder text lines
+- **WHEN** a panel with `type: "text"` has a null or empty `config.content`
+- **THEN** the panel body shows faded placeholder text lines
 
-#### Scenario: Literal label with no value binding still shows "No data"
-- **WHEN** a metric panel has `config.label: "Revenue"` but no mapped `value` slot
-- **THEN** the panel body shows the "No data" fallback, not "Revenue"
+#### Scenario: Markdown panel with content renders CommonMark HTML
+- **WHEN** a panel with `type: "markdown"` has a non-empty `config.content`
+- **THEN** the panel body renders the content as CommonMark-compliant HTML (headings, paragraphs, lists)
 
+#### Scenario: Markdown panel with no content renders placeholder
+- **WHEN** a panel with `type: "markdown"` has a null or empty `config.content`
+- **THEN** the panel body shows a faded placeholder indicating the user should add content
+
+#### Scenario: Image panel with a renderable URL renders the image
+- **WHEN** a panel with `type: "image"` has a `config.imageUrl` that, resolved against the page origin, is an `http`
+  or `https` URL (including a bare relative value such as `photo.png`)
+- **THEN** the panel body shows an `<img>` element whose `src` is the literal value for a same-origin path starting
+  with a single `/`, and otherwise the resolved absolute URL, with `object-fit` set to `config.imageFit` (defaulting
+  to `contain`)
+
+#### Scenario: Image panel without a renderable URL renders a placeholder
+- **WHEN** a panel with `type: "image"` has an empty or absent `config.imageUrl`, one that cannot be parsed as a URL,
+  or one that resolves to a non-`http(s)` scheme (e.g. `data:` or `javascript:`)
+- **THEN** the panel body shows a placeholder with an image icon instead of an `<img>` element
+
+#### Scenario: Image that fails to load renders a placeholder
+- **WHEN** an image panel's `<img>` fails to load
+- **THEN** the panel body replaces it with the image placeholder carrying load-failure copy
+
+#### Scenario: Divider panel renders a rule
+- **WHEN** a panel with `type: "divider"` is displayed in the grid
+- **THEN** the panel body shows a divider in its `config.orientation`
+
+#### Scenario: Form panel with no fields renders an unconfigured placeholder
+- **WHEN** a panel with `type: "form"` has an empty field list
+- **THEN** the panel body shows a "Form not configured" placeholder
+
+#### Scenario: Output panel body follows the bound Output's kind
+- **WHEN** a panel with `type: "output"` is displayed and its bound Output's metadata and rows have loaded
+- **THEN** the panel body renders the renderer for that Output's kind (a chart for `chart`, a table for `table`, a
+  metric value for `metric`, rendered markdown for `markdown`, a collection for `collection`, a timeline for
+  `timeline`)
+
+### Requirement: Metric-kind output panels render value, unit and label from the Output config
+
+An `output` panel bound to a `metric`-kind Output SHALL render the metric value as a large value, with the Output's
+`config.unit` immediately adjacent when non-empty (except for a duration format, whose formatted value already carries
+its unit words, so the unit suffix is hidden — HEL-1308), and the Output's `config.label` as a sub-label when non-empty. The
+label line SHALL be omitted, not replaced with a "No data" fallback, when a value is present but the label is empty; a
+"No data" fallback SHALL be shown only when the value itself is absent.
+
+#### Scenario: Metric value renders with its label
+- **WHEN** an output panel bound to a metric-kind Output whose `config.label` is non-empty has a value
+- **THEN** the panel body shows the value as a large value and the label as a sub-label
+
+#### Scenario: Metric unit renders alongside the value
+- **WHEN** an output panel bound to a metric-kind Output whose `config.unit` is non-empty and whose format is not a
+  duration format has a value
+- **THEN** the panel body shows the unit immediately adjacent to the value (e.g. "84 /100")
+
+#### Scenario: Duration-formatted metric hides the unit suffix
+- **WHEN** an output panel bound to a metric-kind Output with a duration format and a non-empty `config.unit` has a
+  value
+- **THEN** the panel body shows the formatted duration (e.g. "5m 30s") with no unit suffix
+
+#### Scenario: Metric value with no label omits the label line
+- **WHEN** an output panel bound to a metric-kind Output with an empty `config.label` has a value
+- **THEN** the panel body shows the value (and unit, if set) with no label line and no "No data" text
+
+#### Scenario: Metric with no value shows a "No data" fallback
+- **WHEN** an output panel bound to a metric-kind Output has no value
+- **THEN** the panel body shows the "No data" fallback text in place of the label line

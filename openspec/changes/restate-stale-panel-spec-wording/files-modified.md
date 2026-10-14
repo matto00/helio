@@ -1,8 +1,0 @@
-- `scripts/lib/agentFacingPanelTypes.mjs` — divider exclusion reason restated (no create_panel parity claim)
-- `helio-mcp/src/tools/proposal.ts` — header/config comments and propose_dashboard divider clause restated
-- `schemas/dashboards/dashboard-proposal.schema.json` — ProposalPanel.type description restated against AGENT_SURFACE_EXCLUSIONS
-- `backend/src/main/scala/com/helio/api/protocols/assistant/AssistantProposalToolSchemas.scala` — comment restated
-- `backend/src/main/scala/com/helio/api/protocols/proposals/DashboardProposalProtocol.scala` — sort/config comments restated
-- `backend/src/main/scala/com/helio/services/proposals/ProposalPanelSupport.scala` — validatePanel scaladoc corrected
-- `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringPromptSpec.scala` — test name only
-- `openspec/changes/restate-stale-panel-spec-wording/**` — spec deltas, evidence.md, tasks
