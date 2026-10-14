@@ -3,7 +3,10 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 
 import java.util.UUID
-import scala.concurrent.{Future, Promise}
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.Success
 
 /** HEL-1544 / HEL-1564 -- the run's own `succeeded` terminal write COMMITS FIRST, then its pipeline is deleted: whatever the
@@ -63,6 +66,42 @@ class LateFinisherDeleteAfterWonSpec extends LateFinisherSpecBase {
       res.map(_.isRight) shouldBe Success(true)
       awaitSucceeded(fx) shouldBe true
       eventsOf(fx).count(_ == "succeeded") shouldBe 1
+    }
+  }
+
+  // ── HEL-1594: D2 -- the recovery waits for the chain's in-flight sibling writes before it answers ──
+
+  "a recovered run whose binary-reference sibling write is still in flight when the chain fails (HEL-1594, HEL-1564 D2)" should {
+
+    "not answer before that sibling settles, then answer success with exactly one succeeded" in {
+      val fx      = seed()
+      val written = terminalWritten
+      val entered = binaryEntered
+      val settled = binarySettled
+      val failed  = nodeWriteFailed
+      val release = Promise[Unit]()
+      beforeNodeFold = () => written.future.flatMap(_ => deletePipeline(fx)) // the first node guard then sees the run Missing
+      binaryTarget = (fx.pid.value, fx.p.stepId.value)
+      beforeBinaryWrite = () => release.future // the eager sibling upsert is held open on a promise this test completes
+      val answer = submitAsync(fx)
+      val settledWhenAnswered = new AtomicBoolean(false)
+      // `andThen`'s future completes only AFTER its callback, so awaiting `observed` orders the flag before the read (a plain
+      // `onComplete` on `answer` races the test thread's own `Await`). The flag is a weak detector on its own: the step-4
+      // absence check below is what guards D2.
+      val observed = answer.andThen { case _ => settledWhenAnswered.set(settled.isCompleted) }
+      try {
+        Await.ready(entered.future, 30.seconds)
+        Await.ready(failed.future, 30.seconds) // the chain has failed; only the held sibling can still be holding the answer back
+        // Absence needs a window. It never decides an ordering in unmodified code (the answer cannot complete while `release`
+        // is open); it only bounds how long a mutant without the wait is given to answer (one existence read after the failure).
+        an[TimeoutException] should be thrownBy Await.ready(answer, 3.seconds)
+        answer.isCompleted shouldBe false
+      } finally release.trySuccess(()) // never leave a held sibling dangling into the next test
+      Await.result(observed, 60.seconds).isRight shouldBe true
+      settledWhenAnswered.get shouldBe true
+      awaitSucceeded(fx) shouldBe true
+      eventsOf(fx).count(_ == "succeeded") shouldBe 1
+      nothingWritten(fx)
     }
   }
 

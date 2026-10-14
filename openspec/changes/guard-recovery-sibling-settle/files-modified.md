@@ -1,0 +1,3 @@
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala` — seams binaryEntered/binarySettled/nodeWriteFailed (captured at call start, reset), submitAsync
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherDeleteAfterWonSpec.scala` — D2 test: answer waits for held sibling
+- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSeamIsolationSpec.scala` — isolation tests for the new captured fields
