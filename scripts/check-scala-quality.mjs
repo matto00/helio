@@ -11,9 +11,19 @@
 //     `scala.collection.mutable.X` (the whole `scala.` namespace) etc. are
 //     rejected.
 //
-// Known guard limits (false negatives, not fixed here): a `'"'` char literal
-// can confuse the string blanking; text inside a multi-line `"""` block and
-// `${...}` inside an ordinary `"..."` literal are not scanned as code.
+// Two passes; a line is flagged if EITHER flags it (HEL-1386), so this guard is a superset of the
+// pre-HEL-1386 guard by construction:
+//   Pass 1 - the original string-blanking detection, behaviour unchanged (per-line skip rules,
+//            regex blanking of "..." text, comment stripping). Its known limits are inherited:
+//            a `'"'` char literal can confuse the blanking, and text inside a multi-line `"""`
+//            block is still matched line by line (so an FQN in such text is reported).
+//   Pass 2 - scripts/scala-code-only.mjs: FQNs inside `${...}` splice code of interpolated
+//            literals (`s"…"`, `f"…"`, `raw"…"`, any `id"…"`), across lines, with nested braces
+//            and literals. It only ever ADDS findings and never looks at plain string text,
+//            `$ident` references or `$$`. Pass-2-only limits (they can lose splice findings but
+//            can never hide a pass-1 finding): backtick identifiers containing `"`, char literals
+//            other than `'x'`, `'\x'`, `'\uXXXX'`, and a `"""` opened after code on a line that a
+//            `//` comment truncates.
 //
 // Soft rules (warn, do not fail):
 //   - Files over 250 lines (general source) or 80 lines (aggregator/index)
@@ -23,6 +33,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { newScanState, spliceCodeOnly } from "./scala-code-only.mjs";
 
 const defaultRepoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -70,8 +81,9 @@ const fqnLineRegex = new RegExp(`(${FQN_PREFIXES.map(escapeRegExp).join("|")})\\
 const SOFT_BUDGET = 250;
 const AGGREGATOR_BUDGET = 80;
 
-// Pure scan of one Scala file's text. Returns { hardErrors, softWarnings }.
-export function scanScalaText(rel, text) {
+// Pass 1: the pre-HEL-1386 guard, byte-identical in behaviour (string text blanked by regex,
+// per-line skip rules, same hit decision). Returns { hardErrors, softWarnings }.
+function scanBase(rel, text) {
   const hardErrors = [];
   const softWarnings = [];
   const lines = text.split("\n");
@@ -120,6 +132,32 @@ export function scanScalaText(rel, text) {
       `${rel}:${i + 1}:${col}: inline FQN '${offender}…' — add a top-of-file import instead`,
     );
   }
+  return { hardErrors, softWarnings };
+}
+
+// Pass 2: FQNs inside `${...}` splice code only (scripts/scala-code-only.mjs). Never looks at
+// plain string text or ordinary code, so it can only ADD findings to pass 1.
+function scanSplices(rel, text) {
+  const hardErrors = [];
+  const state = newScanState();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const match = spliceCodeOnly(lines[i], state).match(fqnLineRegex);
+    if (match)
+      hardErrors.push(
+        `${rel}:${i + 1}:${match.index + 1}: inline FQN '${match[1]}…' — add a top-of-file import instead`,
+      );
+  }
+  return hardErrors;
+}
+
+// A line is flagged if EITHER pass flags it; pass 1's report (and column) wins when both do.
+export function scanScalaText(rel, text) {
+  const { hardErrors, softWarnings } = scanBase(rel, text);
+  const lineOf = (e) => Number(e.split(":")[1]);
+  const seen = new Set(hardErrors.map(lineOf));
+  for (const e of scanSplices(rel, text)) if (!seen.has(lineOf(e))) hardErrors.push(e);
+  hardErrors.sort((x, y) => lineOf(x) - lineOf(y));
   return { hardErrors, softWarnings };
 }
 
