@@ -78,6 +78,8 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
   /** The success chain starts its own `succeeded` terminal write EAGERLY, concurrently with the node fold, so a hook that
    *  must land before it has to hold it back: `terminalGate` (open by default) delays that one write. */
   @volatile private var terminalGate: Future[Unit] = Future.unit
+  /** Completed once the run's own terminal write has returned (committed or lost), so a hook can wait for it. */
+  @volatile private var terminalWritten: Promise[Unit] = Promise[Unit]()
   private final class GatedRunRepo(c: DbContext) extends PipelineRunRepository(c) {
     override def updateRunTerminal(
         runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
@@ -85,6 +87,7 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     ): Future[Boolean] = {
       val gate = terminalGate
       gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson))
+        .andThen { case _ => terminalWritten.trySuccess(()) }
     }
   }
 
@@ -102,6 +105,7 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     beforeNodeFold = () => Future.unit
     beforeOutputList = () => Future.unit
     terminalGate = Future.unit
+    terminalWritten = Promise[Unit]()
     super.afterEach()
   }
 
@@ -148,6 +152,14 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
   private def eventsOf(fx: Fx): Vector[String] = {
     Thread.sleep(300) // delivery to the subscriber is asynchronous; absence needs a settle window
     events.asScala.collect { case (p, e) if p == fx.pid.value => e.status }.toVector
+  }
+
+  /** Positive check: poll (bounded) until the run's `succeeded` event arrives, rather than trust a fixed settle window. */
+  private def awaitSucceeded(fx: Fx): Boolean = {
+    val deadline = System.nanoTime() + 15.seconds.toNanos
+    def seen = events.asScala.exists { case (p, e) => p == fx.pid.value && e.status == "succeeded" }
+    while (!seen && System.nanoTime() < deadline) Thread.sleep(20)
+    seen
   }
 
   private def nothingWritten(fx: Fx): Unit = {
@@ -204,7 +216,11 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
 
     "answer 404, write nothing and publish no succeeded when its pipeline was deleted before the Output list was read" in {
       val fx = seed()
-      beforeOutputList = () => deletePipeline(fx)
+      // The run's own succeeded write is eager and concurrent with this hook; unsequenced, it can commit first (HEL-1544).
+      // Hold it until the delete has finished, success or failure, so the delete is what lands first.
+      val deleted = Promise[Unit]()
+      terminalGate = deleted.future
+      beforeOutputList = () => deletePipeline(fx).andThen { case _ => deleted.trySuccess(()) }
       val (res, _) = submit(fx)
       res shouldBe Left(ServiceError.NotFound(s"Pipeline not found: ${fx.pid.value}"))
       nothingWritten(fx)
@@ -226,6 +242,30 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       res shouldBe Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished"))
       runStatus(fx) shouldBe "failed"
       count("node_snapshots", "pipeline_id", fx.pid.value) shouldBe 6 // written while the run was open (HEL-1511 Q6)
+      eventsOf(fx) should not contain "succeeded"
+    }
+  }
+
+  // ── The run's own terminal write COMMITS FIRST (HEL-1544): the outcome then depends on where the delete lands ──
+
+  "a run whose own succeeded terminal write committed before its pipeline was deleted (HEL-1544)" should {
+
+    "answer success and publish succeeded when the delete also landed before the Output list was read, so no node guard runs" in {
+      val fx = seed()
+      val written = terminalWritten
+      beforeOutputList = () => written.future.flatMap(_ => deletePipeline(fx)) // the delete is forced AFTER the run's own write
+      val (res, _) = submit(fx)
+      res.isRight shouldBe true
+      awaitSucceeded(fx) shouldBe true
+    }
+
+    "still answer 404 and publish no succeeded when the delete landed after the Output list was read, because a node guard sees the run Missing" in {
+      val fx = seed()
+      val written = terminalWritten
+      beforeNodeFold = () => written.future.flatMap(_ => deletePipeline(fx)) // after the list, and after the run's own write
+      val (res, _) = submit(fx)
+      res shouldBe Left(ServiceError.NotFound(s"Pipeline not found: ${fx.pid.value}"))
+      nothingWritten(fx)
       eventsOf(fx) should not contain "succeeded"
     }
   }
