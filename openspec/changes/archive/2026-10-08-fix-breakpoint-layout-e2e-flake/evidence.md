@@ -15,8 +15,8 @@ rendering opportunity is late while the page main thread stays responsive, so tw
    took 271 ms -> a loaded runner); both reads at lg geometry. Screencast frames WERE being produced
    (first post-resize frame 32930, then every ~45 ms) and the frame at 33194 still shows lg-width cards;
    the frame at the end (33856) shows md geometry. So: not a hung page, not a product layout bug - RGL
-   received the width late. Items stale were not only P8 (P2/P4/P6/P8 sit on the lg right edge: bad=4/8 in
-   the probe reproduction below).
+   received the width late. Items stale were not only P8: all 8 items were at lg geometry, and 4 of them
+   (P2/P4/P6/P8, on the lg right edge) fall outside the md bounds (the bad=4/8 count in the probe reproduction below).
 2. Natural lag measured with a passive probe (RO on `.panel-list__zoom-container`, `resize` listener,
    `performance.now()` from just before setViewportSize), 4 spinning `nice -n 19` busy loops + 4 workers,
    80 C-runs -> 160 md observations: ResizeObserver delivery lag p50 52 ms, p95 219 ms, max 545 ms;
@@ -72,7 +72,7 @@ rendering opportunity is late while the page main thread stays responsive, so tw
 ## Dev-DB residue
 Each test registers a throwaway user (`hel1023-<ts>-<n>@example.test`; users cannot be deleted via the API) and its
 `afterEach` deletes its own dashboard by exact id. Resolved read-only from the dev DB after the fact: 305 users
-created 2026-10-08 15:30:39 to 16:22:40 (-07) matching that pattern, excluding the evaluator's 31 (listed in
+created 2026-10-08 15:30:39 to 16:04:07 (-07; the newest row in `dev-db-residue.txt`; the query bound was 16:22:40) matching that pattern, excluding the evaluator's 31 (listed in
 `evaluation-1.md`, "Evaluator dev-DB residue"). Exact `id email created_at` per row: `dev-db-residue.txt` in this
 directory. Attribution is by the pattern plus time window since the first run of this task, not per-run logs, so a
 row from another concurrent lane in that window would be misattributed (none known). Leftover dashboards owned by

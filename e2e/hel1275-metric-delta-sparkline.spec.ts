@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 
 import { evidencePath } from "./support/evidencePath";
+import { containerWidthForViewport, waitForGridWidth } from "./support/gridProcessedWidth";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
@@ -51,25 +52,15 @@ async function layoutSettled(locator: Locator) {
     .toBe(true);
 }
 
-/** Sets the viewport width and waits for the card to REFLOW to it: first until the card's width
- *  differs from its pre-resize width, then until the box stops changing. `layoutSettled` alone
- *  passes vacuously on four reads taken at the OLD size right after `setViewportSize`, before the
- *  grid has reflowed (HEL-1327). When the viewport is already `width` nothing resizes, so only the
- *  settle runs. */
+/** Sets the viewport width and waits until the desktop grid has PROCESSED the resulting container
+ *  width (HEL-1413's processed-width report, via the shared helper), then until the card's
+ *  box stops changing. The processed-width gate replaces HEL-1327's "card width differs from its
+ *  pre-resize width" check, which only worked because an RGL item box moves once RGL gets the new
+ *  width; the helper states that condition exactly and is also correct when the viewport is
+ *  already `width` (the processed width then already matches). */
 async function resizeAndSettle(page: Page, card: Locator, width: number) {
-  const before = (await card.boundingBox())?.width ?? null;
-  expect(before, "card has no box before the resize").not.toBeNull();
-  const resizes = page.viewportSize()?.width !== width;
   await page.setViewportSize({ width, height: 900 });
-  if (resizes) {
-    await expect
-      .poll(async () => (await card.boundingBox())?.width ?? null, {
-        timeout: 15_000,
-        intervals: [50, 100, 100, 100, 250],
-        message: `card width never changed from ${before}px after resizing the viewport to ${width}px`,
-      })
-      .not.toBe(before);
-  }
+  await waitForGridWidth(page, containerWidthForViewport(width));
   await layoutSettled(card);
 }
 
