@@ -114,7 +114,11 @@ export function SourceListTable({
   // (the same guard `PipelineListTable.handleRowClick` documents).
   function handleRowClick(sourceId: string) {
     return (event: MouseEvent<HTMLTableRowElement>) => {
-      if ((event.target as HTMLElement).closest("a, button")) return;
+      // Ignored: a click on an interactive descendant, anywhere in the actions cell, and the second click of a
+      // double-click (HEL-1604: the first click opens the delete confirm; the second must not navigate away).
+      if (event.detail > 1) return;
+      if ((event.target as HTMLElement).closest("a, button, .source-list-table__td--actions"))
+        return;
       navigate(`/sources/${sourceId}`);
     };
   }
@@ -174,7 +178,7 @@ export function SourceListTable({
                 </td>
                 <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
                 {onRequestDelete != null && (
-                  <td>
+                  <td className="source-list-table__td--actions">
                     <button
                       type="button"
                       className="source-list-table__delete-btn"

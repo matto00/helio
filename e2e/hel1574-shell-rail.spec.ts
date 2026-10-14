@@ -108,10 +108,10 @@ test.describe("HEL-1574 shell rail and context list", () => {
     await expect(separator).toHaveAttribute("aria-valuenow", "400");
     await page.keyboard.press("Home");
     await expect(separator).toHaveAttribute("aria-valuenow", "200");
-    await page.keyboard.press("Shift+ArrowRight");
     const saved = page.waitForResponse(
       (r) => r.url().includes("/api/users/me/preferences") && r.request().method() === "PATCH",
     );
+    await page.keyboard.press("Shift+ArrowRight");
     expect((await saved).status()).toBe(200);
     await page.reload();
     await expect(page.getByRole("separator", { name: "Resize dashboard list" })).toHaveAttribute(
@@ -153,9 +153,14 @@ test.describe("HEL-1574 shell rail and context list", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await registerAndLogin(page, request, { ...AUTH, label: "collapse", waitForShell: true });
+    // Register the response wait BEFORE the click: on a fast runner the PATCH can finish before a wait registered
+    // after it, which then times out (the CI failure on 0cd7d5e69).
+    const saved = page.waitForResponse(
+      (r) => r.url().includes("/api/users/me/preferences") && r.request().method() === "PATCH",
+    );
     await page.getByRole("button", { name: "Collapse list" }).click();
     await expect(page.locator(".context-list")).toHaveCount(0);
-    await page.waitForResponse((r) => r.url().includes("/api/users/me/preferences"));
+    expect((await saved).status()).toBe(200);
     await page.reload();
     await expect(page.getByRole("button", { name: "Expand list" })).toBeVisible();
     await expect(page.locator(".context-list")).toHaveCount(0);
@@ -363,6 +368,7 @@ test.describe("HEL-1574 shell rail and context list", () => {
       await middle.scrollIntoViewIfNeeded();
       const before = await middle.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
       await middle.dblclick();
+      await expect(page).toHaveURL(/\/sources$/);
       await expect(page.getByRole("group", { name: `Confirm delete ${name}` })).toBeVisible();
       await expect(page.getByRole("group", { name: /Confirm delete/ })).toHaveCount(1);
       const after = await page
@@ -443,5 +449,62 @@ test.describe("HEL-1574 shell rail and context list", () => {
       .getByRole("button", { name: `Delete ${pipelineName}`, exact: true })
       .boundingBox();
     expect(del!.x - (share!.x + share!.width)).toBeGreaterThanOrEqual(7);
+  });
+
+  // HEL-1604: the second click of a double-click on a row's Delete must not navigate to the item. At 820px with the
+  // list at 400px the table is narrow and scrolled, so the layout shifts under the first click's confirm.
+  test("820px, list at 400: double-clicking the last row's Delete on Pipelines and Sources opens one confirm and stays on the page", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 820, height: 800 });
+    await registerAndLogin(page, request, { ...AUTH, label: "dbl820", isolate: true });
+    const patched = await page.request.patch("/api/users/me/preferences", {
+      data: { contextListWidth: 400 },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(patched.status()).toBe(200);
+    const ids: string[] = [];
+    for (let i = 0; i < 22; i++) {
+      const res = await page.request.post("/api/data-sources", {
+        data: {
+          name: `HEL-1604 Row ${String(i).padStart(2, "0")}`,
+          type: "static",
+          columns: [{ name: "a", type: "integer" }],
+          rows: [[1]],
+        },
+        headers: { [CSRF_HEADER]: "1" },
+      });
+      expect(res.status()).toBe(201);
+      ids.push(((await res.json()) as { id: string }).id);
+    }
+    for (let i = 0; i < 22; i++) {
+      const res = await page.request.post("/api/pipelines", {
+        data: {
+          name: `HEL-1604 Pipe ${String(i).padStart(2, "0")}`,
+          roots: [{ sourceId: ids[i] }],
+        },
+        headers: { [CSRF_HEADER]: "1" },
+      });
+      expect(res.status()).toBe(201);
+    }
+    for (const [route, scroller, prefix] of [
+      ["/pipelines", ".pipeline-list-table__scroll", "HEL-1604 Pipe"],
+      ["/sources", ".source-list-table__scroll", "HEL-1604 Row"],
+    ] as const) {
+      await page.goto(route);
+      const deletes = page.getByRole("button", { name: new RegExp(`^Delete ${prefix}`) });
+      await expect(deletes).toHaveCount(22);
+      await page.locator(".app-content").evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
+      const last = deletes.last();
+      await last.scrollIntoViewIfNeeded();
+      const name = ((await last.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
+      await last.dblclick();
+      await expect(page).toHaveURL(new RegExp(`${route}$`));
+      await expect(page.getByRole("group", { name: /Confirm delete/ })).toHaveCount(1);
+      await expect(page.getByRole("group", { name: `Confirm delete ${name}` })).toBeVisible();
+      await page.getByRole("button", { name: "Cancel" }).click();
+    }
   });
 });

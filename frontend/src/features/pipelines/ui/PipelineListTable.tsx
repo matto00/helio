@@ -132,7 +132,12 @@ export function PipelineListTable({
   // never double-navigates or fires alongside Share.
   function handleRowClick(pipelineId: string) {
     return (event: MouseEvent<HTMLTableRowElement>) => {
-      if ((event.target as HTMLElement).closest("a, button")) return;
+      // Ignored: a click on an interactive descendant, anywhere in the actions cell (a near-miss beside Share or
+      // Delete must not open the pipeline), and the second click of a double-click (HEL-1604: the first click opens
+      // the delete confirm, and the second must not navigate away from it).
+      if (event.detail > 1) return;
+      if ((event.target as HTMLElement).closest("a, button, .pipeline-list-table__td--actions"))
+        return;
       navigate(`/pipelines/${pipelineId}`);
     };
   }
