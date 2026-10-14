@@ -64,7 +64,7 @@ preview = `GET /api/pipelines/:id/steps/:stepId/preview` (the existing endpoint;
 
 ```bash
 cd /home/matt/Development/helio/openspec/changes/archive/2026-10-13-live-draft-preview-spike/prototype
-HELIO_DEV_EMAIL=... HELIO_DEV_PASSWORD=... BACKEND_PORT=9919 nice -n 19 node transport.cjs
+HELIO_DEV_EMAIL=... HELIO_DEV_PASSWORD=... BACKEND_PORT=9919 [OUT_FILE=/scratch/path.json] nice -n 19 node transport.cjs
 ```
 
 | measurement (ms) | run 1 | run 2 |
@@ -86,7 +86,7 @@ heartbeat). Not measured: run-events close-to-reopen across a terminal event, th
 "Rate limit exceeded" on 3 of 8 panels against the 120/60 s limiter).
 
 **Correction to the "fixed floor" reading (found while answering owner ruling A).** The ~25-45 ms baseline is *not* a fixed
-per-request cost. `prototype/floor.cjs` (`results-floor.json`) shows `GET /health` at 1.6 ms, an unauthenticated `/api/*` 401 at
+per-request cost. `prototype/floor.cjs` (`results-floor.json`; the script now **writes** that file, or `OUT_FILE`, and prints only a fixed string, so nothing derived from the credentials or session cookie reaches a console sink; `transport.cjs` does the same with `results-transport.json`. The committed result files are the numbers from the earlier stdout-redirect runs and are unchanged) shows `GET /health` at 1.6 ms, an unauthenticated `/api/*` 401 at
 3.3 ms, and the same session-authenticated `GET /api/auth/me` at **1.9 ms in one state and about 25-45 ms in another**. Probes
 (scratchpad scripts, numbers quoted here): after a >= 60 s idle period, 100 consecutive `auth/me` calls took about 25-45 ms each (one
 365 ms outlier) over ~3 s (raw per-call range excluding the outlier: 24.5-45.5 ms; the doc rounds this and the other cold-state readings, 24-44 and 26-46 ms, to "about 25-45 ms"); after 0 s or 20 s idle they took ~2 ms from the first call; in the slow state `/health` and the

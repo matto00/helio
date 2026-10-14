@@ -1,6 +1,10 @@
 // THROWAWAY (HEL-1580 task 2). Local transport measurements against THIS worktree's backend.
-// Usage: HELIO_DEV_EMAIL=... HELIO_DEV_PASSWORD=... BACKEND_PORT=9919 nice -n 19 node transport.cjs
+// Usage: HELIO_DEV_EMAIL=... HELIO_DEV_PASSWORD=... BACKEND_PORT=9919 [OUT_FILE=/scratch/path.json] nice -n 19 node transport.cjs
+// Writes the results to OUT_FILE (default: results-transport.json next to this script) and logs only a fixed string: nothing derived from the
+// credentials or the session cookie reaches a console sink.
 // Creates 1 dataset source (500 rows) + 1 pipeline (3 steps) under the dev account, measures, then deletes both by exact id.
+const fs = require("node:fs");
+const path = require("node:path");
 const BASE = `http://localhost:${process.env.BACKEND_PORT || 9919}`;
 const H = { "X-Helio-Requested-With": "1", "Content-Type": "application/json" };
 let cookie = "";
@@ -53,5 +57,6 @@ async function api(method, path, body) {
     out.cleanup.pipelineStillListed = arr(pl.json).some((p) => p.id === created.pipeline);
     out.cleanup.sourceStillListed = arr(dl.json).some((p) => p.id === created.source);
   }
-  console.log(JSON.stringify(out, null, 2));
+  fs.writeFileSync(process.env.OUT_FILE || path.join(__dirname, "results-transport.json"), JSON.stringify(out, null, 2) + "\n");
+  console.log("wrote results-transport.json");
 })();
