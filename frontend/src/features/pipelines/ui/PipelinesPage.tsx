@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 
 import "./PipelinesPage.css";
 import { useCreatePipelineAction } from "../hooks/useCreatePipelineAction";
-import { fetchPipelines, setCreatePipelineModalOpen } from "../state/pipelinesSlice";
+import {
+  deletePipeline,
+  fetchPipelines,
+  setCreatePipelineModalOpen,
+} from "../state/pipelinesSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { CreatePipelineModal } from "./CreatePipelineModal";
 import { PipelineEmptyState } from "./PipelineEmptyState";
@@ -12,8 +16,24 @@ import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
-import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
+import { ERROR_KIND_ICON, InlineError } from "../../../shared/chrome/InlineError";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
 import type { PipelineSummary } from "../types/pipelineStep";
+
+/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). A stable
+ *  function, so React calls it on mount only. */
+function focusOnMount(element: HTMLElement | null) {
+  element?.focus();
+}
+
+/** Returns focus to a row's Delete button after Cancel, instead of dropping it on <body>. */
+function focusRowDelete(name: string) {
+  requestAnimationFrame(() => {
+    document
+      .querySelector<HTMLElement>(`button[aria-label="Delete ${name.replace(/["\\]/g, "\\$&")}"]`)
+      ?.focus();
+  });
+}
 
 export function PipelinesPage() {
   const dispatch = useAppDispatch();
@@ -28,6 +48,19 @@ export function PipelinesPage() {
   const PipelinesErrorIcon = ERROR_KIND_ICON[errorKind ?? "error"];
 
   const [sharingPipeline, setSharingPipeline] = useState<PipelineSummary | null>(null);
+  // HEL-1574: Delete lives on the overview rows (owner ruling 2026-10-14). The warning is the retired sidebar's.
+  const [deletingPipeline, setDeletingPipeline] = useState<PipelineSummary | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function confirmDelete(pipeline: PipelineSummary) {
+    setDeletingPipeline(null);
+    setDeleteError(null);
+    try {
+      await dispatch(deletePipeline(pipeline.id)).unwrap();
+    } catch {
+      setDeleteError(`Failed to delete ${pipeline.name}.`);
+    }
+  }
 
   useEffect(() => {
     void dispatch(fetchPipelines());
@@ -85,7 +118,32 @@ export function PipelinesPage() {
           // once loaded, but not a state worth being wrong in either).
           status !== "failed" && items.length > 0 && (
             <>
+              {deletingPipeline !== null && (
+                <div
+                  role="group"
+                  tabIndex={-1}
+                  ref={focusOnMount}
+                  aria-label={`Confirm delete ${deletingPipeline.name}`}
+                >
+                  <ConfirmInline
+                    label={`Delete ${deletingPipeline.name}? Any panels bound to this pipeline's Outputs will stop working.`}
+                    confirmLabel="Delete"
+                    confirmAriaLabel={`Confirm delete ${deletingPipeline.name}`}
+                    onConfirm={() => void confirmDelete(deletingPipeline)}
+                    onCancel={() => {
+                      const name = deletingPipeline.name;
+                      setDeletingPipeline(null);
+                      focusRowDelete(name);
+                    }}
+                  />
+                </div>
+              )}
+              <InlineError error={deleteError} variant="banner" />
               <PipelineListTable
+                onRequestDelete={(p) => {
+                  setDeleteError(null);
+                  setDeletingPipeline(p);
+                }}
                 pipelines={items}
                 currentUserId={currentUser?.id}
                 onShare={(p) => setSharingPipeline(p)}

@@ -15,6 +15,10 @@ interface Props {
   currentUserId?: string | null;
   /** Called when the owner clicks Share on a row. */
   onShare?: (pipeline: PipelineSummary) => void;
+  /** Called when Delete is chosen on a row (HEL-1574: Delete lives on the overview rows, an owner ruling of
+   *  2026-10-14; the page owns the confirm). Shown on every row, like the retired sidebar rows: the server
+   *  enforces ownership. */
+  onRequestDelete?: (pipeline: PipelineSummary) => void;
 }
 
 // F-137: the third (and last) of three independently-drifted status-pill
@@ -95,8 +99,9 @@ const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
   { key: "updatedAt", header: "Updated", className: "eyebrow pipeline-list-table__th" },
 ];
 
-export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) {
-  const showActions = currentUserId != null && onShare != null;
+export function PipelineListTable({ pipelines, currentUserId, onShare, onRequestDelete }: Props) {
+  const canShare = currentUserId != null && onShare != null;
+  const showActions = canShare || onRequestDelete != null;
   const navigate = useNavigate();
 
   // HEL-1022: defaults to most-recently-edited first, matching the backend's
@@ -203,14 +208,24 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
               </td>
               {showActions && (
                 <td className="pipeline-list-table__td pipeline-list-table__td--actions">
-                  {isOwner && (
+                  {canShare && isOwner && (
                     <button
                       type="button"
                       className="pipeline-list-table__share-btn"
-                      onClick={() => onShare(pipeline)}
+                      onClick={() => onShare?.(pipeline)}
                       aria-label={`Share ${pipeline.name}`}
                     >
                       Share
+                    </button>
+                  )}
+                  {onRequestDelete != null && (
+                    <button
+                      type="button"
+                      className="pipeline-list-table__delete-btn"
+                      onClick={() => onRequestDelete(pipeline)}
+                      aria-label={`Delete ${pipeline.name}`}
+                    >
+                      Delete
                     </button>
                   )}
                 </td>

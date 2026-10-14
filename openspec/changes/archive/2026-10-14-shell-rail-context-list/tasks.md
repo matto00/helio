@@ -35,7 +35,7 @@
 - [x] 3.2 Extend `DashboardList` with folder groups, RLS-consistent counts, Unfiled, create/rename/delete/collapse and "Move to..." (D10). Verify the tests.
 - [x] 3.3 Add the `scheduledItems` slice. Pipelines body: Recent + Scheduled. Sources body: Recent + Scheduled (soonest run). Both get View all + add. Verify the tests.
 - [x] 3.4 Assistant keeps its conversation list. Connectors, Settings and review pages render no list. Verify the tests.
-- [x] 3.5 Add Delete to `PipelineDetailHeader`'s actions and `SourceDetailPanel.tsx`'s header (fetching references on mount), with the warning and the conflict notice (D12). Verify the tests.
+- [x] 3.5 Add Delete as a row action on the Data Pipelines and Data Sources overview tables (owner ruling 2026-10-14, not the detail pages), with the warning and the conflict notice (D12). Verify the tests.
 - [x] 3.6 Update DESIGN.md §9 and §12, and relabel the §10 driver defaults as owner rulings (D11). Verify with prettier.
 
 ### Tests

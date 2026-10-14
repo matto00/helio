@@ -135,15 +135,16 @@ Pipelines or Sources list first mounts (refetched on revisit if older than 60s).
 Sources: Recent + Scheduled (`sources`, max 8, "next <time> · <pipeline>"). Each has "View all" and the existing add
 action. Assistant: existing conversation list moved as-is. Connectors/Settings/review: no list (owner ruling).
 
-**D12 Delete moves to the detail pages.** `SidebarBody` is today the only UI that deletes a pipeline and, apart from
-`EmptySchemaAffordance`, the only one that deletes a source. Removing the full lists would remove those controls, so
-delete moves to an `ActionsMenu` on each detail page's header (`PipelineDetailHeader`, the `SourceDetailPanel.tsx`'s
-`.source-detail-panel__header`), with the same confirm dialog and visibility as the sidebar rows had (no new
-gating; the server already enforces ownership). The pipeline confirm keeps the sidebar's "Any panels bound to this
-pipeline's Outputs will stop working." text. Sources keep the HEL-1258 reference warning (`sourceDeleteWarning` over
-`sources.references`) and the HEL-989 conflict notice (`SourceDeleteConflictNotice` on a 409). The source page dispatches `fetchSourceReferences` on mount (the thunk's
-`condition` dedupes it), so the warning survives a deep link or reload. After a successful
-delete the page navigates to the section overview, and after a refused delete it stays put.
+**D12 Delete lives on the overview rows.** `SidebarBody` was the only UI that deleted a pipeline and, apart from
+`EmptySchemaAffordance`, the only one that deleted a source, so removing the full lists would remove those controls.
+The first plan moved Delete to the detail pages' header actions; the owner ruled otherwise on 2026-10-14 ("it should
+only be on overview rows. not in detail pages."), so it is a row action on `PipelineListTable` and `SourceListTable`,
+and the detail headers carry no Delete. Each page owns a confirm panel above the table (focus moves to it; Cancel
+returns focus to the row's button) with the same visibility as the sidebar rows had (every row; the server enforces
+ownership). The pipeline confirm keeps the sidebar's "Any panels bound to this pipeline's Outputs will stop working."
+text. Sources keep the HEL-1258 reference warning (`sourceDeleteWarning` over `sources.references`, which
+`SourcesPage` already fetches on mount) and the HEL-989 conflict notice (`SourceDeleteConflictNotice` on a 409). After a
+delete the user stays on the overview; a refused delete leaves the row and says why.
 
 **D11 DESIGN.md.** Edit §9 to record D2, D4, D5 (Home alias), the per-section content and the separator contract;
 relabel §10's two "driver default" provenance items as owner rulings (2026-10-13); §9's "persist per user" now

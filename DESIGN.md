@@ -976,7 +976,8 @@ edit".
   among the scheduled pipelines they feed), never a copy of the section's table;
   each links to "View all". Assistant keeps its conversation list. Connectors,
   Settings and the review routes have no list. Pipeline and source **delete**
-  live in the detail pages' header actions, not in a list. **[judgment]**
+  is a row action on the Data Pipelines and Data Sources overview tables, never in a list and never in a detail
+  page's header (owner ruling 2026-10-14, which HEL-1579 inherits). **[judgment]**
 - **Tabs.** One tab per open dashboard; the active tab is marked by an
   `--app-accent` indicator on its top edge that slides between tabs (§10).
   Open tabs persist server-side with a TTL: returning within it is instant

@@ -18,6 +18,9 @@ interface Props {
   references: Record<string, SourceReferenceSummary>;
   /** False until the summary has loaded: an absent entry then means "unknown", never "Unused". */
   referencesLoaded: boolean;
+  /** Called when Delete is chosen on a row (HEL-1574: Delete lives on the overview rows, an owner ruling of
+   *  2026-10-14; the page owns the confirm, the reference warning and the conflict notice). */
+  onRequestDelete?: (source: DataSource) => void;
 }
 
 /**
@@ -62,7 +65,7 @@ const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
   { key: "updatedAt", header: "Updated", className: "eyebrow" },
 ];
 
-export function SourceListTable({ sources, references, referencesLoaded }: Props) {
+export function SourceListTable({ sources, references, referencesLoaded, onRequestDelete }: Props) {
   const navigate = useNavigate();
 
   // Columns depend on `references` (a prop, not a static module-level
@@ -114,6 +117,13 @@ export function SourceListTable({ sources, references, referencesLoaded }: Props
       columns={HEADER_COLUMNS}
       sortState={sortState}
       onSort={toggleSort}
+      trailingHeaderCells={
+        onRequestDelete != null && (
+          <th className="eyebrow">
+            <span className="sr-only">Actions</span>
+          </th>
+        )
+      }
       scrollClassNames={{
         container: "source-list-table__scroll",
         left: "source-list-table__scroll--left",
@@ -158,6 +168,18 @@ export function SourceListTable({ sources, references, referencesLoaded }: Props
                 )}
               </td>
               <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
+              {onRequestDelete != null && (
+                <td>
+                  <button
+                    type="button"
+                    className="source-list-table__delete-btn"
+                    onClick={() => onRequestDelete(source)}
+                    aria-label={`Delete ${source.name}`}
+                  >
+                    Delete
+                  </button>
+                </td>
+              )}
             </tr>
           );
         })}

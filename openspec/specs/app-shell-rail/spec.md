@@ -86,16 +86,23 @@ action. The Sources and Pipelines lists SHALL NOT list every item of the section
 - **WHEN** a source feeds two of the user's scheduled pipelines, next running at 14:00 and 09:00
 - **THEN** the Sources context list shows that source once under Scheduled with 09:00 and the pipeline running then
 
-### Requirement: Delete stays reachable from the detail pages
-Pipelines and sources SHALL stay deletable after the full lists leave the sidebar: each detail page SHALL offer Delete
-in its header actions, behind the same confirmation. A source delete SHALL show the server's reference warning and,
-on a refused delete, the conflict notice, as the sidebar did. A successful delete SHALL navigate to the section
-overview; a refused one SHALL leave the user on the page.
+### Requirement: Delete lives on the overview rows
+Pipelines and sources SHALL stay deletable after the full lists leave the sidebar: the Data Pipelines and Data Sources
+overview tables SHALL offer Delete as a row action on every row, and the detail pages SHALL NOT offer it (owner
+ruling 2026-10-14). The action SHALL be reachable by keyboard and named with the item (for example "Delete Sales
+Pipeline"), and SHALL sit behind the same confirmation the sidebar rows had. A pipeline delete SHALL warn that panels
+bound to its Outputs will stop working. A source delete SHALL show the server's reference warning and, on a refused
+delete, the conflict notice. A successful delete SHALL leave the user on the overview with the row gone; a refused one
+SHALL leave the row in place and say why.
 
-#### Scenario: Delete a pipeline from its page
-- **WHEN** the user opens `/pipelines/:id`, chooses Delete in the header actions and confirms
-- **THEN** the pipeline is deleted and the browser shows `/pipelines`
+#### Scenario: Delete a pipeline from the overview
+- **WHEN** the user opens `/pipelines`, chooses Delete on a row and confirms
+- **THEN** the pipeline is deleted, the row disappears and the browser stays on `/pipelines`
 
 #### Scenario: Refused source delete shows the conflict notice
-- **WHEN** the user deletes a source still referenced by a pipeline and the server answers 409
-- **THEN** the conflict notice renders on the source page and the source remains
+- **WHEN** the user deletes a source still referenced by a pipeline from `/sources` and the server answers 409
+- **THEN** the conflict notice renders on the overview and the source row remains
+
+#### Scenario: Detail pages offer no Delete
+- **WHEN** the user opens `/pipelines/:id` or `/sources/:id`
+- **THEN** the header actions contain no Delete item

@@ -1,9 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Database } from "lucide-react";
 
 import "./SourcesPage.css";
 import { useAddSourceAction } from "../hooks/useAddSourceAction";
-import { fetchSourceReferences, fetchSources, setAddSourceModalOpen } from "../state/sourcesSlice";
+import {
+  deleteSource,
+  fetchSourceReferences,
+  fetchSources,
+  isSourceDeleteConflict,
+  setAddSourceModalOpen,
+  type SourceDeleteConflict,
+} from "../state/sourcesSlice";
+import { sourceDeleteWarning } from "../utils/sourceReferences";
+import { SourceDeleteConflictNotice } from "./SourceDeleteConflictNotice";
+import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
+import type { DataSource } from "../types/dataSource";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
 import { SourceListTable } from "./SourceListTable";
@@ -12,7 +23,22 @@ import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
-import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
+import { ERROR_KIND_ICON, InlineError } from "../../../shared/chrome/InlineError";
+
+/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). A stable
+ *  function, so React calls it on mount only. */
+function focusOnMount(element: HTMLElement | null) {
+  element?.focus();
+}
+
+/** Returns focus to a row's Delete button after Cancel, instead of dropping it on <body>. */
+function focusRowDelete(name: string) {
+  requestAnimationFrame(() => {
+    document
+      .querySelector<HTMLElement>(`button[aria-label="Delete ${name.replace(/["\\]/g, "\\$&")}"]`)
+      ?.focus();
+  });
+}
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();
@@ -26,6 +52,28 @@ export function SourcesPage() {
     referencesStatus,
   } = useAppSelector((state) => state.sources);
   const addSourceAction = useAddSourceAction();
+  // HEL-1574: Delete lives on the overview rows (owner ruling 2026-10-14), with the HEL-1258 reference warning in
+  // the confirm and the HEL-989 conflict notice on a refused (409) delete. A successful delete stays on this page.
+  const [deletingSource, setDeletingSource] = useState<DataSource | null>(null);
+  const [deleteConflict, setDeleteConflict] = useState<{
+    sourceName: string;
+    conflict: SourceDeleteConflict;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function confirmDelete(source: DataSource) {
+    setDeletingSource(null);
+    setDeleteConflict(null);
+    setDeleteError(null);
+    const result = await dispatch(deleteSource(source.id));
+    if (deleteSource.rejected.match(result)) {
+      if (isSourceDeleteConflict(result.payload)) {
+        setDeleteConflict({ sourceName: source.name, conflict: result.payload });
+      } else {
+        setDeleteError(`Failed to delete ${source.name}.`);
+      }
+    }
+  }
 
   useEffect(() => {
     // F-072: guard the dispatch on `idle` (mirroring SidebarBody's fetch
@@ -116,7 +164,40 @@ export function SourcesPage() {
             sourcesStatus !== "failed" &&
             (sources.length > 0 ? (
               <>
+                {deletingSource !== null && (
+                  <div
+                    role="group"
+                    tabIndex={-1}
+                    ref={focusOnMount}
+                    aria-label={`Confirm delete ${deletingSource.name}`}
+                  >
+                    <ConfirmInline
+                      label={`Delete ${deletingSource.name}? ${sourceDeleteWarning(references[deletingSource.id]) ?? ""}`.trim()}
+                      confirmLabel="Delete"
+                      confirmAriaLabel={`Confirm delete ${deletingSource.name}`}
+                      onConfirm={() => void confirmDelete(deletingSource)}
+                      onCancel={() => {
+                        const name = deletingSource.name;
+                        setDeletingSource(null);
+                        focusRowDelete(name);
+                      }}
+                    />
+                  </div>
+                )}
+                {deleteConflict !== null && (
+                  <SourceDeleteConflictNotice
+                    sourceName={deleteConflict.sourceName}
+                    conflict={deleteConflict.conflict}
+                    onDismiss={() => setDeleteConflict(null)}
+                  />
+                )}
+                <InlineError error={deleteError} variant="banner" />
                 <SourceListTable
+                  onRequestDelete={(source) => {
+                    setDeleteConflict(null);
+                    setDeleteError(null);
+                    setDeletingSource(source);
+                  }}
                   sources={sources}
                   references={references}
                   referencesLoaded={referencesStatus === "succeeded"}

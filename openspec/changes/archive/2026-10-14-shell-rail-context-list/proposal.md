@@ -22,7 +22,7 @@ icon rail plus a resizable, collapsible context list, with dashboard folders. HE
   a non-BYPASSRLS session) with folder CRUD/move endpoints; shell width/collapsed join the existing `users.preferences`
   record via `PATCH /api/users/me/preferences`, returned on every user-returning auth response; `GET
   /api/pipeline-schedules` returns scheduled pipelines and the sources feeding them in one request.
-- Pipeline and source **delete** move from the sidebar rows to the detail pages' header actions.
+- Pipeline and source **delete** move from the sidebar rows to a row action on the Data Pipelines and Data Sources overview tables (owner ruling 2026-10-14; not in the detail pages).
 - API contract: the repo has no OpenAPI document; the AC's "schema, OpenAPI" is met by JSON Schemas under
   `schemas/dashboards/`, `schemas/pipelines/` and `schemas/auth/` (checked by `npm run check:schemas`) plus these specs.
 - Phone (768px and below): the glass `BottomNav` gains the same Home alias as its first tab (owner ruling 2026-10-13); otherwise

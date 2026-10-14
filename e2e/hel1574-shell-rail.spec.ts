@@ -254,4 +254,76 @@ test.describe("HEL-1574 shell rail and context list", () => {
       "false",
     );
   });
+
+  for (const [label, viewport] of [
+    ["desktop 1280px", { width: 1280, height: 900 }],
+    ["phone 375px", { width: 375, height: 800 }],
+  ] as const) {
+    test(`Delete is a row action on the Pipelines and Sources overviews, keyboard reachable, at ${label}`, async ({
+      page,
+      request,
+    }) => {
+      await page.setViewportSize(viewport);
+      await registerAndLogin(page, request, {
+        ...AUTH,
+        label: `delete${viewport.width}`,
+        isolate: true,
+      });
+      const sourceName = `HEL-1574 Source ${viewport.width}`;
+      const pipelineName = `HEL-1574 Pipeline ${viewport.width}`;
+      const sourceRes = await page.request.post("/api/data-sources", {
+        data: {
+          name: sourceName,
+          type: "static",
+          columns: [{ name: "a", type: "integer" }],
+          rows: [[1]],
+        },
+        headers: { [CSRF_HEADER]: "1" },
+      });
+      expect(sourceRes.status()).toBe(201);
+      const source = (await sourceRes.json()) as { id: string };
+      const sourceB = await page.request.post("/api/data-sources", {
+        data: {
+          name: `${sourceName} spare`,
+          type: "static",
+          columns: [{ name: "a", type: "integer" }],
+          rows: [[1]],
+        },
+        headers: { [CSRF_HEADER]: "1" },
+      });
+      expect(sourceB.status()).toBe(201);
+      const pipelineRes = await page.request.post("/api/pipelines", {
+        data: { name: pipelineName, roots: [{ sourceId: source.id }] },
+        headers: { [CSRF_HEADER]: "1" },
+      });
+      expect(pipelineRes.status()).toBe(201);
+
+      // Pipelines overview.
+      await page.goto("/pipelines");
+      const pipelineDelete = page.getByRole("button", { name: `Delete ${pipelineName}` });
+      await pipelineDelete.scrollIntoViewIfNeeded();
+      await expect(pipelineDelete).toBeVisible();
+      await pipelineDelete.focus();
+      await page.keyboard.press("Enter");
+      const group = page.getByRole("group", { name: `Confirm delete ${pipelineName}` });
+      await expect(group).toBeFocused();
+      await expect(group).toContainText(
+        "Any panels bound to this pipeline's Outputs will stop working.",
+      );
+      await page.getByRole("button", { name: `Confirm delete ${pipelineName}` }).click();
+      await expect(page.getByRole("button", { name: `Delete ${pipelineName}` })).toHaveCount(0);
+      await expect(page).toHaveURL(/\/pipelines$/);
+
+      // Sources overview: the source the pipeline used is free again, and the spare can go too.
+      await page.goto("/sources");
+      const sourceDelete = page.getByRole("button", { name: `Delete ${sourceName} spare` });
+      await sourceDelete.scrollIntoViewIfNeeded();
+      await expect(sourceDelete).toBeVisible();
+      await sourceDelete.focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("button", { name: `Confirm delete ${sourceName} spare` }).click();
+      await expect(page.getByRole("button", { name: `Delete ${sourceName} spare` })).toHaveCount(0);
+      await expect(page).toHaveURL(/\/sources$/);
+    });
+  }
 });
