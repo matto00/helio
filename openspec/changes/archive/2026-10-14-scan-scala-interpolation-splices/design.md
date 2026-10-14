@@ -65,3 +65,13 @@ pass 2 perfect on exotic shapes (see Decision 5); any prefix-list or exemption-r
 
 - Self-approved: covering any `id"` interpolator (not only s/f/raw) — Scala lexes every `id"..."` as interpolation, and
   narrowing would re-open the blind spot for custom interpolators. No new dependency; no product behaviour change.
+
+## Gate-Chain Implications Checklist
+
+`scripts/check-scala-quality.mjs` and `scripts/check-scala-quality.selftest.mjs` (plus the new `scripts/scala-code-only.mjs` they import) run from `.husky/pre-commit` via `npm run check:scala-quality`, so this change touches the commit gate chain.
+
+- **What does it execute?** `npm run check:scala-quality` runs `node scripts/check-scala-quality.selftest.mjs && node scripts/check-scala-quality.mjs`. The selftest imports the guard and `scala-code-only.mjs`, runs in-process red/green fixtures, and spawns the real guard CLI once (`spawnSync(process.execPath, [check-scala-quality.mjs, <fixtureRoot>])`). The guard walks `backend/src/main/scala` and `backend/src/test/scala` and reads every `.scala` file. There is no `git` invocation and no network access.
+- **What environment does it inherit, and from where?** Whatever the hook's `npm run` passes down, including git's hook environment (`GIT_DIR`, `GIT_INDEX_FILE`, `GIT_WORK_TREE` when set). None of it is read: the scripts use only `process.execPath`, `process.argv` and `import.meta.url`. The repo root is derived from the script's own location (`join(dirname(import.meta.url), "..")`) unless the selftest passes an explicit root argument, so it does not depend on the cwd or on any inherited git variable.
+- **Does it write anything outside its own sandbox?** No. The guard only reads and prints. The selftest writes one fixture file under an `mkdtemp(join(tmpdir(), "scala-quality-selftest-"))` directory and removes it in a `finally` block. It never writes into the repo and never touches `.git`.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. The scan root comes from the script's own path, which resolves to the checkout that contains the script, linked worktree or main alike. It does not call `git rev-parse` and it ignores an inherited `GIT_DIR`, so a hook run from a linked worktree scans that worktree's `backend/src`.
+- **What happens on its first run?** Nothing special: there is no cache, state file or lock to create. The selftest runs first and fails the chain on any red case before the guard scans. On this change's first run the repo scan was clean (pass 2 adds no findings on the real tree and pass 1 is the unchanged base guard), so no existing violation had to be fixed.
