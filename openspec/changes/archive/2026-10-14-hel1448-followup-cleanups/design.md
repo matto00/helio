@@ -67,7 +67,7 @@ red-first against the pre-change guard (it passes there, i.e. the selftest asser
   `createRequire` from the repo root `package.json`. No new env vars read.
 - **Does it write anything outside its own sandbox?** The selftest writes one fixture under `os.tmpdir()` (mkdtemp) and
   removes it in `finally`, as today. The guard writes nothing. Probe paths are virtual (never created on disk).
-- **Does it behave differently from a linted worktree than from a main checkout?** No: `repoRoot` derives from the
+- **Does it behave differently from a linked worktree than from a main checkout?** No: `repoRoot` derives from the
   script's own location, and the fixture requires the real config by absolute path from that root.
 - **What happens on its first run?** Same as every run; no cache or state. Runtime grows by four
   `calculateConfigForFile` calls and one extra fixture spawn (seconds).
