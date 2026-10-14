@@ -6,10 +6,15 @@ touching `frontend/`. Reviewers (and the Skeptic gate) judge UI changes against
 this document — "consistent with existing patterns" means _consistent with what
 is written here_, not inferred from scattered code.
 
-> **Status:** v2 — the "curated instrument" redesign (2026-07-02). Supersedes
-> the v1 draft; the former OPEN DECISIONS (intent tokens, weight tokens,
-> breakpoints, overlay token, focus offset) are now ratified and encoded in
-> `theme.css`. Verified against source at time of writing.
+> **Status:** v3 — the v0.9 re-design (2026-10-13, epic HEL-1570, delivered by
+> HEL-1571). Supersedes v2 (the "curated instrument" redesign, 2026-07-02).
+> Sans + mono is now the default type pairing, motion is a token-backed system,
+> and the shell, live-preview and mobile rules are written down (§9–§12).
+> Sections §0–§8 keep their numbers because code comments cite them; new rules
+> are appended as §9+, and the measurement and forensic narratives that used to
+> sit inside the rules now live in **Appendix A**, with a pointer left in the
+> body. Verified against source at time of writing, except where a section says
+> it describes the target for a ticket that has not landed.
 
 ---
 
@@ -21,13 +26,20 @@ is written here_, not inferred from scattered code.
   Skeptic's domain).
 - When a rule and a deadline conflict, follow the rule or escalate the conflict.
   Never silently diverge.
+- **Reading order:** §0 for the idea, then the section for the area you are
+  touching. Appendix A is evidence (how a number was measured, why a rule
+  exists), not rules; read it when you need to change or challenge a rule.
+- **Precedence:** this document over the design-canvas boards. The boards
+  illustrate; the hex values, copy and accent colour in them are illustration
+  only. Implement through the tokens named here, never from mockup CSS.
 
 ---
 
 ## 0. The design idea (read this first)
 
-Helio's language is a **curated instrument**: warm neutral structure, one
-deliberate voice of color, serif brand moments, mono annotations.
+Helio's language is a **curated instrument with a human touch**: warm neutral
+structure, one deliberate voice of color, sans and mono type, and motion that
+explains what changed.
 
 1. **Structure is neutral.** Backgrounds, surfaces, and borders come from warm
    neutral ramps ("stone" in dark, "paper" in light) — never from the accent.
@@ -35,24 +47,34 @@ deliberate voice of color, serif brand moments, mono annotations.
    page bleed through. Translucency exists only where the user explicitly opts
    in (the panel transparency slider). This is the invariant that keeps custom
    dashboard backgrounds from tinting the whole UI. **Carve-out (HEL-774):**
-   the phone bottom tab bar (`BottomNav`) alone is exempt — it renders as a
-   translucent "liquid glass" floating capsule. Because dashboard backgrounds
-   are exactly the arbitrary content this bar floats over, the opacity
-   invariant is replaced for this one element by a stated, measured contrast
-   floor rather than relaxed without a constraint; see "Surfaces & the
-   opacity invariant" below for the floor's value and scope. No other
+   the phone bottom tab bar (`BottomNav`) alone is exempt — it is a translucent
+   "liquid glass" floating capsule, bound by a stated, measured contrast floor
+   instead; see "Surfaces & the opacity invariant" in §3 and §12. No other
    surface is exempt.
-3. **The accent is scarce and solid.** The user-selected accent appears as:
-   solid primary buttons (with `--app-accent-ink` text), the active nav
-   indicator, selection/checked states (`--app-accent-dim` washes), focus
-   rings, and the OrbitMark. It is **never** used for structural borders,
-   hover washes on neutral controls, table headers, or atmosphere.
-   **[judgment]** If a screen looks "tinted", accent discipline has broken.
-4. **Type is a trio.** Fraunces (display serif) for brand/headline moments;
-   Schibsted Grotesk for all UI; JetBrains Mono for data, code, and labels.
-5. **Details are gallery-grade.** Hairline borders, soft layered shadows,
-   mono uppercase eyebrows, tabular numerals, one entrance animation per
-   surface — nothing gratuitous.
+3. **Accent discipline.** The user-selected accent goes on the **primary
+   action, selection, active indicators and focus** — and nowhere else:
+   solid primary buttons (with `--app-accent-ink` text), the active
+   nav/tab indicator, selection/checked states (`--app-accent-dim` washes),
+   focus rings, and the OrbitMark. It is **never** used for structural
+   borders, hover washes on neutral controls, table headers, a row of
+   secondary controls, or atmosphere. **[judgment]** If a screen looks
+   "tinted", or more than one control in a view is accent-coloured for a
+   reason other than the list above, accent discipline has broken.
+4. **Type is sans + mono.** Schibsted Grotesk for all UI **including
+   headings**; JetBrains Mono for data, code, metadata and labels. Fraunces
+   (serif) is not part of the default: it exists only as the optional
+   "Serif headings" type style a user can turn on (§3 Typography).
+5. **A human touch, not decoration.** Plain-language copy ("Two dashboards
+   changed overnight", not "Dashboard modification events detected"); motion
+   with a little give (§10); an opinionated hierarchy — one primary action,
+   one clear title per view, quiet everything else. Hairline borders, soft
+   layered shadows, tabular numerals. **[judgment]** If an element is there to
+   look busy rather than to say or do something, remove it.
+6. **Themes-ready.** Nothing hardcodes the accent or a font family. Every new
+   rule and surface must work with any accent preset and with the heading
+   face switched, because users will be able to choose both. **[mechanical]**
+   Colour comes from tokens; type from `--font-sans`/`--font-heading`/
+   `--font-mono`.
 
 ## 1. Styling approach
 
@@ -84,6 +106,16 @@ deliberate voice of color, serif brand moments, mono annotations.
   **[mechanical]** Never hardcode the accent; never write additional accent
   tokens from JS without a stated WCAG obligation backing them; never
   derive borders/backgrounds from the accent.
+- **v3 ramp decision (light/dark parity).** The dark ramp was widened by
+  moving **only the dark canvas `--app-bg`** to the value every approved
+  re-design board paints (now `#0f0e0d`). The dark card surface
+  `--app-surface` and the whole **light** theme are unchanged: no approved
+  board is light, and the boards disagree with each other on the card value,
+  so none was adopted (Appendix A.2 records the figures). Light/dark parity is
+  therefore deliberately asymmetric in depth, not in token coverage — every
+  token still exists in both blocks (see "Light/dark token-parity rule"
+  below). Any change to a dark surface re-runs the theme guards and the
+  `state-surface-contrast-guard` e2e. **[mechanical]**
 
 ## 3. Tokens are the source of truth
 
@@ -102,28 +134,35 @@ hardcode a value a token exists for.** **[mechanical]**
 | Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                                                                                           |
 
 **Contrast audit (HEL-533).** Every text-capable foreground token's measured
-WCAG ratio against every neutral surface and intent-tint composite it renders
-on, in both themes, plus the `--app-accent-ink` floor and the accent-on-surface
-shortfall, is a committed artifact: `docs/contrast-audit.md`. Correction
-(skeptic final-gate cycle 3): that table is **hand-transcribed**, reproduced
-from the same computation `frontend/src/theme/tokenContrastGuard.css.test.ts`
-uses (see that file's helpers and `docs/contrast-audit.md`'s own
-regeneration recipe) — it is NOT auto-generated, and it can go stale if a
-future token edit isn't accompanied by re-transcribing it. It is the
-**guard**, not this table, that fails CI on a regression. Read the table for
-context before changing any `--app-text*`/`--app-success`/`--app-warning`/
-`--app-error` value, but rely on the guard, not the table, to catch a
-regression.
+WCAG ratio against every neutral surface and intent-tint composite is
+committed in `docs/contrast-audit.md`. That table is **hand-transcribed**;
+it can go stale. It is the **guard**
+(`frontend/src/theme/tokenContrastGuard.css.test.ts`), not the table, that
+fails CI on a regression — read the table for context before changing any
+`--app-text*`/`--app-success`/`--app-warning`/`--app-error` value, but rely
+on the guard. **[mechanical]** (How it is regenerated and the history of its
+correction: Appendix A.1.)
 
-**HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
+**Which state rung to use depends on the real backdrop (HEL-866).** A hover or
+selected state composites against whatever it sits on, and that backdrop
+varies by layer, not just by theme. There is no single correct rung: use the
+row for the backdrop the state actually sits on. **[mechanical]** — enforced
+by the rendered guard `e2e/state-surface-contrast-guard.spec.ts`, which is
+the arbiter, not inspection or a general rule.
 
-| real backdrop                                                                         | correct fix                                                                                                  | measured (dark / light) |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| `--app-surface-strong` (modal/popover/menu interiors)                                 | `--app-surface-soft` alone, no theme split                                                                   | 1.167 / 1.179           |
-| `--app-surface` (an intermediate layer — command bar, a step card, a settings button) | `--app-surface-strong` in dark, `--app-surface-soft` in light (a `:root[data-theme="dark"]`-scoped override) | 1.133 / 1.150           |
-| `--app-bg` (the outermost page canvas — most table/list rows)                         | `--app-surface-raised`, unchanged, no fix needed                                                             | 1.161 / 1.119           |
+| real backdrop                                                                         | correct state rung                                                                                           |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `--app-surface-strong` (modal/popover/menu interiors)                                 | `--app-surface-soft` alone, no theme split                                                                   |
+| `--app-surface` (an intermediate layer — command bar, a step card, a settings button) | `--app-surface-strong` in dark, `--app-surface-soft` in light (a `:root[data-theme="dark"]`-scoped override) |
+| `--app-bg` (the outermost page canvas — most table/list rows)                         | `--app-surface-raised`, unchanged, no fix needed                                                             |
 
-See `openspec/changes/state-surface-contrast-guard/design.md` D1/D3 for the full derivation. **This three-way split is itself strong evidence for a dedicated `--app-state-hover` / `--app-state-selected` token pair** — no single existing rung serves all three backdrops in both themes, so every future call site has to re-derive which of three fixes it needs (as this ticket's own remediation got wrong on its first pass) rather than reaching for one name that is correct by construction. **Still recommended, still not adopted this run**: adding a token to `theme.css` is a visual-identity decision requiring owner sign-off (escalated during HEL-866, no dashboard attached; the conservative per-backdrop-measured-fix path was taken instead of blocking on it).
+A dedicated hover/selected state token pair would
+replace this three-way split but is still not adopted: adding a token to
+`theme.css` is a visual-identity decision that needs owner sign-off.
+Measured ratios per cell, the cycle-1 blanket-sweep regression that
+produced this table, and the v3 re-measure of the `--app-bg` family on the
+widened dark canvas: Appendix A.2. Derivation:
+`openspec/changes/state-surface-contrast-guard/design.md` D1/D3.
 
 **`--app-accent-mid` on a border is CORRECT, not drift** (HEL-442 audit correction): the "never accent-tinted" rule
 above governs the DEFAULT hairline (`--app-border-subtle`/`--app-border-strong`), not every border in the app.
@@ -187,31 +226,20 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
     from the neutral surface ramp converges to near-invisible against the
     capsule once composited. `--app-accent` still marks the active icon, but
     it is never the sole indicator — the lozenge boundary is.
-  - **Accent-on-surface, stated honestly.** Because the lozenge's fill reuses
-    `--app-surface`, the active icon's own accent-on-surface contrast moves
-    only slightly from today's opaque bar: dark theme drops by at most 0.49
-    across the eight shipped presets, with no preset falling below 4.24:1;
-    light theme moves by at most 0.18 and remains within a pre-existing
-    1.78–3.71:1 shortfall for several presets that this change neither
-    introduces nor materially worsens (a separate, pre-existing app-wide
-    accent-on-surface gap, tracked as HEL-1061 — see `docs/contrast-audit.md`
-    §7). The lozenge boundary, not
-    the accent icon, is what this carve-out's contrast guarantee rests on.
+  - **Accent-on-surface.** The lozenge reuses `--app-surface`, so the active
+    icon's accent-on-surface contrast is not guaranteed by this carve-out; the
+    lozenge boundary, not the accent icon, carries the guarantee. The shortfall
+    is a pre-existing app-wide gap tracked as HEL-1061 (figures: Appendix A.3).
 
   - **Focus-ring exception: `outline-offset: -3px`.** §8's default focus rule
-    is `[mechanical]` and sanctions exactly `2px`, or `-2px` "only where the
-    ring would clip (flush list items)". The bottom nav's pill-shaped tabs are
-    a documented exception to that rule, measured as two distinct effects:
-    applying §8's recipe **literally** (`-2px` with no `border-radius` on the
-    tab) leaks 455/433 accent pixels outside the capsule at the first/last
-    tabs, up to ~5.02px of overhang — the genuine "hard rectangle" case. Once
-    the tab itself carries `border-radius: var(--app-radius-pill)`, that
-    overhang is gone at `-2px`; the remaining reason for `-3px` is hairline
-    clearance, not overhang — at `-2px` the nearest ring pixel sits 1.50px
-    inside the capsule boundary, colliding visually with the capsule's own
-    `--app-border-strong` hairline, while `-3px` sits 2.50px inside and clears
-    it. Verified from rendered pixels: 0 ring pixels fall outside the
-    capsule's rounded shape at the first and last tabs, in both themes.
+    is `[mechanical]` and sanctions `2px`, or `-2px` "only where the ring would
+    clip (flush list items)". The bottom nav's pill-shaped tabs are a
+    documented exception: each tab carries `border-radius:
+var(--app-radius-pill)` and uses `-3px`, which keeps the ring inside the
+    capsule and clear of the capsule's own `--app-border-strong` hairline.
+    Verified from rendered pixels (0 ring pixels outside the capsule's rounded
+    shape at the first and last tabs, both themes), never from source.
+    (Measurements and the `-2px` overhang figures: Appendix A.3.)
 
   Verification for all of the above is by rendered/sampled pixels, never by
   reading CSS source — `backdrop-filter` is a compositing operation whose
@@ -280,8 +308,7 @@ targets. **[mechanical]**
 so a cluster of expander-based controls needs a gap of at least twice that
 (16px for 28px controls), or adjacent hit regions overlap and the
 later-painted sibling steals the earlier control's taps in the overlapping
-band (HEL-772 measured a real horizontal extent of 35.75px at an 8px gap,
-against a `::after` that still computed a full 44px). Neither
+band (HEL-772; the measured extent is in Appendix A.4). Neither
 `getComputedStyle(el, "::after").width` nor sampling neighbouring painted
 boxes for overlap can detect this — the failure is region-vs-region, not
 box-vs-box — so verification must bisect each control's real hit extent with
@@ -289,26 +316,36 @@ box-vs-box — so verification must bisect each control's real hit extent with
 bisects to just under 44px (~43.75px at a 0.25px sampling step), so the
 assertion threshold needs an epsilon (`>= 44 - samplingStep`, never a literal
 `>= 44`); the gap must never be widened past the tiling point to force the
-number over 44 — the threshold takes the epsilon, not the gap. This is why
-`.app-command-bar__right`'s `--space-4` gap carries the SAME touch gate as the
-expanders it separates: gate the two differently and an iPad gets the
-expanders without the spacing they were measured against.
+number over 44 — the threshold takes the epsilon, not the gap. A gap rule carries the SAME touch gate as the expanders it
+separates (Appendix A.4 for the worked example).
 **[mechanical]** No other control heights.
 
 ### Typography
 
-- Families: `--font-sans` = **Schibsted Grotesk** (all UI), `--font-display` =
-  **Fraunces** (brand/headline moments only), `--font-mono` =
-  **JetBrains Mono** (data, code, eyebrows/labels). **[mechanical]** No ad-hoc
-  `font-family`.
+- Families: `--font-sans` = **Schibsted Grotesk** (all UI, and headings by
+  default), `--font-heading` = the heading face (**defaults to
+  `--font-sans`**), `--font-mono` = **JetBrains Mono** (data, code, metadata,
+  eyebrows/labels), and `--font-display` = **Fraunces**, the optional serif
+  face. `--font-heading` is the single switch: the wordmark, `.page-title`,
+  auth headlines and main empty-state/onboarding titles read
+  `var(--font-heading)`. The optional "Serif headings" type style (HEL-1572)
+  sets `--font-heading: var(--font-display)`; nothing else reads
+  `--font-display`. **[mechanical]** No ad-hoc `font-family`; no component
+  reads `var(--font-display)` directly or hardcodes a family.
 - Type scale: `--text-micro` 10px, `--text-xs` 12px, `--text-sm` 14px (body
   default), `--text-base` 16px, `--text-lg` 18px, `--text-xl` 20px,
   `--text-2xl` 24px, `--text-3xl` 30px.
   **[mechanical]** Every `font-size` uses a token — no literal px/rem.
 - Weights: `--weight-regular/medium/semibold/bold` (400/500/600/700).
   **[mechanical]** No numeric `font-weight` literals.
-- **Where Fraunces goes** [judgment]: the wordmark, auth headlines, main
-  empty-state titles. It never sets body copy, controls, or data.
+- **Where the serif goes** [judgment]: nowhere by default. Fraunces appears only
+  when the user opts in to the "Serif headings" style, and then only through
+  `--font-heading`, so it sets headings and brand moments (wordmark, auth
+  headlines, main empty-state titles) and never body copy, controls, or data.
+- **Headings are sans, set by hierarchy not by face.** Distinguish a heading
+  by `--text-*` size and `--weight-semibold`, not by a different family.
+  Mono is for metadata (counts, timestamps, sources, keyboard hints), never
+  for a title. **[judgment]**
 - **Eyebrows** (section labels): mono, `--text-micro`, uppercase, tracked
   `--eyebrow-tracking`. Use the `.eyebrow` utility or copy its recipe.
 - `.mono` utility for tabular numerals; metric values are mono.
@@ -348,27 +385,33 @@ color-mix(...)`, in four distinct values across `DataGrid`/list tables/
   surface) — so neither is drift; `frontend/src/theme/
 elevationTokenGuard.css.test.ts` pins each declaration by exact file,
   text and count rather than exempting the properties wholesale.
-- Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
-  (0.28s, entrances), `--app-skeleton-shimmer` (1.6s, the `Skeleton`
-  primitive's shimmer loop), `--app-spin-duration` (0.7s, the loop role
-  shared by the `Spinner` primitive and any local copy of it — HEL-441).
-  The first two are transition _shorthands_ tuned for a single hover or
-  one-shot entrance; a continuous loop needs its own duration token rather
-  than reusing either (0.28s repeated indefinitely strobes). **[judgment]
-  governing rule (HEL-441 D1):** a single-use loop may keep its own literal
-  duration; a loop role used by two or more surfaces needs a token —
-  do not build a full duration scale ahead of that need. Modals/popovers/
-  auth card animate in once (fade + 4–10px rise); a backdrop fade paired
-  with its panel's rise (`MobileNavSheet`, `RefinementChatDrawer`) counts
-  as ONE entrance expressed in two elements, not two entrances — do not
-  "fix" that by removing the backdrop fade **[judgment, HEL-441 D7]**.
-  Exit motion is deliberately component-scoped rather than tokenized:
-  `--toast-exit-duration` lives in `toast.css`, paired with `Toast.tsx`'s
-  `TOAST_EXIT_MS`, because it has exactly one consumer — do not promote it
-  to a theme token **[judgment, HEL-441 D1]**. `prefers-reduced-motion` is
-  respected globally — but see `Skeleton`'s own explicit override below;
-  the global rule alone does not fully disable a looping animation.
-  **[judgment]** No scattered micro-animations; one entrance per surface.
+- Motion: see **§10**, which owns the duration/easing tokens, the primitives and
+  the Full/Subtle/Off setting. `--app-transition` (0.16s, hover/color) and
+  `--transition-slow` (0.28s, entrances) are the two transition _shorthands_
+  that predate the scale; they equal `--motion-duration-quick` and
+  `--motion-duration-standard` (+ `--motion-ease-out`) and keep serving their
+  existing consumers until HEL-1573 migrates them. `--app-skeleton-shimmer`
+  (1.6s, the `Skeleton` shimmer loop) and `--app-spin-duration` (0.7s, the loop
+  role shared by `Spinner` and any local copy — HEL-441) are loop tokens: a
+  continuous loop needs its own duration rather than reusing a transition
+  token (0.28s repeated indefinitely strobes). **Rules carried from HEL-441:**
+  - **[judgment]** A single-use loop may keep its own literal duration; a loop
+    role used by two or more surfaces needs a token (HEL-441 D1) — do not
+    add loop-duration tokens ahead of that need. (Transition durations are the
+    §10 scale.)
+  - **[judgment, HEL-441 D7]** Modals/popovers/auth card animate in once (a fade
+    plus a 4–10px rise). A backdrop fade paired with its panel's rise
+    (`MobileNavSheet`, `RefinementChatDrawer`) counts as ONE entrance
+    expressed in two elements, not two — do not "fix" that by removing the
+    backdrop fade.
+  - **[judgment, HEL-441 D1]** Exit motion is deliberately component-scoped
+    rather than tokenized: `--toast-exit-duration` lives in `toast.css`, paired
+    with `Toast.tsx`'s `TOAST_EXIT_MS`, because it has exactly one consumer — do
+    not promote it to a theme token.
+  - `prefers-reduced-motion` is respected globally, but `Skeleton` carries its
+    own explicit override: the global rule alone does not fully disable a
+    looping animation (§10 states the interim relationship).
+  - **[judgment]** No scattered micro-animations; one entrance per surface.
 
 ## 4. Breakpoints
 
@@ -459,7 +502,7 @@ native `<dialog>`, `--app-overlay` backdrop), **TextField**, **Textarea**,
 **Select** (portal-based), **IconButton** (icon-only button — ghost/
 secondary/danger variants, required `aria-label`, `title`-defaults-to-
 `aria-label` tooltip — see §5), **EmptyState** (variants `main`/`sidebar`;
-`main` titles are Fraunces), **Toast** (intents info/success/warning/error),
+`main` titles use `--font-heading`), **Toast** (intents info/success/warning/error),
 **DataGrid** (table-shaped data primitive; variants `preview`/`full`, cell
 density `condensed`/`normal`/`spacious` — see below), **FormField** (label +
 control + help/error layout — the one form-row recipe; new forms use it instead
@@ -479,8 +522,11 @@ Use these; do not hand-roll equivalents. **[mechanical]** (raw-element
 detection) **+ [judgment]**
 
 Utilities in `theme.css`: **`.page-title`** (a section page's `<h1>` —
-`--font-display` at `--text-2xl`, `--weight-semibold`; do not re-derive it
-per page, which is how `SettingsPage` and `ConnectorsPage` drifted apart) ·
+`--font-heading` at `--text-2xl`, `--weight-semibold`; do not re-derive it
+per page, which is how `SettingsPage` and `ConnectorsPage` drifted apart).
+`.page-title` and `PageHeader` remain the section-page title until the shell
+tickets (§9) migrate those pages to the tab/breadcrumb model; do not remove
+or restyle them ahead of that ·
 **`.eyebrow`** · **`.sr-only`**. `shared/ui/tapTarget.css` carries the
 `.tap-expand-44` utility and the canonical tap-target rationale (§3).
 
@@ -748,87 +794,33 @@ var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
   legitimately per component and is NOT part of the token — use `-2px` only
   where the ring would clip (flush list items); see §3's `-3px` carve-out
   for `BottomNav`. **[mechanical]**
-  - **`--app-focus-ring-color` is a dedicated token, DERIVED — not
+  - **`--app-focus-ring-color` is a dedicated, DERIVED token — not
     `--app-accent` itself, and not a hand-picked palette value** (HEL-1046).
-    A focus indicator carries a 3:1 non-text WCAG contrast obligation that a
-    decorative accent does not; binding the two (the pre-HEL-1046 state) is
-    what let the ring fall to 2.58–2.99 against `--app-surface-soft` in the
-    shipped light theme while `--app-accent` was never wrong for its own
-    purpose. `appearance.ts`'s `deriveFocusRingColor(hex)` computes the
-    token as **the minimum darkening (toward black, in TypeScript — never
-    CSS `color-mix`) of the chosen accent that clears 3:1 against every
-    surface declared in BOTH `:root[data-theme=...]` blocks**, taking the
-    minimum over all of them rather than a chosen "worst" pair. This is why
-    it is theme-independent by construction: one value already serves both
-    themes, so no `ThemeProvider` re-application on theme switch is needed.
-    Measured need per preset (Red/Purple/Blue 0% — already pass, rendered
-    unchanged; Pink 1%; Orange 12%; Cyan 18%; Green 21%; Yellow 28%).
-    **This justification — derived rather than chosen — is the entire
-    reason the token is safe to leave alone.** Hand-tuning it toward brand
-    at a future edit silently re-couples the two obligations this token
-    exists to separate; `focusRingTokenGuard.css.test.ts` asserts the
-    property (>= 3:1, re-deriving the binding surfaces from `theme.css`
-    itself rather than a hardcoded pair) so drift fails loudly instead of
-    shipping unnoticed, as it did the first time. `--app-accent` itself is
-    never modified by this token — brand rendering elsewhere is untouched.
-    The static `:root` value (`#db6513`, the derivation applied to
-    `DefaultAccentColorByTheme.dark`) is what actually paints on first load
-    and on an unparseable-accent fallback, before `ThemeProvider`'s effect
-    runs; it must stay equal to that derivation (also guarded) rather than
-    drift into an independently hand-typed hex.
-    **"Every component references one token instead of hand-copying the
-    literal" (above) was NOT true when HEL-1046 was first written** — **17**
-    focus-indicator rules across **8** component stylesheets
-    (`DashboardList.css`, `DashboardAppearanceEditor.css`,
-    `PanelDetailModal.css`/`.sections.css`/`.binding.css`/`.appearance.css`,
-    `OutputPicker.css`, `TableDisplayFields.css`) hand-copied
-    `outline: 2px solid var(--app-accent);` directly, painting the raw,
-    undarkened accent and defeating the 3:1 floor exactly like the original
-    defect. Broken down: 15 `:focus-visible` rules, 1 bare `:focus` rule
-    (`PanelDetailModal.binding.css`'s `.panel-detail-modal__type-search`),
-    and 1 state class (`OutputPicker.css`'s `.output-picker__card--focused`,
-    driven by `aria-selected` rather than a pseudo-class). Verified by
-    `git grep -n "outline: 2px solid var(--app-accent);" <commit> -- '*.css'`
-    at the pre-fix commit, not transcribed from a prior review's count —
-    two earlier tallies in this same review (15, then 16) both undercounted.
-    Cycle-2 review caught this because every other gate could not:
-    `check:tokens` only proves a `var(--*)` reference resolves, not which
-    token a component chose, and the contrast guard above reads `theme.css`
-    only. Fixed by repointing all 17 at `var(--app-focus-ring)`, keeping
-    each site's own `outline-offset` (still not part of the token). The
-    sentence is true now, checked by a second [mechanical] guard in
-    `focusRingTokenGuard.css.test.ts` that walks every `.css` file under
+    A focus indicator carries a 3:1 non-text WCAG obligation a decorative
+    accent does not. `appearance.ts`'s `deriveFocusRingColor(hex)` computes the
+    token as the minimum darkening (toward black, in TypeScript — never CSS
+    `color-mix`) of the chosen accent that clears 3:1 against every surface
+    declared in BOTH theme blocks, so one value serves both themes and needs
+    no re-application on theme switch. **Never hand-tune it toward brand**:
+    that silently re-couples the two obligations the token exists to separate.
+    `focusRingTokenGuard.css.test.ts` asserts the property (>= 3:1,
+    re-deriving the binding surfaces from `theme.css` itself) and that the
+    static `:root` fallback equals the derivation. `--app-accent` itself is
+    never modified by this token. **[mechanical]**
+  - **Every component references the one token** — no hand-copied
+    `outline: 2px solid var(--app-accent);`. A second guard in
+    `focusRingTokenGuard.css.test.ts` walks every `.css` file under
     `frontend/src` and fails on any `outline` colour that is not
     `var(--app-focus-ring)`, `none`, or an explicitly pinned exception.
-    **The one pinned exception is `App.css:43`'s skip link**
-    (`outline: 2px solid var(--app-text);`, HEL-772) — a deliberate,
-    high-contrast, modality-independent ring on a `position: fixed`,
-    viewport-top-anchored surface, not an accidental accent hand-copy, so it
-    is excepted by name rather than silently allowed by a loose pattern.
-    **A second, DIFFERENT kind of exception exists in the same guard's
-    whitelist: `PanelDetailModal.binding.css`'s
-    `.panel-detail-modal__type-search:focus` is the ONE bare-`:focus` (not
-    `:focus-visible`) consumer of `--app-focus-ring`** — the whitelist
-    requires it to stay a token consumer, same as every `:focus-visible`
-    site, so `theme.css`'s own header comment on the token no longer
-    claims "never bare `:focus`" (that claim, written cycle-1, went stale
-    the moment this site was repointed cycle-2 — corrected cycle-4).
-    **Investigated rather than assumed:** `grep -rn` for
-    `type-search`/`type-list` across `frontend/src` returns zero hits
-    outside these two CSS declarations — no component in the current tree
-    renders this class. `git log` traces it to `PanelDetailModal.binding.css`
-    surviving HEL-909's removal of `BindingEditor.tsx` (#509, "retire
-    wizard/BindingEditor/Types/Metrics pages"), which almost certainly
-    rendered it. So this is most plausibly orphaned CSS, not a live,
-    deliberately-chosen instance of the carve-out below — recorded here as
-    what that carve-out WOULD require if the rule ever renders again (a
-    type-ahead search input announcing "you're typing into me," which the
-    class name and styling support), not as a claim that a real user
-    currently sees this behavior. Removing genuinely dead CSS is outside
-    HEL-1046's scope (a focus-ring colour fix) and no existing ticket owns
-    a dead-CSS sweep of this file, so it is left in place, correctly
-    described, rather than silently deleted or silently misrepresented as
-    live.
+    **[mechanical]** The pinned exceptions are named, never a loose pattern:
+    `App.css`'s skip link (`outline: 2px solid var(--app-text);`, HEL-772 — a
+    deliberate high-contrast, modality-independent ring on a `position: fixed`
+    surface) and `PanelDetailModal.binding.css`'s
+    `.panel-detail-modal__type-search:focus`, the one bare-`:focus` consumer of
+    `--app-focus-ring` (it must stay a token consumer; that CSS is likely
+    orphaned and is left in place rather than silently deleted). The history
+    of how these were found (the 17-site undercount, the orphan
+    investigation): Appendix A.6.
   - **The one legitimate exception is a persistent, modality-independent
     indicator** — an element that should look "active" regardless of HOW it
     got focus, because the state itself (not the input device) is what's
@@ -856,39 +848,19 @@ var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
     leave it on bare `:focus` (visible for everyone) rather than drop the
     ring.
   - **The 3:1 obligation binds on whichever mechanism actually conveys
-    focus — `outline`, `border`/`border-*-color`, or `box-shadow` — not
-    only on `outline`** (HEL-1050). `outline: none` is not, by itself, a
-    focus-accessibility defect; it is only a defect when nothing else
-    conforming replaces it. HEL-1046's whitelist guard reasoned about
-    `outline` alone and therefore had nothing to say about **ten
-    `outline: none` declarations across nine distinct sites**
-    (`shared/ui/inputs.css`, three `DashboardList.css` inputs, its
-    permanent-border rename input, `auth.css`, `PanelGrid.css`'s title
-    input, `PipelineDetailPage.css`'s footer input — which carries TWO
-    separate `outline: none` declarations, one on its base rule and one on
-    its former bare-`:focus`/`:focus-visible` pair, the only site
-    contributing more than one — and `AccentPicker.css`'s swatch ring).
-    **Not all ten painted the raw, undarkened `--app-accent`** — most did
-    (measuring 2.38–2.80 in light, below the 3:1 floor), but `PanelGrid.css`
-    painted `--app-accent-strong` instead (disqualified separately, below,
-    for failing Yellow specifically) and `DashboardList.css`'s rename input
-    conveyed focus via its sub-threshold halo alone, with no accent
-    recolouring needed at focus at all (its permanent, always-visible
-    border was already accent-coloured, unrelated to the focus state). Each
-    site now routes through the same `--app-focus-ring-color` token
-    `outline` does, recolouring (or, for the halo-only site, adding a
-    conforming border) without changing the mechanism — a border stays a
-    border, a box-shadow ring stays a box-shadow ring — D1's ruling is
-    "recolour, do not reinstate an outline," precisely because an outline
-    can reintroduce clipping a border/shadow mechanism was chosen to avoid.
-    `focusRingTokenGuard.css.test.ts` extends the same file with a second,
-    independent guard for this: it groups declarations by selector BASE
-    (trailing pseudo-classes stripped) so a base rule's `outline: none` and
-    its sibling `:focus-visible` rule's indicator are checked together, and
-    requires (1) some `:focus-visible` rule in that group to reference
+    focus — `outline`, `border`/`border-*-color`, or `box-shadow` — not only
+    on `outline`** (HEL-1050). `outline: none` is a defect only when nothing
+    conforming replaces it. Each such site routes through the same
+    `--app-focus-ring-color` token, recolouring without changing the
+    mechanism: a border stays a border, a box-shadow ring stays a box-shadow
+    ring (an outline can reintroduce the clipping a border/shadow mechanism
+    was chosen to avoid). `focusRingTokenGuard.css.test.ts` groups
+    declarations by selector BASE (trailing pseudo-classes stripped) and
+    requires (1) some `:focus-visible` rule in the group to reference
     `var(--app-focus-ring-color)`/`var(--app-focus-ring)`, and (2) no
     indicator declaration in a genuine focus rule to reference the bare
-    `var(--app-accent)`.
+    `var(--app-accent)`. **[mechanical]** (The ten-site inventory and the
+    non-uniform ways those sites failed: Appendix A.7.)
   - **A translucent halo (`--app-accent-dim`, an 8–10% alpha tint) is
     decoration and is never credited toward the 3:1 obligation** — it
     measures ~1.08:1 (light) / ~1.14:1 (dark) against its own surface, so
@@ -914,6 +886,504 @@ black|white)`) is not a conforming focus colour** — Yellow measures
     colour. That residual is owned by HEL-1051, not silently absorbed here.
 - `--app-accent-ink` is contrast-computed per accent; never place raw white
   text on the accent. Color is never the sole carrier of meaning.
+- **`--app-accent-text` — accent used as readable TEXT is a separate,
+  THEME-AWARE derived token, unlike the ring token above** (HEL-1048).
+  `--app-accent` (fills, borders, decoration) is never rewritten. **[mechanical]**
+  - **Why theme-aware:** at the 4.5:1 text floor, no single colour clears both
+    the binding light surface and the binding dark surface (the windows are
+    disjoint), unlike the 3:1 non-text ring. The two tokens deliberately
+    diverge on this axis; `appearance.ts`'s `deriveAccentTextColor` doc
+    comment says why.
+  - Derived by `deriveAccentTextColor(hex, theme)`: the minimum
+    darken-toward-black (light) / lighten-toward-white (dark) that clears 4.5:1
+    against the COMPLETE scored background set for that theme — the five
+    neutral surface tokens, `--app-accent-surface`/`--app-accent-dim`
+    composited over each, and the two inline tints heavier than those
+    (`BottomNav.css`'s 22% active-tab lozenge, `AddSourceModal.css`'s 20%
+    selected-type-pill fill). Scoring only the neutral surfaces would ship a
+    colour that still fails on the app's own accent-tinted surfaces.
+  - Re-applies on **theme** change as well as accent change
+    (`ThemeProvider.tsx`'s effect is keyed on `[accentColor, theme]`). A static
+    `:root` fallback paints first load and is pinned to the live derivation by
+    `accentTextSourceSyncGuard.css.test.ts`.
+  - **`::selection`** sets BOTH `background` (an opaque per-theme hex, resolved
+    in TypeScript from the accent blended over `--app-bg`, and likewise pinned
+    for its static fallback) and `color` (`--app-text`, deliberately not the
+    accent-text token). Setting only one of the two was defective twice.
+  - **Accepted, visible consequence:** a preset's TEXT can render visibly
+    darker/lighter than its own FILL on the same surface (sharpest for Yellow
+    in light theme). This is the owner's `accept-hue-shift` ruling.
+    **[judgment]**
+  - **Scope boundary:** a panel with a user-chosen background
+    (`--panel-surface-override`) cannot be guaranteed by any derived colour;
+    owned by **HEL-1057**, not this token and not HEL-1051 (focus indicators at
+    3:1). (Full derivation notes, the producibility argument and the
+    selection-background history: Appendix A.8.)
+- Keyboard operable; dialogs handle Enter/Escape.
+
+## 9. Shell
+
+The app shell is a **56px icon rail**, a **resizable, collapsible context
+list**, and a **tab bar** with a `⌘K` box. This section is the binding target
+for HEL-1574 (rail + context list), HEL-1575/1576 (tabs, meta row) and HEL-1578
+(Home); until those land the running app still has the v2 sidebar and command
+bar, and nothing here licenses restyling them ahead of those tickets. The
+boards put chrome darker than cards while the v2 sidebar paints
+`--app-surface` (lighter than the canvas); resolving that is HEL-1574's job.
+Numbers the design boards do not fix are marked "adjustable by the owning
+ticket with a DESIGN.md edit".
+
+- **Rail.** 56px wide, always visible, so every page stays reachable when the
+  context list is collapsed. Icon-only: every item has a tooltip (`title`) and
+  an `aria-label` (§5). The active item is an `--app-accent-dim` wash with an
+  `--app-accent` icon; the user avatar sits at the foot. Usage is not a
+  primary-nav item. **[mechanical]** (accessible names, tokens) **[judgment]**
+  (composition)
+- **Context list.** Resizable by a drag handle, collapsible to the rail.
+  Width: min 200px, default 248px, max 400px (adjustable by the owning ticket
+  with a DESIGN.md edit). Width and collapsed state persist per user. For
+  dashboards it shows folders with counts. The handle is keyboard-operable and
+  announced, not pointer-only. **[judgment]**
+- **Tabs.** One tab per open dashboard; the active tab is marked by an
+  `--app-accent` indicator on its top edge that slides between tabs (§10).
+  Open tabs persist server-side with a TTL: returning within it is instant
+  (warm), after it the tabs are kept and the content reloads (a second or two),
+  and a tab is never lost. **[judgment]**
+- **No dashboard title.** Tabs, the context list and `⌘K` already carry the
+  dashboard's identity, so the dashboard page renders no `<h1>` title of its
+  own. It still needs an accessible name for the landmark (visually hidden or
+  `aria-label`). **[judgment]**
+- **Meta row.** A slim row under the tab bar in `--font-mono`, `--text-xs`,
+  muted: panel count · refreshed (a success-intent dot) · source. Actions trail
+  on the right with **one** primary. It states facts and carries no title.
+  **[judgment]**
+- **`⌘K`.** A box in the tab bar with the placeholder "Search, jump, or ask".
+  Typing searches and jumps; a question hands off to the Assistant.
+  Home and Pipeline top bars carry a small sans breadcrumb or label rather
+  than a display `<h1>`. Section pages keep `PageHeader`/`.page-title` until
+  the shell tickets migrate them (§6).
+- **Accent discipline in the shell.** The accent appears on the active rail
+  item, the active tab indicator, the single primary action and focus — and
+  nothing else (§0). A view with five accent-coloured secondary controls is the
+  defect this rule exists to prevent. **[judgment]**
+- **Themes-ready.** Rail, list and tabs are built from tokens only; they must
+  look right with every accent preset in both themes. **[mechanical]**
+
+## 10. Motion
+
+Motion explains change: where something came from, where it went, what
+just updated. It has a little give, and it is never decoration. The tokens
+below are the source of truth; their declarations live in `theme.css`.
+Primitives and the Motion setting are implemented by HEL-1572/HEL-1573, and
+this section is the contract they implement. **[judgment]**
+
+### Tokens
+
+| token                          | value                              | role                                                                                         |
+| ------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------- |
+| `--motion-duration-quick`      | 160ms                              | hover, colour (equals `--app-transition`)                                                    |
+| `--motion-duration-standard`   | 280ms                              | entrances, crossfade, indicator slide, layout slide, collapse/expand (= `--transition-slow`) |
+| `--motion-duration-emphasized` | 420ms                              | panel/card rise only                                                                         |
+| `--motion-duration-highlight`  | 1200ms                             | the changed-row flash (§11)                                                                  |
+| `--motion-stagger`             | 40ms                               | per-item entrance step (the boards use 30–50ms)                                              |
+| `--motion-ease-standard`       | `ease`                             | colour and opacity                                                                           |
+| `--motion-ease-out`            | `cubic-bezier(0.3, 0.9, 0.4, 1)`   | the single deceleration curve (equals `--transition-slow`'s)                                 |
+| `--motion-ease-overshoot`      | `cubic-bezier(0.2, 0.9, 0.3, 1.1)` | "a little give" (a pop); never under Subtle                                                  |
+
+**[mechanical]** New code takes durations and easings from this scale; a
+literal duration in a `transition:`/`animation:` declaration is rejected by
+`motionTokenGuard.css.test.ts`, and a literal easing is a defect. The
+pre-existing `--app-transition`/`--transition-slow` keep serving their current
+consumers until HEL-1573 migrates them. Loops (`--app-skeleton-shimmer`,
+`--app-spin-duration`) and component-scoped exits (`--toast-exit-duration`)
+stay as §3 states. One ease-out curve is kept on purpose so the system has a
+single deceleration shape.
+
+### Primitives
+
+- **Staggered entrance.** Items enter in sequence, each delayed by one
+  `--motion-stagger` step, fading in and rising a few px on `--motion-ease-out`.
+  A panel or card rise uses `--motion-duration-emphasized`; other entrances use
+  `--motion-duration-standard`. One entrance per surface (§3). Cap the
+  sequence so the last item does not start later than about 400ms.
+- **Layout slide.** Panels that move to a new position slide there
+  (`--motion-duration-standard`, `--motion-ease-out`) instead of jumping.
+- **Value tween.** A changed number counts to its new value rather than
+  swapping. Tabular numerals (§3) keep it from jittering.
+- **Crossfade.** Replacing content fades the old out and the new in over
+  `--motion-duration-standard`; layout does not collapse in between.
+- **Indicator slide.** The active-tab, active-nav and filter indicators slide
+  to the new position (`--motion-duration-standard`, `--motion-ease-out`).
+- **Pop.** A small overshoot (`--motion-ease-overshoot`) on a confirmed action
+  or an added item: the "give". Full only.
+- **Changed-row flash.** See §11; it is the one motion that survives Subtle.
+
+### Motion setting (Full / Subtle / Off)
+
+- **Full:** every primitive.
+- **Subtle:** opacity and colour fades only. No translate, scale, overshoot or
+  layout slide; value tweens swap instantly. The changed-row flash stays (it
+  is a fade).
+- **Off:** no transform or position animation, and no fades beyond the
+  instant. There is no flash; a static changed marker is enough.
+- **No saved preference:** follow `prefers-reduced-motion`. `reduce` gives
+  **Off**; otherwise **Full**.
+- **An explicit saved choice beats the OS setting.** The OS setting is the
+  default, not an override.
+- The root attribute is `data-motion="full|subtle|off"`, owned by HEL-1572,
+  which also owns the per-user persistence.
+
+**Provenance, stated honestly.** "No saved preference plus OS reduce means Off"
+and "an explicit choice beats the OS" are **driver defaults**, not owner
+rulings: the boards do not settle Off versus Subtle, and HEL-1572's own
+acceptance criteria allow either. Treat both as _default, revisit with the
+owner in HEL-1572_.
+
+**Interim implementation (today's tree).** `data-motion` and the saved
+preference do not exist yet. The global `@media (prefers-reduced-motion:
+reduce)` rule in `theme.css` (`!important` near-zero durations) is unscoped and
+stays as it is. While it stands, an OS reduced-motion setting always wins and
+an explicit "Full" choice cannot override it. HEL-1572/HEL-1573 must scope that
+rule to users with no saved preference (for example
+`:root:not([data-motion])`) when they add the attribute. **[mechanical]**
+
+## 11. Live preview
+
+Live preview is the pattern for editing something and seeing its result before
+committing: the pipeline editor's Output render, and any later builder.
+Binding target for HEL-1579, HEL-1580 and HEL-1581; none of it exists in the
+running app yet.
+
+- **Draft versus saved.** Edits form a _draft_. **Nothing is written until the
+  user chooses "Save & run".** "Discard" is secondary. While a draft differs
+  from the saved state, show a chip reading "Draft · unsaved changes" with an
+  `--app-accent` dot. **[judgment]**
+- **The "live" marker.** A success-intent dot plus lowercase mono "live". It
+  appears **only** on a surface recomputed from the current draft, and nowhere
+  else; used elsewhere it stops meaning anything. **[judgment]**
+- **Changed rows flash.** When a draft edit changes rows, those rows flash an
+  `--app-accent` wash at 30% that fades to transparent over
+  `--motion-duration-highlight` on `--motion-ease-out`. Under Subtle the flash
+  stays (it is a fade); under Off there is no flash and a static changed marker
+  is enough (§10). Colour comes from the accent token via `color-mix`, never a
+  hardcoded colour. **[mechanical]**
+- **Cached samples.** Non-static sources preview on cached samples, recomputed
+  client-side with small diffs. Whether live updates arrive by SSE or another
+  streaming mechanism is open (the HEL-1580 spike); this section does not
+  decide it. **[judgment]**
+- **Step spine.** The editor is a left step spine (numbered, with per-step row
+  counts) leading to a focused step editor, a preview table and the live Output
+  render. The accent marks the selected step and the primary action only (§0).
+  **[judgment]**
+
+## 12. Mobile
+
+Phone-shaped layout is gated on width; tap-target rules are gated on the input
+device (§3, §4). The mobile shell keeps the glass bottom nav (improve it, never
+remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
+(dashboard on mobile and glass nav v2).
+
+- **Edge gutters.** Page content sits `--space-3` (12px) from the screen edge.
+  10px is allowed only as an optical tweak of at most 4px from a token (§3's
+  spacing rule). Today's text sits about 57px from the edge; that is the
+  defect this replaces. **[mechanical]**
+- **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
+  the desktop context list. **[judgment]**
+- **Glass nav v2.** Five tabs; the **active tab expands to show its label**
+  (a width transition on `--motion-duration-standard` with
+  `--motion-ease-out`; Off swaps instantly). The HEL-774 carve-out (§3) still
+  binds: translucent material, glyph floor >=3:1 and active-lozenge floor >=3:1
+  measured from rendered pixels, the `-3px` focus-ring offset, and every other
+  surface staying opaque. **[mechanical]** (measured from pixels)
+- **Open obligation on HEL-1583 (not a measured fact).** The expanded label is
+  text over translucent material, so it must clear **4.5:1 measured from
+  rendered pixels**, or HEL-1583 must give the label an opaque lozenge. Until
+  that measurement exists, no claim is made that the label passes.
+- **Touch.** All tap-target rules in §3 (44px floor, hit expanders and their
+  tiling) apply unchanged. **[mechanical]**
+
+## Light/dark token-parity rule (HEL-444)
+
+Every `--app-*` custom property declared inside `:root[data-theme="dark"]` in
+`frontend/src/theme/theme.css` must also be declared inside
+`:root[data-theme="light"]`, and vice versa. A token present in only one theme
+block resolves to the empty string wherever the _other_ theme is active — the
+two selectors are siblings, neither inherits from the other, so there is no
+fallback chain that would otherwise mask the gap. Guarded by
+`frontend/src/theme/themeParityGuard.css.test.ts` — a Jest guard beside its
+seven `theme.css`-parsing siblings, not a `scripts/*.mjs` (Jest already runs
+in pre-commit and CI, so no new wiring or gate-chain surface is needed).
+Runtime-set tokens written inline by `applyAccentTokens`
+(`--app-focus-ring-color`, `--app-accent-text`, `--app-selection-bg`) are
+declared in _neither_ theme block by design — their static fallback lives
+once in the theme-invariant `:root` block and is pinned separately by
+`accentTextSourceSyncGuard.css.test.ts`/`focusRingTokenGuard.css.test.ts` —
+and the parity guard treats "declared in neither" as a non-violation without
+that leniency swallowing "declared in exactly one." **[mechanical]** (The
+token counts measured when the rule was written: Appendix A.9.)
+
+---
+
+## Appendix A: Measurements and forensics
+
+Evidence, not rules. Each block was moved here from a body section and its
+HEL-ids are preserved so `grep HEL-NNN DESIGN.md` still lands in the right
+place. The normative rule stays in the body; this appendix records how a number
+was measured and why. Measurements are dated: a value taken on the **v2 ramp**
+(the dark canvas before HEL-1571; its one dated mention is the labelled line in A.2) is a
+historical record, not a current claim.
+
+### A.1 Contrast audit history (HEL-533)
+
+Moved from §3 Color.
+
+**Contrast audit (HEL-533).** Every text-capable foreground token's measured
+WCAG ratio against every neutral surface and intent-tint composite it renders
+on, in both themes, plus the `--app-accent-ink` floor and the accent-on-surface
+shortfall, is a committed artifact: `docs/contrast-audit.md`. Correction
+(skeptic final-gate cycle 3): that table is **hand-transcribed**, reproduced
+from the same computation `frontend/src/theme/tokenContrastGuard.css.test.ts`
+uses (see that file's helpers and `docs/contrast-audit.md`'s own
+regeneration recipe) — it is NOT auto-generated, and it can go stale if a
+future token edit isn't accompanied by re-transcribing it. It is the
+**guard**, not this table, that fails CI on a regression. Read the table for
+context before changing any `--app-text*`/`--app-success`/`--app-warning`/
+`--app-error` value, but rely on the guard, not the table, to catch a
+regression.
+
+### A.2 Backdrop families and the state-rung table (HEL-866)
+
+Moved from §3 Color. The first block is the v2 text verbatim; the "v3
+re-measure" below it supersedes only the `--app-bg` dark cell.
+
+**HEL-866 — which rung is correct depends on the REAL BACKDROP a state composites against, and that backdrop varies by layer, not just by theme.** `--app-surface-raised` and `--app-surface-strong` are byte-identical in light theme (`#ffffff` = `#ffffff`), so a state layered directly on a Modal/popover/menu's own background (`--app-surface-strong`) rendered with **zero** visible feedback there; dark theme is not safe either (`#232019` on `#262320` measures ~1.04:1, non-identical but not _measurably_ different). But the fix is NOT "always use `--app-surface-soft`" — that was tried first (cycle 1), shipped as a blanket sweep, and **measurably regressed a whole family of call sites it never verified** (evaluation-2.md CR6): table/list rows and page-level buttons mostly composite against `--app-bg` (the outermost canvas), not `--app-surface-strong`, and on `--app-bg` it is `--app-surface-raised` that clears the threshold in both themes (1.161 dark / 1.119 light) — `--app-surface-soft` measures _worse_ there (1.034 dark / 1.054 light). A rendered, CI-gated contrast guard (`e2e/state-surface-contrast-guard.spec.ts`) — the arbiter for every remediation decision here, not inspection or a general rule — found three distinct backdrop families, each needing a different fix:
+
+| real backdrop                                                                         | correct fix                                                                                                  | measured (dark / light) |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| `--app-surface-strong` (modal/popover/menu interiors)                                 | `--app-surface-soft` alone, no theme split                                                                   | 1.167 / 1.179           |
+| `--app-surface` (an intermediate layer — command bar, a step card, a settings button) | `--app-surface-strong` in dark, `--app-surface-soft` in light (a `:root[data-theme="dark"]`-scoped override) | 1.133 / 1.150           |
+| `--app-bg` (the outermost page canvas — most table/list rows)                         | `--app-surface-raised`, unchanged, no fix needed                                                             | 1.161 / 1.119           |
+
+See `openspec/changes/state-surface-contrast-guard/design.md` D1/D3 for the full derivation. **This three-way split is itself strong evidence for a dedicated `--app-state-hover` / `--app-state-selected` token pair** — no single existing rung serves all three backdrops in both themes, so every future call site has to re-derive which of three fixes it needs (as this ticket's own remediation got wrong on its first pass) rather than reaching for one name that is correct by construction. **Still recommended, still not adopted this run**: adding a token to `theme.css` is a visual-identity decision requiring owner sign-off (escalated during HEL-866, no dashboard attached; the conservative per-backdrop-measured-fix path was taken instead of blocking on it).
+
+**v2 ramp (dark `--app-bg #121110`) measured column, kept as a dated record:**
+
+| real backdrop          | correct fix                                                   | measured (dark / light) |
+| ---------------------- | ------------------------------------------------------------- | ----------------------- |
+| `--app-surface-strong` | `--app-surface-soft` alone                                    | 1.167 / 1.179           |
+| `--app-surface`        | `--app-surface-strong` in dark, `--app-surface-soft` in light | 1.133 / 1.150           |
+| `--app-bg`             | `--app-surface-raised`                                        | 1.161 / 1.119           |
+
+**v3 re-measure (HEL-1571).** Dark `--app-bg` moved to `#0f0e0d`; surfaces are
+unchanged, so families 1 and 2 (backdrops `--app-surface-strong` and
+`--app-surface`) do not change. Family 3 (`--app-surface-raised` `#232019` on
+`--app-bg`) is recomputed with the guard's luminance-ratio method:
+**1.187 dark** (was 1.161); light is unchanged at 1.119. The rendered
+`e2e/state-surface-contrast-guard.spec.ts` is the arbiter and passed on the new
+canvas (HEL-1571 evidence). The darker canvas raises this family's contrast.
+
+**Card-surface disagreement (HEL-1571).** The approved boards disagree on the
+dark card value: `#1c1a17` (B2 Dashboard, Pipeline live), `#1a1815` (Home) and
+`#171513` (Motion live, Appearance). Today's `--app-surface` `#1a1816` sits
+within one RGB step of Home's, and picking one board's value would have been a
+choice the boards do not make, so it was left unchanged. The owner may select
+one in a follow-up; a lighter card also squeezes `--app-surface-strong`'s state
+contrast, so re-run the guards when it changes.
+
+### A.3 Bottom-nav glass measurements (HEL-774)
+
+Moved from §3 Surfaces & the opacity invariant.
+
+- **Accent-on-surface, stated honestly.** Because the lozenge's fill reuses
+  `--app-surface`, the active icon's own accent-on-surface contrast moves
+  only slightly from today's opaque bar: dark theme drops by at most 0.49
+  across the eight shipped presets, with no preset falling below 4.24:1;
+  light theme moves by at most 0.18 and remains within a pre-existing
+  1.78–3.71:1 shortfall for several presets that this change neither
+  introduces nor materially worsens (a separate, pre-existing app-wide
+  accent-on-surface gap, tracked as HEL-1061 — see `docs/contrast-audit.md`
+  §7). The lozenge boundary, not
+  the accent icon, is what this carve-out's contrast guarantee rests on.
+
+- **Focus-ring exception: `outline-offset: -3px`.** §8's default focus rule
+  is `[mechanical]` and sanctions exactly `2px`, or `-2px` "only where the
+  ring would clip (flush list items)". The bottom nav's pill-shaped tabs are
+  a documented exception to that rule, measured as two distinct effects:
+  applying §8's recipe **literally** (`-2px` with no `border-radius` on the
+  tab) leaks 455/433 accent pixels outside the capsule at the first/last
+  tabs, up to ~5.02px of overhang — the genuine "hard rectangle" case. Once
+  the tab itself carries `border-radius: var(--app-radius-pill)`, that
+  overhang is gone at `-2px`; the remaining reason for `-3px` is hairline
+  clearance, not overhang — at `-2px` the nearest ring pixel sits 1.50px
+  inside the capsule boundary, colliding visually with the capsule's own
+  `--app-border-strong` hairline, while `-3px` sits 2.50px inside and clears
+  it. Verified from rendered pixels: 0 ring pixels fall outside the
+  capsule's rounded shape at the first and last tabs, in both themes.
+
+### A.4 Expander tiling measurement (HEL-772)
+
+Moved from §3 Control metrics.
+
+**HEL-772 measurement.** The expander tiling failure was measured as a real horizontal extent of 35.75px at an 8px gap, against a `::after` that still computed a full 44px.
+
+**Worked example of the shared gate.** `.app-command-bar__right`'s `--space-4` gap carries the SAME touch gate as the expanders it separates: gate the two differently and an iPad gets the expanders without the spacing they were measured against.
+
+### A.5 v2 motion prose (HEL-441), superseded by §10
+
+Moved from §3 Radius / Shadow / Motion. Kept for provenance; §10 and the
+carried-forward rules in §3 are authoritative.
+
+- Motion: `--app-transition` (0.16s, hover/color), `--transition-slow`
+  (0.28s, entrances), `--app-skeleton-shimmer` (1.6s, the `Skeleton`
+  primitive's shimmer loop), `--app-spin-duration` (0.7s, the loop role
+  shared by the `Spinner` primitive and any local copy of it — HEL-441).
+  The first two are transition _shorthands_ tuned for a single hover or
+  one-shot entrance; a continuous loop needs its own duration token rather
+  than reusing either (0.28s repeated indefinitely strobes). **[judgment]
+  governing rule (HEL-441 D1):** a single-use loop may keep its own literal
+  duration; a loop role used by two or more surfaces needs a token —
+  do not build a full duration scale ahead of that need. Modals/popovers/
+  auth card animate in once (fade + 4–10px rise); a backdrop fade paired
+  with its panel's rise (`MobileNavSheet`, `RefinementChatDrawer`) counts
+  as ONE entrance expressed in two elements, not two entrances — do not
+  "fix" that by removing the backdrop fade **[judgment, HEL-441 D7]**.
+  Exit motion is deliberately component-scoped rather than tokenized:
+  `--toast-exit-duration` lives in `toast.css`, paired with `Toast.tsx`'s
+  `TOAST_EXIT_MS`, because it has exactly one consumer — do not promote it
+  to a theme token **[judgment, HEL-441 D1]**. `prefers-reduced-motion` is
+  respected globally — but see `Skeleton`'s own explicit override below;
+  the global rule alone does not fully disable a looping animation.
+  **[judgment]** No scattered micro-animations; one entrance per surface.
+
+### A.6 Focus-ring token forensics (HEL-1046)
+
+Moved from §8.
+
+- **`--app-focus-ring-color` is a dedicated token, DERIVED — not
+  `--app-accent` itself, and not a hand-picked palette value** (HEL-1046).
+  A focus indicator carries a 3:1 non-text WCAG contrast obligation that a
+  decorative accent does not; binding the two (the pre-HEL-1046 state) is
+  what let the ring fall to 2.58–2.99 against `--app-surface-soft` in the
+  shipped light theme while `--app-accent` was never wrong for its own
+  purpose. `appearance.ts`'s `deriveFocusRingColor(hex)` computes the
+  token as **the minimum darkening (toward black, in TypeScript — never
+  CSS `color-mix`) of the chosen accent that clears 3:1 against every
+  surface declared in BOTH `:root[data-theme=...]` blocks**, taking the
+  minimum over all of them rather than a chosen "worst" pair. This is why
+  it is theme-independent by construction: one value already serves both
+  themes, so no `ThemeProvider` re-application on theme switch is needed.
+  Measured need per preset (Red/Purple/Blue 0% — already pass, rendered
+  unchanged; Pink 1%; Orange 12%; Cyan 18%; Green 21%; Yellow 28%).
+  **This justification — derived rather than chosen — is the entire
+  reason the token is safe to leave alone.** Hand-tuning it toward brand
+  at a future edit silently re-couples the two obligations this token
+  exists to separate; `focusRingTokenGuard.css.test.ts` asserts the
+  property (>= 3:1, re-deriving the binding surfaces from `theme.css`
+  itself rather than a hardcoded pair) so drift fails loudly instead of
+  shipping unnoticed, as it did the first time. `--app-accent` itself is
+  never modified by this token — brand rendering elsewhere is untouched.
+  The static `:root` value (`#db6513`, the derivation applied to
+  `DefaultAccentColorByTheme.dark`) is what actually paints on first load
+  and on an unparseable-accent fallback, before `ThemeProvider`'s effect
+  runs; it must stay equal to that derivation (also guarded) rather than
+  drift into an independently hand-typed hex.
+  **"Every component references one token instead of hand-copying the
+  literal" (above) was NOT true when HEL-1046 was first written** — **17**
+  focus-indicator rules across **8** component stylesheets
+  (`DashboardList.css`, `DashboardAppearanceEditor.css`,
+  `PanelDetailModal.css`/`.sections.css`/`.binding.css`/`.appearance.css`,
+  `OutputPicker.css`, `TableDisplayFields.css`) hand-copied
+  `outline: 2px solid var(--app-accent);` directly, painting the raw,
+  undarkened accent and defeating the 3:1 floor exactly like the original
+  defect. Broken down: 15 `:focus-visible` rules, 1 bare `:focus` rule
+  (`PanelDetailModal.binding.css`'s `.panel-detail-modal__type-search`),
+  and 1 state class (`OutputPicker.css`'s `.output-picker__card--focused`,
+  driven by `aria-selected` rather than a pseudo-class). Verified by
+  `git grep -n "outline: 2px solid var(--app-accent);" <commit> -- '*.css'`
+  at the pre-fix commit, not transcribed from a prior review's count —
+  two earlier tallies in this same review (15, then 16) both undercounted.
+  Cycle-2 review caught this because every other gate could not:
+  `check:tokens` only proves a `var(--*)` reference resolves, not which
+  token a component chose, and the contrast guard above reads `theme.css`
+  only. Fixed by repointing all 17 at `var(--app-focus-ring)`, keeping
+  each site's own `outline-offset` (still not part of the token). The
+  sentence is true now, checked by a second [mechanical] guard in
+  `focusRingTokenGuard.css.test.ts` that walks every `.css` file under
+  `frontend/src` and fails on any `outline` colour that is not
+  `var(--app-focus-ring)`, `none`, or an explicitly pinned exception.
+  **The one pinned exception is `App.css:43`'s skip link**
+  (`outline: 2px solid var(--app-text);`, HEL-772) — a deliberate,
+  high-contrast, modality-independent ring on a `position: fixed`,
+  viewport-top-anchored surface, not an accidental accent hand-copy, so it
+  is excepted by name rather than silently allowed by a loose pattern.
+  **A second, DIFFERENT kind of exception exists in the same guard's
+  whitelist: `PanelDetailModal.binding.css`'s
+  `.panel-detail-modal__type-search:focus` is the ONE bare-`:focus` (not
+  `:focus-visible`) consumer of `--app-focus-ring`** — the whitelist
+  requires it to stay a token consumer, same as every `:focus-visible`
+  site, so `theme.css`'s own header comment on the token no longer
+  claims "never bare `:focus`" (that claim, written cycle-1, went stale
+  the moment this site was repointed cycle-2 — corrected cycle-4).
+  **Investigated rather than assumed:** `grep -rn` for
+  `type-search`/`type-list` across `frontend/src` returns zero hits
+  outside these two CSS declarations — no component in the current tree
+  renders this class. `git log` traces it to `PanelDetailModal.binding.css`
+  surviving HEL-909's removal of `BindingEditor.tsx` (#509, "retire
+  wizard/BindingEditor/Types/Metrics pages"), which almost certainly
+  rendered it. So this is most plausibly orphaned CSS, not a live,
+  deliberately-chosen instance of the carve-out below — recorded here as
+  what that carve-out WOULD require if the rule ever renders again (a
+  type-ahead search input announcing "you're typing into me," which the
+  class name and styling support), not as a claim that a real user
+  currently sees this behavior. Removing genuinely dead CSS is outside
+  HEL-1046's scope (a focus-ring colour fix) and no existing ticket owns
+  a dead-CSS sweep of this file, so it is left in place, correctly
+  described, rather than silently deleted or silently misrepresented as
+  live.
+
+### A.7 Focus-indicator mechanism inventory (HEL-1050)
+
+Moved from §8.
+
+- **The 3:1 obligation binds on whichever mechanism actually conveys
+  focus — `outline`, `border`/`border-*-color`, or `box-shadow` — not
+  only on `outline`** (HEL-1050). `outline: none` is not, by itself, a
+  focus-accessibility defect; it is only a defect when nothing else
+  conforming replaces it. HEL-1046's whitelist guard reasoned about
+  `outline` alone and therefore had nothing to say about **ten
+  `outline: none` declarations across nine distinct sites**
+  (`shared/ui/inputs.css`, three `DashboardList.css` inputs, its
+  permanent-border rename input, `auth.css`, `PanelGrid.css`'s title
+  input, `PipelineDetailPage.css`'s footer input — which carries TWO
+  separate `outline: none` declarations, one on its base rule and one on
+  its former bare-`:focus`/`:focus-visible` pair, the only site
+  contributing more than one — and `AccentPicker.css`'s swatch ring).
+  **Not all ten painted the raw, undarkened `--app-accent`** — most did
+  (measuring 2.38–2.80 in light, below the 3:1 floor), but `PanelGrid.css`
+  painted `--app-accent-strong` instead (disqualified separately, below,
+  for failing Yellow specifically) and `DashboardList.css`'s rename input
+  conveyed focus via its sub-threshold halo alone, with no accent
+  recolouring needed at focus at all (its permanent, always-visible
+  border was already accent-coloured, unrelated to the focus state). Each
+  site now routes through the same `--app-focus-ring-color` token
+  `outline` does, recolouring (or, for the halo-only site, adding a
+  conforming border) without changing the mechanism — a border stays a
+  border, a box-shadow ring stays a box-shadow ring — D1's ruling is
+  "recolour, do not reinstate an outline," precisely because an outline
+  can reintroduce clipping a border/shadow mechanism was chosen to avoid.
+  `focusRingTokenGuard.css.test.ts` extends the same file with a second,
+  independent guard for this: it groups declarations by selector BASE
+  (trailing pseudo-classes stripped) so a base rule's `outline: none` and
+  its sibling `:focus-visible` rule's indicator are checked together, and
+  requires (1) some `:focus-visible` rule in that group to reference
+  `var(--app-focus-ring-color)`/`var(--app-focus-ring)`, and (2) no
+  indicator declaration in a genuine focus rule to reference the bare
+  `var(--app-accent)`.
+
+### A.8 Accent-as-text derivation notes (HEL-1048)
+
+Moved from §8.
+
 - **`--app-accent-text` — accent used as readable TEXT is a separate,
   THEME-AWARE derived token, unlike the ring token above** (HEL-1048).
   `--app-accent` (fills, borders, decoration) is never rewritten — the
@@ -980,31 +1450,18 @@ black|white)`) is not a conforming focus colour** — Yellow measures
     "any colour the user picks," at the stricter text floor. Owned by
     **HEL-1057**, not this token and not HEL-1051 (which is focus
     indicators at 3:1, a different obligation on the same component).
-- Keyboard operable; dialogs handle Enter/Escape.
 
-## Light/dark token-parity rule (HEL-444)
+### A.9 Token-parity measurements (HEL-444)
 
-Every `--app-*` custom property declared inside `:root[data-theme="dark"]` in
-`frontend/src/theme/theme.css` must also be declared inside
-`:root[data-theme="light"]`, and vice versa. A token present in only one theme
-block resolves to the empty string wherever the _other_ theme is active — the
-two selectors are siblings, neither inherits from the other, so there is no
-fallback chain that would otherwise mask the gap. Measured on `f20ea8f6`: each
-block declares 29 `--app-*` tokens (30 custom properties total per block,
-counting the deliberately theme-invariant `--canvas-dot`), symmetric in both
-directions, zero live violations. Guarded by
-`frontend/src/theme/themeParityGuard.css.test.ts` — a Jest guard beside its
-seven `theme.css`-parsing siblings, not a `scripts/*.mjs` (Jest already runs
-in pre-commit and CI, so no new wiring or gate-chain surface is needed).
-Runtime-set tokens written inline by `applyAccentTokens`
-(`--app-focus-ring-color`, `--app-accent-text`, `--app-selection-bg`) are
-declared in _neither_ theme block by design — their static fallback lives
-once in the theme-invariant `:root` block and is pinned separately by
-`accentTextSourceSyncGuard.css.test.ts`/`focusRingTokenGuard.css.test.ts` —
-and the parity guard treats "declared in neither" as a non-violation without
-that leniency swallowing "declared in exactly one."
+Moved from "Light/dark token-parity rule".
 
-## HEL-444 re-test: the site-wide focus ring and the accent-text link are FIXED
+**Measured on `f20ea8f6`** (HEL-444): each theme block declares 29 `--app-*` tokens (30 custom properties total per block, counting the deliberately theme-invariant `--canvas-dot`), symmetric in both directions, zero live violations.
+
+### A.10 HEL-444 re-test
+
+Moved in full from the trailing section of v2.
+
+#### HEL-444 re-test: the site-wide focus ring and the accent-text link are FIXED
 
 An earlier (parked, pre-`f20ea8f6`) walk of this ticket found the keyboard
 focus ring at 2.38-2.80 against light-theme surfaces (below the 3:1 non-text

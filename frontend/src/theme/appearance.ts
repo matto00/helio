@@ -77,7 +77,7 @@ const themeAppearancePalette: Record<
   }
 > = {
   dark: {
-    appBackground: "#121110",
+    appBackground: "#0f0e0d",
     gridBackground: "#191715",
     panelSurface: "#1a1816",
     defaultText: "#f2efe9",
@@ -352,7 +352,7 @@ export function getDashboardBgContrastRatio(
 // ring against them would make the derivation circular on its own accent).
 const FOCUS_RING_SURFACES: readonly string[] = [
   // dark theme (:root[data-theme="dark"])
-  "#121110",
+  "#0f0e0d",
   "#1a1816",
   "#161514",
   "#232019",
@@ -408,7 +408,7 @@ function darkenTowardBlack(color: RgbColor, percent: number): RgbColor {
  * deliberately the ten literal theme hexes CLOSEST IN LUMINANCE to a
  * mid-luminance accent (`--app-surface-soft` #efece6 in light,
  * `--app-surface-strong` #262320 in dark), not the palette extremes
- * (`#ffffff`/`#121110`). For a mid-luminance colour the extremes are the
+ * (`#ffffff`/the v2 canvas). For a mid-luminance colour the extremes are the
  * EASIEST surfaces to clear, not the hardest — HEL-1046 derived against the
  * extremes once and would have shipped a ring scoring 2.58-2.99 against the
  * real binding surfaces, its own accessibility defect passing its own
@@ -480,7 +480,7 @@ export function deriveFocusRingColor(hex: string): string | null {
 // copies of either" is satisfied by that guard, not by this file reading
 // CSS at runtime, which isn't possible here).
 export const ACCENT_TEXT_NEUTRAL_SURFACES: Record<Theme, readonly string[]> = {
-  dark: ["#121110", "#1a1816", "#161514", "#232019", "#262320"],
+  dark: ["#0f0e0d", "#1a1816", "#161514", "#232019", "#262320"],
   light: ["#f4f2ed", "#fdfcfa", "#efece6", "#ffffff", "#ffffff"],
 };
 
@@ -594,7 +594,7 @@ export function deriveAccentTextColor(hex: string, theme: Theme): string | null 
 export const SELECTION_TINT_STRENGTH: Record<Theme, number> = { light: 0.26, dark: 0.3 };
 export const SELECTION_BASE_HEX: Record<Theme, string> = {
   light: "#f4f2ed",
-  dark: "#121110",
+  dark: "#0f0e0d",
 };
 
 function buildSelectionBackground(accent: RgbColor, theme: Theme): string {

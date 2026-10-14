@@ -1,0 +1,11 @@
+
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests
+
+
+Test Suites: 590 passed, 590 total
+Tests:       7063 passed, 7063 total
+Snapshots:   19 passed, 19 total
+Time:        94.32 s
+Ran all test suites.
+jest exit=0
