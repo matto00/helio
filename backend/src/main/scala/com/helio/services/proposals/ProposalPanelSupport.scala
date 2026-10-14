@@ -31,9 +31,8 @@ import scala.concurrent.{ExecutionContext, Future}
 object ProposalPanelSupport {
 
   /** Per-panel structural checks, run before ANY creation: type, title,
-   *  data-panel binding presence, and — for a chart panel's `chartType`, a
-   *  divider panel's `orientation`, or a timeline panel's `sort` — value
-   *  validity. */
+   *  data-panel binding presence, and a divider panel's `orientation` value
+   *  (the chartType/aggregation/timeline-sort checks were removed with those panel kinds). */
   def validatePanel(where: String, panel: ProposalPanel): Either[String, Unit] =
     for {
       _ <- PanelType.fromString(panel.`type`).left.map(msg => s"$where: $msg")

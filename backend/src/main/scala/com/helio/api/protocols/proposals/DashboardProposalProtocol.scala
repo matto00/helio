@@ -39,14 +39,13 @@ final case class ProposalPanel(
     seriesColors: Option[Vector[String]],
     label: Option[String],
     unit: Option[String],
-    // HEL-321: flat timeline `sort` (`asc`/`desc`) derived into the created
-    // panel's `config.timelineOptions.sort` by `DashboardProposalService`, at
-    // flat-binding parity with metric's `label`/`unit`.
+    // HEL-321: legacy flat `sort` field -- decoded and round-tripped, never applied (the
+    // timeline panel kind was deleted by HEL-903/904); retained on the wire for schema stability.
     sort: Option[String],
     layout: Option[ProposalPanelLayout],
     // HEL-316: generic passthrough merged (over the flat-field-derived config)
-    // by `DashboardProposalService.buildCreateRequest`, mirroring the MCP
-    // `create_panel` `config` passthrough. Makes every v1.5 panel-config
+    // by `ProposalPanelSupport.buildCreateRequest`, decoded by `PanelConfigCodec` like
+    // `POST /api/panels`'s `config`. Makes every v1.5 panel-config
     // surface (collection baseType/layout, chart chartOptions, table
     // density/columnOrder) expressible via a proposal without a new flat
     // field per surface. See openspec/changes/mcp-proposal-panel-parity.
