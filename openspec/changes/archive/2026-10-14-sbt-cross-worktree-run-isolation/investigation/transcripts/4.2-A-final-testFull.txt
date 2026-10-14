@@ -1,0 +1,38 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:249:8 
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+75:[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+23251:[info] - a ScalaTest summary with no readable Tests: line fails closed
+68900:[info] - should fail validation once expires_at has elapsed
+96724:[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+96726:[info] Total number of tests run: 8083
+96727:[info] Suites: completed 615, aborted 0
+96728:[info] Tests: succeeded 8083, failed 0, canceled 4, ignored 0, pending 0
+96730:[success] elapsed time: 777 s (0:12:57.0), cache 50%, 325 disk cache hits, 319 onsite tasks
+96732:real	13m4.505s
+96735:EXIT=0
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 11 minutes, 56 seconds.
+[info] Total number of tests run: 8083
+[info] Suites: completed 615, aborted 0
+[info] Tests: succeeded 8083, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 777 s (0:12:57.0), cache 50%, 325 disk cache hits, 319 onsite tasks
+
+real	13m4.505s
+user	15m6.097s
+sys	1m13.735s
+EXIT=0

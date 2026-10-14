@@ -15,7 +15,7 @@
 export const AGENT_SURFACE_EXCLUSIONS = {
   divider:
     "purely presentational layout chrome: no content, binding or data an agent can author; " +
-    "create_panel's enum excludes it, and the proposal surfaces mirror that parity",
+    "excluded from the proposal surfaces only (the MCP create_content_panel tool still creates dividers)",
 };
 
 /** Canonical kinds minus the explicit exclusion table, preserving canonical order. */

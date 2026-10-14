@@ -1,0 +1,83 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+[info] compiling 4 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-3.8.4/backend-build/classes ...
+[info] done compiling
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:249:8 
+249 |        exclude("com.typesafe.akka", "akka-stream_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:250:8 
+250 |        exclude("com.typesafe.akka", "akka-slf4j_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:251:8 
+251 |        exclude("org.slf4j", "slf4j-log4j12")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:252:8 
+252 |        exclude("org.apache.logging.log4j", "log4j-slf4j2-impl"),
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:254:8 
+254 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:255:8 
+255 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:256:8 
+256 |        exclude("com.typesafe.akka", "akka-stream_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:257:8 
+257 |        exclude("com.typesafe.akka", "akka-slf4j_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:258:8 
+258 |        exclude("org.slf4j", "slf4j-log4j12")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:259:8 
+259 |        exclude("org.apache.logging.log4j", "log4j-slf4j2-impl")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+[info] set current project to helio-backend (in build file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/)
+[info] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/cache/v2
+[info] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out
+
+real	0m7.576s
+user	0m30.579s
+sys	0m0.645s
