@@ -1,0 +1,61 @@
+{
+  "base": "http://localhost:9919",
+  "note": "LOCAL loopback: no network RTT included",
+  "created": {
+    "source": "ad334f83-0e4f-4072-8458-494ca76b3449",
+    "pipeline": "f87d71f6-9204-4243-87b2-44b5ef38b2f3",
+    "steps": [
+      "10f69b70-2a29-4c91-bd59-a3a448600f9c",
+      "d38b884b-2d3e-4cb7-b9d0-41e372757203",
+      "30c0913c-b122-450c-9814-9cdabbbe2105"
+    ]
+  },
+  "previewStep3_closure3": {
+    "n": 25,
+    "median": 40.9,
+    "p95": 85.2,
+    "max": 529.9,
+    "min": 34.3,
+    "responseBytes": 1103,
+    "rowsReturned": 10,
+    "totalCount": 269
+  },
+  "previewStep1_closure1": {
+    "n": 5,
+    "median": 35.1,
+    "p95": 39.6,
+    "max": 39.6,
+    "min": 33,
+    "responseBytes": 766,
+    "rowsReturned": 10,
+    "totalCount": 269
+  },
+  "baselineAuthMe": {
+    "n": 15,
+    "median": 31.5,
+    "p95": 46.8,
+    "max": 46.8,
+    "min": 27.6,
+    "responseBytes": 375,
+    "rowsReturned": 0
+  },
+  "runEventsHeaders": {
+    "status": 200,
+    "contentType": "text/event-stream; charset=UTF-8",
+    "transferEncoding": "chunked"
+  },
+  "runEventsOpenToHeaders": {
+    "n": 15,
+    "median": 30.9,
+    "p95": 45.3,
+    "max": 45.3,
+    "min": 27.9
+  },
+  "fullFrameBytesEstimate": 28950,
+  "cleanup": {
+    "pipelineDelete": 204,
+    "sourceDelete": 204,
+    "pipelineStillListed": false,
+    "sourceStillListed": false
+  }
+}

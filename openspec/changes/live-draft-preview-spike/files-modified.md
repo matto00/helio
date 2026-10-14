@@ -1,0 +1,13 @@
+- `docs/live-draft-preview.md` — the HEL-1580 design write-up (Q1-Q6, kind table, parity plan, HEL-1581 scope)
+- `openspec/changes/live-draft-preview-spike/measurements.md` — browser latency and local transport measurements, fixture ids
+- `openspec/changes/live-draft-preview-spike/prototype/index.html` — throwaway browser prototype (3-step pipeline over 1,000 rows)
+- `openspec/changes/live-draft-preview-spike/prototype/measure.cjs` — headless Chromium driver (playwright-core via absolute path)
+- `openspec/changes/live-draft-preview-spike/prototype/transport.cjs` — local preview/run-events round-trip probe (creates and deletes its own fixtures)
+- `openspec/changes/live-draft-preview-spike/prototype/README.md` — throwaway notice, what it includes/omits
+- `openspec/changes/live-draft-preview-spike/prototype/results-*.json` — raw outputs quoted in measurements.md
+- `openspec/changes/live-draft-preview-spike/tasks.md` — checkboxes for tasks 1-3
+- `openspec/changes/live-draft-preview-spike/prototype/transport-lab.cjs` — local transport lab (h1/h2 request-response, NDJSON, SSE, hand-rolled WebSocket) for owner ruling A
+- `openspec/changes/live-draft-preview-spike/prototype/floor.cjs` — probes where the per-request latency floor sits (health vs DB path)
+- `openspec/changes/live-draft-preview-spike/prototype/results-transport-lab*.json`, `results-floor.json`, `results-transport-run3-warm.json`, `results-transport-run4-hot.json` — raw outputs
+- `openspec/changes/live-draft-preview-spike/measurements.md` — section 4 transport lab, floor correction, extra fixture ids
+- `docs/live-draft-preview.md` — owner rulings applied (sections 1, 3.1, 6, 8, 10, 11, 12, 14)
