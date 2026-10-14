@@ -158,7 +158,9 @@ A panel that places a `markdown`-kind Output SHALL NOT be a cross-filter target,
 stored in that Output's config. A markdown Output has no data binding and renders its literal `config.content`, so
 an active cross-filter SHALL leave such a panel's rendered content unchanged and SHALL NOT show a cross-filter
 loaded-scope disclosure on it. A `fieldMapping` left on a markdown Output by the legacy data-bound migration SHALL
-NOT count as "a field mapping that references the filter's dimension" for the narrowing requirement above.
+NOT make that panel one of the target panels the requirement "An active cross-filter narrows sibling panels whose
+field mapping references the filtered column" defines as "every target panel (any panel other than the originating
+one) whose Output field mapping references the filter's dimension".
 
 #### Scenario: A legacy stored markdown fieldMapping does not make the panel a target
 - **WHEN** a cross-filter `dimension: "region"` is active

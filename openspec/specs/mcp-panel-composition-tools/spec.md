@@ -35,50 +35,6 @@ contract and the MCP tool agree on the creatable collection type (absorbing HEL-
   validated against `create-panel-request.schema.json`
 - **THEN** it validates successfully
 
-### Requirement: propose_dashboard exposes the v1.5 panel type set
-
-The MCP `propose_dashboard` and `apply_proposal` tools SHALL accept the panel `type` set
-`metric/chart/table/text/markdown/image/collection` and SHALL NOT offer `divider`, matching
-`create_panel`'s type set for agent/UI parity (mirroring HEL-249 / HEL-315). No stale type list
-SHALL remain in the proposal flow's tool schemas or descriptions. The `dashboard-proposal.schema.json`
-`ProposalPanel.type` enum SHALL likewise drop `divider`.
-
-#### Scenario: Divider is not offered in the proposal flow
-- **WHEN** an agent inspects the `propose_dashboard`/`apply_proposal` panel `type` enum
-- **THEN** `divider` is absent from the accepted values and only the seven proposable types remain
-
-#### Scenario: Collection is proposable
-- **WHEN** an agent calls `propose_dashboard` with a panel of `type: "collection"`
-- **THEN** the tool accepts it and the assembled proposal carries the collection panel
-
-### Requirement: Proposal panels accept a generic config passthrough
-
-Each proposal panel SHALL accept an optional generic `config` object that is carried through
-`apply_proposal` to `POST /api/dashboards/apply-proposal` and merged into the config the backend
-derives from the flat fields, then decoded by the SAME panel-create path (`PanelConfigCodec`). This
-SHALL make every v1.5 config surface expressible via a proposal — collection `baseType`/`layout`,
-chart `chartOptions` (per chart type), table `density`/`columnOrder`, and text/markdown literal
-`content`. On key conflict the explicit `config` SHALL win over a derived flat field, EXCEPT that a
-data panel's server-resolved `outputId` binding SHALL remain authoritative so the V41 pipeline-only
-binding guarantee cannot be bypassed via `config`.
-
-#### Scenario: Collection base type and layout via proposal config
-- **WHEN** an agent applies a proposal whose collection panel supplies
-  `config: { baseType: "metric", layout: "grid" }` and a valid `outputId`
-- **THEN** the applied panel persists as a collection with that base type and layout, bound to the
-  DataType
-
-#### Scenario: Chart chartOptions via proposal config
-- **WHEN** an agent applies a proposal whose chart panel supplies
-  `config: { chartOptions: { smooth: true } }` alongside its binding
-- **THEN** the applied chart panel persists with those chart options
-
-#### Scenario: config cannot bypass pipeline-only binding
-- **WHEN** an agent applies a proposal whose data panel `config` attempts to override `outputId`
-  with a source-companion (non-pipeline-output) DataType id
-- **THEN** the flat-field binding remains authoritative and the V41 pipeline-only rule is still
-  enforced
-
 ### Requirement: Proposal config passthrough is backward compatible
 
 The `config` field SHALL be optional and additive: a proposal carrying only the existing flat fields
@@ -378,3 +334,49 @@ the same way and SHALL name the panels it created but did not position.
 - **WHEN** `place_outputs` creates panels and its follow-up auto-layout returns 409
 - **THEN** the error result names the created panel ids, says they were not positioned, and carries the current
   dashboard
+
+### Requirement: propose_dashboard exposes the current agent-facing panel type set
+
+The MCP `propose_dashboard` and `apply_proposal` tools SHALL accept the panel `type` set
+`text/markdown/image/output/form` and SHALL NOT offer `divider`, which is excluded from the agent-facing proposal set
+for a stated product-scope reason (purely presentational layout chrome with no content, binding or data an agent can
+author) recorded in the repository's agent-surface exclusion table. The panel kinds
+`metric`, `chart`, `table`, `collection` and `timeline` no longer exist and SHALL NOT be offered. No stale type list
+SHALL remain in the proposal flow's tool schemas or descriptions. The `dashboard-proposal.schema.json`
+`ProposalPanel.type` enum SHALL be exactly the same set.
+
+#### Scenario: Divider is not offered in the proposal flow
+- **WHEN** an agent inspects the `propose_dashboard`/`apply_proposal` panel `type` enum
+- **THEN** `divider` is absent from the accepted values and only the five proposable types remain
+
+#### Scenario: Deleted panel kinds are not proposable
+- **WHEN** an agent calls `propose_dashboard` with a panel of `type: "collection"` (or `metric`, `chart`, `table`,
+  `timeline`)
+- **THEN** the tool rejects the panel's `type` as outside the accepted set
+
+#### Scenario: Output panel is proposable
+- **WHEN** an agent calls `propose_dashboard` with a panel of `type: "output"` and a valid, caller-owned `outputId`
+- **THEN** the tool accepts it and the assembled proposal carries the output panel
+
+### Requirement: Proposal panels accept a generic config passthrough for current panel types
+
+Each proposal panel SHALL accept an optional generic `config` object that is carried through
+`apply_proposal` to `POST /api/dashboards/apply-proposal` and merged into the config the backend
+derives from the flat fields, then decoded by the SAME panel-create path (`PanelConfigCodec`). This
+SHALL make every current panel config surface expressible via a proposal — for example text/markdown literal
+`content` and image `imageUrl`/`caption`. On key conflict the explicit `config` SHALL win over a derived flat field,
+EXCEPT that an `output` panel's flat `outputId` binding (and a `form` panel's flat `dataSourceId`) SHALL remain
+authoritative, so the V41 pipeline-only binding guarantee cannot be bypassed via `config`.
+
+#### Scenario: Literal markdown content via proposal config
+- **WHEN** an agent applies a proposal whose markdown panel supplies `config: { content: "# Notes" }`
+- **THEN** the applied panel persists as a markdown panel whose `config.content` is `"# Notes"`
+
+#### Scenario: Output panel binding via proposal
+- **WHEN** an agent applies a proposal whose `output` panel supplies a valid flat `outputId`
+- **THEN** the applied panel persists as an output panel whose `config.outputId` is that Output id
+
+#### Scenario: config cannot bypass pipeline-only binding
+- **WHEN** an agent applies a proposal whose `output` panel `config` attempts to override `outputId` with a different
+  id than the panel's flat `outputId`
+- **THEN** the flat-field `outputId` remains authoritative and the V41 pipeline-only rule is still enforced

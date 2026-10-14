@@ -2,7 +2,9 @@
 
 ## Purpose
 Sizing baseline for panel content areas: documents current padding, font sizes, and element dimensions for each panel type (metric, text, table, chart, state overlays) and the grid layout configuration. Identifies panel types whose content is sparse relative to the default panel container. Produced by HEL-158 as the reference spec for follow-on implementation issues.
+
 ## Requirements
+
 ### Requirement: Panel card container sizing baseline
 The panel card container (`.panel-grid-card`) SHALL use `container-type: size` and `container-name: panel-card`
 in addition to the existing layout properties. The default `clamp(14px, 2vw, 22px)` padding and `gap: 14px`
@@ -31,35 +33,6 @@ The metric panel (`panel-content--metric`) SHALL use `padding: 12px 16px`, `gap:
 #### Scenario: Metric panel sparseness at default height
 - **WHEN** a metric panel is rendered at the default 5-row height (~270px content area after card padding)
 - **THEN** the two-line metric content (value + label) occupies approximately 44px of content height, leaving ~226px unused — classified as SPARSE (content utilization < 60%)
-
-### Requirement: Text panel sizing
-The text panel (`panel-content--text`) SHALL use `padding: 12px 16px` (inherited from `.panel-content`),
-`gap: 8px` between lines, and `overflow-y: auto` to confine content within the panel boundary.
-Live content SHALL use font-size that scales with the container height via container queries
-(defined in the `panel-container-queries` spec):
-- Compact (`height < 180px`): `0.78rem`
-- Default (`height 180px–279px`): `0.9rem`
-- Spacious (`height >= 280px`): `1.1rem`
-
-Placeholder skeleton lines SHALL be `height: 10px` with `border-radius: 4px`: the long line at
-85% width and the short line at 60% width.
-
-#### Scenario: Text panel with bound data at default height
-- **WHEN** a text panel has bound content at the default height (180px–279px)
-- **THEN** the text SHALL render at `0.9rem` left-aligned with `white-space: pre-wrap`
-- **AND** the content fills the panel width and wraps naturally at the container boundary
-
-#### Scenario: Text panel with bound data at spacious height
-- **WHEN** a text panel has bound content and the container height is >= 280px
-- **THEN** the text SHALL render at `1.1rem`
-
-#### Scenario: Text panel sparseness at default height
-- **WHEN** a text panel is rendered at the default height with short text content
-- **THEN** a single short string occupies < 20px of content area, classified as SPARSE
-
-#### Scenario: Text panel content overflow at spacious height
-- **WHEN** a text panel has long content and the container height is >= 280px
-- **THEN** the `.panel-content--text` element scrolls rather than overflowing the panel boundary
 
 ### Requirement: Table panel sizing
 The table panel (`panel-content--table`) SHALL fill the full available content height within the panel card
@@ -123,3 +96,34 @@ The **Chart** panel is not classified as sparse because ECharts fills the full c
 - **WHEN** a table panel renders fewer than 3 rows at default height
 - **THEN** implementation tickets SHALL consider increasing cell padding or row height to fill available space
 
+### Requirement: Text panel sizing for literal content
+The text panel (`panel-content--text`) SHALL use `padding: 12px 16px` (inherited from `.panel-content`),
+`gap: 8px` between lines, and `overflow-y: auto` to confine content within the panel boundary.
+Live content SHALL use font-size that scales with the container height via container queries
+(defined in the `panel-container-queries` spec):
+- Compact (`height < 180px`): `var(--text-xs)` (`0.75rem`)
+- Default (`height 180px–279px`): `var(--text-sm)` (`0.875rem`)
+- Spacious (`height >= 280px`): `var(--text-lg)` (`1.125rem`)
+
+Placeholder skeleton lines SHALL be `height: 10px` with `border-radius: var(--app-radius-sm)` (`6px`): the long line at
+85% width and the short line at 60% width.
+
+A text panel's live content is its own literal `config.content`; a text panel has no data binding, and no fetched row
+data SHALL change what it renders.
+
+#### Scenario: Text panel with literal content at default height
+- **WHEN** a text panel has non-empty `config.content` at the default height (180px–279px)
+- **THEN** the text SHALL render at `var(--text-sm)` (`0.875rem`) left-aligned with `white-space: pre-wrap`
+- **AND** the content fills the panel width and wraps naturally at the container boundary
+
+#### Scenario: Text panel with literal content at spacious height
+- **WHEN** a text panel has non-empty `config.content` and the container height is >= 280px
+- **THEN** the text SHALL render at `var(--text-lg)` (`1.125rem`)
+
+#### Scenario: Text panel sparseness at default height
+- **WHEN** a text panel is rendered at the default height with short text content
+- **THEN** a single short string occupies one line of about 18px (`var(--text-sm)` at the computed `line-height: normal`), far below 60% of the content area, classified as SPARSE
+
+#### Scenario: Text panel content overflow at spacious height
+- **WHEN** a text panel has long content and the container height is >= 280px
+- **THEN** the `.panel-content--text` element scrolls rather than overflowing the panel boundary
