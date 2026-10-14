@@ -60,7 +60,7 @@ downstream consumer can detect, while reporting success.
 
 ### Requirement: Chunk-by-token-count op schema inference validates the field is a string-body field
 
-`PipelineAnalyzeService.inferChunkByTokenCount` SHALL look up `config.field` in the step's
+`TextSchemaInference.inferChunkByTokenCount` SHALL look up `config.field` in the step's
 `inputSchema`. If the field is absent, `AnalyzedStep.validationError` SHALL be set to a message
 identifying the unknown field, and the output schema SHALL pass through unchanged (identity
 fallback). If the field is present but its type is not `"string-body"`, `validationError` SHALL be

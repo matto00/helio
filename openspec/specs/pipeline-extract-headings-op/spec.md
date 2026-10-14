@@ -4,7 +4,9 @@
 Defines the `extractheadings` pipeline op, which extracts Markdown headings from a `string-body`
 content field into one output row per heading (heading text plus its level as metadata), plus its
 schema-inference and step-card-UI behavior.
+
 ## Requirements
+
 ### Requirement: Extract-headings op extracts Markdown headings from a string-body field
 The execution engine SHALL support the `extractheadings` op. The step config SHALL contain: `field`
 (string, the source column name), `indexField` (string, defaults to `"headingIndex"`), and
@@ -42,7 +44,7 @@ SHALL be emitted for that input row.
 - **THEN** zero output rows are produced for that input row
 
 ### Requirement: Extract-headings op schema inference validates the field is a string-body field
-`PipelineAnalyzeService.inferExtractHeadings` SHALL look up `config.field` in the step's
+`TextSchemaInference.inferExtractHeadings` SHALL look up `config.field` in the step's
 `inputSchema`. If the field is absent, `AnalyzedStep.validationError` SHALL be set to a message
 identifying the unknown field, and the output schema SHALL pass through unchanged (identity
 fallback). If the field is present but its type is not `"string-body"`, `validationError` SHALL be
@@ -92,4 +94,3 @@ empty (no fields offered) rather than falling back to all columns.
 - **WHEN** an `extractheadings` step card is expanded and the analyze response's `inputSchema`
   contains no `string-body` fields
 - **THEN** the field dropdown renders with no options
-
