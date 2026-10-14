@@ -1,14 +1,26 @@
 # Domain: Steps
 
-Pipeline transform step definitions — one file per step type (`AggregateStep`,
-`AssertStep`, `CastStep`, `ChunkByTokenCountStep`, `ComputeStep`,
-`DateBucketStep`, `DedupeStep`, `ExtractHeadingsStep`, `FillNullStep`,
-`FilterStep`, `GroupByStep`, `JoinStep`, `LimitStep`, `LookupStep`,
-`PivotStep`, `RenameStep`, `SelectStep`, `SortStep`, `SplitTextStep`,
-`StringOpsStep`, `UnionStep`, `UnpivotStep`, `WindowStep`), plus
-`StepCodecUtil` (shared codec helpers).
+Pipeline transform step definitions, in `*Step` files. The `*Step` files are a
+snapshot of the directory at HEL-1590, not a completeness claim; re-derive them
+with:
 
-**Belongs here:** individual step config types and their apply/infer logic.
+```bash
+ls backend/src/main/scala/com/helio/domain/steps/*Step.scala | xargs -n1 basename | sed 's/\.scala$//'
+```
+
+Snapshot at HEL-1590: `AggregateStep`, `AnalyzeWithAiStep`, `AssertStep`, `CastStep`, `ChunkByTokenCountStep`, `ComputeStep`, `ConvertFormatStep`, `DateBucketStep`, `DedupeStep`, `ExtractHeadingsStep`, `FillNullStep`, `FilterStep`, `GenerateTextStep`, `GroupByStep`, `JoinStep`, `LimitStep`, `LookupStep`, `PivotStep`, `RenameStep`, `SelectStep`, `SortStep`, `SplitTextStep`, `StringOpsStep`, `UnionStep`, `UnpivotStep`, `UpsertSourceStep`, `WindowStep`.
+
+The other `.scala` files in this directory are likewise a snapshot, not a
+completeness claim; re-derive them with:
+
+```bash
+ls backend/src/main/scala/com/helio/domain/steps/*.scala | grep -v 'Step\.scala$' | xargs -n1 basename | sed 's/\.scala$//'
+```
+
+Snapshot at HEL-1590: `AnalyzeWithAiConfig`, `ConvertFormatConfig`, `GenerateTextConfig`, `JoinColumnNaming`, `SecondaryInput`, `StepCodecUtil`, `UpsertSourceConfig`, `UpsertTargetCheck`, `WindowRolling`.
+
+**Belongs here:** individual step config types and their runtime
+(apply/evaluate) logic; per-step schema inference lives in `domain.engine`.
 **Does not belong here:** shape-level expansion into a sequence of steps,
 which lives in `domain.shapes`.
 
