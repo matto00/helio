@@ -1,0 +1,50 @@
+
+Running 20 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979567509-81875@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979567509-74879@example.com
+  ✓   1 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (5.9s)
+  ✓   2 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (5.9s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979573687-38497@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979573687-40586@example.com
+  ✓   4 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.8s)
+  ✓   3 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (5.4s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979578611-42400@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979579179-86168@example.com
+  ✓   5 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.1s)
+  ✓   6 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.3s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979583128-25706@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979583884-19375@example.com
+  ✓   8 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.0s)
+  ✓   7 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.8s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979588608-60620@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979588609-93142@example.com
+  ✓   9 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.5s)
+  ✓  10 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.5s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979593479-80414@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979593479-34548@example.com
+  ✓  11 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.5s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979597966-38496@example.com
+  ✓  12 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (5.7s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979599206-39435@example.com
+  ✓  13 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (5.0s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979603365-94094@example.com
+  ✓  15 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (3.7s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979607396-24560@example.com
+  ✓  14 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (10.4s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979609959-74872@example.com
+  ✓  16 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (3.8s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979611440-86660@example.com
+  ✓  17 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (4.5s)
+  ✓  18 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (3.6s)
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979614836-6504@example.com
+[HEL-1300 e2e] throwaway user: hel813-connectors-430-1791979615402-41975@example.com
+  ✓  19 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (3.7s)
+  ✓  20 e2e/hel813-mobile-touch-target-floor.spec.ts:298:11 › HEL-813 mobile touch-target floor guard › at 430px › surface 7: Connectors page (3.7s)
+[HEL-1301 e2e] deleted 20 recorded throwaway user(s)
+
+  20 passed (52.4s)
+
+real	0m52.921s
+user	0m44.701s
+sys	0m24.957s
