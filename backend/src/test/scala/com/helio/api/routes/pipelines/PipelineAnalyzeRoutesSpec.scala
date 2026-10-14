@@ -522,7 +522,7 @@ class PipelineAnalyzeRoutesSpec
     }
 
     // HEL-860 task 1.3: the multi-failure join at
-    // PipelineAnalyzeService.scala:126 (`validateStepConfig`'s
+    // `StepConfigValidation.validateStepConfig` (its
     // `problems.mkString("; ")`) — one step with two independent validator
     // failures must surface both in a single validationError.
     "return 200 with a single validationError joining two independent failures for one step" in {

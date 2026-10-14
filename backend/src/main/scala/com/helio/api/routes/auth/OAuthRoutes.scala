@@ -17,6 +17,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
+import scala.collection.immutable
 
 /** Google OAuth handlers.
  *
@@ -81,7 +82,7 @@ class OAuthRoutes(
     val request = HttpRequest(
       method  = HttpMethods.GET,
       uri     = "https://www.googleapis.com/oauth2/v3/userinfo",
-      headers = scala.collection.immutable.Seq(
+      headers = immutable.Seq(
         RawHeader("Authorization", s"Bearer $accessToken")
       )
     )

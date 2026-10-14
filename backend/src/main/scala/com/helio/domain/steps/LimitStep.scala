@@ -98,8 +98,8 @@ object LimitStep {
      *  non-representable `count` reaching a run WITHOUT being analyzed still
      *  behaves as unlimited. Stated here rather than left implicit. */
     override def requiredConfigProblems(raw: String): Vector[String] =
-      scala.util.Try(StepCodecUtil.asObject(raw)).toOption.flatMap(_.fields.get("count")) match {
-        case Some(JsNumber(n)) if scala.util.Try(n.toIntExact).isFailure =>
+      Try(StepCodecUtil.asObject(raw)).toOption.flatMap(_.fields.get("count")) match {
+        case Some(JsNumber(n)) if Try(n.toIntExact).isFailure =>
           Vector(s"$Kind step 'count' is not representable as a 32-bit integer: $n.")
         case _ => Vector.empty
       }

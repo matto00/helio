@@ -24,7 +24,7 @@ object AnalyzeWithAiConfig {
 
   /** design.md D1 -- the strict subset of `DataFieldType.CanonicalWireValues` a model can
    *  reliably produce. Shared by the write-path validator ([[validate]]) and analyze inference
-   *  (`PipelineAnalyzeService.inferAnalyzeWithAi`), so the two surfaces cannot diverge. */
+   *  (`TextSchemaInference.inferAnalyzeWithAi`), so the two surfaces cannot diverge. */
   val AllowedOutputTypes: Set[String] = Set("string", "integer", "float", "boolean")
 
   val MaxOutputSchemaEntries: Int = 50

@@ -59,7 +59,7 @@ object GroupByStep {
 
   /** HEL-872 (design.md Decision 1): the single definition of the emitted
    *  aggregate column name, shared by [[apply]] (runtime) and
-   *  `PipelineAnalyzeService.inferGroupBy` (analyze-time projection) so the
+   *  `ColumnSchemaInference.inferGroupBy` (analyze-time projection) so the
    *  two cannot drift apart the way `groupby`'s dispatch case itself drifted
    *  from the registry. Lowercases `aggFunction`, matching `apply`. */
   def outputColumnName(cfg: GroupByConfig): String =

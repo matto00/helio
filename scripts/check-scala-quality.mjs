@@ -7,7 +7,8 @@
 //     must be imported at the top (or via a single-use scoped import inside a
 //     companion object / function — see CONTRIBUTING.md exception). Inline
 //     references like `com.helio.domain.PanelId(...)`, `spray.json.JsObject`,
-//     `java.util.UUID.randomUUID()`, `org.apache.pekko.http.X` etc. are
+//     `java.util.UUID.randomUUID()`, `org.apache.pekko.http.X`, `scala.util.Try`,
+//     `scala.collection.mutable.X` (the whole `scala.` namespace) etc. are
 //     rejected.
 //
 // Known guard limits (false negatives, not fixed here): a `'"'` char literal
@@ -40,10 +41,9 @@ const FQN_PREFIXES = [
   "java.util.",
   "java.nio.charset.",
   "java.security.",
-  "scala.concurrent.",
+  "scala.",
   "at.favre.lib.",
   "slick.jdbc.",
-  "scala.annotation.",
 ];
 
 // Every prefix must end in "." — the match regex requires a word character right

@@ -1,6 +1,7 @@
 package com.helio.domain.engine
 
 import com.helio.domain.model.PipelineStep
+import scala.collection.mutable
 
 /** HEL-970 (design.md D1/D2): the single dependency-closure helper that replaces the two
  *  byte-identical `pathToRoot` copies formerly local to `PipelineRunService` (`previewStep` and
@@ -50,11 +51,11 @@ object NodeDependencyClosure {
   def closureOf(steps: Vector[PipelineStep], target: PipelineStep): Vector[PipelineStep] = {
     val byId = steps.map(s => s.id.value -> s).toMap
 
-    val visited  = scala.collection.mutable.LinkedHashSet(target.id.value)
+    val visited  = mutable.LinkedHashSet(target.id.value)
     var frontier = Set(target.id.value)
 
     while (frontier.nonEmpty) {
-      val next = scala.collection.mutable.Set.empty[String]
+      val next = mutable.Set.empty[String]
       frontier.foreach { id =>
         byId.get(id).foreach { step =>
           step.parentStepId.foreach { p =>

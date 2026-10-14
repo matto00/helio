@@ -83,7 +83,7 @@ object RenameStep {
     // unchanged).
     // HEL-814: see CastStep's companion for why this is guarded.
     override def validateRawConfig(raw: String): Option[String] =
-      scala.util.Try(StepCodecUtil.asObject(raw)).toOption
+      Try(StepCodecUtil.asObject(raw)).toOption
         .flatMap(obj =>
           StepCodecUtil.requireStringMap(
             obj, "renames", Kind,

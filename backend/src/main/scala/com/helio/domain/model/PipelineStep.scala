@@ -7,7 +7,7 @@ import spray.json.{JsObject, JsValue}
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /** PipelineStep ADT (CS2c-3a cycle 3).
  *
@@ -214,8 +214,8 @@ object PipelineStep {
      *  already report from the decode `Try` itself, and duplicating it here
      *  would give one root cause two different messages. */
     protected final def strictDecodeProblem(raw: String): Option[String] =
-      scala.util.Try(decodeConfig(raw)) match {
-        case scala.util.Failure(e: StepConfigTypeMismatch) =>
+      Try(decodeConfig(raw)) match {
+        case Failure(e: StepConfigTypeMismatch) =>
           Some(s"Invalid '$kind' config: ${e.getMessage}")
         case _ => None
       }
@@ -225,7 +225,7 @@ object PipelineStep {
      *
      *  Both the run path (`InProcessPipelineEngine.executeWithStepCounts`,
      *  which obtains the raw text via `encodeConfig(step.configValue)`) and
-     *  the analyze path (`PipelineAnalyzeService.validateStepConfig`, which
+     *  the analyze path (`StepConfigValidation.validateStepConfig`, which
      *  already holds it) call this one method, so "the two surfaces cannot
      *  disagree" is structural rather than aspirational.
      *

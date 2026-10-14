@@ -5,6 +5,7 @@ import spray.json._
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 /** HEL-1100: the real, registered `upsertsource` step -- writes its input rows to a `dataset`
  *  source, in `append` or `replace` mode, by deferring the actual write to
@@ -80,7 +81,7 @@ object UpsertSourceStep {
      *  (an added-but-not-yet-configured step round-trips through the editor) but not "legitimate
      *  to run" (mirrors every other step's `requiredConfigProblems` contract, HEL-814 D3). */
     override def requiredConfigProblems(raw: String): Vector[String] =
-      scala.util.Try(UpsertSourceConfig.decode(raw)).toOption match {
+      Try(UpsertSourceConfig.decode(raw)).toOption match {
         case Some(UpsertSourceConfig(UpsertTarget.ExistingSource(id), _)) if id.trim.isEmpty =>
           Vector("'upsertsource' step requires a 'target' (an existing data source or a new source name)")
         case Some(UpsertSourceConfig(UpsertTarget.NewSource(name), _)) if name.trim.isEmpty =>

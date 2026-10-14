@@ -23,6 +23,7 @@ import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.collection.mutable
 
 class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
@@ -32,8 +33,8 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
   // `staticDs` helper stashes for each test. The Spark submitter reads the
   // payload via `readDatasetRows` (rather than off the ADT itself, which is
   // identity-only for DatasetSource).
-  private val staticPayloads = scala.collection.mutable.Map.empty[String, JsObject]
-  private val joinRightSources = scala.collection.mutable.Map.empty[String, DataSource]
+  private val staticPayloads = mutable.Map.empty[String, JsObject]
+  private val joinRightSources = mutable.Map.empty[String, DataSource]
   private val mockDsRepo = new DataSourceRepository(null) {
     override def findByIdInternal(id: DataSourceId): Future[Option[DataSource]] =
       Future.successful(joinRightSources.get(id.value))

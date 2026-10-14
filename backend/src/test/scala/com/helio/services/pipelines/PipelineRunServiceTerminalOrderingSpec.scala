@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** HEL-1366: a run's terminal SSE event (`succeeded` / `failed` / `dry_run`) must be published
  *  only AFTER the run's durable terminal state is committed.
@@ -88,8 +88,8 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
   }
 
   override def afterAll(): Unit = {
-    openBuses.asScala.foreach(b => scala.util.Try(b.shutdown()))
-    openConns.asScala.foreach(c => scala.util.Try(c.close()))
+    openBuses.asScala.foreach(b => Try(b.shutdown()))
+    openConns.asScala.foreach(c => Try(c.close()))
     db.close(); embeddedPostgres.close(); typedSystem.terminate()
     super.afterAll()
   }

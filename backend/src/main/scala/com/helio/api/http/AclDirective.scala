@@ -10,6 +10,7 @@ import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.services.sharing.ShareTokenValidator
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** ACL directive that enforces resource ownership before executing the inner route.
  *
@@ -48,16 +49,16 @@ class AclDirective(
         complete(StatusCodes.InternalServerError, ErrorResponse(s"Unknown resource type: $resourceType"))
       case Some(rt) =>
         onComplete(rt.ownerResolver(resourceId)).flatMap {
-          case scala.util.Success(None) =>
+          case Success(None) =>
             complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
 
-          case scala.util.Success(Some(ownerId)) if ownerId != user.id.value =>
+          case Success(Some(ownerId)) if ownerId != user.id.value =>
             complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
 
-          case scala.util.Success(Some(_)) =>
+          case Success(Some(_)) =>
             pass
 
-          case scala.util.Failure(_) =>
+          case Failure(_) =>
             complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
         }
     }
@@ -103,53 +104,53 @@ class AclDirective(
         complete(StatusCodes.InternalServerError, ErrorResponse(s"Unknown resource type: $resourceType"))
       case Some(rt) =>
         onComplete(rt.ownerResolver(resourceId)).flatMap {
-          case scala.util.Success(None) =>
+          case Success(None) =>
             complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
 
-          case scala.util.Success(Some(ownerId)) =>
+          case Success(Some(ownerId)) =>
             userOpt match {
               case Some(user) if user.id.value == ownerId =>
                 provide(ResourceAccess.Owner)
 
               case Some(user) =>
                 onComplete(permissionRepo.findGrant(resourceType, resourceId, user.id)).flatMap {
-                  case scala.util.Success(Some(grant)) =>
+                  case Success(Some(grant)) =>
                     grant.role match {
                       case Role.Editor => provide(ResourceAccess.Editor)
                       case Role.Viewer => provide(ResourceAccess.Viewer)
                     }
-                  case scala.util.Success(None) =>
+                  case Success(None) =>
                     onComplete(tokenAuthorizes).flatMap {
-                      case scala.util.Success(true) =>
+                      case Success(true) =>
                         provide(ResourceAccess.Viewer)
-                      case scala.util.Success(false) =>
+                      case Success(false) =>
                         complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
-                      case scala.util.Failure(_) =>
+                      case Failure(_) =>
                         complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                     }
-                  case scala.util.Failure(_) =>
+                  case Failure(_) =>
                     complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                 }
 
               case None =>
                 onComplete(permissionRepo.hasPublicViewerGrant(resourceType, resourceId)).flatMap {
-                  case scala.util.Success(true) =>
+                  case Success(true) =>
                     provide(ResourceAccess.Viewer)
-                  case scala.util.Success(false) =>
+                  case Success(false) =>
                     onComplete(tokenAuthorizes).flatMap {
-                      case scala.util.Success(true) =>
+                      case Success(true) =>
                         provide(ResourceAccess.Viewer)
-                      case scala.util.Success(false) =>
+                      case Success(false) =>
                         complete(StatusCodes.NotFound, ErrorResponse(notFoundMessage))
-                      case scala.util.Failure(_) =>
+                      case Failure(_) =>
                         complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                     }
-                  case scala.util.Failure(_) =>
+                  case Failure(_) =>
                     complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
                 }
             }
 
-          case scala.util.Failure(_) =>
+          case Failure(_) =>
             complete(StatusCodes.InternalServerError, ErrorResponse("Internal server error"))
         }
     }

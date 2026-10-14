@@ -1,0 +1,18 @@
+test-gate-in-isolation.sh: about to test 'scripts/check-scala-quality.mjs' (ticket HEL-1446).
+  This will create a disposable fixture git repo under $(mktemp -d) and
+  run the target script against it exactly once, under an environment
+  shaped like a Husky pre-commit hook invoked from a linked worktree.
+  Nothing outside that mktemp -d fixture is ever git-initialised,
+  re-initialised, or otherwise mutated by this run.
+READY ref=/home/matt/Development/helio/.concertino/runs/HEL-1446/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-scala-quality.mjs.md
+PASS scripts/check-scala-quality.mjs
+exit=0
+test-gate-in-isolation.sh: about to test 'scripts/check-scala-quality.selftest.mjs' (ticket HEL-1446).
+  This will create a disposable fixture git repo under $(mktemp -d) and
+  run the target script against it exactly once, under an environment
+  shaped like a Husky pre-commit hook invoked from a linked worktree.
+  Nothing outside that mktemp -d fixture is ever git-initialised,
+  re-initialised, or otherwise mutated by this run.
+READY ref=/home/matt/Development/helio/.concertino/runs/HEL-1446/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-scala-quality.selftest.mjs.md
+PASS scripts/check-scala-quality.selftest.mjs
+exit=0

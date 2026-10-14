@@ -15,7 +15,7 @@ import PipelineRepository.instantColumnType
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /** Persistence layer for `pipeline_steps`.
  *
@@ -67,7 +67,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   ): DBIO[Unit] =
     if (kind != "upsertsource") DBIO.successful(())
     else
-      scala.util.Try(UpsertSourceConfig.decode(configJson)).toOption match {
+      Try(UpsertSourceConfig.decode(configJson)).toOption match {
         case Some(UpsertSourceConfig(UpsertTarget.ExistingSource(dsId), _)) if dsId.trim.nonEmpty =>
           // HEL-1101 skeptic-final-1.md non-blocking note 4: a blank `actingUserId` here would
           // otherwise reach `UUID.fromString("")` inside `findReadEdgesVisibleTo`/
@@ -83,7 +83,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             ))
           else {
             val oldTarget: Option[DataSourceId] = oldConfigJson.flatMap { raw =>
-              scala.util.Try(UpsertSourceConfig.decode(raw)).toOption.collect {
+              Try(UpsertSourceConfig.decode(raw)).toOption.collect {
                 case UpsertSourceConfig(UpsertTarget.ExistingSource(oldId), _) if oldId.trim.nonEmpty => DataSourceId(oldId)
               }
             }
@@ -137,7 +137,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
         result     <- currentRow match {
           case None => DBIO.successful(Left(s"Step '${stepId.value}' no longer exists"))
           case Some(row) =>
-            scala.util.Try(UpsertSourceConfig.decode(row.config)).toOption match {
+            Try(UpsertSourceConfig.decode(row.config)).toOption match {
               case Some(UpsertSourceConfig(UpsertTarget.NewSource(persistedName), persistedMode))
                   if persistedName == evaluatedName && persistedMode == evaluatedConfig.mode =>
                 for {
@@ -187,7 +187,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       step     <- stepsTable if step.pipelineId === pipeline.id && step.op === "upsertsource"
     } yield (pipeline.id, pipeline.name, step.config)
     query.result.map(_.flatMap { case (pid, pname, configRaw) =>
-      scala.util.Try(UpsertSourceConfig.decode(configRaw)).toOption.collect {
+      Try(UpsertSourceConfig.decode(configRaw)).toOption.collect {
         case UpsertSourceConfig(UpsertTarget.ExistingSource(dsId), _) if dsId.trim.nonEmpty =>
           PipelineCycleValidator.WriteEdge(PipelineId(pid), pname, DataSourceId(dsId))
       }

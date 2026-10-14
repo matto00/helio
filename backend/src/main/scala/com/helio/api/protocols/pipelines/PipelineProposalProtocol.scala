@@ -4,6 +4,7 @@ import com.helio.api.protocols.sources.{CsvSourceConfigPayload, DataSourceProtoc
 import com.helio.domain.model.{DataSourceKind, QueryParams}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
+import scala.collection.mutable
 
 //
 // A proposal carries NO ids: it describes an (optionally new) data source, an
@@ -174,7 +175,7 @@ trait PipelineProposalProtocol
   implicit val pipelineProposalSourceFormat: RootJsonFormat[PipelineProposalSource] =
     new RootJsonFormat[PipelineProposalSource] {
       def write(s: PipelineProposalSource): JsValue = {
-        val fields = scala.collection.mutable.Map[String, JsValue]()
+        val fields = mutable.Map[String, JsValue]()
         s.sourceId.foreach(v => fields("sourceId") = JsString(v))
         s.`type`.foreach(v => fields("type") = JsString(v))
         s.name.foreach(v => fields("name") = JsString(v))
@@ -222,7 +223,7 @@ trait PipelineProposalProtocol
   implicit val pipelineProposalFormat: RootJsonFormat[PipelineProposal] =
     new RootJsonFormat[PipelineProposal] {
       def write(p: PipelineProposal): JsValue = {
-        val fields = scala.collection.mutable.Map[String, JsValue](
+        val fields = mutable.Map[String, JsValue](
           "pipelineName" -> JsString(p.pipelineName),
           "roots"        -> JsArray(p.roots.map(_.toJson)),
           "steps"        -> JsArray(p.steps.map(_.toJson))

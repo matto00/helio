@@ -441,7 +441,7 @@ object DataFieldType {
    *  `"integer"`, `"date"` -> `"timestamp"`) to the canonical wire value BEFORE it lands in a
    *  `SchemaField` -- every call site that persists or projects a caller-supplied field-type
    *  string (`DataSourceService.createStatic`'s inline column types, `PipelineService`'s inline
-   *  static-source dry-analyze path, `PipelineAnalyzeService.inferCompute`'s fallback/
+   *  static-source dry-analyze path, `ColumnSchemaInference.inferCompute`'s fallback/
    *  `inferCast`'s `casts` map/`inferAggregate`'s `groupBy`) MUST route through this before
    *  constructing a `SchemaField`, or a caller-chosen non-canonical synonym silently vanishes
    *  from `DataFieldType.fromString`-gated surfaces (`capabilities`' `columns`, this whole class
@@ -464,7 +464,7 @@ object DataFieldType {
    *  `fromString` -- `Right` carries the canonical string ready for a `SchemaField`; `Left`
    *  carries a message naming every valid type, for a route to turn into a 400. Callers:
    *  `DataSourceService.createStatic` (inline static-source columns) and
-   *  `PipelineAnalyzeService.inferAggregate` (`groupBy` entries) -- the two caller-supplied
+   *  `ColumnSchemaInference.inferAggregate` (`groupBy` entries) -- the two caller-supplied
    *  column-`type` boundaries named in the ruling. */
   def validateAndCanonicalize(raw: String): Either[String, String] = {
     val canonicalized = canonicalizeLegacy(raw)

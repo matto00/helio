@@ -56,7 +56,7 @@ object EvaluationError {
  * `parse()` — used by `validate()` — is STRICT-ONLY and never falls back: a bare
  * identifier (not `$`-prefixed, not a function call) is always a parse error. This
  * is deliberate: `validate()` is the entry point for live UI feedback and schema
- * inference (`PipelineAnalyzeService.inferCompute`), and must always enforce the
+ * inference (`ColumnSchemaInference.inferCompute`), and must always enforce the
  * `$`-required grammar for anyone asking "is this well-formed" — including brand-new
  * user input, not just legacy data.
  *
@@ -145,7 +145,7 @@ object ExpressionEvaluator {
    * Validate expression syntax and field references without evaluating. STRICT:
    * `$`-prefixed column refs are required; a bare identifier is always rejected,
    * even if it matches a known field name. This is the entry point for live UI
-   * feedback and schema inference (`PipelineAnalyzeService.inferCompute`) — see
+   * feedback and schema inference (`ColumnSchemaInference.inferCompute`) — see
    * design.md Decision 4 for why this never falls back to the legacy grammar.
    *
    * @param expr       Raw expression string
@@ -195,7 +195,7 @@ object ExpressionEvaluator {
    * Compute the result type (`"float"` or `"string"` — HEL-895/638/906 cycle-3: a canonical
    * `DataFieldType` wire value, not the non-canonical `"number"` this used to emit) of `expr`
    * by walking its AST against a map of field name -> type, without evaluating against real
-   * row data. Used by `PipelineAnalyzeService.inferCompute` to derive a compute step's output
+   * row data. Used by `ColumnSchemaInference.inferCompute` to derive a compute step's output
    * field type from the expression itself, instead of trusting the (possibly stale) wire
    * `type`. Only called after `validate(expr, fieldTypes.keySet)` succeeds.
    */

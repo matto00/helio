@@ -2,6 +2,7 @@ package com.helio.api.protocols.proposals
 
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
+import scala.collection.mutable
 
 //
 // A proposal carries NO ids: applying it (POST /api/dashboards/apply-proposal)
@@ -76,7 +77,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
   // Strict like OutputControlSpec's own reader: an unknown key is a decode failure, never a silent drop.
   implicit val proposalControlFormat: RootJsonFormat[ProposalControl] = new RootJsonFormat[ProposalControl] {
     def write(c: ProposalControl): JsValue = {
-      val fields = scala.collection.mutable.Map[String, JsValue]("kind" -> JsString(c.kind), "column" -> JsString(c.column))
+      val fields = mutable.Map[String, JsValue]("kind" -> JsString(c.kind), "column" -> JsString(c.column))
       c.id.foreach(v => fields("id") = JsString(v))
       c.label.foreach(v => fields("label") = JsString(v))
       c.defaultValue.foreach(v => fields("defaultValue") = v)
@@ -108,7 +109,7 @@ trait DashboardProposalProtocol extends SprayJsonSupport with DefaultJsonProtoco
   // fieldMapping / layout for non-data panels).
   implicit val proposalPanelFormat: RootJsonFormat[ProposalPanel] = new RootJsonFormat[ProposalPanel] {
     def write(p: ProposalPanel): JsValue = {
-      val fields = scala.collection.mutable.Map[String, JsValue](
+      val fields = mutable.Map[String, JsValue](
         "title" -> JsString(p.title),
         "type"  -> JsString(p.`type`)
       )

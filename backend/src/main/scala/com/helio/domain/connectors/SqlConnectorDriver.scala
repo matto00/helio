@@ -11,6 +11,7 @@ import java.sql.{Connection, DriverManager, Types}
 import java.util.Properties
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.Try
+import scala.collection.mutable
 
 /** HEL-952: thrown by [[SqlConnectorDriver.connect]] when [[SqlConnectorDriver.checkConfigEgress]]
  *  refuses the config's host — a typed refusal (not a bare `RuntimeException`) so the task-7
@@ -189,7 +190,7 @@ object SqlConnectorDriver extends ConnectorDriver[SqlSourceConfig] {
             val meta = rs.getMetaData
             val colCount = meta.getColumnCount
 
-            val rows = scala.collection.mutable.ArrayBuffer.empty[Map[String, JsValue]]
+            val rows = mutable.ArrayBuffer.empty[Map[String, JsValue]]
             while (rs.next()) {
               val row = (1 to colCount).map { i =>
                 val colName = meta.getColumnLabel(i)

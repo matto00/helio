@@ -7,6 +7,7 @@ import com.helio.api.protocols.sources.{DataSourceProtocol, UpdateDataSourceRequ
 import com.helio.domain.patchsets.PatchSetTargetKinds
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
+import scala.collection.mutable
 
 //
 // A patch set describes N targeted edits across one or more EXISTING
@@ -99,7 +100,7 @@ trait PatchSetProtocol
    *  own existing `Option` write convention on this same type. */
   implicit val editTargetFormat: RootJsonFormat[EditTarget] = new RootJsonFormat[EditTarget] {
     def write(t: EditTarget): JsValue = {
-      val fields = scala.collection.mutable.Map[String, JsValue]("kind" -> JsString(t.kind))
+      val fields = mutable.Map[String, JsValue]("kind" -> JsString(t.kind))
       t.id.foreach(v => fields("id") = JsString(v))
       t.parentId.foreach(v => fields("parentId") = JsString(v))
       t.fingerprint.foreach(v => fields("fingerprint") = JsString(v))
@@ -131,7 +132,7 @@ trait PatchSetProtocol
    *  same key (mirrors `pipelineProposalSourceFormat`'s write). */
   implicit val editFormat: RootJsonFormat[Edit] = new RootJsonFormat[Edit] {
     def write(e: Edit): JsValue = {
-      val fields = scala.collection.mutable.Map[String, JsValue](
+      val fields = mutable.Map[String, JsValue](
         "target" -> e.target.toJson,
         "op"     -> JsString(e.op)
       )

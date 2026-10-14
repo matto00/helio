@@ -8,6 +8,7 @@ import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import scala.collection.mutable
 
 /** Typed config for the `fillnull` step (HEL-388) — the sixth leaf of the
  *  HEL-336 Pipeline Op Expansion epic. `columns` names the fields to fill;
@@ -139,7 +140,7 @@ object FillNullStep {
    *  null run (tracker still `null`) leaves the cell untouched (design.md
    *  decision 4). */
   private def fillForward(rows: Seq[PipelineRowJson.Row], columns: Vector[String]): Seq[PipelineRowJson.Row] = {
-    val lastSeen = scala.collection.mutable.Map.empty[String, Any]
+    val lastSeen = mutable.Map.empty[String, Any]
     columns.foreach(col => lastSeen(col) = null)
     rows.map { row =>
       columns.foldLeft(row) { (r, col) =>
@@ -206,7 +207,7 @@ object FillNullStep {
    *  deterministic across runs (design.md decision 5 / risk 3). `None` if
    *  every value is null. */
   private def computeMode(rows: Seq[PipelineRowJson.Row], column: String): Option[Any] = {
-    val counts       = scala.collection.mutable.LinkedHashMap.empty[Any, Int]
+    val counts       = mutable.LinkedHashMap.empty[Any, Int]
     rows.foreach { r =>
       val v = r.getOrElse(column, null)
       if (v != null) counts(v) = counts.getOrElse(v, 0) + 1

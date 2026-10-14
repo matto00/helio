@@ -4,6 +4,7 @@ import com.helio.domain.model.{DataFieldType, InferredField, InferredSchema}
 import spray.json._
 
 import java.nio.charset.StandardCharsets
+import scala.collection.mutable
 
 object SchemaInferenceEngine {
 
@@ -276,7 +277,7 @@ object SchemaInferenceEngine {
   }
 
   private def parseRfc4180Row(line: String): Vector[String] = {
-    val fields = scala.collection.mutable.ArrayBuffer.empty[String]
+    val fields = mutable.ArrayBuffer.empty[String]
     val buf    = new StringBuilder
     var inQuotes = false
     var i = 0

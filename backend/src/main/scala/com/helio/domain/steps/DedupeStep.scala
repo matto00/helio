@@ -7,6 +7,7 @@ import spray.json.DefaultJsonProtocol._
 
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.mutable
 
 /** Typed config for the `dedupe` step (HEL-382) — the fifth leaf of the
  *  HEL-336 Pipeline Op Expansion epic. `keys` names the fields the dedupe
@@ -98,7 +99,7 @@ object DedupeStep {
     val keys = cfg.keys
     if (cfg.keep == "last") {
       // Lookahead pass: find the last row index for each key.
-      val lastIndexByKey = scala.collection.mutable.Map.empty[Any, Int]
+      val lastIndexByKey = mutable.Map.empty[Any, Int]
       rows.zipWithIndex.foreach { case (row, idx) =>
         lastIndexByKey(dedupeKey(row, keys)) = idx
       }
@@ -107,7 +108,7 @@ object DedupeStep {
       }
     } else {
       // keep = "first" (default): single left-to-right pass with a seen-set.
-      val seen = scala.collection.mutable.Set.empty[Any]
+      val seen = mutable.Set.empty[Any]
       rows.filter { row =>
         val key = dedupeKey(row, keys)
         if (seen.contains(key)) false
