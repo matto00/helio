@@ -2,7 +2,9 @@
 
 ## Purpose
 The login-flow verification step: after primary auth succeeds for an MFA-enabled account (password form or OAuth callback), the user enters a TOTP or backup code before a session exists client-side.
+
 ## Requirements
+
 ### Requirement: Auth slice carries a transient MFA challenge
 The `authSlice` SHALL gain a `mfaChallenge: { challengeToken: string } | null` field, set when a
 `login` or `handleOAuthCallback` thunk resolves with `{ mfaRequired: true, challengeToken }` and
@@ -24,8 +26,8 @@ memory — never in `localStorage`/`sessionStorage` — and `auth.status` SHALL 
 
 ### Requirement: Verification step after password login
 When the login form's `login` thunk resolves with `mfaRequired: true`, the login flow SHALL navigate
-to a `/login/verify` step (not `/`) rendering a code-entry form with a toggle for entering a backup
-code instead. Submitting SHALL dispatch `verifyMfa`; on success the user SHALL be redirected to `/`;
+to a `/login/verify` step (not `/home`) rendering a code-entry form with a toggle for entering a backup
+code instead. Submitting SHALL dispatch `verifyMfa`; on success the user SHALL be redirected to `/home`;
 on failure an inline error SHALL be shown and the form remains usable. Navigating to `/login/verify`
 with no pending challenge SHALL redirect to `/login`.
 
@@ -35,7 +37,7 @@ with no pending challenge SHALL redirect to `/login`.
 
 #### Scenario: Entering a valid code
 - **WHEN** the user enters a valid TOTP code on `/login/verify`
-- **THEN** the app navigates to `/` with the user authenticated
+- **THEN** the app navigates to `/home` with the user authenticated
 
 #### Scenario: Entering an invalid code
 - **WHEN** the user enters an invalid code
@@ -47,9 +49,8 @@ with no pending challenge SHALL redirect to `/login`.
 
 ### Requirement: Verification step after OAuth callback
 When `handleOAuthCallback` resolves with `mfaRequired: true`, `OAuthCallbackPage` SHALL navigate to
-`/login/verify` (not `/`), where verification proceeds identically to the password path.
+`/login/verify` (not `/home`), where verification proceeds identically to the password path.
 
 #### Scenario: MFA-enabled Google login
 - **WHEN** the OAuth callback exchange returns `{ mfaRequired: true, challengeToken }`
 - **THEN** the browser is navigated to `/login/verify` and no session cookie exists yet
-

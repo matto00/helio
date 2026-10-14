@@ -2,7 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change add-data-pipelines-nav. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Data Pipelines page exists at /pipelines
 The frontend SHALL render a `PipelinesPage` component at the `/pipelines` route. The page SHALL
 display a placeholder empty state (e.g. a "coming soon" message or icon) when no pipeline data
@@ -41,10 +43,9 @@ The command bar breadcrumb SHALL display "Data Pipelines" when the current route
 - **THEN** the breadcrumb label reads "Data Pipelines"
 
 #### Scenario: Breadcrumb shows Dashboards on /
-- **WHEN** the current route is `/`
+- **WHEN** the current route is `/home`
 - **THEN** the breadcrumb label reads "Dashboards"
 
 #### Scenario: Breadcrumb shows Data Sources on /sources
 - **WHEN** the current route is `/sources`
 - **THEN** the breadcrumb label reads "Data Sources"
-

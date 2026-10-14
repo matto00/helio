@@ -17,4 +17,4 @@ The `LoginPage` component SHALL read the `error` query parameter from the curren
 
 #### Scenario: Error message absent after successful login
 - **WHEN** the user successfully completes email/password login after arriving via `/login?error=oauth_failed`
-- **THEN** they are redirected to `/` and the error message is no longer visible
+- **THEN** they are redirected to `/home` and the error message is no longer visible

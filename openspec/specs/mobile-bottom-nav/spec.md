@@ -9,7 +9,7 @@ navigation from drifting via a single shared destination list.
 
 ### Requirement: Bottom tab bar provides section navigation on phone
 The frontend SHALL render a bottom tab bar (`shared/chrome/BottomNav`) below the 768px breakpoint
-with exactly the six section destinations of the desktop sidebar (`/`, `/sources`, `/pipelines`,
+with exactly the six section destinations of the desktop sidebar (`/home`, `/sources`, `/pipelines`,
 `/registry`, `/metrics`, `/chat`), sourced from a single shared destination definition so desktop
 and phone navigation cannot drift. Each destination SHALL show a Lucide icon and no visible text
 label; each SHALL therefore carry an accessible name equal to its full destination label, exposed in
