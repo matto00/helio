@@ -1,0 +1,62 @@
+# FINAL GREEN cycle 2
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.*"   # cycle2
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] RouteTestBaseGuardSpec:
+[info] RouteTestBaseGuardSpec
+[info] - should scan a real, non-trivial source tree (non-vacuity)
+[info] - should find the base trait itself and match the direct-mixin pattern in it
+[info] - should match every direct-mixin spelling it must reject
+[info] - should have no test source that mixes in the route testkit directly instead of HelioRouteTest
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresStartGuardSpec:
+[info] EmbeddedPostgresStartGuardSpec
+[info] - should scan a real, non-trivial source tree (non-vacuity)
+[info] - should find the helper and a migrated spec and recognise the wrapped form as clean
+[info] - should reject every direct-start spelling
+[info] - should reject static-member imports, backticks and other cluster-starting entry points (allowlist)
+[info] - should accept the verified spellings, plain imports and type positions
+[info] - should not mistake the verified start for a static zonky start
+[info] - should honour the exemption marker only on the marked line of the regression spec
+[info] - should exempt the helper and the regression spec by exact path, not by bare file name
+[info] - should have no test source that starts embedded Postgres without the verified helper
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] VerifiedEmbeddedPostgresSpec:
+[info] an unverified direct start pinned to a port another cluster holds
+[info] - should silently attach to that other cluster (the defect)
+[info] VerifiedEmbeddedPostgres.start pinned to a port another cluster holds
+17:46:00.168 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster c711644f-2ddc-4d75-be9d-7ce04812ca92
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg17931500255337327807, stop, -m, fast, -t, 5, -w] failed
+[info] - should end on its own cluster on a different port and leave the foreign cluster untouched
+17:46:01.034 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster c6a54881-5549-4fbd-93f9-f5c1917b2389
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg17082747234292819946, stop, -m, fast, -t, 5, -w] failed
+17:46:01.342 ERROR [pool-1-thread-1-ScalaTest-running-VerifiedEmbeddedPostgresSpec] i.z.t.d.p.embedded.EmbeddedPostgres - Could not stop postmaster e20dd968-cd89-44a0-b9a7-84c3fb9a313d
+java.lang.IllegalStateException: Process [/tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl, -D, /tmp/epg16967179356767416428, stop, -m, fast, -t, 5, -w] failed
+[info] - should fail loudly naming every directory when all attempts collide, leaving the foreign cluster intact
+[info] a failed ownership check (the closed-connection shape)
+[info] - should discard the attempt's own data directory and retry
+[info] - should carry the recorded error in the exhaustion message instead of propagating it as-is
+[info] a fatal throwable during the ownership check (HEL-1474)
+[info] - should close the attempt's instance, delete its data directory and propagate the same throwable without a retry
+[info] a zonky start that fails before launching a postmaster (HEL-1474)
+[info] - should delete the attempt's data directory and propagate the library's error unchanged
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has //
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 7 seconds, 498 milliseconds.
+[info] Total number of tests run: 27
+[info] Suites: completed 4, aborted 0
+[info] Tests: succeeded 27, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 8 s, cache 87%, 29 disk cache hits, 4 onsite tasks
+exit=0
+Scala code-quality check: clean (250 soft warning(s))
+Test temp-dir hygiene check: clean

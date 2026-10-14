@@ -1,0 +1,384 @@
+# D3 guard mutation evidence (HEL-1474). Mutations are temporary edits to EmbeddedPostgresGuardLexer.scala, restored after each run.
+# The three ORIGINAL cases never failed under any mutation (they stay green: fail-closed GUARDs). The NEW balanced variants go red per construct.
+# Note the nested-splice ORIGINAL contains "/*" and a trailing /* */; it stays flagged under the 'nested' mutation only because the mis-lex leaves a splice unterminated -> raw-fallback=true, not because it has no /*.
+
+# Per-case flagged/raw-fallback under each targeted TEMPORARY lexer mutation (scalac 2.13.15 harness over the real lexer + guard sources).
+# ORIG = the three original cases (kept, relabelled fail-closed GUARDs); NEW = the balanced same-line variants (the failable proofs).
+# Mutations (python3 mut.py edits, never committed): triple = 'val triple = false'; char = charLiteral() -> emit(); nested = splice recursion only at depth 0; dollar/raw = revert D1(a)/D1(b).
+--- lexer: fixed
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=false
+ORIG char literal    flagged=true  raw-fallback=false
+NEW  triple-quoted   flagged=true  raw-fallback=false
+NEW  nested splice   flagged=true  raw-fallback=false
+NEW  char literal    flagged=true  raw-fallback=false
+--- lexer: triple
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=false
+ORIG char literal    flagged=true  raw-fallback=false
+NEW  triple-quoted   flagged=false raw-fallback=false
+NEW  nested splice   flagged=true  raw-fallback=false
+NEW  char literal    flagged=true  raw-fallback=false
+--- lexer: char
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=false
+ORIG char literal    flagged=true  raw-fallback=true
+NEW  triple-quoted   flagged=true  raw-fallback=false
+NEW  nested splice   flagged=true  raw-fallback=false
+NEW  char literal    flagged=false raw-fallback=false
+--- lexer: nested
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=true
+ORIG char literal    flagged=true  raw-fallback=false
+NEW  triple-quoted   flagged=true  raw-fallback=false
+NEW  nested splice   flagged=false raw-fallback=false
+NEW  char literal    flagged=true  raw-fallback=false
+--- lexer: dollar
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=false
+ORIG char literal    flagged=true  raw-fallback=false
+NEW  triple-quoted   flagged=true  raw-fallback=false
+NEW  nested splice   flagged=true  raw-fallback=false
+NEW  char literal    flagged=true  raw-fallback=false
+--- lexer: raw
+ORIG triple-quoted   flagged=true  raw-fallback=false
+ORIG nested splice   flagged=true  raw-fallback=false
+ORIG char literal    flagged=true  raw-fallback=false
+NEW  triple-quoted   flagged=true  raw-fallback=false
+NEW  nested splice   flagged=true  raw-fallback=false
+NEW  char literal    flagged=true  raw-fallback=false
+
+# sbt: mutation triple -> real spec result (diff vs fixed lexer)
+32c32
+<       val triple = text.startsWith("\"\"\"", i)
+---
+>       val triple = false
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # MUTATION triple (temporary, restored)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has //
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs *** FAILED ***
+[info]   not flagged: triple-quoted
+[info]   Vector("triple-quoted") was not empty (EmbeddedPostgresGuardLexerSpec.scala:77)
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=222 offenders=10 
+[info]   + RAW-FALLBACK com/helio/testsupport/NodePayloadFixtures.scala 
+[info]   + RAW-FALLBACK com/helio/testsupport/ProductTelemetryDbHarness.scala 
+[info]   + RAW-FALLBACK com/helio/testsupport/OldSingleStatementThin.scala 
+[info]   + RAW-FALLBACK com/helio/testsupport/OutputHistoryApiHarness.scala 
+[info]   + RAW-FALLBACK com/helio/testsupport/DatasetRowsTestSupport.scala 
+[info]   + RAW-FALLBACK com/helio/testsupport/OutputHistoryFixtures.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/SchemaFieldRealDumpInvariantSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/CsvBlankCellsNullSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/CsvBlankCellsNullStepsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/ComputeCoalesceCsvSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/ComputeConditionalCountSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/PipelineAnalyzeServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/InProcessPipelineEngineSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/engine/ExpressionEvaluatorSpec.scala 
+[info]   + RAW-FALLBACK com/helio/domain/steps/ConvertFormatStepSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/protocols/assistant/AssistantProposalToolSchemasSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/ApiRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/InlineSourceLeakApiRoutesWiringSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/ApiTokenAuthSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/ApiRoutesPipelineRunGuardSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/panels/PanelCreateSeamSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/panels/FormSubmitRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/panels/FormPanelRoundTripSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/panels/PanelBatchCreateSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/panels/PanelCreatePlacementSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineAnalyzeCanRunRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/DuplicateStepReferenceChecksSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineRunRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineAclSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineCycleRouteStatusSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineAnalyzeProposalRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineApplyProposalUpsertTargetSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/InlineSourceLeakPathsRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineCreateStepConfigRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/StepWriteRoutesFixture.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/WindowRollingSeamSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/OutputHistoryQueryCountSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineStepReparentRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineAnalyzeRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineScheduleRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineStepRootIdPlacementRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/OutputRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/CastTargetWriteRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/OutputHistoryPayloadRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/DuplicateStepWriteValidationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/StepConfigInvalidRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/UpsertTargetWritableRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineStepRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineApplyProposalSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineRootRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineApplyProposalSpecBase.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/SseReconnectGapProbeSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/pipelines/PipelineApplyProposalRollbackSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/ApplyProposalSpecBase.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/DashboardApplyProposalBindingSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/DashboardApplyProposalSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalRegressionSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/DashboardApplyProposalConfigSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalRollbackConnectorSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/DashboardContentsReplaceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalFormSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/DashboardApplyProposalFormSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalDanglingRefSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalSpecBase.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalRollbackSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/proposals/CombinedApplyProposalSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/assistant/AssistantConversationRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/hooks/HookRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/firstrun/FirstRunRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/firstrun/FirstRunRoutesFixture.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/patchsets/PatchSetStaleDefinitionGapsRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/patchsets/PatchSetStaleCheckRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/auth/BetaAccessRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/sources/DataSourceRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/OutputHistoryPublicRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/PublicProvenanceRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/ShareTokenPublicAccessSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/DashboardLayoutConcurrencySpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/PublicDashboardRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/ShareTokenOwnershipSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/PublicRouteOwnerIdLeakSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/DashboardPanelAclSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/OutputHistoryPayloadPublicRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/DashboardLayoutValidationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/dashboards/DashboardLayoutRepairRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/routes/alerts/AlertRuleRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/ApiRoutesAlertHistoryWiringSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/NodePayloadWiringSpec.scala 
+[info]   + RAW-FALLBACK com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/testkit/EmbeddedPostgresGuardLexerSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/PipelineStepsOpCheckSeededRowsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/RlsPrivilegedDmlSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/RlsSharingAwareTablesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/OutputHistoryRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/BinaryRefsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/panels/LayoutStripDbSupport.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/panels/LockRaceSupport.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/panels/V123StripExistingGhostLayoutItemsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/StoredObjectDeletionsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V98PipelineRootsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/PaginationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V119OwnerFkMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/audit/AuditEventRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/audit/AuditEventsAppendOnlySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/telemetry/ProductEventRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/NodePayloadTrimPurgeLockOrderSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V119MigrationHarness.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/FlywayNonSuperuserMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/FormAndConversationObjectDeletionsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V96CanonicalizeInferredSchemaTypeMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/TriggerSourceMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/BinaryRefRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/MultiRootIsolationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineRunRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineScheduleRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineStepRepositorySpliceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/OutputHistoryRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineCycleGraphQueriesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineRunGuardRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/pipelines/PipelineAutoRunDebounceRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V99PreventZeroRootPipelinesMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/RlsOwnerTablesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/proposals/AuthoringConversationRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/assistant/AssistantConversationRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/assistant/AssistantDailyUsageRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/PipelineOnlyPanelBindingMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/DatabaseConnectionTimeoutSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/UserTierMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V106DatasetRowsMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/NodePayloadHistoryRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V133RateWindowCascadeMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/RetentionLockGuardSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/ResourceTagMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V100ZeroRootGuardNonSuperuserSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/DatasetRowsReaderBehaviorPreservingSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/PipelineSharingAclSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/auth/ConnectorCredentialRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/auth/ResourcePermissionRoleFallbackSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/auth/InviteCodeRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/agents/AgentPreferencesRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V117DeadOutputConfigKeysMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sharing/ShareTokenRepositoryRevokeSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sharing/ShareTokenRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sources/DataSourceRepositoryApplyWriteBacksRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sources/DataSourceRepositoryApplyWriteBacksSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sources/DataSourceReferenceGuardNonSuperuserSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sources/CounterEventRowModelSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/sources/ConnectorRepositorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/dashboards/DashboardLayoutRepairRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/PublicPathRlsSmokeSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/persistence/V118LegacyMetricFormatMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/infrastructure/ai/ClaudeStreamAssemblySpec.scala 
+[info]   + RAW-FALLBACK com/helio/spark/SparkJobSubmitterSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/panels/PanelFormFileSubmissionFailedAppendSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/telemetry/ProductEventRollupServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/AutoRunTriggerServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/ComputeExpressionRunSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceUpsertSourceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/LateFinisherRunSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineSchedulerServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunGuardIntegrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineCycleDetectionServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineSchedulerServiceStoredObjectDrainSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/DatasetWriteAutoRunCoalescingSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/Hel1503EditorRunGapsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceOutputHistorySpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/OrphanedRunReaperSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/DatasetWriteAutoRunEndToEndSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/Hel1516GranteeDriftPreviewSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/UpsertTargetWritableRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/CastPipelineRunSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceUpsertSourceRlsSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/AutoRunGuardNoRetryStormSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/AutoRunGuardBurstProofSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/RunReaperConcurrencySpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/RetentionTickMeasure.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/DatasetWriteAutoRunDroppedFireSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceAiStepClientWiringSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/ComputeDateTimeRunSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineScheduleServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/LegacyOutputFormatParitySpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/OutputFilteredMetricMeasurementSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/LegacyOutputConfigKeysParitySpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineSchedulerServiceFixture.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/OutputHistoryCostMeasurementSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/LiveRunReaperSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/OutputHistoryRetentionPrivilegedSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineServiceCanRunSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/pipelines/PipelineRunServiceAlertBaselineSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/proposals/DashboardAuthoringServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/proposals/DashboardAuthoringParsingSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/assistant/AssistantConversationServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetPreviewServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetDashboardGrantSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetApplyFormCreateSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/RefinementEditShapeSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetApplyServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/patchsets/PatchSetPipelineStepGrantSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/auth/AiPipelineQuotaGateSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/auth/BetaAccessServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sharing/ShareTokenServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sharing/ShareTokenValidatorSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/InlineSourceOrphanCountQueriesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/RestSourceConnectorMigrationSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/DatasetWriteSubmitLatencySpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/DataSourceServiceDeniedPipelinesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/FormAndConversationObjectDrainSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/StoredObjectDeletionRearmSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/sources/StoredObjectDeletionServiceSpec.scala 
+[info]   + RAW-FALLBACK com/helio/services/dashboards/EditorGrantCoverageSpec.scala 
+[info]   + RAW-FALLBACK ScalaTestSummaryGuardSpec.scala 
+[info]   + OFFENDER com/helio/api/routes/pipelines/PipelineAnalyzeRoutesSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/RlsSharingAwareTablesSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/FlywayNonSuperuserMigrationSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/RlsOwnerTablesSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/RlsPolicyGuardSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/V100ZeroRootGuardNonSuperuserSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/PipelineSharingAclSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/sharing/ShareTokenRepositoryRevokeSpec.scala 
+[info]   + OFFENDER com/helio/infrastructure/persistence/sources/CounterEventRowModelSpec.scala 
+[info]   + OFFENDER com/helio/services/assistant/AssistantConversationServiceSpec.scala 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 74 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# sbt: mutation char -> real spec result (diff vs fixed lexer)
+72c72
+<         else if (c == '\'') charLiteral()
+---
+>         else if (c == '\'') emit()
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # MUTATION char (temporary, restored)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has //
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs *** FAILED ***
+[info]   not flagged: char literal
+[info]   Vector("char literal") was not empty (EmbeddedPostgresGuardLexerSpec.scala:77)
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=2 offenders=0 
+[info]   + RAW-FALLBACK com/helio/api/routes/patchsets/PatchSetPipelineDeleteImpactRoutesSpec.scala 
+[info]   + RAW-FALLBACK com/helio/testkit/EmbeddedPostgresGuardLexer.scala 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 100 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# sbt: mutation nested -> real spec result (diff vs fixed lexer)
+15a16
+>     var spliceDepth = 0
+45c46
+<         else if (interpolated && c == '$' && i + 1 < n && text.charAt(i + 1) == '{') { emit(); emit(); code(inSplice = true) }
+---
+>         else if (interpolated && c == '$' && i + 1 < n && text.charAt(i + 1) == '{') { emit(); emit(); if (spliceDepth == 0) { spliceDepth += 1; code(inSplice = true); spliceDepth -= 1 } }
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # MUTATION nested (temporary, restored)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has //
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs *** FAILED ***
+[info]   not flagged: nested splice
+[info]   Vector("nested splice") was not empty (EmbeddedPostgresGuardLexerSpec.scala:77)
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 972 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# Why the nested-splice variant spans two lines (HEL-1474 cycle 2)
+# The direct start is on the same line as the construct. Under the 'nested' mutation the `//` that hides the start also
+# comments out the rest of that line, leaving the outer splice open; a one-line form therefore falls back to the RAW scan
+# and stays flagged (not failable). The second line `}" // "` closes that splice under the mutation and is balanced under
+# the real lexer. It is deliberately not well-formed Scala; only lexical balance matters to the guard.

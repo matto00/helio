@@ -1,0 +1,117 @@
+# RED: pre-fix lexer (moved unchanged into EmbeddedPostgresGuardLexer.scala), new cases present. Only the two new reject cases are missed.
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # PRE-FIX lexer (moved unchanged), new cases present
+[info] done compiling
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has // *** FAILED ***
+[info]   not flagged: dollar-quote escape, raw backslash-quote
+[info]   Vector("dollar-quote escape", "raw backslash-quote") was not empty (EmbeddedPostgresGuardLexerSpec.scala:42)
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 36 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# GREEN: fixed lexer (D1 a+b)
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # FIXED lexer
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has //
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 1 second, 78 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 7, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 2 s, cache 90%, 27 disk cache hits, 3 onsite tasks
+exit=0
+
+# per-fix revert mutation: dollar (diff vs fixed lexer, temporary, restored afterwards)
+43d42
+<         else if (interpolated && c == '$' && i + 1 < n && text.charAt(i + 1) == '"') { emit(); emit() }   // the `$"` escape
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # MUTATION dollar (temporary, restored)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has // *** FAILED ***
+[info]   not flagged: dollar-quote escape
+[info]   Vector("dollar-quote escape") was not empty (EmbeddedPostgresGuardLexerSpec.scala:42)
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 64 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# per-fix revert mutation: raw (diff vs fixed lexer, temporary, restored afterwards)
+15a16
+>     var rawNow = false
+42c43
+<         else if (!triple && c == '\\') { emit(); if (i >= n) bad(); emit() }   // scalac pairs `\x` in every single-line string, `raw` included
+---
+>         else if (!triple && !rawNow && c == '\\') { emit(); if (i >= n) bad(); emit() }   // scalac pairs `\x` in every single-line string, `raw` included
+70c71
+<           string(interpolated)
+---
+>           rawNow = interpolated && prefix == "raw"; string(interpolated)
+$ cd backend && nice -n 19 sbt -batch -Dsbt.server.autostart=false -J-Xmx3g "testOnly com.helio.testkit.EmbeddedPostgresGuardLexerSpec"   # MUTATION raw (temporary, restored)
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] EmbeddedPostgresGuardLexerSpec:
+[info] EmbeddedPostgresGuardLexer
+[info] - should reject direct starts hidden behind string literals inside interpolation splices
+[info] - should reject a same-line direct start after a string literal with an escape whose content has // *** FAILED ***
+[info]   not flagged: raw backslash-quote
+[info]   Vector("raw backslash-quote") was not empty (EmbeddedPostgresGuardLexerSpec.scala:42)
+[info] - should accept the same escape literals followed by a wrapped (verified) start
+[info] - should fail-closed GUARD (never red): triple-quoted, nested-splice and char-literal splices still flag the start
+[info] - should reject balanced same-line variants of the triple-quoted, nested-splice and char-literal constructs
+[info] - should accept clean files that have splice literals, including a prose doc-comment mention
+[info] - should report whole-tree scan statistics (every file is scanned; the raw fallback is counted)
+[info]   + STATS files-scanned=651 files-with-splice-literals=228 raw-fallback-files=0 offenders=0 
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 1 second, 70 milliseconds.
+[info] Total number of tests run: 7
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 6, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.testkit.EmbeddedPostgresGuardLexerSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit=1
+
+# restored: lexer == fixed version (diff empty); final GREEN is the 4.1 run
