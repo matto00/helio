@@ -1,9 +1,0 @@
-- `DESIGN.md` — v3: §0 rewrite, §2/§3/§6 edits, new §9 Shell/§10 Motion/§11 Live preview/§12 Mobile, forensics moved to Appendix A with pointers
-- `frontend/src/theme/theme.css` — `--font-heading`, `--motion-*` tokens, dark `--app-bg` #0f0e0d, regenerated `--app-selection-bg` fallback, wordmark/page-title repointed
-- `frontend/src/app/App.css`, `frontend/src/features/auth/ui/auth.css`, `frontend/src/features/onboarding/ui/FirstRunDropZone.css`, `frontend/src/features/onboarding/ui/OnboardingChecklist.css`, `frontend/src/shared/ui/EmptyState.css` — `var(--font-display)` -> `var(--font-heading)`
-- `frontend/src/shared/ui/PageHeader.tsx` — comment only (heading face)
-- `frontend/src/theme/appearance.ts`, `frontend/src/pwaConfig.ts`, `frontend/index.html` — dark canvas sync sites
-- `frontend/src/theme/appearance.test.ts`, `frontend/src/theme/themeParityGuard.css.test.ts` — transcribed dark canvas value regenerated (no assertion changed)
-- `frontend/src/theme/tokenAuditSweep.css.test.ts` — font-family allow-list gains `--font-heading` (C1)
-- `frontend/src/theme/focusRingTokenGuard.css.test.ts` — historical comment reworded
-- `docs/contrast-audit.md` — dark `--app-bg` cells re-transcribed via the recipe
