@@ -1,0 +1,4 @@
+- `scripts/check-scala-quality.mjs` — pass 1 = base string-blanking guard (behaviour unchanged), pass 2 = splice scan; a line is flagged if either flags it; header documents both passes' limits
+- `scripts/scala-code-only.mjs` — pass 2 engine: splice-only view with a cross-line stack of literal/splice/comment frames
+- `scripts/check-scala-quality.selftest.mjs` — splice red/green cases, pass-2-silent pins, desync fixtures (B, C, variant, multi-line splice, nested crossing)
+- `openspec/changes/scan-scala-interpolation-splices/{design,proposal,tasks}.md`, `specs/scala-inline-fqn-guard/spec.md` — record the C5 reframe
