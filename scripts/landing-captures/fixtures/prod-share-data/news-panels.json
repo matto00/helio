@@ -1,0 +1,345 @@
+{
+  "items": [
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "bar",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "99cca596-c406-4cc3-8f2b-15193c1d2a6b" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:26:03.754357Z",
+      "id": "3a4d0a6d-cf4e-4aa4-9249-bc06e6ddc3ff",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:41.846160Z",
+        "lastUpdated": "2026-10-13T14:25:42.066839Z"
+      },
+      "title": "Run time (minutes)",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "83bc91da-ea23-488a-b125-389e1a301911" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:26:03.735566Z",
+      "id": "9c6cf091-2265-4f26-93b1-afc78238d492",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:41.533643Z",
+        "lastUpdated": "2026-10-13T14:25:41.533643Z"
+      },
+      "title": "Boards built",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "c01a8d27-3bbe-43cd-ae15-c61f4b1fc036" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:26:03.737168Z",
+      "id": "d8181287-820b-4623-8715-7439f229e673",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:41.228952Z",
+        "lastUpdated": "2026-10-13T14:25:41.228952Z"
+      },
+      "title": "Last run took",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "bar",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "99ce0752-8d8c-4ec9-a2c9-9b8868eff5b4" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:25:33.392498Z",
+      "id": "67bc3f62-47ef-44d8-be84-d2d491b10b82",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:40.621894Z",
+        "lastUpdated": "2026-10-13T14:25:40.920634Z"
+      },
+      "title": "Mood of the news",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "heatmap",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "71809ed2-eea2-432a-85ea-2281ed9360a9" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:25:33.438250Z",
+      "id": "ce178724-579e-437c-b8de-ae80b6c8569f",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:40.309990Z",
+        "lastUpdated": "2026-10-13T14:25:40.422294Z"
+      },
+      "title": "The news, day by day",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": { "controls": [], "outputId": "ce56bbf3-0243-4a5e-a8a6-445e00864bab" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:25:01.209570Z",
+      "id": "bfe6b7a0-f599-4f79-aa83-0c3295d87f73",
+      "meta": {
+        "createdAt": "2026-10-13T14:25:02.063441Z",
+        "lastUpdated": "2026-10-13T14:25:02.063441Z"
+      },
+      "title": "This week",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "bar",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "583bc9ed-4380-4111-a228-0dced66a3b28" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:24:40.235357Z",
+      "id": "9f6f3500-6aa8-4eb4-a094-4a4fed28ed03",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:40.600476Z",
+        "lastUpdated": "2026-10-13T14:24:40.711399Z"
+      },
+      "title": "Who's publishing",
+      "type": "output"
+    },
+    {
+      "appearance": {
+        "background": "transparent",
+        "chart": {
+          "axisLabels": { "x": { "show": true }, "y": { "show": true } },
+          "chartType": "pie",
+          "legend": { "position": "top", "show": true },
+          "seriesColors": [
+            "#5470c6",
+            "#91cc75",
+            "#fac858",
+            "#ee6666",
+            "#73c0de",
+            "#3ba272",
+            "#fc8452",
+            "#9a60b4"
+          ],
+          "tooltip": { "enabled": true }
+        },
+        "color": "inherit",
+        "transparency": 0.0
+      },
+      "config": { "controls": [], "outputId": "628af829-e92f-493e-a5b1-4f25ac18a41b" },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "dataAsOf": "2026-10-13T14:24:38.155729Z",
+      "id": "eb6aa3f9-3b65-4495-a4e1-312a5c4de19d",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:38.861774Z",
+        "lastUpdated": "2026-10-13T14:24:39.174107Z"
+      },
+      "title": "What kind of day",
+      "type": "output"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "Josh Allen broke his 0‑7 overtime losing streak when the Buffalo Bills defeated the Los Angeles Rams 37‑34 in Monday Night Football. Allen rushed for 91 yards and a touchdown while completing all five of his passes, and a blocked field goal by Greg Rousseau sealed the win. The victory snapped Allen’s career‑long OT slump and gave the Bills a late‑season boost.\n\n**Headlines**\n- [Bills' Allen, 0-7 in OT games entering MNF, finally gets over hump in wild win](https://www.espn.com/nfl/story/_/id/50171513/bills-josh-allen-earns-first-career-win-vs-rams-mnf) — ESPN Top\n- [Bills, Josh Allen outlast Rams in overtime on MNF](https://www.espn.com/nfl/story/_/id/50170290/buffalo-bills-los-angeles-rams-mnf-week-5-ot-josh-allen) — ESPN Top\n- [After special teams blunders, Rams to 'evaluate everything' about kicking unit](https://www.espn.com/nfl/story/_/id/50171556/sean-mcvay-says-rams-evaluate-everything-kicking-unit-ot-loss-bills) — ESPN NFL\n- [Rams OL Jackson punches Bills LB Chubb at midfield after 'emotional game'](https://www.espn.com/nfl/story/_/id/50171415/rams-alaric-jackson-punches-bills-bradley-chubb-mnf) — ESPN Top\n- [DeLauter, Ramírez ignite offense as Guardians steal Game 1 on road vs. Rays](https://www.espn.com/mlb/story/_/id/50170936/guardians-come-beat-rays-game-1-alcs) — ESPN Top\n- [Takeaways from Guardians' win over Rays](https://www.espn.com/mlb/story/_/id/50166341/mlb-2026-nlcs-game-2-alcs-game-1-dodgers-brewers-rays-guardians-lineups-updates-analysis-takeaways) — ESPN Top"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "c3e90a3a-b483-4b8e-8f48-ca72682d7de4",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:37.027735Z",
+        "lastUpdated": "2026-10-13T14:24:37.027735Z"
+      },
+      "title": "Bills vs Rams OT",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "The Hungarian parliament voted to amend child protection laws, removing the ban on portraying or promoting homosexuality and transgenderism that was introduced in 2021. The change is part of a broader effort by the new Tisza government to dismantle former Fidesz-era legislation. Human rights groups welcomed the reform while calling for further revisions to other Orbán-era laws.\n\n**Headlines**\n- [Hungarian MPs scrap Orbán's anti-LGBTQ measures](https://www.bbc.co.uk/news/articles/c6vg9nj4l322o?at_medium=RSS&at_campaign=rss) — BBC World"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "a40ac205-800b-4169-b2f5-5ad7c612b3d5",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:36.711782Z",
+        "lastUpdated": "2026-10-13T14:24:36.711782Z"
+      },
+      "title": "Hungary LGBTQ Law",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "caption": "Hungarian Parliament Repeals Orbán’s Anti‑LGBTQ Child Protection Law — BBC World",
+        "imageFit": "cover",
+        "imageUrl": "https://ichef.bbci.co.uk/ace/standard/800/cpsprodpb/67e8/live/05d40160-c705-11f1-9783-ed95709f9dec.jpg"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "9545d052-cae6-48a7-858f-fbd2c68f4b04",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:36.415747Z",
+        "lastUpdated": "2026-10-13T14:24:36.415747Z"
+      },
+      "title": "Hungary LGBTQ Law",
+      "type": "image"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "The U.S. Supreme Court declined to hear an appeal by a lawyer who was sanctioned while representing former Arizona gubernatorial candidate Kari Lake in a 2022 lawsuit challenging the state’s use of electronic voting machines. The ruling leaves the sanctions in place and allows the case to proceed under lower court decisions. No change is made to the underlying dispute over voting equipment.\n\n**Headlines**\n- [Supreme Court turns away Kari Lake lawyer's challenge to sanctions in Arizona voting machine lawsuit](https://thehill.com/regulation/court-battles/6144798-supreme-court-kari-lake-lawyer-andrew-parker-appeal/) — The Hill\n- [Supreme Court to decide if Nigerian man's cooking was 'material support' for terrorists](https://thehill.com/regulation/court-battles/6144787-supreme-court-asylum-case-material-support/) — The Hill\n- [Supreme Court to hear DOGE’s bid to avoid turning over internal documents](https://thehill.com/regulation/court-battles/6121673-supreme-court-doge-foia-review/) — The Hill"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "90bb4810-0db1-4553-9e5c-c8c059cff4c7",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:36.305343Z",
+        "lastUpdated": "2026-10-13T14:24:36.305343Z"
+      },
+      "title": "Arizona Voting Machine Lawsuit",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "caption": "Supreme Court Rejects Appeal Over Sanctions Against Kari Lake Lawyer — The Hill",
+        "imageFit": "cover",
+        "imageUrl": "https://thehill.com/wp-content/uploads/sites/2/2026/03/69b9ce116b4468.50183645-e1791896660273.jpeg?w=900"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "e3669fdf-9d2e-4eff-91f4-dc7244d4fbe5",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:36.202093Z",
+        "lastUpdated": "2026-10-13T14:24:36.202093Z"
+      },
+      "title": "Arizona Voting Machine Lawsuit",
+      "type": "image"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "Meta’s Superintelligence Lab introduced Muse Wonder and Muse Wonder Full as its first frontier models, offering higher benchmark scores than competitors like GPT‑6 Astra. The larger models are priced at $4 per million input tokens and $20 per million output tokens via the Meta Model API, while Wonder Full is limited to Muse Code subscribers. Both models emphasize active memory for sustained task performance.\n\n**Headlines**\n- [Meta releases its first frontier model, Muse Wonder](https://techcrunch.com/2026/10/12/meta-releases-its-first-frontier-model-muse-wonder/) — TechCrunch\n- [Pennsylvania announces sixth death in measles outbreak as case numbers rise](https://www.theguardian.com/us-news/2026/oct/13/pennsylvania-measles-sixth-death) — Guardian World"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "b244f8bb-f1e3-4265-a4ed-7fd9b8fbad11",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:36.071612Z",
+        "lastUpdated": "2026-10-13T14:24:36.071612Z"
+      },
+      "title": "Meta AI Models",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "caption": "Meta Launches Muse Wonder Frontier AI Model — Guardian World",
+        "imageFit": "cover",
+        "imageUrl": "https://i.guim.co.uk/img/media/5d408b8d971a841bf3b44b879219e896f1dce662/336_0_3360_2688/master/3360.jpg?width=700&quality=85&auto=format&fit=max&s=36dfeaf78b2e03ab68f13eb970a0f265"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "bb13ef66-6190-4e3a-8559-4e54bf6fddd6",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:35.806451Z",
+        "lastUpdated": "2026-10-13T14:24:35.806451Z"
+      },
+      "title": "Meta AI Models",
+      "type": "image"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "content": "Apple launched the HomeView, a $299 smart display hub featuring a 7‑inch screen, FaceTime camera, and built‑in speakers. It serves as a Matter controller and Thread border router, integrating with Apple’s new Home collection of cameras, thermostats, and locks, and is available in eight countries with shipping from November 13. The device emphasizes design and Siri AI for voice interactions rather than new smart‑home features.\n\n**Headlines**\n- [Apple launches HomeView, its first smart display for the home](https://www.theverge.com/tech/1009704/apple-homeview-smart-display-first-look) — The Verge\n- [Apple releases HomeView smart home hub with screen as showcase for Siri AI](https://www.cnbc.com/2026/10/13/apple-homeview-smart-home-siri-ai.html) — CNBC Top\n- [Apple makes another push into the smart home market with HomeView](https://techcrunch.com/2026/10/13/apple-makes-another-push-into-the-smart-home-market-with-homeview/) — TechCrunch\n- [Apple’s new smart home line-up includes a smart lock, thermostat and video doorbells](https://techcrunch.com/2026/10/13/apples-new-smart-home-line-up-includes-a-smart-lock-thermostat-and-video-doorbells/) — TechCrunch\n- [Watch Apple’s reveal video for the HomeView](https://www.theverge.com/1008810/apple-homeview-reveal-video-watch) — The Verge\n- [The new Apple Home Collection includes a video doorbell, smart lock, and more](https://www.theverge.com/tech/1009680/apple-home-collection-doorbell-lock-camera-smart-home-announced) — The Verge"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "1c48084c-4597-4d2d-89a8-e0c69ba148b6",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:35.482130Z",
+        "lastUpdated": "2026-10-13T14:24:35.482130Z"
+      },
+      "title": "Apple Smart Home Hub",
+      "type": "markdown"
+    },
+    {
+      "appearance": { "background": "transparent", "color": "inherit", "transparency": 0.0 },
+      "config": {
+        "caption": "Apple Unveils HomeView Smart Display Hub with Siri AI — The Verge",
+        "imageFit": "cover",
+        "imageUrl": "https://platform.theverge.com/wp-content/uploads/sites/2/2026/10/Apple-HomeView-lineup.png?quality=90&#038;strip=all&#038;crop=0,0,100,100"
+      },
+      "dashboardId": "263e993e-6e5a-4d2e-9188-b89e2736d374",
+      "id": "ee72c787-afaa-4837-b1aa-66419e2fc8a2",
+      "meta": {
+        "createdAt": "2026-10-13T14:24:35.175696Z",
+        "lastUpdated": "2026-10-13T14:24:35.175696Z"
+      },
+      "title": "Apple Smart Home Hub",
+      "type": "image"
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 17
+}

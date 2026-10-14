@@ -228,7 +228,7 @@ describe("theme parity guard (HEL-444)", () => {
     // both per-theme blocks, by design.
     const fixture = `
       :root[data-theme="dark"] {
-        --app-bg: #121110;
+        --app-bg: #0f0e0d;
       }
       :root[data-theme="light"] {
         --app-bg: #f4f2ed;
@@ -248,8 +248,8 @@ describe("theme parity guard (HEL-444)", () => {
     const darkBlock = extractThemeBlock(stripped, "dark");
     expect(darkBlock).not.toBeNull();
     const mutated = rawText.replace(
-      "--app-bg: #121110;",
-      "--app-bg: #121110;\n  --app-hel444-mutation-probe: red;",
+      "--app-bg: #0f0e0d;",
+      "--app-bg: #0f0e0d;\n  --app-hel444-mutation-probe: red;",
     );
     expect(mutated).not.toBe(rawText);
     const result = checkThemeParity(mutated, {});
@@ -285,7 +285,7 @@ describe("theme parity guard (HEL-444)", () => {
   });
 
   it("refuses a vacuous pass when a theme block is entirely absent", () => {
-    const fixture = `:root[data-theme="dark"] { --app-bg: #121110; }`;
+    const fixture = `:root[data-theme="dark"] { --app-bg: #0f0e0d; }`;
     const result = checkThemeParity(fixture, {});
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]).toMatch(/could not locate both/);

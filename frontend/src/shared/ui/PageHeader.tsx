@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import "./PageHeader.css";
 
 interface PageHeaderProps {
-  /** Rendered as `<h1 className="page-title">` (Fraunces, DESIGN.md §3). */
+  /** Rendered as `<h1 className="page-title">` (heading face via `--font-heading`, DESIGN.md §3). */
   title: string;
   /** Rendered above the title via the shared `.eyebrow` utility. */
   eyebrow?: string;

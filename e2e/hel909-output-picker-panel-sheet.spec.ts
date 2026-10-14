@@ -93,7 +93,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "desktop" });
     const { latencyId } = await seedThroughputOutput(page, request);
 
-    await page.goto("/");
+    await page.goto("/home");
     // Reached via the command bar's "Dashboard actions" kebab (HEL-813
     // surface 6's own precedent) -- the single Add-panel entry point once a
     // dashboard is selected, regardless of whether the onboarding checklist
@@ -167,7 +167,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
       await registerAndLogin(page, request, { ...AUTH, label: `mobile-${width}` });
       await seedThroughputOutput(page, request);
 
-      await page.goto("/");
+      await page.goto("/home");
       // Phone chrome: "Add panel" is reached via the command bar's
       // dashboard-actions kebab (HEL-813 surface 6's own precedent), not a
       // header-row button, at these widths.
@@ -206,7 +206,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "kbnav" });
     const { throughputId } = await seedThroughputOutput(page, request);
 
-    await page.goto("/");
+    await page.goto("/home");
     await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Add panel" }).click();
 

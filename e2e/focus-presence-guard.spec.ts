@@ -126,8 +126,14 @@ async function assertRouteFullyCovered(
 // Each cell registers its own fresh user and seeds its own data, so cells share nothing.
 // The run-wide `totalMeasured > 0` vacuity floor became a per-cell `measured > 0` (stricter).
 const THEMES = ["dark", "light"] as const;
-type RouteKey = "/" | "/sources" | "source-detail" | "pipeline-detail" | "/settings";
-const ROUTE_KEYS: RouteKey[] = ["/", "/sources", "source-detail", "pipeline-detail", "/settings"];
+type RouteKey = "/home" | "/sources" | "source-detail" | "pipeline-detail" | "/settings";
+const ROUTE_KEYS: RouteKey[] = [
+  "/home",
+  "/sources",
+  "source-detail",
+  "pipeline-detail",
+  "/settings",
+];
 
 test.describe("HEL-520 focus-presence guard (AC2)", () => {
   test.describe.configure({ mode: "parallel" });
@@ -143,15 +149,15 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         await client.send("DOM.enable");
         await client.send("CSS.enable");
 
-        // HEL-1330 order: register -> cookie login -> `/` -> isolate -> seed -> `goto("/")` -> theme
-        // `evaluate` (on an app origin) -> `goto(route)`. Seeding while the post-login `/` is live
+        // HEL-1330 order: register -> cookie login -> `/home` -> isolate -> seed -> `goto("/home")` -> theme
+        // `evaluate` (on an app origin) -> `goto(route)`. Seeding while the post-login `/home` is live
         // races its mount effects (auto-select, recent-visit recorder, onboarding fetch).
         await registerUser(request, { ...AUTH, label: "focus-presence" });
         // HEL-1288: `register` already set the session cookie on `request`'s context; hand it to the
-        // page's context and open `/`, instead of re-doing the same login through the UI form in every
+        // page's context and open `/home`, instead of re-doing the same login through the UI form in every
         // cell (the guards never test login, and the sessions are identical: same httpOnly cookie).
         await page.context().addCookies((await request.storageState()).cookies);
-        await page.goto("/");
+        await page.goto("/home");
         await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
         await isolateLivePage(page);
 
@@ -190,7 +196,7 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         // focus/tabindex markup. Runtime ids are resolved here, inside the cell; the cell title and
         // the logged view name use the static label.
         const routePaths: Record<RouteKey, string> = {
-          "/": "/",
+          "/home": "/home",
           "/sources": "/sources",
           "source-detail": `/sources/${source.id}`,
           "pipeline-detail": `/pipelines/${pipeline.id}`,
@@ -209,7 +215,7 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         const ROUTE_READY_MARKERS: Record<RouteKey, (p: Page) => Promise<unknown>> = {
           // `.first()` on each: the seeded name legitimately appears more than
           // once per route (breadcrumb, command palette, list row, etc.).
-          "/": (p) =>
+          "/home": (p) =>
             expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
           "/sources": (p) =>
             expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
@@ -227,13 +233,13 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
           },
         };
 
-        // HEL-1330: load `/` fresh (the seed is complete, nothing was live), wait for the seeded
+        // HEL-1330: load `/home` fresh (the seed is complete, nothing was live), wait for the seeded
         // dashboard, and only then write the theme: the `evaluate` runs on an app origin, never
         // on the isolated `about:blank` page.
-        await page.goto("/");
-        await ROUTE_READY_MARKERS["/"](page);
+        await page.goto("/home");
+        await ROUTE_READY_MARKERS["/home"](page);
         // HEL-1288: the theme is stored and then applied by the route's own load (a separate
-        // reload on `/` first only re-did that work); the `data-theme` assertion proves it took.
+        // reload on `/home` first only re-did that work); the `data-theme` assertion proves it took.
         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
         await page.goto(route);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);

@@ -41,7 +41,7 @@ for (const theme of ["light", "dark"] as const) {
     });
     const { email } = await registerAndLogin(page, request, AUTH);
     console.log(`[HEL-1260 e2e] throwaway user: ${email}`);
-    // After login the page is live on `/`, whose mount fetches race the API seeding below and can
+    // After login the page is live on `/home`, whose mount fetches race the API seeding below and can
     // observe the orphan and repair it there. Idle the page so the explicit open is the only app load.
     await page.goto("about:blank");
 

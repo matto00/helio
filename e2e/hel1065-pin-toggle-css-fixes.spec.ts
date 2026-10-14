@@ -37,12 +37,12 @@ const AUTH = { prefix: "hel1065", displayName: "HEL-1065", domain: "example.com"
 /** Seeds source -> pipeline -> table Output -> panel-on-dashboard via the
  *  API (hel910 pattern), with 5 string columns (the first genuinely
  *  truncating) and one data row, so a table panel with real, pin-toggle-
- *  bearing headers renders on `/` with no UI-driven setup needed. */
+ *  bearing headers renders on `/home` with no UI-driven setup needed. */
 async function seedPinnableTablePanel(
   page: Page,
   label: string,
 ): Promise<{ dashboardName: string }> {
-  // HEL-1300: seeding below must not race the live post-login `/`.
+  // HEL-1300: seeding below must not race the live post-login `/home`.
   await isolateLivePage(page);
   const dashboardName = `HEL-1065 ${label} Dashboard`;
   const dashRes = await page.request.post("/api/dashboards", {
@@ -119,10 +119,10 @@ async function seedPinnableTablePanel(
   });
   expect(panelRes.status()).toBe(201);
 
-  // The panel was seeded via the API after the caller's initial `/`
+  // The panel was seeded via the API after the caller's initial `/home`
   // navigation (registerAndLogin) already fetched an empty panel list —
   // reload so the grid actually reflects it.
-  await page.goto("/");
+  await page.goto("/home");
   await expect(page.getByRole("heading", { name: new RegExp(dashboardName) })).toBeVisible();
   await expect(page.locator(".react-grid-item")).toHaveCount(1);
 

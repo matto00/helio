@@ -141,7 +141,7 @@ one call, for new specs.
 **Guard ordering.** The two guard specs register with `registerUser` and hand the session cookie to the page
 (they never test login, and a UI login would add an `auth.login` audit row to `/settings` and change the
 measured population). `focus-presence-guard` runs: register -> cookie -> `/` -> `isolateLivePage` -> seed ->
-`goto("/")` -> theme `evaluate` -> `goto(route)`. `state-surface-contrast-guard` seeds before its first `goto` and
+`goto("/home")` -> theme `evaluate` -> `goto(route)`. `state-surface-contrast-guard` seeds before its first `goto` and
 sets the theme with `addInitScript` (there is no live app page to `evaluate` on).
 
 ## Throwaway-user cleanup (HEL-1301)

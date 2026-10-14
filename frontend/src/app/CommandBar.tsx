@@ -130,7 +130,7 @@ export function CommandBar({
             breadcrumb aren't adjacent to the trigger in the flex row. */}
         <div className="app-command-bar__inert-group" inert={isMobileNavSheetOpen}>
           {/* F-185: the wordmark is a real link home, not inert chrome. */}
-          <Link to="/" className="app-command-bar__logo" aria-label="Helio home">
+          <Link to="/home" className="app-command-bar__logo" aria-label="Helio home">
             <OrbitMark />
             <span className="app-command-bar__wordmark">Helio</span>
           </Link>

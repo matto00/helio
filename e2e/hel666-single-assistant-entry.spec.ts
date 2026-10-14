@@ -31,11 +31,11 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    await page.waitForURL("/home");
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
 
-    // A dashboard, so "/" also exercises the dashboard-scoped "Refine with AI" button below
+    // A dashboard, so "/home" also exercises the dashboard-scoped "Refine with AI" button below
     // (auto-selected as most-recent, mirroring e2e/hel399-shape-instantiate.spec.ts's precedent).
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-666 Entry Points" },
@@ -46,7 +46,7 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     // HEL-909: /registry and /metrics were retired outright (nav collapse) --
     // dropped from this route list rather than asserting the launcher is
     // visible on routes that no longer exist.
-    const routes = ["/", "/sources", "/pipelines", "/chat"];
+    const routes = ["/home", "/sources", "/pipelines", "/chat"];
     for (const route of routes) {
       await page.goto(route);
       // The single quick-launcher trigger (HEL-665, unconditional) is present on every route --
@@ -60,12 +60,12 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     }
 
     // Note (tasks.md 3.3, design-gate round 1 non-blocking observation): "Refine with AI" is a
-    // SECOND, DIFFERENT AI-related icon that legitimately remains visible on "/" with a dashboard
+    // SECOND, DIFFERENT AI-related icon that legitimately remains visible on "/home" with a dashboard
     // selected -- RefinementChatDrawer's own, separate, explicitly-out-of-scope HEL-343 entry
     // point (design.md D4), not a violation of AC1's "exactly one way to reach the [new top-level]
     // assistant". Verified live here as a regression guard on that boundary, not touched by this
     // ticket's diff.
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByRole("button", { name: "Refine this dashboard with AI" })).toBeVisible();
 
     // Cmd/Ctrl+K opens the same overlay as the command-bar trigger (HEL-665) -- the second half of
@@ -91,8 +91,8 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    await page.waitForURL("/home");
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
 
     // Grounding data: a real pipeline-output DataType (source -> pipeline -> type, the only path
@@ -167,10 +167,10 @@ test.describe("HEL-666 single assistant entry point live verification", () => {
     ]);
     expect(applyResponse.status()).toBe(201);
 
-    // Navigates back to "/" and the newly-created dashboard is selected and visible in the
+    // Navigates back to "/home" and the newly-created dashboard is selected and visible in the
     // sidebar list (scoped to the dashboard-list button -- the same name also legitimately
     // appears in the breadcrumb and mobile title once selected).
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
     await expect(page.getByRole("button", { name: "HEL-666 Sales Overview" })).toBeVisible({
       timeout: 10_000,
     });

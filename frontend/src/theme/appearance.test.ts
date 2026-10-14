@@ -43,7 +43,7 @@ function contrastRatio(hexA: string, hexB: string): number {
 // blocks (not imported from appearance.ts) so this test can't be fooled by
 // a bug shared between the production surface list and the test's copy.
 const ALL_SURFACES = [
-  "#121110",
+  "#0f0e0d",
   "#1a1816",
   "#161514",
   "#232019",
@@ -169,7 +169,7 @@ describe("buildAccentTokens", () => {
 // cross-checking both against appearance.ts's constants AND against a
 // contrast sweep — lives in `accentTextSourceSyncGuard.css.test.ts`.
 const ACCENT_TEXT_NEUTRALS: Record<"light" | "dark", readonly string[]> = {
-  dark: ["#121110", "#1a1816", "#161514", "#232019", "#262320"],
+  dark: ["#0f0e0d", "#1a1816", "#161514", "#232019", "#262320"],
   light: ["#f4f2ed", "#fdfcfa", "#efece6", "#ffffff", "#ffffff"],
 };
 const ACCENT_TEXT_TOKEN_TINTS: Record<"light" | "dark", readonly number[]> = {

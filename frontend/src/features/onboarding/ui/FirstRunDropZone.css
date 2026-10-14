@@ -29,7 +29,7 @@
 
 .first-run-drop__title {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: var(--weight-medium);
   color: var(--app-text);

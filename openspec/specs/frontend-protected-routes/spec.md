@@ -19,10 +19,10 @@ The frontend SHALL provide a `ProtectedRoute` component that wraps React Router 
 - **THEN** a loading indicator is shown and no redirect occurs until the status resolves
 
 ### Requirement: App routes wrapped with ProtectedRoute
-All existing application routes (`/`, `/sources`, `/pipelines`, and `/pipelines/:id`) SHALL be nested inside `ProtectedRoute`. The `/login` and `/register` routes SHALL remain outside `ProtectedRoute` (public).
+All existing application routes (`/home`, `/sources`, `/pipelines`, and `/pipelines/:id`) SHALL be nested inside `ProtectedRoute`. The `/login` and `/register` routes SHALL remain outside `ProtectedRoute` (public).
 
 #### Scenario: Dashboard route is protected
-- **WHEN** an unauthenticated user navigates to `/`
+- **WHEN** an unauthenticated user navigates to `/home`
 - **THEN** they are redirected to `/login`
 
 #### Scenario: Sources route is protected
@@ -45,10 +45,9 @@ All existing application routes (`/`, `/sources`, `/pipelines`, and `/pipelines/
 - **WHEN** an unauthenticated user navigates to `/pipelines/:id`
 - **THEN** they are redirected to `/login`
 
-
 ### Requirement: Already-authenticated users are not shown login/register pages
-When `auth.status` is `'authenticated'`, navigating to `/login` or `/register` SHALL redirect the user to `/`.
+When `auth.status` is `'authenticated'`, navigating to `/login` or `/register` SHALL redirect the user to `/home`.
 
 #### Scenario: Authenticated user visits /login
 - **WHEN** `auth.status` is `'authenticated'` and the user navigates to `/login`
-- **THEN** the browser is redirected to `/`
+- **THEN** the browser is redirected to `/home`

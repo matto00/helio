@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { registerSW } from "virtual:pwa-register";
 import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { App } from "./app/App";
@@ -13,6 +14,9 @@ import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
 import "./shared/ui/tapTarget.css";
 import "./shared/ui/disclosureSummary.css";
+
+// The landing page (`/`) deliberately does not register the service worker; only the app shell does.
+registerSW({ immediate: true });
 
 // Wire global 401 interceptor — must run before first API call
 setupAuthInterceptor(

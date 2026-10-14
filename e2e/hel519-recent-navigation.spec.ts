@@ -129,7 +129,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
   });
 
   // Matrix cell: dashboard, "direct URL" substitution — a dashboard has no route id (D1), so the
-  // real cell here is a full page RELOAD landing on `/`, exercising `fetchDashboards.fulfilled`'s
+  // real cell here is a full page RELOAD landing on `/home`, exercising `fetchDashboards.fulfilled`'s
   // auto-select — the exact path round-1 CR1 found an action-only listener would miss.
   test("a full reload's auto-selected dashboard is recorded under Recent", async ({
     page,
@@ -217,10 +217,10 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     await expect(recentGroupLabel(page)).toHaveCount(0);
   });
 
-  // skeptic-final-1.md CR1 — the exact real-browser reproduction of the blocking defect: `/` is
+  // skeptic-final-1.md CR1 — the exact real-browser reproduction of the blocking defect: `/home` is
   // the app's default landing route and NEVER fetches `sources`/`pipelines` (only
   // `SidebarBody.tsx`'s per-section effect does). A FULL RELOAD after visiting a source lands
-  // fresh on `/` with a completely empty client-side Redux store — the precise condition under
+  // fresh on `/home` with a completely empty client-side Redux store — the precise condition under
   // which the pre-fix palette rendered zero source/pipeline rows. The title is now persisted at
   // record time, so it survives regardless of whether `sources.items` has loaded on this route.
   test("a source visited earlier renders under Recent on / after a full reload", async ({
@@ -237,15 +237,15 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     // `waitForURL` (which only observes the URL). A `page.goto` immediately after `waitForURL`
     // is a REAL browser navigation that can unload the page before that effect has flushed,
     // silently dropping the write — confirmed directly: without this wait, the very next
-    // `page.goto("/")` below landed with `localStorage.getItem("helio.recentVisits")` still
+    // `page.goto("/home")` below landed with `localStorage.getItem("helio.recentVisits")` still
     // `null`. Waiting for the detail page's own heading (a signal the mount, and therefore its
     // effects, have committed) closes that race.
     await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
 
     // A fresh registered account has no dashboards, so "Active dashboard" never appears here —
     // this file's own post-mount precondition wait ("Add dashboard" — see `waitForShell` in
-    // above) is what a full reload of `/` genuinely settles on for this account.
-    await page.goto("/");
+    // above) is what a full reload of `/home` genuinely settles on for this account.
+    await page.goto("/home");
     await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
 
     await openPalette(page);

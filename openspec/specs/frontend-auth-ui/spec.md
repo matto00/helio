@@ -2,11 +2,13 @@
 
 ## Purpose
 Frontend authentication UI: login and registration pages, Google OAuth entry point, logout control, and global 401 handling.
+
 ## Requirements
+
 ### Requirement: Login page
 The frontend SHALL provide a `/login` page with an email/password form. Submitting the form SHALL
 dispatch the `login` thunk. While the thunk is pending the submit button SHALL be disabled. On
-success for an account without MFA the user SHALL be redirected to `/`; when the thunk resolves with
+success for an account without MFA the user SHALL be redirected to `/home` (or to the route they were sent from); when the thunk resolves with
 `mfaRequired: true` the user SHALL instead be taken to the `/login/verify` step (per the
 `mfa-login-verification-ui` capability). On failure an inline error message SHALL be displayed. The
 page SHALL also render a functional "Continue with Google" button that initiates the Google OAuth
@@ -18,7 +20,7 @@ keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
 
 #### Scenario: Successful login redirects to home
 - **WHEN** the user submits valid credentials on the login page for an account without MFA
-- **THEN** the app navigates to `/` and the main dashboard view is shown
+- **THEN** the app navigates to `/home` and the main dashboard view is shown
 
 #### Scenario: MFA-enabled login proceeds to verification
 - **WHEN** the user submits valid credentials for an account with MFA enabled
@@ -48,11 +50,11 @@ keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
 - **THEN** the "Continue with Google" button is hidden and email/password login remains usable
 
 ### Requirement: Registration page
-The frontend SHALL provide a `/register` page with email, password, and optional display name fields. Submitting the form SHALL dispatch the `register` thunk. On success the user SHALL be redirected to `/`. On failure an inline error message SHALL be displayed.
+The frontend SHALL provide a `/register` page with email, password, and optional display name fields. Submitting the form SHALL dispatch the `register` thunk. On success the user SHALL be redirected to `/home` (or to the route they were sent from). On failure an inline error message SHALL be displayed.
 
 #### Scenario: Successful registration redirects to home
 - **WHEN** the user submits valid registration data
-- **THEN** the app navigates to `/` and the main dashboard view is shown
+- **THEN** the app navigates to `/home` and the main dashboard view is shown
 
 #### Scenario: Duplicate email shows error
 - **WHEN** the user submits a registration form with an already-registered email
@@ -87,4 +89,3 @@ The frontend SHALL intercept all `401 Unauthorized` HTTP responses via an Axios 
 #### Scenario: 401 during rehydration does not cause a redirect loop
 - **WHEN** `GET /api/auth/me` returns `401` during initial rehydration
 - **THEN** `clearAuth` is dispatched and the user is redirected to `/login` only once, without a navigation loop
-

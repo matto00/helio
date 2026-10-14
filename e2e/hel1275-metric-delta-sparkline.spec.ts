@@ -83,7 +83,7 @@ for (const theme of ["light", "dark"] as const) {
     expect(me.status()).toBe(200);
     const userId = ((await me.json()) as { id: string }).id;
     console.log(`[HEL-1275 e2e] user id: ${userId}`);
-    // The post-login page is live on `/`; idle it so its mount fetches cannot race the API seeding
+    // The post-login page is live on `/home`; idle it so its mount fetches cannot race the API seeding
     // (HEL-1289).
     await isolateLivePage(page);
 

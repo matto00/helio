@@ -154,6 +154,12 @@ jobs:
       - run: npm run check:cache-cleanup-pr
       - run: npm run check:cache-cleanup-pr:selftest
       - run: npm test
+      # HEL-1562: the frontend now has two HTML entries (the static landing page `index.html` and the app shell
+      # `app.html`), and nothing else ever ran `vite build`. CI-only, not .husky: the same reasoning as HEL-913 above,
+      # and it needs a full production build.
+      - run: npm run check:landing-build:selftest
+      - run: npm --prefix frontend run build
+      - run: npm run check:landing-build
 
   backend:
     runs-on: ubuntu-latest

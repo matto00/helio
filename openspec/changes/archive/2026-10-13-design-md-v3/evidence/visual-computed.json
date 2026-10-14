@@ -1,0 +1,342 @@
+[
+ {
+  "view": "login",
+  "tag": "H1",
+  "text": "Welcome back",
+  "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+  "bg": "rgb(15, 14, 13)",
+  "theme": "dark"
+ },
+ {
+  "view": "/",
+  "tag": "dark",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": null,
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No dashboards yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Dashboards",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/pipelines",
+  "tag": "dark",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Build your first pipeline",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/settings",
+  "tag": "dark",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No memory stored yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/sources",
+  "tag": "dark",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Connect a data source",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "login",
+  "tag": "H1",
+  "text": "Welcome back",
+  "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+  "bg": "rgb(15, 14, 13)",
+  "theme": "dark"
+ },
+ {
+  "view": "/",
+  "tag": "dark-mobile",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": null,
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No dashboards yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Dashboards",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/pipelines",
+  "tag": "dark-mobile",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Build your first pipeline",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/settings",
+  "tag": "dark-mobile",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No memory stored yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/sources",
+  "tag": "dark-mobile",
+  "bg": "rgb(15, 14, 13)",
+  "appbg": "#0f0e0d",
+  "pageTitle": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Connect a data source",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "login",
+  "tag": "H1",
+  "text": "Welcome back",
+  "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+  "bg": "rgb(244, 242, 237)",
+  "theme": "light"
+ },
+ {
+  "view": "/",
+  "tag": "light",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": null,
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No dashboards yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Dashboards",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/pipelines",
+  "tag": "light",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Build your first pipeline",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/settings",
+  "tag": "light",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No memory stored yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/sources",
+  "tag": "light",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Connect a data source",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "login",
+  "tag": "H1",
+  "text": "Welcome back",
+  "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+  "bg": "rgb(244, 242, 237)",
+  "theme": "light"
+ },
+ {
+  "view": "/",
+  "tag": "light-mobile",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": null,
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No dashboards yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Dashboards",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/pipelines",
+  "tag": "light-mobile",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Build your first pipeline",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Pipelines",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/settings",
+  "tag": "light-mobile",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "No memory stored yet",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Settings",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ },
+ {
+  "view": "/sources",
+  "tag": "light-mobile",
+  "bg": "rgb(244, 242, 237)",
+  "appbg": "#f4f2ed",
+  "pageTitle": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "wordmark": null,
+  "emptyTitle": {
+   "text": "Connect a data source",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "h1": {
+   "text": "Data Sources",
+   "font": "\"Schibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+  },
+  "canvas": "rgba(0, 0, 0, 0)"
+ }
+]

@@ -1,0 +1,19 @@
+{
+  "config": {
+    "chartType": "bar",
+    "fieldMapping": { "xAxis": "date", "yAxis": "duration_min" },
+    "referenceBands": [{ "from": 120, "label": "slow", "to": 180, "tone": "warning" }],
+    "referenceLines": [{ "label": "timeout", "tone": "error", "value": 180 }]
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "articles", "type": "integer" },
+    { "name": "boards_built", "type": "integer" },
+    { "name": "boards_total", "type": "integer" },
+    { "name": "date", "type": "timestamp" },
+    { "name": "duration_min", "type": "float" },
+    { "name": "duration_s", "type": "integer" },
+    { "name": "status", "type": "string" },
+    { "name": "stories", "type": "integer" }
+  ]
+}

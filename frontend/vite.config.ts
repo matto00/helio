@@ -1,9 +1,19 @@
+import { resolve } from "node:path";
+
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { visualizer } from "rollup-plugin-visualizer";
 
-import { navigateFallbackDenylist, pwaManifest, pwaRuntimeCaching } from "./src/pwaConfig";
+import { planNumbersPlugin } from "./src/landing/planNumbersPlugin";
+import { shellRoutingPlugin } from "./src/landing/shellRoutingPlugin";
+import {
+  navigateFallback,
+  navigateFallbackDenylist,
+  pwaManifest,
+  pwaRuntimeCaching,
+  swTakeoverOptions,
+} from "./src/pwaConfig";
 
 const backendPort = parseInt(process.env.BACKEND_PORT ?? "8080");
 
@@ -15,6 +25,8 @@ const analyzeBuild = process.env.ANALYZE === "true";
 
 export default defineConfig({
   plugins: [
+    shellRoutingPlugin(),
+    planNumbersPlugin(),
     react(),
     ...(analyzeBuild
       ? [
@@ -28,7 +40,9 @@ export default defineConfig({
       : []),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      // The landing page must not register the service worker, so registration is an explicit
+      // `virtual:pwa-register` call in the app entry (main.tsx) instead of an injected script.
+      injectRegister: false,
       // Never intercept the dev server — worktree dev servers must not be
       // SW-controlled (design.md decision 1).
       devOptions: {
@@ -42,6 +56,8 @@ export default defineConfig({
         // pwaRuntimeCaching (src/pwaConfig.ts), none of whose rules match
         // `/api`.
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        ...swTakeoverOptions,
+        navigateFallback,
         navigateFallbackDenylist,
         runtimeCaching: pwaRuntimeCaching,
         // HEL-553: the single main JS chunk (no route-level code-splitting
@@ -56,6 +72,16 @@ export default defineConfig({
       },
     }),
   ],
+  // Two HTML entries: `index.html` is the static landing page served at `/`, `app.html` is the
+  // SPA shell every other path falls back to.
+  build: {
+    rolldownOptions: {
+      input: {
+        index: resolve(import.meta.dirname, "index.html"),
+        app: resolve(import.meta.dirname, "app.html"),
+      },
+    },
+  },
   server: {
     port: parseInt(process.env.PORT ?? "5173"),
     strictPort: true,

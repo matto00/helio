@@ -1,0 +1,20 @@
+{
+  "items": [
+    { "completedAt": "2026-07-13", "ticketsCompleted": 1 },
+    { "completedAt": "2026-07-20", "ticketsCompleted": 56 },
+    { "completedAt": "2026-07-27", "ticketsCompleted": 5 },
+    { "completedAt": "2026-08-10", "ticketsCompleted": 62 },
+    { "completedAt": "2026-08-17", "ticketsCompleted": 40 },
+    { "completedAt": "2026-08-24", "ticketsCompleted": 52 },
+    { "completedAt": "2026-08-31", "ticketsCompleted": 42 },
+    { "completedAt": "2026-09-07", "ticketsCompleted": 60 },
+    { "completedAt": "2026-09-14", "ticketsCompleted": 20 },
+    { "completedAt": "2026-09-21", "ticketsCompleted": 25 },
+    { "completedAt": "2026-09-28", "ticketsCompleted": 53 },
+    { "completedAt": "2026-10-05", "ticketsCompleted": 194 },
+    { "completedAt": "2026-10-12", "ticketsCompleted": 32 }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 13
+}

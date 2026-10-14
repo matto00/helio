@@ -9,18 +9,18 @@ import type { ManifestOptions } from "vite-plugin-pwa";
  * `pwa-installability`.
  *
  * Colours are literal copies of `--app-bg` from `src/theme/theme.css` (light:
- * #f4f2ed, dark: #121110). The manifest is static JSON generated at build
+ * #f4f2ed, dark: #0f0e0d). The manifest is static JSON generated at build
  * time and cannot read CSS custom properties — if theme.css's `--app-bg`
  * values ever change, update them here too.
  */
 export const APP_BG_LIGHT = "#f4f2ed";
-export const APP_BG_DARK = "#121110";
+export const APP_BG_DARK = "#0f0e0d";
 
 export const pwaManifest: Partial<ManifestOptions> = {
   name: "Helio",
   short_name: "Helio",
   display: "standalone",
-  start_url: "/",
+  start_url: "/home",
   scope: "/",
   background_color: APP_BG_LIGHT,
   theme_color: APP_BG_LIGHT,
@@ -36,11 +36,26 @@ export const pwaManifest: Partial<ManifestOptions> = {
   ],
 };
 
-// Non-negotiable (HEL-300 W2 / spec pwa-installability): without this the SPA
-// navigate-fallback would serve index.html for a same-origin navigation to
+// `registerType: "autoUpdate"` only implies these when the plugin injects its own registration, which
+// the app no longer does (the landing page must not register the worker, so main.tsx calls
+// `registerSW` itself). Without them a new worker stays "waiting" behind the old one, and a browser
+// holding the previous build's worker keeps answering `/` with the old app shell indefinitely.
+export const swTakeoverOptions = { skipWaiting: true, clientsClaim: true } as const;
+
+// `index.html` is the landing page; the SPA shell is `app.html`.
+export const navigateFallback = "/app.html";
+
+// Non-negotiable (HEL-300 W2 / spec pwa-installability): without the `/api/` entry the SPA
+// navigate-fallback would serve the app shell for a same-origin navigation to
 // /api/auth/google (dev/preview proxy), breaking OAuth and effectively
 // caching an authenticated route as static HTML.
-export const navigateFallbackDenylist = [/^\/api\//];
+//
+// HEL-1562: `/` is the landing page. Workbox matches the denylist against path PLUS query
+// (NavigationRoute), so these patterns tolerate a query string: a bare `/` is answered by the
+// precached landing `index.html`, and `/?ref=x` misses the precache and, being denied here, goes
+// to the network, which serves the landing page. Without this, a browser holding the previous
+// service worker would be shown the app shell at `/` forever.
+export const navigateFallbackDenylist = [/^\/api\//, /^\/(\?.*)?$/, /^\/index\.html(\?.*)?$/];
 
 // Deliberately no entry matching `/api` in this list — Workbox only caches
 // routes it is told to cache, so omission is the enforcement mechanism for

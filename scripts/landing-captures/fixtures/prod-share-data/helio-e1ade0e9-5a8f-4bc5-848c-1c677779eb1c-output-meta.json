@@ -1,0 +1,10 @@
+{
+  "config": { "compare": "7d", "fieldMapping": { "value": "open_tickets" } },
+  "kind": "metric",
+  "schema": [
+    { "name": "completed", "type": "integer" },
+    { "name": "date", "type": "timestamp" },
+    { "name": "open_bugs", "type": "integer" },
+    { "name": "open_tickets", "type": "integer" }
+  ]
+}

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
 
-// HEL-503 — real-browser proof that resource search works on `/` with NO prior navigation
+// HEL-503 — real-browser proof that resource search works on `/home` with NO prior navigation
 // (the ticket's PRIMARY acceptance criterion), across all four kinds (dashboard/source/
 // pipeline/output). Follows the shape of e2e/hel519-recent-navigation.spec.ts.
 
@@ -72,7 +72,7 @@ async function openPalette(page: Page) {
 
 test.describe("HEL-503 global resource search — the / route, primary acceptance test", () => {
   // tasks.md 5.1 — THE PRIMARY ACCEPTANCE TEST. No navigation happens between login and search:
-  // `/` is where every non-dashboard slice starts genuinely empty (design.md D2), so this is the
+  // `/home` is where every non-dashboard slice starts genuinely empty (design.md D2), so this is the
   // one path that would fail if indexing were only ever triggered by visiting a resource's own
   // page (HEL-519's exact class of defect, one level up).
   test("searching for a source and a pipeline on / with NO prior navigation finds both", async ({
@@ -83,10 +83,10 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const source = await createStaticSource(request, "HEL-503 Alpha Source");
     const pipeline = await createPipeline(request, "HEL-503 Alpha Pipeline", source.id);
 
-    // Reload lands fresh on `/` with an EMPTY client-side Redux store — sources/pipelines have
+    // Reload lands fresh on `/home` with an EMPTY client-side Redux store — sources/pipelines have
     // never been fetched by anything on this route (design.md D2's load-timing survey).
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -105,8 +105,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const pipeline = await createPipeline(request, "HEL-503 Output Pipeline", source.id);
     const output = await createOutput(request, pipeline.id, "HEL-503 Revenue Output");
 
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -135,8 +135,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     expect(secondRes.status()).toBe(201);
     const secondDashboard = (await secondRes.json()) as { id: string; name: string };
 
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
     // The auto-selected dashboard is whichever loaded first; select the SECOND one via the
     // sidebar list first so the palette's own selection (of the FIRST) below is a real change.
@@ -162,8 +162,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     await registerAndLoginWithDashboard(page, request, "root-source-nav");
     const source = await createStaticSource(request, "HEL-503 Navigable Source");
 
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -176,7 +176,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
   // inferred): replacing the four `void dispatch(fetch...())` calls in
   // `useResourceIndexing.ts`'s open-edge effect with a no-op turned the three indexing-dependent
   // tests above (source/pipeline, output, source-navigation) RED — the palette opened but found
-  // nothing on `/`, because `sources`/`pipelines`/`outputs` were never fetched. Restoring the
+  // nothing on `/home`, because `sources`/`pipelines`/`outputs` were never fetched. Restoring the
   // dispatches turned all three back green. Both runs observed directly, not repeated here.
   test("the palette names which kinds are still loading immediately after opening, on a slow network", async ({
     page,
@@ -187,8 +187,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
       await new Promise((resolve) => setTimeout(resolve, 800));
       await route.continue();
     });
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -212,8 +212,8 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
       await createStaticSource(request, `HEL-503 Zeta Source ${i}`);
     }
 
-    // HEL-1300 D2a: a fresh document on `/` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/");
+    // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);

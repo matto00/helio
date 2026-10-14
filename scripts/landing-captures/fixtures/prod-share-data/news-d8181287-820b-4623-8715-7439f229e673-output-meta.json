@@ -1,0 +1,23 @@
+{
+  "config": {
+    "compare": "previous_run",
+    "conditionalFormats": [
+      { "label": "timed out", "op": "gte", "tone": "error", "value": 10800 },
+      { "label": "slow", "op": "gte", "tone": "warning", "value": 7200 },
+      { "op": "lt", "tone": "success", "value": 7200 }
+    ],
+    "fieldMapping": { "value": "duration_s" },
+    "format": "duration"
+  },
+  "kind": "metric",
+  "schema": [
+    { "name": "articles", "type": "integer" },
+    { "name": "boards_built", "type": "integer" },
+    { "name": "boards_total", "type": "integer" },
+    { "name": "date", "type": "timestamp" },
+    { "name": "duration_min", "type": "float" },
+    { "name": "duration_s", "type": "integer" },
+    { "name": "status", "type": "string" },
+    { "name": "stories", "type": "integer" }
+  ]
+}

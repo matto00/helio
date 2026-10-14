@@ -35,7 +35,7 @@ export function MfaVerifyPage() {
     setError(null);
     const result = await dispatch(verifyMfa({ code }));
     if (verifyMfa.fulfilled.match(result)) {
-      void navigate("/");
+      void navigate("/home");
     } else {
       setError((result.payload as string | undefined) ?? "Invalid code. Please try again.");
     }

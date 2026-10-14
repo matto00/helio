@@ -153,7 +153,7 @@ function renderPage(routeState?: { patchSet: PatchSet }) {
       >
         <Routes>
           <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
-          <Route path="/" element={<HomeProbe />} />
+          <Route path="/home" element={<HomeProbe />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -200,7 +200,7 @@ describe("PatchSetReviewPage", () => {
     expect(mockedPreviewPatchSet).toHaveBeenCalledWith(explicitPatchSet);
   });
 
-  it("Accept dispatches applyPatchSet and navigates to /", async () => {
+  it("Accept dispatches applyPatchSet and navigates to /home", async () => {
     mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
     mockedApplyPatchSet.mockResolvedValueOnce(sampleApplyResponse);
 
@@ -495,7 +495,7 @@ describe("PatchSetReviewPage", () => {
         >
           <Routes>
             <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
-            <Route path="/" element={<HomeProbe />} />
+            <Route path="/home" element={<HomeProbe />} />
           </Routes>
         </MemoryRouter>
       </Provider>,
@@ -642,7 +642,7 @@ describe("PatchSetReviewPage", () => {
     });
   });
 
-  it("Reject navigates to / without applying", async () => {
+  it("Reject navigates to /home without applying", async () => {
     mockedPreviewPatchSet.mockResolvedValueOnce(samplePreview("Renamed"));
 
     renderPage({ patchSet: explicitPatchSet });

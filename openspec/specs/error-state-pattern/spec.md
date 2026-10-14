@@ -13,7 +13,7 @@ error-tinted border, instead of the default accent tint and neutral border; the 
 also render in the error intent color, not the default accent color; the root element SHALL carry
 `role="alert"` and SHALL NOT carry `aria-label` (the live region's own content already announces the
 title, so a separate `aria-label` would double-announce it). The `main` variant's title SHALL remain
-rendered in the Fraunces display font exactly as the `neutral` intent does.
+rendered in the heading face (`--font-heading`) exactly as the `neutral` intent does.
 
 #### Scenario: Error intent applies intent-error tokens, glyph color, and an alert role
 - **WHEN** `EmptyState` is rendered with `intent="error"`

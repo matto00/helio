@@ -76,7 +76,7 @@ function renderPage(routeState?: { proposal: PipelineProposal }) {
         <Routes>
           <Route path="/pipeline-proposals/review" element={<PipelineProposalReviewPage />} />
           <Route path="/pipelines/:id" element={<RouteProbe />} />
-          <Route path="/" element={<RouteProbe />} />
+          <Route path="/home" element={<RouteProbe />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -100,7 +100,7 @@ describe("PipelineProposalReviewPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /back to dashboards/i }));
     await waitFor(() => {
-      expect(screen.getByTestId("route-probe")).toHaveTextContent("/");
+      expect(screen.getByTestId("route-probe")).toHaveTextContent("/home");
     });
   });
 
@@ -146,7 +146,7 @@ describe("PipelineProposalReviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /reject/i }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("route-probe")).toHaveTextContent("/");
+      expect(screen.getByTestId("route-probe")).toHaveTextContent("/home");
     });
     expect(mockedApplyPipelineProposal).not.toHaveBeenCalled();
   });

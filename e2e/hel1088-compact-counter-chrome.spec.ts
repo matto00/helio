@@ -116,7 +116,7 @@ test.describe("HEL-1088 compact single-counter-field layout (real backend)", () 
       });
       expect(layoutRes.status()).toBe(200);
 
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.getByRole("heading", { name: "HEL-1088 e2e Dashboard" })).toBeVisible();
 
       const control = page.getByRole("spinbutton", { name: "Widgets" });

@@ -69,13 +69,13 @@ test.describe("HEL-516 palette quick-create — reach", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "panel-reach" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     await request.post("/api/dashboards", {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
     });
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
     await page.goto("/pipelines");
 
@@ -136,13 +136,13 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "panel-owning" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     await request.post("/api/dashboards", {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
     });
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await runPaletteAction(page, "Add panel");
@@ -203,7 +203,7 @@ test.describe("HEL-516 design.md D3a — the StrictMode-masked production defect
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "strictmode-positive" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     await request.post("/api/data-sources", {
       data: {
@@ -242,7 +242,7 @@ test.describe("HEL-516 palette quick-create — section order determinism", () =
     for (let i = 0; i < 5; i++) {
       // Each iteration is a genuinely fresh boot: an already-authenticated session left over
       // from the PREVIOUS iteration makes `PublicOnlyRoute` redirect `/login` straight back to
-      // `/`, unmounting the login form mid-interaction.
+      // `/home`, unmounting the login form mid-interaction.
       await page.context().clearCookies();
       await registerAndLogin(page, request, { ...AUTH, label: `order-${i}` });
       await openPalette(page);
@@ -265,7 +265,7 @@ test.describe("HEL-516 palette quick-create — section order determinism", () =
 
 // design.md D3b / task 1.2a / evaluation-1.md re-review — the actual parity claim task 1.2a
 // asked for, never previously tested: the shell-mounted `OutputPicker`'s "already on this
-// board" marking off-route must match the `/` flow's POST-FETCH result for the SAME dashboard.
+// board" marking off-route must match the `/home` flow's POST-FETCH result for the SAME dashboard.
 // Mounting/withholding alone (proven elsewhere) says nothing about whether the CONTENT the
 // picker renders is correct once it does mount.
 test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-route", () => {
@@ -285,8 +285,8 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    await page.waitForURL("/home");
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
 
     await request.post("/api/dashboards", {
@@ -323,10 +323,10 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
 
     // Select the dashboard (most-recently-updated auto-select already lands here, since it's
     // the only one, but navigate explicitly for clarity/robustness).
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
-    // Place the Output via the `/` flow's own "Add panel" trigger.
+    // Place the Output via the `/home` flow's own "Add panel" trigger.
     await page.getByRole("button", { name: "Add panel" }).click();
     await expect(page.getByRole("dialog", { name: "Add panel" })).toHaveAttribute("open");
     await page.fill('[aria-label="Search outputs"]', "Parity Output");
@@ -339,7 +339,7 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
       timeout: 15000,
     });
 
-    // Reopen the SAME `/` picker and confirm the `/` flow itself marks it "On this board" —
+    // Reopen the SAME `/home` picker and confirm the `/home` flow itself marks it "On this board" —
     // this is the baseline the off-route mount must match. Once a dashboard HAS panels, "Add
     // panel" moves from the empty-state button into the header's "Dashboard actions" kebab menu
     // (CommandBar.tsx) — the standalone button no longer exists.

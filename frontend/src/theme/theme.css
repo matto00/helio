@@ -16,7 +16,12 @@
 
   --font-sans:
     "Schibsted Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* The serif face. Headings do NOT use it by default (DESIGN.md §3, v3): it is
+     assigned to --font-heading only by the optional "Serif headings" type style. */
   --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  /* The heading face. Defaults to sans; one token switches the style, so no
+     consumer hardcodes a family (DESIGN.md §3). */
+  --font-heading: var(--font-sans);
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
   font-family: var(--font-sans);
 
@@ -73,6 +78,17 @@
      transition SHORTHANDS tuned for hover and one-shot entrances; a 0.28s infinite sweep
      strobes, so a continuous loop gets its own token rather than reusing either. */
   --app-skeleton-shimmer: 1.6s;
+
+  /* Motion scale (DESIGN.md §10). New code uses these; `--app-transition` (= quick)
+     and `--transition-slow` (= standard + ease-out) stay for their existing consumers. */
+  --motion-duration-quick: 160ms;
+  --motion-duration-standard: 280ms;
+  --motion-duration-emphasized: 420ms;
+  --motion-duration-highlight: 1200ms;
+  --motion-stagger: 40ms;
+  --motion-ease-standard: ease;
+  --motion-ease-out: cubic-bezier(0.3, 0.9, 0.4, 1);
+  --motion-ease-overshoot: cubic-bezier(0.2, 0.9, 0.3, 1.1);
 
   /* --- Layering (z-index scale) --- */
   /* All portalled popovers/menus/select dropdowns share one layer so they
@@ -146,7 +162,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --app-bg: #121110;
+  --app-bg: #0f0e0d;
   --app-surface: #1a1816;
   --app-surface-soft: #161514;
   --app-surface-raised: #232019;
@@ -452,9 +468,9 @@ a {
      cycle-3 single-literal-pinned-by-parsing-this-file treatment as
      --app-accent-text above, for the opaque `::selection` background:
      `deriveAccentTextColor`'s sibling computation, the accent blended 30%
-     (dark's D7 strength) over dark's `--app-bg` (`#121110`), for the same
+     (dark's D7 strength) over dark's `--app-bg` (`#0f0e0d`), for the same
      `getInitialTheme` default. */
-  --app-selection-bg: #572e12;
+  --app-selection-bg: #552c10;
 }
 
 :focus-visible {
@@ -481,9 +497,9 @@ a {
   text-transform: uppercase;
 }
 
-/* Wordmark: serif display, brand moments only */
+/* Wordmark: heading face (sans by default), brand moments only */
 .wordmark {
-  font-family: var(--font-display);
+  font-family: var(--font-heading);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
 }
@@ -506,14 +522,14 @@ a {
    instead of redefining it locally. */
 /* Top-level page title — the `<h1>` that names a section page (Connectors,
  * Data Pipelines, Metrics, Settings). Promoted to a utility once the same
- * recipe had been written out per-page: `--font-display` at `--text-2xl` had
+ * recipe had been written out per-page: `--font-heading` at `--text-2xl` had
  * independently converged in `SettingsPage.css` and `ConnectorsPage.css`, and
  * two more pages were about to copy it. `--weight-semibold` matches the
  * Settings copy — ConnectorsPage omitted it and so inherited the h1 default,
  * which is the sort of drift a shared class exists to stop. */
 .page-title {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-heading);
   font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
   color: var(--app-text);

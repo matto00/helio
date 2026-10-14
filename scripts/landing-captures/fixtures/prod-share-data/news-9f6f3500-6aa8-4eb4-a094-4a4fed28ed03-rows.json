@@ -1,0 +1,15 @@
+{
+  "items": [
+    { "articles": 40.0, "outlet": "ESPN Top" },
+    { "articles": 36.0, "outlet": "CBS Sports" },
+    { "articles": 33.0, "outlet": "Guardian World" },
+    { "articles": 30.0, "outlet": "CNBC Top" },
+    { "articles": 25.0, "outlet": "Al Jazeera" },
+    { "articles": 22.0, "outlet": "BBC World" },
+    { "articles": 22.0, "outlet": "Guardian Football" },
+    { "articles": 20.0, "outlet": "TechCrunch" }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 8
+}

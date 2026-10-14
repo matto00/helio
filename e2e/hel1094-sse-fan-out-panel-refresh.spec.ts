@@ -134,7 +134,7 @@ test.describe("HEL-1094 SSE fan-out panel refresh (real backend, default tick in
     });
     expect(layoutRes.status()).toBe(200);
 
-    await page.goto("/");
+    await page.goto("/home");
 
     const form = page.getByRole("form", { name: "HEL-1094 Fan-out Form" });
     await expect(form).toBeVisible();

@@ -76,7 +76,7 @@ export async function currentUserId(request: APIRequestContext): Promise<string>
 /**
  * Register -> UI login -> (`waitForShell`) wait for "Add dashboard" -> (`isolate`) idle on
  * about:blank. The order is fixed: isolate-then-wait is impossible (blank page). Pass `isolate`
- * before any API seeding that must not race the live `/` (HEL-1289 / HEL-1300).
+ * before any API seeding that must not race the live `/home` (HEL-1289 / HEL-1300).
  */
 export async function registerAndLogin(
   page: Page,

@@ -273,7 +273,7 @@ for (const { theme, width } of [
         200,
       );
 
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1512 ${label}`).first().click();
       if (width === 375) {
