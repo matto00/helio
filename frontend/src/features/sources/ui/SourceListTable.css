@@ -161,3 +161,16 @@
   padding: var(--space-3) var(--space-4);
   background: var(--app-surface-soft);
 }
+
+/* The confirm row spans every column, so on a narrow screen it is as wide as the table and scrolls sideways with it.
+   Pin its content to the scroller's left edge and bound it to the scroller's visible width, so the item name and the
+   buttons stay on screen however far the table is scrolled. */
+.source-list-table__scroll {
+  container-type: inline-size;
+}
+
+.source-list-table__extra-cell > * {
+  position: sticky;
+  left: var(--space-3);
+  max-width: calc(100cqw - 2 * var(--space-3));
+}

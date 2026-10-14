@@ -389,4 +389,59 @@ test.describe("HEL-1574 shell rail and context list", () => {
       expect(scrollAfter).toBeGreaterThan(scrollBefore - 300);
     });
   }
+
+  test("at 375px a confirm opened with the table scrolled to its end stays in view, and Share/Delete have a gap", async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await registerAndLogin(page, request, { ...AUTH, label: "stickyconfirm", isolate: true });
+    const name = "HEL-1574 Sticky Source With A Fairly Long Name";
+    const srcRes = await page.request.post("/api/data-sources", {
+      data: { name, type: "static", columns: [{ name: "a", type: "integer" }], rows: [[1]] },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(srcRes.status()).toBe(201);
+    const source = (await srcRes.json()) as { id: string };
+    const pipelineName = "HEL-1574 Sticky Pipeline With A Fairly Long Name";
+    const pipeRes = await page.request.post("/api/pipelines", {
+      data: { name: pipelineName, roots: [{ sourceId: source.id }] },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(pipeRes.status()).toBe(201);
+
+    for (const [route, itemName, scroller] of [
+      ["/sources", name, ".source-list-table__scroll"],
+      ["/pipelines", pipelineName, ".pipeline-list-table__scroll"],
+    ] as const) {
+      await page.goto(route);
+      const button = page.getByRole("button", { name: `Delete ${itemName}`, exact: true });
+      await expect(button).toBeVisible();
+      await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
+      await button.click();
+      const group = page.getByRole("group", { name: `Confirm delete ${itemName}` });
+      await expect(group).toBeVisible();
+      const [box, scrollBox, viewport] = await Promise.all([
+        group.boundingBox(),
+        page.locator(scroller).boundingBox(),
+        page.viewportSize(),
+      ]);
+      expect(box!.x).toBeGreaterThanOrEqual(scrollBox!.x - 1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(scrollBox!.x + scrollBox!.width + 1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width + 1);
+      await expect(group.getByText(new RegExp(`Delete ${itemName}\\?`))).toBeInViewport();
+      await expect(
+        page.getByRole("button", { name: `Confirm delete ${itemName}` }),
+      ).toBeInViewport();
+      await page.getByRole("button", { name: "Cancel" }).click();
+    }
+
+    // Pipelines actions cell: Share and Delete are not touching.
+    await page.goto("/pipelines");
+    const share = await page.getByRole("button", { name: `Share ${pipelineName}` }).boundingBox();
+    const del = await page
+      .getByRole("button", { name: `Delete ${pipelineName}`, exact: true })
+      .boundingBox();
+    expect(del!.x - (share!.x + share!.width)).toBeGreaterThanOrEqual(7);
+  });
 });

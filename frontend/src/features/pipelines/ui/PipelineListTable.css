@@ -95,3 +95,21 @@
   padding: var(--space-3) var(--space-4);
   background: var(--app-surface-soft);
 }
+
+/* The confirm row spans every column, so on a narrow screen it is as wide as the table and scrolls sideways with it.
+   Pin its content to the scroller's left edge and bound it to the scroller's visible width, so the item name and the
+   buttons stay on screen however far the table is scrolled. */
+.pipeline-list-table__scroll {
+  container-type: inline-size;
+}
+
+.pipeline-list-table__extra-cell > * {
+  position: sticky;
+  left: var(--space-3);
+  max-width: calc(100cqw - 2 * var(--space-3));
+}
+
+/* Share and Delete sit side by side in the actions cell: a --space-2 gap, as `.connectors-page__row-actions`. */
+.pipeline-list-table__share-btn + .pipeline-list-table__delete-btn {
+  margin-left: var(--space-2);
+}
