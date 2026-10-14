@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala` — `resetSeams()` factored from `afterEach`; seams capture per-test state at call start; `nodeWrites` is a per-test `@volatile var`
-- `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSeamIsolationSpec.scala` — new forced-ordering regression spec, one test per captured field
-- `openspec/changes/late-finisher-capture-at-start/evidence.md` — red-first, mutation and repeat-run evidence
