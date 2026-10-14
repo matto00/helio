@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # THROWAWAY (HEL-1580 round 4): mechanical enumeration of every production write site of the state PatchSetPipelineDefinition.of reads.
-# Run from the repo root (or the worktree root): bash openspec/changes/live-draft-preview-spike/prototype/writer-search.sh
+# Run from the repo root (or the worktree root): bash openspec/changes/archive/2026-10-13-live-draft-preview-spike/prototype/writer-search.sh
 set -u
 cd "$(git rev-parse --show-toplevel)"
 T='pipelines|pipeline_steps|outputs|pipeline_roots|pipeline_schedules|panels|alert_rules'

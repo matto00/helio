@@ -8,7 +8,7 @@ Everything cited was read from the tree at `5074b6937`; `path:line` references a
 written against the approved HEL-1570 boards (`PipelineLive*`, `MotionLive--preview-*`, with `HANDOFF.md`, all under
 `.concertino/design/HEL-1570/` in the main checkout and not tracked by git), per the owner's start-now
 ruling, not against today's pipeline page. Measurements are in
-`openspec/changes/live-draft-preview-spike/measurements.md`; the throwaway prototype is in the same change directory
+`openspec/changes/archive/2026-10-13-live-draft-preview-spike/measurements.md`; the throwaway prototype is in the same change directory
 (`prototype/`) and is imported by nothing.
 
 ## 1. Summary

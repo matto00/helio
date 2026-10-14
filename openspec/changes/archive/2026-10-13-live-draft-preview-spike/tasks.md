@@ -37,4 +37,4 @@
 
 ## 6. Delivery (orchestrator-owned, not executor)
 
-- [ ] 6.1 Orchestrator posts the doc's HEL-1581 scope section as a comment on HEL-1581 after the final gate; HEL-1581's description is never edited; verify the comment URL is recorded in the PR body
+- [x] 6.1 Orchestrator posts the doc's HEL-1581 scope section as a comment on HEL-1581 after the final gate; HEL-1581's description is never edited; verify the comment URL is recorded in the PR body

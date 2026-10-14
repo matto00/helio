@@ -14,7 +14,7 @@ not the shared Playwright MCP browser, not jsdom/node. Page loaded via `file://`
 Command (one browser at a time, niced):
 
 ```bash
-cd /home/matt/Development/helio/.claude/worktrees/task/live-draft-preview-spike/HEL-1580/openspec/changes/live-draft-preview-spike
+cd /home/matt/Development/helio/openspec/changes/archive/2026-10-13-live-draft-preview-spike
 PLAYWRIGHT_CORE=/home/matt/Development/helio/node_modules/playwright-core nice -n 19 node prototype/measure.cjs > out.json
 ```
 
@@ -63,7 +63,7 @@ preview = `GET /api/pipelines/:id/steps/:stepId/preview` (the existing endpoint;
 `totalCount` and step counts). Command:
 
 ```bash
-cd /home/matt/Development/helio/.claude/worktrees/task/live-draft-preview-spike/HEL-1580/openspec/changes/live-draft-preview-spike/prototype
+cd /home/matt/Development/helio/openspec/changes/archive/2026-10-13-live-draft-preview-spike/prototype
 HELIO_DEV_EMAIL=... HELIO_DEV_PASSWORD=... BACKEND_PORT=9919 nice -n 19 node transport.cjs
 ```
 
@@ -128,7 +128,7 @@ streams and `WebSocket`, driven through the repo's `playwright-core` 1.55.1 (`/h
 server, not Pekko/JVM, over loopback: **no network RTT, no Cloud Run front end, no real TLS chain**. Command:
 
 ```bash
-cd /home/matt/Development/helio/.claude/worktrees/task/live-draft-preview-spike/HEL-1580/openspec/changes/live-draft-preview-spike
+cd /home/matt/Development/helio/openspec/changes/archive/2026-10-13-live-draft-preview-spike
 PLAYWRIGHT_CORE=/home/matt/Development/helio/node_modules/playwright-core nice -n 19 node prototype/transport-lab.cjs > out.json
 ```
 
@@ -198,7 +198,7 @@ Why: rounds 2, 3 and 4 of review each found writers a hand-built list missed. Th
 `prototype/writer-search.sh` (throwaway, read-only; paths below have the `backend/src/main/scala/com/helio/` prefix stripped). Run from the worktree root:
 
 ```bash
-bash openspec/changes/live-draft-preview-spike/prototype/writer-search.sh
+bash openspec/changes/archive/2026-10-13-live-draft-preview-spike/prototype/writer-search.sh
 ```
 
 Hit counts: **S1 3, S2 36 files, S3 98 lines, S4 25, S4b 0, S4c 2, S5 11.** Commands (verbatim from the script):
