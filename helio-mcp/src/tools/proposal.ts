@@ -35,9 +35,9 @@ import { proposalControlSchema } from "./controlSchemas.js";
 import { proposeDashboardHandler } from "./proposalHandlers.js";
 import { CHART_TYPES } from "./chartTypes.js";
 
-// No `divider`: excluded for a stated product-scope reason (purely presentational layout chrome),
-// mirroring create_panel (scripts/lib/agentFacingPanelTypes.mjs holds the reasoned exclusion table
-// check:schemas enforces). No `metric`/`chart`/`table`/`collection`/`timeline` either — those panel
+// No `divider`: excluded for a stated product-scope reason (purely presentational layout chrome);
+// scripts/lib/agentFacingPanelTypes.mjs holds the reasoned exclusion table (AGENT_SURFACE_EXCLUSIONS)
+// that check:schemas enforces. No `metric`/`chart`/`table`/`collection`/`timeline` either — those panel
 // kinds were deleted outright by HEL-904. `form` (HEL-1083) is here because this wire can express its
 // required binding, the flat `dataSourceId` (HEL-1148).
 // Exported so `replace_dashboard_contents` (write.ts, HEL-363) can reuse the
@@ -93,8 +93,8 @@ export const panelSchema = z.object({
   sort: z.enum(["asc", "desc"]).optional(),
   layout: layoutSchema.optional(),
   // Generic passthrough merged over the config derived from the flat fields
-  // above, then decoded by the same panel-create path as create_panel's
-  // `config`.
+  // above, then decoded by the same panel-create path (`PanelConfigCodec`) as
+  // `POST /api/panels`'s `config`.
   config: z.record(z.string(), z.unknown()).optional(),
   // HEL-1193: output panels only. Same shape/validation as add_output_control's controls.
   controls: z.array(proposalControlSchema).optional(),
@@ -139,9 +139,9 @@ export function registerProposalTools(server: McpServer, api: HelioApi): void {
         "anything. Validates the shape and read-only-checks that each `output`-kind panel binds " +
         "to a real, caller-owned Output, returning { proposal, warnings }. Review the proposal " +
         "(in-app or by inspection), then apply it with apply_proposal.\n" +
-        "`type` ∈ text/markdown/image/output/form (there is no `divider`: dropped for agent/UI parity, " +
-        "mirroring create_content_panel/place_outputs — the backend wire still accepts it on other " +
-        "paths; there is no " +
+        "`type` ∈ text/markdown/image/output/form (there is no `divider`: excluded from the proposal " +
+        "flow as purely presentational chrome — create one with create_content_panel; the backend " +
+        "wire still accepts it on other paths; there is no " +
         "metric/chart/table/collection/timeline either — those panel kinds were retired). Each " +
         "panel accepts a generic `config` passthrough on top of the flat fields below, merged over " +
         "the config those fields derive and decoded by the same panel-create path " +
