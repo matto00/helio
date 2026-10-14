@@ -1,0 +1,2 @@
+- `backend/src/main/scala/com/helio/domain/steps/README.md` — intro re-derived: snapshot-labelled lists + commands, line 11 "infer" corrected
+- `openspec/changes/rederive-steps-readme-file-list/evidence/claims.md` — verification evidence
