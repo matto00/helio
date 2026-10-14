@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
+import { containerWidthForViewport, waitForGridWidth } from "./support/gridProcessedWidth";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { deleteExact, seedBurstDashboard, type BurstSeed } from "./support/remountBurstSeed";
 
@@ -65,18 +66,11 @@ async function crossTo(page: Page, target: typeof DESKTOP) {
     await expect(page.locator(".panel-grid")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.locator(".mobile-panel-stack__item")).toHaveCount(8, { timeout: 15_000 });
   } else {
-    // HEL-1413: RGL receives the new width after a ResizeObserver -> rAF chain; wait for it.
+    // HEL-1413: RGL receives the new width after a ResizeObserver -> rAF chain; wait for it (exactly
+    // the width this viewport produces, not just any width).
     await expect(page.locator(".panel-grid")).toHaveCount(1, { timeout: 15_000 });
     await expect(page.locator(".react-grid-item")).toHaveCount(8, { timeout: 15_000 });
-    await expect
-      .poll(
-        () =>
-          page
-            .locator(".panel-grid")
-            .evaluate((el) => el.style.getPropertyValue("--panel-grid-processed-width")),
-        { timeout: 15_000 },
-      )
-      .toMatch(/^\d+px$/);
+    await waitForGridWidth(page, containerWidthForViewport(target.width), { skipSettle: true });
   }
   // The swap really remounted the cards (none of the pre-swap card nodes survive).
   await expect(page.locator("[data-probe-old]")).toHaveCount(0);
