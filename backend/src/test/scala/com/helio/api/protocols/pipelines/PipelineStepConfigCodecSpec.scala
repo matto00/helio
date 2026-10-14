@@ -8,7 +8,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import spray.json._
 
 import scala.util.Failure
-import com.helio.domain.steps.{SecondaryInput, StepConfigTypeMismatch}
+import com.helio.domain.steps.{SecondaryInput, StepConfigTypeMismatch, UpsertMode, UpsertSourceConfig, UpsertTarget}
 
 /** Round-trip + tolerance coverage for the codec that bridges the typed
  *  domain configs and the JSON text stored on `pipeline_steps.config`. */
@@ -425,6 +425,15 @@ class PipelineStepConfigCodecSpec extends AnyWordSpec with Matchers {
         val decoded = PipelineStepConfigCodec.decode(kind, encoded).get
         decoded shouldBe cfg
       }
+    }
+
+    // HEL-1467: encodeConfig's upsertsource arm dispatches through PipelineStep.Registry like every
+    // other kind; this pins that it round-trips and stays byte-identical to the config's own format.
+    "round-trip through encodeConfig for an upsertsource config, byte-identical to its own format" in {
+      val cfg = UpsertSourceConfig(UpsertTarget.NewSource("First run"), UpsertMode.Append)
+      val encoded = PipelineStepConfigCodec.encodeConfig(cfg)
+      encoded shouldBe cfg.toJson.compactPrint
+      PipelineStepConfigCodec.decode("upsertsource", encoded).get shouldBe cfg
     }
 
     "encodeJsObject validates the inbound shape before storing" in {
