@@ -50,9 +50,12 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
         pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink, ownerUserId: Option[String] = None
-    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
+    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
+      // HEL-1565: bind the hook at call start -- a call outliving its test must not run the NEXT test's hook.
+      val hook = afterEngine
       delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
-        .flatMap(outcome => afterEngine().map(_ => outcome))
+        .flatMap(outcome => hook().map(_ => outcome))
+    }
   }
 
   /** `beforeOutputList` fires once BEFORE the success chain lists the pipeline's Outputs (a pipeline deleted there has
@@ -79,9 +82,10 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
         runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
         user: AuthenticatedUser, truncatedReadsJson: Option[String]
     ): Future[Boolean] = {
-      val gate = terminalGate
+      val gate    = terminalGate
+      val written = terminalWritten // HEL-1565: bound at call start, so a late write completes ITS test's promise only
       gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson))
-        .andThen { case _ => terminalWritten.trySuccess(()) }
+        .andThen { case _ => written.trySuccess(()) }
     }
   }
 
@@ -89,17 +93,23 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
    *  on it); `foldDone` is completed once every node write has committed. */
   @volatile protected var afterNodeWrite: Int => Future[Unit] = _ => Future.unit
   @volatile protected var foldDone: Promise[Unit]             = Promise[Unit]()
-  protected val nodeWrites                                    = new AtomicInteger(0)
+  /** Per-test counter: replaced (not `set(0)`) by [[resetSeams]] so a seam call can capture ITS test's counter. */
+  @volatile protected var nodeWrites: AtomicInteger           = new AtomicInteger(0)
   protected final class HookSnapshotRepo(c: DbContext) extends NodeSnapshotRepository(c) {
     override def overwriteRowsWith(
         pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String],
         andThen: DBIO[Unit], guard: Option[DBIO[Unit]] = None
-    ): Future[Unit] =
+    ): Future[Unit] = {
+      // HEL-1565: per-test state bound at call start, never re-read after the transaction commits.
+      val counter = nodeWrites
+      val fold    = foldDone
+      val hook    = afterNodeWrite
       super.overwriteRowsWith(pipelineId, nodeStepId, rows, explicitRootId, andThen, guard).flatMap { _ =>
-        val n = nodeWrites.incrementAndGet()
-        if (n == 2) foldDone.trySuccess(())
-        afterNodeWrite(n)
+        val n = counter.incrementAndGet()
+        if (n == 2) fold.trySuccess(())
+        hook(n)
       }
+    }
   }
 
   /** `beforeBinaryWrite` runs when the success chain reaches its (eager) binary-reference upsert; the upsert is then a
@@ -123,7 +133,9 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     awaitDb(db.run(sqlu"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO helio_app_test_output_history"))
   }
   override def afterAll(): Unit  = { stopHarness(); typedSystem.terminate() }
-  override def afterEach(): Unit = {
+  /** The one definition of the per-test seam reset: `afterEach` calls it, and [[LateFinisherSeamIsolationSpec]] calls it
+   *  to simulate a test boundary while a seam call is still in flight. */
+  protected def resetSeams(): Unit = {
     afterEngine = () => Future.unit
     beforeNodeFold = () => Future.unit
     beforeOutputList = () => Future.unit
@@ -131,8 +143,12 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     terminalWritten = Promise[Unit]()
     afterNodeWrite = _ => Future.unit
     foldDone = Promise[Unit]()
-    nodeWrites.set(0)
+    nodeWrites = new AtomicInteger(0)
     beforeBinaryWrite = () => Future.unit
+    binaryTarget = ("", "")
+  }
+  override def afterEach(): Unit = {
+    resetSeams()
     super.afterEach()
   }
 
