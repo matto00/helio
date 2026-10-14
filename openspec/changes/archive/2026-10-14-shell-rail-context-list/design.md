@@ -173,3 +173,13 @@ Self-approved: no nested folders; folder order = creation time; names unique per
 section labels; D4 surface tokens; D2 legacy-key one-time migration. Owner rulings 2026-10-13: per-user folders,
 user folders only (+ Unfiled), Home alias to `/home`, Usage in avatar menu, non-dashboard lists = recent + scheduled; sources show sources feeding a scheduled pipeline
 (soonest run); Assistant keeps its list, Connectors none; width/collapsed persist server-side per user; phone BottomNav gets Home (keep-six-1583-decides).
+
+## Gate-Chain Implications Checklist
+
+This change modifies two scripts that `.husky/pre-commit` invokes: `scripts/check-schema-drift.mjs` (`npm run check:schemas`) and `scripts/check-tokens.mjs` (`npm run check:tokens`). No `.husky/**` file changed and no new gate was wired in.
+
+- **What does it execute?** Both are read-only Node scripts. `check-schema-drift.mjs` reads `schemas/**` and the Scala protocol sources under `backend/.../api/protocols/` and compares schema properties with case-class fields; the change makes its case-class parameter splitter ignore commas inside `[...]` (so `Map[String, Double]` is one parameter) and adds two SKIP entries for request bodies validated from raw JSON. `check-tokens.mjs` scans `frontend/src/**/*.css` and checks every `var(--x)` resolves to a defined token; the change adds `--context-list-width` to its runtime-token allowlist.
+- **What environment does it inherit, and from where?** The hook's environment, including `GIT_DIR` and the worktree cwd when run from a linked worktree. Neither script calls git or reads any git environment variable. Both resolve paths from their own file location (`import.meta.url`), not from the cwd, and need no network or credentials.
+- **Does it write anything outside its own sandbox?** No. Both only read files and print to stdout/stderr, exiting non-zero on drift or an unresolved token. Neither writes files, runs git, or touches the index.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Paths derive from the script's location, so the same files are read in either checkout. `test-gate-in-isolation.sh` ran each script under a hook-shaped environment (inherited `GIT_DIR`) against a disposable fixture repo and recorded PASS for both.
+- **What happens on its first run?** There is no persisted state or cache, so a first run is the same as any other. Against the current tree `check:schemas` reports `schemas in sync` (131 checked) and `check:tokens` reports `OK`. An existing checkout that has not picked up the change simply runs the older parser, which fails closed on a `Map[String, Double]` field rather than passing silently.
