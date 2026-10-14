@@ -1,0 +1,30 @@
+[info] entering thin client - BEEP WHIRR
+[info] starting sbt server in the background
+[info] use 'sbt shutdown' to shutdown the server
+[info]  
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] Hel1595ProbeSpec:
+[info] - hel1595 probe *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (Hel1595ProbeSpec.scala:7)
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 486 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.probe.Hel1595ProbeSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 7 s
+
+real	0m8.898s
+user	0m2.098s
+sys	0m0.192s
+EXIT=1

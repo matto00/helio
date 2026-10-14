@@ -1,0 +1,22 @@
+== repeat 5 tree A
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+75:[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+76:[info] compiling 550 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+100:[info] done compiling
+102:[info] compiling 659 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+180:[info] done compiling
+186:MARKER=marker-A-5
+193:[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+199:EXIT=1
+foreign-path lines in A log: 0
+== repeat 5 tree B
+2:[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+75:[info] set current project to helio-backend (in build file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/)
+76:[info] compiling 550 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-2.13.15/helio-backend/classes .
+100:[info] done compiling
+102:[info] compiling 659 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-2.13.15/helio-backend/test-cla
+180:[info] done compiling
+186:MARKER=marker-B-5
+192:[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+195:EXIT=0
+foreign-path lines in B log: 0

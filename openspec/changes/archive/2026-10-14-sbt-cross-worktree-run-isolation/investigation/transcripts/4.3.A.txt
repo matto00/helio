@@ -1,0 +1,56 @@
+[trimmed: 199 lines; head 15, key lines, tail 25]
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:249:8 
+...
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+75:[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+76:[info] compiling 550 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+102:[info] compiling 659 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+186:MARKER=marker-A-3
+187:[info] - hel1595 probe *** FAILED ***
+189:[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+191:[info] Total number of tests run: 1
+192:[info] Suites: completed 1, aborted 0
+193:[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+194:[info] *** 1 TEST FAILED ***
+198:[error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+199:EXIT=1
+...
+[warn]                    ^
+[warn] 98 deprecations (since 1.1.0)
+[warn] 11 deprecations (since Akka HTTP 10.1.11)
+[warn] 109 deprecations in total; re-run with -deprecation for details
+[warn] 26 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] Hel1595ProbeSpec:
+MARKER=marker-A-3
+[info] - hel1595 probe *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (Hel1595ProbeSpec.scala:8)
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 387 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.probe.Hel1595ProbeSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+EXIT=1

@@ -1,0 +1,4 @@
+treeB-proc 3012136 pgid=3012136 bash -c sleep 1500 | nice -n 19 sbt -Dsbt.global.localcache=/tmp/claude-1000/-home-matt-De
+treeB-proc 3012138 pgid=3012136 sleep 1500 
+treeB-proc 3012139 pgid=3012136 bash /home/matt/.local/bin/sbt -Dsbt.global.localcache=/tmp/claude-1000/-home-matt-Develop
+treeB-proc 3012177 pgid=3012136 java -Xms512m -Xss2m -XX:MaxInlineLevel=18 -Dsbt.global.localcache=/tmp/claude-1000/-home-
