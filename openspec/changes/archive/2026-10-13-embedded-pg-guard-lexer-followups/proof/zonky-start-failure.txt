@@ -1,0 +1,36 @@
+Zonky embedded-postgres 2.0.7 -- what Builder.start() does when it throws (AC7)
+Source: ~/.cache/coursier/.../io/zonky/test/embedded-postgres/2.0.7/embedded-postgres-2.0.7-sources.jar
+        (io/zonky/test/db/postgres/embedded/EmbeddedPostgres.java), read in full for these paths.
+
+Order of work inside Builder.start() (:576-587) -> constructor (:112-161):
+  :577-580  detectPort() when no port was set
+  :581-583  creates its own temp dir ONLY if no data directory was set (we always set one)
+  :584      new EmbeddedPostgres(...):
+  :156-158    initdb()            (when cleanDataDirectory or no postgresql.conf)
+  :160        lock()              (file lock on <dir>/.epg-lock, opens lockStream)
+  :161        startPostmaster():
+  :275          builds `pg_ctl -w start` and runs builder.start()   <- postmaster launched here
+  :283          Runtime.getRuntime().addShutdownHook(newCloserThread())   <- hook registered here
+  :285          waitForServerStartup(): may throw IOException "Gave up waiting ..." at :335
+
+Facts:
+ 1. initdb failure (e.g. an invalid locale/initdb option) -> system() throws IllegalStateException
+    "Process [...] failed" at :632-633, in the constructor BEFORE lock() (:160) and BEFORE the
+    postmaster launch (:275) and BEFORE the shutdown hook (:283). No postmaster, no hook, no lock
+    held. Only the half-initialised data dir remains. This is the trigger the helper test uses.
+ 2. A failure AFTER :275 (waitForServerStartup giving up at :335, or startPostmaster throwing after
+    builder.start()) leaves a LIVE postmaster on the data dir: `pg_ctl -w start` already forked it,
+    the constructor threw so the caller never receives the instance and cannot call close(), and
+    close() is only reachable through the shutdown hook registered at :283 (runs at JVM exit).
+    The lock file stream (lockStream, opened in lock()) also stays open until then.
+    => the helper deleting its data dir after such a failure removes the dir from under a running
+       postmaster (it keeps running until JVM exit; port stays held).
+ 3. waitForServerStartup treats InterruptedException by re-setting the interrupt flag and returning
+    normally (:330-332), i.e. NOT throwing; the constructor then completes.
+
+Conclusion (not fixed here, out of scope per design D5): on the post-:275 failure path zonky 2.0.7
+can leave a postmaster alive with no handle to stop it. Reported to the driver as a Follow-up
+(relatedTo HEL-1474). The helper's test therefore only uses an initdb-time failure (fact 1) and never
+a short setPGStartupWait.
+
+# Follow-up for the post-:275 postmaster survival finding: HEL-1586 (relatedTo HEL-1474).

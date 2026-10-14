@@ -40,18 +40,23 @@ object VerifiedEmbeddedPostgres {
     } finally connection.close()
   }
 
-  /** `nextPort` supplies the port for attempts after the first (0 = let zonky detect a fresh one). */
+  /** One attempt's data directory: same call and lifecycle as zonky's own default. */
+  private def newTempDirectory(): Path =
+    Files.createTempDirectory("epg") // temp-dir-hygiene: reviewed — close() deletes it, and a discarded or failed attempt is deleted below
+
+  /** `nextPort` supplies the port for attempts after the first (0 = let zonky detect a fresh one).
+   *  `newDataDirectory` is a test seam for observing the directory an attempt owns. */
   private[testkit] def startWith(
       builder: => EmbeddedPostgres.Builder,
       maxAttempts: Int,
       nextPort: () => Int,
-      observeDataDirectory: EmbeddedPostgres => String
+      observeDataDirectory: EmbeddedPostgres => String,
+      newDataDirectory: () => Path = () => newTempDirectory()
   ): EmbeddedPostgres = {
     val log = ListBuffer.empty[String]
     var attempt = 1
     while (attempt <= maxAttempts) {
-      // temp-dir-hygiene: reviewed — same call and lifecycle as zonky's own default; close() deletes it, and a discarded attempt is deleted below
-      val dir      = Files.createTempDirectory("epg")
+      val dir      = newDataDirectory()
       val realDir  = dir.toRealPath()
       val plainDir = dir.toAbsolutePath.normalize()
       val configured = builder.setDataDirectory(dir)
@@ -68,6 +73,13 @@ object VerifiedEmbeddedPostgres {
         } catch {
           case NonFatal(e) =>
             Left(s"attempt $attempt on port ${pg.getPort}: expected data_directory $realDir but the ownership check failed: $e")
+          case fatal: Throwable =>
+            // A fatal throwable (e.g. an interruption) must not be swallowed or retried, but it must not leak this
+            // attempt's postmaster or data directory either: clean up, then rethrow the same throwable.
+            try pg.close()
+            catch { case t: Throwable => fatal.addSuppressed(t) }
+            deleteQuietly(dir)
+            throw fatal
         }
 
       outcome match {
