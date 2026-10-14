@@ -58,5 +58,48 @@ module.exports = [
   rmSync(dir, { recursive: true, force: true });
 }
 
+// (c) a config whose TEST-file override turns a rule off must be rejected (HEL-1453). The
+// fixture loads the REAL config by absolute path and appends one override.
+const overrideCases = [
+  {
+    name: "test override turning off no-explicit-any (representative rule)",
+    files: "**/*.test.{ts,tsx}",
+    rule: "@typescript-eslint/no-explicit-any",
+  },
+  {
+    name: "test override turning off no-empty-object-type (outside REQUIRED_RULES)",
+    files: "**/*.test.{ts,tsx}",
+    rule: "@typescript-eslint/no-empty-object-type",
+  },
+  {
+    name: "helio-mcp-only test override turning off no-explicit-any",
+    files: "helio-mcp/**/*.test.ts",
+    rule: "@typescript-eslint/no-explicit-any",
+  },
+];
+for (const { name, files, rule } of overrideCases) {
+  const odir = mkdtempSync(join(tmpdir(), "eslint-ts-rules-selftest-"));
+  try {
+    const ofixture = join(odir, "eslint.config.cjs");
+    writeFileSync(
+      ofixture,
+      `module.exports = [
+  ...require(${JSON.stringify(join(repoRoot, "eslint.config.cjs"))}),
+  { files: [${JSON.stringify(files)}], rules: { ${JSON.stringify(rule)}: "off" } },
+];
+`,
+    );
+    const res = run(ofixture);
+    record(`${name} is rejected`, res.status !== 0, `exit ${res.status}`);
+    record(
+      `${name} names a test path and the rule`,
+      res.stderr.includes(".test.") && res.stderr.includes(rule),
+      res.stderr,
+    );
+  } finally {
+    rmSync(odir, { recursive: true, force: true });
+  }
+}
+
 if (failed > 0) process.exit(1);
 process.stdout.write("check-eslint-ts-rules selftest: OK\n");

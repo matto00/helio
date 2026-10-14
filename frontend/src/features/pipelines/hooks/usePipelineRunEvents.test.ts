@@ -274,8 +274,7 @@ describe("usePipelineRunEvents", () => {
     rerender({ active: false });
 
     // The AbortSignal on the mock fetch call should now be aborted.
-    const signal = (fetchMock.mock.calls[0] as [string, { signal: AbortSignal }])[1]
-      .signal as AbortSignal;
+    const signal = (fetchMock.mock.calls[0] as [string, { signal: AbortSignal }])[1].signal;
     expect(signal.aborted).toBe(true);
 
     controller.close();

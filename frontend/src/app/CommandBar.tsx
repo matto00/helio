@@ -26,7 +26,6 @@ interface CommandBarProps {
   onOpenMobileNavSheet: () => void;
   onOpenRefinement: () => void;
   onOpenQuickLauncher: () => void;
-  draftAppearance: DashboardAppearance | null;
   setDraftAppearance: (appearance: DashboardAppearance | null) => void;
 }
 

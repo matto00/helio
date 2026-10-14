@@ -35,7 +35,6 @@ type UsePipelineStepCreationArgs = {
   stepsRef: MutableRefObject<Step[]>;
   setSteps: Dispatch<SetStateAction<Step[]>>;
   setStepsInitialized: Dispatch<SetStateAction<boolean>>;
-  syncStepsFromServer: () => Promise<void>;
   pushToast: ReturnType<typeof useToast>["push"];
   // Created by the page hook, which mirrors its key set into `pendingDraftIds` state (via
   // `setPendingDraftIds`, called after every mutation of the ref, here and in
