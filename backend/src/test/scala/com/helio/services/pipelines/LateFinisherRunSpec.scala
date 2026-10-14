@@ -1,173 +1,23 @@
 package com.helio.services.pipelines
 
-import com.helio.api.routes.pipelines.{PipelineRunRegistry, RunStatusEvent}
-import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, NodeKey, PipelineExecutionBackend, PipelineExecutionOutcome}
-import com.helio.domain.model._
-import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRunRepository}
-import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.{RunNoLongerOpen, RunState}
 import com.helio.domain.history.PayloadHistoryConfig
-import spray.json.{JsObject, JsString}
-import com.helio.infrastructure.persistence.sources.DataSourceRepository
-import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.domain.model.PipelineRunId
+import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.{RunNoLongerOpen, RunState}
 import com.helio.services.ServiceError
-import com.helio.spark.PipelineRunCache
-import com.helio.testsupport.NodePayloadFixtures
-import org.apache.pekko.actor.typed.ActorSystem
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.Sink
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import spray.json.{JsObject, JsString}
 import slick.jdbc.PostgresProfile.api._
 
-import java.nio.file.Paths
 import java.sql.DriverManager
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.jdk.CollectionConverters._
+import scala.concurrent.{Await, Future, Promise}
 
 /** HEL-1518 -- a late finisher of a REAL run: (1) a run whose pipeline was deleted while it executed answers 404 (not
  *  409), a reaped run still 409; (2) a run finalized (reaped or deleted) between the success chain's early open-check and
- *  a node's snapshot write writes nothing for that node and publishes no `succeeded`.
- *
- *  The two interleavings are forced through seams that exist independently of the guard: a backend wrapper that acts
- *  right after the engine returns (BEFORE the early open-check) and an [[OutputRepository]] wrapper that acts when the
- *  success chain lists the pipeline's Outputs (AFTER the early check, BEFORE the node fold). Healthy fixture: two
- *  materialized nodes (a step node with an opted-in payload Output, and a root node), history on. */
-class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with NodePayloadFixtures {
-
-  override protected def harnessEc: ExecutionContext = ExecutionContext.global
-  private implicit val ec: ExecutionContext          = harnessEc
-  private implicit val typedSystem: ActorSystem[Nothing] = ActorSystem(Behaviors.empty, "late-finisher-run-spec")
-  private val mat: Materializer = Materializer(typedSystem.classicSystem)
-
-  @volatile private var afterEngine: () => Future[Unit]  = () => Future.unit
-  @volatile private var beforeNodeFold: () => Future[Unit] = () => Future.unit
-  @volatile private var beforeOutputList: () => Future[Unit] = () => Future.unit
-
-  private final class HookBackend(delegate: PipelineExecutionBackend) extends PipelineExecutionBackend {
-    override def supportsWriteBack: Boolean = delegate.supportsWriteBack
-    override def execute(
-        pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
-        assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
-        writeBackSink: WriteBackSink = new WriteBackSink, ownerUserId: Option[String] = None
-    )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] =
-      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
-        .flatMap(outcome => afterEngine().map(_ => outcome))
-  }
-
-  /** `beforeOutputList` fires once BEFORE the success chain lists the pipeline's Outputs (a pipeline deleted there has
-   *  already lost its Outputs to the cascade, so no node guard ever runs). `beforeNodeFold` fires once right AFTER the
-   *  list (after the early open-check, before the first node's write), so a pipeline deleted there still has its
-   *  stale Output list and the node guard is what catches it. */
-  private final class HookOutputRepo(c: DbContext) extends OutputRepository(c) {
-    override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] = {
-      val before = beforeOutputList
-      beforeOutputList = () => Future.unit
-      val hook = beforeNodeFold
-      beforeNodeFold = () => Future.unit
-      before().flatMap(_ => super.listByPipelineInternal(pipelineId)).flatMap(outputs => hook().map(_ => outputs))
-    }
-  }
-
-  /** The success chain starts its own `succeeded` terminal write EAGERLY, concurrently with the node fold, so a hook that
-   *  must land before it has to hold it back: `terminalGate` (open by default) delays that one write. */
-  @volatile private var terminalGate: Future[Unit] = Future.unit
-  /** Completed once the run's own terminal write has returned (committed or lost), so a hook can wait for it. */
-  @volatile private var terminalWritten: Promise[Unit] = Promise[Unit]()
-  private final class GatedRunRepo(c: DbContext) extends PipelineRunRepository(c) {
-    override def updateRunTerminal(
-        runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
-        user: AuthenticatedUser, truncatedReadsJson: Option[String]
-    ): Future[Boolean] = {
-      val gate = terminalGate
-      gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson))
-        .andThen { case _ => terminalWritten.trySuccess(()) }
-    }
-  }
-
-  private val registry = new PipelineRunRegistry()
-  private val events   = new ConcurrentLinkedQueue[(String, RunStatusEvent)]()
-
-  override def beforeAll(): Unit = {
-    startHarness()
-    // The harness grants the app role tables only; `PipelineRepository.delete` calls the HEL-1498 panel-lock function.
-    awaitDb(db.run(sqlu"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO helio_app_test_output_history"))
-  }
-  override def afterAll(): Unit  = { stopHarness(); typedSystem.terminate() }
-  override def afterEach(): Unit = {
-    afterEngine = () => Future.unit
-    beforeNodeFold = () => Future.unit
-    beforeOutputList = () => Future.unit
-    terminalGate = Future.unit
-    terminalWritten = Promise[Unit]()
-    super.afterEach()
-  }
-
-  private def service(): PipelineRunService = {
-    val fs = new LocalFileSystem(Paths.get("/"))
-    new PipelineRunService(
-      pipelineRepo, stepRepo, dataSourceRepo, new GatedRunRepo(ctx), new PipelineRunCache(), registry, fs,
-      executionBackend = new HookBackend(new InProcessExecutionBackend(new InProcessPipelineEngine(fs), stepRepo)),
-      outputRepo = new HookOutputRepo(ctx), nodeSnapshotRepo = snapshotRepo, outputHistoryRepo = historyRepo,
-      nodePayloadRepo = payloadRepo, payloadConfig = payloadConfig
-    )
-  }
-
-  private final case class Fx(owner: String, p: PayloadFx) { def pid: PipelineId = p.pid }
-
-  /** Beta owner (payloads on), a step node with an opted-in Output, plus a root-bound Output: two materialized nodes. */
-  private def seed(): Fx = {
-    val owner = seedUser("beta")
-    val p     = seedPayloadPipeline(owner)
-    awaitDb(outputRepo.insertInternal(p.pid, None, UserId(owner), "root-out", OutputKind.Table, explicitRootId = Some(PipelineRootId(p.pid.value))))
-    Fx(owner, p)
-  }
-
-  private def scalar(sqlText: String): String =
-    awaitDb(db.run(sql"#$sqlText".as[String].head))
-  private def count(table: String, col: String, id: String): Int =
-    scalar(s"SELECT count(*) FROM $table WHERE $col = '$id'").toInt
-  private def runStatus(fx: Fx): String = scalar(s"SELECT status FROM pipeline_runs WHERE pipeline_id = '${fx.pid.value}'")
-
-  /** The real reaper statement, with `now` two hours ahead so the (heartbeat-less or heartbeat-stamped) open run is stale. */
-  private def reapIds(): Future[Vector[String]] =
-    runRepo.reapStaleRunsInternal(Instant.now().plusSeconds(7200), 600L, 3600L, PipelineRunService.EmptyTruncationJson).map(_.map(_.runId.value))
-  private def reapAll(): Future[Unit] = reapIds().map(_ => ())
-
-  private def deletePipeline(fx: Fx): Future[Unit] =
-    pipelineRepo.delete(fx.pid, AuthenticatedUser(UserId(fx.owner))).map(deleted => require(deleted, "fixture pipeline was not deleted"))
-
-  private def submit(fx: Fx) = {
-    val sub = registry.subscribe(fx.pid.value).runWith(Sink.foreach[RunStatusEvent](e => events.add(fx.pid.value -> e)))(mat)
-    val res = awaitDb(service().submit(fx.pid, isDry = false, AuthenticatedUser(UserId(fx.owner))))
-    (res, sub)
-  }
-
-  private def eventsOf(fx: Fx): Vector[String] = {
-    Thread.sleep(300) // delivery to the subscriber is asynchronous; absence needs a settle window
-    events.asScala.collect { case (p, e) if p == fx.pid.value => e.status }.toVector
-  }
-
-  /** Positive check: poll (bounded) until the run's `succeeded` event arrives, rather than trust a fixed settle window. */
-  private def awaitSucceeded(fx: Fx): Boolean = {
-    val deadline = System.nanoTime() + 15.seconds.toNanos
-    def seen = events.asScala.exists { case (p, e) => p == fx.pid.value && e.status == "succeeded" }
-    while (!seen && System.nanoTime() < deadline) Thread.sleep(20)
-    seen
-  }
-
-  private def nothingWritten(fx: Fx): Unit = {
-    count("node_snapshots", "pipeline_id", fx.pid.value) shouldBe 0
-    count("output_snapshot_history", "pipeline_id", fx.pid.value) shouldBe 0
-    count("node_payload_history", "pipeline_id", fx.pid.value) shouldBe 0
-  }
-
+ *  a node's snapshot write writes nothing for that node and publishes no `succeeded`. The delete-after-the-run-won cases
+ *  (HEL-1544 / HEL-1564) live in [[LateFinisherDeleteAfterWonSpec]]; the seams in [[LateFinisherSpecBase]]. */
+class LateFinisherRunSpec extends LateFinisherSpecBase {
   "a late finisher (HEL-1518 item 1)" should {
 
     "answer 404 when its pipeline was deleted while it executed" in {
@@ -205,7 +55,11 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
 
     "write nothing, publish no succeeded and answer 404 when its pipeline was deleted in that window" in {
       val fx = seed()
-      beforeNodeFold = () => deletePipeline(fx)
+      // HEL-1564: the run's own succeeded write is eager and concurrent with this hook; hold it until the delete finished,
+      // or a write that wins first would (correctly) answer success instead of this lost-write 404.
+      val deleted = Promise[Unit]()
+      terminalGate = deleted.future
+      beforeNodeFold = () => deletePipeline(fx).andThen { case _ => deleted.trySuccess(()) }
       val (res, _) = submit(fx)
       res shouldBe Left(ServiceError.NotFound(s"Pipeline not found: ${fx.pid.value}"))
       nothingWritten(fx)
@@ -242,30 +96,6 @@ class LateFinisherRunSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       res shouldBe Left(ServiceError.Conflict("Run was already finalized as abandoned before it finished"))
       runStatus(fx) shouldBe "failed"
       count("node_snapshots", "pipeline_id", fx.pid.value) shouldBe 6 // written while the run was open (HEL-1511 Q6)
-      eventsOf(fx) should not contain "succeeded"
-    }
-  }
-
-  // ── The run's own terminal write COMMITS FIRST (HEL-1544): the outcome then depends on where the delete lands ──
-
-  "a run whose own succeeded terminal write committed before its pipeline was deleted (HEL-1544)" should {
-
-    "answer success and publish succeeded when the delete also landed before the Output list was read, so no node guard runs" in {
-      val fx = seed()
-      val written = terminalWritten
-      beforeOutputList = () => written.future.flatMap(_ => deletePipeline(fx)) // the delete is forced AFTER the run's own write
-      val (res, _) = submit(fx)
-      res.isRight shouldBe true
-      awaitSucceeded(fx) shouldBe true
-    }
-
-    "still answer 404 and publish no succeeded when the delete landed after the Output list was read, because a node guard sees the run Missing" in {
-      val fx = seed()
-      val written = terminalWritten
-      beforeNodeFold = () => written.future.flatMap(_ => deletePipeline(fx)) // after the list, and after the run's own write
-      val (res, _) = submit(fx)
-      res shouldBe Left(ServiceError.NotFound(s"Pipeline not found: ${fx.pid.value}"))
-      nothingWritten(fx)
       eventsOf(fx) should not contain "succeeded"
     }
   }
