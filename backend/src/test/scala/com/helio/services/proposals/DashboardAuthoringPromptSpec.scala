@@ -110,7 +110,7 @@ class DashboardAuthoringPromptSpec extends AnyWordSpec with Matchers {
     // prompt's panel-kind instruction must equal the set `PanelType.fromString`
     // actually accepts, so this cannot silently re-drift the way it did when
     // the panel-kind collapse shipped without updating this prompt.
-    "instructs the model to emit exactly the panel kinds PanelType.fromString accepts (minus divider, which the proposal flow deliberately excludes for create_panel parity)" in {
+    "instructs the model to emit exactly the panel kinds PanelType.fromString accepts (minus divider, which the proposal flow deliberately excludes as purely presentational chrome)" in {
       val message = DashboardAuthoringPrompt.userMessage(
         goal         = "Build a sales dashboard",
         dataTypes    = Vector.empty,
