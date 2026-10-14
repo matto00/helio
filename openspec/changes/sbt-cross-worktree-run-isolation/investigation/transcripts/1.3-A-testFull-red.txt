@@ -1,0 +1,56 @@
+[trimmed: 96554 lines; head 15, key lines, tail 25]
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] ConnectorRepositoryDeleteAtomicitySpec:
+06:08:26,577 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+06:08:26,577 |-INFO in ch.qos.logback.classic.util.ContextInitializer@6c253e8b - No custom configurators were discovered as a service.
+06:08:26,577 |-INFO in ch.qos.logback.classic.util.ContextInitializer@6c253e8b - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+06:08:26,578 |-INFO in ch.qos.logback.classic.util.ContextInitializer@6c253e8b - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+06:08:26,579 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+06:08:26,581 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+06:08:26,611 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+06:08:26,614 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3381558c - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+...
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+3:[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+23587:[info] - should fail validation once expires_at has elapsed
+51400:[info] - hel1595 probe *** FAILED ***
+63479:[info] - a ScalaTest summary with no readable Tests: line fails closed
+96540:[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+96542:[info] Total number of tests run: 8084
+96543:[info] Suites: completed 616, aborted 0
+96544:[info] Tests: succeeded 8083, failed 1, canceled 4, ignored 0, pending 0
+96545:[info] *** 1 TEST FAILED ***
+96549:[error] elapsed time: 658 s (0:10:58.0), cache 100%, 644 disk cache hits
+96551:real	10m59.298s
+96554:EXIT=1
+...
+06:19:22.052 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-22 - Start completed.
+[info] PipelineRepository.runTransactionally(userId)
+[info] - should persist a pipeline row + a step (insertInternalAction) + an Output (insertInternalAction) in ONE composed DBIO chain under withUserContext, with RLS actually enforced (non-superuser app pool)
+06:19:22.077 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-22 - Shutdown initiated...
+06:19:22.077 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-22 - Shutdown completed.
+06:19:22.079 INFO  [postgres:pid(3004329)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-14 06:19:22.079 PDT [3004332] LOG:  received fast shutdown request
+06:19:22.079 INFO  [postgres:pid(3004329)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-14 06:19:22.079 PDT [3004332] LOG:  aborting any active transactions
+06:19:22.179 INFO  [pg_ctl:pid(3004383)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+06:19:22.179 INFO  [pg_ctl:pid(3004383)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+06:19:22.179 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - e480344c-a77c-48d3-b0a3-2e44f23788d8 shut down postmaster in 00:00:00.101
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 10 minutes, 56 seconds.
+[info] Total number of tests run: 8084
+[info] Suites: completed 616, aborted 0
+[info] Tests: succeeded 8083, failed 1, canceled 4, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.probe.Hel1595ProbeSpec
+[error] (Test / testFull) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 658 s (0:10:58.0), cache 100%, 644 disk cache hits
+
+real	10m59.298s
+user	10m56.777s
+sys	1m5.302s
+EXIT=1

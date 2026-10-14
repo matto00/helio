@@ -1,0 +1,38 @@
+[trimmed; concurrent testFull, A started 07:11:19 when B had executed 18 tests]
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+[info] compiling 4 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-3.8.4/backend-build/classes ...
+[info] done compiling
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+2:[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+77:[info] set current project to helio-backend (in build file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/)
+34554:[info] - a ScalaTest summary with no readable Tests: line fails closed
+80847:[info] - should fail validation once expires_at has elapsed
+96731:[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+96733:[info] Total number of tests run: 8084
+96734:[info] Suites: completed 616, aborted 0
+96735:[info] Tests: succeeded 8084, failed 0, canceled 4, ignored 0, pending 0
+96737:[success] elapsed time: 784 s (0:13:04.0), cache 37%, 242 disk cache hits, 403 onsite tasks
+96738:EXIT=0
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.pgCtl(EmbeddedPostgres.java:423)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres.close(EmbeddedPostgres.java:390)
+	at io.zonky.test.db.postgres.embedded.EmbeddedPostgres$1.run(EmbeddedPostgres.java:370)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 11 minutes, 52 seconds.
+[info] Total number of tests run: 8084
+[info] Suites: completed 616, aborted 0
+[info] Tests: succeeded 8084, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 784 s (0:13:04.0), cache 37%, 242 disk cache hits, 403 onsite tasks
+EXIT=0
