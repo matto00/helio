@@ -130,3 +130,22 @@
   outline: var(--app-focus-ring);
   outline-offset: 2px;
 }
+
+/* DESIGN.md §3 touch floor: a full-width 44px hit strip over the compact painted button, gated on the input device
+   (see `shared/ui/tapTarget.css`). It spans the button's own width only, so it never reaches a neighbouring control. */
+@media (max-width: 768px), (pointer: coarse) {
+  .source-list-table__delete-btn {
+    position: relative;
+  }
+
+  .source-list-table__delete-btn::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}

@@ -14,6 +14,12 @@ import {
 import { sourceDeleteWarning } from "../utils/sourceReferences";
 import { SourceDeleteConflictNotice } from "./SourceDeleteConflictNotice";
 import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
+import {
+  focusAfterRowDeleted,
+  focusOnMount,
+  focusRowDelete,
+  neighbourDeleteLabel,
+} from "../../../shared/chrome/rowDeleteFocus";
 import type { DataSource } from "../types/dataSource";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AddSourceModal } from "./AddSourceModal";
@@ -24,21 +30,6 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON, InlineError } from "../../../shared/chrome/InlineError";
-
-/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). A stable
- *  function, so React calls it on mount only. */
-function focusOnMount(element: HTMLElement | null) {
-  element?.focus();
-}
-
-/** Returns focus to a row's Delete button after Cancel, instead of dropping it on <body>. */
-function focusRowDelete(name: string) {
-  requestAnimationFrame(() => {
-    document
-      .querySelector<HTMLElement>(`button[aria-label="Delete ${name.replace(/["\\]/g, "\\$&")}"]`)
-      ?.focus();
-  });
-}
 
 export function SourcesPage() {
   const dispatch = useAppDispatch();
@@ -62,11 +53,16 @@ export function SourcesPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function confirmDelete(source: DataSource) {
+    const neighbour = neighbourDeleteLabel(source.name);
     setDeletingSource(null);
     setDeleteConflict(null);
     setDeleteError(null);
     const result = await dispatch(deleteSource(source.id));
-    if (deleteSource.rejected.match(result)) {
+    if (!deleteSource.rejected.match(result)) {
+      focusAfterRowDeleted(neighbour, ".sources-page");
+    } else {
+      // A refused delete leaves the row: focus returns to its Delete button, with the notice announced beside it.
+      focusRowDelete(source.name);
       if (isSourceDeleteConflict(result.payload)) {
         setDeleteConflict({ sourceName: source.name, conflict: result.payload });
       } else {

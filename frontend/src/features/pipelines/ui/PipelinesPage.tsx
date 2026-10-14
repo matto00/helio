@@ -18,22 +18,13 @@ import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON, InlineError } from "../../../shared/chrome/InlineError";
 import { ConfirmInline } from "../../../shared/ui/ConfirmInline";
+import {
+  focusAfterRowDeleted,
+  focusOnMount,
+  focusRowDelete,
+  neighbourDeleteLabel,
+} from "../../../shared/chrome/rowDeleteFocus";
 import type { PipelineSummary } from "../types/pipelineStep";
-
-/** Moves focus to the confirm panel when it appears, so a keyboard user lands on it (and hears its name). A stable
- *  function, so React calls it on mount only. */
-function focusOnMount(element: HTMLElement | null) {
-  element?.focus();
-}
-
-/** Returns focus to a row's Delete button after Cancel, instead of dropping it on <body>. */
-function focusRowDelete(name: string) {
-  requestAnimationFrame(() => {
-    document
-      .querySelector<HTMLElement>(`button[aria-label="Delete ${name.replace(/["\\]/g, "\\$&")}"]`)
-      ?.focus();
-  });
-}
 
 export function PipelinesPage() {
   const dispatch = useAppDispatch();
@@ -53,12 +44,16 @@ export function PipelinesPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function confirmDelete(pipeline: PipelineSummary) {
+    // Read the neighbouring row now: once the row is gone, focus goes to it (else the heading).
+    const neighbour = neighbourDeleteLabel(pipeline.name);
     setDeletingPipeline(null);
     setDeleteError(null);
     try {
       await dispatch(deletePipeline(pipeline.id)).unwrap();
+      focusAfterRowDeleted(neighbour, ".pipelines-page");
     } catch {
       setDeleteError(`Failed to delete ${pipeline.name}.`);
+      focusRowDelete(pipeline.name);
     }
   }
 

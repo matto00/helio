@@ -1,7 +1,10 @@
+import fs from "fs";
+import path from "path";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { deletePipeline, getPipelines } from "../services/pipelineService";
 import { renderWithStore } from "../../../test/renderWithStore";
+import { expectTapExpander, findMediaBlock } from "../../../shared/ui/tapTargetTestUtils";
 import { PipelinesPage } from "./PipelinesPage";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 
@@ -114,5 +117,50 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
     );
     fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
     expect(screen.queryByRole("menuitem", { name: /Delete/ })).not.toBeInTheDocument();
+  });
+
+  it("gives the row Delete a 44px hit expander on touch and narrow viewports (DESIGN.md §3)", () => {
+    const css = fs.readFileSync(path.join(__dirname, "PipelineListTable.css"), "utf-8");
+    expectTapExpander(
+      findMediaBlock(css, "max-width: 768px), (pointer: coarse"),
+      ".pipeline-list-table__delete-btn",
+    );
+  });
+
+  it("after a successful delete, focus moves to the next row's Delete button", async () => {
+    deletePipelineMock.mockResolvedValue(undefined);
+    renderWithStore(<PipelinesPage />);
+    const buttons = await screen.findAllByRole("button", { name: /^Delete / });
+    const first = buttons[0]!.getAttribute("aria-label")!;
+    const second = buttons[1]!.getAttribute("aria-label")!;
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(screen.getByRole("button", { name: `Confirm delete ${first.slice(7)}` }));
+    await waitFor(() => expect(screen.getByRole("button", { name: second })).toHaveFocus());
+  });
+
+  it("after deleting the only/last row, focus moves to the previous row, and to the heading when none is left", async () => {
+    deletePipelineMock.mockResolvedValue(undefined);
+    getPipelinesMock.mockResolvedValue([pipelines[0]] as never);
+    renderWithStore(<PipelinesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Sales Pipeline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales Pipeline" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Delete Sales Pipeline" }),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+    expect(document.activeElement?.tagName).toBe("H1");
+  });
+
+  it("after a refused delete, focus returns to the row's Delete button", async () => {
+    deletePipelineMock.mockRejectedValue(new Error("nope"));
+    renderWithStore(<PipelinesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Sales Pipeline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales Pipeline" }));
+    await screen.findByText("Failed to delete Sales Pipeline.");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete Sales Pipeline" })).toHaveFocus(),
+    );
   });
 });

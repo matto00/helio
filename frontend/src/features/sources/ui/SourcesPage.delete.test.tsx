@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import {
@@ -6,6 +8,7 @@ import {
   fetchSources as fetchSourcesRequest,
 } from "../services/dataSourceService";
 import { renderWithStore } from "../../../test/renderWithStore";
+import { expectTapExpander, findMediaBlock } from "../../../shared/ui/tapTargetTestUtils";
 import { SourcesPage } from "./SourcesPage";
 import { SourceDetailPanel } from "./SourceDetailPanel";
 import type { DataSource } from "../types/dataSource";
@@ -121,5 +124,41 @@ describe("Data Sources overview: Delete row action (HEL-1574, owner ruling 2026-
     const header = document.querySelector<HTMLElement>(".source-detail-panel__header")!;
     expect(within(header).queryByRole("button", { name: /Delete/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Delete/ })).not.toBeInTheDocument();
+  });
+
+  it("gives the row Delete a 44px hit expander on touch and narrow viewports (DESIGN.md §3)", () => {
+    const css = fs.readFileSync(path.join(__dirname, "SourceListTable.css"), "utf-8");
+    expectTapExpander(
+      findMediaBlock(css, "max-width: 768px), (pointer: coarse"),
+      ".source-list-table__delete-btn",
+    );
+  });
+
+  it("after a successful delete, focus moves to a neighbouring row's Delete button", async () => {
+    deleteMock.mockResolvedValue(undefined);
+    renderWithStore(<SourcesPage />);
+    const buttons = await screen.findAllByRole("button", { name: /^Delete / });
+    const target = buttons[0]!.getAttribute("aria-label")!.slice(7);
+    const other = buttons[1]!.getAttribute("aria-label")!;
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(screen.getByRole("button", { name: `Confirm delete ${target}` }));
+    await waitFor(() => expect(screen.getByRole("button", { name: other })).toHaveFocus());
+  });
+
+  it("after a refused (409) delete, focus returns to the row's Delete button", async () => {
+    deleteMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { message: "in use", pipelines: [{ id: "p-1", name: "Orders" }], panels: [] },
+      },
+    });
+    renderWithStore(<SourcesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Sales CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales CSV" }));
+    await screen.findByText(/still referenced by/);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Delete Sales CSV" })).toHaveFocus(),
+    );
   });
 });
