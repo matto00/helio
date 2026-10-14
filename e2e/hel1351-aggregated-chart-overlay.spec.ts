@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
 
+import type { EchartsInstance, ReactFiber } from "./support/echartsFiber";
 import { evidencePath } from "./support/evidencePath";
 import { expectDeleted } from "./support/expectDeleted";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
@@ -35,15 +36,6 @@ async function runPipeline(request: APIRequestContext, pipelineId: string) {
   const res = await request.post(`/api/pipelines/${pipelineId}/run`, { data: {}, headers: CSRF });
   expect(res.status(), await res.text()).toBe(200);
 }
-
-type EchartsInstance = {
-  getOption(): { series?: unknown[]; legend?: { show?: boolean; type?: string }[] };
-  getDom(): Element;
-};
-type ReactFiber = {
-  stateNode?: { getEchartsInstance?: () => EchartsInstance } | null;
-  return?: ReactFiber | null;
-};
 
 /** The live ECharts option + canvas height of the first chart inside `card`. */
 async function liveChart(card: Locator) {

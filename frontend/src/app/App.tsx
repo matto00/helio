@@ -216,7 +216,6 @@ export function AppShell() {
             onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
             onOpenRefinement={() => setIsRefinementOpen(true)}
             onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
-            draftAppearance={draftAppearance}
             setDraftAppearance={setDraftAppearance}
           />
 

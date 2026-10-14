@@ -86,7 +86,6 @@ export function usePipelineStepStructure({
     stepsRef,
     setSteps,
     setStepsInitialized,
-    syncStepsFromServer,
     pushToast,
     pendingDraftMetaRef,
     setPendingDraftIds,
