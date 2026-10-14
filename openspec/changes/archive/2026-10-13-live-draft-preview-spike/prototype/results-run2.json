@@ -1,0 +1,211 @@
+{
+  "playwrightCore": {
+    "version": "1.55.1",
+    "resolved": "/home/matt/Development/helio/node_modules/playwright-core/index.js"
+  },
+  "browserVersion": "140.0.7339.186",
+  "binary": "chromium_headless_shell",
+  "node": "v22.23.2",
+  "runs": {
+    "cpuThrottle1x": {
+      "info": {
+        "sourceRows": 1000,
+        "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.186 Safari/537.36"
+      },
+      "verify": {
+        "edits": 500,
+        "bad": 0,
+        "distinctRowCounts": 179,
+        "sample": [
+          921
+        ]
+      },
+      "recompute:filter-drag": {
+        "kind": "filter-drag",
+        "n": 500,
+        "median": 0.10000000894069672,
+        "p95": 0.20000000298023224,
+        "max": 0.30000001192092896,
+        "mean": 0.11159999999403954,
+        "sink": 273743
+      },
+      "render:filter-drag": {
+        "kind": "filter-drag",
+        "recompute": {
+          "n": 500,
+          "median": 0.19999998807907104,
+          "p95": 0.4000000059604645,
+          "max": 0.7000000029802322,
+          "mean": 0.18260000005364418
+        },
+        "recomputePlusRenderSyncLayout": {
+          "n": 500,
+          "median": 1,
+          "p95": 1.5,
+          "max": 2.2999999970197678,
+          "mean": 1.0610000003874303
+        },
+        "timeToNextFrame": {
+          "n": 500,
+          "median": 16.69999998807907,
+          "p95": 16.900000005960464,
+          "max": 18.69999998807907,
+          "mean": 16.662800000071524
+        }
+      },
+      "recompute:expr-edit": {
+        "kind": "expr-edit",
+        "n": 500,
+        "median": 0,
+        "p95": 0.10000000894069672,
+        "max": 0.20000000298023224,
+        "mean": 0.028399999976158143,
+        "sink": 304700
+      },
+      "render:expr-edit": {
+        "kind": "expr-edit",
+        "recompute": {
+          "n": 500,
+          "median": 0,
+          "p95": 0.10000000894069672,
+          "max": 0.20000000298023224,
+          "mean": 0.03439999994635582
+        },
+        "recomputePlusRenderSyncLayout": {
+          "n": 500,
+          "median": 0.800000011920929,
+          "p95": 1.2000000029802322,
+          "max": 1.5999999940395355,
+          "mean": 0.8810000000298023
+        },
+        "timeToNextFrame": {
+          "n": 500,
+          "median": 16.5,
+          "p95": 16.700000002980232,
+          "max": 16.900000005960464,
+          "mean": 16.460400000154973
+        }
+      },
+      "scaling": {
+        "1000": {
+          "median": 0.09999999403953552,
+          "p95": 0.29999999701976776,
+          "max": 0.30000001192092896,
+          "mean": 0.11100000001490117
+        },
+        "10000": {
+          "median": 1.5,
+          "p95": 2.7999999970197678,
+          "max": 4,
+          "mean": 1.5055000000447034
+        },
+        "50000": {
+          "median": 9.300000011920929,
+          "p95": 16.899999991059303,
+          "max": 21.100000008940697,
+          "mean": 9.1310000000149
+        }
+      }
+    },
+    "cpuThrottle4x": {
+      "info": {
+        "sourceRows": 1000,
+        "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.186 Safari/537.36"
+      },
+      "verify": {
+        "edits": 500,
+        "bad": 0,
+        "distinctRowCounts": 179,
+        "sample": [
+          921
+        ]
+      },
+      "recompute:filter-drag": {
+        "kind": "filter-drag",
+        "n": 500,
+        "median": 0.5,
+        "p95": 1.0999999940395355,
+        "max": 1.5999999940395355,
+        "mean": 0.468,
+        "sink": 273743
+      },
+      "render:filter-drag": {
+        "kind": "filter-drag",
+        "recompute": {
+          "n": 500,
+          "median": 0.7000000029802322,
+          "p95": 1.4000000059604645,
+          "max": 3.5,
+          "mean": 0.6913999996483325
+        },
+        "recomputePlusRenderSyncLayout": {
+          "n": 500,
+          "median": 4.5999999940395355,
+          "p95": 6.299999997019768,
+          "max": 10.900000005960464,
+          "mean": 4.6417999997437
+        },
+        "timeToNextFrame": {
+          "n": 500,
+          "median": 16.700000002980232,
+          "p95": 17.700000002980232,
+          "max": 20.099999994039536,
+          "mean": 16.652600000053646
+        }
+      },
+      "recompute:expr-edit": {
+        "kind": "expr-edit",
+        "n": 500,
+        "median": 0,
+        "p95": 0.7000000029802322,
+        "max": 0.8999999910593033,
+        "mean": 0.1337999999821186,
+        "sink": 304700
+      },
+      "render:expr-edit": {
+        "kind": "expr-edit",
+        "recompute": {
+          "n": 500,
+          "median": 0,
+          "p95": 0.7000000029802322,
+          "max": 3,
+          "mean": 0.157
+        },
+        "recomputePlusRenderSyncLayout": {
+          "n": 500,
+          "median": 4.299999997019768,
+          "p95": 6.799999997019768,
+          "max": 9.799999997019768,
+          "mean": 4.473
+        },
+        "timeToNextFrame": {
+          "n": 500,
+          "median": 15.900000005960464,
+          "p95": 17.5,
+          "max": 22.599999994039536,
+          "mean": 15.887600000321864
+        }
+      },
+      "scaling": {
+        "1000": {
+          "median": 0.5,
+          "p95": 1.2000000029802322,
+          "max": 1.8999999910593033,
+          "mean": 0.5110000000149012
+        },
+        "10000": {
+          "median": 6.5999999940395355,
+          "p95": 13.099999994039536,
+          "max": 16.299999997019768,
+          "mean": 6.5554999999701975
+        },
+        "50000": {
+          "median": 53.70000000298023,
+          "p95": 114,
+          "max": 147.19999998807907,
+          "mean": 54.57049999959767
+        }
+      }
+    }
+  }
+}

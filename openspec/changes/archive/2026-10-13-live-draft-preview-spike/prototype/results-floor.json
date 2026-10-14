@@ -1,0 +1,33 @@
+{
+  "note": "local loopback, plain HTTP/1.1 keep-alive, node fetch (undici)",
+  "health_noAuth": {
+    "n": 60,
+    "median": 1.6,
+    "p95": 1.7,
+    "min": 0.5
+  },
+  "api_noCookie_401_noDb": {
+    "n": 60,
+    "median": 3.3,
+    "p95": 4.6,
+    "min": 1.8
+  },
+  "api_bogusCookie_401_oneSessionMiss": {
+    "n": 60,
+    "median": 2.4,
+    "p95": 2.9,
+    "min": 1.1
+  },
+  "authMe_session": {
+    "n": 60,
+    "median": 1.9,
+    "p95": 2.1,
+    "min": 1.7
+  },
+  "listPipelines_session": {
+    "n": 60,
+    "median": 1.9,
+    "p95": 2,
+    "min": 0.8
+  }
+}
