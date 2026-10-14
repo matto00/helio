@@ -14,10 +14,16 @@ import org.scalatest.wordspec.AnyWordSpec
  *  reworked for HEL-911's discriminated `secondaryInput` (design.md Decisions 1/1a).
  *
  *  Adopted form (design.md Decision 7, round 3 of the design gate): RUNTIME, type-agnostic,
- *  location-agnostic. This spec iterates `PipelineStep.Registry` -- the single source of truth
- *  every op is registered in -- decodes a default config per kind, and calls the REAL
+ *  location-agnostic. This spec iterates `PipelineStep.Registry`, the map the backend's step
+ *  kinds are registered in. For each kind it decodes a default config and calls the REAL
  *  extractors against it, so a kind whose `secondaryInput` field the extractors don't handle
  *  fails this test, not a comparison of two string lists.
+ *
+ *  The Registry is not the only place kinds are listed. The hand-enumerated layers are named
+ *  in `PipelineStepKind.All`'s scaladoc, and the frontend keeps its own kind lists too (e.g.
+ *  `features/pipelines/types/pipelineStep.ts`, `state/stepNarrowing.ts`,
+ *  `ui/StepOpEditor.tsx`). Re-derive the layers with
+ *  `git grep -l chunkbytokencount -- backend/src frontend/src helio-mcp/src`.
  *
  *  HEL-911 reflects on the field's TYPE (`SecondaryInput`), not a name-suffix convention --
  *  the pre-HEL-911 version keyed on `name.endsWith("DataSourceId")`, which is exactly the

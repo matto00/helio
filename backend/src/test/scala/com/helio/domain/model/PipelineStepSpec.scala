@@ -9,10 +9,11 @@ import spray.json.JsObject
 import java.time.Instant
 import com.helio.domain.steps.SecondaryInput
 
-/** ADT-shape tests for the CS2c-3a PipelineStep sealed trait. Per-step
- *  behavior is exercised by [[InProcessPipelineEngineSpec]]; this spec
- *  focuses on the shape itself: `kind` correctness, the sealed-trait /
- *  `PipelineStepKind.All` parity, and pattern-match exhaustiveness. */
+/** ADT-shape tests for the CS2c-3a PipelineStep trait (NOT sealed: the compiler does not check
+ *  matches over it). Per-step behavior is exercised by [[InProcessPipelineEngineSpec]]; this
+ *  spec focuses on the shape itself: `kind` correctness, the `allSubtypes` /
+ *  `PipelineStepKind.All` parity (the test that fails when a registered kind is missing from
+ *  `allSubtypes`), and a runtime kind mapping for each listed subtype. */
 class PipelineStepSpec extends AnyWordSpec with Matchers {
 
   private val id    = PipelineStepId("step-1")
@@ -125,9 +126,10 @@ class PipelineStepSpec extends AnyWordSpec with Matchers {
       kinds shouldBe PipelineStepKind.All
     }
 
-    "pattern-match coverage — sealed-trait dispatch is exhaustive" in {
-      // The body itself is the test — adding an 11th subtype without
-      // updating this match fails compilation (sealed-trait exhaustiveness).
+    "each subtype in allSubtypes maps to its kind through a runtime pattern match" in {
+      // `PipelineStep` is not sealed, so the compiler checks nothing here: a subtype added to
+      // `allSubtypes` without an arm below raises a MatchError at runtime. The parity guard for a
+      // new registered kind is the "every subtype's kind matches PipelineStepKind.All" test above.
       allSubtypes.foreach { s =>
         val tag: String = s match {
           case _: RenameStep    => PipelineStepKind.Rename

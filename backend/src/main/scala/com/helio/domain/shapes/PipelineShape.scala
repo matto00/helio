@@ -36,9 +36,16 @@ trait PipelineShape {
 
 object PipelineShape {
 
-  /** Registry of every shape kind, keyed by [[PipelineShape.id]]. Single source of truth for both
-   *  `shapeFor` lookup and the `GET /api/pipeline-shapes` catalog. Adding a new shape means adding
-   *  one line here (mirrors [[com.helio.domain.PipelineStep.Registry]]'s per-kind-line pattern). */
+  /** Registry of the backend's shape kinds, keyed by [[PipelineShape.id]]. It drives `shapeFor`
+   *  lookup and the `GET /api/pipeline-shapes` catalog (`PipelineShapeService`); it is NOT the only
+   *  place a shape id is written. Adding a shape means adding one line here (mirrors
+   *  [[com.helio.domain.PipelineStep.Registry]]'s per-kind-line pattern) and also touching the
+   *  other layers that hard-code shape ids: `PipelineShapeSpec` (a hand-listed id set and map),
+   *  `PipelineShapeRoutesSpec`, the frontend `ShapePickerModal` (`SHAPE_DISPLAY_ORDER`) and
+   *  `pipelineService.ts`, and the helio-mcp tool descriptions and `scripts/verify.ts`. Re-derive
+   *  that list with `git grep -n -l "pivot-matrix" -- ':!openspec'` (it also returns the shapes' own
+   *  per-shape specs and sources, and more places than the ones named here, so treat the named
+   *  layers as examples, not a complete list). */
   val Registry: Map[String, PipelineShape] = Map(
     PassthroughShape.id -> PassthroughShape,
     SingleRowShape.id   -> SingleRowShape,

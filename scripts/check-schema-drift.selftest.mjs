@@ -18,6 +18,7 @@ import {
 } from "./lib/agentFacingPanelTypes.mjs";
 import {
   PANEL_KIND_ENUM_EXEMPTIONS,
+  findPanelKindConstGroups,
   findPanelKindEnums,
   validatePanelKindEnumCoverage,
 } from "./lib/panelKindEnumCoverage.mjs";
@@ -220,6 +221,112 @@ check("a reasonless, a stale, and a checked-and-exempted exemption each fail", (
     exemptions: { [key]: "duplicate" },
   });
   assert(includesText(both, "both a checked surface and exempted"), both.join("; "));
+});
+
+// HEL-1467: panel kinds carried as per-branch `const` values under oneOf/anyOf/allOf, and
+// separator-independent coverage keys.
+const oneOfSchema = {
+  oneOf: ["output", "text", "markdown"].map((k) => ({ properties: { type: { const: k } } })),
+};
+
+check(
+  "findPanelKindConstGroups detects a oneOf per-branch const group as one wildcard path",
+  () => {
+    const found = findPanelKindConstGroups(oneOfSchema, canonical).map((p) => p.join("."));
+    assert(
+      JSON.stringify(found) === JSON.stringify(["oneOf.*.properties.type.const"]),
+      JSON.stringify(found),
+    );
+  },
+);
+
+check("findPanelKindConstGroups detects an allOf if/then const group (create-panel shape)", () => {
+  const schema = {
+    allOf: ["output", "text", "form"].map((k) => ({
+      if: { properties: { type: { const: k } } },
+      then: { required: ["x"] },
+    })),
+  };
+  const found = findPanelKindConstGroups(schema, canonical).map((p) => p.join("."));
+  assert(
+    JSON.stringify(found) === JSON.stringify(["allOf.*.if.properties.type.const"]),
+    JSON.stringify(found),
+  );
+});
+
+check("an unchecked, unexempted const group fails coverage, naming file and wildcard path", () => {
+  const detected = findPanelKindConstGroups(oneOfSchema, canonical).map((path) => ({
+    file: "panels/new.schema.json",
+    path,
+  }));
+  const errors = validatePanelKindEnumCoverage({ detected, covered: [], exemptions: {} });
+  assert(
+    errors.length === 1 &&
+      errors[0].includes("panels/new.schema.json#oneOf.*.properties.type.const"),
+    errors.join("; "),
+  );
+});
+
+check(
+  "the real panel.schema.json and create-panel-request.schema.json each yield a const group",
+  () => {
+    for (const [file, expected] of [
+      ["panels/panel.schema.json", "oneOf.*.properties.type.const"],
+      ["panels/create-panel-request.schema.json", "allOf.*.if.properties.type.const"],
+    ]) {
+      const schema = JSON.parse(readFileSync(join(repoRoot, "schemas", file), "utf8"));
+      const found = findPanelKindConstGroups(schema, canonical).map((p) => p.join("."));
+      assert(found.includes(expected), `${file}: ${JSON.stringify(found)}`);
+    }
+  },
+);
+
+check("consts outside a combinator, and a one-kind combinator const group, are ignored", () => {
+  const schema = {
+    properties: {
+      a: { const: "text" },
+      b: { const: "output" },
+      c: { properties: { type: { const: "markdown" } } },
+    },
+    oneOf: [
+      { properties: { type: { const: "text" } } },
+      { properties: { type: { const: "csv" } } },
+    ],
+  };
+  const found = findPanelKindConstGroups(schema, canonical);
+  assert(found.length === 0, JSON.stringify(found));
+});
+
+check("a nested combinator const group is reported once, by its innermost combinator", () => {
+  const schema = {
+    oneOf: [
+      {
+        anyOf: ["output", "text"].map((k) => ({ properties: { type: { const: k } } })),
+      },
+      { properties: { other: { const: "x" } } },
+    ],
+  };
+  const found = findPanelKindConstGroups(schema, canonical).map((p) => p.join("."));
+  assert(
+    JSON.stringify(found) === JSON.stringify(["oneOf.0.anyOf.*.properties.type.const"]),
+    JSON.stringify(found),
+  );
+});
+
+check("a Windows-style key (panels\\x.json) matches the same surface written panels/x.json", () => {
+  const path = ["properties", "type", "enum"];
+  const errors = validatePanelKindEnumCoverage({
+    detected: [{ file: "panels\\x.schema.json", path }],
+    covered: [{ file: "panels/x.schema.json", path }],
+    exemptions: {},
+  });
+  assert(errors.length === 0, errors.join("; "));
+  const exempted = validatePanelKindEnumCoverage({
+    detected: [{ file: "panels\\y.schema.json", path }],
+    covered: [],
+    exemptions: { "panels/y.schema.json#properties.type.enum": "a stated reason for this" },
+  });
+  assert(exempted.length === 0, exempted.join("; "));
 });
 
 check("the real exemption table gives every entry a reason", () => {

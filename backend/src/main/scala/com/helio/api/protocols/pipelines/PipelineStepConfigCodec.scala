@@ -43,11 +43,14 @@ object PipelineStepConfigCodec {
       case Left(msg) => throw new IllegalStateException(msg)
     }
 
-  /** Encode an already-decoded typed config back to JSON text. The explicit
-   *  type match keeps the encode path exhaustive at the compiler boundary —
-   *  adding an 11th config class without an arm here is a compile error
-   *  (sealed-trait dispatch only over `PipelineStep` itself, so the config
-   *  types stay loose; the match is intentional). */
+  /** Encode an already-decoded typed config back to JSON text. The match is on `Any` (the
+   *  `*Config` case classes share no sealed parent), so the compiler does NOT check it: a config
+   *  class with no arm here falls through to the `case other` arm and throws
+   *  `IllegalArgumentException` at runtime. Today the test that catches that is
+   *  `DraftRoundTripWriteSafetySpec`, which runs every `PipelineStep.Registry` kind's draft
+   *  through this method; `PipelineStepConfigCodecSpec`'s round-trip case lists its kinds by
+   *  hand. Re-derive the callers with
+   *  `git grep -n "PipelineStepConfigCodec.encodeConfig" -- backend/src`. */
   def encodeConfig(config: Any): String = config match {
     case c: RenameConfig    => PipelineStep.Registry(PipelineStepKind.Rename).encodeConfig(c)
     case c: FilterConfig    => PipelineStep.Registry(PipelineStepKind.Filter).encodeConfig(c)
@@ -72,14 +75,7 @@ object PipelineStepConfigCodec {
     case c: UnionConfig      => PipelineStep.Registry(PipelineStepKind.Union).encodeConfig(c)
     case c: LookupConfig     => PipelineStep.Registry(PipelineStepKind.Lookup).encodeConfig(c)
     case c: AssertConfig     => PipelineStep.Registry(PipelineStepKind.Assert).encodeConfig(c)
-    // HEL-1101 task 3.4: `upsertsource` is deliberately NOT in `PipelineStep.Registry` yet
-    // (HEL-1100's job — see `UpsertSourceConfig`'s own top-of-file scaladoc), so it has no
-    // `Companion.encodeConfig` to dispatch to above. This case does NOT register the step or
-    // change `PipelineStepKind.All` (the live HTTP allow-list `addStep`/`create` actually
-    // check) — it only lets a caller that ALREADY holds a typed `UpsertSourceConfig` (this
-    // ticket's own repository-seam tests, and HEL-1100 once it registers the kind) serialize it
-    // via this shared facade, using the type's own `format` exactly like every other config.
-    case c: UpsertSourceConfig => c.toJson.compactPrint
+    case c: UpsertSourceConfig => PipelineStep.Registry(PipelineStepKind.UpsertSource).encodeConfig(c)
     case c: ConvertFormatConfig => PipelineStep.Registry(PipelineStepKind.ConvertFormat).encodeConfig(c)
     case c: AnalyzeWithAiConfig => PipelineStep.Registry(PipelineStepKind.AnalyzeWithAi).encodeConfig(c)
     case c: GenerateTextConfig  => PipelineStep.Registry(PipelineStepKind.GenerateText).encodeConfig(c)
@@ -102,7 +98,9 @@ object PipelineStepConfigCodec {
    *  value (`defaultConfigFor`), an incomplete draft rather than a reference to an
    *  inaccessible resource. HEL-386/HEL-620/HEL-950.
    *
-   *  Takes `Any` because `decode` above returns `Try[Any]`: the 23 `*Config` case classes
+   *  Takes `Any` because `decode` above returns `Try[Any]`: the `*Config` case classes
+   *  (one per registered step kind; count the kinds with
+   *  `sed -n '/val Registry/,/^  )/p' backend/src/main/scala/com/helio/domain/model/PipelineStep.scala | grep -c -- '->'`)
    *  share no sealed parent (`PipelineStepConfig` is a frontend TypeScript type, not a
    *  Scala one). `PipelineStep.Registry`-driven structural guard tests (see
    *  `PipelineStepSecondSourceGuardSpec`) substitute for the compile-time exhaustiveness
