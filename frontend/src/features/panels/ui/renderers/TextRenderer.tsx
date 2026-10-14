@@ -1,15 +1,10 @@
-import type { MappedPanelData } from "../../types/panel";
 interface TextRendererProps {
-  /** Bound text data, if the panel was fetched against a DataType. */
-  data?: MappedPanelData | null;
-  /** Config-side content for unbound text panels (CS2c-3c). */
+  /** The panel's literal `config.content`; a text panel has no data binding. */
   content?: string | null;
 }
 
-export function TextRenderer({ data, content }: TextRendererProps) {
-  // Bound data path takes priority for backwards-compatibility; otherwise fall
-  // back to the typed-config `content` field.
-  const live = data?.content ?? content ?? null;
+export function TextRenderer({ content }: TextRendererProps) {
+  const live = content ?? null;
   if (live && live.length > 0) {
     return (
       <div className="panel-content panel-content--text">

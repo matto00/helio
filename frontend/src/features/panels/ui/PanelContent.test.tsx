@@ -346,32 +346,12 @@ describe("PanelContent — live table data", () => {
 // asserting trend rendering via a directly-passed `data` prop tested a path
 // no output-kind panel can reach any more; deleted rather than rewritten.
 
-describe("PanelContent — live text data", () => {
-  it("renders .panel-content__text-live element when text panel has live content", () => {
-    const { container } = render(
-      <PanelContent
-        crossFilterMode="none"
-        panel={makeTextPanel()}
-        data={{ content: "Hello world" }}
-      />,
-    );
-    expect(container.querySelector(".panel-content__text-live")).toBeInTheDocument();
-  });
-
-  it("text-live element displays the bound content", () => {
-    const { container } = render(
-      <PanelContent
-        crossFilterMode="none"
-        panel={makeTextPanel()}
-        data={{ content: "Sample text" }}
-      />,
-    );
-    const liveEl = container.querySelector(".panel-content__text-live");
-    expect(liveEl).toBeInTheDocument();
-    expect(liveEl).toHaveTextContent("Sample text");
-  });
-
-  it("renders literal config.content unchanged for a Text panel (no data prop)", () => {
+// HEL-1466 — a text panel has no data binding: it renders only its own literal `config.content`.
+// The former bound `data.content` path was dead (`usePanelData` always returns `data: null`) and
+// removed; the tests asserting it ("displays the bound content", "bound data.content takes
+// precedence") were deleted rather than rewritten.
+describe("PanelContent — text panel literal content", () => {
+  it("renders literal config.content for a Text panel (no data prop)", () => {
     const { container } = render(
       <PanelContent
         crossFilterMode="none"
@@ -383,16 +363,18 @@ describe("PanelContent — live text data", () => {
     expect(liveEl).toHaveTextContent("Static fallback text");
   });
 
-  it("bound data.content takes precedence over literal config.content when both are present", () => {
+  it("renders only config.content, never a non-null data.content, for a Text panel", () => {
     const { container } = render(
       <PanelContent
         crossFilterMode="none"
-        panel={makeTextPanel({ config: { content: "Stale literal" } })}
-        data={{ content: "Fresh bound value" }}
+        panel={makeTextPanel({ config: { content: "LITERAL" } })}
+        data={{ content: "BOUND" }}
       />,
     );
     const liveEl = container.querySelector(".panel-content__text-live");
-    expect(liveEl).toHaveTextContent("Fresh bound value");
+    expect(liveEl).toHaveTextContent("LITERAL");
+    expect(screen.queryByText("BOUND")).not.toBeInTheDocument();
+    expect(container).not.toHaveTextContent("BOUND");
   });
 });
 
