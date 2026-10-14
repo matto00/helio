@@ -67,7 +67,7 @@ describe("CommandBar — HEL-746 mobile 'New chat' affordance", () => {
   });
 
   it("does not render the New chat control on a non-chat route (e.g. the dashboard)", () => {
-    renderCommandBar("/");
+    renderCommandBar("/home");
     expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
   });
 
@@ -133,14 +133,14 @@ describe("CommandBar — HEL-1230 undo/redo buttons", () => {
   }
 
   it("disables both buttons with empty history", () => {
-    renderCommandBar("/", seededStore(false));
+    renderCommandBar("/home", seededStore(false));
     expect(screen.getByRole("button", { name: "Undo layout change" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Redo layout change" })).toBeDisabled();
   });
 
   it("button undo/redo end in the same state as the keyboard shortcut path", () => {
     const viaButtons = seededStore(true);
-    renderCommandBar("/", viaButtons);
+    renderCommandBar("/home", viaButtons);
     fireEvent.click(screen.getByRole("button", { name: "Undo layout change" }));
     expect(viaButtons.getState().dashboards.items[0].layout).toEqual(layoutA);
     const afterUndo = viaButtons.getState().layoutHistory;
@@ -150,7 +150,7 @@ describe("CommandBar — HEL-1230 undo/redo buttons", () => {
     cleanup();
 
     const viaKeys = seededStore(true);
-    renderCommandBar("/", viaKeys);
+    renderCommandBar("/home", viaKeys);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     expect(viaKeys.getState().layoutHistory).toEqual(afterUndo);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });

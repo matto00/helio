@@ -146,7 +146,7 @@ test.describe("HEL-1096 run-to-update affordance (real backend)", () => {
     expect(firstRunRes.status()).toBe(200);
     await expect.poll(async () => outputRowCount(request, output.id), { timeout: 20_000 }).toBe(1);
 
-    await page.goto("/");
+    await page.goto("/home");
     const form = page.getByRole("form", { name: "HEL-1096 e2e Form" });
     await expect(form).toBeVisible();
 
@@ -201,7 +201,7 @@ test.describe("HEL-1096 run-to-update affordance (real backend)", () => {
       });
     });
 
-    await page.goto("/");
+    await page.goto("/home");
     const form = page.getByRole("form", { name: "HEL-1096 e2e Form" });
     await expect(form).toBeVisible();
 

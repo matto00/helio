@@ -47,7 +47,7 @@ function renderVerifyPage(authState?: Partial<AuthState>) {
         <Routes>
           <Route path="/login/verify" element={<MfaVerifyPage />} />
           <Route path="/login" element={<div data-testid="login-page" />} />
-          <Route path="/" element={<div data-testid="home-page" />} />
+          <Route path="/home" element={<div data-testid="home-page" />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -66,7 +66,7 @@ describe("MfaVerifyPage", () => {
     expect(screen.getByTestId("login-page")).toBeInTheDocument();
   });
 
-  it("navigates to / on a valid code", async () => {
+  it("navigates to /home on a valid code", async () => {
     mockedAuthService.mfaVerifyRequest.mockResolvedValue({
       expiresAt: "2026-12-31T00:00:00Z",
       user: testUser,

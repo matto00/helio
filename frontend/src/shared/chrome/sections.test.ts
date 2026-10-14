@@ -22,7 +22,7 @@ describe("sections registry", () => {
     pickerId: string;
     showInNav: boolean;
   }> = [
-    { path: "/", label: "Dashboards", pickerId: "dashboards", showInNav: true },
+    { path: "/home", label: "Dashboards", pickerId: "dashboards", showInNav: true },
     { path: "/dashboards/", label: "Dashboards", pickerId: "dashboards", showInNav: false },
     { path: "/sources", label: "Data Sources", pickerId: "sources", showInNav: true },
     { path: "/pipelines", label: "Data Pipelines", pickerId: "pipelines", showInNav: true },
@@ -105,8 +105,8 @@ describe("sections registry", () => {
     }
   });
 
-  it("/ matches only the exact root path, not every other route (end: true)", () => {
-    expect(pickerIdForPathname("/")).toBe("dashboards");
+  it("/home matches only the exact home path, not every other route (end: true)", () => {
+    expect(pickerIdForPathname("/home")).toBe("dashboards");
     for (const path of ["/sources", "/pipelines", "/chat", "/settings"]) {
       expect(pickerIdForPathname(path)).not.toBe("dashboards");
     }
@@ -131,8 +131,8 @@ describe("/dashboards/:id landing route", () => {
     expect(sectionLabel("/dashboards/abc-123")).toBe("Dashboards");
   });
 
-  it("counts as a dashboard view, alongside '/' and nothing else", () => {
-    expect(isDashboardViewPath("/")).toBe(true);
+  it("counts as a dashboard view, alongside '/home' and nothing else", () => {
+    expect(isDashboardViewPath("/home")).toBe(true);
     expect(isDashboardViewPath("/dashboards/abc-123")).toBe(true);
     expect(isDashboardViewPath("/sources")).toBe(false);
     expect(isDashboardViewPath("/dashboard")).toBe(false);

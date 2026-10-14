@@ -123,7 +123,7 @@ export function UserMenu({ currentUser, onNavigateToSettings, onLogout }: UserMe
   function handleGettingStarted() {
     close();
     dispatch(reopenOnboarding());
-    navigate("/");
+    navigate("/home");
   }
 
   function handleToggle() {

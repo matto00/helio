@@ -63,7 +63,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     expect(body).not.toHaveProperty("token");
     expect(JSON.stringify(body)).not.toContain('"token"');
 
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     const cookie = await sessionCookie(context);
     expect(cookie, "helio_session cookie should be set").toBeDefined();
@@ -106,7 +106,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).not.toHaveProperty("token");
 
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     const cookie = await sessionCookie(context);
     expect(cookie).toBeDefined();
@@ -153,7 +153,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     });
 
     await page.goto("/auth/callback?code=fake-code&state=fake-state");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     const cookie = await sessionCookie(context);
     expect(cookie?.value).toBe("e2e-oauth-fake-session-token");
@@ -178,7 +178,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     // page.request shares the browser context's cookie jar; no Authorization
     // header is attached — this is exactly what httpClient.ts does now.
@@ -202,8 +202,8 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    await page.waitForURL("/home");
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
 
     const withoutHeader = await page.request.post("/api/dashboards", {
@@ -239,7 +239,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     expect(await sessionCookie(context)).toBeDefined();
 
@@ -270,7 +270,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     // Mint a PAT the same way a real user would from the UI's token
     // management flow: an authenticated (cookie + CSRF) POST /api/tokens.
@@ -319,7 +319,7 @@ test.describe("HEL-287 httpOnly-cookie session migration", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     expect(await sessionStorageValues(page)).toHaveLength(0);
 

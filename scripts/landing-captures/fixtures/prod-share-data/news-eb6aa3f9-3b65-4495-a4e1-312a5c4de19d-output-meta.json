@@ -1,0 +1,11 @@
+{
+  "config": {
+    "chartOptions": { "pie": { "donutHolePct": 45, "showPercentLabels": true } },
+    "fieldMapping": { "xAxis": "domain", "yAxis": "stories" }
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "domain", "type": "string" },
+    { "name": "stories", "type": "integer" }
+  ]
+}

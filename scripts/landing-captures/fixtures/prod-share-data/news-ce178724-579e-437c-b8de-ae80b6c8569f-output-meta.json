@@ -1,0 +1,14 @@
+{
+  "config": {
+    "aggregation": null,
+    "chartType": "heatmap",
+    "fieldMapping": { "series": "domain", "xAxis": "date", "yAxis": "stories" }
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "date", "type": "timestamp" },
+    { "name": "domain", "type": "string" },
+    { "name": "sentiment", "type": "string" },
+    { "name": "stories", "type": "integer" }
+  ]
+}

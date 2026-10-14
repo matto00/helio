@@ -1,0 +1,15 @@
+{
+  "config": {
+    "chartOptions": { "line": { "showPoints": false, "smooth": true } },
+    "chartType": "line",
+    "fieldMapping": { "xAxis": "date", "yAxis": "completed_7d" }
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "completed", "type": "integer" },
+    { "name": "completed_7d", "type": "integer" },
+    { "name": "date", "type": "timestamp" },
+    { "name": "open_bugs", "type": "integer" },
+    { "name": "open_tickets", "type": "integer" }
+  ]
+}

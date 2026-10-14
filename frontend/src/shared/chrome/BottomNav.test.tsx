@@ -29,7 +29,7 @@ function renderAt(pathname: string, tier?: User["tier"]) {
 
 describe("BottomNav", () => {
   it("renders exactly the navDestinations as icon-only tabs, in order, each exposing its full label as its accessible name (HEL-774)", () => {
-    renderAt("/");
+    renderAt("/home");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
@@ -45,7 +45,7 @@ describe("BottomNav", () => {
   });
 
   it("marks the Dashboards tab active on the root route and no other tab active", () => {
-    renderAt("/");
+    renderAt("/home");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).getByRole("link", { name: "Dashboards" })).toHaveClass(
@@ -81,19 +81,19 @@ describe("BottomNav", () => {
 
   // HEL-1211: the owner-only Usage entry is rendered for owners and for nobody else.
   it.each(["free", "beta"] as const)("has no Usage tab for a %s-tier user", (tier) => {
-    renderAt("/", tier);
+    renderAt("/home", tier);
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
   });
 
   it("has no Usage tab when signed out", () => {
-    renderAt("/");
+    renderAt("/home");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
   });
 
   it("appends a Usage tab linking to /admin/usage for an owner", () => {
-    renderAt("/", "owner");
+    renderAt("/home", "owner");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([

@@ -99,7 +99,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "retype-reject" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
       request,
@@ -131,7 +131,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "drop-confirm" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
       request,
@@ -188,7 +188,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "block-required" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
       request,
@@ -230,7 +230,7 @@ test.describe("HEL-1079 dataset management UI — real backend", () => {
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "combined-retype-drop-reject" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const source = await createDatasetSourceViaApi(
       request,

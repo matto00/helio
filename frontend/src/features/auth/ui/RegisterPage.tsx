@@ -74,7 +74,7 @@ export function RegisterPage() {
     );
 
     if (register.fulfilled.match(result)) {
-      void navigate(from ? pathFromLocation(from) : "/");
+      void navigate(from ? pathFromLocation(from) : "/home");
     } else {
       const payload = result.payload as string | undefined;
       setError(payload ? formatAuthError(payload) : "Registration failed.");

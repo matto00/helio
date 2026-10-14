@@ -1,0 +1,32 @@
+{
+  "config": {
+    "columnOrder": ["title", "ageDays"],
+    "conditionalFormats": [
+      {
+        "column": "ageDays",
+        "label": "over 90 days",
+        "op": "gt",
+        "target": "row",
+        "tone": "error",
+        "value": 90
+      },
+      {
+        "column": "ageDays",
+        "label": "over 30 days",
+        "op": "gt",
+        "target": "row",
+        "tone": "warning",
+        "value": 30
+      }
+    ]
+  },
+  "kind": "table",
+  "schema": [
+    { "name": "ageDays", "type": "string" },
+    { "name": "createdAt", "type": "timestamp" },
+    { "name": "id", "type": "string" },
+    { "name": "isBug", "type": "string" },
+    { "name": "priority", "type": "string" },
+    { "name": "title", "type": "string" }
+  ]
+}

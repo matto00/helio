@@ -1,0 +1,11 @@
+OLD BUILD: / -> http://localhost:6997/login {"root":true,"landing":false}
+OLD BUILD reload under old SW: http://localhost:6997/login controlled: true
+old manifest start_url: /
+NEW BUILD now served on the same origin; old SW still installed
+attempt 1: / -> http://localhost:6997/ {"root":false,"landing":true} h1: Give me a dashboard for
+              my
+/?ref=x -> http://localhost:6997/?ref=x {"root":false,"landing":true} h1: Give me a dashboard for
+              my
+/home -> http://localhost:6997/home {"root":true,"landing":false}
+/dashboards/abc -> http://localhost:6997/dashboards/abc {"root":true,"landing":false}
+new manifest start_url: /home

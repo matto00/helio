@@ -1,0 +1,13 @@
+{
+  "config": {
+    "chartOptions": { "bar": { "stacking": "stacked" } },
+    "chartType": "bar",
+    "fieldMapping": { "series": "sentiment", "xAxis": "date", "yAxis": "stories" }
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "date", "type": "timestamp" },
+    { "name": "sentiment", "type": "string" },
+    { "name": "stories", "type": "integer" }
+  ]
+}

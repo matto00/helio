@@ -37,7 +37,7 @@ test.describe("HEL-665 message composer live verification", () => {
     await page.fill("#email", email);
     await page.fill("#password", password);
     await page.click("button[type=submit]");
-    await page.waitForURL("/");
+    await page.waitForURL("/home");
 
     await page.goto("/chat");
     // Both the sidebar's own empty conversation list AND ActiveConversationPanel's empty state

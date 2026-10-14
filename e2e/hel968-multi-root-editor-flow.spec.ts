@@ -155,7 +155,7 @@ test.describe("HEL-968 multi-root editor (live UI proof)", () => {
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashRes.status()).toBe(201);
-    await page.goto("/");
+    await page.goto("/home");
     await expect(page.getByRole("heading", { name: /HEL-968 Multi-Root Dashboard/ })).toBeVisible();
     await page.getByRole("button", { name: "Add panel" }).click();
     const picker = page.getByRole("dialog", { name: "Add panel" });
@@ -179,7 +179,7 @@ test.describe("HEL-968 mobile touch targets (task 10.2)", () => {
     }) => {
       await page.setViewportSize({ width, height: 800 });
       await registerAndLogin(page, request, { ...AUTH, label: `touch-target-${width}` });
-      // HEL-1300: seeding below must not race the live post-login `/`.
+      // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
 
       const sourceRes = await request.post("/api/data-sources", {

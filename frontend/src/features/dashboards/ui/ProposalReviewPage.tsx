@@ -134,7 +134,7 @@ export function ProposalReviewPage() {
           // above already completed (design.md's own stated trade-off).
         });
       }
-      navigate("/");
+      navigate("/home");
     } catch (err) {
       setApplyError(typeof err === "string" ? err : "Failed to apply the proposal.");
       setApplying(false);
@@ -150,7 +150,7 @@ export function ProposalReviewPage() {
         // See handleAccept's identical rationale — telemetry loss is acceptable.
       });
     }
-    navigate("/");
+    navigate("/home");
   };
 
   // F-002: no proposal handed off via navigation state, and not a DEV build
@@ -163,7 +163,7 @@ export function ProposalReviewPage() {
           icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a dashboard proposal handed off from another flow. Start from the dashboards list instead."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
         />
       </PageShell>
     );
@@ -190,7 +190,7 @@ export function ProposalReviewPage() {
           message={description}
           onRetry={kind === "error" ? handleRetryLoad : undefined}
           retrying={retrying}
-          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
         />
       </PageShell>
     );
@@ -211,7 +211,7 @@ export function ProposalReviewPage() {
           icon={<Columns3 />}
           title={EMPTY_WORKSPACE_COPY.title}
           description={EMPTY_WORKSPACE_COPY.description}
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
         />
       </PageShell>
     );

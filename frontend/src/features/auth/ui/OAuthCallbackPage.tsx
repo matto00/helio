@@ -40,7 +40,7 @@ export function OAuthCallbackPage() {
           }
           // F-081: restore the deep link stashed by Login/RegisterPage
           // before the redirect to Google, if there was one.
-          void navigate(consumeReturnTo() ?? "/", { replace: true });
+          void navigate(consumeReturnTo() ?? "/home", { replace: true });
         } else {
           consumeReturnTo();
           void navigate("/login?error=oauth_failed", { replace: true });

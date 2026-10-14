@@ -87,14 +87,14 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 1: mobile nav sheet / command bar", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, { ...AUTH, label: `nav-${width}` });
-        // HEL-1300: seeding below must not race the live post-login `/`.
+        // HEL-1300: seeding below must not race the live post-login `/home`.
         await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
           data: { name: "HEL-813 Nav" },
           headers: { [CSRF_HEADER]: "1" },
         });
         expect(dashboardRes.status()).toBe(201);
-        await page.goto("/");
+        await page.goto("/home");
 
         // ::after-expander bisection — command bar "Open assistant" icon
         // button and the user-menu avatar trigger (DESIGN.md Control-
@@ -233,7 +233,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 5: ui-select trigger + option list", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, { ...AUTH, label: `uiselect-${width}` });
-        // HEL-1300: seeding below must not race the live post-login `/`.
+        // HEL-1300: seeding below must not race the live post-login `/home`.
         await isolateLivePage(page);
         const sourceRes = await page.request.post("/api/data-sources", {
           data: {
@@ -268,14 +268,14 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       test("surface 6: panel-list zoom + dashboard-actions controls", async ({ page, request }) => {
         await page.setViewportSize({ width, height: 900 });
         await registerAndLogin(page, request, { ...AUTH, label: `panellist-${width}` });
-        // HEL-1300: seeding below must not race the live post-login `/`.
+        // HEL-1300: seeding below must not race the live post-login `/home`.
         await isolateLivePage(page);
         const dashboardRes = await page.request.post("/api/dashboards", {
           data: { name: "HEL-813 PanelList" },
           headers: { [CSRF_HEADER]: "1" },
         });
         expect(dashboardRes.status()).toBe(201);
-        await page.goto("/");
+        await page.goto("/home");
         await expect(page.getByRole("heading", { name: /HEL-813 PanelList/ })).toBeVisible();
 
         if (width === 430) {

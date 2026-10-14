@@ -66,8 +66,8 @@ export function useResourceNavigator(): (ref: ResourceRef) => void {
     switch (ref.kind) {
       case "dashboard":
         dispatch(setSelectedDashboardId(ref.id));
-        if (location.pathname !== "/") {
-          navigate("/");
+        if (location.pathname !== "/home") {
+          navigate("/home");
         }
         return;
       case "source":

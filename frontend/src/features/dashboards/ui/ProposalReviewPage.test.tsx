@@ -72,7 +72,7 @@ function renderPage(routeState?: { proposal: DashboardProposal; authoringRequest
       <MemoryRouter initialEntries={[{ pathname: "/proposals/review", state: routeState ?? null }]}>
         <Routes>
           <Route path="/proposals/review" element={<ProposalReviewPage />} />
-          <Route path="/" element={<HomeProbe />} />
+          <Route path="/home" element={<HomeProbe />} />
         </Routes>
       </MemoryRouter>
     </Provider>,

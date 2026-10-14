@@ -1,0 +1,47 @@
+{
+  "items": [
+    {
+      "ageDays": "175.5",
+      "createdAt": "2026-04-21T02:25:29.638Z",
+      "id": "HEL-117",
+      "isBug": "false",
+      "priority": "3",
+      "title": "Create Cloud Monitoring dashboard for backend + DB"
+    },
+    {
+      "ageDays": "175.5",
+      "createdAt": "2026-04-21T02:18:57.656Z",
+      "id": "HEL-80",
+      "isBug": "false",
+      "priority": "3",
+      "title": "Epic - Observability: logging, monitoring, alerts"
+    },
+    {
+      "ageDays": "158.47",
+      "createdAt": "2026-05-08T03:12:26.952Z",
+      "id": "HEL-232",
+      "isBug": "false",
+      "priority": "3",
+      "title": "Pipeline results: persist snapshots to Apache Iceberg tables"
+    },
+    {
+      "ageDays": "154.37",
+      "createdAt": "2026-05-12T05:35:27.017Z",
+      "id": "HEL-238",
+      "isBug": "false",
+      "priority": "2",
+      "title": "Pipeline execution backend — Dataproc Serverless + tiered engine"
+    },
+    {
+      "ageDays": "154.28",
+      "createdAt": "2026-05-12T07:45:03.698Z",
+      "id": "HEL-250",
+      "isBug": "false",
+      "priority": "0",
+      "title": "Roadmap — Canvas panel sub-type (creative tools)"
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 5
+}

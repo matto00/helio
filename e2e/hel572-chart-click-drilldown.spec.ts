@@ -186,7 +186,7 @@ test.describe("HEL-572 chart click drilldown (real backend, real browser)", () =
     const title = "Keyboard Inspect Panel";
     await registerAndLogin(page, request, { ...AUTH, label: "keyboard" });
     await seedChartPanel(page, request, title);
-    await page.goto("/");
+    await page.goto("/home");
 
     const card = page
       .locator(".panel-grid-card")
@@ -228,7 +228,7 @@ test.describe("HEL-572 chart click drilldown (real backend, real browser)", () =
     const title = "Fullscreen Stacking Panel";
     await registerAndLogin(page, request, { ...AUTH, label: "stacking" });
     await seedChartPanel(page, request, title);
-    await page.goto("/");
+    await page.goto("/home");
 
     const card = page
       .locator(".panel-grid-card")
@@ -272,7 +272,7 @@ test.describe("HEL-572 chart click drilldown (real backend, real browser)", () =
     const title = "No Appearance Panel";
     await registerAndLogin(page, request, { ...AUTH, label: "noappearance" });
     await seedChartPanel(page, request, title, /* setPieAppearance */ false);
-    await page.goto("/");
+    await page.goto("/home");
 
     const card = page
       .locator(".panel-grid-card")

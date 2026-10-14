@@ -1,35 +1,66 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Helio Dashboard</title>
+    <title>Helio: give me a dashboard for…</title>
+    <meta
+      name="description"
+      content="Helio holds the data from every project you run, keeps it private and current, and turns it into dashboards when you or your agent ask. Free with your own agent."
+    />
+    <link rel="canonical" href="https://helioapp.dev/" />
     <link rel="icon" type="image/svg+xml" href="/orbit-mark.svg" />
-
-    <!-- PWA / iOS installability (HEL-300, notes/mobile-pwa-handoff.md W1).
-         Colours are literal copies of theme.css's --app-bg; see vite.config.ts
-         for the manifest-side note on why they can't reference the token. -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f2ed" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0e0d" />
 
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Helio" />
+    <meta property="og:title" content="Helio: give me a dashboard for…" />
+    <meta
+      property="og:description"
+      content="Helio holds the data from every project you run and turns it into dashboards when you or your agent ask."
+    />
+    <meta property="og:url" content="https://helioapp.dev/" />
+    <meta property="og:image" content="https://helioapp.dev/landing/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The Launch week dashboard in Helio: signups, daily signups, API latency and errors by route."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Helio: give me a dashboard for…" />
+    <meta
+      name="twitter:description"
+      content="Helio holds the data from every project you run and turns it into dashboards when you or your agent ask."
+    />
+    <meta name="twitter:image" content="https://helioapp.dev/landing/og.jpg" />
+
+    <!-- Runs before first paint. The keys are the app's own (`helio.signedIn` from
+         features/auth/state/signedInHint.ts, `helio-theme` from theme/theme.ts); a test pins both.
+         A returning user goes straight to the app; the theme follows the stored Helio theme, else the
+         system scheme, else the static light default above. -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("helio.signedIn") === "1") {
+            location.replace("/home");
+            return;
+          }
+          var stored = localStorage.getItem("helio-theme");
+          var dark = stored
+            ? stored === "dark"
+            : matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+        } catch (e) {}
+      })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Loaded non-blocking: `media="print"` keeps this stylesheet out of the
-         critical rendering path, and the onload handler promotes it to `all`
-         once it arrives. A plain `rel="stylesheet"` here is render-blocking, so
-         an unreachable fonts.googleapis.com/fonts.gstatic.com stalls the whole
-         app -- prod AND the local dev server -- until the TCP timeout rather
-         than degrading to the fallback stack in theme.css. Text paints
-         immediately in the fallback face and swaps when (or if) the webfonts
-         land; `display=swap` is what makes that swap flicker-free.
-         The <noscript> copy preserves the blocking load for no-JS agents,
-         which is the standard pairing for this pattern. -->
+    <!-- Non-blocking, as in app.html: an unreachable font host must not stall first paint. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
       rel="stylesheet"
       media="print"
       onload="
@@ -39,13 +70,353 @@
     />
     <noscript>
       <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap"
         rel="stylesheet"
       />
     </noscript>
+    <script type="module" src="/src/landing/landing.ts"></script>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body class="landing">
+    <header class="nav">
+      <div class="nav-in">
+        <a class="brand" href="#top">
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="5.5" stroke-width="1.25" opacity=".9" />
+            <path d="M 7 1.5 A 5.5 5.5 0 0 1 12.5 7" stroke-width="1.75" stroke-linecap="round" />
+            <circle cx="7" cy="7" r="1.5" />
+          </svg>
+          Helio
+        </a>
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#center">How it works</a>
+          <a href="#plans">Pricing</a>
+          <a href="/login">Sign in</a>
+        </nav>
+        <a class="btn btn-primary btn-sm tap-expand-44" href="/register">Start free</a>
+      </div>
+    </header>
+
+    <main class="wrap" id="top">
+      <section class="reel" id="reel" aria-label="Example dashboards">
+        <div class="reel-pin">
+          <div class="reel-row">
+            <h1 class="tag">
+              <span class="fixed">Give me a dashboard for</span>
+              <span class="ends" id="ends" aria-live="polite"
+                ><span>my app's launch week.</span><span>my side project's revenue.</span
+                ><span>my open-source repo.</span><span>my fantasy league.</span
+                ><span>my morning news.</span><span>building Helio itself.</span></span
+              >
+            </h1>
+            <div class="reel-side">
+              <div class="cases" id="cases" role="group" aria-label="Choose an example"></div>
+              <div class="cta-block">
+                <div class="ctas">
+                  <a class="btn btn-primary" href="/register">Start free</a>
+                  <button class="btn" type="button" data-beta>Request beta access</button>
+                </div>
+                <p class="beta-status" data-beta-status role="status" aria-live="polite"></p>
+              </div>
+            </div>
+          </div>
+          <div class="stage" id="stage">
+            <div class="progress" id="progress" aria-hidden="true"></div>
+            <div class="frame" id="frame">
+              <div
+                class="shot"
+                role="img"
+                aria-label="The Launch week dashboard: signups, daily signups, API p95 latency and errors by route."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-launch-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-launch-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                />
+              </div>
+              <div
+                class="shot"
+                role="img"
+                aria-label="The Revenue dashboard: revenue for the last 30 days, daily revenue, active subscribers by week and MRR by plan."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-revenue-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-revenue-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+              </div>
+              <div
+                class="shot"
+                role="img"
+                aria-label="The Open source dashboard: new stars for the last 30 days, stars per day, open issues by label and PRs merged per week."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-oss-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-oss-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+              </div>
+              <div
+                class="shot"
+                role="img"
+                aria-label="The Fantasy league dashboard: points this season, weekly score, points for by team and waiver adds by team."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-fantasy-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-fantasy-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+              </div>
+              <div
+                class="shot"
+                role="img"
+                aria-label="The News Overview dashboard: a top story with a blurred photo and a two-paragraph summary, the mood of the news by day, and the day's stories by topic."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-news-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-news-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+              </div>
+              <div
+                class="shot"
+                role="img"
+                aria-label="The Building Helio dashboard: average cycle time of 5h 28m, 7-day rolling throughput, the oldest open tickets flagged in red, and weekly velocity against a 90-day average."
+              >
+                <img
+                  class="img-l"
+                  src="/src/landing/shots/uc-helio-light.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+                <img
+                  class="img-d"
+                  src="/src/landing/shots/uc-helio-dark.jpg"
+                  width="2880"
+                  height="1440"
+                  alt=""
+                  loading="lazy"
+                />
+              </div>
+            </div>
+            <div class="under">
+              <span>Click a panel to see what you could ask next.</span>
+              <span class="caption" id="reel-note">Screenshots of Helio with example data.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="center" id="center">
+        <h2>The center of your workflow.</h2>
+        <p>
+          Helio holds the data from every project you run, keeps it private and current, and turns
+          it into dashboards when you or your agent ask. Here's one being built, one call at a time.
+        </p>
+      </section>
+
+      <section class="build" id="build" aria-label="How the Launch week dashboard was built">
+        <div class="build-pin">
+          <ol class="steps">
+            <li class="step" data-panels="0,1,2,3">
+              <p class="ask">“Give me a dashboard for signups, API latency and errors.”</p>
+              <p class="more">
+                One request to your agent. The steps below are the tool calls it makes through
+                Helio.
+              </p>
+            </li>
+            <li class="step" data-panels="0,1">
+              <div class="call"><span>create_pipeline</span><span class="arg">Signups</span></div>
+              <h3>Read the signups, define two outputs</h3>
+              <p class="more">
+                A pipeline over the daily signups table, with a 30-day total and a daily bar chart.
+              </p>
+            </li>
+            <li class="step" data-panels="2">
+              <div class="call">
+                <span>create_pipeline</span><span class="arg">API latency</span>
+              </div>
+              <h3>Chart the p95 latency</h3>
+              <p class="more">Hourly p95 latency over the last day, as a line chart.</p>
+            </li>
+            <li class="step" data-panels="3">
+              <div class="call"><span>create_pipeline</span><span class="arg">Errors</span></div>
+              <h3>Count errors by route</h3>
+              <p class="more">
+                5xx errors grouped by route, so the worst endpoint is the tallest bar.
+              </p>
+            </li>
+            <li class="step" data-panels="0,1,2,3">
+              <div class="call">
+                <span>set_pipeline_schedule</span><span class="arg">every 15m</span>
+              </div>
+              <h3>Keep it current</h3>
+              <p class="more">
+                The pipelines re-run on a schedule, so the dashboard stays up to date without anyone
+                opening it.
+              </p>
+            </li>
+            <li class="step" data-panels="0,1,2,3">
+              <div class="call">
+                <span>place_outputs</span><span class="arg">4 panels → Launch week</span>
+              </div>
+              <h3>Lay it out</h3>
+              <p class="more">
+                Four panels on a new dashboard. Each one traces back to its pipeline, so you can
+                check where every number came from.
+              </p>
+            </li>
+          </ol>
+          <div class="stage2">
+            <div class="frame2" id="frame2">
+              <img
+                class="img-l"
+                src="/src/landing/shots/uc-launch-light.jpg"
+                width="2880"
+                height="1440"
+                loading="lazy"
+                alt="The Launch week dashboard in Helio: a signups total of 2,526, a daily signups bar chart, an API latency line chart and a chart of errors by route."
+              />
+              <img
+                class="img-d"
+                src="/src/landing/shots/uc-launch-dark.jpg"
+                width="2880"
+                height="1440"
+                loading="lazy"
+                alt="The Launch week dashboard in Helio, dark theme."
+              />
+            </div>
+            <p class="caption2">A screenshot of Helio with example data.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="after" id="why">
+        <h2>Honest dashboards that feel alive.</h2>
+        <div class="cols">
+          <div>
+            <h3>Every number shows its source</h3>
+            <p>
+              Open any panel to see the source and pipeline behind it, when it last ran, and how
+              many rows it read.
+            </p>
+          </div>
+          <div>
+            <h3>Runs on its own</h3>
+            <p>
+              Pipelines run on a schedule or when a dataset changes, and outputs keep their history
+              so a panel can compare against last week.
+            </p>
+          </div>
+          <div>
+            <h3>Your data stays yours</h3>
+            <p>
+              The database scopes every row to your account, and connection credentials are
+              encrypted at rest.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="after" id="plans">
+        <h2>Free with your own agent. Beta adds Helio's assistant.</h2>
+        <div class="cols">
+          <div>
+            <h3>Free: Helio's API and MCP server</h3>
+            <p>
+              Connect Claude Code or any MCP client with an access token. Schedules, alerts, forms
+              and share links included.
+            </p>
+          </div>
+          <div>
+            <h3>Beta, invite only: the built-in assistant</h3>
+            <p>
+              Describe a dashboard and review the draft before it's applied. AI steps inside
+              pipelines. %BETA_DAILY_MESSAGE_LIMIT% messages a day.
+            </p>
+          </div>
+          <div>
+            <h3>Everywhere: on your phone, too</h3>
+            <p>Install Helio as an app. Dashboards stack into a layout made for one hand.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing" id="start">
+        <p class="closing-line">“Give me a dashboard for…”</p>
+        <p class="closing-sub">Whatever you're building. Start free, or ask for the beta.</p>
+        <div class="cta-block">
+          <div class="ctas">
+            <a class="btn btn-primary" href="/register">Start free</a>
+            <button class="btn" type="button" data-beta>Request beta access</button>
+          </div>
+          <p class="beta-status" data-beta-status role="status" aria-live="polite"></p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div>
+        <span>Helio · built in public</span>
+        <nav aria-label="Footer">
+          <a href="https://github.com/matto00/helio">GitHub</a>
+          <a href="/login">Sign in</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>

@@ -11,7 +11,7 @@ no section is a dead end on phone.
 
 ### Requirement: Tappable command-bar title on phone
 Below the 768px breakpoint the command bar SHALL render a tappable title control showing the current
-dashboard name on `/` (and the current section/item name on `/sources`, `/pipelines`, `/registry`) with a
+dashboard name on `/home` (and the current section/item name on `/sources`, `/pipelines`, `/registry`) with a
 small chevron glyph so it visibly reads as a control. At 768px and wider the desktop breadcrumb markup and
 behavior SHALL be unchanged. The control SHALL open the top-anchored navigation sheet, and SHALL close it
 again when tapped while the sheet is open. Its chevron glyph SHALL indicate the sheet's open/closed state.
@@ -163,7 +163,7 @@ edge, and the control that opened the sheet SHALL remain visible and un-occluded
   anchor
 
 ### Requirement: Top-anchored item picker
-Tapping the title on `/` SHALL open the navigation sheet listing all dashboards, sourced from the existing
+Tapping the title on `/home` SHALL open the navigation sheet listing all dashboards, sourced from the existing
 `state.dashboards` selectors used by `DashboardList` (no forked state). Tapping an entry SHALL select that
 dashboard via the same selection action `DashboardList` dispatches, and dismiss the sheet. The current
 dashboard SHALL be visually indicated. The sheet SHALL contain no rename, delete, duplicate, import, export,

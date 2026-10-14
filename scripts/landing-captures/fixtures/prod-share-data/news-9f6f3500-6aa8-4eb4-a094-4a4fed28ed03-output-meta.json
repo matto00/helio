@@ -1,0 +1,11 @@
+{
+  "config": {
+    "chartOptions": { "bar": { "orientation": "horizontal" } },
+    "fieldMapping": { "xAxis": "outlet", "yAxis": "articles" }
+  },
+  "kind": "chart",
+  "schema": [
+    { "name": "articles", "type": "integer" },
+    { "name": "outlet", "type": "string" }
+  ]
+}

@@ -1,0 +1,38 @@
+### D3 probe
+frontend/src/pwaConfig.ts:24:  scope: "/",
+frontend/src/features/panels/ui/ImagePanel.tsx:31:    // starts with "/" but resolves (via the base URL's protocol) to a
+frontend/src/features/panels/ui/ImagePanel.tsx:36:    if (url.startsWith("/") && !url.startsWith("//") && parsed.origin === window.location.origin) {
+frontend/src/features/panels/ui/grid/usePanelDetailState.ts:34:    // on "loading"/"failed", so a transient refetch window doesn't
+frontend/src/features/pipelines/ui/RootColumn.tsx:3:// labelled "primary"/"trunk" -- R3), plus a remove-root affordance (task 9).
+frontend/src/features/panels/services/pipelineRunFanout.ts:201:  // HEL-1174 (skeptic-final-1.md, Change Request 1): a NON-TERMINAL ("queued"/"running") row
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:14:// "Dry run"/"Run pipeline" stay plain, always-visible buttons at every
+frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx:17:// This footer no longer owns an actions menu. "Run history"/"Preview"/"Share"
+frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx:12:// "Edit type"/"Edit schedule" buttons consolidate into one `ActionsMenu`
+frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx:175:  // schedule"/"Set schedule" is always present (mirrors the always-visible
+frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx:284:      {/* ── Bound source(s) — HEL-1022: one chip per root, "Source"/"Sources
+frontend/src/features/pipelines/ui/stepConfigs/UnpivotConfig.tsx:4:// inputs for varName/valueName pre-filled with their "variable"/"value"
+frontend/src/features/pipelines/ui/outputEditor/OutputPreviewPane.tsx:14:// switching this pane's Chart type control between "Pie" and "Bar"/"Line"
+frontend/src/features/pipelines/services/pipelineService.ts:190: *  the "+ root"/"new pipeline" inline-source flow always creates the real
+frontend/src/features/onboarding/state/onboardingSteps.ts:53:  // "loading"/"failed" status is actually about.
+frontend/src/features/onboarding/state/firstRunNaming.ts:16:    const last = parsed.pathname.split("/").filter(Boolean).pop() ?? "";
+frontend/src/shared/chrome/resourceNavigation.ts:28: * answer, not a lossy one; returning `"/"` would send a middle-click to the wrong place (it
+frontend/src/shared/chrome/usePickerSelection.ts:75:  const sourceRouteId = pathname.startsWith("/sources/") ? pathname.split("/")[2] : null;
+frontend/src/shared/chrome/usePickerSelection.ts:76:  const pipelineRouteId = pathname.startsWith("/pipelines/") ? pathname.split("/")[2] : null;
+frontend/src/shared/chrome/InlineError.tsx:37:   *  `kind === "error"` — suppressed for "forbidden"/"not-found" regardless
+frontend/src/test/renderWithStore.tsx:169:  /** HEL-560: initial `MemoryRouter` location — defaults to "/" (prior
+frontend/src/test/renderWithStore.tsx:173:  initialPath: string = "/",
+frontend/src/app/App.tsx:78:  // HEL-516 design.md D1/D3 — shell-mounted so "Add source"/"Add panel" work from any route, not
+frontend/src/test/reactMarkdownMock.tsx:33:  const slash = value.indexOf("/");
+frontend/src/app/AppRoutes.tsx:86:      <Route path="/" element={<Navigate to="/home" replace />} />
+frontend/src/landing/shellRoutingPlugin.ts:12:      const url = new URL(req.url ?? "/", "http://localhost");
+frontend/src/landing/shellRouting.ts:13:  if (pathname === "/" || pathname === "/index.html") return "index.html";
+frontend/src/landing/shellRouting.ts:16:  const lastSegment = pathname.slice(pathname.lastIndexOf("/") + 1);
+### D11 probe
+e2e/hel1562-landing-page.spec.ts:49:    await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:66:    await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:75:    await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:82:    await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:90:    await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:108:      await page.goto("/");
+e2e/hel1562-landing-page.spec.ts:119:        await page.goto("/");
+exit=0

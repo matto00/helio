@@ -1,5 +1,6 @@
 import axios, { isAxiosError } from "axios";
 import { API_BASE_URL } from "../config/env";
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from "./csrfHeader";
 
 // HEL-287 CodeQL #8: session identity moved from a bearer token in
 // sessionStorage + a manual Authorization header to an HttpOnly cookie set
@@ -12,7 +13,7 @@ export const httpClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
-    "X-Helio-Requested-With": "1",
+    [CSRF_HEADER]: CSRF_HEADER_VALUE,
   },
 });
 

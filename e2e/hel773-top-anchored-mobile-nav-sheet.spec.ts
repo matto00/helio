@@ -48,14 +48,14 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "safearea" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Safe Area" },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/");
+    await page.goto("/home");
 
     await openSheet(page, /Switch dashboards/i);
 
@@ -101,7 +101,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "44px" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Tap Target A" },
@@ -116,7 +116,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
 
     for (const width of [430, 768]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto("/");
+      await page.goto("/home");
       await openSheet(page, /Switch dashboards/i);
 
       const measurements = await page.evaluate(() => {
@@ -203,7 +203,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "iconsize" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Icon Size" },
@@ -212,11 +212,11 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     expect(dashboardRes.status()).toBe(201);
     // HEL-1300: the loop below sets localStorage via page.evaluate, which needs the app origin
     // (about:blank has none); this load is also the first one that can see the seeded dashboard.
-    await page.goto("/");
+    await page.goto("/home");
 
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate((t) => localStorage.setItem("helio-theme", t), theme);
-      await page.goto("/");
+      await page.goto("/home");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await openSheet(page, /Switch dashboards/i);
 
@@ -245,14 +245,14 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "stacking" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Stacking" },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/");
+    await page.goto("/home");
 
     const trigger = page.getByRole("button", { name: /Switch dashboards/i });
     await trigger.click();
@@ -298,7 +298,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "clearance" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     for (let i = 0; i < 8; i++) {
       const res = await page.request.post("/api/dashboards", {
@@ -307,7 +307,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       });
       expect(res.status()).toBe(201);
     }
-    await page.goto("/");
+    await page.goto("/home");
     await openSheet(page, /Switch dashboards/i);
 
     const { dragStripBottom, bottomNavTop } = await page.evaluate(() => {
@@ -334,14 +334,14 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await registerAndLogin(page, request, { ...AUTH, label: "reducedmotion" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Reduced Motion" },
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/");
+    await page.goto("/home");
     await openSheet(page, /Switch dashboards/i);
 
     const animationNames = await page.evaluate(() => {
@@ -374,7 +374,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     request,
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "reopen" });
-    // HEL-1300: seeding below must not race the live post-login `/`.
+    // HEL-1300: seeding below must not race the live post-login `/home`.
     await isolateLivePage(page);
     const dashboardRes = await page.request.post("/api/dashboards", {
       data: { name: "HEL-773 Reopen" },
@@ -384,7 +384,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
 
     // Dashboards: async, pending-capable create. Scoped to the sheet's own
     // dialog (see the sources section below for why).
-    await page.goto("/");
+    await page.goto("/home");
     const dashboardsDialog = page.getByRole("dialog", { name: "Dashboards" });
     await openSheet(page, /Switch dashboards/i);
     await dashboardsDialog.getByRole("button", { name: "New dashboard" }).click();
@@ -459,7 +459,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         });
         expect(dashboardRes.status()).toBe(201);
 
-        await page.goto("/");
+        await page.goto("/home");
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         const dashboardsTrigger = await openSheet(page, /Switch dashboards/i);
         const dashboardsGeometry = await page.evaluate(() => {

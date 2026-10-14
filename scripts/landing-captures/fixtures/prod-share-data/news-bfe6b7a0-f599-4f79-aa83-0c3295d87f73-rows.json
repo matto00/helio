@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "date": "2026-10-09",
+      "headline": "OpenAI Fires Three Safety Researchers Over Breach of Trust Claims",
+      "importance": 5.0
+    },
+    {
+      "date": "2026-10-08",
+      "headline": "Amazon Unveils Alexa Tablets with Google Play and Kids‑Friendly Models",
+      "importance": 5.0
+    },
+    {
+      "date": "2026-10-07",
+      "headline": "Amazon’s Prime Big Deal Days Day Two Offers Apple, Sony, Google Discounts",
+      "importance": 5.0
+    },
+    {
+      "date": "2026-10-07",
+      "headline": "Hackers Forge Counterfeit TLS Certificates for Google and Major Brands via ccTLD DNS Control",
+      "importance": 5.0
+    },
+    {
+      "date": "2026-10-07",
+      "headline": "Dodgers Take Series Lead After 3–1 Win; Padres Edge Brewers 4–3",
+      "importance": 5.0
+    },
+    {
+      "date": "2026-10-07",
+      "headline": "Google Halts Finland Data Center Construction Pending Environmental Review",
+      "importance": 5.0
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "total": 6
+}

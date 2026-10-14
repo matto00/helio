@@ -6,7 +6,7 @@ export function PublicOnlyRoute() {
   const status = useAppSelector((state) => state.auth.status);
 
   if (status === "authenticated") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return <Outlet />;

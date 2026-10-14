@@ -1,0 +1,9 @@
+{
+  "config": { "columnOrder": ["date", "headline", "importance"] },
+  "kind": "table",
+  "schema": [
+    { "name": "date", "type": "timestamp" },
+    { "name": "headline", "type": "string" },
+    { "name": "importance", "type": "integer" }
+  ]
+}
