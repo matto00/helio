@@ -105,5 +105,38 @@ class LateFinisherSeamIsolationSpec extends LateFinisherSpecBase {
       oldFold.isCompleted shouldBe true
       foldDone.isCompleted shouldBe false
     }
+
+    "complete its own test's nodeWriteFailed, not the next test's (HookSnapshotRepo nodeWriteFailed)" in {
+      val fx        = seed()
+      val oldFailed = nodeWriteFailed
+      val release   = Promise[Unit]()
+      val call      = new HookSnapshotRepo(ctx).overwriteRowsWith(
+        fx.pid.value, Some(fx.p.stepId.value), rows, None, DBIO.successful(()),
+        Some(DBIO.from(release.future).flatMap(_ => DBIO.failed(new IllegalStateException("guard")))))
+      resetSeams()
+      release.success(())
+      Await.ready(call, 20.seconds)
+      call.value.get.isFailure shouldBe true
+      oldFailed.isCompleted shouldBe true
+      nodeWriteFailed.isCompleted shouldBe false
+    }
+
+    "complete its own test's binaryEntered and binarySettled, not the next test's (HookBinaryRepo)" in {
+      val fx         = seed()
+      val oldEntered = binaryEntered
+      val oldSettled = binarySettled
+      binaryTarget = (fx.pid.value, fx.p.stepId.value)
+      val release = Promise[Unit]()
+      beforeBinaryWrite = () => release.future
+      val call = new HookBinaryRepo(ctx).overwriteForNode("", None, Vector.empty, None)
+      oldEntered.isCompleted shouldBe true
+      oldSettled.isCompleted shouldBe false
+      resetSeams()
+      release.success(())
+      Await.ready(call, 20.seconds)
+      oldSettled.isCompleted shouldBe true
+      binaryEntered.isCompleted shouldBe false // cannot fail by construction (completed synchronously at call start); not a reversion-proof guard
+      binarySettled.isCompleted shouldBe false
+    }
   }
 }
