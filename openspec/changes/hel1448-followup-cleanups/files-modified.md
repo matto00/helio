@@ -1,0 +1,12 @@
+- `e2e/hel1304-output-charttype-render.spec.ts` — HEL-1453 follow-up cleanup
+- `e2e/hel1351-aggregated-chart-overlay.spec.ts` — HEL-1453 follow-up cleanup
+- `e2e/hel1392-remount-staleness.spec.ts` — HEL-1453 follow-up cleanup
+- `e2e/support/echartsFiber.ts` — HEL-1453 follow-up cleanup
+- `frontend/src/app/App.tsx` — HEL-1453 follow-up cleanup
+- `frontend/src/app/CommandBar.test.tsx` — HEL-1453 follow-up cleanup
+- `frontend/src/app/CommandBar.tsx` — HEL-1453 follow-up cleanup
+- `frontend/src/features/pipelines/hooks/usePipelineRunEvents.test.ts` — HEL-1453 follow-up cleanup
+- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts` — HEL-1453 follow-up cleanup
+- `frontend/src/features/pipelines/hooks/usePipelineStepStructure.ts` — HEL-1453 follow-up cleanup
+- `scripts/check-eslint-ts-rules.mjs` — HEL-1453 follow-up cleanup
+- `scripts/check-eslint-ts-rules.selftest.mjs` — HEL-1453 follow-up cleanup

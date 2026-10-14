@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import type { ReactFiber } from "./support/echartsFiber";
 import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { deleteExact } from "./support/remountBurstSeed";
@@ -16,15 +17,6 @@ import { deleteExact } from "./support/remountBurstSeed";
 
 const DESKTOP = { width: 1400, height: 900 };
 const PHONE = { width: 1000, height: 900 };
-
-type EchartsInstance = {
-  getOption(): { series?: unknown[]; legend?: { show?: boolean; type?: string }[] };
-  getDom(): Element;
-};
-type ReactFiber = {
-  stateNode?: { getEchartsInstance?: () => EchartsInstance } | null;
-  return?: ReactFiber | null;
-};
 
 async function seriesTypes(card: Locator): Promise<string[]> {
   return card

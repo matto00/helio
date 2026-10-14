@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
 
+import type { EchartsInstance, ReactFiber } from "./support/echartsFiber";
 import { evidencePath } from "./support/evidencePath";
 import { expectDeleted } from "./support/expectDeleted";
 import { currentUserId, registerUser } from "./support/auth";
@@ -27,15 +28,6 @@ async function postJson<T>(
   expect(res.status(), `${url}: ${await res.text()}`).toBe(status);
   return (await res.json()) as T;
 }
-
-type EchartsInstance = {
-  getOption(): { series?: unknown[]; legend?: { show?: boolean; type?: string }[] };
-  getDom(): Element;
-};
-type ReactFiber = {
-  stateNode?: { getEchartsInstance?: () => EchartsInstance } | null;
-  return?: ReactFiber | null;
-};
 
 /** The rendered `series[].type` list of the first chart inside `card` (null until reachable). */
 async function seriesTypes(card: Locator): Promise<string[] | null> {
