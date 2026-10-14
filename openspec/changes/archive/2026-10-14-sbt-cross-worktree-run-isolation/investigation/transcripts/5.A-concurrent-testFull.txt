@@ -1,0 +1,40 @@
+[trimmed; concurrent testFull, A started 07:11:19 when B had executed 18 tests]
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/build.sbt:249:8 
+2:[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+75:[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+943:[info] - a ScalaTest summary with no readable Tests: line fails closed
+58436:[info] - hel1595 probe *** FAILED ***
+96014:[info] - should fail validation once expires_at has elapsed
+96707:[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+96709:[info] Total number of tests run: 8084
+96710:[info] Suites: completed 616, aborted 0
+96711:[info] Tests: succeeded 8083, failed 1, canceled 4, ignored 0, pending 0
+96712:[info] *** 1 TEST FAILED ***
+96716:[error] elapsed time: 758 s (0:12:38.0), cache 62%, 400 disk cache hits, 244 onsite tasks
+96721:EXIT=1
+[info] Suites: completed 616, aborted 0
+[info] Tests: succeeded 8083, failed 1, canceled 4, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.probe.Hel1595ProbeSpec
+[error] (Test / testFull) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 758 s (0:12:38.0), cache 62%, 400 disk cache hits, 244 onsite tasks
+
+real	12m44.906s
+user	14m50.409s
+sys	1m12.477s
+EXIT=1
