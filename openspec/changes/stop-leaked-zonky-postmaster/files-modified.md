@@ -1,4 +1,0 @@
-- `backend/src/test/scala/com/helio/testkit/VerifiedEmbeddedPostgres.scala` — afterLibraryStart/postLaunchWait seam; throwing-start cleanup stops the attempt's own postmaster by `pg_ctl -D <dir>` (stop immediate, status==3) before deleting; unconfirmed stop keeps the dir with a suppressed reason
-- `backend/src/test/scala/com/helio/testkit/VerifiedEmbeddedPostgresSpec.scala` — red-first post-launch test, realism guard, unconfirmed-stop test, foreign-cluster post-launch test
-- `openspec/changes/stop-leaked-zonky-postmaster/proof/red-green.txt`, `proof/zonky-citations.txt` — red/green and ps/pg_ctl evidence, re-verified zonky citations
-- (cycle 2) `VerifiedEmbeddedPostgresSpec.scala` — NonFatal import, bounded pgCtlStatus with UTF-8; proof line citation corrected
