@@ -347,6 +347,20 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     ["West", "405", "Q4"],
   ];
 
+  // The chart only mounts after `getOutputById` resolves (output meta) and the lazy `ChartPanel`
+  // chunk loads. Polling for it with `findBy*` races a fixed 1 s deadline against main-thread work
+  // of unknown length: a stall of about 1 s on a busy runner makes RTL's overdue timeout fire before
+  // React's next commit, so the test fails even though nothing is wrong. Instead, await the causal
+  // events themselves (every output-meta promise issued so far, and the lazy module) inside `act` so
+  // React flushes the resulting updates, then query synchronously. There is no wall-clock deadline
+  // here; the real chart path is still what is asserted on.
+  async function settleChartMount() {
+    await act(async () => {
+      await Promise.all(getOutputByIdMock.mock.results.map((r) => r.value));
+      await import("./ChartPanel");
+    });
+  }
+
   it("Fullscreen's nested Inspect shows the SAME narrowed row as the grid card's, not every quarter", async () => {
     getOutputByIdMock.mockResolvedValue(makeChartOutput());
     mockUsePanelData.mockReturnValue({
@@ -366,7 +380,8 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     renderPanelCard("panel-sibling");
 
     // --- Grid-context: click "West" on the chart, open Inspect, assert exactly 1 row.
-    const gridChart = (await screen.findAllByTestId("echarts"))[0] as MockChartNode;
+    await settleChartMount();
+    const gridChart = screen.getAllByTestId("echarts")[0] as MockChartNode;
     fireEvent.click(screen.getByRole("button", { name: "Revenue panel actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Inspect" }));
     const gridInspect = screen.getByRole("dialog", { name: "Inspect Revenue" });
@@ -390,13 +405,11 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     // so it can never accidentally match the grid's own still-open Inspect.)
     fireEvent.click(screen.getByRole("button", { name: "Fullscreen Revenue" }));
     const fullscreenDialog = screen.getByRole("dialog", { name: "Revenue fullscreen" });
-    // Fullscreen's OWN `OutputPanelContent` resolves its Output via a SECOND,
-    // independent `useOutputMeta` fetch (the established HEL-572/HEL-579
-    // "second fetch is fine" precedent) — `findByTestId` waits out that
-    // resolve tick rather than assuming it's already settled.
-    const fullscreenChart = (await within(fullscreenDialog).findByTestId(
-      "echarts",
-    )) as MockChartNode;
+    // Fullscreen's `OutputPanelContent` reads the Output through `useOutputMeta`, which serves the
+    // grid card's result from `outputMetaCache`, so `getOutputById` is called once in this whole
+    // test; the lazy `ChartPanel` is already loaded by the grid chart. The Fullscreen chart
+    // therefore mounts synchronously on the click and needs no wait.
+    const fullscreenChart = within(fullscreenDialog).getByTestId("echarts") as MockChartNode;
     act(() => {
       fullscreenChart.__onEvents?.click({ componentType: "series", name: "West" });
     });
