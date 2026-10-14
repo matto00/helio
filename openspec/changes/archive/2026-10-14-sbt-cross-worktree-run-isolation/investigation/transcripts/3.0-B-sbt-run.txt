@@ -1,0 +1,92 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+[info] set current project to helio-backend (in build file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/)
+[info] running (fork) com.helio.app.Main 
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+06:19:55,418 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+06:19:55,419 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4bb4a9f4 - No custom configurators were discovered as a service.
+06:19:55,419 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4bb4a9f4 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+06:19:55,419 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4bb4a9f4 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+06:19:55,420 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+06:19:55,422 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/bg-jobs/sbt_dd734135/job-1/target/841d0883/a89aa372/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+06:19:55,452 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+06:19:55,453 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@64e02c49 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+06:19:55,453 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+06:19:55,455 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+06:19:55,456 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@64e02c49 - value "plain" substituted for "${LOG_APPENDER}"
+06:19:55,456 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+06:19:55,456 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+06:19:55,456 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+06:19:55,459 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+06:19:55,470 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+06:19:55,470 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+06:19:55,470 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+06:19:55,470 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@64e02c49 - value "INFO" substituted for "${LOG_LEVEL}"
+06:19:55,470 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+06:19:55,470 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@64e02c49 - value "plain" substituted for "${LOG_APPENDER}"
+06:19:55,471 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+06:19:55,471 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@4ee53fba - End of configuration.
+06:19:55,471 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@2cef5035 - Registering current configuration as safe fallback point
+06:19:55,473 |-INFO in ch.qos.logback.classic.util.ContextInitializer@4bb4a9f4 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 52 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+06:19:55.476 INFO  [helio-pekko.actor.default-dispatcher-3] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+SLF4J(W): A number (1) of logging calls during the initialization phase have been intercepted and are
+SLF4J(W): now being replayed. These are subject to the filtering rules of the underlying logging system.
+SLF4J(W): See also https://www.slf4j.org/codes.html#replay
+FATAL: helio backend failed to start
+org.flywaydb.core.internal.exception.FlywaySqlException: Unable to obtain connection from database (jdbc:postgresql://localhost:5432/helio) for user '': FATAL: no PostgreSQL user name specified in startup packet
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL State  : 28000
+Error Code : 0
+Message    : FATAL: no PostgreSQL user name specified in startup packet
+
+	at org.flywaydb.core.internal.jdbc.JdbcUtils.openConnection(JdbcUtils.java:71)
+	at org.flywaydb.core.internal.jdbc.JdbcConnectionFactory.<init>(JdbcConnectionFactory.java:76)
+	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:137)
+	at org.flywaydb.core.Flyway.migrate(Flyway.java:176)
+	at com.helio.infrastructure.persistence.Database$.initApp(Database.scala:26)
+	at com.helio.app.Main$.guardianSetup(Main.scala:92)
+	at com.helio.app.Main$.$anonfun$guardian$1(Main.scala:73)
+	at org.apache.pekko.actor.typed.internal.BehaviorImpl$DeferredBehavior$$anon$1.apply(BehaviorImpl.scala:130)
+	at org.apache.pekko.actor.typed.Behavior$.start(Behavior.scala:202)
+	at org.apache.pekko.actor.typed.internal.InterceptorImpl$$anon$1.start(InterceptorImpl.scala:60)
+	at org.apache.pekko.actor.typed.BehaviorInterceptor.aroundStart(BehaviorInterceptor.scala:65)
+	at org.apache.pekko.actor.typed.internal.InterceptorImpl.preStart(InterceptorImpl.scala:83)
+	at org.apache.pekko.actor.typed.internal.InterceptorImpl$.$anonfun$apply$1(InterceptorImpl.scala:40)
+	at org.apache.pekko.actor.typed.internal.BehaviorImpl$DeferredBehavior$$anon$1.apply(BehaviorImpl.scala:130)
+	at org.apache.pekko.actor.typed.Behavior$.start(Behavior.scala:202)
+	at org.apache.pekko.actor.typed.Behavior$.interpret(Behavior.scala:312)
+	at org.apache.pekko.actor.typed.Behavior$.interpretMessage(Behavior.scala:265)
+	at org.apache.pekko.actor.typed.internal.adapter.ActorAdapter.handleMessage(ActorAdapter.scala:141)
+	at org.apache.pekko.actor.typed.internal.adapter.ActorAdapter.aroundReceive(ActorAdapter.scala:117)
+	at org.apache.pekko.actor.ActorCell.receiveMessage(ActorCell.scala:590)
+	at org.apache.pekko.actor.ActorCell.invoke(ActorCell.scala:557)
+	at org.apache.pekko.dispatch.Mailbox.processMailbox(Mailbox.scala:272)
+	at org.apache.pekko.dispatch.Mailbox.run(Mailbox.scala:233)
+	at org.apache.pekko.dispatch.Mailbox.exec(Mailbox.scala:245)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+Caused by: org.postgresql.util.PSQLException: FATAL: no PostgreSQL user name specified in startup packet
+	at org.postgresql.core.v3.ConnectionFactoryImpl.doAuthentication(ConnectionFactoryImpl.java:837)
+	at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:309)
+	at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:367)
+	at org.postgresql.core.ConnectionFactory.openConnection(ConnectionFactory.java:52)
+	at org.postgresql.jdbc.PgConnection.<init>(PgConnection.java:295)
+	at org.postgresql.Driver.makeConnection(Driver.java:437)
+	at org.postgresql.Driver.connect(Driver.java:305)
+	at org.flywaydb.core.internal.jdbc.DriverDataSource.getConnectionFromDriver(DriverDataSource.java:275)
+	at org.flywaydb.core.internal.jdbc.DriverDataSource.getConnection(DriverDataSource.java:240)
+	at org.flywaydb.core.internal.jdbc.JdbcUtils.openConnection(JdbcUtils.java:59)
+	... 28 more
+	Suppressed: org.postgresql.util.PSQLException: FATAL: no PostgreSQL user name specified in startup packet
+		at org.postgresql.core.v3.ConnectionFactoryImpl.doAuthentication(ConnectionFactoryImpl.java:837)
+		at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:309)
+		at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnectWithoutSsl(ConnectionFactoryImpl.java:147)
+		at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:371)
+		... 35 more
+[error] nonzero exit code returned from runner: 1
+[error] (Compile / run) nonzero exit code returned from runner: 1
+[error] elapsed time: 2 s, cache 83%, 15 disk cache hits, 3 onsite tasks

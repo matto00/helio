@@ -316,15 +316,20 @@ there it is a full run). Separately, sbt 2's thin client joins unquoted argument
 into ONE command (`sbt compile test` fails with "Expected whitespace character"):
 pass a single quoted command, `sbt "compile; testFull"`. (HEL-1018.)
 
-### sbt can attach to another worktree's server and report exit 0 for the wrong build
+### sbt can attach to another worktree's server and report exit 0 for the wrong build (refuted for tested invocations, HEL-1595)
 
-**Reported, not reproduced here:** HEL-1285's skeptic saw an `sbt` started in one
-worktree attach to a server owned by another checkout, run that checkout's build,
-and exit 0. Every worktree has its own `backend/`, and the claim is that the sbt
-thin client will connect to a server it finds, so a green result can describe
-someone else's sources. All of this is reported and unverified: on this machine
-`command -v sbt` is `~/.local/bin/sbt`, the sbt-extras launcher (not the sbt 2
-thin client), so the thin-client path was not exercised here. (HEL-1374.)
+**Refuted for the invocations tested (HEL-1595).** HEL-1285's skeptic reported an `sbt` started
+in one worktree attaching to a server owned by another checkout, running that checkout's build,
+and exiting 0. HEL-1595 tested it with a live sbt server running in another tree: bare
+`sbt "testOnly <spec>"`, `sbt -batch -Dsbt.server.autostart=false "testOnly <spec>"` and
+`sbt --client "testOnly <spec>"` all ran the invoking tree's own build (project-path lines named it, its
+deliberately failing test failed, exit 1). The server socket is per project directory
+(`project/target/active.json` -> `~/.config/sbt/2/server/<hash>/sock`), and `--client` started its own server instead of
+finding the other tree's. A command-mode `sbt "<cmd>"` (observed with `sbt 'eval Thread.sleep(45000)'`, observed but not captured in a transcript) started no server (no
+`project/target/active.json`). A live command-mode `sbt run` is expected to behave the same (inference) but was not
+observed, because tree B's `sbt run` exited at boot without `.env`. On this machine
+`command -v sbt` is `~/.local/bin/sbt`, the sbt-extras launcher, so a native `sbtn` binary was not exercised.
+(HEL-1374, HEL-1595; evidence in the `sbt-cross-worktree-run-isolation` change's `investigation/` directory.)
 
 **Invocation used (sbt 2.0.9):** from the worktree's own `backend/`,
 
@@ -332,11 +337,11 @@ thin client), so the thin-client path was not exercised here. (HEL-1374.)
 nice -n 19 sbt -batch -Dsbt.server.autostart=false "testOnly <fully.qualified.Spec>"
 ```
 
-What was verified: in every run (14 transcripts in the HEL-1374 evidence) the build
-executed in-process against the current directory's sources, and both project-path
-lines named the worktree. What was NOT tested: this invocation against a live sbt
-server running in another worktree, so whether the flag prevents an attach is
-untested. The project-path check is the safeguard either way.
+What was verified: in every run (14 transcripts in the HEL-1374 evidence, plus the
+HEL-1595 matrix) the build executed in-process against the current directory's
+sources, and both project-path lines named the worktree. HEL-1595 also ran this
+invocation against a live sbt server in another tree: no attach. The project-path
+check is still the safeguard.
 
 **Always check the project path in the output** -- a run is only evidence for your
 worktree if both lines name it:
@@ -349,6 +354,45 @@ worktree if both lines name it:
 If either path is another checkout, discard the result. `-z "multi word"` does not
 survive sbt's argument quoting (ScalaTest rejects the second word): filter with a
 single-word substring instead.
+
+### A `testFull` transcript with another worktree's paths, and `cache 100%`, is not a cache replay
+
+**Seen.** HEL-1446's final skeptic ran `sbt testFull` from its own `backend/` (cwd confirmed) and got `loading project
+definition` / `set current project` lines and warning paths naming a concurrent lane (HEL-1451), with `cache 100%, 644
+disk cache hits`, and 8079 tests passing. Re-running printed the right paths. The suspicion: sbt 2's shared disk cache
+replays another worktree's results. (HEL-1595.)
+
+**Not reproduced (verified, sbt 2.0.9 via the sbt-extras launcher).** Two trees at the same commit, one shared
+(relocated, scratch) disk cache, tree B green and tree A with a deliberately failing test. A failed, with A's own project paths, in each of:
+`testFull` serially after B (exit 1, `Tests: succeeded 8083, failed 1`); `testFull` concurrently with B's `testFull`,
+started once B was executing tests (exit 1, 8083 succeeded / 1 failed, B green; both ~13 min, no foreign path in either log);
+and, as single-test `testOnly <probe>` runs, cold and warm build load, a live server in B (bare,
+`-batch -Dsbt.server.autostart=false`, `--client`), and 5 of 5 repeats where A's cold run started while B was compiling
+against the same cache. The cache holds no log text and no
+absolute tree paths (`${OUT}`-relative action results; 0 of 3000 sampled entries in `~/.cache/sbt/v2/ac` contain a
+worktree path), `Test / testGrouping` is uncached so tests always execute, and the printed `loading project
+definition` line comes from the running JVM's own base directory. **`cache 100%` is not the tell**: it also printed on
+the run whose test failed; it counts cached non-test tasks.
+
+**Not verified.** What the skeptic actually saw is unexplained. The best-supported inference is that those lines came
+from a JVM whose base directory really was the other worktree (output surfaced via a shared or fixed-name log, or an
+earlier command in the same shell), not from a cache. Not tested: the real `~/.cache/sbt` (shared, never touched), a
+native `sbtn` binary, and a live detached `sbt run` backend in the other tree, which is what HEL-1451 was running in
+the window (B's `sbt run` failed at boot without `.env`, so the foreign server was modelled with a shell-mode sbt JVM).
+
+**The check a lane runs before citing a `testFull`/`testOnly` run as its own evidence:**
+
+```bash
+# $LOG is the full captured output of the cited run
+grep -E 'loading project definition from|set current project' "$LOG"   # both lines must name YOUR worktree
+grep -cF "$(git rev-parse --show-toplevel)" "$LOG"                     # non-zero: your own path appears
+grep -E 'worktrees/[^ ]*' "$LOG" | grep -vF "$(git rev-parse --show-toplevel)" | head -1   # must print nothing
+grep -E 'Total number of tests run: [1-9]|Tests: succeeded [1-9]' "$LOG"   # tests executed (non-zero counts)
+grep -E 'Suites: completed [1-9]' "$LOG"
+```
+
+A run whose project-path lines name another checkout, or whose counts are zero ("No tests to run"), is discarded and
+re-run. CLAUDE.md's note on bare `sbt test` caching stays accurate: `test` can be a cached no-op, `testFull` is not.
 
 ### sbt 2 can exit 0 and print `[success]` while ScalaTest says `*** N TESTS FAILED ***`
 
