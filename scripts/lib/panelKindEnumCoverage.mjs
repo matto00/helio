@@ -3,6 +3,11 @@
 // (panelTypeSurfaces), so a schema carrying a panel-kind enum could sit outside it unnoticed
 // (create-panels-batch-request.schema.json did). These pure helpers find every panel-kind enum
 // under schemas/ and require each to be a checked surface or an explicit, reasoned exemption.
+//
+// HEL-1467: a panel kind is also carried as a per-branch `const` under a oneOf/anyOf/allOf (e.g.
+// panel.schema.json `oneOf.N.properties.type.const`, create-panel-request.schema.json
+// `allOf.N.if.properties.type.const`); findPanelKindConstGroups detects those groups. Stated
+// limit: a const reached only through `$ref` is not followed, so it is not seen.
 
 /** An `enum` array counts as a panel-kind enum when it holds at least this many canonical panel
  *  kinds. Measured 2026-10-09: panel-kind enums hold 5-6, every other schema enum at most 1. */
@@ -12,10 +17,15 @@ export const PANEL_KIND_ENUM_MIN_HITS = 2;
  *  Empty: every detected panel-kind enum is a checked surface. */
 export const PANEL_KIND_ENUM_EXEMPTIONS = {};
 
-/** `<path under schemas/>#<dot-joined JSON path to the enum array>`. */
+/** `<path under schemas/>#<dot-joined JSON path to the enum array or const group>`. The file part
+ *  is normalized to `/` so a Windows `panels\x.json` key matches the `/` form (every detected,
+ *  covered key goes through here). Exemption-table keys are compared as written, so write
+ *  them with `/`. */
 export function enumKey(file, path) {
-  return `${file}#${path.join(".")}`;
+  return `${file.replaceAll("\\", "/")}#${path.join(".")}`;
 }
+
+const COMBINATORS = new Set(["oneOf", "anyOf", "allOf"]);
 
 /** JSON paths (arrays of keys ending in "enum") of every enum array in `schema` holding at least
  *  `minHits` of `canonicalKinds`. */
@@ -40,6 +50,65 @@ export function findPanelKindEnums(schema, canonicalKinds, minHits = PANEL_KIND_
   return found;
 }
 
+/** String `const` values reachable inside one combinator branch, keyed by their dot-joined path
+ *  relative to the branch. Does not enter a nested combinator: that one is its own group. */
+function collectBranchConsts(node, path, out) {
+  if (Array.isArray(node)) {
+    node.forEach((child, i) => collectBranchConsts(child, [...path, String(i)], out));
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "const" && typeof value === "string") {
+      const rel = path.join(".");
+      if (!out.has(rel)) out.set(rel, { path: [...path, key], values: new Set() });
+      out.get(rel).values.add(value);
+    } else if (!COMBINATORS.has(key) && key !== "enum") {
+      collectBranchConsts(value, [...path, key], out);
+    }
+  }
+}
+
+/** Wildcard JSON paths (e.g. `oneOf.*.properties.type.const`) of every group of per-branch string
+ *  `const` values under a oneOf/anyOf/allOf that holds at least `minHits` distinct `canonicalKinds`.
+ *  A group is keyed once, by its innermost combinator. */
+export function findPanelKindConstGroups(
+  schema,
+  canonicalKinds,
+  minHits = PANEL_KIND_ENUM_MIN_HITS,
+) {
+  const kinds = new Set(canonicalKinds);
+  const found = [];
+  function visit(node, path) {
+    if (Array.isArray(node)) {
+      node.forEach((child, i) => visit(child, [...path, String(i)]));
+      return;
+    }
+    if (node === null || typeof node !== "object") return;
+    for (const [key, value] of Object.entries(node)) {
+      if (COMBINATORS.has(key) && Array.isArray(value)) {
+        const groups = new Map();
+        for (const branch of value) {
+          const perBranch = new Map();
+          collectBranchConsts(branch, [], perBranch);
+          for (const [rel, { path: relPath, values }] of perBranch) {
+            if (!groups.has(rel)) groups.set(rel, { relPath, values: new Set() });
+            for (const v of values) groups.get(rel).values.add(v);
+          }
+        }
+        for (const { relPath, values } of groups.values()) {
+          if ([...values].filter((v) => kinds.has(v)).length >= minHits) {
+            found.push([...path, key, "*", ...relPath]);
+          }
+        }
+      }
+      visit(value, [...path, key]);
+    }
+  }
+  visit(schema, []);
+  return found;
+}
+
 /** detected / covered: arrays of { file, path }; exemptions: { [enumKey]: reason }.
  *  Returns error strings (empty when every detected enum is checked or exempted). */
 export function validatePanelKindEnumCoverage({ detected, covered, exemptions }) {
@@ -49,7 +118,7 @@ export function validatePanelKindEnumCoverage({ detected, covered, exemptions })
   for (const key of detectedKeys) {
     if (!coveredKeys.has(key) && !(key in exemptions)) {
       errors.push(
-        `panel-kind enum coverage: schemas/${key} holds a panel-kind enum but is neither a ` +
+        `panel-kind enum coverage: schemas/${key} holds a panel-kind enum or const group but is neither a ` +
           "checked surface (panelTypeSurfaces in scripts/check-schema-drift.mjs) nor exempted " +
           "(PANEL_KIND_ENUM_EXEMPTIONS in scripts/lib/panelKindEnumCoverage.mjs)",
       );

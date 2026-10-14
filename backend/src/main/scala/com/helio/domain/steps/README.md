@@ -18,7 +18,7 @@ When declaring whether a step's config field is **required**, a field being the
 _sole or principal_ config of its step kind is a **red flag prompting a spec
 check — not evidence that the field is required**. "The step does nothing
 without it" reads true and is wrong surprisingly often: HEL-814 enumerated
-every field across all 23 step kinds and found **eight** where a shipped
+every field across the 23 step kinds registered when it ran and found **eight** where a shipped
 capability spec explicitly blesses the empty or absent value.
 
 Get this wrong in the "required" direction and you break a config a user
@@ -54,10 +54,43 @@ written as `defaults to` / `falls back`, as `no-op` / `SHALL return all`, as
 not a completeness check. Reading the requirement text for the specific field
 you are about to mark required is.
 
-**Two step kinds have no capability spec at all — `groupby` and `join`**
-(23 step kinds, 21 `pipeline-*-op` specs). For those, requiredness currently
-rests on no governing statement; see HEL-900. Prefer the conservative
-(optional) reading there until a spec exists, and record that you did so.
+**Three registered step kinds have no `pipeline-<kind>-op` capability spec —
+`groupby`, `join` and `upsertsource`.** That is a statement about spec names only. Their
+requiredness statements live in other specs, and the ones cited below do not bless an empty
+value as a legitimate final configuration, which is what the eight above are. For `join` and
+`upsertsource` an empty or absent value is tolerated as a savable incomplete draft at
+write or add time, and is still treated as unset-required later:
+
+- `join`: adding one "SHALL NOT be rejected for its empty, not-yet-chosen right input"
+  (`pipeline-join-step-editor`), but analyze reports a `source`-kind input with an empty
+  `dataSourceId` "as an incomplete configuration in the same manner as any other unset
+  required field" (`pipeline-step-config-validation`), and a run with an empty `joinKey`
+  fails naming `joinKey` "as the missing required value"
+  (`pipeline-step-config-runtime-completeness`).
+- `upsertsource`: "An absent `target` or `mode` SHALL NOT be rejected — an incomplete draft
+  is not a write-time error" (`pipeline-upsertsource-config`), and an empty `dataSourceId`
+  "SHALL remain an incomplete draft (savable, not runnable)" (same spec).
+- `groupby`: `pipeline-run-execution` says "The config SHALL contain `groupBy` ...
+  `aggColumn` ... `aggFunction`"; other specs found by the command below describe its
+  analyze projection and an unsupported function, and none found states whether an absent
+  or empty value is legitimate (see HEL-900). Prefer the conservative (optional) reading
+  for `groupby` until a spec says otherwise, and record that you did so.
+
+Re-derive the groupby statements with `grep -rn -i 'groupby' openspec/specs`; read each
+hit rather than trusting this list.
+
+This list is a snapshot, not a completeness claim; re-derive it rather than
+trusting it:
+
+```bash
+# registered step kinds (count)
+sed -n '/val Registry/,/^  )/p' backend/src/main/scala/com/helio/domain/model/PipelineStep.scala | grep -c -- '->'
+# per-op capability specs (count and names; excludes e.g. pipeline-op-picker-stability)
+ls openspec/specs | grep -- '^pipeline-.*-op$'
+```
+
+Match the two lists by hand (spec names hyphenate some kinds: `split-text`,
+`string-ops`, `date-bucket`, `chunk-by-token-count`, `extract-headings`).
 
 ## Column collisions in `join` and `lookup`
 

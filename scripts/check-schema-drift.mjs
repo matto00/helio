@@ -16,6 +16,7 @@ import {
 } from "./lib/agentFacingPanelTypes.mjs";
 import {
   PANEL_KIND_ENUM_EXEMPTIONS,
+  findPanelKindConstGroups,
   findPanelKindEnums,
   validatePanelKindEnumCoverage,
 } from "./lib/panelKindEnumCoverage.mjs";
@@ -207,6 +208,32 @@ function getEnumAt(schema, path, file) {
   return node;
 }
 
+// HEL-1467: the per-branch `const` values at a wildcard path (`*` = every element of the array at
+// that point), e.g. ["oneOf", "*", "properties", "type", "const"]. Fails loudly when the path
+// resolves to nothing or to a non-string, so a renamed schema cannot make the surface vacuous.
+function getConstGroupAt(schema, path, file) {
+  function walk(node, rest, walked) {
+    if (rest.length === 0) {
+      if (typeof node !== "string") {
+        throw new Error(`${file}: ${walked.join(".")} is not a string const`);
+      }
+      return [node];
+    }
+    const [head, ...tail] = rest;
+    if (head === "*") {
+      if (!Array.isArray(node)) throw new Error(`${file}: ${walked.join(".")} is not an array`);
+      return node.flatMap((child, i) => walk(child, tail, [...walked, String(i)]));
+    }
+    if (node?.[head] === undefined)
+      throw new Error(`${file}: no node at ${[...walked, head].join(".")}`);
+    return walk(node[head], tail, [...walked, head]);
+  }
+  const values = walk(schema, path, []);
+  if (values.length === 0)
+    throw new Error(`${file}: ${path.join(".")} resolved to no const values`);
+  return values;
+}
+
 function compareSets(actual, canonical, label) {
   const actualSet = new Set(actual);
   const canonicalSet = new Set(canonical);
@@ -285,6 +312,22 @@ function schemaEnumSurface(schemaFile, enumPath, canonical) {
   };
 }
 
+// HEL-1467: same as schemaEnumSurface, for a panel kind carried as a per-branch `const` under
+// oneOf/allOf (enumPath is the wildcard path findPanelKindConstGroups reports).
+function schemaConstGroupSurface(schemaFile, groupPath, canonical) {
+  return {
+    label: `schemas/${schemaFile} ${groupPath.join(".")}`,
+    canonical,
+    schemaFile,
+    enumPath: groupPath,
+    actual: getConstGroupAt(
+      JSON.parse(readFileSync(join(schemasDir, schemaFile), "utf8")),
+      groupPath,
+      schemaFile,
+    ),
+  };
+}
+
 const panelTypeSurfaces = [
   schemaEnumSurface(
     "panels/create-panel-request.schema.json",
@@ -311,6 +354,16 @@ const panelTypeSurfaces = [
     "dashboards/dashboard-proposal.schema.json",
     ["$defs", "ProposalPanel", "properties", "type", "enum"],
     agentFacingPanelTypes,
+  ),
+  schemaConstGroupSurface(
+    "panels/panel.schema.json",
+    ["oneOf", "*", "properties", "type", "const"],
+    canonicalPanelTypes,
+  ),
+  schemaConstGroupSurface(
+    "panels/create-panel-request.schema.json",
+    ["allOf", "*", "if", "properties", "type", "const"],
+    canonicalPanelTypes,
   ),
 ];
 
@@ -416,14 +469,16 @@ for (const { label, canonical, actual } of [...panelTypeSurfaces, ...dataPanelTy
 // The parity loop above only sees the enums listed in panelTypeSurfaces. Find every enum under
 // schemas/ that holds panel kinds and require each to be a checked surface or an explicit,
 // reasoned exemption (scripts/lib/panelKindEnumCoverage.mjs), so the list cannot silently miss one.
+// HEL-1467: also detects panel kinds carried as per-branch `const`s under oneOf/anyOf/allOf.
 const detectedPanelKindEnums = allDiscoveredFiles
   .filter((file) => file.endsWith(".json"))
-  .flatMap((file) =>
-    findPanelKindEnums(
-      JSON.parse(readFileSync(join(schemasDir, file), "utf8")),
-      canonicalPanelTypes,
-    ).map((path) => ({ file, path })),
-  );
+  .flatMap((file) => {
+    const schema = JSON.parse(readFileSync(join(schemasDir, file), "utf8"));
+    return [
+      ...findPanelKindEnums(schema, canonicalPanelTypes),
+      ...findPanelKindConstGroups(schema, canonicalPanelTypes),
+    ].map((path) => ({ file, path }));
+  });
 errors.push(
   ...validatePanelKindEnumCoverage({
     detected: detectedPanelKindEnums,
@@ -786,7 +841,7 @@ console.log(
   `panel-type enums in sync with backend canonical sets (${panelTypeChecked} surfaces checked)`,
 );
 console.log(
-  `panel-kind enum coverage: ${detectedPanelKindEnums.length} schema enums detected, each checked or exempted`,
+  `panel-kind enum coverage: ${detectedPanelKindEnums.length} schema enums/const groups detected, each checked or exempted`,
 );
 console.log(
   `AssistantProposalToolSchemas.scala in sync with schemas/ (${assistantToolSurfacesChecked} surfaces checked)`,
