@@ -143,7 +143,7 @@ the step is first added.
 - **THEN** `ComputeFieldConfig` renders that message inline below the expression input
 
 ### Requirement: Compute op schema inference validates the expression and infers its output type
-`PipelineAnalyzeService.inferCompute` SHALL validate `expression` against the step's `inputSchema`
+`ColumnSchemaInference.inferCompute` SHALL validate `expression` against the step's `inputSchema`
 field names using `ExpressionEvaluator.validate` (the strict, `$`-required grammar — no legacy
 fallback). If validation fails, `AnalyzedStep.validationError` SHALL be set to the returned
 message, and the output field's type SHALL fall back to the wire `type` (best-effort schema

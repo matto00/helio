@@ -4,6 +4,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.io.File
+import scala.io.Source
 
 /** HEL-845 — the kind-mismatch guard in `SourceService.createRestWithConfig` is only a real
  *  guarantee if that is the ONLY create-time site that constructs a `RestSource`. A second
@@ -77,7 +78,7 @@ class RestSourceConstructionSiteSpec extends AnyWordSpec with Matchers {
   private def findConstructionSites(): Vector[Site] =
     listScalaFilesRecursively(mainRoot).flatMap { f =>
       val relativePath = f.getAbsolutePath.stripPrefix(repoRoot().getAbsolutePath + File.separator)
-      val lines        = scala.io.Source.fromFile(f, "UTF-8").getLines().toVector
+      val lines        = Source.fromFile(f, "UTF-8").getLines().toVector
       lines.zipWithIndex.flatMap { case (rawLine, idx) =>
         val line = stripLineComments(rawLine)
         if (constructionCallPattern.findFirstIn(line).isDefined && !line.contains("case class RestSource"))

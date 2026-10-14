@@ -5,6 +5,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 import java.nio.file.{Files, Path}
 import java.util.Comparator
 import scala.jdk.CollectionConverters._
+import scala.collection.mutable
 
 /** Shared temp-file/dir lifecycle for backend specs (HEL-1120). Every test that needs a scratch
  *  directory or file routes through [[newTempDir]]/[[newTempFile]] instead of calling
@@ -21,7 +22,7 @@ import scala.jdk.CollectionConverters._
  */
 trait TempDirectorySupport extends BeforeAndAfterAll { self: Suite =>
 
-  private val registered = scala.collection.mutable.Buffer.empty[Path]
+  private val registered = mutable.Buffer.empty[Path]
 
   /** Creates a new temp directory via `Files.createTempDirectory` and registers it for deletion
    *  in `afterAll`. */

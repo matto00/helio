@@ -1,6 +1,7 @@
 package com.helio.domain.steps
 
 import spray.json._
+import scala.util.Try
 
 /** HEL-1147: marks a step-CONFIGURATION failure -- a step kind's required-config check, or an
  *  invalid configuration value a step detects while evaluating -- as distinct from data,
@@ -95,7 +96,7 @@ private[steps] object StepCodecUtil {
   def int(obj: JsObject, key: String, default: Int): Int =
     present(obj, key) match {
       case None                 => default
-      case Some(JsNumber(n))    => scala.util.Try(n.toIntExact).getOrElse(default)
+      case Some(JsNumber(n))    => Try(n.toIntExact).getOrElse(default)
       case Some(other)          => throw mismatch(key, "a number", other)
     }
 
@@ -103,7 +104,7 @@ private[steps] object StepCodecUtil {
   def intOpt(obj: JsObject, key: String): Option[Int] =
     present(obj, key) match {
       case None              => None
-      case Some(JsNumber(n)) => scala.util.Try(n.toIntExact).toOption
+      case Some(JsNumber(n)) => Try(n.toIntExact).toOption
       case Some(other)       => throw mismatch(key, "a number", other)
     }
 
@@ -139,7 +140,7 @@ private[steps] object StepCodecUtil {
       case None => Vector.empty
       case Some(JsArray(items)) =>
         items.map { item =>
-          scala.util.Try(reader.read(item)).getOrElse(throw mismatch(key, elementShape, item))
+          Try(reader.read(item)).getOrElse(throw mismatch(key, elementShape, item))
         }
       case Some(other) => throw mismatch(key, elementShape, other)
     }

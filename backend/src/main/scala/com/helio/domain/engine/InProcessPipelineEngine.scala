@@ -15,6 +15,7 @@ import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.collection.mutable
 
 /** HEL-859 (design.md Decisions 1-3): wraps a step-execution failure with the
  *  failing step's id and kind, plus a curated `reason`. `reason` is derived by
@@ -310,7 +311,7 @@ class InProcessPipelineEngine(
       rootIds: Vector[String],
       rootIdOfStep: Map[String, String]
   ): Map[NodeKey, Int] = {
-    val ranks = scala.collection.mutable.LinkedHashMap.empty[NodeKey, Int]
+    val ranks = mutable.LinkedHashMap.empty[NodeKey, Int]
     var counter = 0
     def childrenOfKey(key: NodeKey): Vector[PipelineStep] = key match {
       case RootKey(rid) => steps.filter(s => s.parentStepId.isEmpty && rootIdOfStep.get(s.id.value).contains(rid))
@@ -812,7 +813,7 @@ class InProcessPipelineEngine(
   }
 
   private def parseCsvLine(line: String): Vector[String] = {
-    val buf     = scala.collection.mutable.ArrayBuffer.empty[String]
+    val buf     = mutable.ArrayBuffer.empty[String]
     val sb      = new StringBuilder
     var inQuote = false
     var i       = 0

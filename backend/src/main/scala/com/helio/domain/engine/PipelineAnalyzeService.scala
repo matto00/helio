@@ -4,12 +4,11 @@ import com.helio.domain.model.DataFieldType
 import com.helio.domain.steps.{JoinConfig, LookupConfig, SecondaryInput, UnionConfig}
 import org.slf4j.LoggerFactory
 import scala.util.Try
+import scala.collection.mutable
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import StepConfigValidation.validateStepConfig
-
-
 
 object PipelineAnalyzeService {
 
@@ -23,7 +22,8 @@ object PipelineAnalyzeService {
   /** HEL-1279: public entry point to the schema-INDEPENDENT config validator -- the exact function
    *  `analyzeNodes` runs for every enabled node (before inference). Reads only `(op, rawConfig)`,
    *  never a schema, so it cannot inherit the stored-inferred-schema false positives of HEL-1280. */
-  def stepConfigProblem(op: String, rawConfig: String): Option[String] = StepConfigValidation.validateStepConfig(op, rawConfig)
+  def stepConfigProblem(op: String, rawConfig: String): Option[String] =
+    StepConfigValidation.validateStepConfig(op, rawConfig)
 
   /** The ONE composition of analyze's per-step check for an ENABLED step: the schema-independent
    *  config validator first, and only when it passes the per-kind inference (whose own error is the
@@ -296,7 +296,7 @@ object PipelineAnalyzeService {
       sourceSchemasByRoot:     Map[String, Vector[SchemaField]],
       secondarySourceSchemas:  Map[String, Vector[SchemaField]] = Map.empty
   ): Map[String, AnalyzedStep] = {
-    val results = scala.collection.mutable.LinkedHashMap.empty[String, AnalyzedStep]
+    val results = mutable.LinkedHashMap.empty[String, AnalyzedStep]
 
     def schemaAt(step: NodeStepInput): Vector[SchemaField] =
       step.parentStepId.flatMap(results.get).map(_.outputSchema)

@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
+import scala.collection.mutable
 
 object PipelineRunNotifyBus {
   // HEL-1168 design.md D4: exactly ONE fixed, server-controlled channel name, never derived
@@ -145,7 +146,7 @@ final class PipelineRunNotifyBus(
   }
 
   private[pipelines] def encodePayload(pipelineId: String, event: RunStatusEvent): String = {
-    val fields = scala.collection.mutable.LinkedHashMap[String, JsValue](
+    val fields = mutable.LinkedHashMap[String, JsValue](
       "originInstanceId" -> JsString(instanceId),
       "pipelineId"       -> JsString(pipelineId),
       "status"           -> JsString(event.status)

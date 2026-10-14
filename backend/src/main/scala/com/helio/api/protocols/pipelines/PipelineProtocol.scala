@@ -3,6 +3,7 @@ package com.helio.api.protocols.pipelines
 import com.helio.api.protocols.sources.{DataSourceProtocol, RestApiConfigPayload, SqlSourceConfigPayload, StaticDataPayload}
 import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
 import spray.json._
+import scala.collection.mutable
 
 
 /** `steps`/`outputs` (HEL-906 task 3.1, additive): the single-call transactional pipeline
@@ -358,7 +359,7 @@ trait PipelineProtocol
   implicit val runSubmitResponseFormat: RootJsonFormat[RunSubmitResponse] = jsonFormat1(RunSubmitResponse.apply)
   implicit val runStatusResponseFormat: RootJsonFormat[RunStatusResponse] = new RootJsonFormat[RunStatusResponse] {
     def write(r: RunStatusResponse): JsValue = {
-      val fields = scala.collection.mutable.Map[String, JsValue](
+      val fields = mutable.Map[String, JsValue](
         "runId"  -> JsString(r.runId),
         "status" -> JsString(r.status)
       )

@@ -234,11 +234,11 @@ final case class CostReasonResponse(
  *  `canRun` (HEL-1096 design.md D1, HEL-1266 D1-D3): true iff the REQUESTING user is the
  *  pipeline's owner or holds an editor grant on it -- the same check `POST /api/pipelines/:id/run`
  *  enforces -- AND no enabled step carries a `validationError` (each such step adds a
- *  `step-config-invalid` reason (`PipelineAnalyzeService.StepConfigInvalidCode`) naming it and clears
- *  `autoRunnable` too; a permission denial
- *  carries no reason code). Otherwise set regardless of `autoRunnable`; the pipeline-detail page
- *  only renders the "Run to update" control when BOTH `autoRunnable` is false and `canRun` is
- *  true, per the `run-to-update-affordance` spec. */
+ *  `step-config-invalid` reason (`PipelineAnalyzeService.StepConfigInvalidCode`) naming it and
+ *  clears `autoRunnable` too; a permission denial carries no reason code). Otherwise set
+ *  regardless of `autoRunnable`; the pipeline-detail page only renders the "Run to update"
+ *  control when BOTH `autoRunnable` is false and `canRun` is true, per the
+ *  `run-to-update-affordance` spec. */
 final case class CostVerdictResponse(
     autoRunnable:  Boolean,
     estimatedRows: Option[Long] = None,
@@ -249,10 +249,11 @@ final case class CostVerdictResponse(
 
 /** HEL-1235: one schema-only, NON-BLOCKING analyze finding (`AnalyzeSchemaWarnings`). `code` is
  *  `field-not-in-input-schema`, `join-key-type-mismatch`, `join-column-renamed`,
- *  `numeric-op-on-text-field` (HEL-1403), `text-function-on-numeric-field` or `literal-type-mismatch` (HEL-1455); `stepId` is the
- *  step it is about (the client step id for a proposal). Never feeds `validationError`,
- *  `costVerdict` or the auto-run gate, and is unrelated to `propose_pipeline`'s `warnings: string[]`
- *  and to run warnings. Always present (possibly empty) on the full and proposal responses. */
+ *  `numeric-op-on-text-field` (HEL-1403), `text-function-on-numeric-field` or
+ *  `literal-type-mismatch` (HEL-1455); `stepId` is the step it is about (the client step id for a
+ *  proposal). Never feeds `validationError`, `costVerdict` or the auto-run gate, and is unrelated
+ *  to `propose_pipeline`'s `warnings: string[]` and to run warnings. Always present (possibly
+ *  empty) on the full and proposal responses. */
 final case class AnalyzeWarningResponse(stepId: String, code: String, message: String)
 
 /** `sourceSchemaDrift` (HEL-462) is computed at analyze time and is absent

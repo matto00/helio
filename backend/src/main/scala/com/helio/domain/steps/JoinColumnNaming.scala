@@ -1,7 +1,7 @@
 package com.helio.domain.steps
 
 /** HEL-1236 / HEL-1250: the ONE column-collision rule for `join` and `lookup`, shared by the in-process runtime
- *  ([[JoinStep]]), the analyze-time schema projection (`PipelineAnalyzeService.inferJoin`) and
+ *  ([[JoinStep]]), the analyze-time schema projection (`MultiInputSchemaInference.inferJoin`) and
  *  the Spark path (`SparkJobSubmitter`), so every surface produces the same column names.
  *
  *  Owner ruling (2026-10-03): auto-prefix the RIGHT side. The left column keeps its name, a

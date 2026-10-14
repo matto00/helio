@@ -26,7 +26,7 @@ export const ASSERT_RULE_KINDS = [
 export type AssertRuleKind = (typeof ASSERT_RULE_KINDS)[number];
 
 /** Kinds that reference a specific `field` (design.md Decision 4 — used
- *  identically by the backend's `PipelineAnalyzeService.inferAssert`). */
+ *  identically by the backend's `ReshapeSchemaInference.inferAssert`). */
 const FIELD_REQUIRED_KINDS: readonly AssertRuleKind[] = ["notNull", "unique", "range", "regex"];
 
 export const ASSERT_SEVERITIES = ["warn", "error"] as const;
