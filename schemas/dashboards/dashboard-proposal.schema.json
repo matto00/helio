@@ -32,7 +32,7 @@
         "type": {
           "type": "string",
           "enum": ["text", "markdown", "image", "output", "form"],
-          "description": "No `divider`: excluded from the agent-facing set by an explicit, stated product-scope reason (purely presentational layout chrome, nothing an agent can author), mirrored by create_panel's enum (see scripts/lib/agentFacingPanelTypes.mjs). Every other canonical kind is on this wire because the wire can express its required binding: `output` binds `outputId`, `form` binds `dataSourceId` (HEL-1148)."
+          "description": "No `divider`: excluded from the agent-facing set by an explicit, stated product-scope reason (purely presentational layout chrome, nothing an agent can author), recorded in the AGENT_SURFACE_EXCLUSIONS table in scripts/lib/agentFacingPanelTypes.mjs; dividers remain creatable through the MCP create_content_panel tool. Every other canonical kind is on this wire because the wire can express its required binding: `output` binds `outputId`, `form` binds `dataSourceId` (HEL-1148)."
         },
         "outputId": {
           "type": "string",

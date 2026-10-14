@@ -1,0 +1,95 @@
+[trimmed: 195 lines; head 15, key lines, tail 25]
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:247:8 
+247 |        exclude("org.apache.pekko", "*")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:248:8 
+248 |        exclude("com.typesafe.akka", "akka-actor_2.13")
+    |        ^^^^^^^
+    |Alphanumeric method exclude is not declared infix; it should not be used as infix operator.
+    |Instead, use method syntax .exclude(...) or backticked identifier `exclude`.
+    |The latter can be rewritten automatically under -rewrite -source 3.4-migration.
+-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:249:8 
+...
+2:[info] loading project definition from /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/project
+3:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:247:8 
+9:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:248:8 
+15:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:249:8 
+21:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:250:8 
+27:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:251:8 
+33:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:252:8 
+39:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:254:8 
+45:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:255:8 
+51:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:256:8 
+57:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:257:8 
+63:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:258:8 
+69:-- Warning: /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/build.sbt:259:8 
+75:[info] set current project to helio-backend (in build file:/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/)
+76:[info] compiling 550 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+77:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/api/ApiRoutes.scala:230:24: Implicit definition should have explicit type (inferred scala.concurrent.Executi
+80:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/services/patchsets/RefinementService.scala:49:28: The outer reference in this type test cannot be checked at
+83:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala:69:28: The outer reference in this type test cannot be ch
+86:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala:81:28: The outer reference in this type test cannot be ch
+89:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/services/workspace/WorkspaceContextComputations.scala:216:28: The outer reference in this type test cannot b
+92:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/main/scala/com/helio/services/workspace/WorkspaceContextComputations.scala:408:28: The outer reference in this type test cannot b
+102:[info] compiling 659 Scala sources to /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+103:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala:103:9: A try without a catch or finally is eq
+106:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/infrastructure/persistence/dashboards/DashboardLayoutRepairRlsSpec.scala:162:17: reference to ctx is ambigu
+113:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/api/ApiRoutesAlertHistoryWiringSpec.scala:129:28: The outer reference in this type test cannot be checked a
+116:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/api/routes/telemetry/ProductEventRoutesSpec.scala:46:28: The outer reference in this type test cannot be ch
+119:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/infrastructure/persistence/NodePayloadTrimPurgeLockOrderSpec.scala:101:28: The outer reference in this type
+122:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/infrastructure/persistence/panels/LockRaceSupport.scala:167:30: The outer reference in this type test canno
+125:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/auth/SecretFieldSpec.scala:10:20: The outer reference in this type test cannot be checked at run t
+128:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala:143:28: The outer reference in this type test can
+131:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoCombinedConnectorWiringSpec.scala:17:28: The outer reference in this type te
+134:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/FireTimeRunConfigGateSpec.scala:135:28: The outer reference in this type test cannot be 
+137:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala:165:30: The outer reference in this type test cannot be check
+140:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/LiveRunReaperSpec.scala:104:28: The outer reference in this type test cannot be checked 
+143:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala:203:28: The outer reference in this type test can
+146:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala:204:28: The outer reference in this type test can
+149:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceOutputHistorySpec.scala:80:28: The outer reference in this type test c
+152:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:240:28: The outer reference in this type te
+155:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:291:28: The outer reference in this type te
+158:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/sources/DatasetWriteSubmitLatencySpec.scala:160:28: The outer reference in this type test cannot b
+161:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala:233:28: The outer reference in this type test cannot b
+164:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala:146:28: The outer reference in this type test cannot be
+167:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala:202:28: The outer reference in this type test cannot 
+170:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/testsupport/NodePayloadFixtures.scala:20:30: The outer reference in this type test cannot be checked at run
+173:[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/testsupport/ProvenanceFixtures.scala:29:20: The outer reference in this type test cannot be checked at run 
+186:MARKER=marker-B-4
+188:[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+190:[info] Total number of tests run: 1
+191:[info] Suites: completed 1, aborted 0
+192:[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+194:[success] elapsed time: 2 s, cache 90%, 27 disk cache hits, 3 onsite tasks
+195:EXIT=0
+...
+[warn]   protected final case class PayloadFx(pid: PipelineId, stepId: PipelineStepId, optedOutput: String, plainOutput: String)
+[warn]                              ^
+[warn] /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/HEL-1595/treeB/backend/src/test/scala/com/helio/testsupport/ProvenanceFixtures.scala:29:20: The outer reference in this type test cannot be checked at run time.
+[warn]   final case class Built(pipelineId: PipelineId, sources: Vector[DataSource], roots: Vector[PipelineRoot])
+[warn]                    ^
+[warn] 98 deprecations (since 1.1.0)
+[warn] 11 deprecations (since Akka HTTP 10.1.11)
+[warn] 109 deprecations in total; re-run with -deprecation for details
+[warn] 26 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] Hel1595ProbeSpec:
+MARKER=marker-B-4
+[info] - hel1595 probe
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 630 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 2 s, cache 90%, 27 disk cache hits, 3 onsite tasks
+EXIT=0

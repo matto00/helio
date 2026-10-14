@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /** Shared fixture for the late-finisher specs (HEL-1518 / HEL-1544 / HEL-1564): the seams that force interleavings
  *  (backend wrapper after the engine, Output-list hook, gated/observed terminal write, snapshot and binary-reference
@@ -95,6 +95,8 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   @volatile protected var foldDone: Promise[Unit]             = Promise[Unit]()
   /** Per-test counter: replaced (not `set(0)`) by [[resetSeams]] so a seam call can capture ITS test's counter. */
   @volatile protected var nodeWrites: AtomicInteger           = new AtomicInteger(0)
+  /** HEL-1594: completed when a node write FAILS (the chain's failure point), whatever the error; the error itself is re-failed unchanged. */
+  @volatile protected var nodeWriteFailed: Promise[Unit]      = Promise[Unit]()
   protected final class HookSnapshotRepo(c: DbContext) extends NodeSnapshotRepository(c) {
     override def overwriteRowsWith(
         pipelineId: String, nodeStepId: Option[String], rows: Seq[JsObject], explicitRootId: Option[String],
@@ -104,7 +106,8 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
       val counter = nodeWrites
       val fold    = foldDone
       val hook    = afterNodeWrite
-      super.overwriteRowsWith(pipelineId, nodeStepId, rows, explicitRootId, andThen, guard).flatMap { _ =>
+      val failed  = nodeWriteFailed
+      super.overwriteRowsWith(pipelineId, nodeStepId, rows, explicitRootId, andThen, guard).andThen { case Failure(_) => failed.trySuccess(()) }.flatMap { _ =>
         val n = counter.incrementAndGet()
         if (n == 2) fold.trySuccess(())
         hook(n)
@@ -116,11 +119,17 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
    *  REAL `binary_refs` insert for `binaryTarget` -- a genuine foreign-key violation when that pipeline is gone or unknown. */
   @volatile protected var beforeBinaryWrite: () => Future[Unit] = () => Future.unit
   @volatile protected var binaryTarget: (String, String)         = ("", "")
+  /** HEL-1594: `binaryEntered` is completed when the upsert is reached, `binarySettled` once it has settled (success or failure). */
+  @volatile protected var binaryEntered: Promise[Unit]           = Promise[Unit]()
+  @volatile protected var binarySettled: Promise[Unit]           = Promise[Unit]()
   protected final class HookBinaryRepo(c: DbContext) extends BinaryRefRepository(c) {
     override def overwriteForNode(pipelineId: String, nodeStepId: Option[String], refs: Vector[BinaryRef], explicitRootId: Option[String]): Future[Unit] = {
       val (pid, step) = binaryTarget
       val ref = BinaryRef(UUID.randomUUID().toString, pid, Some(step), 0, "f", "k", "image/png", "f.png", 1L, Instant.now())
-      beforeBinaryWrite().flatMap(_ => super.overwriteForNode(pid, Some(step), Vector(ref), None))
+      val entered = binaryEntered // HEL-1565: bound at call start
+      val settled = binarySettled
+      entered.trySuccess(())
+      beforeBinaryWrite().flatMap(_ => super.overwriteForNode(pid, Some(step), Vector(ref), None)).andThen { case _ => settled.trySuccess(()) }
     }
   }
 
@@ -146,6 +155,9 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
     nodeWrites = new AtomicInteger(0)
     beforeBinaryWrite = () => Future.unit
     binaryTarget = ("", "")
+    binaryEntered = Promise[Unit]()
+    binarySettled = Promise[Unit]()
+    nodeWriteFailed = Promise[Unit]()
   }
   override def afterEach(): Unit = {
     resetSeams()
@@ -193,10 +205,12 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   }
 
   /** Like [[submit]] for the HEL-1564 wiring (hooked snapshot + binary-reference repos); a failed Future is returned, not thrown. */
-  protected def submitWith(fx: Fx, binary: Boolean = true): Try[Either[ServiceError, _]] = {
+  protected def submitWith(fx: Fx, binary: Boolean = true): Try[Either[ServiceError, _]] = Try(Await.result(submitAsync(fx, binary), 60.seconds))
+
+  /** Non-blocking [[submitWith]] (HEL-1594): the caller owns the wait, so it can observe the answer NOT having arrived. */
+  protected def submitAsync(fx: Fx, binary: Boolean = true): Future[Either[ServiceError, _]] = {
     registry.subscribe(fx.pid.value).runWith(Sink.foreach[RunStatusEvent](e => events.add(fx.pid.value -> e)))(mat)
-    val fut = service(hookedSnapshots = true, binaryRefs = if (binary) new HookBinaryRepo(ctx) else null).submit(fx.pid, isDry = false, AuthenticatedUser(UserId(fx.owner)))
-    Try(Await.result(fut, 60.seconds))
+    service(hookedSnapshots = true, binaryRefs = if (binary) new HookBinaryRepo(ctx) else null).submit(fx.pid, isDry = false, AuthenticatedUser(UserId(fx.owner)))
   }
 
   protected def eventsOf(fx: Fx): Vector[String] = {

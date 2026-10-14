@@ -1,0 +1,105 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 659 Scala sources to /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/infrastructure/persistence/V114BackfillSignupEventsSpec.scala:103:9: A try without a catch or finally is equivalent to putting its body in a block; no exceptions are handled.
+[warn]         try {
+[warn]         ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/infrastructure/persistence/dashboards/DashboardLayoutRepairRlsSpec.scala:162:17: reference to ctx is ambiguous;
+[warn] it is both defined in the enclosing class DashboardLayoutRepairRlsSpec and inherited in the enclosing anonymous class as value ctx (defined in class DashboardRepository)
+[warn] In Scala 2, symbols inherited from a superclass shadow symbols defined in an outer scope.
+[warn] Such references are ambiguous in Scala 3. To continue using the inherited symbol, write `this.ctx`.
+[warn] Or use `-Wconf:msg=legacy-binding:s` to silence this warning. [quickfixable]
+[warn]           await(ctx.withSystemContext(sqlu"""UPDATE dashboards SET layout = $concurrent WHERE id = ${i.value}"""))
+[warn]                 ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/api/ApiRoutesAlertHistoryWiringSpec.scala:129:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Fx(pid: PipelineId, dsId: String, output: OutputId, thresholdRule: AlertRuleId, baselineRule: AlertRuleId)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/api/routes/telemetry/ProductEventRoutesSpec.scala:46:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Repos(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/infrastructure/persistence/NodePayloadTrimPurgeLockOrderSpec.scala:101:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Scenario(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/infrastructure/persistence/panels/LockRaceSupport.scala:167:30: The outer reference in this type test cannot be checked at run time.
+[warn]   protected final case class TwoRootPipeline(pipelineId: String, root1: String, root2: String, source1: String, source2: String)
+[warn]                              ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/auth/SecretFieldSpec.scala:10:20: The outer reference in this type test cannot be checked at run time.
+[warn]   final case class FakeConfig(secret: String, other: String)
+[warn]                    ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/patchsets/PatchSetPreviewOutputContextSpec.scala:143:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Seeded(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/patchsets/PatchSetUndoCombinedConnectorWiringSpec.scala:17:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Created(applicationId: String, source: RestSource, connector: Connector)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/FireTimeRunConfigGateSpec.scala:135:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Scenario(owner: UserId, dsId: DataSourceId, pid: PipelineId) {
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala:165:30: The outer reference in this type test cannot be checked at run time.
+[warn]   protected final case class Fx(owner: String, p: PayloadFx) { def pid: PipelineId = p.pid }
+[warn]                              ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/LiveRunReaperSpec.scala:104:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Fx(owner: AuthenticatedUser, pid: PipelineId, targetId: Option[String])
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala:203:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class RunRow(status: String, rowCount: Option[Int], errorLog: Option[String])
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/PipelineRunEditorPersistenceSpec.scala:204:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class LastRun(status: Option[String], at: Option[String], rowCount: Option[Long], truncated: Option[Boolean])
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceOutputHistorySpec.scala:80:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Fx(pid: PipelineId, rootOutput: String, stepOutput: String, assertStepId: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:240:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Harness(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceTerminalOrderingSpec.scala:291:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Fx(owner: AuthenticatedUser, pid: PipelineId, sourceId: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/sources/DatasetWriteSubmitLatencySpec.scala:160:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class Fixture(write: () => Vector[EvaluatedPipeline.Denied], aiPipelineIds: Vector[PipelineId])
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/workspace/WorkspaceContextServiceSpec.scala:233:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(id: String, outputId: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/workspace/WorkspaceSearchServiceSpec.scala:146:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/services/workspace/WorkspaceTeardownServiceSpec.scala:202:28: The outer reference in this type test cannot be checked at run time.
+[warn]   private final case class SeededPipeline(id: String)
+[warn]                            ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/testsupport/NodePayloadFixtures.scala:20:30: The outer reference in this type test cannot be checked at run time.
+[warn]   protected final case class PayloadFx(pid: PipelineId, stepId: PipelineStepId, optedOutput: String, plainOutput: String)
+[warn]                              ^
+[warn] /home/matt/Development/helio/.claude/worktrees/bug/sbt-cache-cross-worktree-replay/HEL-1595/backend/src/test/scala/com/helio/testsupport/ProvenanceFixtures.scala:29:20: The outer reference in this type test cannot be checked at run time.
+[warn]   final case class Built(pipelineId: PipelineId, sources: Vector[DataSource], roots: Vector[PipelineRoot])
+[warn]                    ^
+[warn] 98 deprecations (since 1.1.0)
+[warn] 11 deprecations (since Akka HTTP 10.1.11)
+[warn] 109 deprecations in total; re-run with -deprecation for details
+[warn] 26 warnings found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+[info] Hel1595ProbeSpec:
+[info] - hel1595 probe *** FAILED ***
+[info]   org.scalatest.exceptions.TestFailedException was thrown. (Hel1595ProbeSpec.scala:7)
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 547 milliseconds.
+[info] Total number of tests run: 1
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.probe.Hel1595ProbeSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+
+real	0m50.462s
+user	2m25.127s
+sys	0m2.898s
+EXIT=1
