@@ -163,4 +163,23 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
       expect(screen.getByRole("button", { name: "Delete Sales Pipeline" })).toHaveFocus(),
     );
   });
+
+  it("opens the confirm as a row directly below the clicked row, and a double-click keeps it on that row", async () => {
+    renderWithStore(<PipelinesPage />);
+    const salesButton = await screen.findByRole("button", { name: "Delete Sales Pipeline" });
+    const row = salesButton.closest("tr")!;
+    fireEvent.click(salesButton);
+    fireEvent.click(screen.getByRole("button", { name: "Delete Sales Pipeline" }));
+    const group = screen.getByRole("group", { name: "Confirm delete Sales Pipeline" });
+    expect(screen.getAllByRole("group", { name: /Confirm delete/ })).toHaveLength(1);
+    // The confirm is the very next table row; the clicked row is still there with its own Delete, in place.
+    expect(group.closest("tr")).toBe(row.nextElementSibling);
+    expect(screen.getByRole("button", { name: "Delete Sales Pipeline" }).closest("tr")).toBe(row);
+    // The other row is untouched and still comes after the inserted confirm row.
+    expect(row.nextElementSibling?.nextElementSibling).toBe(
+      screen.getByRole("button", { name: "Delete Inventory Sync" }).closest("tr"),
+    );
+    // Nothing was deleted by the second click.
+    expect(deletePipelineMock).not.toHaveBeenCalled();
+  });
 });

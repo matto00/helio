@@ -22,10 +22,19 @@ export function focusRowDelete(name: string): void {
  *  is alone. Read BEFORE the delete so the neighbour is known once the row is gone. */
 export function neighbourDeleteLabel(name: string): string | null {
   const row = document.querySelector(deleteButtonSelector(name))?.closest("tr");
-  const neighbour = row?.nextElementSibling ?? row?.previousElementSibling;
-  return (
-    neighbour?.querySelector("button[aria-label^='Delete ']")?.getAttribute("aria-label") ?? null
-  );
+  if (row == null) return null;
+  const labelOf = (candidate: Element | null): string | null =>
+    candidate?.querySelector("button[aria-label^='Delete ']")?.getAttribute("aria-label") ?? null;
+  // The confirm is an inserted row (no Delete button), so skip rows without one in each direction.
+  for (let next = row.nextElementSibling; next !== null; next = next.nextElementSibling) {
+    const label = labelOf(next);
+    if (label !== null) return label;
+  }
+  for (let prev = row.previousElementSibling; prev !== null; prev = prev.previousElementSibling) {
+    const label = labelOf(prev);
+    if (label !== null) return label;
+  }
+  return null;
 }
 
 /** After a successful delete: focus the neighbouring row's Delete button, else the page heading (made focusable). */

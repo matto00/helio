@@ -41,7 +41,7 @@ export function PipelinesPage() {
   const [sharingPipeline, setSharingPipeline] = useState<PipelineSummary | null>(null);
   // HEL-1574: Delete lives on the overview rows (owner ruling 2026-10-14). The warning is the retired sidebar's.
   const [deletingPipeline, setDeletingPipeline] = useState<PipelineSummary | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
 
   async function confirmDelete(pipeline: PipelineSummary) {
     // Read the neighbouring row now: once the row is gone, focus goes to it (else the heading).
@@ -52,10 +52,44 @@ export function PipelinesPage() {
       await dispatch(deletePipeline(pipeline.id)).unwrap();
       focusAfterRowDeleted(neighbour, ".pipelines-page");
     } catch {
-      setDeleteError(`Failed to delete ${pipeline.name}.`);
+      setDeleteError({ id: pipeline.id, message: `Failed to delete ${pipeline.name}.` });
       focusRowDelete(pipeline.name);
     }
   }
+
+  // The confirm (or a refusal) renders as a full-width row directly below the clicked row, so opening it never moves
+  // the row under the pointer: the row's own Delete stays where it is (HEL-1574, AgentMemoryList pattern).
+  const rowExtra =
+    deletingPipeline !== null
+      ? {
+          id: deletingPipeline.id,
+          content: (
+            <div
+              role="group"
+              tabIndex={-1}
+              ref={focusOnMount}
+              aria-label={`Confirm delete ${deletingPipeline.name}`}
+            >
+              <ConfirmInline
+                label={`Delete ${deletingPipeline.name}? Any panels bound to this pipeline's Outputs will stop working.`}
+                confirmLabel="Delete"
+                confirmAriaLabel={`Confirm delete ${deletingPipeline.name}`}
+                onConfirm={() => void confirmDelete(deletingPipeline)}
+                onCancel={() => {
+                  const name = deletingPipeline.name;
+                  setDeletingPipeline(null);
+                  focusRowDelete(name);
+                }}
+              />
+            </div>
+          ),
+        }
+      : deleteError !== null
+        ? {
+            id: deleteError.id,
+            content: <InlineError error={deleteError.message} variant="banner" />,
+          }
+        : undefined;
 
   useEffect(() => {
     void dispatch(fetchPipelines());
@@ -113,32 +147,12 @@ export function PipelinesPage() {
           // once loaded, but not a state worth being wrong in either).
           status !== "failed" && items.length > 0 && (
             <>
-              {deletingPipeline !== null && (
-                <div
-                  role="group"
-                  tabIndex={-1}
-                  ref={focusOnMount}
-                  aria-label={`Confirm delete ${deletingPipeline.name}`}
-                >
-                  <ConfirmInline
-                    label={`Delete ${deletingPipeline.name}? Any panels bound to this pipeline's Outputs will stop working.`}
-                    confirmLabel="Delete"
-                    confirmAriaLabel={`Confirm delete ${deletingPipeline.name}`}
-                    onConfirm={() => void confirmDelete(deletingPipeline)}
-                    onCancel={() => {
-                      const name = deletingPipeline.name;
-                      setDeletingPipeline(null);
-                      focusRowDelete(name);
-                    }}
-                  />
-                </div>
-              )}
-              <InlineError error={deleteError} variant="banner" />
               <PipelineListTable
                 onRequestDelete={(p) => {
                   setDeleteError(null);
                   setDeletingPipeline(p);
                 }}
+                rowExtra={rowExtra}
                 pipelines={items}
                 currentUserId={currentUser?.id}
                 onShare={(p) => setSharingPipeline(p)}

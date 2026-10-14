@@ -47,10 +47,11 @@ export function SourcesPage() {
   // the confirm and the HEL-989 conflict notice on a refused (409) delete. A successful delete stays on this page.
   const [deletingSource, setDeletingSource] = useState<DataSource | null>(null);
   const [deleteConflict, setDeleteConflict] = useState<{
+    sourceId: string;
     sourceName: string;
     conflict: SourceDeleteConflict;
   } | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
 
   async function confirmDelete(source: DataSource) {
     const neighbour = neighbourDeleteLabel(source.name);
@@ -64,12 +65,61 @@ export function SourcesPage() {
       // A refused delete leaves the row: focus returns to its Delete button, with the notice announced beside it.
       focusRowDelete(source.name);
       if (isSourceDeleteConflict(result.payload)) {
-        setDeleteConflict({ sourceName: source.name, conflict: result.payload });
+        setDeleteConflict({
+          sourceId: source.id,
+          sourceName: source.name,
+          conflict: result.payload,
+        });
       } else {
-        setDeleteError(`Failed to delete ${source.name}.`);
+        setDeleteError({ id: source.id, message: `Failed to delete ${source.name}.` });
       }
     }
   }
+
+  // The confirm, the 409 notice or a refusal render as a full-width row directly below the clicked row, so opening
+  // it never moves the row under the pointer: the row's own Delete stays where it is (HEL-1574, AgentMemoryList).
+  const rowExtra =
+    deletingSource !== null
+      ? {
+          id: deletingSource.id,
+          content: (
+            <div
+              role="group"
+              tabIndex={-1}
+              ref={focusOnMount}
+              aria-label={`Confirm delete ${deletingSource.name}`}
+            >
+              <ConfirmInline
+                label={`Delete ${deletingSource.name}? ${sourceDeleteWarning(references[deletingSource.id]) ?? ""}`.trim()}
+                confirmLabel="Delete"
+                confirmAriaLabel={`Confirm delete ${deletingSource.name}`}
+                onConfirm={() => void confirmDelete(deletingSource)}
+                onCancel={() => {
+                  const name = deletingSource.name;
+                  setDeletingSource(null);
+                  focusRowDelete(name);
+                }}
+              />
+            </div>
+          ),
+        }
+      : deleteConflict !== null
+        ? {
+            id: deleteConflict.sourceId,
+            content: (
+              <SourceDeleteConflictNotice
+                sourceName={deleteConflict.sourceName}
+                conflict={deleteConflict.conflict}
+                onDismiss={() => setDeleteConflict(null)}
+              />
+            ),
+          }
+        : deleteError !== null
+          ? {
+              id: deleteError.id,
+              content: <InlineError error={deleteError.message} variant="banner" />,
+            }
+          : undefined;
 
   useEffect(() => {
     // F-072: guard the dispatch on `idle` (mirroring SidebarBody's fetch
@@ -160,35 +210,8 @@ export function SourcesPage() {
             sourcesStatus !== "failed" &&
             (sources.length > 0 ? (
               <>
-                {deletingSource !== null && (
-                  <div
-                    role="group"
-                    tabIndex={-1}
-                    ref={focusOnMount}
-                    aria-label={`Confirm delete ${deletingSource.name}`}
-                  >
-                    <ConfirmInline
-                      label={`Delete ${deletingSource.name}? ${sourceDeleteWarning(references[deletingSource.id]) ?? ""}`.trim()}
-                      confirmLabel="Delete"
-                      confirmAriaLabel={`Confirm delete ${deletingSource.name}`}
-                      onConfirm={() => void confirmDelete(deletingSource)}
-                      onCancel={() => {
-                        const name = deletingSource.name;
-                        setDeletingSource(null);
-                        focusRowDelete(name);
-                      }}
-                    />
-                  </div>
-                )}
-                {deleteConflict !== null && (
-                  <SourceDeleteConflictNotice
-                    sourceName={deleteConflict.sourceName}
-                    conflict={deleteConflict.conflict}
-                    onDismiss={() => setDeleteConflict(null)}
-                  />
-                )}
-                <InlineError error={deleteError} variant="banner" />
                 <SourceListTable
+                  rowExtra={rowExtra}
                   onRequestDelete={(source) => {
                     setDeleteConflict(null);
                     setDeleteError(null);

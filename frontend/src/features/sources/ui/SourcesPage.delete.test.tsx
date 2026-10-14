@@ -161,4 +161,33 @@ describe("Data Sources overview: Delete row action (HEL-1574, owner ruling 2026-
       expect(screen.getByRole("button", { name: "Delete Sales CSV" })).toHaveFocus(),
     );
   });
+
+  it("opens the confirm as a row directly below the clicked row, and a double-click keeps it on that row", async () => {
+    renderWithStore(<SourcesPage />);
+    const button = await screen.findByRole("button", { name: "Delete Sales CSV" });
+    const row = button.closest("tr")!;
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Delete Sales CSV" }));
+    const group = screen.getByRole("group", { name: "Confirm delete Sales CSV" });
+    expect(screen.getAllByRole("group", { name: /Confirm delete/ })).toHaveLength(1);
+    expect(group.closest("tr")).toBe(row.nextElementSibling);
+    expect(screen.getByRole("button", { name: "Delete Sales CSV" }).closest("tr")).toBe(row);
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the 409 notice as a row below the clicked row", async () => {
+    deleteMock.mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: { message: "in use", pipelines: [{ id: "p-1", name: "Orders" }], panels: [] },
+      },
+    });
+    renderWithStore(<SourcesPage />);
+    const row = (await screen.findByRole("button", { name: "Delete Sales CSV" })).closest("tr")!;
+    fireEvent.click(screen.getByRole("button", { name: "Delete Sales CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete Sales CSV" }));
+    const notice = await screen.findByText(/still referenced by/);
+    expect(notice.closest("tr")).toBe(row.nextElementSibling);
+  });
 });

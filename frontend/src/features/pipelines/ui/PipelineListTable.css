@@ -43,21 +43,28 @@
     inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
 }
 
-/* ── Row Delete (HEL-1574) ── an error-toned text button beside Share; the confirm is the page's. */
+/* ── Row Delete (HEL-1574) ── the confirm is a full-width row inserted below the clicked row. */
 .pipeline-list-table__delete-btn {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
+  border: 1px solid var(--app-border-subtle);
   border-radius: var(--app-radius-md);
   background: transparent;
-  color: var(--app-error);
+  color: var(--app-text-muted);
   font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: background-color var(--app-transition);
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
 }
 
+/* Secondary at rest, danger on hover: the same recipe as `.agent-memory-list-table__delete-btn` and
+   `.api-tokens-list-table__revoke-btn` (DESIGN.md §5), so Delete matches the buttons around it. */
 .pipeline-list-table__delete-btn:hover {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
   background: var(--app-error-surface);
+  color: var(--app-error);
 }
 
 .pipeline-list-table__delete-btn:focus-visible {
@@ -82,4 +89,9 @@
     height: 44px;
     transform: translateY(-50%);
   }
+}
+
+.pipeline-list-table__extra-cell {
+  padding: var(--space-3) var(--space-4);
+  background: var(--app-surface-soft);
 }
