@@ -1,0 +1,16 @@
+worktree: /home/matt/Development/helio/.claude/worktrees/bug/scala-pass2-nested-comments/HEL-1603
+files: 1218
+asis: lines=233765 base=0 main=0 head=0 base-not-in-head=0 main-vs-head-diff=0
+time: lines=233765 base=153142 main=153142 head=153142 base-not-in-head=0 main-vs-head-diff=0
+splice: lines=233765 base=1901 main=171880 head=171880 base-not-in-head=0 main-vs-head-diff=0
+probe oneLineNested base 0 main 1 head 0
+probe multiNested base 0 main 1 head 0
+probe closedThenCode base 0 main 1 head 1
+probe emptyThenCode base 0 main 1 head 1
+diff exit 0
+---
+guard exit 0 (stderr lines: 254; non-warning lines:)
+
+C1 diff bytes vs main: 0
+npm exit 0
+check-scala-quality selftest: 103 passed
