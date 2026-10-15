@@ -5,20 +5,21 @@ Defines the `timeline` Output kind, rendered inside an `output` panel (there is 
 
 ## Requirements
 
-### Requirement: Timeline appears in every panel-type contract surface
+### Requirement: Timeline is an Output kind in every Output-kind contract surface
+`timeline` is an Output kind rendered inside an `output` panel, and no `timeline` panel kind exists. Every contract
+surface that enumerates Output `kind` values SHALL include `timeline`, matching the backend `OutputKind`: the
+`kind` enums of `schemas/outputs/output.schema.json` and `schemas/outputs/create-output-request.schema.json`, and the
+`kind` input of the helio-mcp `add_output` tool (`outputKindSchema`). A timeline Output's `fieldMapping` slots are `time` (required, an orderable column) and `event`
+(required), and its `config` accepts the keys every Output kind accepts plus `sort`.
 
-Every contract surface that enumerates panel `type` values SHALL include `timeline`, matching the
-backend `PanelType` canonical set. This covers the JSON Schema (`schemas/panels/panel.schema.json` panel
-`type` enum plus a `TimelineConfig` `$def`) and the helio-mcp `create_panel` / `bind_panel` tool
-type enums, so agent-driven dashboards can create and bind timeline panels.
+#### Scenario: JSON Schema enumerates timeline as an Output kind
+- **WHEN** `schemas/outputs/output.schema.json` is inspected
+- **THEN** its `kind` enum includes `"timeline"`, and the panel `type` enum in `schemas/panels/panel.schema.json` does not
 
-#### Scenario: JSON Schema enumerates timeline
+#### Scenario: MCP Output tools accept timeline
+- **WHEN** an agent calls `add_output` with `kind: "timeline"`
+- **THEN** the tool's input schema accepts the kind
 
-- **WHEN** `schemas/panels/panel.schema.json` is inspected
-- **THEN** the panel `type` enum includes `"timeline"` and a `TimelineConfig` definition describes
-  its config shape
-
-#### Scenario: MCP tools accept timeline
-
-- **WHEN** the helio-mcp `create_panel` and `bind_panel` tool type enums are inspected
-- **THEN** both include `"timeline"` so a timeline panel can be created and bound via MCP
+#### Scenario: Timeline config key is sort
+- **WHEN** a timeline Output is written with `config: { fieldMapping: { time: "at", event: "what" }, sort: "desc" }`
+- **THEN** the write is accepted
