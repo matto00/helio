@@ -754,10 +754,16 @@ describe("App", () => {
 
     // Selecting navigates (not a Redux select), and dismisses the sheet.
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // HEL-1579 (owner ruling `header-owns-name`): on the rail shell the pipeline detail page's own header
+    // carries the name, so the command-bar breadcrumb no longer repeats it. The route change is asserted
+    // through the shell's sr-only <h1> ("Data Pipelines: <name>"), which reads the same active item.
     await waitFor(() =>
-      expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
-        "Revenue ETL",
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Data Pipelines: Revenue ETL",
       ),
+    );
+    expect(screen.getByRole("navigation", { name: "Breadcrumb" })).not.toHaveTextContent(
+      "Revenue ETL",
     );
   });
 

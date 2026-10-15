@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
+import { clickRowMenuItem, editorAction, selectRow, spineRows } from "./support/pipelineSpine";
 
 // HEL-908 — live verification of the HEL-682 `PipelineDetailPage.tsx` /
 // `StepCard.tsx` split (tasks 3.1/3.2), a strictly behavior-preserving
@@ -90,20 +91,22 @@ test.describe("HEL-908 PipelineDetailPage/StepCard split live verification", () 
     // F-146 functional check — duplicate the sort step, then move it up,
     // then toggle it disabled/enabled. Each of these round-trips through the
     // page-owned handlers extracted into usePipelineDetailPage.
-    const stepCards = page.locator(".pipeline-detail-page__step-card");
+    // HEL-1579: the desktop page lists steps as spine rows; Duplicate / Disable act on the SELECTED step through
+    // the focused editor's quiet text actions, and Move up/down is the row menu's.
+    const stepCards = spineRows(page);
     await expect(stepCards).toHaveCount(2);
 
-    await page.locator(".pipeline-detail-page__step-card-duplicate-btn").nth(1).click();
+    await selectRow(page, 1);
+    await editorAction(page, "Duplicate step").click();
     await expect(stepCards).toHaveCount(3);
 
-    await page.getByRole("button", { name: "Move step up" }).nth(2).click();
+    await clickRowMenuItem(page, 2, /^Move step up/);
     await expect(stepCards).toHaveCount(3);
 
-    const disableButtons = page.getByRole("button", { name: "Disable step" });
-    await disableButtons.first().click();
-    await expect(page.getByRole("button", { name: "Enable step" }).first()).toBeVisible();
-    await page.getByRole("button", { name: "Enable step" }).first().click();
-    await expect(disableButtons.first()).toBeVisible();
+    await editorAction(page, "Disable step").click();
+    await expect(editorAction(page, "Enable step")).toBeVisible();
+    await editorAction(page, "Enable step").click();
+    await expect(editorAction(page, "Disable step")).toBeVisible();
 
     // Run the pipeline end to end — exercises handleRunPipeline/SSE wiring
     // extracted into the hook.

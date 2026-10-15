@@ -4,6 +4,7 @@ import { evidencePath } from "./support/evidencePath";
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1350 — a chart Output's Compare picker (Output editor) turns on the dashboard "vs" overlay.
 // The comparison is chosen through the editor UI (never seeded): picker -> PATCH body -> dashboard
@@ -138,7 +139,7 @@ for (const theme of ["light", "dark"] as const) {
       // Open the editor, read the help text, choose "7 days", save.
       await page.goto(`/pipelines/${pipeline.id}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
       await page.getByRole("button", { name: "Open HEL-1350 Trend output" }).click();
       const picker = page.getByRole("combobox", { name: "Compare" });
       await expect(picker).toBeVisible();

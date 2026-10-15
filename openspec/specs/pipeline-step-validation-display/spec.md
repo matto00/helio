@@ -2,12 +2,16 @@
 
 ## Purpose
 Make a step's analyze `validationError` impossible to miss in the pipeline editor: the error message renders inline on the offending StepCard for every op kind, and the errored card itself is visually and accessibly marked in the step list, clearing automatically once the config is fixed.
+
 ## Requirements
+
 ### Requirement: A step's analyze validationError renders inline on its own StepCard for every op kind
 The StepCard component SHALL render the step's analyze `validationError` as an inline error
 message in the expanded card body for every op kind, using the shared inline-error affordance.
 The `compute` op's editor SHALL keep its existing editor-inline rendering without a duplicate
 generic message. When the step has no `validationError`, no error message SHALL render.
+
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the selected step's validation error renders inline in its focused editor for every op kind, and every step's spine row (in any lane) carries the "Step has a validation error" marker.
 
 #### Scenario: Errored non-compute step shows its message
 - **WHEN** a non-compute step's analyze result carries a `validationError` and its card is
@@ -22,6 +26,10 @@ generic message. When the step has no `validationError`, no error message SHALL 
 - **WHEN** a step's analyze result has no `validationError`
 - **THEN** no inline error message renders in its card
 
+#### Scenario: Desktop validation error in the focused editor
+- **WHEN** the selected step has an analyze `validationError` on desktop
+- **THEN** the focused editor shows the message inline and the step's spine row shows the validation-error marker
+
 ### Requirement: An errored step card is visually distinguishable in the step list
 The StepCard SHALL be visually marked as errored whenever its `validationError` is present:
 - An error accent on the card itself (design-token error styling), visible in both collapsed and
@@ -30,6 +38,8 @@ The StepCard SHALL be visually marked as errored whenever its `validationError` 
   visible without expanding the card
 - The marking SHALL derive solely from the same `validationError` the inline message uses, and
   SHALL disappear automatically when a subsequent analyze refresh returns no error for the step
+
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop an errored step is distinguishable by its spine row's validation-error marker (an icon with an accessible name, not colour alone) and by the same marker in the focused editor's header.
 
 #### Scenario: Collapsed errored card is marked
 - **WHEN** a step has a `validationError` and its card is collapsed
@@ -45,3 +55,6 @@ The StepCard SHALL be visually marked as errored whenever its `validationError` 
 - **WHEN** a step has no `validationError`
 - **THEN** its card shows no error accent and no header indicator
 
+#### Scenario: Desktop errored row marker
+- **WHEN** a step has an analyze `validationError` on desktop
+- **THEN** its spine row shows the error icon with the accessible name "Step has a validation error"

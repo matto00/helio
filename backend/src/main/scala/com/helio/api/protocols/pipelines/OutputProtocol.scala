@@ -16,8 +16,8 @@ import spray.json._
 final case class OutputSchemaFieldResponse(name: String, `type`: String)
 
 /** `panelCount` (HEL-909 CR2) is the number of panels currently bound to this
- *  Output. Populated only by `outputResponseFrom`'s `GET /api/outputs` (list)
- *  caller; every single-resource caller (findById/create/update) leaves it
+ *  Output. Populated only by the two list callers, `GET /api/outputs` and (HEL-1579)
+ *  `GET /api/pipelines/:id/outputs`; every single-resource caller (findById/create/update) leaves it
  *  `None`, since none of them needs it and computing it costs an extra
  *  batched query. Replaces the Output picker's prior N+1
  *  `GET /api/outputs/:id/panels`-per-card fetch, which self-rate-limited on

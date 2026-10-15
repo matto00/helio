@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { registerUser } from "./support/auth";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-910 task 6.1/6.2 -- the P1.7 sweep's own "end-to-end proof" AC
 // (ticket.md, design.md decision 8): source -> pipeline -> three Outputs ->
@@ -139,7 +140,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     // "Outputs" tab's own "+ New output"/"New output" affordance
     // (OutputsGalleryTab.tsx) is the entry point that works against the
     // pipeline root regardless of step count.
-    await io.click(page.getByRole("tab", { name: /Outputs/ }));
+    await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
 
     // ── Three Outputs, all "table" kind (the only kind with zero required
     // selects -- see this file's header note on why "chart", the sheet's
@@ -156,7 +157,8 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
       await io.click(page.getByRole("button", { name: "Save" }));
       await saved;
     }
-    await expect(page.locator(".output-gallery-card")).toHaveCount(3);
+    // HEL-1579: the Outputs are cards of the spine's OUTPUTS section on desktop (gallery cards on the phone).
+    await expect(page.locator(".output-gallery-card, .spine-output-card")).toHaveCount(3);
 
     // ── Place all three Outputs on the seeded dashboard. First placement
     // uses the "No panels yet" empty-state CTA (single click straight into

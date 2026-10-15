@@ -4,6 +4,7 @@ import { evidencePath } from "./support/evidencePath";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
 import { setUserTierForTest } from "./support/historySeed";
+import { openOutputHistory, showOutputs } from "./support/pipelineSpine";
 
 // HEL-1277 — the Output History view (scrubber + changed-rows diff) and the dashboard chart "vs"
 // overlay, proven end to end against REAL pipeline runs:
@@ -136,8 +137,8 @@ for (const theme of ["light", "dark"] as const) {
 
       await page.goto(`/pipelines/${pipeline.id}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
-      await page.getByRole("button", { name: "History for HEL-1277 Orders" }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
+      await openOutputHistory(page, "HEL-1277 Orders"); // HEL-1579: a direct button on the phone, the card menu on desktop
       const dialog = page.getByRole("dialog", { name: /HEL-1277 Orders history/ });
       await expect(dialog).toBeVisible();
 

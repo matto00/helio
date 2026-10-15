@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { recordRegisteredUser } from "./support/userCleanup";
 
 // HEL-1007 — the editor wired Move up/down + drag-reorder for root 0 only; every other root's lane
@@ -31,14 +31,20 @@ async function createSource(request: APIRequestContext, name: string) {
   });
 }
 
-function stepCard(lane: Locator, label: string): Locator {
-  return lane.locator(".pipeline-detail-page__step-card", {
-    has: lane.page().locator(".pipeline-detail-page__step-card-label", { hasText: label }),
+// HEL-1579: the desktop page is the step spine. A root's trunk is the `.spine-root` block labelled
+// "From <source>" (the root's block in `roots` order); a row is `.spine-row`, its title `.spine-row__title`.
+function rootBlock(page: Page, index: number): Locator {
+  return page.locator(".spine-root").nth(index);
+}
+
+function stepRow(lane: Locator, label: string): Locator {
+  return lane.locator(".spine-row", {
+    has: lane.page().locator(".spine-row__title", { hasText: label }),
   });
 }
 
 async function labelsIn(lane: Locator): Promise<string[]> {
-  return lane.locator(".pipeline-detail-page__step-card-label").allTextContents();
+  return lane.locator(".spine-row__title").allTextContents();
 }
 
 test.describe("HEL-1007 reorder every root's lane", () => {
@@ -98,30 +104,43 @@ test.describe("HEL-1007 reorder every root's lane", () => {
 
       // `page.request.post(register)` already set the session cookie on the page's context.
       await page.goto(`/pipelines/${pipeline.id}`);
-      const laneA = page.locator(".pipeline-detail-page__river-inner");
-      const laneB = page.locator(
-        `.pipeline-detail-page__root-column[aria-label="Source: ${nameB}"]`,
-      );
+      const laneA = rootBlock(page, 0);
+      const laneB = rootBlock(page, 1);
       await expect(laneB).toBeVisible();
+      await expect(laneB.getByText(`From ${nameB}`)).toBeVisible();
       expect(await labelsIn(laneA)).toEqual(["Limit rows", "Sort rows", "Select fields"]);
       expect(await labelsIn(laneB)).toEqual(["Select fields", "Limit rows", "Sort rows"]);
 
-      // Move controls name their lane (the root's source name).
-      // Soft, so the behavioural assertions below still run (and fail) independently of naming.
+      // The Move items name their lane (the root's source name). Soft, so the behavioural assertions below
+      // still run (and fail) independently of naming.
+      await stepRow(laneB, "Sort rows").hover();
+      await stepRow(laneB, "Sort rows")
+        .getByRole("button", { name: /^Step actions for / })
+        .click();
       await expect
-        .soft(laneB.getByRole("button", { name: `Move step up in ${nameB}` }))
-        .toHaveCount(3);
+        .soft(page.getByRole("menuitem", { name: `Move step up in ${nameB}` }))
+        .toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await stepRow(laneA, "Sort rows").hover();
+      await stepRow(laneA, "Sort rows")
+        .getByRole("button", { name: /^Step actions for / })
+        .click();
       await expect
-        .soft(laneA.getByRole("button", { name: `Move step up in ${nameA}` }))
-        .toHaveCount(3);
+        .soft(page.getByRole("menuitem", { name: `Move step up in ${nameA}` }))
+        .toHaveCount(1);
+      await page.keyboard.press("Escape");
 
-      // Keyboard: focus root 1's last card's Move up, activate with Enter.
-      const sortUp = stepCard(laneB, "Sort rows").getByRole("button", { name: /^Move step up/ });
-      await expect(sortUp).toBeEnabled();
+      // Keyboard: focus root 1's last row's menu trigger and open it with Enter (the first enabled item,
+      // "Move up", takes focus), then activate it with Enter.
+      const sortTrigger = stepRow(laneB, "Sort rows").getByRole("button", {
+        name: /^Step actions for /,
+      });
       const put = page.waitForRequest(
         (r) => r.url().includes("/steps/order") && r.method() === "PUT",
       );
-      await sortUp.focus();
+      await sortTrigger.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("menuitem", { name: /^Move step up/ })).toBeEnabled();
       await page.keyboard.press("Enter");
       const body = (await put).postDataJSON() as { stepIds: string[] };
       // Whole-pipeline payload: root 0's trunk unchanged, root 1's trunk with Sort moved above Limit.
@@ -131,18 +150,20 @@ test.describe("HEL-1007 reorder every root's lane", () => {
         .poll(() => labelsIn(laneB))
         .toEqual(["Select fields", "Sort rows", "Limit rows"]);
       expect(await labelsIn(laneA)).toEqual(["Limit rows", "Sort rows", "Select fields"]);
-      // Focus follows the moved step: its own Move up button (still enabled at index 1).
-      await expect(
-        stepCard(laneB, "Sort rows").getByRole("button", { name: /^Move step up/ }),
-      ).toBeFocused();
+      // Focus follows the moved step: its own row.
+      await expect(stepRow(laneB, "Sort rows").locator(".spine-row__select")).toBeFocused();
 
       // Persists across reload; ownership unchanged.
       await page.reload();
-      await expect(laneB).toBeVisible();
+      await expect(rootBlock(page, 1)).toBeVisible();
       await expect
-        .poll(() => labelsIn(laneB))
+        .poll(() => labelsIn(rootBlock(page, 1)))
         .toEqual(["Select fields", "Sort rows", "Limit rows"]);
-      expect(await labelsIn(laneA)).toEqual(["Limit rows", "Sort rows", "Select fields"]);
+      expect(await labelsIn(rootBlock(page, 0))).toEqual([
+        "Limit rows",
+        "Sort rows",
+        "Select fields",
+      ]);
 
       const listed = await request.get(`/api/pipelines/${pipeline.id}/steps`);
       expect(listed.status()).toBe(200);

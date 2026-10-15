@@ -45,3 +45,28 @@ transcripts are under `/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3f
 | `npx playwright test --workers=2` under `nice -n 19` (`e2e-full.txt`) | exit 0: 325 tests discovered, **324 passed, 1 skipped** (the opt-in `hel1575-switch-measurement`), 0 failed, 19.6 min; 21 lines of `hel1575-dashboard-tabs` specs green |
 
 No backend file changed, so `sbt testFull` was not re-run.
+
+## Merge with HEL-1579
+
+`origin/main` (HEL-1579 `31263face`, HEL-1614 `d517db75b`) was merged into this branch. Conflicts: `CLAUDE.md` (kept main's
+reworded `GET /api/dashboards/:id/panels` line and this branch's `dashboard-changes` line), and the CSS-count pins in
+`elevationTokenGuard.css.test.ts` / `motionTokenGuard.css.test.ts`.
+
+- **Shared predicate.** The `hideDashboardBreadcrumb` prop is removed from `CommandBar`/`App`. `app/hidesBreadcrumbItemName.ts` now
+  returns true on the rail shell for the pipeline detail route (HEL-1579) and for `isDashboardViewPath` routes (`/home`,
+  `/dashboards/*`, where the tab bar owns the name), and false on the phone shell. `CommandBar` has one `breadcrumbNameHidden`
+  value gating both breadcrumb blocks. `hidesBreadcrumbItemName.test.ts` covers pipeline detail, the dashboard view with tabs
+  (`/dashboards/:id`, `/home`) and the phone shell for both. The old "`/home` is not hidden" assertion was inverted on purpose:
+  `/home` is a dashboard view, and the tab bar now shows its name.
+- **CSS pin = 143.** `find frontend/src -name '*.css' | wc -l` = 143 = 135 (shared base) + 6 (HEL-1579 spine/step files) + 2
+  (this branch: `DashboardTabBar.css`, `PaletteSearchBox.css`). Both guards pin 143; neither guard was loosened.
+- **Network-guard allowlist.** `frontend/src/test/networkGuard.ts` merged cleanly: it holds HEL-1579's five `PipelineDetailPage*`
+  entries and no entry for `CommandPalette.test.tsx`, `PanelList.test.tsx`, `AppShell.rail.test.tsx` or `App.test.tsx`.
+
+Transcripts (this worktree), in `scratchpad/hel1575/`: `static.txt` (lint, typecheck, format:check, build all exit 0),
+`jest.txt` (frontend 641 suites; the one failure was the inverted `/home` assertion, then fixed and re-run green),
+`e2e-merge.txt` (318 passed, 15 failed: the Playwright run lacked `DATABASE_URL`, so its psql helpers hit the shared dev DB
+while the backend used a private DB), `e2e-rerun.txt` + `e2e-expired.txt` (those specs re-run with the right DB: 34 passed;
+the one "expired tab" failure is a load flake, 3/3 green on its own), `sbt.txt` (`Tests: succeeded 8161, failed 0`).
+The shared dev DB had V136 applied by another lane and lacked V135, so Flyway refused to start; this run used a private
+scratch DB (created and dropped), not the shared one.

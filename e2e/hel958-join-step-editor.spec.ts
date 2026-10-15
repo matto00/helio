@@ -84,7 +84,10 @@ test.describe("HEL-958 join step editor", () => {
     expect((await created).status()).toBe(201);
 
     // ── Configure: right source, key, type. ──
-    await page.getByRole("button", { name: "Join tables", exact: false }).first().click();
+    // HEL-1579: a created step becomes the selected one, so its editor is already open in the focused editor
+    // (disabled until the create lands); there is no card to expand.
+    await expect(page.getByRole("region", { name: /Join tables$/ })).toBeVisible();
+    await expect(page.locator(".step-focused__fieldset")).toBeEnabled();
     const patched = (n: number) =>
       page.waitForResponse(
         (res) => res.url().includes("/pipeline-steps/") && res.request().method() === "PATCH",

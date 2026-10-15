@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator } from "@playwright/test";
 
 import { CSRF_HEADER, currentUserId, registerAndLogin } from "./support/auth";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1510 -- rendered-geometry guard for HEL-1464's Output editor desktop-overflow fix. A table
 // Output with an 86-character column name is opened at 1100px; every Columns-row control and the
@@ -77,7 +78,7 @@ test("table Output editor at 1100px: an 86-char column name overflows nothing", 
     );
 
     await page.goto(`/pipelines/${pipeline.id}`);
-    await page.getByRole("tab", { name: /^Outputs/ }).click();
+    await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
     await page.getByRole("button", { name: "Open HEL-1510 table output" }).click();
 
     const dialog = page.getByRole("dialog");

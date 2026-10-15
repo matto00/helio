@@ -153,3 +153,18 @@ describe("ActionsMenu — align prop (HEL-719 scope amendment)", () => {
     expect(panel.style.top).toBe("");
   });
 });
+
+// HEL-1579: an item may carry an accessible name that differs from its visible label.
+describe("ActionsMenu item ariaLabel", () => {
+  it("uses the ariaLabel as the menuitem's accessible name and keeps the visible label as its text", () => {
+    render(
+      <ActionsMenu
+        label="Step actions"
+        items={[{ label: "Move up", ariaLabel: "Move step up in Sales CSV", onClick: () => {} }]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Step actions" }));
+    const item = screen.getByRole("menuitem", { name: "Move step up in Sales CSV" });
+    expect(item).toHaveTextContent("Move up");
+  });
+});

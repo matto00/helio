@@ -245,7 +245,6 @@ export function AppShell() {
             )}
             {showTabBar && <DashboardTabBar />}
             <CommandBar
-              hideDashboardBreadcrumb={showTabBar}
               isMobileNavSheetOpen={isMobileNavSheetOpen}
               // HEL-773 design.md D2 — the trigger now toggles: tapping it again
               // while the sheet is open closes it, preserving the behavior
