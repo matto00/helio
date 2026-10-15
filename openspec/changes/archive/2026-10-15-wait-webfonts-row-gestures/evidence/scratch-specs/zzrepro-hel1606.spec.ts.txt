@@ -1,0 +1,39 @@
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { gotoSettled, installFreshClock, settledRowTop } from "./support/rowDeleteGesture";
+
+// SCRATCH (HEL-1606): forced-delay repro on a fake-clock test. Fonts held FONT_DELAY_MS, so the swap lands after
+// settledRowTop's stability loop would have returned on base. The contract under test: once settledRowTop returns,
+// the row does not move any more (the point a gesture computes from it stays valid).
+for (const [route, listUrl] of [["/sources", "/api/data-sources"], ["/pipelines", "/api/pipelines"]] as const) {
+  test(`fake clock + delayed fonts: row top is stable after settledRowTop (${route})`, async ({ page, request }) => {
+    await page.setViewportSize({ width: 820, height: 900 });
+    await registerAndLogin(page, request, { prefix: "hel1606r", displayName: "r", domain: "example.com", label: route.slice(1), isolate: true });
+    const ids: string[] = [];
+    for (let i = 0; i < 22; i++) {
+      const res = await page.request.post("/api/data-sources", { data: { name: `R ${String(i).padStart(2, "0")}`, type: "static", columns: [{ name: "a", type: "integer" }], rows: [[1]] }, headers: { "X-Helio-Requested-With": "1" } });
+      expect(res.status()).toBe(201);
+      ids.push(((await res.json()) as { id: string }).id);
+    }
+    if (route === "/pipelines") {
+      for (let i = 0; i < 22; i++) {
+        const res = await page.request.post("/api/pipelines", { data: { name: `R ${String(i).padStart(2, "0")}`, roots: [{ sourceId: ids[i] }] }, headers: { "X-Helio-Requested-With": "1" } });
+        expect(res.status()).toBe(201);
+      }
+    }
+    await installFreshClock(page, [listUrl]);
+    await page.route(/fonts\.gstatic\.com/, async (r) => {
+      await new Promise((x) => setTimeout(x, Number(process.env.FONT_DELAY_MS ?? "0")));
+      await r.continue();
+    });
+    await gotoSettled(page, route);
+    const button = page.getByRole("button", { name: /^Delete R 14/ });
+    await expect(button).toHaveCount(1);
+    const settled = await settledRowTop(button);
+    const fontsState = await page.evaluate(() => document.fonts.status + ":" + [...document.fonts].filter((f) => f.status === "loading").length);
+    await page.waitForTimeout(3500);
+    const later = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
+    console.log(`REPRO route=${route} settled=${settled} later=${later} fontsAtReturn=${fontsState}`);
+    expect(later).toBe(settled);
+  });
+}

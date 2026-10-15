@@ -135,6 +135,30 @@ final class DashboardAuthoringService(
         }
     }
 
+  /** HEL-1609: the Future callbacks in `startStreaming`/`continueStreaming` run when grounding / the
+   *  conversation load completes, whether or not the response stream is still live (pekko never
+   *  surfaces downstream cancellation to a plain Future callback). `streamAttempt` invokes the
+   *  billed `claudeClient.stream` while BUILDING its Source, so it must not run in that callback.
+   *  `lazySource` defers it to materialization + first demand: `futureSource` materializes this
+   *  inner source only while its stage is still running, so a stream cancelled before the
+   *  callback fires never reaches the transport.
+   *
+   *  Charging: the daily chat counter is charged at admission (`ChatAccessService.guardAndCount`,
+   *  before the 200) for every admitted request and is not refunded on cancel; the billed Claude
+   *  call happens only once a live stream demands it. A stream cancelled before then emits no
+   *  success/failure outcome telemetry (grounding-failure telemetry is unchanged). */
+  private def lazyStreamAttempt(
+      initialMessages: Vector[ClaudeMessage],
+      warnings: Vector[String],
+      user: AuthenticatedUser,
+      persistTurn: AttemptOutcome => Future[Either[ServiceError, String]],
+      goal: String,
+      mdcSnapshot: JMap[String, String]
+  ): Source[AuthoringStreamEvent, NotUsed] =
+    Source
+      .lazySource(() => streamAttempt(initialMessages, warnings, user, persistTurn, goal, mdcSnapshot))
+      .mapMaterializedValue(_ => NotUsed)
+
   private def startStreaming(request: DashboardAuthoringRequest, user: AuthenticatedUser, mdcSnapshot: JMap[String, String]): Source[AuthoringStreamEvent, NotUsed] =
     Source
       .futureSource(assembleGroundedContext(user, request.contextOptions).map {
@@ -144,7 +168,7 @@ final class DashboardAuthoringService(
           val persistTurn: AttemptOutcome => Future[Either[ServiceError, String]] = outcome =>
             turns.persistNew(user, request.goal, userMessage, outcome.finalResponseText, outcome.proposal, totalTokensOf(outcome))
               .map(conv => Right(conv.id.value))
-          streamAttempt(Vector(userMessage), ctx.warnings, user, persistTurn, request.goal, mdcSnapshot)
+          lazyStreamAttempt(Vector(userMessage), ctx.warnings, user, persistTurn, request.goal, mdcSnapshot)
       })
       .mapMaterializedValue(_ => NotUsed)
 
@@ -199,7 +223,7 @@ final class DashboardAuthoringService(
               case Some(conv) => Right(conv.id.value)
               case None       => Left(ServiceError.NotFound())
             }
-          streamAttempt(messages, Vector.empty, user, persistTurn, request.goal, mdcSnapshot)
+          lazyStreamAttempt(messages, Vector.empty, user, persistTurn, request.goal, mdcSnapshot)
       })
       .mapMaterializedValue(_ => NotUsed)
 
