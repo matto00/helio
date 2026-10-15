@@ -41,7 +41,14 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
  *  429, owner unlimited) AFTER the 503/body-parse checks and BEFORE the service, so a missing key or a
  *  malformed body never charges. A `None` `chatAccessOpt` alongside a live service FAILS CLOSED (503):
  *  the route is never reachable ungated. The outcome/conversation-read sub-routes make no Claude call
- *  and stay ungated. */
+ *  and stay ungated.
+ *
+ *  HEL-1609 charging semantics: the daily chat counter is charged at ADMISSION (`guardAndCount`,
+ *  before the 200) for every admitted request, buffered or `?stream=true`, whether or not the body is
+ *  ever read, and is not refunded on cancel. A billed Claude call is made only by a live stream: for
+ *  `?stream=true` the call starts once grounding / conversation load has finished AND the response
+ *  stream is still materialized and demanding, so a client that disconnects before then costs no
+ *  Claude call. A disconnect after the call started does not abort it. */
 final class DashboardAuthoringRoutes(
     serviceOpt: Option[DashboardAuthoringService],
     user: AuthenticatedUser,
