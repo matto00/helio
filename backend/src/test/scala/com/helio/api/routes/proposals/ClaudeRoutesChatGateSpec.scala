@@ -243,12 +243,18 @@ class ClaudeRoutesChatGateSpec
     "be counted on the shared counter and get 429 with limit on the (limit+1)th call, across both routes" in {
       val f = newUser("beta"); val t = new CountingTransport(authoringJson); val c = chat(2)
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }
-      Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }
+      // HEL-1597: `status` alone is read from the response headers, which complete BEFORE the stream's own
+      // (permitted, charged) transport call runs. Drain the body so that call has happened-before `before`.
+      Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String] should include("event: authoring-result")
+      }
       usage(f) shouldBe Some(2)
       // Wiring guard (HEL-1473): the stored usage_date IS the pinned day. Fails on SystemClock on any
       // day but 2026-01-01, so dropping the pin from the repo is caught immediately.
       await(db.run(sql"""SELECT usage_date::text FROM assistant_daily_usage WHERE user_id = ${f.user.id.value}::uuid""".as[String])) shouldBe Vector(pinnedDate.toString)
       val before = t.calls.get
+      before shouldBe 2 // one buffered send + one stream, both permitted and now both observed
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
       Post("/refinements", jsonEntity(refineBody(f))) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
       t.calls.get shouldBe before

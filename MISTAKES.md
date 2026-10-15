@@ -115,6 +115,15 @@ _given the stated problem_ and rarely re-check the problem. Every gate on that
 ticket had also run against the stale tree, so no local evidence on the run was
 measuring what CI measures. (HEL-830, HEL-443.)
 
+### A multi-file jest run under an AI agent prints no console, so "no AggregateError in the log" proves nothing
+
+With `CLAUDECODE` or `AI_AGENT` set, jest 30 switches to an agent-friendly reporter. A **multi-file** run
+then prints only the summary and hides the console output of passing suites; a single-file run still prints
+it. On main, the same full suite showed zero jsdom XHR `AggregateError` blocks that way and 342 across 22 files
+with `env -u CLAUDECODE -u AI_AGENT npx jest ... --reporters=default`. Any console evidence from a multi-file
+run (an absence of errors, a count) must come from that second form. The durable check is not the log at all:
+`frontend/src/test/networkGuard.ts` fails the test that issues an unmocked network request (HEL-1600).
+
 ---
 
 ## Data and persistence

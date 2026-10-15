@@ -11,6 +11,15 @@ import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import { usePanelData } from "../../hooks/usePanelData";
 import { MobilePanelStack } from "./MobilePanelStack";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../../pipelines/services/outputService"),
+  getOutputById: jest.fn(() =>
+    Promise.reject(new Error("getOutputById: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 // This suite renders real chart panels (`orderPanelsForMobileStack` puts a
 // chart in the fixture set below), so it transitively imports the real
 // `ChartPanel` → `echarts-for-react`/`echartsCore` chain (F-022's
