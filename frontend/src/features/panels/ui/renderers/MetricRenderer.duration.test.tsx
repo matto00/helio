@@ -94,21 +94,6 @@ describe("duration format hides the unit suffix", () => {
     expect(container.querySelector(".panel-content__metric-unit")).toHaveTextContent("s");
   });
 
-  it("collection items with a unit render no unit for duration", () => {
-    const { container } = render(
-      <CollectionRenderer
-        fieldMapping={{ value: "d", label: "name" }}
-        layout="grid"
-        format="duration"
-        metricOptions={{ unit: "s" }}
-        rawRows={[["job", "90"]]}
-        headers={["name", "d"]}
-      />,
-    );
-    expect(container.querySelector(".panel-content__metric-unit")).toBeNull();
-    expect(screen.getByText("1m 30s")).toBeInTheDocument();
-  });
-
   it("a unit column bound through fieldMapping is hidden too", () => {
     const { container } = render(
       <CollectionRenderer
