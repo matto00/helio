@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 
 import { ChartRenderer } from "./ChartRenderer";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
+import { settleChartMount } from "../../../../test/settleChartMount";
 
 // The ECharts canvas is irrelevant to the annotation footnote under test; mock
 // it so the renderer's own DOM (the annotation element) is what we assert on.
@@ -33,8 +34,8 @@ function renderChartRenderer(annotation?: string | null) {
 // "still pending" fallback state is therefore only observable in the very first test that touches
 // the module below — it must stay first, and it awaits the resolution itself before finishing so
 // the transition doesn't leak an "update not wrapped in act(...)" warning into whichever test runs
-// next. Every other test here awaits `screen.findByTestId(...)` (Suspense-aware) rather than the
-// old synchronous `getByTestId`.
+// next. Every other test here awaits `settleChartMount()` (HEL-1599: the lazy module inside `act`, no
+// 1 s `findBy*` deadline) and then queries synchronously with `getByTestId`.
 describe("ChartRenderer — Suspense fallback (HEL-512)", () => {
   it("shows the shared panel-loading fallback before the chart chunk resolves", async () => {
     renderChartRenderer();
@@ -42,12 +43,14 @@ describe("ChartRenderer — Suspense fallback (HEL-512)", () => {
     expect(screen.queryByTestId("echarts")).not.toBeInTheDocument();
     // Drain the mocked dynamic import within this test's own act() scope (see the file-level
     // comment above) rather than leaving it to resolve during the next test.
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
   });
 
   it("replaces the fallback with the chart once the chunk resolves", async () => {
     renderChartRenderer();
-    expect(await screen.findByTestId("echarts")).toBeInTheDocument();
+    await settleChartMount();
+    expect(screen.getByTestId("echarts")).toBeInTheDocument();
     expect(screen.queryByLabelText("Loading data")).not.toBeInTheDocument();
   });
 
@@ -57,7 +60,8 @@ describe("ChartRenderer — Suspense fallback (HEL-512)", () => {
   it("mounts through the fallback → chart transition with no console errors", async () => {
     const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     renderChartRenderer();
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -66,32 +70,37 @@ describe("ChartRenderer — Suspense fallback (HEL-512)", () => {
 describe("ChartRenderer — annotation footnote (HEL-318)", () => {
   it("renders the annotation beneath the chart when set", async () => {
     renderChartRenderer("Source: Bureau of Labor Statistics");
-    expect(await screen.findByTestId("echarts")).toBeInTheDocument();
+    await settleChartMount();
+    expect(screen.getByTestId("echarts")).toBeInTheDocument();
     expect(screen.getByText("Source: Bureau of Labor Statistics")).toBeInTheDocument();
   });
 
   it("renders no annotation element when annotation is absent", async () => {
     const { container } = renderChartRenderer();
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 
   it("renders no annotation element when annotation is blank/whitespace-only", async () => {
     const { container } = renderChartRenderer("   ");
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 
   it("renders no annotation element when annotation is null", async () => {
     const { container } = renderChartRenderer(null);
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 
   it("exposes the full annotation text via title for clamped/long text", async () => {
     const long = "Preliminary data — subject to revision ".repeat(10).trim();
     const { container } = renderChartRenderer(`  ${long}  `);
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     const el = container.querySelector(".chart-panel__annotation");
     expect(el).toHaveTextContent(long);
     expect(el).toHaveAttribute("title", long);
@@ -110,7 +119,8 @@ describe("ChartRenderer -- truncation note forms (HEL-1398)", () => {
         <ChartRenderer truncationNote={LONG} truncationNoteShort={SHORT} />
       </ThemeProvider>,
     );
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     const note = container.querySelector(".chart-panel__truncation-note");
     expect(note).toHaveAttribute("title", LONG);
     const long = screen.getByText(LONG);
@@ -129,7 +139,8 @@ describe("ChartRenderer -- truncation note forms (HEL-1398)", () => {
         <ChartRenderer truncationNote={LONG} />
       </ThemeProvider>,
     );
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(container.querySelector(".chart-panel__truncation-note")).toHaveTextContent(LONG);
     expect(container.querySelector(".chart-panel__truncation-note-short")).toBeNull();
   });

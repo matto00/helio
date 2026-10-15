@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 
 import { defaultChartAppearance, defaultPanelAppearance } from "../../../../theme/appearance";
 import { ThemeProvider } from "../../../../theme/ThemeProvider";
+import { settleChartMount } from "../../../../test/settleChartMount";
 import type { GroupedAggregate } from "../../../../utils/aggregate";
 import { ChartRenderer } from "./ChartRenderer";
 
@@ -45,7 +46,8 @@ function renderChart(
 describe("ChartRenderer omitted-x note (HEL-1508)", () => {
   it("states how many rows a time axis left out", async () => {
     renderChart("line", { fieldTypes: { day: "timestamp" } });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(screen.getByText("2 rows with no readable date not shown.")).toBeInTheDocument();
   });
 
@@ -54,7 +56,8 @@ describe("ChartRenderer omitted-x note (HEL-1508)", () => {
       fieldTypes: { day: "timestamp" },
       truncationNote: "Based on the first 200 of 1,000 rows.",
     });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     const notes = [...container.querySelectorAll(".chart-panel__skipped-note")];
     expect(notes).toHaveLength(1);
     expect(notes[0]).toHaveClass("chart-panel__truncation-note");
@@ -73,13 +76,15 @@ describe("ChartRenderer omitted-x note (HEL-1508)", () => {
         seriesName: "sum",
       },
     });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(screen.getByText("1 group with no readable date not shown.")).toBeInTheDocument();
   });
 
   it("shows no note on a category chart", async () => {
     renderChart("line", { fieldTypes: { day: "string" } });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/no readable date/)).not.toBeInTheDocument();
   });
 
@@ -91,7 +96,8 @@ describe("ChartRenderer omitted-x note (HEL-1508)", () => {
         ["2026-10-02", "2"],
       ],
     });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/no readable date/)).not.toBeInTheDocument();
   });
 
@@ -104,7 +110,8 @@ describe("ChartRenderer omitted-x note (HEL-1508)", () => {
         ["n/a", "3"],
       ],
     });
-    await screen.findByTestId("echarts");
+    await settleChartMount();
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/no readable date/)).not.toBeInTheDocument();
   });
 });
