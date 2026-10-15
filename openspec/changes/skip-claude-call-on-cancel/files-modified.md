@@ -1,4 +1,0 @@
-- `backend/src/main/scala/com/helio/services/proposals/DashboardAuthoringService.scala` — D1: lazySource around streamAttempt in startStreaming/continueStreaming; charging doc
-- `backend/src/main/scala/com/helio/api/routes/proposals/DashboardAuthoringRoutes.scala` — scaladoc: when a request is charged vs when a billed call happens
-- `backend/src/test/scala/com/helio/services/proposals/DashboardAuthoringServiceSpec.scala` — cancel-before-call (red-first) and read tests, first and continued turn
-- `backend/src/test/scala/com/helio/api/routes/proposals/ClaudeRoutesChatGateSpec.scala` — admission-charge test for an unread stream
