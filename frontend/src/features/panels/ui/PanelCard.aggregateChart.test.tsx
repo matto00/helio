@@ -1,6 +1,7 @@
 import { act, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
@@ -143,7 +144,8 @@ function optionOf(el: HTMLElement): OptionShape {
 describe("PanelCard aggregated chart Output (HEL-1351)", () => {
   it("plots one value per group, named <agg>(<yField>), as bars (the Output's type)", async () => {
     renderCard();
-    const chart = await screen.findByTestId("echarts");
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts");
     const opt = optionOf(chart);
     expect(opt.xAxis?.data).toEqual(["east", "(blank)", "west"]);
     expect(opt.series?.[0]).toMatchObject({ type: "bar", name: "sum(amount)", data: [15, 2, 7] });
@@ -156,13 +158,15 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
       transparency: 1,
       chart: { ...defaultChartAppearance, chartType: "line" },
     });
-    const opt = optionOf(await screen.findByTestId("echarts"));
+    await settleChartMount(getOutputByIdMock);
+    const opt = optionOf(screen.getByTestId("echarts"));
     expect(opt.series?.[0]?.type).toBe("line");
   });
 
   it("a click selects on the groupBy dimension and Inspect lists exactly that group's rows", async () => {
     renderCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "west", seriesName: "sum(amount)" });
     });
@@ -176,7 +180,8 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
 
   it("a click on the 'vs' overlay series still selects the primary series name", async () => {
     renderCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "east", seriesName: "vs 7d" });
     });
@@ -189,7 +194,8 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
 
   it("the null group plots as '(blank)' but a click selects blank (HEL-1408 D10a / HEL-1424) and Inspect lists its null-keyed record", async () => {
     renderCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({
         componentType: "series",
@@ -207,7 +213,8 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
 
   it("click (blank) -> Filter dashboard stores the cross-filter value as the empty string (HEL-1424 C1)", async () => {
     const { store } = renderCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({
         componentType: "series",
@@ -234,7 +241,8 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
       transparency: 1,
       chart: { ...defaultChartAppearance, chartType: "scatter" },
     });
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     expect(optionOf(chart).series?.[0]?.type).toBe("scatter");
     act(() => {
       chart.__onEvents?.click({ componentType: "series", value: [10, 10] });
@@ -250,7 +258,8 @@ describe("PanelCard aggregated chart Output (HEL-1351)", () => {
       paginationRows: null,
     });
     renderCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "west", seriesName: "sum(amount)" });
     });

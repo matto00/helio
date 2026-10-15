@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { ThemeProvider } from "../../../theme/ThemeProvider";
+import { settleChartMount } from "../../../test/settleChartMount";
 
 import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
 import { authReducer } from "../../auth/state/authSlice";
@@ -91,7 +92,11 @@ describe("PublicDashboardViewerPage chart truncation note (HEL-1358)", () => {
   it("shows no note when the page holds every row", async () => {
     fetchRows.mockResolvedValue({ items: PAGE, total: 2, offset: 0, limit: 200 });
     renderAt("/dashboards/dash-1/panels?token=t");
-    await screen.findByTestId("echarts");
+    // The data chain is panels -> (meta + rows): each stage issues the next one's request only after
+    // React flushes, so settle in two steps. Each `settleChartMount` awaits the promises already issued.
+    await settleChartMount(fetchPanels);
+    await settleChartMount(fetchMeta, fetchRows);
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/Based on the first/)).toBeNull();
   });
 });

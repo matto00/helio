@@ -3,6 +3,7 @@ import path from "path";
 import { fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { makeMarkdownPanel, makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
@@ -234,7 +235,8 @@ describe("PanelFullscreenOverlay — HEL-584 task 3.1 (chart resize wiring, desi
         {...basePanelDataProps}
       />,
     );
-    const chart = await screen.findByTestId("echarts");
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts");
     expect(chart).toHaveAttribute("data-autoresize", "true");
   });
 });

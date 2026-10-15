@@ -1,6 +1,7 @@
 import { act, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
@@ -184,7 +185,8 @@ describe("PanelCard aggregated pie Output (HEL-1181)", () => {
     const resolveSpy = mockResolveChartThemeFromLiveDom();
     try {
       renderCard();
-      const before = optionOf(await screen.findByTestId("echarts"));
+      await settleChartMount(getOutputByIdMock);
+      const before = optionOf(screen.getByTestId("echarts"));
       expect(before.series?.[0]?.type).toBe("pie");
       // 80 raw rows must collapse to 4 slices (an ungrouped pie would have 80).
       expect(slicesOf(before)).toEqual(expectedSlices);
@@ -214,7 +216,8 @@ describe("PanelCard aggregated pie Output (HEL-1181)", () => {
   it("control: an unaggregated pie Output still plots one slice per raw row (current behaviour)", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput(PIE_BASE));
     renderCard();
-    const opt = optionOf(await screen.findByTestId("echarts"));
+    await settleChartMount(getOutputByIdMock);
+    const opt = optionOf(screen.getByTestId("echarts"));
     expect(opt.series?.[0]?.type).toBe("pie");
     expect(opt.series?.[0]?.data).toHaveLength(80);
   });
