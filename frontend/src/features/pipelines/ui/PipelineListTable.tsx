@@ -2,6 +2,7 @@ import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { useNow } from "../../../hooks/useNow";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { useSortedRows, type SortColumn } from "../../../shared/ui/useSortedRows";
@@ -113,6 +114,7 @@ export function PipelineListTable({
   const canShare = currentUserId != null && onShare != null;
   const showActions = canShare || onRequestDelete != null;
   const navigate = useNavigate();
+  const now = useNow(60_000);
 
   // HEL-1022: defaults to most-recently-edited first, matching the backend's
   // own default ordering for first paint.
@@ -189,7 +191,7 @@ export function PipelineListTable({
                 </td>
                 <td className="pipeline-list-table__td">
                   {pipeline.lastRunAt !== null ? (
-                    formatRelativeTime(pipeline.lastRunAt)
+                    formatRelativeTime(pipeline.lastRunAt, now)
                   ) : (
                     <span className="pipeline-list-table__dash">—</span>
                   )}
@@ -213,7 +215,7 @@ export function PipelineListTable({
                     `formatRelativeTime("")` -> "NaN years ago" before every backend
                     `PipelineSummaryResponse` construction site guaranteed a real timestamp. */}
                   {pipeline.updatedAt ? (
-                    formatRelativeTime(pipeline.updatedAt)
+                    formatRelativeTime(pipeline.updatedAt, now)
                   ) : (
                     <span className="pipeline-list-table__dash">—</span>
                   )}
@@ -235,7 +237,7 @@ export function PipelineListTable({
                         type="button"
                         className="pipeline-list-table__delete-btn"
                         onClick={(event) => {
-                          noteDeleteActivation(event.detail);
+                          noteDeleteActivation(event.detail, event.currentTarget);
                           onRequestDelete(pipeline);
                         }}
                         aria-label={`Delete ${pipeline.name}`}
