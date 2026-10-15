@@ -1,7 +1,0 @@
-- `frontend/src/test/settleChartMount.ts` — add `settleMocks` (deadline-free settle of mock results/promises inside `act`, `allSettled`); shared `collectPending`; `settleChartMount` behavior unchanged
-- `frontend/src/features/panels/ui/PanelContent.chartTruncation.test.tsx` — truncation-note `findByText`/`waitFor` waits settled via `settleMocks` then `getBy*`
-- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.truncation.test.tsx` — note wait settled in two stages (panels, then meta + rows)
-- `frontend/src/features/panels/ui/PanelCard.crossFilter.test.tsx` — table/metric/disclosure/inspect waits settled or made synchronous
-- `frontend/src/features/panels/ui/PanelFullscreenOverlay.test.tsx` — `findByRole("table")` waits settled via `settleMocks`
-- `frontend/src/features/panels/ui/PanelContent.test.tsx` — metric/table/markdown/form waits settled via `settleMocks` (markdown also awaits the lazy `MarkdownPanel` module)
-- `openspec/changes/settle-nonchart-findby-waits/measurements.md` — red-before / green-after evidence and inventory
