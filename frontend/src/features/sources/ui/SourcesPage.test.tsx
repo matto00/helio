@@ -7,6 +7,24 @@ import {
 import { renderWithStore } from "../../../test/renderWithStore";
 import { SourcesPage } from "./SourcesPage";
 
+// HEL-1600 -- stands in for GET /api/connectors, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../connectors/services/connectorEntityService", () => ({
+  ...jest.requireActual("../../connectors/services/connectorEntityService"),
+  fetchConnectors: jest.fn(() =>
+    Promise.reject(new Error("fetchConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/connector-types, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../services/connectorService", () => ({
+  ...jest.requireActual("../services/connectorService"),
+  listConnectors: jest.fn(() =>
+    Promise.reject(new Error("listConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../services/dataSourceService", () => ({
   fetchSources: jest.fn().mockResolvedValue([]),
   fetchSourceReferences: jest.fn().mockResolvedValue([]),

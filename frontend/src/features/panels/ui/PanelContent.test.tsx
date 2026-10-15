@@ -8,6 +8,15 @@ import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/
 import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../sources/services/dataSourceService";
 import type { Output } from "../../pipelines/types/output";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id/history, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../history/outputHistoryService", () => ({
+  ...jest.requireActual("../history/outputHistoryService"),
+  fetchOutputHistory: jest.fn(() =>
+    Promise.reject(new Error("fetchOutputHistory: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 let capturedChartProps: ChartPanelProps | null = null;
 
 jest.mock("./ChartPanel", () => ({

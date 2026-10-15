@@ -9,6 +9,15 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { UpsertSourceConfig, type UpsertSourceConfigValue } from "./UpsertSourceConfig";
 import type { DataSource } from "../../../sources/types/dataSource";
 
+// HEL-1600 -- stands in for GET /api/data-sources, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../../sources/services/dataSourceService", () => ({
+  ...jest.requireActual("../../../sources/services/dataSourceService"),
+  fetchSources: jest.fn(() =>
+    Promise.reject(new Error("fetchSources: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 const DATASET_SOURCE: DataSource = {
   id: "ds-1",
   name: "Enriched users",

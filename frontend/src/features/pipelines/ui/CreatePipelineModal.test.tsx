@@ -31,6 +31,24 @@ const fetchSourcesMock = jest.mocked(fetchSourcesRequest);
 
 import type { DataSource } from "../../sources/types/dataSource";
 
+// HEL-1600 -- stands in for GET /api/connectors, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../connectors/services/connectorEntityService", () => ({
+  ...jest.requireActual("../../connectors/services/connectorEntityService"),
+  fetchConnectors: jest.fn(() =>
+    Promise.reject(new Error("fetchConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/connector-types, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../sources/services/connectorService", () => ({
+  ...jest.requireActual("../../sources/services/connectorService"),
+  listConnectors: jest.fn(() =>
+    Promise.reject(new Error("listConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 const testDataSources: DataSource[] = [
   {
     id: "ds-1",

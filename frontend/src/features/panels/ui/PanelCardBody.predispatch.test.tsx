@@ -65,6 +65,10 @@ jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputById: jest.fn(() => new Promise(() => {})),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
+  // HEL-1600 -- stands in for GET /api/outputs/:id/rows; the network guard fails an unmocked request.
+  getOutputRows: jest.fn(() =>
+    Promise.reject(new Error("getOutputRows: unmocked request stubbed (HEL-1600)")),
+  ),
 }));
 
 jest.mock("../hooks/usePanelPolling", () => ({

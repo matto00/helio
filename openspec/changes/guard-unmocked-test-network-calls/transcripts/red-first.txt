@@ -1,0 +1,16 @@
+# Red-first (excerpt)
+command: env -u CLAUDECODE -u AI_AGENT nice -n 19 npx jest --maxWorkers=2 --testPathPatterns 'PanelCard.crossFilter|grid/PanelGrid.test' --reporters=default
+cwd: /home/matt/Development/helio/.claude/worktrees/task/mock-unmocked-test-network-calls/HEL-1600/frontend
+fixes absent, guard installed
+
+FAIL src/features/panels/ui/PanelCard.crossFilter.test.tsx
+FAIL src/features/panels/ui/grid/PanelGrid.test.tsx
+PASS src/features/panels/ui/PanelCard.crossFilterServer.test.tsx
+Test Suites: 2 failed, 1 passed, 3 total
+Tests:       21 failed, 24 passed, 45 total
+exit=1
+
+## distinct guard message lines
+     21       - GET /api/outputs/output-1
+     15       - GET /api/outputs/output-1/assertion-status
+      2       - GET /api/outputs/output-1/history

@@ -7,6 +7,15 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { LookupConfig } from "./LookupConfig";
 import type { LookupConfigValue } from "./LookupConfig";
 
+// HEL-1600 -- stands in for GET /api/data-sources, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../../sources/services/dataSourceService", () => ({
+  ...jest.requireActual("../../../sources/services/dataSourceService"),
+  fetchSources: jest.fn(() =>
+    Promise.reject(new Error("fetchSources: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 const config: LookupConfigValue = {
   secondary: { kind: "source", dataSourceId: "" },
   sourceKey: "",
