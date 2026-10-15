@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-folder-assignment.schema.json",
+  "title": "DashboardFolderAssignmentResponse",
+  "description": "The caller's filing of one dashboard into one of their folders (HEL-1574).",
+  "type": "object",
+  "properties": {
+    "dashboardId": {
+      "type": "string"
+    },
+    "folderId": {
+      "type": "string"
+    }
+  },
+  "required": ["dashboardId", "folderId"],
+  "additionalProperties": false
+}

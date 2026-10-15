@@ -5,7 +5,7 @@ import com.helio.api.{JsonProtocols, UserResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.email.EmailSender
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.services.auth.{BetaAccessService, UserTierConfig}
 import com.helio.testkit.HelioRouteTest
@@ -137,7 +137,8 @@ class BetaAccessRoutesSpec
   private def routesFor(
       user: AuthenticatedUser,
       emailSender: Option[EmailSender],
-      ownerEmails: Set[String] = Set("owner@example.com")
+      ownerEmails: Set[String] = Set("owner@example.com"),
+      withPreferences: Boolean = false
   ): Route = {
     val service = new BetaAccessService(
       inviteCodeRepo,
@@ -145,7 +146,7 @@ class BetaAccessRoutesSpec
       UserTierConfig(ownerEmails, UserTierConfig.DefaultBetaDailyMessageLimit),
       emailSender
     )(routeEc)
-    new BetaAccessRoutes(service, user)(typedSystem).routes
+    new BetaAccessRoutes(service, user, if (withPreferences) Some(new UserPreferenceRepository(appDb)(routeEc)) else None)(typedSystem).routes
   }
 
   private def jsonEntity(json: String): HttpEntity.Strict = HttpEntity(ContentTypes.`application/json`, json)
@@ -204,6 +205,21 @@ class BetaAccessRoutesSpec
       Post("/beta-access/redeem", jsonEntity("""{"code":"valid-code"}""")) ~> routesFor(user, None) ~> check {
         status shouldBe StatusCodes.OK
         responseAs[UserResponse].tier shouldBe "beta"
+      }
+    }
+
+    "keeps the caller's saved shell preferences on the returned user (HEL-1574)" in {
+      cleanDb()
+      val user = newUser("free")
+      issueCode(user.id, "pref-code")
+      await(new UserPreferenceRepository(appDb)(routeEc).patchShellPrefs(user.id, Some(320), Some(true)))
+
+      Post("/beta-access/redeem", jsonEntity("""{"code":"pref-code"}""")) ~> routesFor(user, None, withPreferences = true) ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[UserResponse]
+        body.tier shouldBe "beta"
+        body.preferences.get.contextListWidth shouldBe Some(320)
+        body.preferences.get.contextListCollapsed shouldBe Some(true)
       }
     }
 

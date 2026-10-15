@@ -4,6 +4,7 @@ import com.helio.api.routes.ServiceResponse
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.{JsonProtocols, PipelineScheduleResponse, PutPipelineScheduleRequest}
+import com.helio.api.protocols.pipelines.PipelineScheduleListResponse
 import com.helio.api.protocols.IdParsing.PipelineIdSegment
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.services.pipelines.PipelineScheduleService
@@ -20,7 +21,17 @@ class PipelineScheduleRoutes(
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
-  val routes: Route =
+  val routes: Route = concat(listRoute, itemRoutes)
+
+  /** `GET /api/pipeline-schedules` (HEL-1574). */
+  private def listRoute: Route =
+    path("pipeline-schedules") {
+      get {
+        onSuccess(pipelineScheduleService.listEnabled(user))(list => complete(PipelineScheduleListResponse.fromDomain(list)))
+      }
+    }
+
+  private def itemRoutes: Route =
     pathPrefix("pipelines" / PipelineIdSegment / "schedule") { pipelineId =>
       pathEndOrSingleSlash {
         concat(

@@ -4,11 +4,13 @@ import { assistantConversationsReducer } from "../features/assistant/state/assis
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
+import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { patchSetsReducer } from "../features/patchSets/state/patchSetsSlice";
+import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { combinedProposalsReducer } from "../features/proposals/state/combinedProposalsSlice";
@@ -36,6 +38,7 @@ export const store = configureStore({
     auditEvents: auditEventsReducer,
     auth: authReducer,
     connectors: connectorsReducer,
+    dashboardFolders: dashboardFoldersReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
@@ -43,6 +46,7 @@ export const store = configureStore({
     patchSets: patchSetsReducer,
     pipelines: pipelinesReducer,
     outputs: outputsReducer,
+    scheduledItems: scheduledItemsReducer,
     combinedProposals: combinedProposalsReducer,
     settings: settingsReducer,
     shareTokens: shareTokensReducer,

@@ -1,0 +1,4 @@
+[info] - a ScalaTest summary with no readable Tests: line fails closed
+[info] Total number of tests run: 8106
+[info] Tests: succeeded 8106, failed 0, canceled 4, ignored 0, pending 0
+[info] All tests passed.

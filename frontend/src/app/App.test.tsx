@@ -11,12 +11,14 @@ import {
 } from "../features/assistant/services/assistantConversationsService";
 import { authReducer } from "../features/auth/state/authSlice";
 import { getMeRequest } from "../features/auth/services/authService";
+import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { getPipelines as getPipelinesRequest } from "../features/pipelines/services/pipelineService";
 import { fetchSources as fetchSourcesRequest } from "../features/sources/services/dataSourceService";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
@@ -34,6 +36,18 @@ import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeOutputPanel } from "../test/panelFixtures";
 import { App } from "./App";
+
+jest.mock("../features/dashboards/services/dashboardFolderService", () => ({
+  fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
+  createDashboardFolder: jest.fn(),
+  updateDashboardFolder: jest.fn(),
+  deleteDashboardFolder: jest.fn(),
+  moveDashboardToFolder: jest.fn(),
+}));
+
+jest.mock("../features/pipelines/services/pipelineScheduleListService", () => ({
+  fetchPipelineScheduleList: jest.fn().mockResolvedValue({ items: [], sources: [] }),
+}));
 
 jest.mock("../features/dashboards/services/dashboardService", () => ({
   fetchDashboards: jest.fn(),
@@ -161,6 +175,7 @@ function renderApp(options: RenderAppOptions = {}) {
       assistantConversations: assistantConversationsReducer,
       auth: authReducer,
       connectors: connectorsReducer,
+      dashboardFolders: dashboardFoldersReducer,
       dashboards: dashboardsReducer,
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
@@ -168,6 +183,7 @@ function renderApp(options: RenderAppOptions = {}) {
       sources: sourcesReducer,
       pipelines: pipelinesReducer,
       outputs: outputsReducer,
+      scheduledItems: scheduledItemsReducer,
       toasts: toastsReducer,
     },
     preloadedState,
@@ -400,22 +416,24 @@ describe("App", () => {
 
     renderApp();
 
-    // F-018: the toggle is a single, properly-sized/labeled control now
-    // (dynamic aria-label, not two separate fixed-text buttons) — collapsing
-    // no longer removes the top-level nav (it becomes an icon rail), only
-    // the dashboards list below it.
-    const collapseButton = await screen.findByRole("button", { name: "Collapse sidebar" });
-    // HEL-718: the toggle migrated onto the shared IconButton primitive —
-    // verifies its visible tooltip survived alongside the accessible name.
-    expect(collapseButton).toHaveAttribute("title", "Collapse sidebar");
+    // HEL-1574: collapse is the context list's own header button; collapsing keeps the rail (every section stays
+    // one click away) and an "Expand list" control at the rail foot restores the list.
+    const collapseButton = await screen.findByRole("button", { name: "Collapse list" });
+    expect(collapseButton).toHaveAttribute("title", "Collapse list");
+    expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument();
     fireEvent.click(collapseButton);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Expand list" })).toBeInTheDocument(),
     );
     expect(screen.queryByRole("heading", { name: "Dashboards" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("navigation", { name: "Main navigation" })).getByRole("link", {
+        name: "Data Pipelines",
+      }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Expand list" }));
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument(),
     );

@@ -214,4 +214,19 @@ describe("UserMenu", () => {
     fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowUp" });
     expect(screen.getByRole("menuitem", { name: "Sign out" })).toHaveFocus();
   });
+
+  describe("Usage entry (HEL-1574)", () => {
+    it("shows Usage to an owner and navigates to /admin/usage", () => {
+      renderMenu({ tier: "owner" });
+      fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Usage" }));
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+
+    it.each(["free", "beta"] as const)("shows no Usage item to a %s-tier user", (tier) => {
+      renderMenu({ tier });
+      fireEvent.click(screen.getByRole("button", { name: "User menu" }));
+      expect(screen.queryByRole("menuitem", { name: "Usage" })).not.toBeInTheDocument();
+    });
+  });
 });

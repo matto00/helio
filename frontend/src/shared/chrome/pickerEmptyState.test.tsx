@@ -7,14 +7,17 @@ import { assistantConversationsReducer } from "../../features/assistant/state/as
 import { authReducer } from "../../features/auth/state/authSlice";
 import { pipelinesReducer } from "../../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../../features/sources/state/sourcesSlice";
-import { SidebarBody } from "./SidebarBody";
+import { AssistantContextList } from "../../app/shell/AssistantContextList";
 import { PICKER_EMPTY_STATE } from "./pickerEmptyState";
 import type { PickerId } from "./sections";
 
 // HEL-773 design.md D11/task 5.8 — locks the shared empty-state copy table
-// (`pickerEmptyState.tsx`) against `SidebarBody`'s ACTUAL rendered copy for
-// the sidebar-owned sections, so the phone sheet's empty branch and the
-// desktop sidebar's empty branch cannot silently drift apart. Every slice
+// (`pickerEmptyState.tsx`) against the desktop list's ACTUAL rendered copy, so
+// the phone sheet's empty branch and the desktop list's empty branch cannot
+// silently drift apart. HEL-1574: the Sources and Pipelines context lists are
+// now compact Recent/Scheduled groups rather than full lists, so only the
+// Assistant list (`AssistantContextList`, which kept its conversation list)
+// still renders this copy on desktop. Every slice
 // below is pre-seeded `status: "succeeded"` with zero items — the TRUE
 // empty state, not a loading skeleton or an unmocked fetch's error state.
 // `dashboards` is deliberately excluded: its sidebar copy lives in
@@ -22,9 +25,7 @@ import type { PickerId } from "./sections";
 // rewriting, so a lock pinned to it here would be a scheduled breakage
 // (design.md D11) — the phone sheet's own dashboards copy is verified
 // directly in `MobileNavSheet.test.tsx` instead.
-const SIDEBAR_OWNED_PICKER_ROUTES: Record<Exclude<PickerId, "dashboards" | "other">, string> = {
-  sources: "/sources",
-  pipelines: "/pipelines",
+const SIDEBAR_OWNED_PICKER_ROUTES: Partial<Record<PickerId, string>> = {
   chat: "/chat",
 };
 
@@ -61,11 +62,11 @@ function makeStore() {
   });
 }
 
-function renderSidebarAt(path: string) {
+function renderListAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Provider store={makeStore()}>
-        <SidebarBody />
+        <AssistantContextList />
       </Provider>
     </MemoryRouter>,
   );
@@ -73,9 +74,9 @@ function renderSidebarAt(path: string) {
 
 describe("pickerEmptyState — locked against the desktop sidebar's rendered copy (HEL-773 design.md D11/task 5.8)", () => {
   it.each(Object.entries(SIDEBAR_OWNED_PICKER_ROUTES) as [PickerId, string][])(
-    "%s: table copy matches SidebarBody's rendered empty-state title and description",
+    "%s: table copy matches the context list's rendered empty-state title and description",
     (pickerId, path) => {
-      renderSidebarAt(path);
+      renderListAt(path);
 
       const entry = PICKER_EMPTY_STATE[pickerId];
       expect(screen.getByText(entry.title)).toBeInTheDocument();

@@ -8,7 +8,8 @@ owner's one-time stored-bad-or-incomplete-breakpoint repair body (sent by `useSt
 `types/` for dashboard, proposal, authoring, and refinement wire shapes;
 `hooks/` for dashboard-creation and refinement actions; `utils/` for
 authoring/refinement summary text; `ui/` for the list, appearance editor,
-proposal review, and refinement chat drawer.
+proposal review, and refinement chat drawer; `state/dashboardFoldersSlice.ts` and
+`services/dashboardFolderService.ts` hold the user's per-user folders (HEL-1574), rendered by `ui/DashboardList`.
 
 **Belongs here:** dashboard-level state, layout persistence, and the
 NL-authoring/refinement flows scoped to a dashboard.

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-schedule-list-response.schema.json",
+  "title": "PipelineScheduleListResponse",
+  "description": "GET /api/pipeline-schedules (HEL-1574): the caller's enabled schedules (nextRunAt ascending, nulls last, then name) and, in the same response, each source feeding them once with the soonest next run and that pipeline.",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "required": ["items", "sources"],
+  "additionalProperties": false,
+  "$defs": {
+    "item": {
+      "type": "object",
+      "properties": {
+        "pipelineId": {
+          "type": "string"
+        },
+        "pipelineName": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["cron", "interval"]
+        },
+        "expression": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "lastRunAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "pipelineId",
+        "pipelineName",
+        "kind",
+        "expression",
+        "timezone",
+        "nextRunAt",
+        "lastRunAt"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "sourceId": {
+          "type": "string"
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "pipelineId": {
+          "type": "string"
+        },
+        "pipelineName": {
+          "type": "string"
+        }
+      },
+      "required": ["sourceId", "sourceName", "nextRunAt", "pipelineId", "pipelineName"],
+      "additionalProperties": false
+    }
+  }
+}

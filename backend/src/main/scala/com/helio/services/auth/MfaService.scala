@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.api.protocols.auth.{MfaBackupCodesResponse, MfaConfirmRequest, MfaEnrollResponse, MfaReauthRequest, MfaStatusResponse, MfaVerifyRequest}
 import com.helio.domain.model.{ApiTokenId, AuditSource, AuthenticatedUser, MfaLoginChallenge, User, UserId, UserMfa}
-import com.helio.infrastructure.persistence.auth.{MfaRepository, TotpSupport, UserRepository}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, TotpSupport, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import spray.json.{JsObject, JsString}
 
@@ -22,10 +22,14 @@ final class MfaService(
     mfaRepo: MfaRepository,
     userRepo: UserRepository,
     // HEL-477: nullable-optional wiring mirrors the rest of this ticket's DI.
-    auditService: AuditService = null
+    auditService: AuditService = null,
+    // HEL-1574: when present, the session established by `verifyLogin` carries the user's preferences.
+    preferenceRepo: Option[UserPreferenceRepository] = None
 )(implicit ec: ExecutionContext) {
 
   import MfaService._
+
+  private val userResponses = new UserResponseAssembler(preferenceRepo)
 
   private def audit(
       actorUserId: Option[UserId],
@@ -156,12 +160,14 @@ final class MfaService(
         case Some(u) =>
           userRepo
             .createSession(AuthService.buildSession(u.id, Instant.now()))
-            .map { created =>
-              // HEL-477 design.md Decision 6: this, not AuthService.login's
-              // earlier auth.login.challenged, is the actual
-              // session-establishing event for an MFA-enrolled user.
-              audit(Some(u.id), "auth.login")
-              Right(AuthResult.of(created, u))
+            .flatMap { created =>
+              userResponses(u).map { response =>
+                // HEL-477 design.md Decision 6: this, not AuthService.login's
+                // earlier auth.login.challenged, is the actual
+                // session-establishing event for an MFA-enrolled user.
+                audit(Some(u.id), "auth.login")
+                Right(AuthResult.of(created, response))
+              }
             }
         case None => Future.successful(Left(InvalidCode))
       }

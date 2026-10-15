@@ -9,11 +9,13 @@ import { assistantConversationsReducer } from "../features/assistant/state/assis
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
+import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
@@ -178,11 +180,13 @@ export function renderWithStore(
     auditEvents: auditEventsReducer,
     auth: authReducer,
     connectors: connectorsReducer,
+    dashboardFolders: dashboardFoldersReducer,
     dashboards: dashboardsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
     panels: panelsReducer,
     pipelines: pipelinesReducer,
+    scheduledItems: scheduledItemsReducer,
     settings: settingsReducer,
     sources: sourcesReducer,
     datasetRows: datasetRowsReducer,

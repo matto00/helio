@@ -5,7 +5,7 @@ import com.helio.api.protocols.auth.{GoogleProfile, LoginRequest, RegisterReques
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model.UserId
 import com.helio.domain.util.SystemClock
-import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.helio.services.telemetry.{ProductEventService, ValidatedProductEvent}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -219,6 +219,43 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
       result.response.user.tier shouldBe "owner"
       storedTier("still-owner@example.com") shouldBe "owner"
+    }
+  }
+
+  // HEL-1574: every session-returning response carries the user's saved preferences.
+  "AuthService responses with a preference repository" should {
+
+    def withPrefs(): AuthService =
+      new AuthService(
+        userRepo,
+        UserTierConfig(Set.empty, UserTierConfig.DefaultBetaDailyMessageLimit),
+        stateStore = oauthStateStore,
+        preferenceRepo = Some(new UserPreferenceRepository(db))
+      )
+
+    "carry the shell preferences in the register, login and OAuth responses" in {
+      cleanDb()
+      val service = withPrefs()
+      val prefs   = new UserPreferenceRepository(db)
+
+      val registered = register(service, "prefs@example.com")
+      registered.response.user.preferences.map(_.contextListWidth) shouldBe Some(None)
+
+      await(prefs.patchShellPrefs(UserId(registered.response.user.id), Some(320), Some(true)))
+      val loggedIn = login(service, "prefs@example.com").response.user.preferences.get
+      loggedIn.contextListWidth shouldBe Some(320)
+      loggedIn.contextListCollapsed shouldBe Some(true)
+
+      val oauthOutcome = await(service.completeOAuth(GoogleProfile("g-prefs", Some("g-prefs@example.com"), None, None)))
+      val oauthUser    = oauthOutcome.asInstanceOf[LoginOutcome.SessionEstablished].result.response.user
+      await(prefs.patchShellPrefs(UserId(oauthUser.id), Some(250), None))
+      val oauthAgain = await(service.completeOAuth(GoogleProfile("g-prefs", Some("g-prefs@example.com"), None, None)))
+      oauthAgain.asInstanceOf[LoginOutcome.SessionEstablished].result.response.user.preferences.get.contextListWidth shouldBe Some(250)
+    }
+
+    "keep the preference-less shape when no repository is wired" in {
+      cleanDb()
+      register(serviceWith(Set.empty), "nopref@example.com").response.user.preferences shouldBe None
     }
   }
 }

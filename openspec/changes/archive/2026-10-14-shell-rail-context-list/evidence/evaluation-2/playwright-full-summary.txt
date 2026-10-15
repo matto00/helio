@@ -1,0 +1,7 @@
+ — 48% of probes are pass/fail-ASSERTED (the rest is advisory: a channel other than background conveyed the state, gates nothing here).
+
+[1A[2K[HEL-866 guard] cell "chrome(light)" unresolvedFraction=0.000
+
+[HEL-1301 e2e] deleted 268 recorded throwaway user(s)
+[1A[2K  288 passed (13.2m)
+EXIT=0

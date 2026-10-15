@@ -108,6 +108,9 @@ interface SidebarItemListProps {
   /** Row shape for the initial-load skeleton — `stacked` for sections whose
    *  resolved rows carry a subtitle (design.md D9). Defaults to `flat`. */
   rowShape?: "flat" | "stacked";
+  /** HEL-1574: the context-list header already names the section, so the eyebrow is not rendered a second time. The
+   *  "+" add action keeps its place in the header row. */
+  hideHeading?: boolean;
 }
 
 // F-187: `heading` is a display string ("Data Types", "Data Pipelines") and can contain spaces —
@@ -137,6 +140,7 @@ export function SidebarItemList({
   onRename,
   initialLoad,
   rowShape = "flat",
+  hideHeading = false,
 }: SidebarItemListProps) {
   const [filterQuery, setFilterQuery] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -298,7 +302,7 @@ export function SidebarItemList({
   return (
     <section className="dashboard-list" aria-label={heading.toLowerCase()}>
       <header className="dashboard-list__header">
-        <h2 className="eyebrow">{heading}</h2>
+        {hideHeading ? <span /> : <h2 className="eyebrow">{heading}</h2>}
         {onAdd !== undefined ? (
           <div className="dashboard-list__header-actions">
             <IconButton

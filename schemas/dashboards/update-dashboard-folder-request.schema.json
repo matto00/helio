@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/update-dashboard-folder-request.schema.json",
+  "title": "UpdateDashboardFolderRequest",
+  "description": "PATCH /api/dashboard-folders/:id body (HEL-1574): rename and/or set the collapsed flag; at least one field is required.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "collapsed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

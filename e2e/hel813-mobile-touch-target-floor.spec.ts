@@ -193,7 +193,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
       // Surface 5 (design.md D3 item 5) — ui-select (HEL-314), reached via
       // the "Create pipeline" modal's data-source `Select` once at least
       // one data source exists. (The dashboard-switcher's own
-      // `.actions-menu__trigger` kebab lives in `.app-sidebar` (desktop-
+      // `.actions-menu__trigger` kebab lives in the context list (desktop-
       // only, `display: none` below 768px) and PanelCard's collapses to a
       // title-only `.mobile-panel-stack__header` at phone widths with no
       // kebab at all — neither is phone-reachable, so `ui-select` is this

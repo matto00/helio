@@ -1,6 +1,13 @@
+/* HEL-1574: above the phone breakpoint the shell is a grid: the 56px rail and the context list span the full height,
+   with the command bar over the page content in the last column. This is the DEFAULT layout; the single
+   `(max-width: 768px)` override below returns to the phone column. No new breakpoint is introduced (DESIGN.md §4), so
+   exactly 768px stays a phone layout, as every page stylesheet already treats it. `--context-list-width` is set
+   inline from the user's saved preference (and live during a drag). */
 .app-shell {
-  display: flex;
-  flex-direction: column;
+  --rail-width: 56px;
+  display: grid;
+  grid-template-columns: var(--rail-width) var(--context-list-width, 248px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   /* HEL-772: on iOS, 100vh is the LARGEST viewport, so the shell used to
      exceed the visible area and the document scrolled as a whole, dragging
      the (position: relative) command bar under the status bar with it.
@@ -18,7 +25,7 @@
 
 /* F-089: skip-to-content link. Off-screen until focused, then a real,
  * visible, first-in-tab-order control — standard pattern for bypassing the
- * chrome (command bar + sidebar nav) that otherwise precedes page content on
+ * chrome (command bar + rail) that otherwise precedes page content on
  * every load. */
 .app-skip-link {
   position: fixed;
@@ -57,6 +64,8 @@
    silently reset padding-top to 0 and re-open the status-bar overprint
    black-translucent makes load-bearing. */
 .app-command-bar {
+  grid-column: 3;
+  grid-row: 1;
   height: var(--app-top-chrome-height);
   flex-shrink: 0;
   display: flex;
@@ -110,8 +119,7 @@
    `:hover`/`:focus-visible` — the D4a "nothing changed at all" absence
    shape, caught by the rendered guard (state-surface-contrast-guard.spec.ts)
    directly, not by any grep (there was no `--app-surface-raised` reference
-   here to find). Same on-surface backdrop as `.cmd-btn`/`.app-sidebar__nav-
-   link` above — soft in light, strong in dark (see `.cmd-btn:hover`'s
+   here to find). Same on-surface backdrop as `.cmd-btn` above — soft in light, strong in dark (see `.cmd-btn:hover`'s
    comment for the measured derivation). */
 .app-command-bar__logo:hover,
 .app-command-bar__logo:focus-visible {
@@ -172,7 +180,7 @@
 }
 
 /* ── Chrome surfaces go borderless ──
-   The command bar and the sidebar frame the app; they are not page content.
+   The command bar, the rail and the context list frame the app; they are not page content.
    A row of controls each in its own hairline box reads as heavier than the
    content it frames, and the boxes compete with the wordmark, the dashboard
    title and the nav links for attention. Every trigger on both surfaces drops
@@ -185,10 +193,9 @@
    the border separates a control from busy panel content rather than from
    flat chrome.
 
-   No width gate is needed for "desktop only": `.app-sidebar` is `display:
-   none` below 768px (see the mobile block below), so these selectors have
-   nothing to match at phone width. The command bar's half applies at every
-   width, which is where it was already heading — it was phone-only before.
+   The command bar's half applies at every width. The rail's and the context
+   list's own hairline-free controls are scoped in `AppRail.css` and
+   `ContextList.css`, which only render above the phone breakpoint.
 
    `:hover` is listed alongside each base selector because every one of these
    recipes re-asserts `border-color` on hover; without it the outline would
@@ -200,13 +207,7 @@
 .app-command-bar .actions-menu__trigger,
 .app-command-bar .actions-menu__trigger:hover,
 .app-command-bar .user-menu__trigger,
-.app-command-bar .user-menu__trigger:hover,
-.app-sidebar .cmd-btn,
-.app-sidebar .cmd-btn:hover,
-.app-sidebar .ui-icon-btn,
-.app-sidebar .ui-icon-btn:hover:not(:disabled),
-.app-sidebar .actions-menu__trigger,
-.app-sidebar .actions-menu__trigger:hover {
+.app-command-bar .user-menu__trigger:hover {
   border-color: transparent;
 }
 
@@ -270,205 +271,18 @@
   color: var(--app-accent-ink);
 }
 
+/* No context list (collapsed, or a section without one): the list column takes no space. */
+.app-shell--no-list {
+  grid-template-columns: var(--rail-width) 0 minmax(0, 1fr);
+}
+
 .app-body {
-  flex: 1;
+  grid-column: 3;
+  grid-row: 2;
   display: flex;
   min-height: 0;
   position: relative;
   z-index: 1;
-}
-
-.app-sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--app-surface);
-  border-right: 1px solid var(--app-border-subtle);
-  overflow: visible;
-  position: relative;
-  z-index: 4;
-  transition: width var(--app-transition);
-}
-
-/* F-018: collapsing used to remove primary navigation entirely (the whole
- * `<aside>`, nav links included, replaced by an unlabeled 20x48px strip with
- * no nav of its own). Collapsed now keeps a real icon-only rail — same
- * `<NavLink>`s, same 6 destinations, just no text label — so collapsing only
- * ever hides the *list* below the top-level nav, never navigation itself.
- * (Previously dead CSS with zero references anywhere in the app — see
- * CONTRIBUTING.md's "no dead code" rule — now it does real work.) */
-.app-sidebar--collapsed {
-  width: 56px;
-}
-
-.app-sidebar__nav-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-2) 0;
-}
-
-.app-sidebar__nav {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-1) var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--app-border-subtle);
-}
-
-.app-sidebar__nav-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border-radius: var(--app-radius-sm);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--app-text-muted);
-  text-decoration: none;
-  transition:
-    background var(--app-transition),
-    color var(--app-transition);
-}
-
-.app-sidebar__nav-icon {
-  flex-shrink: 0;
-}
-
-.app-sidebar__nav-link:hover {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
-}
-
-/* HEL-866 — same on-surface backdrop shape as `.cmd-btn:hover` above; see
-   that rule's comment for the measured derivation. */
-:root[data-theme="dark"] .app-sidebar__nav-link:hover {
-  background: var(--app-surface-strong);
-}
-
-/* HEL-866 — `.active`'s own background (below) has EQUAL CSS specificity
-   to `.app-sidebar__nav-link:hover` (two classes vs. one class + one
-   pseudo-class) and is declared later in this file, so it silently won
-   every hover on the CURRENTLY-active nav link, before this rule existed:
-   hovering the link for the page you're already on produced NO visible
-   change at all — the guard's D4a "nothing changed" absence, caught on the
-   real running app, not by any grep. `--app-accent-mid` (a stronger mix of
-   the same accent already defined in theme.css, used nowhere else in this
-   selector's family) supplies a real, measurable, still-on-brand hover
-   step up from `--app-accent-dim`. */
-.app-sidebar__nav-link.active:hover {
-  background: var(--app-accent-mid);
-}
-
-.app-sidebar__nav-link.active {
-  background: var(--app-accent-dim);
-  /* F-050: raw --app-accent as text color measures ~3.47:1 against
-     --app-accent-dim, short of WCAG AA's 4.5:1 — the accent marker bar below
-     still carries the accent voice; the label text uses the guaranteed-legible
-     theme text color instead. */
-  color: var(--app-text);
-}
-
-/* Active marker: a short accent bar, not a full glow */
-.app-sidebar__nav-link.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2px;
-  height: 14px;
-  border-radius: var(--app-radius-pill);
-  background: var(--app-accent);
-}
-
-.app-sidebar__nav-link:focus-visible {
-  outline: var(--app-focus-ring);
-  outline-offset: -2px;
-}
-
-/* ── Collapsed rail: icon-only ──
- * The label stays in the DOM (accessible name, and the tooltip via the link's
- * `title` in Sidebar.tsx) but isn't painted.
- *
- * `.app-sidebar__nav-row` is a horizontal flex row — nav on the left, toggle
- * on the right — which is right at 240px and breaks completely at 56px: the
- * 28px toggle plus gap and padding leaves the nav about 8px, so every
- * `__nav-link` computed to width 0 and its icon spilled out of a zero-width
- * box. That is what made the icons look left-shoved and unalignable — they
- * were not being laid out at all, just overflowing. Measured before this
- * change: rail 56px, every nav link 0px wide, icons all painting at x=12
- * regardless of `justify-content: center` (nothing to centre within).
- *
- * Collapsed, the row becomes a column so the toggle gets its own line and the
- * nav gets the rail's full inner width to centre icons in. */
-.app-sidebar--collapsed .app-sidebar__nav-row {
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* Toggle above the nav, mirroring its top-right placement when expanded —
- * DOM order puts it after the nav (correct for the expanded row), so this is
- * a visual reorder only. Both are single, independently-labeled controls, so
- * reading order is unaffected. */
-.app-sidebar--collapsed .app-sidebar-toggle {
-  order: -1;
-}
-
-.app-sidebar--collapsed .app-sidebar__nav {
-  width: 100%;
-  /* `flex: 1` would make the nav absorb the rail's whole height in a column,
-     stretching nothing useful and pushing the separator to the floor. */
-  flex: none;
-  padding: 0;
-  /* The border separates the nav from the dashboard LIST below it — and that
-     list is unmounted while collapsed (`Sidebar.tsx` renders `<SidebarBody>`
-     only when expanded), so the rule was pointing at nothing and read as a
-     stray hairline floating under the last icon. */
-  border-bottom: none;
-}
-
-.app-sidebar--collapsed .app-sidebar__nav-link {
-  justify-content: center;
-  padding: 0;
-  /* The actual fix for centring: gives the icon a real box to be centred in. */
-  width: 100%;
-}
-
-/* The active marker is a 2px bar pinned to the link's left edge. Against a
- * full-width label row that reads as a margin marker; against a centred icon
- * in a 40px rail it detaches from the glyph and reads as a stray tick. The
- * `--app-accent-dim` background (inherited from the expanded `.active` rule)
- * already carries the state on its own here. */
-.app-sidebar--collapsed .app-sidebar__nav-link.active::before {
-  content: none;
-}
-
-.app-sidebar--collapsed .app-sidebar__nav-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-/* Real, labeled, `--control-sm`-sized control — not a floating 20x48px
- * unlabeled strip. HEL-718: migrated onto the shared IconButton primitive
- * (`variant="secondary"` `size="sm"`, matching what this block used to
- * define directly); `.app-sidebar-toggle` survives only as a modifier class
- * for its two component-specific deltas — the flush-edge inset focus ring
- * (DESIGN.md §8's documented `-2px` exception, since this control sits at
- * the nav rail's trailing edge) and the <=768px hide rule below. */
-.app-sidebar-toggle:focus-visible {
-  outline: var(--app-focus-ring);
-  outline-offset: -2px;
 }
 
 .app-content {
@@ -657,13 +471,23 @@
     display: none;
   }
 
-  /* The old fixed/width-0 stub trapped the sidebar with no reopen affordance
-     (see notes/mobile-pwa-handoff.md §W3.0). BottomNav + the dashboard sheet
-     replace it entirely below the phone breakpoint; the desktop sidebar is
-     simply not rendered here. */
-  .app-sidebar,
-  .app-sidebar-toggle {
-    display: none;
+  /* The phone shell (HEL-1574 C5): back to a single column. The rail and context list are not rendered here at
+     all (`useIsPhoneShell`, the same query); BottomNav + the dashboard sheet are the phone navigation
+     (notes/mobile-pwa-handoff.md §W3.0). */
+  .app-shell,
+  .app-shell--no-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-command-bar,
+  .app-body {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .app-body {
+    flex: 1;
   }
 
   /* Reserve space for the floating BottomNav capsule so page content can
@@ -711,7 +535,7 @@
 
 /* HEL-866 — the command bar's shared IconButton (`variant="secondary"`)
    and UserMenu trigger controls are used here too, and both are, like
-   `.cmd-btn`/`.app-sidebar__nav-link` above, hosted on the `--app-surface`
+   `.cmd-btn` above, hosted on the `--app-surface`
    chrome backdrop rather than `--app-surface-strong`. Their base component
    CSS (IconButton.css, UserMenu.css) was remediated to `--app-surface-soft`
    app-wide, which is correct/sufficient for their other hosts (e.g. modal
@@ -722,10 +546,7 @@
 :root[data-theme="dark"] .app-command-bar .ui-icon-btn--secondary:hover:not(:disabled),
 :root[data-theme="dark"] .app-command-bar .ui-icon-btn--ghost:hover:not(:disabled),
 :root[data-theme="dark"] .app-command-bar .user-menu__trigger:hover,
-:root[data-theme="dark"] .app-command-bar .actions-menu__trigger:hover:not(:disabled),
-:root[data-theme="dark"] .app-sidebar .ui-icon-btn--secondary:hover:not(:disabled),
-:root[data-theme="dark"] .app-sidebar .ui-icon-btn--ghost:hover:not(:disabled),
-:root[data-theme="dark"] .app-sidebar .actions-menu__trigger:hover:not(:disabled) {
+:root[data-theme="dark"] .app-command-bar .actions-menu__trigger:hover:not(:disabled) {
   background: var(--app-surface-strong);
 }
 

@@ -8,6 +8,7 @@ import {
   logoutRequest,
   mfaVerifyRequest,
   oauthCallbackRequest,
+  patchShellPreferencesRequest,
   registerRequest,
   updateUserPreferencesRequest,
 } from "../services/authService";
@@ -15,6 +16,7 @@ import type {
   AuthResponse,
   LoginResult,
   MfaRequiredResponse,
+  ShellPreferencesPatch,
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
@@ -163,18 +165,49 @@ export const updateUserPreferences = createAsyncThunk<
   }
 });
 
+/** HEL-1574: persists shell layout keys (context-list width / collapsed). The local value is applied before this
+ *  runs (`applyShellPreferences`), so a failure keeps the local value and shows nothing. Only the keys sent are
+ *  merged server-side, and the response is deliberately not written back: it could clobber a newer local value. */
+export const saveShellPreferences = createAsyncThunk<void, ShellPreferencesPatch>(
+  "auth/saveShellPreferences",
+  async (patch) => {
+    try {
+      await patchShellPreferencesRequest(patch);
+    } catch {
+      // Keep the local value; the next change or the next load reconciles.
+    }
+  },
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
     setAuth(state, action: PayloadAction<{ user: User }>) {
-      state.currentUser = action.payload.user;
+      // HEL-1574: an incoming user with no preferences (a path that predates them) keeps the ones this session
+      // already holds for the SAME user, so the shell never snaps back to its defaults. Never carried across users.
+      const previous = state.currentUser;
+      const incoming = action.payload.user;
+      state.currentUser =
+        incoming.preferences === undefined && previous?.id === incoming.id
+          ? { ...incoming, preferences: previous.preferences }
+          : incoming;
       state.status = "authenticated";
       // Accent is applied by ThemeProvider (fed the resulting currentUser's
       // preference from outside this slice), never as a side effect here --
       // see F-061: a reducer writing DOM tokens directly raced ThemeProvider
       // and left the AccentPicker's selection out of sync with what was
       // actually applied.
+    },
+    /** HEL-1574: applies shell layout keys locally (optimistic); `saveShellPreferences` persists them. */
+    applyShellPreferences(state, action: PayloadAction<ShellPreferencesPatch>) {
+      if (state.currentUser === null) return;
+      state.currentUser.preferences = {
+        accentColor: null,
+        zoomLevels: {},
+        ...state.currentUser.preferences,
+        ...action.payload,
+      };
     },
     clearAuth(state) {
       state.currentUser = null;
@@ -264,11 +297,13 @@ const authSlice = createSlice({
       })
       .addCase(updateUserPreferences.fulfilled, (state, action) => {
         if (state.currentUser) {
-          state.currentUser.preferences = action.payload;
+          // HEL-1574: merge, so the accent/zoom write never drops the shell layout keys held alongside them
+          // (and tolerates a response that carries no preferences object).
+          state.currentUser.preferences = { ...state.currentUser.preferences, ...action.payload };
         }
       });
   },
 });
 
-export const { setAuth, clearAuth } = authSlice.actions;
+export const { setAuth, clearAuth, applyShellPreferences } = authSlice.actions;
 export const authReducer = authSlice.reducer;

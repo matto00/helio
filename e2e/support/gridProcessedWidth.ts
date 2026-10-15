@@ -13,18 +13,20 @@ import { settleTransitions } from "./settleTransitions";
  * this helper gates on THAT, never on the CSS box width.
  *
  * Expected width: the caller passes the grid CONTAINER width it expects, never read from the DOM.
- * `containerWidthForViewport` derives it from a viewport width (container = viewport - 288 with the
- * sidebar open, viewport - 40 under 1056; see the header of
- * hel1023-breakpoint-layout-derivation.spec.ts, which instead lists its containers explicitly).
+ * `containerWidthForViewport` derives it from a viewport width (container = viewport - 352 above the phone
+ * breakpoint: the 56px rail, the 248px default context list and 48px of page padding; viewport - 40 at the phone
+ * shell; see the header of hel1023-breakpoint-layout-derivation.spec.ts, which instead lists its containers
+ * explicitly). A user who resized or collapsed the list changes the first number.
  *
  * Below 768 (`panelGridConfig.breakpoints.sm`) the phone stack replaces RGL, and it swaps in only
  * once the same chain delivers the width, so the wait is for the desktop grid to be gone instead.
  */
 const PHONE_STACK_BELOW = 768;
 
-/** The grid container width the app produces for a viewport width (sidebar open from 1056 up). */
+/** The grid container width the app produces for a viewport width (rail + default-width context list open above
+ *  the 768px phone shell). */
 export function containerWidthForViewport(viewportWidth: number): number {
-  return viewportWidth >= 1056 ? viewportWidth - 288 : viewportWidth - 40;
+  return viewportWidth > 768 ? viewportWidth - 352 : viewportWidth - 40;
 }
 
 export interface WaitForGridWidthOptions {

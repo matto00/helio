@@ -172,7 +172,7 @@ async function seed(request: Parameters<typeof deleteExact>[0], list: Variant[])
     });
     items.push({ panelId: panel.id, x: v.x, y: v.y, w: v.w, h: v.h });
   }
-  // 1440px resolves to md (10 columns), 1900px to lg (12): md stacks the panels one per row at their
+  // 1504px resolves to md (HEL-1574: the rail and context list take 352px, so the grid container is 1152 as 1440 gave before) (10 columns), 1900px to lg (12): md stacks the panels one per row at their
   // own width (w <= 10), so the card widths match the lg w=2/4/6 cards; sm/xs stack in one column.
   const stacked = (maxW: number) =>
     items.map((i, n) => ({ ...i, x: 0, y: n * 5, w: Math.min(i.w, maxW) }));
@@ -375,7 +375,7 @@ async function openDashboard(page: Page, id: string, width: number) {
   await page.waitForTimeout(1_500);
 }
 
-const VIEWPORTS = [1440, 1900];
+const VIEWPORTS = [1504, 1900];
 for (const theme of ["light", "dark"] as const) {
   for (const width of VIEWPORTS) {
     test(`HEL-1444 canvas floors, containment, title, y-axis @${width}px (${theme})`, async ({
@@ -627,7 +627,7 @@ test("HEL-1444 D2 is keyed on the chart output (footnote-less chart inlines, tab
   }
 });
 
-for (const width of [1440, 1900]) {
+for (const width of [1504, 1900]) {
   test(`HEL-1444 typing into a footnoted chart's text control never moves the input @${width}px`, async ({
     page,
     request,

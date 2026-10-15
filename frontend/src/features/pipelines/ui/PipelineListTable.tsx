@@ -1,4 +1,5 @@
-import type { MouseEvent } from "react";
+import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
+import { Fragment, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
@@ -15,6 +16,13 @@ interface Props {
   currentUserId?: string | null;
   /** Called when the owner clicks Share on a row. */
   onShare?: (pipeline: PipelineSummary) => void;
+  /** Called when Delete is chosen on a row (HEL-1574: Delete lives on the overview rows, an owner ruling of
+   *  2026-10-14; the page owns the confirm). Shown on every row, like the retired sidebar rows: the server
+   *  enforces ownership. */
+  onRequestDelete?: (pipeline: PipelineSummary) => void;
+  /** A full-width row inserted directly below the row with this id (the delete confirm or its refusal). The row's
+   *  own Delete stays where it is, so a double-click can never land on the confirm. */
+  rowExtra?: { id: string; content: ReactNode };
 }
 
 // F-137: the third (and last) of three independently-drifted status-pill
@@ -95,8 +103,15 @@ const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
   { key: "updatedAt", header: "Updated", className: "eyebrow pipeline-list-table__th" },
 ];
 
-export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) {
-  const showActions = currentUserId != null && onShare != null;
+export function PipelineListTable({
+  pipelines,
+  currentUserId,
+  onShare,
+  onRequestDelete,
+  rowExtra,
+}: Props) {
+  const canShare = currentUserId != null && onShare != null;
+  const showActions = canShare || onRequestDelete != null;
   const navigate = useNavigate();
 
   // HEL-1022: defaults to most-recently-edited first, matching the backend's
@@ -118,7 +133,12 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
   // never double-navigates or fires alongside Share.
   function handleRowClick(pipelineId: string) {
     return (event: MouseEvent<HTMLTableRowElement>) => {
-      if ((event.target as HTMLElement).closest("a, button")) return;
+      // Ignored: a click on an interactive descendant, anywhere in the actions cell (a near-miss beside Share or
+      // Delete must not open the pipeline), and the second click of a double-click (HEL-1604: the first click opens
+      // the delete confirm, and the second must not navigate away from it).
+      if (event.detail > 1) return;
+      if ((event.target as HTMLElement).closest("a, button, .pipeline-list-table__td--actions"))
+        return;
       navigate(`/pipelines/${pipelineId}`);
     };
   }
@@ -150,72 +170,90 @@ export function PipelineListTable({ pipelines, currentUserId, onShare }: Props) 
         {sortedPipelines.map((pipeline) => {
           const isOwner = pipeline.ownerId != null && pipeline.ownerId === currentUserId;
           return (
-            <tr
-              key={pipeline.id}
-              className="pipeline-list-table__row"
-              onClick={handleRowClick(pipeline.id)}
-            >
-              <td className="pipeline-list-table__td">
-                <Link to={`/pipelines/${pipeline.id}`} className="pipeline-list-table__link">
-                  {pipeline.name}
-                </Link>
-              </td>
-              <td className="pipeline-list-table__td">
-                <SourcesCell roots={pipeline.roots} />
-              </td>
-              <td className="pipeline-list-table__td">
-                {pipeline.lastRunStatus === null ? (
-                  <span className="pipeline-list-table__never-run">Never run</span>
-                ) : (
-                  <StatusBadge status={pipeline.lastRunStatus} />
-                )}
-              </td>
-              <td className="pipeline-list-table__td">
-                {pipeline.lastRunAt !== null ? (
-                  formatRelativeTime(pipeline.lastRunAt)
-                ) : (
-                  <span className="pipeline-list-table__dash">—</span>
-                )}
-              </td>
-              <td className="pipeline-list-table__td">
-                {pipeline.lastRunRowCount != null ? (
-                  <>
-                    {pipeline.lastRunRowCount.toLocaleString() +
-                      (pipeline.lastRunRowCount === 1 ? " row" : " rows")}
-                    {/* HEL-873 (design.md Decision 4): icon + text, never colour alone.
+            <Fragment key={pipeline.id}>
+              <tr className="pipeline-list-table__row" onClick={handleRowClick(pipeline.id)}>
+                <td className="pipeline-list-table__td">
+                  <Link to={`/pipelines/${pipeline.id}`} className="pipeline-list-table__link">
+                    {pipeline.name}
+                  </Link>
+                </td>
+                <td className="pipeline-list-table__td">
+                  <SourcesCell roots={pipeline.roots} />
+                </td>
+                <td className="pipeline-list-table__td">
+                  {pipeline.lastRunStatus === null ? (
+                    <span className="pipeline-list-table__never-run">Never run</span>
+                  ) : (
+                    <StatusBadge status={pipeline.lastRunStatus} />
+                  )}
+                </td>
+                <td className="pipeline-list-table__td">
+                  {pipeline.lastRunAt !== null ? (
+                    formatRelativeTime(pipeline.lastRunAt)
+                  ) : (
+                    <span className="pipeline-list-table__dash">—</span>
+                  )}
+                </td>
+                <td className="pipeline-list-table__td">
+                  {pipeline.lastRunRowCount != null ? (
+                    <>
+                      {pipeline.lastRunRowCount.toLocaleString() +
+                        (pipeline.lastRunRowCount === 1 ? " row" : " rows")}
+                      {/* HEL-873 (design.md Decision 4): icon + text, never colour alone.
                           `null`/`false` (not-recorded / complete) both render nothing extra. */}
-                    {pipeline.lastRunTruncated === true && <TruncatedRowCountBadge />}
-                  </>
-                ) : (
-                  <span className="pipeline-list-table__dash">—</span>
-                )}
-              </td>
-              <td className="pipeline-list-table__td">
-                {/* HEL-1022 (adversarial review finding 3): guard against `""`, not just
+                      {pipeline.lastRunTruncated === true && <TruncatedRowCountBadge />}
+                    </>
+                  ) : (
+                    <span className="pipeline-list-table__dash">—</span>
+                  )}
+                </td>
+                <td className="pipeline-list-table__td">
+                  {/* HEL-1022 (adversarial review finding 3): guard against `""`, not just
                     `null`/`undefined` -- an empty string is truthy for `!= null` and reached
                     `formatRelativeTime("")` -> "NaN years ago" before every backend
                     `PipelineSummaryResponse` construction site guaranteed a real timestamp. */}
-                {pipeline.updatedAt ? (
-                  formatRelativeTime(pipeline.updatedAt)
-                ) : (
-                  <span className="pipeline-list-table__dash">—</span>
-                )}
-              </td>
-              {showActions && (
-                <td className="pipeline-list-table__td pipeline-list-table__td--actions">
-                  {isOwner && (
-                    <button
-                      type="button"
-                      className="pipeline-list-table__share-btn"
-                      onClick={() => onShare(pipeline)}
-                      aria-label={`Share ${pipeline.name}`}
-                    >
-                      Share
-                    </button>
+                  {pipeline.updatedAt ? (
+                    formatRelativeTime(pipeline.updatedAt)
+                  ) : (
+                    <span className="pipeline-list-table__dash">—</span>
                   )}
                 </td>
+                {showActions && (
+                  <td className="pipeline-list-table__td pipeline-list-table__td--actions">
+                    {canShare && isOwner && (
+                      <button
+                        type="button"
+                        className="pipeline-list-table__share-btn"
+                        onClick={() => onShare?.(pipeline)}
+                        aria-label={`Share ${pipeline.name}`}
+                      >
+                        Share
+                      </button>
+                    )}
+                    {onRequestDelete != null && (
+                      <button
+                        type="button"
+                        className="pipeline-list-table__delete-btn"
+                        onClick={(event) => {
+                          noteDeleteActivation(event.detail);
+                          onRequestDelete(pipeline);
+                        }}
+                        aria-label={`Delete ${pipeline.name}`}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                )}
+              </tr>
+              {rowExtra?.id === pipeline.id && (
+                <tr className="pipeline-list-table__extra-row">
+                  <td className="pipeline-list-table__extra-cell" colSpan={showActions ? 7 : 6}>
+                    {rowExtra.content}
+                  </td>
+                </tr>
               )}
-            </tr>
+            </Fragment>
           );
         })}
       </tbody>

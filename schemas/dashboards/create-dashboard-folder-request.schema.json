@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/create-dashboard-folder-request.schema.json",
+  "title": "CreateDashboardFolderRequest",
+  "description": "POST /api/dashboard-folders body (HEL-1574). The name is trimmed, 1..80 characters, unique per user case-insensitively (409 on a duplicate).",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    }
+  },
+  "required": ["name"],
+  "additionalProperties": false
+}

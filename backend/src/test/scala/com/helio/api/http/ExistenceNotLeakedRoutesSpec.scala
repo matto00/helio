@@ -401,6 +401,9 @@ object ExistenceNotLeakedRoutesSpec {
       Json("""{"fields":["name"],"dashboard":{"name":"renamed"}}""")),
     Row("PATCH dashboard", HttpMethods.PATCH, "/api/dashboards/{id}", Dashboard, Set("DashboardService.scala"), Json("""{"name":"renamed"}""")),
     Row("DELETE dashboard", HttpMethods.DELETE, "/api/dashboards/{id}", Dashboard, Set("DashboardService.scala")),
+    // HEL-1574: filing a dashboard in the caller's own folder needs access to it (requireAccess)
+    Row("PUT dashboard folder", HttpMethods.PUT, "/api/dashboards/{id}/folder", Dashboard, Set("DashboardFolderService.scala"),
+      Json("""{"folderId":null}""")),
     Row("PUT dashboard contents", HttpMethods.PUT, "/api/dashboards/{id}/contents", Dashboard, Set("DashboardContentsService.scala"), Json("""{"panels":[]}""")),
     Row("POST dashboard auto-layout", HttpMethods.POST, "/api/dashboards/{id}/auto-layout", Dashboard, Set("AutoLayoutService.scala"),
       Json("""{"items":[],"cols":12}""")),

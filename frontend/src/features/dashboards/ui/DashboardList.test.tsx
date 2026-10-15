@@ -10,6 +10,14 @@ import {
 import { renderWithStore } from "../../../test/renderWithStore";
 import { DashboardList } from "./DashboardList";
 
+jest.mock("../services/dashboardFolderService", () => ({
+  fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
+  createDashboardFolder: jest.fn(),
+  updateDashboardFolder: jest.fn(),
+  deleteDashboardFolder: jest.fn(),
+  moveDashboardToFolder: jest.fn(),
+}));
+
 jest.mock("../services/dashboardService", () => ({
   createDashboard: jest.fn(),
   deleteDashboard: jest.fn(),
@@ -43,7 +51,7 @@ describe("DashboardList", () => {
     renameDashboardMock.mockReset();
   });
 
-  it("renders the dashboards heading and backend-backed dashboard items from state", () => {
+  it("renders the backend-backed dashboard items from state", () => {
     renderWithStore(<DashboardList />, {
       dashboards: {
         items: [{ id: "dashboard-1", name: "Operations", meta: defaultMeta }],
@@ -54,7 +62,6 @@ describe("DashboardList", () => {
       },
     });
 
-    expect(screen.getByRole("heading", { name: "Dashboards" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Operations" })).toBeInTheDocument();
   });
 

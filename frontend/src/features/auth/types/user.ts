@@ -4,6 +4,16 @@
 export interface UserPreferences {
   accentColor: string | null;
   zoomLevels: Record<string, number>;
+  /** HEL-1574: context-list width in px (200..400). Absent until the user first sets it. */
+  contextListWidth?: number;
+  /** HEL-1574: context list collapsed to rail-only. Absent until the user first sets it. */
+  contextListCollapsed?: boolean;
+}
+
+/** Body of `PATCH /api/users/me/preferences`: any non-empty subset. */
+export interface ShellPreferencesPatch {
+  contextListWidth?: number;
+  contextListCollapsed?: boolean;
 }
 
 // HEL-703: gates chat/assistant access — `free` (default) is denied every assistant endpoint,

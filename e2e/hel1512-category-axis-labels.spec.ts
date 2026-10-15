@@ -6,7 +6,7 @@ import { loginThenIsolate } from "./support/isolateLivePage";
 
 // HEL-1512 — heatmap and histogram category axes show every label that fits and never overlap when
 // they do not, read from the RENDERED chart (ECharts 6.1.0 per frontend/package-lock.json; the probe
-// reads the axis views' label elements, so an ECharts upgrade must re-check it). Light + dark, 1440
+// reads the axis views' label elements, so an ECharts upgrade must re-check it). Light + dark, 1504 (HEL-1574: the container width 1440 used to give, with the rail and context list open)
 // and 375. Every created id is logged and deleted by exact id in `finally`.
 
 const CSRF = { "X-Helio-Requested-With": "1" };
@@ -126,8 +126,8 @@ const SERVICES = Array.from({ length: 6 }, (_, i) => `service${i + 1}`);
 const HIST_ROWS = 40;
 
 for (const { theme, width } of [
-  { theme: "light", width: 1440 },
-  { theme: "dark", width: 1440 },
+  { theme: "light", width: 1504 },
+  { theme: "dark", width: 1504 },
   { theme: "light", width: 375 },
   { theme: "dark", width: 375 },
 ] as const) {
@@ -138,7 +138,7 @@ for (const { theme, width } of [
   }) => {
     test.setTimeout(180_000);
     page.setDefaultTimeout(20_000);
-    await page.setViewportSize({ width: 1440, height: 1300 });
+    await page.setViewportSize({ width: 1504, height: 1300 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
     const credentials = await registerUser(request, {
       prefix: `hel1512-${label}`,
@@ -337,7 +337,7 @@ for (const { theme, width } of [
         // 6 rows in a short (h: 3) plot: whichever rows are hidden, none may overlap (checked above).
         expect(read.heat8Y.shown.length, "heat8 rows shown").toBeGreaterThan(0);
       }
-      if (width === 1440) {
+      if (width === 1504) {
         expect(read.heatY.shown).toEqual(TESTS);
         expect(read.hist5.shown).toHaveLength(5);
         expect(read.hist10.shown, "10 of 10 bins").toHaveLength(10);

@@ -8,7 +8,8 @@ import com.helio.api.http.RequestValidation
 import com.helio.api.{ErrorResponse, JsonProtocols, UserResponse}
 import com.helio.api.protocols.auth.RedeemInviteCodeRequest
 import com.helio.domain.model.AuthenticatedUser
-import com.helio.services.auth.{BetaAccessError, BetaAccessService}
+import com.helio.infrastructure.persistence.auth.UserPreferenceRepository
+import com.helio.services.auth.{BetaAccessError, BetaAccessService, UserResponseAssembler}
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -22,11 +23,18 @@ import scala.concurrent.ExecutionContextExecutor
  *  other auth-adjacent endpoint (register/login/OAuth/`GET /api/auth/me`) returns, now carrying
  *  the caller's just-upgraded `tier = "beta"` (settings-beta-access-ui spec's "unlocks without
  *  re-login" requirement is a frontend concern: the route only needs to return fresh data). */
-final class BetaAccessRoutes(service: BetaAccessService, user: AuthenticatedUser)(implicit system: ActorSystem[_])
+final class BetaAccessRoutes(
+    service: BetaAccessService,
+    user: AuthenticatedUser,
+    // HEL-1574: redeem returns the user with their saved preferences (shell layout) intact.
+    preferenceRepo: Option[UserPreferenceRepository] = None
+)(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
 
   private implicit val ec: ExecutionContextExecutor = system.executionContext
+
+  private val userResponses = new UserResponseAssembler(preferenceRepo)
 
   private def completeBetaAccessError(err: BetaAccessError): Route = err match {
     case e: BetaAccessError.EmailUnconfigured => complete(StatusCodes.ServiceUnavailable, ErrorResponse(e.message))
@@ -54,8 +62,9 @@ final class BetaAccessRoutes(service: BetaAccessService, user: AuthenticatedUser
                 case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
                 case Right(validated) =>
                   onSuccess(service.redeem(user, validated.code)) {
-                    case Right(updatedUser) => complete(StatusCodes.OK, UserResponse.fromDomain(updatedUser))
-                    case Left(err)          => completeBetaAccessError(err)
+                    case Right(updatedUser) =>
+                      onSuccess(userResponses(updatedUser))(response => complete(StatusCodes.OK, response))
+                    case Left(err) => completeBetaAccessError(err)
                   }
               }
             }

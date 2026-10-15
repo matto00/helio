@@ -76,7 +76,7 @@ for (const theme of ["light", "dark"] as const) {
     request,
   }) => {
     test.setTimeout(120_000);
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.setViewportSize({ width: 1504, height: 900 });
     await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
     await registerAndLogin(page, request, AUTH);
     const me = await request.get("/api/auth/me");
@@ -214,8 +214,9 @@ for (const theme of ["light", "dark"] as const) {
       expect(await card.textContent()).not.toMatch(/previous run/i);
 
       // Default 3x2 placement (no layout call): the sparkline sits inside the card, below the
-      // header and clear of the value/delta, at the desktop widths 1440 and 1100.
-      for (const width of [1440, 1100]) {
+      // header and clear of the value/delta, at the desktop container widths 1152 and 812.
+      // HEL-1574: viewports chosen so the grid container is still 1152 (md) and 812 (sm), as before the rail.
+      for (const width of [1504, 1164]) {
         await resizeAndSettle(page, card, width);
         const spark = card.getByRole("img", { name: /Trend over \d+ data points/ });
         await expect(spark).toBeVisible();
@@ -233,7 +234,7 @@ for (const theme of ["light", "dark"] as const) {
         expect(sp!.x).toBeGreaterThanOrEqual(delta!.x + delta!.width - 1);
       }
       // Wait for the reflow to finish before clicking (no fixed sleep).
-      await resizeAndSettle(page, card, 1440);
+      await resizeAndSettle(page, card, 1504);
       await layoutSettled(card.getByRole("button", { name: "Data provenance" }));
       await card.getByRole("button", { name: "Data provenance" }).click();
       const popover = page.getByRole("dialog", { name: /Data provenance/ });

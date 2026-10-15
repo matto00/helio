@@ -15,9 +15,9 @@ test.describe.configure({ mode: "parallel" });
 // `.react-grid-item` rects (never the store). Mixed kinds: markdown, image, chart (output panel
 // bound to a pipeline chart output), text, divider.
 //
-// Container width, not window width, picks the breakpoint: container = window - 288 with the
-// sidebar open, window - 40 under 1056. Windows used: 1900 (lg), 1500 (md), 1200 (sm),
-// 1056 (container exactly 768 = sm), 400 (phone stack).
+// Container width, not window width, picks the breakpoint: container = window - 352 with the rail and
+// the default-width context list open (56 + 248 + 48 of page padding), window - 40 at the phone shell.
+// Windows used: 1900 (lg), 1500 (md), 1200 (sm), 1120 (container exactly 768 = sm), 400 (phone stack).
 
 const CSRF_HEADER = { "X-Helio-Requested-With": "1" };
 const GRID_MARGIN = 18;
@@ -42,10 +42,10 @@ interface Rect {
 }
 
 const windows: { width: number; bp: Bp | "stack"; container: number }[] = [
-  { width: 1900, bp: "lg", container: 1612 },
-  { width: 1500, bp: "md", container: 1212 },
-  { width: 1200, bp: "sm", container: 912 },
-  { width: 1056, bp: "sm", container: 768 },
+  { width: 1900, bp: "lg", container: 1548 },
+  { width: 1500, bp: "md", container: 1148 },
+  { width: 1200, bp: "sm", container: 848 },
+  { width: 1120, bp: "sm", container: 768 },
   { width: 400, bp: "stack", container: 360 },
 ];
 

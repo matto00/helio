@@ -1,5 +1,5 @@
-import type { MouseEvent } from "react";
-import { useMemo } from "react";
+import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
+import { Fragment, useMemo, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
@@ -18,6 +18,12 @@ interface Props {
   references: Record<string, SourceReferenceSummary>;
   /** False until the summary has loaded: an absent entry then means "unknown", never "Unused". */
   referencesLoaded: boolean;
+  /** Called when Delete is chosen on a row (HEL-1574: Delete lives on the overview rows, an owner ruling of
+   *  2026-10-14; the page owns the confirm, the reference warning and the conflict notice). */
+  onRequestDelete?: (source: DataSource) => void;
+  /** A full-width row inserted directly below the row with this id (the delete confirm, the 409 notice or a
+   *  refusal). The row's own Delete stays where it is, so a double-click can never land on the confirm. */
+  rowExtra?: { id: string; content: ReactNode };
 }
 
 /**
@@ -62,7 +68,13 @@ const HEADER_COLUMNS: readonly SortableTableColumn<SortKey>[] = [
   { key: "updatedAt", header: "Updated", className: "eyebrow" },
 ];
 
-export function SourceListTable({ sources, references, referencesLoaded }: Props) {
+export function SourceListTable({
+  sources,
+  references,
+  referencesLoaded,
+  onRequestDelete,
+  rowExtra,
+}: Props) {
   const navigate = useNavigate();
 
   // Columns depend on `references` (a prop, not a static module-level
@@ -103,7 +115,11 @@ export function SourceListTable({ sources, references, referencesLoaded }: Props
   // (the same guard `PipelineListTable.handleRowClick` documents).
   function handleRowClick(sourceId: string) {
     return (event: MouseEvent<HTMLTableRowElement>) => {
-      if ((event.target as HTMLElement).closest("a, button")) return;
+      // Ignored: a click on an interactive descendant, anywhere in the actions cell, and the second click of a
+      // double-click (HEL-1604: the first click opens the delete confirm; the second must not navigate away).
+      if (event.detail > 1) return;
+      if ((event.target as HTMLElement).closest("a, button, .source-list-table__td--actions"))
+        return;
       navigate(`/sources/${sourceId}`);
     };
   }
@@ -114,6 +130,13 @@ export function SourceListTable({ sources, references, referencesLoaded }: Props
       columns={HEADER_COLUMNS}
       sortState={sortState}
       onSort={toggleSort}
+      trailingHeaderCells={
+        onRequestDelete != null && (
+          <th className="eyebrow">
+            <span className="sr-only">Actions</span>
+          </th>
+        )
+      }
       scrollClassNames={{
         container: "source-list-table__scroll",
         left: "source-list-table__scroll--left",
@@ -125,40 +148,63 @@ export function SourceListTable({ sources, references, referencesLoaded }: Props
           const location = locationFor(source);
           const usage = summarizeSourceUsage(references[source.id], referencesLoaded);
           return (
-            <tr
-              key={source.id}
-              className="source-list-table__row"
-              onClick={handleRowClick(source.id)}
-            >
-              <td>
-                <Link className="source-list-table__name" to={`/sources/${source.id}`}>
-                  {source.name}
-                </Link>
-              </td>
-              <td>
-                <StatusChip intent="neutral">{labelForKind(source.type)}</StatusChip>
-              </td>
-              <td>
-                {location === null ? (
-                  <span className="source-list-table__muted">—</span>
-                ) : (
-                  /* `title` carries the untruncated value: a REST URL or a
+            <Fragment key={source.id}>
+              <tr className="source-list-table__row" onClick={handleRowClick(source.id)}>
+                <td>
+                  <Link className="source-list-table__name" to={`/sources/${source.id}`}>
+                    {source.name}
+                  </Link>
+                </td>
+                <td>
+                  <StatusChip intent="neutral">{labelForKind(source.type)}</StatusChip>
+                </td>
+                <td>
+                  {location === null ? (
+                    <span className="source-list-table__muted">—</span>
+                  ) : (
+                    /* `title` carries the untruncated value: a REST URL or a
                        SQL host/database routinely exceeds the column, and the
                        cell clips rather than wrapping the row to two lines. */
-                  <span className="source-list-table__location" title={location}>
-                    {location}
-                  </span>
+                    <span className="source-list-table__location" title={location}>
+                      {location}
+                    </span>
+                  )}
+                </td>
+                <td>
+                  {usage.total === 0 ? (
+                    <span className="source-list-table__muted">{usage.label}</span>
+                  ) : (
+                    <span title={usage.title}>{usage.label}</span>
+                  )}
+                </td>
+                <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
+                {onRequestDelete != null && (
+                  <td className="source-list-table__td--actions">
+                    <button
+                      type="button"
+                      className="source-list-table__delete-btn"
+                      onClick={(event) => {
+                        noteDeleteActivation(event.detail);
+                        onRequestDelete(source);
+                      }}
+                      aria-label={`Delete ${source.name}`}
+                    >
+                      Delete
+                    </button>
+                  </td>
                 )}
-              </td>
-              <td>
-                {usage.total === 0 ? (
-                  <span className="source-list-table__muted">{usage.label}</span>
-                ) : (
-                  <span title={usage.title}>{usage.label}</span>
-                )}
-              </td>
-              <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
-            </tr>
+              </tr>
+              {rowExtra?.id === source.id && (
+                <tr className="source-list-table__extra-row">
+                  <td
+                    className="source-list-table__extra-cell"
+                    colSpan={onRequestDelete != null ? 6 : 5}
+                  >
+                    {rowExtra.content}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           );
         })}
       </tbody>

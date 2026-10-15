@@ -249,7 +249,7 @@ for (const theme of ["light", "dark"] as const) {
     expect(upd.status(), await upd.text()).toBe(200);
     console.log(`[HEL-1398 e2e] user ${email} created ${dash.id} ${pipeline.id} ${source.id}`);
     try {
-      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.setViewportSize({ width: 1504, height: 1000 });
       await page.goto(`/dashboards/${dash.id}`);
       for (const title of titles) {
         const card = page.locator(".react-grid-item", { hasText: title });
@@ -277,10 +277,10 @@ for (const theme of ["light", "dark"] as const) {
 
 // CR2 -- the narrow layout must FIT: canvas and both footnotes inside `.panel-content`, which itself
 // sits below the header / control bar and above the footer, at both viewports the w=2 card has two
-// widths (1440 -> 216px with a wrapping title; 1900 -> 254px), with and without a control bar.
+// widths (1504 -> 216px with a wrapping title; 1900 -> 254px), with and without a control bar.
 const TOL = 0.5;
 for (const theme of ["light", "dark"] as const) {
-  for (const vw of [1440, 1900]) {
+  for (const vw of [1504, 1900]) {
     for (const controls of [false, true]) {
       test(`HEL-1398 containment: w=2,h=4 @${vw}px ${controls ? "with" : "no"} control bar (${theme})`, async ({
         page,

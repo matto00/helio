@@ -42,3 +42,74 @@
     inset 12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent),
     inset -12px 0 12px -12px color-mix(in srgb, var(--app-text) 35%, transparent);
 }
+
+/* ── Row Delete (HEL-1574) ── the confirm is a full-width row inserted below the clicked row. */
+.pipeline-list-table__delete-btn {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+/* Secondary at rest, danger on hover: the same recipe as `.agent-memory-list-table__delete-btn` and
+   `.api-tokens-list-table__revoke-btn` (DESIGN.md §5), so Delete matches the buttons around it. */
+.pipeline-list-table__delete-btn:hover {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+.pipeline-list-table__delete-btn:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+/* DESIGN.md §3 touch floor: a full-width 44px hit strip over the compact painted button, gated on the input device
+   (see `shared/ui/tapTarget.css`). It spans the button's own width only, so it never reaches a neighbouring control. */
+@media (max-width: 768px), (pointer: coarse) {
+  .pipeline-list-table__delete-btn {
+    position: relative;
+  }
+
+  .pipeline-list-table__delete-btn::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
+.pipeline-list-table__extra-cell {
+  padding: var(--space-3) var(--space-4);
+  background: var(--app-surface-soft);
+}
+
+/* The confirm row spans every column, so on a narrow screen it is as wide as the table and scrolls sideways with it.
+   Pin its content to the scroller's left edge and bound it to the scroller's visible width, so the item name and the
+   buttons stay on screen however far the table is scrolled. */
+.pipeline-list-table__scroll {
+  container-type: inline-size;
+}
+
+.pipeline-list-table__extra-cell > * {
+  position: sticky;
+  left: var(--space-3);
+  max-width: calc(100cqw - 2 * var(--space-3));
+}
+
+/* Share and Delete sit side by side in the actions cell: a --space-2 gap, as `.connectors-page__row-actions`. */
+.pipeline-list-table__share-btn + .pipeline-list-table__delete-btn {
+  margin-left: var(--space-2);
+}

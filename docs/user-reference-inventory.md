@@ -11,38 +11,40 @@ One row per foreign key whose target is `users(id)`. This table is parsed by `V1
 it to the foreign keys of a fully migrated database, so it goes red when this list drifts from the schema. Keep the
 three columns and the `| Table | Column | ON DELETE |` header exactly.
 
-| Table                         | Column                 | ON DELETE |
-| ----------------------------- | ---------------------- | --------- |
-| `agent_memory`                | `owner_id`             | CASCADE   |
-| `agent_preferences`           | `user_id`              | CASCADE   |
-| `alert_events`                | `owner_id`             | NO ACTION |
-| `alert_rules`                 | `owner_id`             | NO ACTION |
-| `api_tokens`                  | `user_id`              | CASCADE   |
-| `assistant_conversations`     | `owner_id`             | NO ACTION |
-| `assistant_daily_usage`       | `user_id`              | NO ACTION |
-| `authoring_conversations`     | `owner_id`             | NO ACTION |
-| `connector_completion_tokens` | `user_id`              | CASCADE   |
-| `connector_credentials`       | `user_id`              | CASCADE   |
-| `connectors`                  | `owner_id`             | CASCADE   |
-| `dashboards`                  | `owner_id`             | NO ACTION |
-| `data_sources`                | `owner_id`             | CASCADE   |
-| `image_uploads`               | `owner_id`             | CASCADE   |
-| `invite_codes`                | `user_id`              | NO ACTION |
-| `mfa_backup_codes`            | `user_id`              | CASCADE   |
-| `mfa_login_challenges`        | `user_id`              | CASCADE   |
-| `outputs`                     | `owner_id`             | NO ACTION |
-| `panels`                      | `owner_id`             | NO ACTION |
-| `patch_set_applications`      | `owner_id`             | NO ACTION |
-| `patch_set_applied_proposals` | `owner_id`             | CASCADE   |
-| `pipeline_run_rate_window`    | `user_id`              | CASCADE   |
-| `pipeline_runs`               | `triggered_by_user_id` | SET NULL  |
-| `pipelines`                   | `owner_id`             | NO ACTION |
-| `product_events`              | `user_id`              | CASCADE   |
-| `resource_permissions`        | `grantee_id`           | CASCADE   |
-| `share_tokens`                | `user_id`              | CASCADE   |
-| `user_dashboard_zoom`         | `user_id`              | CASCADE   |
-| `user_mfa`                    | `user_id`              | CASCADE   |
-| `user_sessions`               | `user_id`              | CASCADE   |
+| Table                          | Column                 | ON DELETE |
+| ------------------------------ | ---------------------- | --------- |
+| `agent_memory`                 | `owner_id`             | CASCADE   |
+| `agent_preferences`            | `user_id`              | CASCADE   |
+| `alert_events`                 | `owner_id`             | NO ACTION |
+| `alert_rules`                  | `owner_id`             | NO ACTION |
+| `api_tokens`                   | `user_id`              | CASCADE   |
+| `assistant_conversations`      | `owner_id`             | NO ACTION |
+| `assistant_daily_usage`        | `user_id`              | NO ACTION |
+| `authoring_conversations`      | `owner_id`             | NO ACTION |
+| `connector_completion_tokens`  | `user_id`              | CASCADE   |
+| `connector_credentials`        | `user_id`              | CASCADE   |
+| `connectors`                   | `owner_id`             | CASCADE   |
+| `dashboard_folder_assignments` | `owner_id`             | CASCADE   |
+| `dashboard_folders`            | `owner_id`             | CASCADE   |
+| `dashboards`                   | `owner_id`             | NO ACTION |
+| `data_sources`                 | `owner_id`             | CASCADE   |
+| `image_uploads`                | `owner_id`             | CASCADE   |
+| `invite_codes`                 | `user_id`              | NO ACTION |
+| `mfa_backup_codes`             | `user_id`              | CASCADE   |
+| `mfa_login_challenges`         | `user_id`              | CASCADE   |
+| `outputs`                      | `owner_id`             | NO ACTION |
+| `panels`                       | `owner_id`             | NO ACTION |
+| `patch_set_applications`       | `owner_id`             | NO ACTION |
+| `patch_set_applied_proposals`  | `owner_id`             | CASCADE   |
+| `pipeline_run_rate_window`     | `user_id`              | CASCADE   |
+| `pipeline_runs`                | `triggered_by_user_id` | SET NULL  |
+| `pipelines`                    | `owner_id`             | NO ACTION |
+| `product_events`               | `user_id`              | CASCADE   |
+| `resource_permissions`         | `grantee_id`           | CASCADE   |
+| `share_tokens`                 | `user_id`              | CASCADE   |
+| `user_dashboard_zoom`          | `user_id`              | CASCADE   |
+| `user_mfa`                     | `user_id`              | CASCADE   |
+| `user_sessions`                | `user_id`              | CASCADE   |
 
 `NO ACTION` blocks the whole `DELETE FROM users` statement (SQLSTATE `23503`) while any referencing row exists.
 `CASCADE` deletes the referencing rows with the user.

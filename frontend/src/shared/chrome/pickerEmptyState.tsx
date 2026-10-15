@@ -13,7 +13,7 @@ export interface PickerEmptyStateCopy {
  *  description copy for `MobileNavSheet`'s empty branch (`EmptyState
  *  variant="sidebar"`), keyed by `PickerId` so every section (including the
  *  unreachable `other`) has a complete entry. `sources`/`pipelines`/`chat`
- *  intentionally match `SidebarBody.tsx`'s `SidebarItemList` props verbatim
+ *  intentionally match the desktop lists' `SidebarItemList` props verbatim
  *  (`emptyText`/`emptyIcon`/`emptyDescription`) — locked against that
  *  rendered copy by `pickerEmptyState.test.ts` (task 5.8) for those
  *  sections only.

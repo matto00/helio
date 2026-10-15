@@ -29,6 +29,38 @@ final case class PutPipelineScheduleRequest(
     timezone: String
 )
 
+final case class ScheduledPipelineItemResponse(
+    pipelineId: String,
+    pipelineName: String,
+    kind: String,
+    expression: String,
+    timezone: String,
+    nextRunAt: Option[String],
+    lastRunAt: Option[String]
+)
+final case class ScheduledSourceItemResponse(
+    sourceId: String,
+    sourceName: String,
+    nextRunAt: Option[String],
+    pipelineId: String,
+    pipelineName: String
+)
+/** `GET /api/pipeline-schedules` (HEL-1574): the caller's enabled schedules and the sources feeding them. */
+final case class PipelineScheduleListResponse(
+    items: Vector[ScheduledPipelineItemResponse],
+    sources: Vector[ScheduledSourceItemResponse]
+)
+
+object PipelineScheduleListResponse {
+  def fromDomain(list: PipelineScheduleList): PipelineScheduleListResponse =
+    PipelineScheduleListResponse(
+      list.items.map(i =>
+        ScheduledPipelineItemResponse(i.pipelineId, i.pipelineName, i.kind, i.expression, i.timezone, i.nextRunAt.map(_.toString), i.lastRunAt.map(_.toString))
+      ),
+      list.sources.map(s => ScheduledSourceItemResponse(s.sourceId, s.sourceName, s.nextRunAt.map(_.toString), s.pipelineId, s.pipelineName))
+    )
+}
+
 object PipelineScheduleResponse {
   def fromDomain(schedule: PipelineSchedule): PipelineScheduleResponse =
     PipelineScheduleResponse(
@@ -48,4 +80,7 @@ object PipelineScheduleResponse {
 trait PipelineScheduleProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val pipelineScheduleResponseFormat: RootJsonFormat[PipelineScheduleResponse]     = jsonFormat10(PipelineScheduleResponse.apply)
   implicit val putPipelineScheduleRequestFormat: RootJsonFormat[PutPipelineScheduleRequest] = jsonFormat4(PutPipelineScheduleRequest.apply)
+  implicit val scheduledPipelineItemResponseFormat: RootJsonFormat[ScheduledPipelineItemResponse] = jsonFormat7(ScheduledPipelineItemResponse.apply)
+  implicit val scheduledSourceItemResponseFormat: RootJsonFormat[ScheduledSourceItemResponse]     = jsonFormat5(ScheduledSourceItemResponse.apply)
+  implicit val pipelineScheduleListResponseFormat: RootJsonFormat[PipelineScheduleListResponse]   = jsonFormat2(PipelineScheduleListResponse.apply)
 }
