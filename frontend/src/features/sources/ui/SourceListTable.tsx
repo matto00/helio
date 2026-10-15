@@ -2,6 +2,7 @@ import { noteDeleteActivation } from "../../../shared/chrome/rowDeleteFocus";
 import { Fragment, useMemo, type MouseEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { useNow } from "../../../hooks/useNow";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { useSortedRows, type SortColumn } from "../../../shared/ui/useSortedRows";
@@ -76,6 +77,7 @@ export function SourceListTable({
   rowExtra,
 }: Props) {
   const navigate = useNavigate();
+  const now = useNow(60_000);
 
   // Columns depend on `references` (a prop, not a static module-level
   // constant like the other three tables) -- the "Used by" column sorts on
@@ -177,14 +179,16 @@ export function SourceListTable({
                     <span title={usage.title}>{usage.label}</span>
                   )}
                 </td>
-                <td className="source-list-table__muted">{formatRelativeTime(source.updatedAt)}</td>
+                <td className="source-list-table__muted">
+                  {formatRelativeTime(source.updatedAt, now)}
+                </td>
                 {onRequestDelete != null && (
                   <td className="source-list-table__td--actions">
                     <button
                       type="button"
                       className="source-list-table__delete-btn"
                       onClick={(event) => {
-                        noteDeleteActivation(event.detail);
+                        noteDeleteActivation(event.detail, event.currentTarget);
                         onRequestDelete(source);
                       }}
                       aria-label={`Delete ${source.name}`}

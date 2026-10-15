@@ -1,5 +1,17 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import {
+  FRESH_LABEL,
+  agePage,
+  freshRowLabel,
+  gotoSettled,
+  installFreshClock,
+  placeBottomNearViewportEdge,
+  pressRowTops,
+  pressTargets,
+  recordPresses,
+  rewindClock,
+} from "./support/rowDeleteGesture";
 
 // Every test registers its own user and seeds its own data, so tests are independently schedulable.
 test.describe.configure({ mode: "parallel" });
@@ -10,53 +22,6 @@ test.describe.configure({ mode: "parallel" });
 
 const AUTH = { prefix: "hel1574", displayName: "HEL-1574", domain: "example.com" } as const;
 const CSRF_HEADER = "X-Helio-Requested-With";
-
-/** Scrolls the page so `button`'s bottom sits about 75px above the viewport bottom: the confirm row inserted below it
- *  would open off-screen, which is the layout that used to scroll the page between a double-click's two clicks. */
-async function placeBottomNearViewportEdge(page: Page, button: Locator): Promise<void> {
-  await settledRowTop(button);
-  await button.scrollIntoViewIfNeeded();
-  await page.locator(".app-content").evaluate(
-    (el, selectorLabel) => {
-      const target = document.querySelector<HTMLElement>(`button[aria-label="${selectorLabel}"]`)!;
-      const delta = target.getBoundingClientRect().bottom - (window.innerHeight - 75);
-      el.scrollTop += delta;
-    },
-    await button.getAttribute("aria-label"),
-  );
-}
-
-/** The row's top once its layout has stopped moving (late fetches such as the references summary re-flow rows). */
-async function settledRowTop(button: Locator): Promise<number> {
-  let previous = Number.NaN;
-  let current = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
-  for (let i = 0; i < 20 && current !== previous; i++) {
-    previous = current;
-    await button.page().waitForTimeout(150);
-    current = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
-  }
-  return current;
-}
-
-/** Records which element each mouse press of the next gesture lands on (capture phase, so nothing can hide it). */
-async function recordPresses(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const presses: string[] = [];
-    (window as unknown as { __presses: string[] }).__presses = presses;
-    document.addEventListener(
-      "mousedown",
-      (event) => {
-        const target = event.target as HTMLElement;
-        presses.push(target.closest("button")?.getAttribute("aria-label") ?? target.tagName);
-      },
-      true,
-    );
-  });
-}
-
-async function pressTargets(page: Page): Promise<string[]> {
-  return page.evaluate(() => (window as unknown as { __presses: string[] }).__presses);
-}
 
 async function shellRenders(page: Page) {
   return {
@@ -383,66 +348,69 @@ test.describe("HEL-1574 shell rail and context list", () => {
     { width: 1280, height: 700 },
     { width: 375, height: 700 },
   ]) {
-    // HEL-1605: on freshly seeded rows the relative-time labels reflow when the confirm opens, so the second press lands on a neighbouring row (CI run 38665737092, both attempts). Re-enable when HEL-1605 lands.
-    const rowDeleteConfirmTest = viewport.width === 375 ? test.fixme : test;
-    rowDeleteConfirmTest(
-      `row Delete confirm opens below its row: double-click, and the last row of a long list keeps the scroll, at ${viewport.width}px`,
-      async ({ page, request }) => {
-        await page.setViewportSize(viewport);
-        await registerAndLogin(page, request, {
-          ...AUTH,
-          label: `scroll${viewport.width}`,
-          isolate: true,
+    test(`row Delete confirm opens below its row: double-click, and the last row of a long list keeps the scroll, at ${viewport.width}px`, async ({
+      page,
+      request,
+    }) => {
+      await page.setViewportSize(viewport);
+      await registerAndLogin(page, request, {
+        ...AUTH,
+        label: `scroll${viewport.width}`,
+        isolate: true,
+      });
+      for (let i = 0; i < 28; i++) {
+        const res = await page.request.post("/api/data-sources", {
+          data: {
+            name: `HEL-1574 Long ${String(i).padStart(2, "0")}`,
+            type: "static",
+            columns: [{ name: "a", type: "integer" }],
+            rows: [[1]],
+          },
+          headers: { [CSRF_HEADER]: "1" },
         });
-        for (let i = 0; i < 28; i++) {
-          const res = await page.request.post("/api/data-sources", {
-            data: {
-              name: `HEL-1574 Long ${String(i).padStart(2, "0")}`,
-              type: "static",
-              columns: [{ name: "a", type: "integer" }],
-              rows: [[1]],
-            },
-            headers: { [CSRF_HEADER]: "1" },
-          });
-          expect(res.status()).toBe(201);
-        }
-        await page.goto("/sources");
-        const deletes = page.getByRole("button", { name: /^Delete HEL-1574 Long/ });
-        await expect(deletes).toHaveCount(28);
+        expect(res.status()).toBe(201);
+      }
+      await installFreshClock(page, ["/api/data-sources"]);
+      await page.goto("/sources");
+      const deletes = page.getByRole("button", { name: /^Delete HEL-1574 Long/ });
+      await expect(deletes).toHaveCount(28);
 
-        // Double-click on a middle row's Delete: the confirm names that row and the row does not move.
-        const middle = deletes.nth(10);
-        const name = ((await middle.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
-        await placeBottomNearViewportEdge(page, middle);
-        await settledRowTop(middle);
-        await recordPresses(page);
-        // `force`: Playwright's own pre-click scrolling (it re-aligns a target near the edge) is not under test.
-        await middle.dblclick({ force: true });
-        // Both presses of the double-click landed on THIS row's Delete: nothing slid under the pointer between them.
-        expect(await pressTargets(page)).toEqual([`Delete ${name}`, `Delete ${name}`]);
-        await expect(page).toHaveURL(/\/sources$/);
-        await expect(page.getByRole("group", { name: `Confirm delete ${name}` })).toBeVisible();
-        await expect(page.getByRole("group", { name: /Confirm delete/ })).toHaveCount(1);
-        await page.getByRole("button", { name: "Cancel" }).click();
+      // Double-click on a middle row's Delete: the confirm names that row and the row does not move.
+      const middle = deletes.nth(10);
+      const name = ((await middle.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
+      await placeBottomNearViewportEdge(page, middle);
+      await recordPresses(page, `Delete ${name}`);
+      // HEL-1605: the rows are seconds old -- no waiting for the labels to settle, that is the layout under test.
+      expect(await freshRowLabel(middle)).toMatch(FRESH_LABEL);
+      await agePage(page);
+      // `force`: Playwright's own pre-click scrolling (it re-aligns a target near the edge) is not under test.
+      await middle.dblclick({ force: true });
+      // Both presses of the double-click landed on THIS row's Delete: nothing slid under the pointer between them.
+      expect(await pressTargets(page)).toEqual([`Delete ${name}`, `Delete ${name}`]);
+      const [pressOneTop, pressTwoTop] = await pressRowTops(page);
+      expect(Math.abs(pressTwoTop - pressOneTop)).toBeLessThan(2);
+      await expect(page).toHaveURL(/\/sources$/);
+      await expect(page.getByRole("group", { name: `Confirm delete ${name}` })).toBeVisible();
+      await expect(page.getByRole("group", { name: /Confirm delete/ })).toHaveCount(1);
+      await page.getByRole("button", { name: "Cancel" }).click();
 
-        // Delete the last row: the scroll position stays at the bottom instead of jumping to the top.
-        const last = deletes.last();
-        await last.scrollIntoViewIfNeeded();
-        const lastName = ((await last.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
-        const scroller = page.locator(".app-content");
-        await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-        const scrollBefore = await scroller.evaluate((el) => el.scrollTop);
-        expect(scrollBefore).toBeGreaterThan(200);
-        await last.click();
-        await page.getByRole("button", { name: `Confirm delete ${lastName}` }).click();
-        await expect(
-          page.getByRole("button", { name: `Delete ${lastName}`, exact: true }),
-        ).toHaveCount(0);
-        await expect(deletes).toHaveCount(27);
-        const scrollAfter = await scroller.evaluate((el) => el.scrollTop);
-        expect(scrollAfter).toBeGreaterThan(scrollBefore - 300);
-      },
-    );
+      // Delete the last row: the scroll position stays at the bottom instead of jumping to the top.
+      const last = deletes.last();
+      await last.scrollIntoViewIfNeeded();
+      const lastName = ((await last.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
+      const scroller = page.locator(".app-content");
+      await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      const scrollBefore = await scroller.evaluate((el) => el.scrollTop);
+      expect(scrollBefore).toBeGreaterThan(200);
+      await last.click();
+      await page.getByRole("button", { name: `Confirm delete ${lastName}` }).click();
+      await expect(
+        page.getByRole("button", { name: `Delete ${lastName}`, exact: true }),
+      ).toHaveCount(0);
+      await expect(deletes).toHaveCount(27);
+      const scrollAfter = await scroller.evaluate((el) => el.scrollTop);
+      expect(scrollAfter).toBeGreaterThan(scrollBefore - 300);
+    });
   }
 
   test("at 375px a confirm opened with the table scrolled to its end stays in view, and Share/Delete have a gap", async ({
@@ -545,11 +513,13 @@ test.describe("HEL-1574 shell rail and context list", () => {
         });
         expect(res.status()).toBe(201);
       }
+      const clockStart = await installFreshClock(page, ["/api/data-sources", "/api/pipelines"]);
       for (const [route, scroller, prefix] of [
         ["/pipelines", ".pipeline-list-table__scroll", "HEL-1604 Pipe"],
         ["/sources", ".source-list-table__scroll", "HEL-1604 Row"],
       ] as const) {
-        await page.goto(route);
+        await rewindClock(page, clockStart);
+        await gotoSettled(page, route);
         const deletes = page.getByRole("button", { name: new RegExp(`^Delete ${prefix}`) });
         await expect(deletes).toHaveCount(22);
         await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
@@ -558,12 +528,16 @@ test.describe("HEL-1574 shell rail and context list", () => {
         const target = deletes.nth(15);
         const name = ((await target.getAttribute("aria-label")) ?? "").replace(/^Delete /, "");
         await placeBottomNearViewportEdge(page, target);
-        await settledRowTop(target);
-        await recordPresses(page);
+        await recordPresses(page, `Delete ${name}`);
+        // HEL-1605: still in the first minute -- the layout in which a relabel used to move the row between presses.
+        expect(await freshRowLabel(target)).toMatch(FRESH_LABEL);
+        await agePage(page);
         // `force`: Playwright's own pre-click scrolling (it re-aligns a target near the edge) is not under test.
         await target.dblclick({ force: true });
         // Both presses of the double-click landed on THIS row's Delete: nothing slid under the pointer between them.
         expect(await pressTargets(page)).toEqual([`Delete ${name}`, `Delete ${name}`]);
+        const [pressOneTop, pressTwoTop] = await pressRowTops(page);
+        expect(Math.abs(pressTwoTop - pressOneTop)).toBeLessThan(2);
         await expect(page).toHaveURL(new RegExp(`${route}$`));
         await expect(page.getByRole("group", { name: /Confirm delete/ })).toHaveCount(1);
         await expect(page.getByRole("group", { name: `Confirm delete ${name}` })).toBeVisible();

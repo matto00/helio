@@ -1,3 +1,5 @@
+import type { MouseEvent } from "react";
+
 import "./ConfirmInline.css";
 
 interface ConfirmInlineProps {
@@ -16,6 +18,10 @@ interface ConfirmInlineProps {
   confirmAriaLabel?: string;
   cancelAriaLabel?: string;
   className?: string;
+  /** When set, Confirm and Cancel ignore the second (and later) click of a multi-click (`event.detail > 1`), the
+   *  HEL-1604 pattern. For a confirm that opens under the pointer, where a double-click's second press can land on
+   *  it. Keyboard activation (`detail 0`) and a single click still work. Off by default. */
+  ignoreRepeatClicks?: boolean;
 }
 
 /** Shared inline confirm/cancel affordance for a destructive row/list-level
@@ -32,7 +38,12 @@ export function ConfirmInline({
   confirmAriaLabel,
   cancelAriaLabel,
   className,
+  ignoreRepeatClicks = false,
 }: ConfirmInlineProps) {
+  const guarded = (handler: () => void) => (event: MouseEvent<HTMLButtonElement>) => {
+    if (ignoreRepeatClicks && event.detail > 1) return;
+    handler();
+  };
   const classes = ["ui-confirm-inline", className ?? null].filter(Boolean).join(" ");
   return (
     <div className={classes}>
@@ -41,7 +52,7 @@ export function ConfirmInline({
         type="button"
         className="ui-confirm-inline__confirm-btn"
         aria-label={confirmAriaLabel}
-        onClick={onConfirm}
+        onClick={guarded(onConfirm)}
       >
         {confirmLabel}
       </button>
@@ -49,7 +60,7 @@ export function ConfirmInline({
         type="button"
         className="ui-confirm-inline__cancel-btn"
         aria-label={cancelAriaLabel}
-        onClick={onCancel}
+        onClick={guarded(onCancel)}
       >
         {cancelLabel}
       </button>
