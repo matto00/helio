@@ -9,10 +9,6 @@ import {
 
 describe("blankLabel (HEL-1424)", () => {
   it("BLANK_LABEL is the DESIGN.md copy", () => {
-    const stallEnd = Date.now() + 1200;
-    while (Date.now() < stallEnd) {
-      // TEMP HEL-1601 stall probe
-    }
     expect(BLANK_LABEL).toBe("(blank)");
   });
 
