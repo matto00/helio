@@ -291,10 +291,8 @@ describe("PanelList", () => {
       },
     });
 
-    expect(screen.getByText("Select a dashboard")).toBeInTheDocument();
-    expect(
-      screen.getByText("Choose a dashboard from the sidebar to view its panels."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No dashboard open")).toBeInTheDocument();
+    expect(screen.getByText("Choose a dashboard from the list, or press ⌘K.")).toBeInTheDocument();
   });
 
   it("renders an error fallback when panel loading fails", () => {
@@ -399,6 +397,37 @@ describe("PanelList", () => {
         container.querySelector(".panel-list__zoom-container .ui-skeleton"),
       ).toBeInTheDocument();
       expect(screen.queryByText("No panels yet")).not.toBeInTheDocument();
+    });
+
+    // HEL-1575 task 4.5(6) -- a lazy warm restore reads the browser store for up to 500 ms while `status`
+    // is still "succeeded" with the PREVIOUS dashboard's items; that frame must show the skeleton.
+    it("shows the skeleton (not a blank frame, not the old dashboard's grid) while a lazy warm restore is reading", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: {
+          items: [{ id: "old", dashboardId: "dashboard-2", title: "Old" }],
+          loadedDashboardId: "dashboard-2",
+          status: "succeeded",
+          restoringDashboardId: "dashboard-1",
+        },
+      });
+
+      expect(container.querySelector('[aria-label="Loading panels"]')).toBeInTheDocument();
+      expect(screen.queryByText("Old")).not.toBeInTheDocument();
+    });
+
+    it("without the restoring flag the same state renders neither grid nor skeleton (the blank frame this fixes)", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: {
+          items: [{ id: "old", dashboardId: "dashboard-2", title: "Old" }],
+          loadedDashboardId: "dashboard-2",
+          status: "succeeded",
+        },
+      });
+
+      expect(container.querySelector('[aria-label="Loading panels"]')).not.toBeInTheDocument();
+      expect(screen.queryByText("Old")).not.toBeInTheDocument();
     });
 
     // The two panel-count-pill guards that lived here (6.8a and the CR3

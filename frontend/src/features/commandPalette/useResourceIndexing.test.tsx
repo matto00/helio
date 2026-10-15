@@ -84,7 +84,7 @@ function Harness() {
   const { open, close } = useCommandPalette();
   return (
     <div>
-      <button onClick={open}>open</button>
+      <button onClick={() => open()}>open</button>
       <button onClick={close}>close</button>
     </div>
   );

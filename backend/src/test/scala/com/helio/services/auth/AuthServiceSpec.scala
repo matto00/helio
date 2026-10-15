@@ -1,7 +1,7 @@
 package com.helio.services.auth
 
 import com.helio.services.auth.{AuthResult, AuthService, LoginOutcome, UserTierConfig}
-import com.helio.api.protocols.auth.{GoogleProfile, LoginRequest, RegisterRequest}
+import com.helio.api.protocols.auth.{DashboardTabPref, DashboardTabsPref, GoogleProfile, LoginRequest, RegisterRequest}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model.UserId
 import com.helio.domain.util.SystemClock
@@ -241,10 +241,14 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       val registered = register(service, "prefs@example.com")
       registered.response.user.preferences.map(_.contextListWidth) shouldBe Some(None)
 
-      await(prefs.patchShellPrefs(UserId(registered.response.user.id), Some(320), Some(true)))
+      registered.response.user.preferences.map(_.dashboardTabs) shouldBe Some(None)
+
+      val savedTabs = DashboardTabsPref(Vector(DashboardTabPref("d1", Some("2026-10-15T10:00:00Z"), None)), Some("d1"))
+      await(prefs.patchShellPrefs(UserId(registered.response.user.id), Some(320), Some(true), Some(savedTabs)))
       val loggedIn = login(service, "prefs@example.com").response.user.preferences.get
       loggedIn.contextListWidth shouldBe Some(320)
       loggedIn.contextListCollapsed shouldBe Some(true)
+      loggedIn.dashboardTabs shouldBe Some(savedTabs)
 
       val oauthOutcome = await(service.completeOAuth(GoogleProfile("g-prefs", Some("g-prefs@example.com"), None, None)))
       val oauthUser    = oauthOutcome.asInstanceOf[LoginOutcome.SessionEstablished].result.response.user

@@ -1,3 +1,8 @@
+import {
+  isBackgroundTabClick,
+  openInBackgroundTab,
+  suppressMiddleMouseDown,
+} from "../tabs/ui/backgroundTabClick";
 import { FolderPlus, LayoutDashboard, Plus, SearchX, X } from "lucide-react";
 
 import {
@@ -325,8 +330,16 @@ export function DashboardList() {
               className="dashboard-list__button"
               aria-label={dashboard.name}
               aria-pressed={selectedDashboardId === dashboard.id}
-              onClick={() => {
+              onMouseDown={suppressMiddleMouseDown}
+              onAuxClick={(event) => {
+                if (isBackgroundTabClick(event)) openInBackgroundTab(dispatch, dashboard.id);
+              }}
+              onClick={(event) => {
                 setConfirmDeleteId(null);
+                if (isBackgroundTabClick(event)) {
+                  openInBackgroundTab(dispatch, dashboard.id);
+                  return;
+                }
                 dispatch(setSelectedDashboardId(dashboard.id));
               }}
             >

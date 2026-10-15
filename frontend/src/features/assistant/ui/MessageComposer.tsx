@@ -5,12 +5,8 @@ import { Textarea } from "../../../shared/ui/Textarea";
 import { Spinner } from "../../../shared/ui/Spinner";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { createConversation } from "../services/assistantConversationsService";
-import {
-  conversationCreated,
-  converse,
-  setSelectedConversationId,
-} from "../state/assistantConversationsSlice";
+import { converse } from "../state/assistantConversationsSlice";
+import { startConversationWithMessage } from "../state/startConversationWithMessage";
 
 // HEL-703 design.md D9 — distinct, actionable copy for the two tier-gate error codes; every other
 // converse failure (network/model/generic) keeps showing its own server-provided message, unchanged.
@@ -26,7 +22,7 @@ const TierForbiddenMessage =
  *  else. Only a plain, non-`Error` object carrying a `message` field is treated as the structured
  *  payload — a real `Error` instance never is, so `createConversation` failures keep their
  *  pre-existing generic fallback untouched. */
-function composerErrorMessage(err: unknown): string {
+export function composerErrorMessage(err: unknown): string {
   if (typeof err === "string") return err;
   if (err !== null && typeof err === "object" && !(err instanceof Error) && "message" in err) {
     const payload = err as { code?: string; message: string };
@@ -123,21 +119,22 @@ export function MessageComposer({ conversationId, initialDraft }: MessageCompose
     setSending(true);
     setError(null);
     try {
-      let targetId = conversationId;
-      if (targetId === null) {
-        const created = await createConversation({});
-        targetId = created.id;
-        // Sidebar's `items` list is otherwise only populated by `fetchConversations` on mount --
-        // without this, a conversation started from the empty-state/new-chat composer never shows
-        // up in the sidebar until the next full page load.
-        dispatch(conversationCreated(created));
-        // HEL-711 design.md D2 -- set immediately before the dispatch below flips `conversationId`
-        // from `null` to `targetId`, so the reset effect recognizes this as the composer's own
-        // self-created transition and skips clearing this in-flight send's state.
-        selfCreatedIdRef.current = targetId;
-        dispatch(setSelectedConversationId(targetId));
+      if (conversationId === null) {
+        // HEL-1575 D10: the shared create -> select -> converse path. `onCreated` fires just before the
+        // selection flips `conversationId` from `null` to the new id, so the reset effect recognises the
+        // composer's own self-created transition (HEL-711 design.md D2) and keeps this send's state.
+        await dispatch(
+          startConversationWithMessage({
+            message: trimmed,
+            idempotencyKey,
+            onCreated: (id) => {
+              selfCreatedIdRef.current = id;
+            },
+          }),
+        );
+      } else {
+        await dispatch(converse({ id: conversationId, message: trimmed, idempotencyKey })).unwrap();
       }
-      await dispatch(converse({ id: targetId, message: trimmed, idempotencyKey })).unwrap();
       // Only cleared on success -- a failed send preserves the typed input so the user can retry
       // without retyping (tasks.md 6.9), and preserves pendingSend so the retry reuses the same key.
       setMessage("");

@@ -2,7 +2,7 @@
    the canvas in light; the rail is `--app-bg`. Tokens only: no literal colours, fonts or durations. */
 .context-list {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 1 / -1;
   position: relative;
   display: flex;
   flex-direction: column;

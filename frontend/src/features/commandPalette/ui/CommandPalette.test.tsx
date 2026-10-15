@@ -140,22 +140,34 @@ describe("CommandPalette", () => {
     await waitFor(() => expect(getDialog()).not.toHaveAttribute("open"));
   });
 
-  it("shows the empty state when the query matches nothing, and Enter is a no-op", async () => {
-    const run = jest.fn();
-    renderPalette([makeAction("a", "Alpha", run)]);
+  // HEL-1575 D10: any non-blank query also offers "Ask the assistant", so a query can no longer match
+  // nothing at all; the empty state is reached with no actions registered, and Enter is then a no-op.
+  it("shows the empty state when there is nothing to list, and Enter is a no-op", async () => {
+    renderPalette([]);
 
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     const input = await screen.findByLabelText("Search commands");
-
-    fireEvent.change(input, { target: { value: "zzz-no-match" } });
 
     expect(await screen.findByText("No matching commands")).toBeInTheDocument();
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
 
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(run).not.toHaveBeenCalled();
 
     expect(getDialog()).toHaveAttribute("open");
+  });
+
+  it("a query that matches no action leaves only the ask action", async () => {
+    const run = jest.fn();
+    renderPalette([makeAction("a", "Alpha", run)]);
+
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    fireEvent.change(input, { target: { value: "zzz-no-match" } });
+
+    const options = await screen.findAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Ask the assistant: "zzz-no-match"');
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("reopening starts from a clean query showing the full default list", async () => {
@@ -164,7 +176,8 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     let input = await screen.findByLabelText("Search commands");
     fireEvent.change(input, { target: { value: "Alpha" } });
-    expect(screen.getAllByRole("option")).toHaveLength(1);
+    // The match plus the ask action (HEL-1575).
+    expect(screen.getAllByRole("option")).toHaveLength(2);
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(getDialog()).not.toHaveAttribute("open"));
@@ -393,7 +406,8 @@ describe("CommandPalette — Recent section (HEL-519)", () => {
     // Nothing named "My Source" matches "dashboards", so once typing starts the result must
     // filter to exactly the one real registered action — recents contribute nothing.
     fireEvent.change(input, { target: { value: "dashboards" } });
-    expect(screen.getAllByRole("option")).toHaveLength(1);
+    // The one real match plus the ask action (HEL-1575); no recent survives.
+    expect(screen.getAllByRole("option")).toHaveLength(2);
     expect(screen.getByText("Go to Dashboards")).toBeInTheDocument();
     expect(screen.queryByText("My Source")).not.toBeInTheDocument();
   });
@@ -521,7 +535,8 @@ describe("CommandPalette — search-result overflow row is non-interactive (skep
     // asserting immediately after the synchronous `fireEvent.change`.
     const options = await waitFor(() => {
       const found = screen.getAllByRole("option");
-      expect(found).toHaveLength(5);
+      // 5 capped matches plus the ask action (HEL-1575).
+      expect(found).toHaveLength(6);
       return found;
     });
     expect(options.every((el) => !/more.*match/i.test(el.textContent ?? ""))).toBe(true);
@@ -545,13 +560,14 @@ describe("CommandPalette — search-result overflow row is non-interactive (skep
 
     const options = await waitFor(() => {
       const found = screen.getAllByRole("option");
-      expect(found).toHaveLength(5);
+      // 5 capped matches plus the ask action (HEL-1575).
+      expect(found).toHaveLength(6);
       return found;
     });
     // Cycle one full loop plus one extra step — if the overflow notice were reachable as an
     // option, `results.length` (and therefore the modulo wrap in `handleKeyDown`) would be 6,
-    // and this loop would land on a 6th `aria-selected="true"` element that does not exist here.
-    for (let i = 0; i < 6; i++) {
+    // and this loop would land on a 7th `aria-selected="true"` element that does not exist here.
+    for (let i = 0; i < 7; i++) {
       fireEvent.keyDown(input, { key: "ArrowDown" });
     }
     const selected = options.filter((el) => el.getAttribute("aria-selected") === "true");

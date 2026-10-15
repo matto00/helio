@@ -925,11 +925,11 @@ black|white)`) is not a conforming focus colour** — Yellow measures
 
 The app shell is a **56px icon rail**, a **resizable, collapsible context
 list**, and a **tab bar** with a `⌘K` box. This section is the binding target
-for HEL-1575/1576 (tabs, meta row) and HEL-1578 (Home). The rail and the context
-list shipped in HEL-1574; the tab bar and the `⌘K` box have not, and until they
-land the command bar still sits above the page content. Numbers the design
-boards do not fix are marked "adjustable by the owning ticket with a DESIGN.md
-edit".
+for HEL-1576 (meta row) and HEL-1578 (Home). The rail and the context list
+shipped in HEL-1574; the tab bar and the `⌘K` box shipped in HEL-1575, on the
+dashboard view of the rail shell only (the phone shell has no strip). Numbers
+the design boards do not fix are marked "adjustable by the owning ticket with a
+DESIGN.md edit".
 
 - **Surfaces.** Chrome is darker than cards: the rail paints `--app-bg`, the
   context list `--app-surface-soft`, and cards stay `--app-surface` (#1a1816,
@@ -978,11 +978,36 @@ edit".
   Settings and the review routes have no list. Pipeline and source **delete**
   is a row action on the Data Pipelines and Data Sources overview tables, never in a list and never in a detail
   page's header (owner ruling 2026-10-14, which HEL-1579 inherits). **[judgment]**
-- **Tabs.** One tab per open dashboard; the active tab is marked by an
-  `--app-accent` indicator on its top edge that slides between tabs (§10).
-  Open tabs persist server-side with a TTL: returning within it is instant
-  (warm), after it the tabs are kept and the content reloads (a second or two),
-  and a tab is never lost. **[judgment]**
+- **Tabs (HEL-1575).** One tab per open dashboard, in an ARIA tablist. The
+  active tab is marked by a 2px `--app-accent` bar on its top edge (static until
+  the motion foundation lands); inactive tabs are muted text.
+  - **Replace vs new tab.** A plain click on a dashboard in the context list
+    **replaces** the active tab. Ctrl/Cmd-click or middle-click opens it as a
+    background tab (inserted after the active one, no navigation). The "+"
+    button opens the palette in open-tab mode and a pick opens a new, active
+    tab. A new dashboard opens as a new tab. Clicking a dashboard that is
+    already open just activates its tab.
+  - **Limits and persistence.** At most **20** tabs are saved (a 21st closes the
+    least recently viewed inactive one); the set, order and active tab are saved
+    server-side per user. The strip scrolls sideways.
+  - **Warm cache.** Tabs viewed in the last **15 minutes** (the TTL), at most
+    the **8** most recent, keep their panels and rows: switching back makes no
+    request, and the copy survives a reload. Past the TTL or beyond 8 the tab is
+    kept and its content reloads. The copy is cleared on sign-out.
+  - **Changed dot.** An inactive tab gets a dot when its dashboard was edited,
+    or new pipeline data arrived for one of its panels, since you last viewed
+    it. Your own edits do not mark it. The dot is the neutral `--app-text`, not
+    the accent (the accent is reserved for the active indicator, the primary
+    action, selection and focus, §0) and not an intent colour such as
+    `--app-warning`, which can match an accent preset (Yellow, dark): no accent
+    preset equals the primary text colour in either theme. The tab's
+    accessible name gains ", changed since you last viewed".
+  - **Keyboard.** Left/Right, Home/End move focus; Enter/Space activate;
+    **Delete** (or Backspace) closes the focused tab; Alt+Shift+Left/Right
+    reorder. The close "x" is a pointer-only control (`aria-hidden`, not
+    focusable): 24px for a fine pointer, 28px (`--control-sm`) under a coarse pointer with a 44px touch expander, so a touch-only assistive-technology user on a tablet (strip
+    above 768px) has no way to close a tab. Known limit, accepted.
+    **[judgment]**
 - **No dashboard title.** Tabs, the context list and `⌘K` already carry the
   dashboard's identity, so the dashboard page renders no `<h1>` title of its
   own. It still needs an accessible name for the landmark (visually hidden or
@@ -991,11 +1016,15 @@ edit".
   muted: panel count · refreshed (a success-intent dot) · source. Actions trail
   on the right with **one** primary. It states facts and carries no title.
   **[judgment]**
-- **`⌘K`.** A box in the tab bar with the placeholder "Search, jump, or ask".
-  Typing searches and jumps; a question hands off to the Assistant.
-  Home and Pipeline top bars carry a small sans breadcrumb or label rather
-  than a display `<h1>`. Section pages keep `PageHeader`/`.page-title` until
-  the shell tickets migrate them (§6).
+- **`⌘K` (HEL-1575).** A button in the tab bar labelled "Search, jump, or
+  ask" that opens the command palette, with the platform's shortcut shown
+  (`⌘K` or `Ctrl K`). Below 560px of tab-bar width only the icon and shortcut
+  remain. Typing in the palette searches and jumps; any text also offers one
+  last action, "Ask the assistant: <text>", which opens a new Assistant
+  conversation with the text sent as its first message. Home and Pipeline top
+  bars carry a small sans breadcrumb or label rather than a display `<h1>`.
+  Section pages keep `PageHeader`/`.page-title` until the shell tickets migrate
+  them (§6).
 - **Accent discipline in the shell.** The accent appears on the active rail
   item, the active tab indicator, the single primary action and focus — and
   nothing else (§0). A view with five accent-coloured secondary controls is the

@@ -160,7 +160,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 135)", () => {
+  it("walks every CSS file in frontend/src (currently 137)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -181,7 +181,9 @@ describe("motion token guard (HEL-441)", () => {
     // HEL-1502 added `shared/ui/disclosureSummary.css` (131 -> 132); tokens only, no shadow/radius/motion literals.
     // HEL-1562 added `landing/landing.css` (132 -> 133); tokens only, no shadow/radius/motion literals.
     // HEL-1574 added `AppRail.css`, `ContextList.css`, `AssistantContextList.css` and removed `SidebarBody.css` (133 -> 135); tokens only.
-    expect(files.length).toBe(135);
+    // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css` (135 -> 137); tokens only, no motion tokens.
+    // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css` (135 -> 137); tokens only, no motion tokens added.
+    expect(files.length).toBe(137);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

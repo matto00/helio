@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.auth
 
+import com.helio.api.protocols.auth.{DashboardTabsPref, DashboardTabsPrefs}
 import com.helio.domain.model.{DashboardId, UserId}
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
@@ -14,7 +15,9 @@ final case class UserPreferencesData(
     zoomLevels: Map[String, Double],
     // HEL-1574: shell layout keys in the same `users.preferences` JSON; None = never set.
     contextListWidth: Option[Int] = None,
-    contextListCollapsed: Option[Boolean] = None
+    contextListCollapsed: Option[Boolean] = None,
+    // HEL-1575: the saved dashboard tab set; None = never set (or an invalid stored value, dropped on read).
+    dashboardTabs: Option[DashboardTabsPref] = None
 )
 
 class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
@@ -58,9 +61,11 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         case _                  => None
       }
 
+      val tabs = fields.get("dashboardTabs").flatMap(v => DashboardTabsPrefs.parse(v).toOption)
+
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
-      UserPreferencesData(accentColor, zoomMap, width, collapsed)
+      UserPreferencesData(accentColor, zoomMap, width, collapsed, tabs)
     }
   }
 
@@ -68,14 +73,37 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
     mergePrefs(userId, JsObject("accentColor" -> JsString(accentColor)))
 
   /** HEL-1574: merges only the shell keys present; every other stored key is untouched. The caller has validated the
-   *  ranges. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
-  def patchShellPrefs(userId: UserId, width: Option[Int], collapsed: Option[Boolean]): Future[Unit] = {
+   *  ranges. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level).
+   *  HEL-1575: `dashboardTabs` replaces the stored tab set as a whole. */
+  def patchShellPrefs(
+      userId: UserId,
+      width: Option[Int],
+      collapsed: Option[Boolean],
+      tabs: Option[DashboardTabsPref] = None
+  ): Future[Unit] = {
     val fields = Vector(
       width.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
-      collapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue))
+      collapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue)),
+      tabs.map(t => "dashboardTabs" -> tabsJson(t))
     ).flatten.toMap
     if (fields.isEmpty) Future.unit else mergePrefs(userId, JsObject(fields))
   }
+
+  /** Stored shape: absent optionals are omitted, so a `null` in the request and an omitted field read the same. */
+  private def tabsJson(t: DashboardTabsPref): JsValue = JsObject(
+    Vector(
+      Some("tabs" -> JsArray(t.tabs.map { tab =>
+        JsObject(
+          Vector(
+            Some("id" -> (JsString(tab.id): JsValue)),
+            tab.lastViewedAt.map(v => "lastViewedAt" -> (JsString(v): JsValue)),
+            tab.ownWriteAt.map(v => "ownWriteAt" -> (JsString(v): JsValue))
+          ).flatten.toMap
+        ): JsValue
+      })),
+      t.activeId.map(a => "activeId" -> (JsString(a): JsValue))
+    ).flatten.toMap
+  )
 
   /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. */
   private def mergePrefs(userId: UserId, patch: JsObject): Future[Unit] = {

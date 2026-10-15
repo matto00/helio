@@ -23,6 +23,8 @@ import { ICON_SIZE } from "../shared/ui/iconSize";
 import { useIsPhoneShell } from "./shell/useIsPhoneShell";
 
 interface CommandBarProps {
+  /** HEL-1575: the tab bar above carries the dashboard's name, so the breadcrumb shows the section only. */
+  hideDashboardBreadcrumb?: boolean;
   isMobileNavSheetOpen: boolean;
   onOpenMobileNavSheet: () => void;
   onOpenRefinement: () => void;
@@ -38,6 +40,7 @@ interface CommandBarProps {
  * rather than receiving a hand-drilled prop bag. HEL-745: the theme toggle
  * lives in Settings' Appearance section now, not here. */
 export function CommandBar({
+  hideDashboardBreadcrumb = false,
   isMobileNavSheetOpen,
   onOpenMobileNavSheet,
   onOpenRefinement,
@@ -144,7 +147,7 @@ export function CommandBar({
           )}
           <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
             <span>{pickerSelection.heading}</span>
-            {onDashboardView && selectedDashboard !== null && (
+            {onDashboardView && selectedDashboard !== null && !hideDashboardBreadcrumb && (
               <>
                 <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
                   /

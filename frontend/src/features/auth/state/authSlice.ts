@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { isAxiosError } from "axios";
 
+import { awaitWarmClear } from "../../dashboards/tabs/warm/clearWarmHook";
 import { resetOutputFreshness } from "../../panels/state/outputFreshness";
 import {
   getMeRequest,
@@ -150,6 +151,9 @@ export const logout = createAsyncThunk<void, void>("auth/logout", async (_, { di
   }
   // HEL-1392 design.md D4 -- the next user must never be served this one's cached Output data.
   resetOutputFreshness();
+  // HEL-1575 D5 -- the browser-stored warm copy goes too; logout waits for it (bounded at 1 s) so a
+  // navigation cannot race the deletion. `clearAuth` below clears it again (idempotent) for the 401 path.
+  await awaitWarmClear();
   dispatch(clearAuth());
 });
 

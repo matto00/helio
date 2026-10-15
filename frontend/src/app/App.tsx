@@ -27,6 +27,7 @@ import {
   panelsMatchDashboard,
   setPanelCreationModalOpen,
 } from "../features/panels/state/panelsSlice";
+import { showDashboardPanels } from "../features/dashboards/tabs/warm/showDashboardPanels";
 import { setAddSourceModalOpen } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
 import { usePickerSelection } from "../shared/chrome/usePickerSelection";
@@ -40,6 +41,8 @@ import { ToastViewport } from "../shared/ui/Toast";
 import { ErrorBoundary } from "../shared/chrome/ErrorBoundary";
 import { AppRoutes } from "./AppRoutes";
 import { CommandBar } from "./CommandBar";
+import { DashboardTabBar } from "../features/dashboards/tabs/ui/DashboardTabBar";
+import { DASHBOARD_TABPANEL_ID, dashboardTabDomId } from "../features/dashboards/tabs/ui/tabDomIds";
 import { AppRail } from "./shell/AppRail";
 import { ContextList } from "./shell/ContextList";
 import { ContextListBody, contextListSectionFor } from "./shell/ContextListBody";
@@ -165,13 +168,17 @@ export function AppShell() {
     void dispatch(fetchDashboards());
   }, [dispatch]);
 
+  // HEL-1575 D1/D4: panels load only once the tab set is hydrated (so no `fetchPanels` is issued for the
+  // reducer's auto-selected dashboard before the saved active tab is chosen), and a valid warm copy is
+  // restored with no request (`showDashboardPanels` falls back to `fetchPanels`).
+  const tabsHydrated = useAppSelector((state) => state.dashboardTabs.hydrated);
   useEffect(() => {
-    if (selectedDashboardId === null) {
+    if (selectedDashboardId === null || !tabsHydrated) {
       return;
     }
 
-    void dispatch(fetchPanels(selectedDashboardId));
-  }, [dispatch, selectedDashboardId]);
+    void dispatch(showDashboardPanels(selectedDashboardId));
+  }, [dispatch, selectedDashboardId, tabsHydrated]);
 
   const effectiveDashboardAppearance =
     (onDashboardView && draftAppearance) || selectedDashboard?.appearance;
@@ -179,7 +186,15 @@ export function AppShell() {
   const listSection = contextListSectionFor(pickerIdForPathname(location.pathname));
   const showRail = !isPhoneShell;
   const showList = showRail && listSection !== null && !contextListLayout.collapsed;
-  const shellClassName = ["app-shell", showList ? null : "app-shell--no-list"]
+  // HEL-1575 D8: the tab bar is the first row of the content column, on the rail shell's dashboard view only
+  // (the phone keeps its own switcher). The command bar's dashboard-name breadcrumb yields to the active tab.
+  const showTabBar = showRail && onDashboardView;
+  const activeTabId = useAppSelector((state) => state.dashboardTabs.activeId);
+  const shellClassName = [
+    "app-shell",
+    showList ? null : "app-shell--no-list",
+    showTabBar ? "app-shell--tabs" : null,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -202,72 +217,90 @@ export function AppShell() {
   return (
     <ShareDialogProvider>
       <SaveStateContext.Provider value={saveStateContextValue}>
-        {/* F-089: first focusable element on every load, targeting the real
+        {/* HEL-1575: mounted around the whole shell (it was only around the palette cluster) so the tab bar's
+          "+" and "Search, jump, or ask" box can open the palette. */}
+        <CommandPaletteProvider>
+          {/* F-089: first focusable element on every load, targeting the real
           <main> landmark below (F-088) so keyboard/screen-reader users can
           bypass the 11 chrome tab-stops that otherwise precede page content. */}
-        <a href="#app-main-content" className="app-skip-link">
-          Skip to content
-        </a>
-        <div className={shellClassName} style={shellStyle}>
-          {showRail && (
-            <AppRail
-              sectionHasList={listSection !== null}
-              listCollapsed={contextListLayout.collapsed}
-              onExpandList={() => contextListLayout.setCollapsed(false)}
+          <a href="#app-main-content" className="app-skip-link">
+            Skip to content
+          </a>
+          <div className={shellClassName} style={shellStyle}>
+            {showRail && (
+              <AppRail
+                sectionHasList={listSection !== null}
+                listCollapsed={contextListLayout.collapsed}
+                onExpandList={() => contextListLayout.setCollapsed(false)}
+              />
+            )}
+            {showList && listSection !== null && (
+              <ContextList
+                layout={contextListLayout}
+                heading={listSection.heading}
+                noun={listSection.noun}
+              >
+                <ContextListBody pickerId={pickerIdForPathname(location.pathname)} />
+              </ContextList>
+            )}
+            {showTabBar && <DashboardTabBar />}
+            <CommandBar
+              hideDashboardBreadcrumb={showTabBar}
+              isMobileNavSheetOpen={isMobileNavSheetOpen}
+              // HEL-773 design.md D2 — the trigger now toggles: tapping it again
+              // while the sheet is open closes it, preserving the behavior
+              // today's full-viewport backdrop already provided.
+              onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
+              onOpenRefinement={() => setIsRefinementOpen(true)}
+              onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
+              setDraftAppearance={setDraftAppearance}
             />
-          )}
-          {showList && listSection !== null && (
-            <ContextList
-              layout={contextListLayout}
-              heading={listSection.heading}
-              noun={listSection.noun}
-            >
-              <ContextListBody pickerId={pickerIdForPathname(location.pathname)} />
-            </ContextList>
-          )}
-          <CommandBar
-            isMobileNavSheetOpen={isMobileNavSheetOpen}
-            // HEL-773 design.md D2 — the trigger now toggles: tapping it again
-            // while the sheet is open closes it, preserving the behavior
-            // today's full-viewport backdrop already provided.
-            onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
-            onOpenRefinement={() => setIsRefinementOpen(true)}
-            onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
-            setDraftAppearance={setDraftAppearance}
-          />
 
-          {/* -- BODY (content; the rail and context list are grid siblings above) -- */}
-          <div className="app-body">
-            {/* F-088: the routed page content is the real <main> landmark now —
+            {/* -- BODY (content; the rail and context list are grid siblings above) -- */}
+            <div className="app-body">
+              {/* F-088: the routed page content is the real <main> landmark now —
               <header>/<aside> are chrome, siblings of it, not its ancestors. */}
-            <main className="app-content" id="app-main-content">
-              {/* F-019: a real (visually-hidden) per-route <h1> — most pages
+              <main className="app-content" id="app-main-content">
+                {/* F-019: a real (visually-hidden) per-route <h1> — most pages
                 render no heading at all today. Paired with the document.title
                 effect above so both the visible tab and an accessibility tree
                 agree on "where am I", off the same label. */}
-              <h1 className="app-content__sr-heading">
-                {onDashboardView
-                  ? selectedDashboardName === "No dashboard selected"
-                    ? pickerSelection.heading
-                    : `${pickerSelection.heading}: ${selectedDashboardName}`
-                  : pickerSelection.activeItemName !== null
-                    ? `${pickerSelection.heading}: ${pickerSelection.activeItemName}`
-                    : pickerSelection.heading}
-              </h1>
-              <ErrorBoundary resetKey={`${location.pathname}:${selectedDashboardId ?? ""}`}>
-                <DashboardAppearancePreviewContext.Provider value={draftAppearance}>
-                  <Outlet />
-                </DashboardAppearancePreviewContext.Provider>
-              </ErrorBoundary>
-            </main>
-          </div>
+                <h1 className="app-content__sr-heading">
+                  {onDashboardView
+                    ? selectedDashboardName === "No dashboard selected"
+                      ? pickerSelection.heading
+                      : `${pickerSelection.heading}: ${selectedDashboardName}`
+                    : pickerSelection.activeItemName !== null
+                      ? `${pickerSelection.heading}: ${pickerSelection.activeItemName}`
+                      : pickerSelection.heading}
+                </h1>
+                <ErrorBoundary resetKey={`${location.pathname}:${selectedDashboardId ?? ""}`}>
+                  {/* The dashboard content is the active tab's panel (`display: contents`: no layout box). The
+                  wrapper is always rendered so toggling the tab bar never remounts the page. */}
+                  <div
+                    className="app-tabpanel"
+                    {...(showTabBar && activeTabId !== null
+                      ? {
+                          role: "tabpanel",
+                          id: DASHBOARD_TABPANEL_ID,
+                          "aria-labelledby": dashboardTabDomId(activeTabId),
+                        }
+                      : {})}
+                  >
+                    <DashboardAppearancePreviewContext.Provider value={draftAppearance}>
+                      <Outlet />
+                    </DashboardAppearancePreviewContext.Provider>
+                  </div>
+                </ErrorBoundary>
+              </main>
+            </div>
 
-          <MobileShell
-            isMobileNavSheetOpen={isMobileNavSheetOpen}
-            onClose={() => setIsMobileNavSheetOpen(false)}
-          />
-        </div>
-        {/* F-045: mounted at the shell level (like RefinementChatDrawer/
+            <MobileShell
+              isMobileNavSheetOpen={isMobileNavSheetOpen}
+              onClose={() => setIsMobileNavSheetOpen(false)}
+            />
+          </div>
+          {/* F-045: mounted at the shell level (like RefinementChatDrawer/
           QuickLauncherOverlay below) so the sidebar's pipelines "+" works from
           any route, not just the pipelines list — previously it only set
           `createModalOpen` in Redux with nothing mounted to read it outside
@@ -275,72 +308,71 @@ export function AppShell() {
           the user next visited `/pipelines` from. Skipped only on the exact
           list route, which already mounts its own instance (unchanged, not
           our file) — mounting both there would double the dialog. */}
-        {location.pathname !== "/pipelines" && pipelines.createModalOpen && (
-          <CreatePipelineModal onClose={() => dispatch(setCreatePipelineModalOpen(false))} />
-        )}
-        {/* HEL-516 design.md D1/D3 — mounted at the shell exactly like `CreatePipelineModal`
+          {location.pathname !== "/pipelines" && pipelines.createModalOpen && (
+            <CreatePipelineModal onClose={() => dispatch(setCreatePipelineModalOpen(false))} />
+          )}
+          {/* HEL-516 design.md D1/D3 — mounted at the shell exactly like `CreatePipelineModal`
           above, skipped ONLY on the exact route `/sources` (which mounts its own instance —
           `/sources/:id` is a sibling route, NOT a child, so it DOES get this mount). Without
           this, "Add source" from the palette would silently no-op on every other route. */}
-        {location.pathname !== "/sources" && addSourceModalOpen && (
-          <AddSourceModal onClose={() => dispatch(setAddSourceModalOpen(false))} />
-        )}
-        {/* HEL-516 design.md D1/D3/D3b — mounted at the shell, skipped ONLY on the exact route
+          {location.pathname !== "/sources" && addSourceModalOpen && (
+            <AddSourceModal onClose={() => dispatch(setAddSourceModalOpen(false))} />
+          )}
+          {/* HEL-516 design.md D1/D3/D3b — mounted at the shell, skipped ONLY on the exact route
           `/` (which mounts its own instance via `PanelList`). Gated on `selectedDashboardId`
           because `OutputPicker`'s `dashboardId` prop is required (mirrors
           `RefinementChatDrawer`'s gate just below), and additionally withheld until
           `currentDashboardPanelsReady` so `currentDashboardPanels` is never stale/wrong (D3b) —
           never pass `[]`. */}
-        {!onDashboardView &&
-          panels.panelCreationModalOpen &&
-          selectedDashboardId !== null &&
-          currentDashboardPanelsReady && (
-            <OutputPicker
-              dashboardId={selectedDashboardId}
-              currentDashboardPanels={panels.items}
-              onClose={() => dispatch(setPanelCreationModalOpen(false))}
-            />
-          )}
-        {/* HEL-411 design.md D6 — gated on selectedDashboardId !== null: RefinementChatDrawer's
+          {!onDashboardView &&
+            panels.panelCreationModalOpen &&
+            selectedDashboardId !== null &&
+            currentDashboardPanelsReady && (
+              <OutputPicker
+                dashboardId={selectedDashboardId}
+                currentDashboardPanels={panels.items}
+                onClose={() => dispatch(setPanelCreationModalOpen(false))}
+              />
+            )}
+          {/* HEL-411 design.md D6 — gated on selectedDashboardId !== null: RefinementChatDrawer's
           dashboardId prop is required (the drawer always targets the currently-open dashboard,
           never a user-typed id), so it's simply not mounted when nothing is selected. */}
-        {selectedDashboardId !== null && (
-          <RefinementChatDrawer
-            open={isRefinementOpen}
-            onClose={() => setIsRefinementOpen(false)}
-            dashboardId={selectedDashboardId}
-          />
-        )}
-        {/* HEL-665 design.md D7 — unconditional (unlike RefinementChatDrawer above): the
+          {selectedDashboardId !== null && (
+            <RefinementChatDrawer
+              open={isRefinementOpen}
+              onClose={() => setIsRefinementOpen(false)}
+              dashboardId={selectedDashboardId}
+            />
+          )}
+          {/* HEL-665 design.md D7 — unconditional (unlike RefinementChatDrawer above): the
           quick-launcher has no per-route/per-dashboard dependency, matching its trigger button's
           own unconditional visibility. */}
-        <QuickLauncherOverlay
-          open={isQuickLauncherOpen}
-          onClose={() => setIsQuickLauncherOpen(false)}
-        />
-        {/* HEL-496 — command palette shell + registry. Provider is scoped to this cluster (nothing
+          <QuickLauncherOverlay
+            open={isQuickLauncherOpen}
+            onClose={() => setIsQuickLauncherOpen(false)}
+          />
+          {/* HEL-496 — command palette shell + registry. Provider is scoped to this cluster (nothing
           else in AppShell consumes the registry directly); GlobalCommandShortcuts owns Cmd/Ctrl+K
           (palette) and Cmd/Ctrl+J (quick-launcher, moved off K per the
           `palette-takes-k-launcher-moves` resolution), BuiltInCommandActions seeds navigation/
           theme/"Open assistant" actions. */}
-        {/* HEL-519 design.md D2 — records arrivals at `/sources/:id`/`/pipelines/:id`.
+          {/* HEL-519 design.md D2 — records arrivals at `/sources/:id`/`/pipelines/:id`.
           Unconditional, matching `QuickLauncherOverlay`'s own always-mounted precedent above;
           it observes the route itself, not any palette/picker interaction, so it fires
           identically for a pasted URL, a bookmark, or browser back/forward. */}
-        <RecentVisitsRouteObserver />
-        <CommandPaletteProvider>
+          <RecentVisitsRouteObserver />
           <HelpOverlayHost>
             <GlobalCommandShortcuts onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
             <BuiltInCommandActions onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)} />
             <CreateCommandActions />
             <CommandPalette />
           </HelpOverlayHost>
-        </CommandPaletteProvider>
-        {/* HEL-590 (evaluation-1.md CR4) — mounted at shell level, a sibling of AppRail/MobileShell
+          {/* HEL-590 (evaluation-1.md CR4) — mounted at shell level, a sibling of AppRail/MobileShell
           above, not nested inside the context list (which is not rendered at phone widths
           or while collapsed, and would hide this dialog's entire subtree, including the native <dialog>'s
           own top-layer promotion, along with it). */}
-        <ShareDialogHost />
+          <ShareDialogHost />
+        </CommandPaletteProvider>
       </SaveStateContext.Provider>
     </ShareDialogProvider>
   );

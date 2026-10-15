@@ -100,4 +100,90 @@ class UserPreferencesRoutesSpec extends TwoUserRlsApiFixture {
       prefs.fields("accentColor") shouldBe JsString("#111")
     }
   }
+
+  "PATCH /api/users/me/preferences dashboardTabs (HEL-1575)" should {
+
+    val tabs =
+      """{"dashboardTabs":{"tabs":[{"id":"d1","lastViewedAt":"2026-10-15T10:00:00Z","ownWriteAt":"2026-10-15T10:01:00Z"},{"id":"d2","lastViewedAt":null}],"activeId":"d2"}}"""
+
+    "accumulate with width and accent, and be delivered on /me" in {
+      reset()
+      accent(userA, "#3b82f6") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      patch(userA, """{"contextListWidth":320}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      patch(userA, tabs) ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields.keySet should contain("dashboardTabs")
+      }
+      val prefs = me(userA)
+      prefs.fields("contextListWidth") shouldBe JsNumber(320)
+      prefs.fields("accentColor") shouldBe JsString("#3b82f6")
+      val saved = prefs.fields("dashboardTabs").asJsObject
+      saved.fields("activeId") shouldBe JsString("d2")
+      saved.fields("tabs").asInstanceOf[JsArray].elements.map(_.asJsObject.fields("id")) shouldBe
+        Vector(JsString("d1"), JsString("d2"))
+      saved.fields("tabs").asInstanceOf[JsArray].elements.head.asJsObject.fields("ownWriteAt") shouldBe
+        JsString("2026-10-15T10:01:00Z")
+    }
+
+    "replace the whole tab set and keep an empty set empty" in {
+      reset()
+      patch(userA, tabs) ~> routes ~> check { status shouldBe StatusCodes.OK }
+      patch(userA, """{"dashboardTabs":{"tabs":[],"activeId":null}}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val saved = me(userA).fields("dashboardTabs").asJsObject
+      saved.fields("tabs") shouldBe JsArray()
+      saved.fields.get("activeId") shouldBe None
+    }
+
+    "reject every invalid tab set with 400 and change nothing" in {
+      reset()
+      patch(userA, tabs) ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val before = stored(userA)
+      val twentyOne = (1 to 21).map(i => s"""{"id":"t$i"}""").mkString(",")
+      val bad = Seq(
+        s"""{"dashboardTabs":{"tabs":[$twentyOne],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a"},{"id":"a"}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a"}],"activeId":"zzz"}}""",
+        """{"dashboardTabs":{"tabs":[{"id":""}],"activeId":null}}""",
+        s"""{"dashboardTabs":{"tabs":[{"id":"${"x" * 65}"}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a","lastViewedAt":"yesterday"}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a","ownWriteAt":"not-a-time"}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a","ownWriteAt":5}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[{"id":"a","extra":1}],"activeId":null}}""",
+        """{"dashboardTabs":{"tabs":"a","activeId":null}}""",
+        """{"dashboardTabs":{"tabs":[],"activeId":null,"extra":1}}""",
+        """{"dashboardTabs":[]}"""
+      )
+      bad.foreach { b =>
+        withClue(b) { patch(userA, b) ~> routes ~> check { status shouldBe StatusCodes.BadRequest } }
+      }
+      stored(userA) shouldBe before
+    }
+
+    "accept exactly 20 tabs" in {
+      reset()
+      val twenty = (1 to 20).map(i => s"""{"id":"t$i"}""").mkString(",")
+      patch(userA, s"""{"dashboardTabs":{"tabs":[$twenty],"activeId":"t20"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+    }
+
+    "leave another user's stored preferences byte-identical" in {
+      reset()
+      patch(userA, tabs) ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val before = stored(userA)
+      patch(userB, """{"dashboardTabs":{"tabs":[{"id":"b1"}],"activeId":"b1"}}""") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      stored(userA) shouldBe before
+      me(userB).fields("dashboardTabs").asJsObject.fields("activeId") shouldBe JsString("b1")
+    }
+
+    "read an invalid stored tab set as never set" in {
+      reset()
+      await(privilegedDb.run(sqlu"""UPDATE users SET preferences = '{"dashboardTabs":{"tabs":[{"id":"a"},{"id":"a"}],"activeId":"a"},"accentColor":"#111"}' WHERE id = $userC::uuid"""))
+      val prefs = me(userC)
+      prefs.fields.get("dashboardTabs") shouldBe None
+      prefs.fields("accentColor") shouldBe JsString("#111")
+    }
+  }
 }

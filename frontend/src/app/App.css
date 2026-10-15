@@ -276,6 +276,25 @@
   grid-template-columns: var(--rail-width) 0 minmax(0, 1fr);
 }
 
+/* HEL-1575 D8: with the tab bar the content column has a third row on top; the rail and context list span all
+   rows (`grid-row: 1 / -1`). Only rendered above the phone breakpoint, so the phone override below never meets it. */
+.app-shell--tabs {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.app-shell--tabs .app-command-bar {
+  grid-row: 2;
+}
+
+.app-shell--tabs .app-body {
+  grid-row: 3;
+}
+
+/* The tabpanel wrapper has no box of its own, so the routed page lays out exactly as it did unwrapped. */
+.app-tabpanel {
+  display: contents;
+}
+
 .app-body {
   grid-column: 3;
   grid-row: 2;

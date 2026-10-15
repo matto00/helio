@@ -71,6 +71,20 @@ export function hasRunBaseline(pipelineId: string): boolean {
   return lastObservedRunIdByPipeline.has(pipelineId);
 }
 
+/** HEL-1575 D5: the last terminal run id observed for `pipelineId`, for capturing a warm entry. */
+export function getObservedRunId(pipelineId: string): string | undefined {
+  return lastObservedRunIdByPipeline.get(pipelineId);
+}
+
+/** HEL-1575 D5 step 4: seeds a run id captured before a reload, so the first reconcile after the reload
+ *  is a real comparison (a run that finished meanwhile bumps the generation) rather than a silent first
+ *  observation. Never overwrites an id already observed in this page's lifetime. */
+export function seedObservedRun(pipelineId: string, runId: string): void {
+  if (!lastObservedRunIdByPipeline.has(pipelineId)) {
+    lastObservedRunIdByPipeline.set(pipelineId, runId);
+  }
+}
+
 /** Test helper: forgets every recorded run id. */
 export function resetRunBaselines(): void {
   lastObservedRunIdByPipeline.clear();

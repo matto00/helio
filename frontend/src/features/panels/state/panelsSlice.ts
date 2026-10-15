@@ -77,6 +77,9 @@ interface PanelsState {
    *  by DISPATCH time, not settlement time, which is what makes this correct regardless of which
    *  promise resolves first. */
   latestFetchRequestId: Record<string, string>;
+  /** HEL-1575 task 4.5(6) -- the dashboard whose warm copy is being read from the browser store (a lazy
+   *  restore waits at most 500 ms). `PanelList` shows the grid skeleton for it instead of a blank frame. */
+  restoringDashboardId?: string | null;
 }
 
 const initialState: PanelsState = {
@@ -92,6 +95,7 @@ const initialState: PanelsState = {
   staleDashboardId: null,
   panelCreationModalOpen: false,
   latestFetchRequestId: {},
+  restoringDashboardId: null,
 };
 
 const panelsSlice = createSlice({
@@ -116,6 +120,17 @@ const panelsSlice = createSlice({
     clearPendingPanelUpdates(state) {
       state.pendingPanelUpdates = {};
     },
+    /** HEL-1575 task 4.5(5): a successful batch save clears only the pending entries it SENT, and only
+     *  while the entry still holds what was sent -- an edit staged on another panel (or re-edited on the
+     *  same one) during the round trip survives. */
+    clearSentPendingPanelUpdates(state, action: PayloadAction<Record<string, PanelUpdateFields>>) {
+      for (const [panelId, sent] of Object.entries(action.payload)) {
+        const current = state.pendingPanelUpdates[panelId];
+        if (current && JSON.stringify(current) === JSON.stringify(sent)) {
+          delete state.pendingPanelUpdates[panelId];
+        }
+      }
+    },
     resetPanelSaveState(state) {
       state.pendingPanelUpdates = {};
       state.lastSavedAt = null;
@@ -123,6 +138,31 @@ const panelsSlice = createSlice({
     // Task 3.5 — resetPanelPagination clears per-panel pagination state
     resetPanelPagination(state, action: PayloadAction<string>) {
       delete state.paginationState[action.payload];
+    },
+    /** HEL-1575 D4 -- restores a valid warm panel list for a dashboard WITHOUT a request. Applies the same
+     *  resets as `fetchPanels.pending` (interaction state, cross-filter) and lands `succeeded`. */
+    panelsRestored(state, action: PayloadAction<{ dashboardId: string; items: Panel[] }>) {
+      state.items = action.payload.items;
+      state.loadedDashboardId = action.payload.dashboardId;
+      state.status = "succeeded";
+      state.error = null;
+      state.staleDashboardId = null;
+      state.interactionState = {};
+      state.crossFilter = null;
+      state.restoringDashboardId = null;
+    },
+    /** HEL-1575 D5 -- hydrates restored row windows. NEVER clobbers: a panel that already has a window
+     *  (settled or in flight) is skipped, and `latestFetchRequestId` is never touched. */
+    paginationHydrated(state, action: PayloadAction<Record<string, PanelPaginationState>>) {
+      for (const [panelId, window] of Object.entries(action.payload)) {
+        if (state.paginationState[panelId] === undefined) state.paginationState[panelId] = window;
+      }
+    },
+    restoreStarted(state, action: PayloadAction<string>) {
+      state.restoringDashboardId = action.payload;
+    },
+    restoreFinished(state) {
+      state.restoringDashboardId = null;
     },
     // HEL-548 D5a — mirrors setAddSourceModalOpen/setCreatePipelineModalOpen/
     // setCreateMetricModalOpen. Set from PanelList's two triggers (header
@@ -322,6 +362,7 @@ const panelsSlice = createSlice({
           lastFetchOk: page === 0 ? undefined : existing?.lastFetchOk,
           generation: existing?.generation,
           lastError: page === 0 ? null : existing?.lastError,
+          capturedAt: page === 0 ? action.meta.capturedAt : existing?.capturedAt,
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
@@ -355,6 +396,7 @@ const panelsSlice = createSlice({
           lastFetchOk: page === 0 ? true : existing?.lastFetchOk,
           generation: page === 0 ? generation : existing?.generation,
           lastError: page === 0 ? null : existing?.lastError,
+          capturedAt: existing?.capturedAt,
         };
       })
       .addCase(fetchPanelPage.rejected, (state, action) => {
@@ -391,8 +433,13 @@ const panelsSlice = createSlice({
 export const {
   accumulatePanelUpdate,
   clearPendingPanelUpdates,
+  clearSentPendingPanelUpdates,
   resetPanelSaveState,
   resetPanelPagination,
+  panelsRestored,
+  paginationHydrated,
+  restoreStarted,
+  restoreFinished,
   setPanelCreationModalOpen,
   selectDataPoint,
   clearSelection,

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/auth/user-preferences.schema.json",
   "title": "UserPreferences",
-  "description": "The signed-in user's saved preferences (HEL-1574), returned as `preferences` on every user-returning auth response and by PATCH /api/users/me/preferences. `contextListWidth`/`contextListCollapsed` are absent until the user sets them (the client then uses 248px, expanded).",
+  "description": "The signed-in user's saved preferences (HEL-1574), returned as `preferences` on every user-returning auth response and by PATCH /api/users/me/preferences. `contextListWidth`/`contextListCollapsed` are absent until the user sets them (the client then uses 248px, expanded). `dashboardTabs` (HEL-1575) is the saved open-tab set, absent until the user first opens a tab; `lastViewedAt`/`ownWriteAt` are server-time instants, omitted when never set.",
   "type": "object",
   "properties": {
     "accentColor": {
@@ -21,8 +21,52 @@
     },
     "contextListCollapsed": {
       "type": "boolean"
+    },
+    "dashboardTabs": {
+      "$ref": "#/$defs/DashboardTabsPref"
     }
   },
   "required": ["zoomLevels"],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "DashboardTabsPref": {
+      "type": "object",
+      "properties": {
+        "tabs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/DashboardTabPref"
+          }
+        },
+        "activeId": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["tabs"],
+      "additionalProperties": false,
+      "title": "DashboardTabsPref"
+    },
+    "DashboardTabPref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "lastViewedAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "ownWriteAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "required": ["id"],
+      "additionalProperties": false,
+      "title": "DashboardTabPref"
+    }
+  }
 }
