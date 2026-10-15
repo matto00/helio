@@ -57,4 +57,34 @@ describe("ConfirmInline", () => {
     expect(screen.getByRole("button", { name: "Clear all" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Keep" })).toBeInTheDocument();
   });
+
+  describe("ignoreRepeatClicks (HEL-1605)", () => {
+    it("ignores the second click of a multi-click on both buttons", () => {
+      const onConfirm = jest.fn();
+      const onCancel = jest.fn();
+      render(<ConfirmInline ignoreRepeatClicks {...{ onConfirm, onCancel }} />);
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }), { detail: 2 });
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }), { detail: 2 });
+      expect(onConfirm).not.toHaveBeenCalled();
+      expect(onCancel).not.toHaveBeenCalled();
+    });
+
+    it("still honours a single click and a keyboard activation (detail 0 and 1)", () => {
+      const onConfirm = jest.fn();
+      const onCancel = jest.fn();
+      render(<ConfirmInline ignoreRepeatClicks {...{ onConfirm, onCancel }} />);
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }), { detail: 1 });
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }), { detail: 0 });
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }), { detail: 1 });
+      expect(onConfirm).toHaveBeenCalledTimes(2);
+      expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it("is off by default: a repeat click still fires", () => {
+      const onConfirm = jest.fn();
+      render(<ConfirmInline onConfirm={onConfirm} onCancel={jest.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Confirm" }), { detail: 2 });
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
 });

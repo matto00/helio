@@ -1,10 +1,10 @@
 /**
  * Formats an ISO timestamp string as a human-readable relative time string,
  * e.g. "3 minutes ago", "2 hours ago", "5 days ago".
- * No third-party dependencies — uses only `Date` arithmetic.
+ * No third-party dependencies — uses only `Date` arithmetic. `now` defaults to the current time; a caller
+ * rendering many labels passes one shared value (`useNow`) so a re-render cannot change them.
  */
-export function formatRelativeTime(iso: string): string {
-  const now = Date.now();
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
   const then = new Date(iso).getTime();
   const diffMs = now - then;
 

@@ -92,6 +92,7 @@ export function SourcesPage() {
               <ConfirmInline
                 label={`Delete ${deletingSource.name}? ${sourceDeleteWarning(references[deletingSource.id]) ?? ""}`.trim()}
                 confirmLabel="Delete"
+                ignoreRepeatClicks
                 confirmAriaLabel={`Confirm delete ${deletingSource.name}`}
                 onConfirm={() => void confirmDelete(deletingSource)}
                 onCancel={() => {
