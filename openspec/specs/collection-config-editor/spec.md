@@ -1,44 +1,29 @@
 # collection-config-editor Specification
 
 ## Purpose
-Defines the detail-modal editor for collection panels: base-type extension point, DataType binding, shared field-mapping slots with bound-or-literal label/unit, layout control, and mobile touch-target sizing.
+Defines how the Output editor sheet edits a collection-kind Output: the item field-mapping slots, the format and conditional-format controls, the grid layout written on create, and which config keys an edit sends.
+
 ## Requirements
-### Requirement: Detail modal presents a collection editor
-The panel detail modal SHALL present a collection-specific editor for `collection` panels composing:
-a base-type control (offering `metric` today, rendered as a visible extension point — present but
-constrained to the single valid option), the DataType binding picker, shared field-mapping slots
-derived from the active base type, and a layout control offering `grid` and `list`. For the
-`metric` base type, the `value` slot SHALL be bind-only while `label` and `unit` SHALL use the
-bound-or-literal pattern (`BoundOrLiteralField` family, HEL-243): bound selections persist to
-`fieldMapping`, literal entries persist to `itemOptions.metric`.
 
-#### Scenario: Collection editor sections are shown
-- **WHEN** the detail modal opens for a collection panel in edit mode
-- **THEN** the editor shows base type, DataType binding, field-mapping slots, and a grid/list
-  layout control
+### Requirement: The Output editor sheet presents collection fields
+For a `collection` Output the Output editor sheet SHALL present three item field-mapping slots (`value`, `label`,
+`unit`, each a column select), a `Format` select (options `number`, `integer`, `currency`, `percent`, `duration`, `durationMs`, labelled Number, Integer, Currency ($), Percent (%), Duration, Duration (ms)), and the
+conditional-formats rules editor. It SHALL NOT present a base-type or layout control. Creating a collection Output SHALL
+write `layout: "grid"`.
 
-#### Scenario: Label slot accepts bound or literal
-- **WHEN** the user switches the label slot to literal mode and types a value, then saves
-- **THEN** the persisted config carries the literal under `itemOptions.metric.label` and no
-  `fieldMapping.label` binding
+#### Scenario: Collection kind shows item fields, format and conditional formats
+- **WHEN** the Output editor sheet is open with kind `Collection`
+- **THEN** it shows the Value, Label and Unit item field selects, a Format select and the conditional formats editor, and no layout or base-type control
 
-### Requirement: Saving the collection editor issues one config PATCH
-Saving SHALL issue a single config PATCH carrying only the touched concerns, following the
-absent-vs-null convention (absent = unchanged, `null` = clear, value = set) so an untouched concern
-is never clobbered.
+#### Scenario: A new collection Output is created with the grid layout
+- **WHEN** the user chooses kind Collection in a new Output and saves
+- **THEN** the create request's `config.layout` is `"grid"`
 
-#### Scenario: Layout change patches only layout
-- **WHEN** the user changes only the layout from grid to list and saves
-- **THEN** the PATCH config contains `layout` and does not carry unrelated cleared fields
+### Requirement: Editing a collection Output sends only the changed config keys
+Edit-mode Save of a collection Output SHALL send one `PATCH /api/outputs/:id` whose `config` carries only the keys the
+user changed (an explicit `null` clears a key), because the server shallow-merges `config`. A stored `layout` the sheet
+has no control for SHALL therefore survive an edit.
 
-### Requirement: Collection editor controls meet mobile touch-target size
-Every interactive control the collection editor adds to the detail modal SHALL, at viewport
-widths ≤ 768px, have a hit target of at least 44px height, following the existing
-`@media (max-width: 768px)` pattern in `PanelDetailModal.css`, and the CSS-lock test SHALL cover
-the new rules.
-
-#### Scenario: Touch targets at mobile width
-- **WHEN** the detail modal renders a collection panel's editor at 390px viewport width
-- **THEN** the layout control, base-type control, and field-mapping inputs each present a ≥44px
-  hit target
-
+#### Scenario: Format change patches only format
+- **WHEN** the user opens a collection Output stored with `layout: "list"`, changes only the Format, and saves
+- **THEN** the PATCH `config` is `{ format: "<chosen>" }` and the stored `layout` remains `"list"`

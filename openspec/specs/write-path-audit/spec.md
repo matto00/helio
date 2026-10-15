@@ -70,7 +70,7 @@ staged since the last one.
 | 6 | `POST /api/dashboards/import` | POST | Dashboard import from file | `DashboardSnapshot` | 1 per import |
 | 7 | `PATCH /api/panels/:id` | PATCH | Panel title rename commit | `{ title }` | 1 per rename |
 | 8 | `PATCH /api/panels/:id` | PATCH | Panel appearance save | `{ appearance: PanelAppearance }` | 1 per save |
-| 9 | `PATCH /api/panels/:id` | PATCH | Panel data binding save | `{ typeId, fieldMapping, refreshInterval }` | 1 per save |
+| 9 | `PATCH /api/panels/:id` | PATCH | Output panel "Swap output" (detail modal) | `{ config: { outputId } }` | 1 PATCH + 1 GET (refetch) |
 | 10 | `POST /api/panels` | POST | Add panel | `{ dashboardId, title, type? }` | 1 POST + 1 GET (refetch) |
 | 11 | `POST /api/panels/:id/duplicate` | POST | Panel duplicate | _(no body)_ | 1 POST + 1 GET (refetch) |
 
@@ -139,12 +139,13 @@ Fires on Enter or blur. Cancelled by Escape (`titleCancelledRef` in `PanelGrid.t
 }
 ```
 
-**9. Panel data binding** — `PATCH /api/panels/:id`
+**9. Panel output swap** — `PATCH /api/panels/:id`
 
-`typeId` and `fieldMapping` can be `null` (clears binding). `refreshInterval` can be `null`.
+Fires when the user picks a different Output in the detail modal's "Swap output" picker (`swapPanelOutput`); the panel
+keeps its position and size. It then refetches the dashboard's panels (`GET /api/dashboards/:id/panels`).
 
 ```json
-{ "typeId": "dt-abc123", "fieldMapping": { "value": "revenue", "label": "month" }, "refreshInterval": 300 }
+{ "config": { "outputId": "out-abc123" } }
 ```
 
 **10 & 11. Panel create / duplicate** — `POST /api/panels` and `POST /api/panels/:id/duplicate`
