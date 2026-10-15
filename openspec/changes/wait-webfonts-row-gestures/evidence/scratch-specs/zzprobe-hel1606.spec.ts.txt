@@ -1,0 +1,38 @@
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import * as fs from "node:fs";
+test.describe.configure({ mode: "parallel" });
+const OUT = process.env.PROBE_OUT ?? "/tmp/probe.log";
+for (let n = 0; n < 20; n++) {
+  test(`probe ${n}`, async ({ page, request }) => {
+    await registerAndLogin(page, request, { prefix: "hel1606p", displayName: "p", domain: "example.com", label: `p${n}`, isolate: true });
+    for (let i = 0; i < 20; i++) {
+      const r = await page.request.post("/api/data-sources", { data: { name: `P ${String(i).padStart(2, "0")}`, type: "static", columns: [{ name: "a", type: "integer" }], rows: [[1]] }, headers: { "X-Helio-Requested-With": "1" } });
+      expect(r.status()).toBe(201);
+    }
+    await page.addInitScript(() => {
+      const w = window as any; w.__s = [] as any[]; const t0 = performance.now();
+      const tick = () => {
+        const link = document.querySelector('link[href*="fonts.googleapis.com/css2"]') as HTMLLinkElement | null;
+        const row = document.querySelectorAll("tbody tr")[14] as HTMLElement | undefined;
+        const faces = [...document.fonts].map((f) => `${f.family}:${f.status}`);
+        const web = [...document.fonts];
+        w.__s.push({ t: Math.round(performance.now() - t0), media: link?.media ?? null, st: document.fonts.status, n: web.length,
+          loading: web.filter((f) => f.status === "loading").length, loaded: web.filter((f) => f.status === "loaded").length,
+          top: row ? row.getBoundingClientRect().top : null, h: row ? row.getBoundingClientRect().height : null,
+          sw: !!navigator.serviceWorker?.controller });
+        if (performance.now() - t0 < 3000) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await page.goto("/sources");
+    await page.waitForTimeout(3300);
+    const s = (await page.evaluate(() => (window as any).__s)) as any[];
+    const first = s.findIndex((x) => x.top !== null);
+    const vac = s.filter((x) => x.top !== null && x.media === "all" && x.st === "loaded" && x.loaded === 0);
+    const lastH = s[s.length - 1].h;
+    const hChange = s.findIndex((x) => x.h !== null && x.h !== s[first].h);
+    const out = { n, firstRowT: s[first]?.t, first: s[first], hChangeAt: hChange >= 0 ? s[hChange] : null, vacuousSamples: vac.length, vacFirst: vac[0] ?? null, lastH, final: s[s.length - 1] };
+    fs.appendFileSync(OUT, JSON.stringify(out) + "\n");
+  });
+}
