@@ -41,6 +41,51 @@ import { ThemeProvider } from "../theme/ThemeProvider";
 import { makeOutputPanel } from "../test/panelFixtures";
 import { App } from "./App";
 
+// HEL-1600 -- stand in for GET /api/outputs, /api/pipelines/:id/outputs and /api/outputs/:id/{,rows,panels,
+// assertion-status,filter-capabilities}, which these tests reach (a bound panel, the OutputPicker) but do not
+// exercise (the network guard fails an unmocked request); each rejects (a plain Error) in place of the AxiosError
+// network failure.
+jest.mock("../features/pipelines/services/outputService", () => ({
+  ...jest.requireActual("../features/pipelines/services/outputService"),
+  listOutputs: jest.fn(() =>
+    Promise.reject(new Error("listOutputs: unmocked request stubbed (HEL-1600)")),
+  ),
+  getOutputById: jest.fn(() =>
+    Promise.reject(new Error("getOutputById: unmocked request stubbed (HEL-1600)")),
+  ),
+  listAllOutputs: jest.fn(() =>
+    Promise.reject(new Error("listAllOutputs: unmocked request stubbed (HEL-1600)")),
+  ),
+  listOutputPanels: jest.fn(() =>
+    Promise.reject(new Error("listOutputPanels: unmocked request stubbed (HEL-1600)")),
+  ),
+  getAssertionStatus: jest.fn(() =>
+    Promise.reject(new Error("getAssertionStatus: unmocked request stubbed (HEL-1600)")),
+  ),
+  getFilterCapabilities: jest.fn(() =>
+    Promise.reject(new Error("getFilterCapabilities: unmocked request stubbed (HEL-1600)")),
+  ),
+  getOutputRows: jest.fn(() =>
+    Promise.reject(new Error("getOutputRows: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/connectors, which these tests reach (AddSourceModal) but do not exercise.
+jest.mock("../features/connectors/services/connectorEntityService", () => ({
+  ...jest.requireActual("../features/connectors/services/connectorEntityService"),
+  fetchConnectors: jest.fn(() =>
+    Promise.reject(new Error("fetchConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/connector-types, which these tests reach (AddSourceModal) but do not exercise.
+jest.mock("../features/sources/services/connectorService", () => ({
+  ...jest.requireActual("../features/sources/services/connectorService"),
+  listConnectors: jest.fn(() =>
+    Promise.reject(new Error("listConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../features/dashboards/services/dashboardFolderService", () => ({
   fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
   createDashboardFolder: jest.fn(),

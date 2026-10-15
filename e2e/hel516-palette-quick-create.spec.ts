@@ -41,7 +41,9 @@ async function openPalette(page: Page) {
 async function runPaletteAction(page: Page, title: string) {
   await openPalette(page);
   await page.fill('input[aria-label="Search commands"]', title);
-  await page.getByRole("option", { name: title }).click();
+  // `exact`: with a query typed, the palette also offers an `Ask the assistant: "<query>"` row (HEL-1575 D10),
+  // whose name contains the query text; the action under test is the one whose whole name is the title.
+  await page.getByRole("option", { name: title, exact: true }).click();
 }
 
 test.describe("HEL-516 palette quick-create — reach", () => {

@@ -211,6 +211,10 @@ async function seedDashboard(page: Page, request: APIRequestContext): Promise<Se
 async function clickPieChart(container: Locator, page: Page) {
   const canvas = container.locator(".chart-panel__canvas canvas").first();
   await expect(canvas).toBeVisible();
+  // The click below is a raw page-coordinate click, so the chart's click point must be inside the viewport.
+  // The dashboard tab bar (HEL-1575) adds 48px of chrome above the panels, which pushes the second of two
+  // stacked 288px panels past the 720px default viewport; `mouse.click` off-screen hits nothing.
+  await canvas.scrollIntoViewIfNeeded();
   // ECharts' default pie entrance animation (~1000ms, slices grow from the
   // center outward) means the canvas element can be visible in the DOM well
   // before the pie has actually grown into the region a fixed pixel offset

@@ -28,6 +28,15 @@ import { dash, tab } from "../test/tabsTestStore";
 import { fetchDashboards as fetchDashboardsRequest } from "../features/dashboards/services/dashboardService";
 import { App } from "./App";
 
+// HEL-1600 -- stands in for GET /api/connectors, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../features/connectors/services/connectorEntityService", () => ({
+  ...jest.requireActual("../features/connectors/services/connectorEntityService"),
+  fetchConnectors: jest.fn(() =>
+    Promise.reject(new Error("fetchConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../features/dashboards/services/dashboardFolderService", () => ({
   fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
 }));

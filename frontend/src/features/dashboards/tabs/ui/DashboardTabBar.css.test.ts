@@ -54,6 +54,22 @@ describe("DashboardTabBar.css (HEL-1575)", () => {
     );
   });
 
+  it("hover washes follow the HEL-866 rung table: strong on the bar, and on the active tab strong in dark, soft in light", () => {
+    // The state-surface guard (e2e/state-surface-contrast-guard.spec.ts) is the arbiter; this pins the rungs.
+    expect(css).toMatch(
+      /\.dashboard-tab__button:hover,\s*\.dashboard-tab__close:hover\s*\{[^}]*background:\s*var\(--app-surface-strong\)/,
+    );
+    expect(css).toMatch(
+      /\.dashboard-tab--active \.dashboard-tab__button:hover,\s*\.dashboard-tab--active \.dashboard-tab__close:hover\s*\{[^}]*background:\s*var\(--app-surface-soft\)/,
+    );
+    expect(css).toMatch(
+      /:root\[data-theme="dark"\] \.dashboard-tab--active \.dashboard-tab__button:hover,[^{]*\{[^}]*background:\s*var\(--app-surface-strong\)/,
+    );
+    expect(css).toMatch(
+      /\.dashboard-tab-bar \.dashboard-tab-bar__add:hover:not\(:disabled\)\s*\{[^}]*background:\s*var\(--app-surface-strong\)/,
+    );
+  });
+
   it("the changed dot is a neutral foreground, never the accent or an intent colour", () => {
     const dot = findRuleBody(css, ".dashboard-tab__dot");
     expect(dot).toMatch(/background:\s*var\(--app-text\)\s*;/);

@@ -144,8 +144,11 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
 
     await openPalette(page);
     await page.fill('input[aria-label="Search commands"]', firstDashboard.name);
-    await expect(page.getByRole("option", { name: firstDashboard.name })).toBeVisible();
-    await page.getByRole("option", { name: firstDashboard.name }).click();
+    // `exact`: the `Ask the assistant: "<query>"` row (HEL-1575 D10) also contains the dashboard's name.
+    await expect(
+      page.getByRole("option", { name: firstDashboard.name, exact: true }),
+    ).toBeVisible();
+    await page.getByRole("option", { name: firstDashboard.name, exact: true }).click();
 
     // The FIRST dashboard's row now carries the active-dot indicator.
     const firstRow = page
@@ -219,8 +222,11 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     await openPalette(page);
     await page.fill('input[aria-label="Search commands"]', "Zeta Source");
 
-    const options = page.getByRole("option");
+    // Five source rows (the cap). The `Ask the assistant: "<query>"` row (HEL-1575 D10) is a sixth option
+    // that is always offered for a non-empty query; it is not a search result, so it is excluded here.
+    const options = page.getByRole("option").filter({ hasNotText: "Ask the assistant" });
     await expect(options).toHaveCount(5);
+    await expect(page.getByRole("option")).toHaveCount(6);
 
     const notice = page.getByText(/\+2 more sources match/i);
     await expect(notice).toBeVisible();

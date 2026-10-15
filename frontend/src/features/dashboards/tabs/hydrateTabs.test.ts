@@ -140,6 +140,18 @@ describe("planHydration (design D1 'Hydration')", () => {
     expect(plan.dirty).toBe(true);
   });
 
+  it("no saved key and no dashboard: nothing is selected and NOTHING is saved (an empty set would later suppress auto-selection)", () => {
+    const plan = planHydration({
+      saved: null,
+      dashboardIds: ids(),
+      autoSelectedId: null,
+      deepLinkId: null,
+    });
+    expect(plan.target).toBeNull();
+    expect(plan.tabs).toEqual([]);
+    expect(plan.dirty).toBe(false);
+  });
+
   it("a saved set that was entirely pruned falls back to the auto-selection", () => {
     const plan = planHydration({
       saved: saved([{ id: "gone1" }, { id: "gone2" }], "gone1"),

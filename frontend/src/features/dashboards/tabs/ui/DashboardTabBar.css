@@ -50,6 +50,26 @@
   color: var(--app-text);
 }
 
+/* Hover/selected wash (HEL-866 state-surface guard; DESIGN.md section 3 rung table). The rung depends on the
+   real backdrop: an inactive tab, the "+" and the box sit on the bar's --app-surface-soft, where
+   --app-surface-strong measures 1.167 dark / 1.179 light; the active tab sits on --app-surface, where the rung is
+   --app-surface-strong in dark and --app-surface-soft in light (1.133 / 1.150). The wash is on the tab's name
+   button and on the close control (siblings, so a nested interactive is never needed). */
+.dashboard-tab__button:hover,
+.dashboard-tab__close:hover {
+  background: var(--app-surface-strong);
+}
+
+.dashboard-tab--active .dashboard-tab__button:hover,
+.dashboard-tab--active .dashboard-tab__close:hover {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__button:hover,
+:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__close:hover {
+  background: var(--app-surface-strong);
+}
+
 .dashboard-tab--active {
   box-sizing: border-box;
   height: calc(var(--control-lg) + 1px);
@@ -104,6 +124,7 @@
   height: 100%;
   padding: 0 var(--space-1) 0 var(--space-4);
   border: 0;
+  border-radius: var(--app-radius-md) 0 0 0;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -152,13 +173,17 @@
 }
 
 .dashboard-tab__close:hover {
-  background: var(--app-surface-strong);
   color: var(--app-text);
 }
 
 .dashboard-tab-bar__add {
   flex-shrink: 0;
   align-self: center;
+}
+
+/* The ghost IconButton's hover wash is --app-surface-soft, the bar's own background: nothing would change. */
+.dashboard-tab-bar .dashboard-tab-bar__add:hover:not(:disabled) {
+  background: var(--app-surface-strong);
 }
 
 .dashboard-tab-bar__spacer {

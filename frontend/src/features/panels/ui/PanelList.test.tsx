@@ -60,6 +60,24 @@ jest.mock("../../dashboards/services/dashboardService", () => ({
   createDashboard: jest.fn(),
 }));
 
+// HEL-1600 -- stands in for GET /api/pipelines, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../pipelines/services/pipelineService", () => ({
+  ...jest.requireActual("../../pipelines/services/pipelineService"),
+  getPipelines: jest.fn(() =>
+    Promise.reject(new Error("getPipelines: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/data-sources, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../sources/services/dataSourceService", () => ({
+  ...jest.requireActual("../../sources/services/dataSourceService"),
+  fetchSources: jest.fn(() =>
+    Promise.reject(new Error("fetchSources: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../../auth/services/authService", () => ({
   updateUserPreferencesRequest: jest.fn().mockResolvedValue({ accentColor: null, zoomLevels: {} }),
 }));

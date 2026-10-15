@@ -11,6 +11,42 @@ beforeEach(() => {
   });
 });
 
+// HEL-1600 -- stands in for GET /api/dashboards, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../dashboards/services/dashboardService", () => ({
+  ...jest.requireActual("../../dashboards/services/dashboardService"),
+  fetchDashboards: jest.fn(() =>
+    Promise.reject(new Error("fetchDashboards: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/pipelines, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../pipelines/services/pipelineService", () => ({
+  ...jest.requireActual("../../pipelines/services/pipelineService"),
+  getPipelines: jest.fn(() =>
+    Promise.reject(new Error("getPipelines: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/outputs, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../pipelines/services/outputService"),
+  listAllOutputs: jest.fn(() =>
+    Promise.reject(new Error("listAllOutputs: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
+// HEL-1600 -- stands in for GET /api/data-sources, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../sources/services/dataSourceService", () => ({
+  ...jest.requireActual("../../sources/services/dataSourceService"),
+  fetchSources: jest.fn(() =>
+    Promise.reject(new Error("fetchSources: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 import { configureStore } from "@reduxjs/toolkit";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";

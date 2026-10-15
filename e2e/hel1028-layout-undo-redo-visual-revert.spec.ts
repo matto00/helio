@@ -71,6 +71,12 @@ async function openDashboard(page: Page, dashboardId: string, theme: "light" | "
   await page.goto(`/dashboards/${dashboardId}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.locator(".react-grid-item")).toHaveCount(2, { timeout: 15_000 });
+  // The loading skeleton also renders one `.react-grid-item` per saved layout entry (PanelGridSkeleton, HEL-528
+  // D10), and since HEL-1575 panels are fetched only after the tab set hydrates, so it stays up for ~100ms with
+  // the layout already known. The count above can be satisfied by it; the skeleton is then replaced by a freshly
+  // mounted grid, detaching the nodes a measurement just resolved. Wait for the real grid.
+  await expect(page.getByLabel("Loading panels")).toHaveCount(0);
+  await expect(page.locator(".react-grid-item")).toHaveCount(2);
 }
 
 async function boxOf(page: Page, index = 0): Promise<Box> {

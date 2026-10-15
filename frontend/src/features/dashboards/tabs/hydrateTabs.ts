@@ -70,7 +70,10 @@ export function planHydration(args: {
     return { tabs, target: mostRecentlyViewed(tabs).id, dirty: true };
   }
   // No saved key at all (or every saved tab pruned away): the reducer's auto-selection becomes the only tab.
-  dirty = true;
+  // With nothing to select there is nothing to save: an empty set is only ever written when the user closes
+  // their last tab, because a stored empty set is respected on reload (a dashboard created later, on another
+  // device or through the API, must still be auto-selected for a user who never chose "no tab").
+  dirty = autoSelectedId !== null;
   return autoSelectedId === null
     ? { tabs: [], target: null, dirty }
     : {
