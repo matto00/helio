@@ -123,7 +123,12 @@ function formatMarkdown(r) {
     "| ms | suite | file | test | load during test |",
     "| --: | --- | --- | --- | --- |",
   ];
-  const esc = (s) => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+  // Escape the backslash first so a name ending in `\` or containing `\|` cannot un-escape the pipe escape.
+  const esc = (s) =>
+    String(s)
+      .replace(/\\/g, "\\\\")
+      .replace(/\|/g, "\\|")
+      .replace(/[\r\n]+/g, " ");
   for (const c of r.slowest) {
     out.push(
       `| ${c.duration} | ${c.label} | ${esc(c.file)} | ${esc(c.name)} | ${fmtLoad(c.load)} |`,

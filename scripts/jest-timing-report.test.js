@@ -101,6 +101,35 @@ describe("jest-timing-report", () => {
     }
   });
 
+  it("keeps a test name containing a backslash and a pipe in one markdown cell", () => {
+    const name = "a \\| b | c\\\r\nd";
+    const report = {
+      cases: 1,
+      files: 1,
+      loadSamples: 0,
+      malformed: 0,
+      peaks: {},
+      slowest: [{ label: "frontend", file: "f.test.ts", name, duration: 5, load: null }],
+    };
+    const row = formatMarkdown(report).split("\n").pop();
+    // split on pipes that are not escaped (an odd run of preceding backslashes escapes the pipe)
+    const cells = [];
+    let cur = "";
+    for (let i = 0; i < row.length; i++) {
+      if (row[i] === "\\") {
+        cur += row[i] + (row[i + 1] ?? "");
+        i += 1;
+      } else if (row[i] === "|") {
+        cells.push(cur);
+        cur = "";
+      } else cur += row[i];
+    }
+    cells.push(cur);
+    // leading and trailing "|" give an empty first and last cell: | ms | suite | file | test | load |
+    expect(cells).toHaveLength(7);
+    expect(row).not.toMatch(/[\r\n]/);
+  });
+
   it("does not fail on an empty or missing directory", () => {
     const report = buildReport(loadCapture(path.join(os.tmpdir(), "does-not-exist-hel1601")));
     expect(report.cases).toBe(0);
