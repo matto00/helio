@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { PanelContent, type PanelContentProps } from "./PanelContent";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
@@ -102,17 +103,20 @@ describe("chart truncation note (HEL-1358)", () => {
 
   it("renders nothing when every row is loaded", async () => {
     renderChart({ rowsTruncated: false, totalRowCount: 2 });
-    await screen.findByTestId("echarts");
+    await settleChartMount(getOutputById);
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/Based on the first/)).toBeNull();
   });
 
   it("renders nothing when the total is unknown or truncation is unknown", async () => {
     const { unmount } = renderChart({ rowsTruncated: true, totalRowCount: undefined });
-    await screen.findByTestId("echarts");
+    await settleChartMount(getOutputById);
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/Based on the first/)).toBeNull();
     unmount();
     renderChart({ rowsTruncated: undefined, totalRowCount: 1234 });
-    await screen.findByTestId("echarts");
+    await settleChartMount(getOutputById);
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/Based on the first/)).toBeNull();
   });
 
@@ -161,9 +165,10 @@ describe("chart truncation note (HEL-1358)", () => {
     getOutputById.mockResolvedValue(makeOutput({ ...BASE_CONFIG, compare: "7d" }));
     const { unmount } = renderChart({ rowsTruncated: false, totalRowCount: 2 });
     // positive control: a complete chart DOES draw the overlay
-    await waitFor(() =>
-      expect(screen.getByTestId("echarts").getAttribute("data-option")).toContain("vs 7d"),
-    );
+    // Two steps: the history request is only issued once the output meta has resolved and React flushed.
+    await settleChartMount(getOutputById);
+    await settleChartMount(fetchHistory);
+    expect(screen.getByTestId("echarts").getAttribute("data-option")).toContain("vs 7d");
     unmount();
     resetHistoryCache();
     renderChart({ rowsTruncated: true, totalRowCount: 1234 });

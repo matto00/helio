@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
@@ -74,7 +75,8 @@ it("renders the grouped aggregate from the supplied record rows", async () => {
       chartInspectConfig={null}
     />,
   );
-  const chart = await screen.findByTestId("echarts");
+  await settleChartMount(jest.mocked(getOutputByIdRequest));
+  const chart = screen.getByTestId("echarts");
   const opt = JSON.parse(chart.getAttribute("data-option") ?? "{}") as {
     xAxis?: { data?: unknown[] };
     series?: { type?: string; name?: string; data?: unknown[] }[];

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
 import { makeFormPanel, makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
@@ -61,8 +62,9 @@ function makeOutput(overrides: Partial<Output> = {}): Output {
 // 1); even with the `./ChartPanel` mock above resolving immediately, it mounts asynchronously
 // behind a `Suspense` boundary. HEL-909 additionally means an output-kind panel's renderer choice
 // (metric/chart/table/etc.) itself resolves asynchronously (`useOutputMeta`'s `GET
-// /api/outputs/:id` fetch) — every assertion below awaits `screen.findByTestId(...)` or an
-// equivalent async query rather than asserting synchronously.
+// /api/outputs/:id` fetch) — every chart assertion below awaits `settleChartMount(...)` (HEL-1599:
+// the output-meta promise and the lazy module inside `act`, no 1 s `findBy*` deadline) and then
+// queries synchronously; the other kinds await an equivalent async query.
 describe("PanelContent — appearance forwarding", () => {
   it("forwards appearance prop to ChartPanel", async () => {
     const appearance = {
@@ -82,7 +84,8 @@ describe("PanelContent — appearance forwarding", () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel({ appearance });
     renderWithStore(<PanelContent crossFilterMode="none" panel={panel} appearance={appearance} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
 
@@ -90,7 +93,8 @@ describe("PanelContent — appearance forwarding", () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel();
     renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
 });
@@ -105,7 +109,8 @@ describe("PanelContent — output kind dispatch", () => {
   it("renders an ECharts chart panel for output kind chart", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
+    await settleChartMount(getOutputByIdMock);
+    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
   });
 
   it("renders a table element for output kind table", async () => {
@@ -270,7 +275,8 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
         headers={headers}
       />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
     expect(capturedChartProps?.headers).toEqual(headers);
@@ -279,7 +285,8 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   it("forwards an empty fieldMapping object to ChartPanel when the Output config has none", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
 
@@ -288,14 +295,16 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   it("forwards compact=true to ChartPanel", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} compact />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
   it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
 });
@@ -311,7 +320,8 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     const { container } = renderWithStore(
       <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
@@ -320,7 +330,8 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     const { container } = renderWithStore(
       <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 });
