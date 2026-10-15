@@ -35,6 +35,15 @@ import {
 import { fetchSources } from "../../sources/services/dataSourceService";
 import type { PipelineRunRecord, PipelineSummary } from "../types/pipelineStep";
 
+// HEL-1600 -- stands in for GET /api/pipelines/:id/outputs, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../services/outputService", () => ({
+  ...jest.requireActual("../services/outputService"),
+  listOutputs: jest.fn(() =>
+    Promise.reject(new Error("listOutputs: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../../sources/services/dataSourceService", () => ({
   ...jest.requireActual("../../sources/services/dataSourceService"),
   fetchSources: jest.fn(),

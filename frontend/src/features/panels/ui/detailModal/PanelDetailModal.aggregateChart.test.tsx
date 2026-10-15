@@ -24,6 +24,13 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputById: jest.fn(),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
+  // HEL-1600 -- stands in for GET /api/outputs/:id/filter-capabilities and /panels; the network guard fails an unmocked request.
+  getFilterCapabilities: jest.fn(() =>
+    Promise.reject(new Error("getFilterCapabilities: unmocked request stubbed (HEL-1600)")),
+  ),
+  listOutputPanels: jest.fn(() =>
+    Promise.reject(new Error("listOutputPanels: unmocked request stubbed (HEL-1600)")),
+  ),
 }));
 
 const records: Record<string, unknown>[] = [

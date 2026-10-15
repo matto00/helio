@@ -9,6 +9,15 @@ import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id/history, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../history/outputHistoryService", () => ({
+  ...jest.requireActual("../history/outputHistoryService"),
+  fetchOutputHistory: jest.fn(() =>
+    Promise.reject(new Error("fetchOutputHistory: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 // HEL-588 tasks.md 6.5/6.6 — a dedicated file (mirrors PanelCard.inspect.test.tsx's own
 // rationale) covering the cross-filter's effect at PanelCard's usePanelData call site: a sibling
 // panel narrows, the originating panel never does, and an unmatched panel is unaffected.
