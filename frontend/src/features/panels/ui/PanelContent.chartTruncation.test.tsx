@@ -1,7 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
-import { settleChartMount } from "../../../test/settleChartMount";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { PanelContent, type PanelContentProps } from "./PanelContent";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
@@ -64,6 +64,14 @@ function renderChart(props: Partial<PanelContentProps> = {}) {
   );
 }
 
+// The note renders once the output meta has resolved and React flushed; the history request is issued
+// only after that, and the cross-filter disclosure / compare overlay depend on it. Two stages, then
+// query synchronously (HEL-1612: no 1 s `findBy*` deadline).
+async function settleNote() {
+  await settleMocks(getOutputById);
+  await settleMocks(fetchHistory);
+}
+
 beforeEach(() => {
   resetHistoryCache();
   getOutputById.mockReset().mockResolvedValue(makeOutput(BASE_CONFIG));
@@ -91,13 +99,15 @@ beforeEach(() => {
 describe("chart truncation note (HEL-1358)", () => {
   it("names both counts when the loaded rows are fewer than the total", async () => {
     renderChart({ rowsTruncated: true, totalRowCount: 1234 });
-    expect(await screen.findByText(NOTE)).toBeInTheDocument();
+    await settleNote();
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
   });
 
   it("says 'matching rows' under a viewer filter", async () => {
     renderChart({ rowsTruncated: true, totalRowCount: 1234, viewerFilterActive: true });
+    await settleNote();
     expect(
-      await screen.findByText(`Based on the first ${n(2)} of ${n(1234)} matching rows.`),
+      screen.getByText(`Based on the first ${n(2)} of ${n(1234)} matching rows.`),
     ).toBeInTheDocument();
   });
 
@@ -132,7 +142,8 @@ describe("chart truncation note (HEL-1358)", () => {
         { day: "Tue", amount: 6 },
       ],
     });
-    expect(await screen.findByText(NOTE)).toBeInTheDocument();
+    await settleNote();
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
   });
 
   it("orders annotation, truncation note and cross-filter disclosure (D3a)", async () => {
@@ -152,9 +163,10 @@ describe("chart truncation note (HEL-1358)", () => {
         },
       },
     );
-    const note = await screen.findByText(NOTE);
+    await settleNote();
+    const note = screen.getByText(NOTE);
     const annotation = screen.getByText("Source: ERP");
-    const disclosure = await screen.findByText(/loaded rows match/);
+    const disclosure = screen.getByText(/loaded rows match/);
     const follows = (a: Node, b: Node) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(annotation, note)).toBe(true);
@@ -172,8 +184,9 @@ describe("chart truncation note (HEL-1358)", () => {
     unmount();
     resetHistoryCache();
     renderChart({ rowsTruncated: true, totalRowCount: 1234 });
-    expect(await screen.findByText(NOTE)).toBeInTheDocument();
-    await waitFor(() => expect(fetchHistory).toHaveBeenCalledTimes(2));
+    await settleNote();
+    expect(screen.getByText(NOTE)).toBeInTheDocument();
+    expect(fetchHistory).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId("echarts").getAttribute("data-option")).not.toContain("vs 7d");
   });
 });
@@ -181,7 +194,8 @@ describe("chart truncation note (HEL-1358)", () => {
 describe("chart truncation note short form (HEL-1398)", () => {
   it("passes the short form alongside the long sentence, 'matching rows' included", async () => {
     renderChart({ rowsTruncated: true, totalRowCount: 1234, viewerFilterActive: true });
-    expect(await screen.findByText(`${n(2)} of ${n(1234)} matching rows.`)).toHaveClass(
+    await settleNote();
+    expect(screen.getByText(`${n(2)} of ${n(1234)} matching rows.`)).toHaveClass(
       "chart-panel__truncation-note-short",
     );
   });
