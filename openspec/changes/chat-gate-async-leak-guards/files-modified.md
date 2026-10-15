@@ -1,2 +1,0 @@
-- `backend/src/test/scala/com/helio/api/routes/proposals/ClaudeRoutesChatGateSpec.scala` — in-flight tracker (TrackedEc/TrackedDbContext/awaitQuiescence), tracked wiring, quiescence before every zero-call/count-unchanged guard, positive control
-- `backend/src/test/scala/com/helio/api/routes/proposals/InFlightTracker.scala` — test-only helper: in-flight counter, bounded quiescence latch, tracked ExecutionContext and TrackedDbContext (moved out of the spec)
