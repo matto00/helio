@@ -12,13 +12,22 @@ if (process.env.FONT_FIRST) {
   const { Locator } = require(base + "locator.js");
   const { Page } = require(base + "page.js");
   const states = new WeakMap();
-  const RE = /getBoundingClientRect|scrollWidth|clientWidth|offsetWidth|offsetHeight|clientHeight|scrollHeight/;
+  const RE = /getBoundingClientRect|scrollWidth|clientWidth|offsetWidth|offsetHeight|clientHeight|scrollHeight|getBoundingRect|measureText/;
   const origNewPage = BrowserContext.prototype.newPage;
   BrowserContext.prototype.newPage = async function (...a) {
     const page = await origNewPage.apply(this, a);
     const st = { released: false, count: 0, log: [] };
     states.set(page, st);
     await page.route(/fonts\.googleapis\.com\/css2/, async (route) => {
+      const hold = process.env.FONT_FIRST_HOLD_FAMILY;
+      if (!st.released && hold) {
+        // hold ONE family: serve the stylesheet without that family's @font-face blocks until release
+        try {
+          const resp = await route.fetch();
+          const body = (await resp.text()).replace(/@font-face\s*\{[^}]*\}/g, (m) => (m.includes("'" + hold + "'") ? "" : m));
+          return await route.fulfill({ response: resp, body });
+        } catch { return; }
+      }
       if (!st.released) return route.abort().catch(() => {});
       await route.continue().catch(() => {});
     });
@@ -77,5 +86,14 @@ if (process.env.FONT_FIRST) {
   wrap(Locator.prototype, "boundingBox", () => true, (l) => l.page());
   wrap(Locator.prototype, "evaluate", fnIsMeasure, (l) => l.page());
   wrap(Locator.prototype, "evaluateAll", fnIsMeasure, (l) => l.page());
+  if (process.env.FONT_FIRST_ON_TIMEOUT) {
+    // release right BEFORE the spec's fixed waitForTimeout(ms): charts already laid out in the fallback face
+    const origWT = Page.prototype.waitForTimeout;
+    Page.prototype.waitForTimeout = async function (ms, ...r) {
+      const st = states.get(this);
+      if (st && !st.released && ms === Number(process.env.FONT_FIRST_ON_TIMEOUT)) { st.count = N; await doRelease(this, st); }
+      return origWT.call(this, ms, ...r);
+    };
+  }
   wrap(Page.prototype, "evaluate", fnIsMeasure, (p) => p);
 }

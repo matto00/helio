@@ -65,3 +65,27 @@ so the 4 hel1444 failures in `forced-sweep-css-block.log` are now the converted 
 Limits of the evidence (stated, not hidden): the sweep runs exercise three end-to-end font states per test, not every
 interleaving. A relational assertion that straddles a swap in a state none of the runs produced would not be caught by
 the sweep; for hel1510 and hel813 surface 7 the interleavings were exercised directly (probes).
+
+## Base drift after merging origin/main (cycle 3, HEAD 86663f574)
+
+`sweep-hits-v3-merged.txt` is the recorded command re-run on the merged head (248 hit lines, 43 files). Against v2
+(218 lines, 41 files) there are exactly two new files; every other file's hit COUNT is unchanged. The merge also
+rewrote selectors in about 20 specs (HEL-1579 spine: `showOutputs(page)`, `.spine-row*`, `.step-focused*`), none of
+which touch a geometry assertion (diff checked: only locators and `expect(...).toBeVisible/Enabled/HaveText/HaveCount`
+changed). `e2e/hel1444-footnoted-chart-canvas.spec.ts` and `e2e/support/webFonts.ts` are byte-identical to the
+pre-merge commit 7cb6b72e3 (`git diff` empty), so the hel1444 red/green pair (`redgreen-hel1444-*.log`) still stands.
+
+| new / changed file | class | result |
+| --- | --- | --- |
+| hel1579-pipeline-spine-layout.spec.ts (29 hits: page `scrollHeight <= innerHeight` :135-169, 381; row/field/chip boxes :141-255; header `scrollWidth - clientWidth`, rects :267-290, 431-455; menu box :479; trunk/branch boxes :336) | ASSERTS-GEOMETRY (page fits without scroll, header keeps one row, no clipping) | **font-insensitive under every forced state; not converted.** 9 tests, run 9 passed in: baseline (`v3-hel1579-A`), fallback-only (B), late swap 1500ms (C), first measurement in fallback then web (D, N=1; 7 releases), and holds of JetBrains Mono and Schibsted Grotesk released after the first measurement (E). The accent-audit test failed once each in N=3 (rerun: 9 passed) and in the Fraunces hold (failed again on rerun); the failure is NOT a measurement: the page shows "Couldn't load this pipeline's steps" because the trace records `429 Too Many Requests` on `/steps`, `/outputs`, `/data-sources`, `/dashboards`. That test walks 10+ spine rows x 4 theme/accent combinations in one user session and trips the per-user `/api` rate limit (120/min) when it runs fast. Unrelated to fonts (it passed in 7 other font states); follow-up candidate for the spec's author. |
+| support/accentAudit.ts (131: `getBoundingClientRect` to find visible elements) | POSITION-ONLY / filter | n/a (used by hel1579 and state-surface-contrast-guard). |
+| files whose selectors changed in the merge and carry geometry assertions: hel1510, hel1275, hel1277, hel1306, hel1311, hel1331, hel1350, hel1444, state-surface-contrast-guard, hel813 | as classified above | Re-run together on the merged head (71 tests): fallback-only 67 passed / 4 failed (the four hel1444 canvas-floors tests, `waitForWebFonts did not settle`, the expected fallback-only behaviour of the converted test: that mode removes the stylesheet the wait requires); late 1500ms 71 passed; first-measurement-in-fallback 71 passed (63 releases logged). hel1510 now opens the Outputs through `showOutputs` (desktop: spine OUTPUTS section) and is still green in all three. |
+
+Environment note: the shared dev database has migration V136 applied (another lane) but not V135, which the merged
+head carries, so the backend refuses to start on it (`Detected resolved migration not applied ... 135`). The merged-head
+runs use a dedicated database `helio_hel1613` (`DATABASE_URL` exported to backend start-up and to the e2e user-cleanup),
+the same way other lanes use `helio_hel157x`. Every merged-head log header names it.
+
+Full e2e suite on the merged head (`v3-full-suite.log`, header: cwd, HEAD 86663f574, ports 7045/9952, DB helio_hel1613,
+loadavg 8.51 at start / 4.65 at end, run under the driver's `flock` with `--workers=2` and `nice -n 19`):
+**312 passed, 0 failed, 0 skipped (15.0m)**. The `*.log` files are gitignored; the driver persists them separately.
