@@ -1,0 +1,25 @@
+// SCRATCH (HEL-1613): force-delays the web fonts for UNMODIFIED specs by patching BrowserContext.newPage.
+// FONT_FORCE=css-block | late:<cssMs>:<fontMs>
+const path = "/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613/node_modules/playwright-core/lib/client/browserContext.js";
+const mode = process.env.FONT_FORCE;
+if (mode) {
+  const { BrowserContext } = require(path);
+  const orig = BrowserContext.prototype.newPage;
+  BrowserContext.prototype.newPage = async function (...a) {
+    const page = await orig.apply(this, a);
+    const [kind, cssMs, fontMs] = mode.split(":");
+    await page.route(/fonts\.googleapis\.com\/css2/, async (route) => {
+      if (kind === "css-block") return route.abort().catch(() => {});
+      await new Promise((r) => setTimeout(r, Number(cssMs)));
+      await route.continue().catch(() => {});
+    });
+    if (kind === "late") {
+      await page.route(/fonts\.gstatic\.com/, async (route) => {
+        await new Promise((r) => setTimeout(r, Number(fontMs)));
+        await route.continue().catch(() => {});
+      });
+    }
+    return page;
+  };
+  console.log(`[fontdelay-preload] active in pid ${process.pid}: ${mode}`);
+}

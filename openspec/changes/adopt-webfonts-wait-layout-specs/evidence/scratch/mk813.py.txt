@@ -1,0 +1,18 @@
+import sys
+src,dst=sys.argv[1],sys.argv[2]
+HEAD='import { registerAndLogin } from "./support/auth";'
+t=open(src).read()
+def rep(a,b):
+    global t
+    i=t.index('surface 7: Connectors page') if 'surface 7' in t and a not in HEAD else 0
+    assert a in t[i:], a
+    t=t[:i]+t[i:].replace(a,b,1)
+rep('import { registerAndLogin } from "./support/auth";','import { registerAndLogin } from "./support/auth";\nimport { installGate } from "./zzfontgate";\nasync function boxes(label: string, loc: Locator) {\n  const n = await loc.count();\n  const out: string[] = [];\n  for (let i = 0; i < n; i++) { const b = await loc.nth(i).boundingBox(); if (b) out.push(`${b.width.toFixed(2)}x${b.height.toFixed(2)}`); }\n  console.log(`[probe813] ${label}: ${out.join(" ")}`);\n}')
+rep('        await page.goto("/connectors");','        const gate = await installGate(page);\n        gate.arm();\n        await page.goto("/connectors", { waitUntil: "commit" });')
+rep('        await sweepSurface(page, { selectors: [".ui-empty-state__cta"], scope: main });','        await boxes(`cta@${width} fonts=${await gate.state()}`, main.locator(".ui-empty-state__cta"));\n        await sweepSurface(page, { selectors: [".ui-empty-state__cta"], scope: main });\n        await gate.point("after-cta");')
+rep('        await assertExpanderFloor(page, createDialog.locator(".connectors-page__btn"));','        await boxes(`dialog-btns@${width} fonts=${await gate.state()}`, createDialog.locator(".connectors-page__btn"));\n        await assertExpanderFloor(page, createDialog.locator(".connectors-page__btn"));\n        await gate.point("after-dialog");')
+rep('        await assertExpanderFloor(page, main.locator("tbody .actions-menu__trigger").first());','        await boxes(`row-trigger@${width} fonts=${await gate.state()}`, main.locator("tbody .actions-menu__trigger").first());\n        await assertExpanderFloor(page, main.locator("tbody .actions-menu__trigger").first());\n        await gate.point("after-row");\n        await boxes(`toolbar-btn@${width} fonts=${await gate.state()}`, main.locator(".connectors-page__btn"));')
+t=t.replace('        await assertExpanderFloor(page, main.locator(".connectors-page__btn"));\n      });','        await assertExpanderFloor(page, main.locator(".connectors-page__btn"));\n        gate.releaseAll();\n      });')
+t=t.replace('        await boxes(`dialog-btns@','        await gate.point("before-dialog");\n        await boxes(`dialog-btns@',1)
+t=t.replace('        await boxes(`row-trigger@','        await gate.point("before-row");\n        await boxes(`row-trigger@',1)
+open(dst,'w').write(t)

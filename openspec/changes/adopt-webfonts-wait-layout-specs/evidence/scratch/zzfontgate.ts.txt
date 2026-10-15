@@ -1,0 +1,93 @@
+import type { Page } from "@playwright/test";
+
+// SCRATCH (HEL-1613): held-response font gate. Env:
+//  FONT_HOLD   none | all | csv of families (Fraunces,"Schibsted Grotesk","JetBrains Mono")
+//  FONT_CSS    "block" aborts the Google Fonts stylesheet (true fallback-only)
+//  FONT_AT     name of the gate point that releases the held families ("never" = fallback face for the whole test)
+//  FONT_AFTER  "nowait" (continue measuring immediately) | "settle" (wait for the swap to finish)
+//  FONT_TIMER_MS  if set, releases all held families this long after arm() (green runs: concurrent release)
+const urlFamily = new Map<string, string>();
+
+export interface Gate {
+  arm(): void;
+  point(name: string): Promise<void>;
+  releaseAll(): void;
+  state(): Promise<string>;
+}
+
+export async function installGate(page: Page): Promise<Gate> {
+  const holdEnv = process.env.FONT_HOLD ?? "none";
+  const held = (fam: string) => holdEnv === "all" || holdEnv.split(",").includes(fam);
+  const waiters = new Map<string, { p: Promise<void>; go: () => void }>();
+  const waiter = (fam: string) => {
+    let w = waiters.get(fam);
+    if (!w) {
+      let go!: () => void;
+      const p = new Promise<void>((r) => (go = r));
+      w = { p, go };
+      waiters.set(fam, w);
+    }
+    return w;
+  };
+  const released = new Set<string>();
+  const releaseFamilies = (fams: string[] | "all") => {
+    const list = fams === "all" ? ["Fraunces", "Schibsted Grotesk", "JetBrains Mono"] : fams;
+    for (const f of list) {
+      released.add(f);
+      waiter(f).go();
+    }
+  };
+  await page.route(/fonts\.googleapis\.com\/css2/, async (route) => {
+    if (process.env.FONT_CSS === "block") return route.abort();
+    let resp;
+    let body: string;
+    try {
+      resp = await route.fetch();
+      body = await resp.text();
+    } catch {
+      return; // page closed while the stylesheet was in flight (probe artefact)
+    }
+    for (const m of body.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+      const fam = /font-family:\s*'([^']+)'/.exec(m[1])?.[1];
+      const url = /url\(([^)]+)\)/.exec(m[1])?.[1];
+      if (fam && url) urlFamily.set(url, fam);
+    }
+    await route.fulfill({ response: resp, body }).catch(() => undefined);
+  });
+  await page.route(/fonts\.gstatic\.com/, async (route) => {
+    const fam = urlFamily.get(route.request().url()) ?? "?";
+    if (held(fam) && !released.has(fam)) await waiter(fam).p;
+    await route.continue().catch(() => undefined);
+  });
+  const state = () =>
+    page.evaluate(() =>
+      [...document.fonts]
+        .filter((f) => f.status !== "unloaded")
+        .map((f) => `${f.family}:${f.status}`)
+        .join(",") || "(no faces requested)",
+    );
+  return {
+    arm() {
+      const ms = process.env.FONT_TIMER_MS;
+      if (ms) setTimeout(() => releaseFamilies("all"), Number(ms));
+    },
+    async point(name) {
+      if (process.env.FONT_AT !== name) return;
+      console.log(`[gate] point ${name}: releasing held; before=${await state()}`);
+      releaseFamilies("all");
+      if (process.env.FONT_AFTER === "settle") {
+        await page.waitForFunction(
+          () => [...document.fonts].every((f) => f.status !== "loading") && document.fonts.status === "loaded",
+          undefined,
+          { timeout: 10_000 },
+        );
+        await page.waitForTimeout(300);
+        console.log(`[gate] point ${name}: settled=${await state()}`);
+      }
+    },
+    releaseAll() {
+      releaseFamilies("all");
+    },
+    state,
+  };
+}
