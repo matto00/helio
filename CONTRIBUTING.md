@@ -283,6 +283,41 @@ slower than uncapped (the frontend jest step: ~40 s -> ~49 s measured), in excha
 (11.4-12.0 GB -> 4.1-4.9 GB). If you add a new local test/dev entry point that spawns workers or a JVM, cap it the same
 way (gate on `CI`, omit the key rather than set it to CI's value, and add the override row here).
 
+## Frontend CI jest timing capture (HEL-1601)
+
+The CI `frontend` job records per-test timing and 1 Hz runner load around its `npm test` step, to locate an
+intermittent ~1 s main-thread stall (the HEL-1596 flake) after the fact. The capture changes no test, worker count,
+retry, timeout or `CI=true` value: the jest configs only gain a reporter when `HELIO_JEST_TIMING_DIR` is set, and only
+the workflow sets it. It is uploaded as the artifact `jest-timing-<run attempt>` on every run, passing or failing,
+with `retention-days: 14`. The same table is appended to the job's step summary.
+
+Read it:
+
+```bash
+gh run download <run-id> -n jest-timing-1 -D /tmp/jest-timing   # add -R matto00/helio outside the checkout
+node scripts/jest-timing-report.cjs /tmp/jest-timing --top 20    # --markdown for the step-summary form
+```
+
+The reader prints the slowest test cases (duration, start offset from the first record, suite label, file, name,
+status) and, under each, the load samples overlapping that test: peak `steal`, `iowait` and user+system CPU, and the
+lowest available memory. A stall shows as a test whose duration is far above its normal baseline (compare against a
+passing run's artifact) with high CPU or steal, or low memory, in its window.
+
+Files in the artifact (all newline-delimited JSON, timestamps are epoch milliseconds on one clock):
+
+- `jest-timing-root.ndjson`, `jest-timing-frontend.ndjson`: a `run` header, one `case` record per test (`file`,
+  `name`, `status`, `duration`, `start`, `end`; `approx: true` when jest gave no start time), one `file` record per
+  test file (`start`, `end`, `runtime`, `setupFilesEnd` - time outside any test case, such as module load, shows here)
+  and a `done` record.
+- `load.ndjson`: one line per second with `t`, CPU percentages since the previous sample (`user`, `system`, `iowait`,
+  `steal`, `idle`), `procsRunning`, `load1`, `memAvailableMb` and `swapUsedMb`.
+- `sampler.log`: the sampler's own stderr.
+
+The sampler (`scripts/ci-load-sampler.cjs`) stops itself after 1080 s (18 min, under the job's 20 min timeout), so for
+a hung run the load data ends there. To try it locally (this keeps the local caps in force):
+`HELIO_JEST_TIMING_DIR=/tmp/jest-timing npm --prefix frontend test -- --testPathPatterns=<file>`; opting in swaps an
+agent session's `agent` reporter for `default`.
+
 ## Pull Request Expectations
 
 - Keep PRs reasonably scoped — one concern per PR

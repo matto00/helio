@@ -153,7 +153,36 @@ jobs:
       - run: npm run selftest:ci-prune-sbt-cas
       - run: npm run check:cache-cleanup-pr
       - run: npm run check:cache-cleanup-pr:selftest
+      # HEL-1601: per-test timing + 1 Hz runner load around `npm test`, to locate the ~1 s main-thread stall seen on a
+      # failing run (HEL-1596). Capture is opt-in via HELIO_JEST_TIMING_DIR (no test, worker, retry or timeout change);
+      # the sampler is stopped by its recorded PID and also stops itself after 1080 s (< the job's timeout-minutes).
+      - name: Start runner load sampler
+        run: |
+          mkdir -p "$RUNNER_TEMP/jest-timing"
+          nohup node scripts/ci-load-sampler.cjs "$RUNNER_TEMP/jest-timing/load.ndjson" 1080 > "$RUNNER_TEMP/jest-timing/sampler.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/jest-timing-sampler.pid"
       - run: npm test
+        env:
+          HELIO_JEST_TIMING_DIR: ${{ runner.temp }}/jest-timing
+      - name: Stop runner load sampler
+        if: always()
+        continue-on-error: true
+        run: |
+          if [ -f "$RUNNER_TEMP/jest-timing-sampler.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/jest-timing-sampler.pid")" || true
+          fi
+      - name: Summarize jest timing
+        if: always()
+        continue-on-error: true
+        run: node scripts/jest-timing-report.cjs "$RUNNER_TEMP/jest-timing" --markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload jest timing capture
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jest-timing-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/jest-timing
+          if-no-files-found: warn
+          retention-days: 14
       # HEL-1562: the frontend now has two HTML entries (the static landing page `index.html` and the app shell
       # `app.html`), and nothing else ever ran `vite build`. CI-only, not .husky: the same reasoning as HEL-913 above,
       # and it needs a full production build.
