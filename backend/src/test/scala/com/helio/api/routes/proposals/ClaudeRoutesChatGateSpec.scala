@@ -240,6 +240,14 @@ class ClaudeRoutesChatGateSpec
   }
 
   "beta tier" should {
+    // HEL-1609: admission charges the daily counter before the 200 headers, so an admitted stream
+    // whose body is never read is still charged (charging semantics are not refunded on cancel).
+    "charge an admitted ?stream=true request at admission, without the body being read" in {
+      val f = newUser("beta"); val t = new CountingTransport(authoringJson); val c = chat(5)
+      Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }
+      usage(f) shouldBe Some(1)
+    }
+
     "be counted on the shared counter and get 429 with limit on the (limit+1)th call, across both routes" in {
       val f = newUser("beta"); val t = new CountingTransport(authoringJson); val c = chat(2)
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.OK }

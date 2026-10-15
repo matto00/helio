@@ -25,7 +25,7 @@ import com.helio.domain.model._
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.typed.scaladsl.adapter._
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import com.helio.testkit.VerifiedEmbeddedPostgres
 import org.flywaydb.core.Flyway
@@ -38,10 +38,11 @@ import slick.jdbc.PostgresProfile.api._
 import java.nio.file.Files
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.{CopyOnWriteArrayList, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future, Promise}
+import scala.util.Success
 import scala.jdk.CollectionConverters._
 
 /** `DashboardAuthoringService` coverage (HEL-392 tasks.md 5.2/5.3) — a stub `ClaudeTransport`
@@ -223,10 +224,40 @@ class DashboardAuthoringServiceSpec
    *  override it down to `1` to force `ClaudeClient`'s own pre-flight `GuardrailExceeded` rejection
    *  (a distinct code path from the empty-workspace short-circuit above: that one never reaches
    *  `ClaudeClient` at all, this one is rejected BY `ClaudeClient.send`/`stream` itself). */
-  private def newAuthoringService(transport: FakeClaudeTransport, maxInputTokens: Int = 100000): DashboardAuthoringService = {
+  private def newAuthoringService(
+      transport: FakeClaudeTransport,
+      maxInputTokens: Int = 100000,
+      capabilityService: PanelCapabilityService = null,
+      conversations: AuthoringConversationRepository = null,
+      serviceEc: ExecutionContextExecutor = routeEc
+  ): DashboardAuthoringService = {
     val claudeConfig = ClaudeConfig(apiKey = "sk-ant-test", model = "claude-test", temperature = 1.0, maxOutputTokens = 4096, maxInputTokens = maxInputTokens)
     val claudeClient = new ClaudeClient(claudeConfig, transport)(routeEc)
-    new DashboardAuthoringService(workspaceContextService, panelCapabilityService, dashboardProposalService, claudeClient, conversationRepo)(routeEc)
+    new DashboardAuthoringService(
+      workspaceContextService,
+      Option(capabilityService).getOrElse(panelCapabilityService),
+      dashboardProposalService,
+      claudeClient,
+      Option(conversations).getOrElse(conversationRepo)
+    )(serviceEc)
+  }
+
+  // HEL-1609: a single-thread EC the test can drain to quiescence deterministically (no sleeps).
+  // `drainToQuiescence` queues a marker that re-queues itself while anything else is queued; when
+  // the marker runs with an empty queue it is the only task left, so every hop has completed.
+  private final class DrainableEc extends ExecutionContextExecutor {
+    private val executor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable])
+    override def execute(r: Runnable): Unit      = executor.execute(r)
+    override def reportFailure(t: Throwable): Unit = t.printStackTrace()
+    def drainToQuiescence(): Unit = {
+      val done = Promise[Unit]()
+      val marker: Runnable = new Runnable {
+        override def run(): Unit = if (executor.getQueue.isEmpty) { done.trySuccess(()); () } else executor.execute(this)
+      }
+      executor.execute(marker)
+      await(done.future)
+    }
+    def shutdown(): Unit = { executor.shutdownNow(); () }
   }
 
   // HEL-392 fold-in (tasks.md 7.1/7.2/7.3): drives `mapClaudeError`'s three branches end-to-end.
@@ -755,6 +786,122 @@ class DashboardAuthoringServiceSpec
       val otherView = await(service.getConversation(AuthoringConversationId(conversationId), other))
       otherView shouldBe a[Left[_, _]]
       otherView.swap.toOption.get shouldBe a[ServiceError.NotFound]
+    }
+  }
+
+  // HEL-1609: a stream cancelled before grounding / conversation load completes must never
+  // reach the transport. Deterministic (no sleeps): the gate repo parks grounding at a known
+  // point, the test cancels, waits for the stage to observe it, releases the gate and drains the
+  // service's single-thread EC to quiescence, then asserts the transport count.
+  "DashboardAuthoringService.authorStreaming cancellation (HEL-1609)" should {
+
+    def gatedOutputRepo(ec: ExecutionContext, reached: Promise[Unit], gate: Promise[Option[Output]]): OutputRepository =
+      new OutputRepository(new DbContext(db, db))(ec) {
+        override def findByIdOwned(id: OutputId, user: AuthenticatedUser): Future[Option[Output]] = {
+          reached.trySuccess(())
+          gate.future
+        }
+      }
+
+    def gatedConversationRepo(reached: Promise[Unit], gate: Promise[Option[AuthoringConversationRepository.AuthoringConversationRecord]]): AuthoringConversationRepository =
+      new AuthoringConversationRepository(new DbContext(db, db)) {
+        override def findById(id: AuthoringConversationId, user: AuthenticatedUser): Future[Option[AuthoringConversationRepository.AuthoringConversationRecord]] = {
+          reached.trySuccess(())
+          gate.future
+        }
+      }
+
+    def okStream(json: String): Vector[Seq[ClaudeStreamEvent]] =
+      Vector(Seq(ClaudeStreamEvent.TextDelta(json), ClaudeStreamEvent.MessageStop))
+
+    "make no transport call when the stream is cancelled before grounding completes (first turn)" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(streamResponses = okStream(validProposalJson(dt)))
+      val testEc    = new DrainableEc
+      try {
+        val reached = Promise[Unit]()
+        val gate    = Promise[Option[Output]]()
+        val capSvc  = new PanelCapabilityService(gatedOutputRepo(testEc, reached, gate), null)(testEc)
+        val service = newAuthoringService(transport, capabilityService = capSvc, serviceEc = testEc)
+
+        val (termination, queue) = service.authorStreaming(DashboardAuthoringRequest(goal, None), user)
+          .watchTermination()(Keep.right).toMat(Sink.queue[AuthoringStreamEvent]())(Keep.both).run()
+        await(reached.future)
+        queue.cancel()
+        await(termination.transform(Success(_)))
+        gate.success(None)
+        testEc.drainToQuiescence()
+
+        transport.streamInvocations.get() shouldBe 0
+        transport.sendInvocations.get() shouldBe 0
+      } finally testEc.shutdown()
+    }
+
+    "make no transport call when the stream is cancelled before the conversation loads (continued turn)" in {
+      val user   = newUser()
+      val seeded = seedConversation(user)
+      val transport = new FakeClaudeTransport(streamResponses = okStream("""{"dashboardName":"v2","panels":[]}"""))
+      val testEc    = new DrainableEc
+      try {
+        val reached = Promise[Unit]()
+        val gate    = Promise[Option[AuthoringConversationRepository.AuthoringConversationRecord]]()
+        val service = newAuthoringService(transport, conversations = gatedConversationRepo(reached, gate), serviceEc = testEc)
+
+        val (termination, queue) = service
+          .authorStreaming(DashboardAuthoringRequest("edit", None, Some(seeded.id.value)), user)
+          .watchTermination()(Keep.right).toMat(Sink.queue[AuthoringStreamEvent]())(Keep.both).run()
+        await(reached.future)
+        queue.cancel()
+        await(termination.transform(Success(_)))
+        // Some(record) so a live stream WOULD proceed to the model call; None would short-circuit.
+        gate.success(Some(seeded))
+        testEc.drainToQuiescence()
+
+        transport.streamInvocations.get() shouldBe 0
+        transport.sendInvocations.get() shouldBe 0
+      } finally testEc.shutdown()
+    }
+
+    "still deliver the terminal Result with exactly one transport call when the client reads the stream (first turn, gated)" in {
+      val user = newUser()
+      val dt   = insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(streamResponses = okStream(validProposalJson(dt)))
+      val testEc    = new DrainableEc
+      try {
+        val reached = Promise[Unit]()
+        val gate    = Promise[Option[Output]]()
+        val capSvc  = new PanelCapabilityService(gatedOutputRepo(testEc, reached, gate), null)(testEc)
+        val service = newAuthoringService(transport, capabilityService = capSvc, serviceEc = testEc)
+
+        val eventsF = service.authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq)
+        await(reached.future)
+        gate.success(None)
+        val events = await(eventsF)
+
+        events.collect { case r: AuthoringStreamEvent.Result => r } should have size 1
+        transport.streamInvocations.get() shouldBe 1
+      } finally testEc.shutdown()
+    }
+
+    "still deliver the terminal Result with exactly one transport call when the client reads the stream (continued turn, gated)" in {
+      val user   = newUser()
+      val seeded = seedConversation(user)
+      val transport = new FakeClaudeTransport(streamResponses = okStream("""{"dashboardName":"v2","panels":[]}"""))
+      val testEc    = new DrainableEc
+      try {
+        val reached = Promise[Unit]()
+        val gate    = Promise[Option[AuthoringConversationRepository.AuthoringConversationRecord]]()
+        val service = newAuthoringService(transport, conversations = gatedConversationRepo(reached, gate), serviceEc = testEc)
+
+        val eventsF = service.authorStreaming(DashboardAuthoringRequest("edit", None, Some(seeded.id.value)), user).runWith(Sink.seq)
+        await(reached.future)
+        gate.success(Some(seeded))
+        val events = await(eventsF)
+
+        events.collect { case r: AuthoringStreamEvent.Result => r } should have size 1
+        transport.streamInvocations.get() shouldBe 1
+      } finally testEc.shutdown()
     }
   }
 }
