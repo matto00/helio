@@ -1,0 +1,2 @@
+- `backend/src/test/scala/com/helio/api/routes/proposals/ClaudeRoutesChatGateSpec.scala` — drain the ?stream=true response (assert authoring-result) and pin before=2 in the beta shared-counter test
+- `openspec/changes/fix-chat-gate-stream-race/evidence.md` — probe, baseline, mutation and after-rate evidence
