@@ -31,21 +31,6 @@ describe("CollectionRenderer — one row per item (HEL-247)", () => {
     expect(screen.getByText("South")).toBeInTheDocument();
   });
 
-  it("applies a literal metricOptions.unit to every item", () => {
-    const { container } = render(
-      <CollectionRenderer
-        fieldMapping={FIELD_MAPPING}
-        layout="grid"
-        metricOptions={{ unit: "$" }}
-        rawRows={ROWS}
-        headers={HEADERS}
-      />,
-    );
-    const units = container.querySelectorAll(".panel-content__metric-unit");
-    expect(units).toHaveLength(3);
-    units.forEach((u) => expect(u).toHaveTextContent("$"));
-  });
-
   it("applies the grid layout class for grid collections", () => {
     const { container } = render(
       <CollectionRenderer

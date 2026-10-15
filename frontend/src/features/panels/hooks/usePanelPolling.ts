@@ -1,18 +1,18 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Polls `refresh` every `refreshInterval` seconds as long as `typeId` is set.
+ * Polls `refresh` every `refreshInterval` seconds as long as `outputId` is set.
  *
  * Behaviour:
- * - No-ops when `refreshInterval` is null/undefined or `typeId` is null/undefined.
+ * - No-ops when `refreshInterval` is null/undefined or `outputId` is null/undefined.
  * - Pauses (clears the interval) while the browser tab is hidden; resumes
  *   without stacking a duplicate interval when the tab becomes visible again.
- * - Clears the interval on unmount or whenever `refreshInterval`/`typeId` changes.
+ * - Clears the interval on unmount or whenever `refreshInterval`/`outputId` changes.
  */
 export function usePanelPolling(
   refresh: () => void,
   refreshInterval: number | null | undefined,
-  typeId: string | null | undefined,
+  outputId: string | null | undefined,
 ): void {
   // Keep a stable ref so the interval callback always calls the latest `refresh`
   // without needing to recreate the interval when the function identity changes.
@@ -22,7 +22,7 @@ export function usePanelPolling(
   }, [refresh]);
 
   useEffect(() => {
-    if (!refreshInterval || !typeId) return;
+    if (!refreshInterval || !outputId) return;
 
     const ms = refreshInterval * 1000;
     let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -60,5 +60,5 @@ export function usePanelPolling(
       stopInterval();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshInterval, typeId]);
+  }, [refreshInterval, outputId]);
 }

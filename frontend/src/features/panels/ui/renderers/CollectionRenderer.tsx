@@ -8,7 +8,6 @@ interface CollectionRendererProps {
   /** Bound-column mapping from the Output's `CollectionOutputConfig`. */
   fieldMapping: Record<string, string>;
   layout: "grid" | "list";
-  metricOptions?: { label?: string; unit?: string };
   /** `baseType: metric` items' numeric display style (HEL-876) — forwarded
    *  to each item's `MetricRenderer` unchanged. */
   format?: MetricFormat | null;
@@ -23,21 +22,17 @@ interface CollectionRendererProps {
 
 /** Map one fetched row to a metric item's `MappedPanelData` (HEL-247 D4).
  *  Each `fieldMapping` slot (value/label/unit) resolves to that row's cell for
- *  the mapped column; literal `itemOptions.metric` overrides win over the bound
- *  slot on every item (HEL-243 literal-wins semantics). */
+ *  the mapped column. */
 function buildMetricItem(
   row: string[],
   headers: string[],
   fieldMapping: Record<string, string>,
-  metricOptions: { label?: string; unit?: string } | undefined,
 ): MappedPanelData {
   const item: MappedPanelData = {};
   for (const [slot, column] of Object.entries(fieldMapping)) {
     const idx = headers.indexOf(column);
     item[slot] = idx >= 0 ? (row[idx] ?? "") : "";
   }
-  if (metricOptions?.label) item.label = metricOptions.label;
-  if (metricOptions?.unit) item.unit = metricOptions.unit;
   return item;
 }
 
@@ -48,7 +43,6 @@ function buildMetricItem(
 export function CollectionRenderer({
   fieldMapping,
   layout,
-  metricOptions,
   format,
   rawRows,
   headers,
@@ -68,7 +62,7 @@ export function CollectionRenderer({
       {rawRows.map((row, index) => (
         <div key={index} className="panel-content__collection-item">
           <MetricRenderer
-            data={buildMetricItem(row, headers, fieldMapping, metricOptions)}
+            data={buildMetricItem(row, headers, fieldMapping)}
             format={format}
             conditionalFormats={conditionalFormats}
           />

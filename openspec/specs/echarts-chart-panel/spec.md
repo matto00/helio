@@ -1,7 +1,7 @@
 # echarts-chart-panel Specification
 
 ## Purpose
-Defines the ECharts-based chart panel that renders inside any panel with `type: "chart"`. Covers mounting, resizing, empty states, chart type rendering, and clean disposal.
+Defines the ECharts-based chart panel: a chart Output (kind `chart`) rendered inside an `output` panel. Covers mounting, resizing, empty states, chart type rendering, and clean disposal.
 
 ## Requirements
 
@@ -16,15 +16,15 @@ The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart
 - **WHEN** a panel with `type: "chart"` has `appearance.chartType` set to a supported type
 - **THEN** the ECharts instance renders that chart type (e.g. bar renders a bar chart)
 
-#### Scenario: Unbound chart panel shows an empty default chart
+#### Scenario: A chart Output with no rows shows a no-data state
 - **WHEN** a panel with `type: "chart"` has no data bound (`typeId` is absent)
 - **THEN** an empty chart with placeholder axes is displayed using the selected chart type (or line if unset)
 
-#### Scenario: Chart panel with unknown chartType falls back to line
+#### Scenario: An unrecognised Output chart type falls back to line
 - **WHEN** a panel with `type: "chart"` has an unrecognised `appearance.chartType` value
 - **THEN** a line chart is rendered without error
 
-#### Scenario: Bound chart panel with no field mapping shows empty state message
+#### Scenario: A chart Output with no yAxis mapping auto-detects numeric series
 - **WHEN** a panel with `type: "chart"` is bound to a DataType but `fieldMapping` has no xAxis or yAxis
 - **THEN** the panel body shows "Select fields to display chart data" instead of a blank canvas
 
@@ -49,7 +49,7 @@ The system SHALL mount an ECharts chart inside any panel whose `type` is `"chart
 - **THEN** the chart's rendered series is a pie series with one `{name, value}` datum per group,
   reshaped from the same categories/values aggregate bar/line consume
 
-#### Scenario: A legacy stored scatter+aggregation combination still ignores the spec
+#### Scenario: A non-aggregating chart type ignores an aggregation spec
 - **WHEN** a scatter-chart panel has a stored `aggregation` spec (persisted before this behavior existed)
 - **THEN** the chart falls back to its existing non-aggregated raw-point rendering path using
   `fieldMapping`, unchanged from before
