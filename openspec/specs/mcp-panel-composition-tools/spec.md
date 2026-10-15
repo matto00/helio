@@ -24,44 +24,6 @@ image panel's `config.imageUrl`).
 - **WHEN** the uploaded image exceeds the backend's configured maximum size
 - **THEN** the tool returns the backend's 413 error message unchanged, not a generic failure
 
-### Requirement: Proposal config passthrough is backward compatible
-
-The `config` field SHALL be optional and additive: a proposal carrying only the existing flat fields
-(and no `config`) SHALL produce byte-for-byte the same created panels as before this change. The
-shared in-app Proposal Review UI, which posts to the same endpoint, SHALL continue to round-trip
-proposals unchanged.
-
-#### Scenario: Flat-field-only proposal is unchanged
-- **WHEN** an agent applies a proposal whose panels use only the flat fields (`fieldMapping`,
-  `aggregation`, `content`, `chartType`, etc.) and no `config`
-- **THEN** the created dashboard and panels are identical to the pre-change behavior
-
-#### Scenario: Proposal Review UI still round-trips
-- **WHEN** a proposal is applied through the in-app Proposal Review UI
-- **THEN** the dashboard and its panels are created correctly with no regression
-
-### Requirement: Panel composition tools accept image caption and chart annotation
-
-The MCP panel create/update tool surface SHALL accept an optional `caption` on image-panel `config` and
-an optional `annotation` on chart-panel `config`, passing each straight through to the panel API so
-agent-built dashboards can attach static caption/annotation text. The tool descriptions SHALL document
-both fields on the respective panel `config` shapes. Omitting either field SHALL preserve today's
-behavior (no caption/annotation).
-
-#### Scenario: Agent creates an image panel with a caption
-- **WHEN** an agent calls the create tool with `type: "image"` and `config: { imageUrl: "...",
-  caption: "Hero photo — Reuters" }`
-- **THEN** the created image panel persists with that `caption` and the dashboard renders its caption
-  strip
-
-#### Scenario: Agent sets a chart annotation
-- **WHEN** an agent creates or updates a chart panel with `config.annotation: "Source: BLS"`
-- **THEN** the panel persists with that `annotation` and renders it as a subtitle/footnote
-
-#### Scenario: Omitting caption/annotation preserves current behavior
-- **WHEN** an agent creates an image or chart panel without a `caption`/`annotation`
-- **THEN** the panel is created with no caption/annotation, exactly as before this change
-
 ### Requirement: auto_layout_dashboard packs panel sizes into a non-overlapping layout
 
 The MCP `auto_layout_dashboard` tool SHALL accept a dashboard id, a list of `{panelId, w, h}` sizes, an optional `breakpoint` and an optional `expectedLayoutVersion`, call `POST /api/dashboards/:id/auto-layout`, and return the packed, persisted layout — replacing the need for an agent (e.g. `helio-news`'s `_pack`/`_fill_shelf`/`_clamp`) to compute panel positions itself. Without `breakpoint` every breakpoint is packed at its own column count; with it only that breakpoint changes. When `expectedLayoutVersion` is given it SHALL be sent in the request body; when omitted the request SHALL carry no precondition.
@@ -82,21 +44,6 @@ The MCP `auto_layout_dashboard` tool SHALL accept a dashboard id, a list of `{pa
 #### Scenario: Precondition forwarded
 - **WHEN** an agent passes `expectedLayoutVersion` N
 - **THEN** the auto-layout request body carries `expectedLayoutVersion` N
-
-### Requirement: update_panel MCP tool
-The MCP server SHALL expose `update_panel` accepting only placement fields (`title`, `w`, `h`,
-position) — DataType/binding fields SHALL NOT be accepted, since a panel's Output binding is fixed
-at placement time and is not mutable via `update_panel`.
-
-#### Scenario: Agent resizes a placed panel
-- **WHEN** an agent calls `update_panel` with a valid `panelId` and new `w`/`h`
-- **THEN** the tool updates the placement and returns the updated panel
-
-#### Scenario: Attempting to rebind a panel's Output is rejected
-- **WHEN** an agent calls `update_panel` with a field attempting to change the panel's bound
-  Output
-- **THEN** the tool rejects the call before issuing any HTTP request, since `update_panel`'s
-  schema does not accept a binding field
 
 ### Requirement: update_dashboard_layout sets one breakpoint without touching the others
 
@@ -228,3 +175,70 @@ authoritative, so the V41 pipeline-only binding guarantee cannot be bypassed via
 - **WHEN** an agent applies a proposal whose `output` panel `config` attempts to override `outputId` with a different
   id than the panel's flat `outputId`
 - **THEN** the flat-field `outputId` remains authoritative and the V41 pipeline-only rule is still enforced
+
+### Requirement: Image panel caption and chart Output annotation are set through their own MCP tools
+
+The MCP tool surface SHALL accept an optional `caption` on an image panel's `config` (`create_content_panel` on
+create, `update_panel` on update) and an optional `annotation` on a chart-kind Output's `config` (`add_output` on
+create, `update_output` on update), and each tool description SHALL document its field. Omitting either field SHALL
+leave the panel or Output without a caption/annotation.
+
+#### Scenario: Agent creates an image panel with a caption
+- **WHEN** an agent calls `create_content_panel` with `type: "image"` and `config: { imageUrl: "...",
+  caption: "Hero photo — Reuters" }`
+- **THEN** the created image panel persists with that `caption` and the dashboard renders its caption strip
+
+#### Scenario: Agent sets a chart annotation on the Output
+- **WHEN** an agent calls `update_output` on a chart-kind Output with `config.annotation: "Source: BLS"`
+- **THEN** the Output persists with that `annotation` and every `output` panel bound to it renders it with the chart
+
+#### Scenario: Omitting caption/annotation leaves none
+- **WHEN** an agent creates an image panel without `caption`, or a chart-kind Output without `annotation`
+- **THEN** no caption strip or annotation is rendered
+
+### Requirement: Proposal flat fields seed non-data panel config and are inert on output panels
+
+The proposal panel `config` field SHALL be optional and additive. A proposal panel carrying only flat fields (and no
+`config`) SHALL still be accepted. For a panel with no flat `outputId`, the flat fields seed the created panel's config:
+`content` for `text`/`markdown`, `url` for `image` (stored as `config.imageUrl` with `imageFit: "contain"`), and
+`orientation` for `divider` (the backend accepts a `divider` proposal panel; the proposal schema's `type` enum and the MCP
+`PANEL_TYPES` list only `text`, `markdown`, `image`, `output` and `form`). When a flat `outputId` is supplied, the
+config is derived from it instead and `content`, `url` and `orientation` are not used. For an `output` panel that derivation is
+`{ outputId }` only (before any `config` or `controls` is merged in): the legacy flat fields `fieldMapping`,
+`aggregation`, `chartType`, `xAxisLabel`, `yAxisLabel`, `seriesColors`, `label`, `unit` and `sort` are decoded but never
+applied (that configuration lives on the Output). When `config` is also supplied it is merged over the derived config
+and wins on a key conflict, except that the flat `outputId` and `dataSourceId` stay authoritative. The in-app Proposal
+Review UI, which posts to the same endpoint, SHALL continue to round-trip proposals.
+
+#### Scenario: Flat content seeds a non-data panel
+- **WHEN** an agent applies a proposal with a `markdown` panel carrying `content: "# Notes"` and no `config`
+- **THEN** the created panel's `config.content` is `"# Notes"`
+
+#### Scenario: Legacy chart flat fields are inert on an output panel
+- **WHEN** an agent applies a proposal whose `output` panel carries `outputId` plus `chartType: "bar"` and
+  `xAxisLabel: "Month"` and no `config`
+- **THEN** the created panel's config is the same as for the same proposal without those two fields, and neither
+  `chartType` nor `xAxisLabel` appears in it
+
+#### Scenario: Proposal Review UI still round-trips
+- **WHEN** a proposal is applied through the in-app Proposal Review UI
+- **THEN** the dashboard and its panels are created correctly with no regression
+
+### Requirement: update_panel MCP tool edits a panel in place
+The MCP server SHALL expose `update_panel`, which partially updates a panel's `title`, `type`, `config` and/or
+`appearance` through `PATCH /api/panels/:id` without recreating the panel. An omitted argument SHALL leave that field
+unchanged. A `type` that differs from the panel's stored kind SHALL be rejected (a panel's kind is fixed at creation).
+`config` is decoded against the stored kind; for an `output` panel, `config.outputId` rebinds the placement to a
+different existing Output. Size and position are not `update_panel` arguments.
+
+#### Scenario: Agent renames a placed panel
+- **WHEN** an agent calls `update_panel` with a valid `panelId` and a new `title`
+- **THEN** the tool updates the title, leaves every omitted field unchanged, and returns the updated panel
+
+#### Scenario: Changing a panel's kind is rejected
+- **WHEN** an agent calls `update_panel` with a `type` that differs from the panel's stored kind
+- **THEN** the backend rejects the call with 400 and the panel is unchanged
+
+#### Scenario: Agent rebinds an output panel to another Output
+- **WHEN** an agent calls `update_panel` on an `output` panel with `config: { outputId: "<another Output id>" }`
+- **THEN** the panel is bound to that Output
