@@ -6,6 +6,7 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../../test/renderWithStore";
+import { settleChartMount } from "../../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
 import type { Output } from "../../../pipelines/types/output";
@@ -100,7 +101,8 @@ async function startInViewThenEdit() {
   renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
     panels: { items: [panel] },
   });
-  await screen.findByTestId("echarts");
+  await settleChartMount(jest.mocked(getOutputByIdRequest));
+  screen.getByTestId("echarts");
   // View mode: the edit form (and its overlay) must not exist yet.
   expect(document.querySelector(".panel-detail-modal__scroll-fade")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));

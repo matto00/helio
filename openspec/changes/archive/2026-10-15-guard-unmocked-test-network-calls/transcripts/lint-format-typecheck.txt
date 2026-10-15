@@ -1,0 +1,14 @@
+
+> helio-frontend@0.0.0 lint
+> eslint src --max-warnings=0
+
+lint exit=0
+
+Checking formatting...
+All matched files use Prettier code style!
+fmt exit=0
+
+> helio-frontend@0.0.0 typecheck
+> tsc --noEmit
+
+tc exit=0

@@ -26,6 +26,8 @@ test.describe.configure({ mode: "parallel" });
 
 const AUTH = { prefix: "hel1605", displayName: "HEL-1605", domain: "example.com" } as const;
 const CSRF_HEADER = "X-Helio-Requested-With";
+// frontend/src/shared/chrome/rowDeleteFocus.ts REVEAL_DELAY_MS (e2e does not import app code).
+const REVEAL_DELAY_MS = 500;
 
 async function seedSources(page: Page, prefix: string, count: number): Promise<string[]> {
   const ids: string[] = [];
@@ -166,6 +168,12 @@ test.describe("HEL-1605 overview row Delete confirm", () => {
       const aGroup = page.getByRole("group", { name: `Confirm delete ${aName}` });
       await expect(aGroup).toBeVisible();
       const aHeight = (await aGroup.locator("xpath=ancestor::tr").boundingBox())!.height;
+
+      // A's confirm arms a scrollIntoView of itself REVEAL_DELAY_MS (500ms) after its click. Fired after B's placement
+      // it scrolls the page back up to A (A's confirm bottom = its own height, not < 0); the placement ends ~290ms
+      // after the click, so under load the timer can fire in the gap before the check below. Let it fire first:
+      // the clock is installed, so move it past the delay (HEL-1606 probe: 10/10 red fired after, 10/10 green before).
+      await page.clock.runFor(REVEAL_DELAY_MS + 100);
 
       // B near the bottom edge, so its own confirm opens below the fold.
       await placeBottomNearViewportEdge(page, b);

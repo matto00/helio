@@ -1,0 +1,5 @@
+FAIL: flags a splice FQN in code after a fully closed nested comment once — []
+FAIL: flags a splice FQN in code after an empty /**/ comment once — []
+
+check-scala-quality selftest: 2 failed, 101 passed
+exit 1

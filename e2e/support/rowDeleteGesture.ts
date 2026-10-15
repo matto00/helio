@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { waitForWebFonts } from "./webFonts";
 
 // Shared by the HEL-1574 / HEL-1605 row-Delete specs: placing a row, and recording what each mouse press of a
 // gesture lands on and where the row sits at that moment.
@@ -18,8 +19,11 @@ export async function placeBottomNearViewportEdge(page: Page, button: Locator): 
   );
 }
 
-/** The row's top once its layout has stopped moving (late fetches such as the references summary re-flow rows). */
+/** The row's top once its layout has stopped moving (late fetches such as the references summary re-flow rows, and
+ *  the web-font swap shrinks every row ~2px 100-250ms after first paint, HEL-1606). Every row gesture computes its
+ *  point from this, so the font wait lives here; it reads fonts, never labels. */
 export async function settledRowTop(button: Locator): Promise<number> {
+  await waitForWebFonts(button);
   let previous = Number.NaN;
   let current = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
   for (let i = 0; i < 20 && current !== previous; i++) {

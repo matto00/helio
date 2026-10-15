@@ -1,0 +1,20 @@
+post-fix (cycle 2) call graph; signature waitForWebFonts(target):
+e2e/hel1574-shell-rail.spec.ts:9:  placeBottomNearViewportEdge,
+e2e/hel1574-shell-rail.spec.ts:381:      await placeBottomNearViewportEdge(page, middle);
+e2e/hel1574-shell-rail.spec.ts:387:      await middle.dblclick({ force: true });
+e2e/hel1574-shell-rail.spec.ts:530:        await placeBottomNearViewportEdge(page, target);
+e2e/hel1574-shell-rail.spec.ts:536:        await target.dblclick({ force: true });
+e2e/hel1605-row-delete-confirm.spec.ts:10:  placeBottomNearViewportEdge,
+e2e/hel1605-row-delete-confirm.spec.ts:17:  settledRowTop,
+e2e/hel1605-row-delete-confirm.spec.ts:102:        await placeBottomNearViewportEdge(page, target);
+e2e/hel1605-row-delete-confirm.spec.ts:179:      await placeBottomNearViewportEdge(page, b);
+e2e/hel1605-row-delete-confirm.spec.ts:190:      await b.dblclick({ force: true });
+e2e/hel1605-row-delete-confirm.spec.ts:233:    await settledRowTop(b);
+e2e/hel1605-row-delete-confirm.spec.ts:244:    await b.dblclick({ force: true, position: { x: box.width / 2, y: box.height / 2 } });
+e2e/hel1605-row-delete-confirm.spec.ts:289:      await settledRowTop(last);
+e2e/hel1605-row-delete-confirm.spec.ts:295:      await last.dblclick({ force: true });
+e2e/support/rowDeleteGesture.ts:2:import { waitForWebFonts } from "./webFonts";
+e2e/support/rowDeleteGesture.ts:9:export async function placeBottomNearViewportEdge(page: Page, button: Locator): Promise<void> {
+e2e/support/rowDeleteGesture.ts:10:  await settledRowTop(button);
+e2e/support/rowDeleteGesture.ts:25:export async function settledRowTop(button: Locator): Promise<number> {
+e2e/support/rowDeleteGesture.ts:26:  await waitForWebFonts(button);

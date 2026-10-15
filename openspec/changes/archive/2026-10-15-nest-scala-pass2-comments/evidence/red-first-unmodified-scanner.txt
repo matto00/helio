@@ -1,0 +1,8 @@
+FAIL: does not flag a splice FQN after an inner close on one line (nested comment) — ["backend/src/main/scala/com/helio/example/Fixture.scala:1:18: inline FQN 'java.util.…' — add a top-of-file import instead"]
+FAIL: does not flag a splice FQN after an inner close across lines (nested comment) — ["backend/src/main/scala/com/helio/example/Fixture.scala:2:14: inline FQN 'java.util.…' — add a top-of-file import instead"]
+FAIL: does not flag a splice FQN inside a depth-3 nested comment (nested comment) — ["backend/src/main/scala/com/helio/example/Fixture.scala:1:23: inline FQN 'java.util.…' — add a top-of-file import instead"]
+FAIL: does not flag a splice FQN inside a depth-3 nested comment across lines (nested comment) — ["backend/src/main/scala/com/helio/example/Fixture.scala:3:14: inline FQN 'java.util.…' — add a top-of-file import instead","backend/src/main/scala/com/helio/example/Fixture.scala:4:9: inline FQN 'java.util.…' — add a top-of-file import instead"]
+FAIL: pass 2 keeps an unterminated nested comment open to the end of the text — ["val s = s\"${java.util.UUID.randomUUID()}\""]
+
+check-scala-quality selftest: 5 failed, 98 passed
+exit 1

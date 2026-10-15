@@ -19,6 +19,21 @@ import { makeOutputPanel } from "./panelFixtures";
 import { renderWithStore } from "./renderWithStore";
 import { PanelList } from "../features/panels/ui/PanelList";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id, GET /api/outputs/:id/assertion-status, GET /api/outputs/:id/rows, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../features/pipelines/services/outputService", () => ({
+  ...jest.requireActual("../features/pipelines/services/outputService"),
+  getOutputById: jest.fn(() =>
+    Promise.reject(new Error("getOutputById: unmocked request stubbed (HEL-1600)")),
+  ),
+  getAssertionStatus: jest.fn(() =>
+    Promise.reject(new Error("getAssertionStatus: unmocked request stubbed (HEL-1600)")),
+  ),
+  getOutputRows: jest.fn(() =>
+    Promise.reject(new Error("getOutputRows: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("../features/panels/services/panelService", () => ({
   createPanel: jest.fn(),
   fetchPanels: jest.fn(),

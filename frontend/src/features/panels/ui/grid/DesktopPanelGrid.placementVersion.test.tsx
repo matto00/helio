@@ -20,6 +20,18 @@ import { createPanel, duplicatePanel } from "../../state/panelThunks";
 import type { Panel } from "../../types/panel";
 import { PanelGrid } from "./PanelGrid";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id, GET /api/outputs/:id/assertion-status, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../../pipelines/services/outputService"),
+  getOutputById: jest.fn(() =>
+    Promise.reject(new Error("getOutputById: unmocked request stubbed (HEL-1600)")),
+  ),
+  getAssertionStatus: jest.fn(() =>
+    Promise.reject(new Error("getAssertionStatus: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 jest.mock("react-grid-layout", () => {
   const React = require("react");
   return {
