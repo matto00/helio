@@ -1,2 +1,0 @@
-- `e2e/support/webFonts.ts` — `waitForWebFonts` scope generalised to `closest("tr") ?? target` (row callers unchanged), doc comment now says wait before each measurement step with newly rendered text, timeout message names the scope
-- `e2e/hel1444-footnoted-chart-canvas.spec.ts` — wait for web fonts before measuring each card in the canvas-floors test (stacked bar height is 57px with web fonts, 58px in the fallback face)
