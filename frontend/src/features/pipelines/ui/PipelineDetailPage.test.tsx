@@ -14,7 +14,7 @@ import { pipelinesReducer } from "../state/pipelinesSlice";
 import { outputsReducer } from "../state/outputsSlice";
 import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
-import { settled } from "./pipelineDetailPageTestUtils";
+import { installPhoneShell, settled } from "./pipelineDetailPageTestUtils";
 import {
   runPipeline,
   fetchRunHistory,
@@ -369,6 +369,17 @@ function openRunHistory() {
   openPipelineActionsMenu();
   fireEvent.click(screen.getByRole("menuitem", { name: "Run history" }));
 }
+
+// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
+// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
+// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+let restorePhoneShell: () => void = () => {};
+beforeEach(() => {
+  restorePhoneShell = installPhoneShell();
+});
+afterEach(() => {
+  restorePhoneShell();
+});
 
 describe("PipelineDetailPage", () => {
   beforeAll(() => {

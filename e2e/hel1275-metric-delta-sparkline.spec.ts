@@ -12,6 +12,7 @@ import { containerWidthForViewport, waitForGridWidth } from "./support/gridProce
 import { backdateHistory, historyRowCount } from "./support/historySeed";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1275 — exit criterion of the metric history UI: a metric panel reads "1,204 ▲ 12% vs 7d" with
 // a sparkline, from REAL history. Two real pipeline runs write the history (sum 1075, then sum
@@ -198,7 +199,7 @@ for (const theme of ["light", "dark"] as const) {
 
       // Choose "7 days" in the Output editor UI.
       await page.goto(`/pipelines/${pipeline.id}`);
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
       await page.getByRole("button", { name: "Open HEL-1275 Revenue output" }).click();
       await page.getByRole("combobox", { name: "Compare" }).click();
       await page.getByRole("option", { name: "7 days" }).click();
@@ -281,7 +282,7 @@ for (const theme of ["light", "dark"] as const) {
         .getByRole("link", { name: new RegExp(`HEL-1275 pipeline ${theme}`) })
         .first()
         .click();
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
       await page.getByRole("button", { name: "Open HEL-1275 Revenue output" }).click();
       await page.getByRole("combobox", { name: "Compare" }).click();
       await page.getByRole("option", { name: "1 day" }).click();

@@ -41,6 +41,7 @@ import {
 import { defaultConfigFor } from "../state/stepNarrowing";
 import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
+import { installPhoneShell } from "./pipelineDetailPageTestUtils";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -296,6 +297,17 @@ jest.setTimeout(LOADED_CASE_TIMEOUT_MS);
 // the probe). Applied only to this file (restored in afterAll), below the case timeout so a real
 // hang still reports the unmet assertion rather than a bare jest timeout.
 const LOADED_ASYNC_UTIL_TIMEOUT_MS = 20000;
+
+// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
+// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
+// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+let restorePhoneShell: () => void = () => {};
+beforeEach(() => {
+  restorePhoneShell = installPhoneShell();
+});
+afterEach(() => {
+  restorePhoneShell();
+});
 
 describe("PipelineDetailPage - step-create placement and the response delta (HEL-1345)", () => {
   const originalAsyncUtilTimeout = getConfig().asyncUtilTimeout;

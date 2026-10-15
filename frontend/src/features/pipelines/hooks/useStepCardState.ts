@@ -8,6 +8,8 @@
 // local state and PATCH in lockstep. StepCard.tsx becomes a presentational
 // shell over this hook.
 
+import type { MutableRefObject } from "react";
+
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { StepCardStateHandlers } from "./stepCardStateTypes";
@@ -22,6 +24,12 @@ export function useStepCardState(
   step: Step,
   /** Called after a successful PATCH so the parent can keep step.config in sync. */
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void,
+  /** HEL-1579: desktop focused-editor persistence options (see `useStepCardPersist`); the phone
+   *  card passes none and keeps its clear-on-unmount behaviour. */
+  persistOptions?: {
+    flushOnUnmount?: boolean;
+    cancelPendingRef?: MutableRefObject<(() => void) | null>;
+  },
 ): StepCardStateHandlers {
   const {
     selectedFields,
@@ -86,6 +94,8 @@ export function useStepCardState(
     onConfigChange,
     setSaveError,
     setSaveErrorIsValidation,
+    flushOnUnmount: persistOptions?.flushOnUnmount,
+    cancelPendingRef: persistOptions?.cancelPendingRef,
   });
   const {
     onFieldToggle,

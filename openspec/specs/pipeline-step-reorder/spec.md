@@ -120,6 +120,8 @@ The pipeline editor SHALL let an author reorder steps and persist the result:
 - After a reorder settles, the pipeline SHALL re-analyze (existing debounced analyze flow) so
   per-step schemas and validation errors reflect the new order
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop reordering is on the spine: drag the row's grip (neutral drop indicator) or use "Move up"/"Move down" in the row menu (accessible names "Move step up in <source>"/"Move step down in <source>"); the persisted ids sent are unchanged and a failed reorder reverts with an error toast.
+
 #### Scenario: Drag reorders and persists
 - **WHEN** the user drags step C above step A and drops it
 - **THEN** the list immediately shows C first, the new order is persisted, and after reload the
@@ -144,3 +146,7 @@ The pipeline editor SHALL let an author reorder steps and persist the result:
 - **WHEN** the reorder request fails (e.g. concurrent edit made the payload stale)
 - **THEN** the step list reverts to its previous order and a visible error is surfaced (no
   silently lost reorder)
+
+#### Scenario: Desktop keyboard reorder
+- **WHEN** the user chooses "Move down" on step 1 in the row menu on desktop
+- **THEN** the order changes optimistically, the PUT carries the persisted ids and focus moves to the moved row

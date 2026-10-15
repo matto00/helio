@@ -22,7 +22,7 @@ request payload shape, and estimated call frequency per session.
 
 #### Scenario: Audit covers all panel-level write paths
 - **WHEN** a developer reviews the write-path-audit spec
-- **THEN** it SHALL list PATCH /api/panels/:id for title updates, appearance updates, and data binding updates
+- **THEN** it SHALL list POST /api/panels/updateBatch for staged panel title and appearance edits (flushed by the auto-save tick, Save now, or unmount), and PATCH /api/panels/:id for Output swaps (`config.outputId`)
 
 #### Scenario: Audit covers creation and duplication paths
 - **WHEN** a developer reviews the write-path-audit spec
@@ -68,9 +68,9 @@ staged since the last one.
 | 4 | `POST /api/dashboards` | POST | Dashboard create | `{ name }` | 1 per create |
 | 5 | `POST /api/dashboards/:id/duplicate` | POST | Dashboard duplicate | _(no body)_ | 1 per duplicate |
 | 6 | `POST /api/dashboards/import` | POST | Dashboard import from file | `DashboardSnapshot` | 1 per import |
-| 7 | `PATCH /api/panels/:id` | PATCH | Panel title rename commit | `{ title }` | 1 per rename |
-| 8 | `PATCH /api/panels/:id` | PATCH | Panel appearance save | `{ appearance: PanelAppearance }` | 1 per save |
-| 9 | `PATCH /api/panels/:id` | PATCH | Output panel "Swap output" (detail modal) | `{ config: { outputId } }` | 1 PATCH + 1 GET (refetch) |
+| 7 | `POST /api/panels/updateBatch` | POST | Staged panel title rename commit and detail-modal appearance save, flushed by auto-save, Save now or grid unmount | `{ fields: string[], panels: [{ id, title?, appearance? }] }` | at most 1 per flush (edits to several panels share the call) |
+| 8 | _(retired)_ | | Panel appearance saves no longer have their own call; they are staged and sent through row 7 | | |
+| 9 | `PATCH /api/panels/:id` | PATCH | Output panel "Swap output" (`OutputPicker`) | `{ config: { outputId } }` | 1 PATCH + 1 GET (refetch) |
 | 10 | `POST /api/panels` | POST | Add panel | `{ dashboardId, title, type? }` | 1 POST + 1 GET (refetch) |
 | 11 | `POST /api/panels/:id/duplicate` | POST | Panel duplicate | _(no body)_ | 1 POST + 1 GET (refetch) |
 
@@ -112,37 +112,27 @@ Fires on Enter or blur. Cancelled by Escape (`cancelledRef` in `DashboardList.ts
 { "name": "Operations" }
 ```
 
-**7. Panel title rename** — `PATCH /api/panels/:id`
+**7 & 8. Panel title and appearance edits** — `POST /api/panels/updateBatch`
 
-Fires on Enter or blur. Cancelled by Escape (`titleCancelledRef` in `PanelGrid.tsx`).
-
-```json
-{ "title": "Revenue KPI" }
-```
-
-**8. Panel appearance** — `PATCH /api/panels/:id`
-
-`chart` field included only for panel type `chart`. Full appearance object always sent.
+A title rename (Enter or blur; cancelled by Escape via `titleCancelledRef` in `usePanelTitleEditing.ts`) and the detail
+modal's appearance save (`PanelDetailModal.tsx`) both call `accumulatePanelUpdate`, which stages the edit locally. The
+staged set is sent by `usePanelUpdatesFlush.ts` (30 s auto-save tick, Save now, or grid unmount) as one
+`buildBatchRequest` call, at most once per flush however many edits and panels were staged. The detail modal's
+appearance payload is `{ background, color, transparency }` (no `chart` field).
 
 ```json
 {
-  "appearance": {
-    "background": "#0f3460", "color": "#e94560", "transparency": 0.1,
-    "chart": {
-      "seriesColors": ["#5470c6", "..."],
-      "legend": { "show": true, "position": "top" },
-      "tooltip": { "enabled": true },
-      "axisLabels": { "x": { "show": true, "label": "X Axis" }, "y": { "show": true, "label": "Y Axis" } },
-      "chartType": "line"
-    }
-  }
+  "fields": ["title", "appearance"],
+  "panels": [
+    { "id": "...", "title": "Revenue KPI", "appearance": { "background": "#0f3460", "color": "#e94560", "transparency": 0.1 } }
+  ]
 }
 ```
 
 **9. Panel output swap** — `PATCH /api/panels/:id`
 
 Fires when the user picks a different Output in the detail modal's "Swap output" picker (`swapPanelOutput`); the panel
-keeps its position and size. It then refetches the dashboard's panels (`GET /api/dashboards/:id/panels`).
+keeps its position and size (dispatched from `OutputPicker.tsx`). It then refetches the dashboard's panels (`GET /api/dashboards/:id/panels`).
 
 ```json
 { "config": { "outputId": "out-abc123" } }
@@ -159,24 +149,24 @@ interaction results in 2 HTTP calls: the POST plus a `GET /api/dashboards/:id/pa
 
 | Interaction | Count | Write Calls |
 |-------------|-------|-------------|
-| Panel repositions (drag) | 5 | 5 × PATCH dashboard layout |
-| Panel resizes | 3 | 3 × PATCH dashboard layout |
-| Panel renames | 2 | 2 × PATCH panel |
-| Panel appearance saves | 2 | 2 × PATCH panel |
-| Panel data binding saves | 2 | 2 × PATCH panel |
+| Panel repositions (drag) | 5 | staged, folded into the flushes (no per-drag call) |
+| Panel resizes | 3 | staged, folded into the flushes (no per-resize call) |
+| Panel renames + appearance saves | 4 | folded into the flushes (staged, no per-edit call) |
+| Panel output swaps | 2 | 2 × PATCH panel + 2 GET |
+| Auto-save flushes (assumed 3) | 3 | up to 3 × PATCH dashboard layout + up to 3 × POST panels/updateBatch |
 | Dashboard appearance save | 1 | 1 × PATCH dashboard |
 | Dashboard rename | 1 | 1 × PATCH dashboard |
 | Add panel | 1 | 1 POST + 1 GET |
-| **Total** | | **~19 write calls** |
+| **Total** | | **up to ~11 write calls** (3 layout + 3 batch + 2 swaps + 1 dashboard appearance + 1 rename + 1 add) |
 
 **Heavy session** (frequent repositioning):
 
-~20 layout PATCHes + 10 panel PATCHes + 3 dashboard PATCHes + 6 calls from add/duplicate = **~39 write calls**
+up to ~20 layout PATCHes (one per flush with pending layout) + up to ~10 panel updateBatch POSTs + 3 dashboard PATCHes + 6 calls from add/duplicate = **up to ~39 write calls**
 
 **Key observation**: layout PATCHes dominate in heavy sessions. Each carries the full
 4-breakpoint layout for all panels (payload size grows linearly with panel count). HEL-155
 introduced `PATCH /api/dashboards/:id/update` and `POST /api/panels/updateBatch` to provide
-clean resource-scoped write paths; layout still fires once per drag/resize-stop via the dashboard
+clean resource-scoped write paths; layout is staged and fires at most once per flush (see row 1) via the dashboard
 update endpoint.
 
 ### Source Locations
@@ -189,6 +179,8 @@ update endpoint.
 | `frontend/src/features/panels/state/panelThunks.ts` | Panel thunks and triggers (re-exported by `panelsSlice.ts`) |
 | `frontend/src/features/panels/hooks/useLayoutSave.ts` | Layout drag/resize/undo/redo staging and flush (no debounce) |
 | `frontend/src/features/panels/hooks/usePanelUpdatesFlush.ts` | 30 s auto-save tick and Save now |
-| `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` | Panel appearance and data binding saves |
+| `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` | Staged panel appearance (and title) edits |
+| `frontend/src/features/panels/ui/grid/usePanelTitleEditing.ts` | Staged panel title edits |
+| `frontend/src/features/panels/ui/OutputPicker.tsx` | Output swap (`swapPanelOutput`) |
 | `frontend/src/features/dashboards/ui/DashboardAppearanceEditor.tsx` | Dashboard appearance save |
 | `frontend/src/features/dashboards/ui/DashboardList.tsx` | Dashboard create, rename, duplicate, import |

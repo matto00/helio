@@ -302,7 +302,7 @@ private[pipelines] final class PipelineRunExecutor(
           if (isDry) onDryRunSuccess(pipelineId, runId, startAt, pidStr, resultRows.size, user, ownerRun, assertionSink.results, availableRowCount, truncatedReads).map(_ => Right(None))
           else
             onRunSuccess(
-              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource,
+              roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource,
               assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId
             )
         followUp.map {
@@ -336,6 +336,7 @@ private[pipelines] final class PipelineRunExecutor(
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
+      stepCounts:         Map[String, Long],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
       ownerRun:           Boolean,
@@ -358,7 +359,7 @@ private[pipelines] final class PipelineRunExecutor(
     else runState(runId).flatMap {
       // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
       // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
-      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
         // HEL-1518 (design.md D3/D4): a guard trip inside a node's snapshot transaction means the run was finalized
         // or deleted after the early check; it maps exactly like the early check does.
         .recoverWith { case PipelineRunRepository.RunNoLongerOpen(state) => lateFinisher(pipelineId, runId, state) }
@@ -402,6 +403,7 @@ private[pipelines] final class PipelineRunExecutor(
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
+      stepCounts:         Map[String, Long],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
       ownerRun:           Boolean,
@@ -425,7 +427,7 @@ private[pipelines] final class PipelineRunExecutor(
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId).map(Right(_))
     }
   }
 

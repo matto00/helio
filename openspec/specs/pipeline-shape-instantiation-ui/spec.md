@@ -14,6 +14,8 @@ against a chosen step, available from the Outputs rail's "+ output" affordance a
 Outputs gallery tab's "+ New output" affordance. Selecting it SHALL open a shape picker that lists
 every entry from `GET /api/pipeline-shapes`, each showing at least its `label` and `description`.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the control is the spine's ghost "Add Outputs from a shape" button under the steps (also in the empty state); a step row's "Add output" menu item and the OUTPUTS section's "+ Output" open the Output sheet. The shape picker and everything after it are unchanged, and the created steps appear as new spine rows.
+
 #### Scenario: Shape entry point is per-step, not page-level
 - **WHEN** a user activates "+ output" on a trunk step
 - **THEN** the resulting menu offers "Add Outputs from a shape" scoped to that step, alongside the
@@ -33,6 +35,10 @@ every entry from `GET /api/pipeline-shapes`, each showing at least its `label` a
 - **WHEN** a user opens a pipeline with one or more existing steps
 - **THEN** each step's Outputs rail and the Outputs gallery tab offer an "Add Outputs from a shape"
   control scoped to that step
+
+#### Scenario: Desktop shape affordance
+- **WHEN** the user activates "Add Outputs from a shape" in the desktop spine
+- **THEN** the shape picker opens listing every shape, anchored on the last step of the first source's trunk
 
 ### Requirement: Selecting a shape opens a params form driven by its paramsSchema
 

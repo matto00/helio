@@ -376,6 +376,32 @@ class OutputRoutesSpec
     }
   }
 
+  // HEL-1579 (design.md D13): the per-pipeline list carries `panelCount` (one batched count), so the pipeline page's
+  // OUTPUTS section needs no `GET /outputs/:id/panels` per Output. Same visibility as `listPanels`: owner and editor
+  // grantee see the count; an unrelated caller gets the same 404 as before.
+  "GET /pipelines/:id/outputs panelCount (HEL-1579)" should {
+    "carry each Output's panelCount for the owner and the editor grantee, 0 when unbound" in {
+      val pipelineId    = newSharedPipeline()
+      val boundOutput   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "bound-out", OutputKind.Table, explicitRootId = None))
+      val unboundOutput = await(outputRepo.insertInternal(pipelineId, None, owner.id, "unbound-out", OutputKind.Table, explicitRootId = None))
+      val (dashboard, _) = await(dashboardService.create(DashboardService.CreateDashboardInput(Some("count-dash-1579")), owner))
+      val config = JsObject("outputId" -> JsString(boundOutput.id.value))
+      await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
+      await(panelService.create(CreatePanelRequest(Some(dashboard.id.value), None, Some("output"), Some(config)), owner))
+
+      for (caller <- Seq(owner, grantee))
+        Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(caller) ~> check {
+          status shouldBe StatusCodes.OK
+          val items = responseAs[OutputsResponse].items
+          items.find(_.id == boundOutput.id.value).flatMap(_.panelCount) shouldBe Some(2)
+          items.find(_.id == unboundOutput.id.value).flatMap(_.panelCount) shouldBe Some(0)
+        }
+      Get(s"/pipelines/${pipelineId.value}/outputs") ~> routesFor(other) ~> check {
+        status shouldBe StatusCodes.NotFound
+      }
+    }
+  }
+
   "GET /outputs/:id" should {
     "200 for the owner and the editor grantee (sharing-aware RLS select), 404 for an unrelated caller" in {
       val pipelineId = newSharedPipeline()

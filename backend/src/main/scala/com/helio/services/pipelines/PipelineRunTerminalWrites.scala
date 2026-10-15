@@ -51,11 +51,14 @@ private[pipelines] final class PipelineRunTerminalWrites(
    *  the run was already terminal (reaped as abandoned); a caller then skips its `last_run_*` and assertion writes. */
   private[pipelines] def writeTerminal(
       runId: PipelineRunId, status: String, at: Instant, rowCount: Option[Int], errorLog: Option[String],
-      user: AuthenticatedUser, ownerRun: Boolean, truncatedReadsJson: Option[String]
+      user: AuthenticatedUser, ownerRun: Boolean, truncatedReadsJson: Option[String],
+      // HEL-1579 (design.md D9): only the succeeded path passes the engine's per-step counts; every other terminal
+      // write leaves the default `None`, i.e. NULL = "not recorded".
+      stepRowCountsJson: Option[String] = None
   ): Future[Boolean] =
     if (pipelineRunRepo == null) Future.successful(true)
-    else if (ownerRun) pipelineRunRepo.updateRunTerminal(runId, status, at, rowCount, errorLog, user, truncatedReadsJson)
-    else pipelineRunRepo.updateRunTerminalInternal(runId, status, at, rowCount, errorLog, truncatedReadsJson)
+    else if (ownerRun) pipelineRunRepo.updateRunTerminal(runId, status, at, rowCount, errorLog, user, truncatedReadsJson, stepRowCountsJson)
+    else pipelineRunRepo.updateRunTerminalInternal(runId, status, at, rowCount, errorLog, truncatedReadsJson, stepRowCountsJson)
 
   /** HEL-1511 (design.md D4): the work that follows a terminal write -- run only when that write won; otherwise the
    *  run was already terminal (e.g. reaped) or not found, and the outcome is dropped with a WARN. */
@@ -69,10 +72,11 @@ private[pipelines] final class PipelineRunTerminalWrites(
   /** HEL-1492 (design.md D4): the `pipelines.last_run_*` write for either kind of submitter -- see [[writeTerminal]]. */
   private[pipelines] def writeLastRun(
       pipelineId: PipelineId, status: String, at: Instant, rowCount: Option[Long],
-      user: AuthenticatedUser, ownerRun: Boolean, truncated: Option[Boolean]
+      user: AuthenticatedUser, ownerRun: Boolean, truncated: Option[Boolean],
+      stepRowCountsJson: Option[String] = None
   ): Future[Unit] =
-    if (ownerRun) pipelineRepo.updateLastRun(pipelineId, status, at, rowCount, user, truncated)
-    else pipelineRepo.updateLastRunInternal(pipelineId, status, at, rowCount, truncated)
+    if (ownerRun) pipelineRepo.updateLastRun(pipelineId, status, at, rowCount, user, truncated, stepRowCountsJson)
+    else pipelineRepo.updateLastRunInternal(pipelineId, status, at, rowCount, truncated, stepRowCountsJson)
 
   /** The `Failure(ex)` branch of `PipelineRunExecutor.executeRun`'s original inline `transformWith`
    *  (HEL-505: factored out, unchanged in behavior, so the guard-check nesting added to `executeRun`

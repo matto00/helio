@@ -30,7 +30,7 @@ describe("usePanelPolling", () => {
 
   it("does not set an interval when refreshInterval is null", () => {
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, null, "type-1"));
+    renderHook(() => usePanelPolling(refresh, null, "output-1"));
 
     act(() => {
       jest.advanceTimersByTime(60_000);
@@ -39,7 +39,7 @@ describe("usePanelPolling", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("does not set an interval when typeId is null", () => {
+  it("does not set an interval when outputId is null", () => {
     const refresh = jest.fn();
     renderHook(() => usePanelPolling(refresh, 30, null));
 
@@ -63,7 +63,7 @@ describe("usePanelPolling", () => {
 
   it("calls refresh at the correct cadence", () => {
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     // Not called immediately — first tick is after 30 s
     expect(refresh).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("usePanelPolling", () => {
 
   it("clears the interval on unmount", () => {
     const refresh = jest.fn();
-    const { unmount } = renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    const { unmount } = renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     unmount();
 
@@ -97,30 +97,30 @@ describe("usePanelPolling", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("clears the interval when typeId changes to null", () => {
+  it("clears the interval when outputId changes to null", () => {
     const refresh = jest.fn();
-    let typeId: string | null = "type-1";
+    let outputId: string | null = "output-1";
 
-    const { rerender } = renderHook(() => usePanelPolling(refresh, 30, typeId));
+    const { rerender } = renderHook(() => usePanelPolling(refresh, 30, outputId));
 
     act(() => {
       jest.advanceTimersByTime(30_000);
     });
     expect(refresh).toHaveBeenCalledTimes(1);
 
-    typeId = null;
+    outputId = null;
     rerender();
 
     act(() => {
       jest.advanceTimersByTime(60_000);
     });
-    // No additional calls after typeId is removed
+    // No additional calls after outputId is removed
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("pauses polling when the tab becomes hidden", () => {
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     act(() => {
       jest.advanceTimersByTime(30_000);
@@ -140,7 +140,7 @@ describe("usePanelPolling", () => {
 
   it("resumes polling when the tab becomes visible again", () => {
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     act(() => {
       setVisibility("hidden");
@@ -170,7 +170,7 @@ describe("usePanelPolling", () => {
 
   it("does not stack duplicate intervals when tab hides and shows repeatedly", () => {
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     // Hide → show → hide → show rapidly
     act(() => {
@@ -201,7 +201,7 @@ describe("usePanelPolling", () => {
     setVisibility("hidden");
 
     const refresh = jest.fn();
-    renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     act(() => {
       jest.advanceTimersByTime(60_000);
@@ -215,7 +215,7 @@ describe("usePanelPolling", () => {
     const refresh2 = jest.fn();
     let refresh = refresh1;
 
-    const { rerender } = renderHook(() => usePanelPolling(refresh, 30, "type-1"));
+    const { rerender } = renderHook(() => usePanelPolling(refresh, 30, "output-1"));
 
     refresh = refresh2;
     rerender();

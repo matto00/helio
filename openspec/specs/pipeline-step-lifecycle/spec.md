@@ -87,6 +87,8 @@ Each StepCard SHALL offer, as sibling controls in its header actions cluster:
 - A toggle SHALL refresh analysis (and open previews) so schemas/validation reflect the changed
   effective pipeline
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop Disable/Enable and Duplicate are quiet text actions in the focused editor's header (accessible names "Disable step"/"Enable step" with `aria-pressed`, and "Duplicate step"). A disabled step's spine row is dimmed with its count slot reading "off", and its preview table says the rows pass through unchanged without fetching.
+
 #### Scenario: Toggle disables and mutes a step
 - **WHEN** the user activates "Disable step" on an enabled step
 - **THEN** the card renders muted, its preview control is unavailable, the change persists, and
@@ -110,6 +112,10 @@ Each StepCard SHALL offer, as sibling controls in its header actions cluster:
 - **WHEN** a duplicate request for a step completes, whether successfully or with an error
 - **THEN** the "Duplicate step" action for that step is enabled again and a subsequent activation
   issues a new request
+
+#### Scenario: Desktop disable and duplicate
+- **WHEN** the user chooses Disable in the focused editor on desktop
+- **THEN** the step is disabled optimistically and persisted, its row reads "off" and the table says rows pass through unchanged
 
 ### Requirement: Duplicating a step applies the same step-configuration write rejection as create and update
 `POST /api/pipeline-steps/:id/duplicate` SHALL apply to the configuration it would write the same strict write-path
