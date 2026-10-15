@@ -1,4 +1,0 @@
-- `e2e/support/webFonts.ts` — new shared `waitForWebFonts(target)`: stylesheet applied + no loading face + the row's own web families loaded/error, bounded, loud
-- `e2e/support/rowDeleteGesture.ts` — `settledRowTop` calls `waitForWebFonts` before its stability loop
-- `e2e/hel1605-row-delete-confirm.spec.ts` — I8/I14 switch tests fire A's 500ms reveal timer (`page.clock.runFor`) before placing B, closing a pre-existing race
-- `openspec/changes/wait-webfonts-row-gestures/**` — change artifacts and evidence/ (probe, repro and repeat logs)
