@@ -6,7 +6,8 @@
 // Scanner state is an explicit stack that survives line breaks (`state.stack`):
 //   - { kind: "lit", triple, interpolated }  a string literal
 //   - { kind: "splice", depth }              a `${` splice (depth = open `{` inside it)
-//   - { kind: "comment" }                    an unclosed `/*`
+//   - { kind: "comment", depth }             an unclosed `/*`; Scala block comments nest, so `/*` inside
+//                                            raises depth and only the `*/` that brings it to 0 returns to code
 // so multi-line `"""` literals, multi-line splices and nested literals resume on the next line.
 // `"` literals cannot span lines: the stack is cut at the first one at end of line.
 //
@@ -66,7 +67,7 @@ export function spliceCodeOnly(line, state = newScanState()) {
       i = n;
     } else if (c === "/" && line[i + 1] === "*") {
       skip(2);
-      stack.push({ kind: "comment" });
+      stack.push({ kind: "comment", depth: 1 });
     } else if (c === "'" && charLiteralEnd() > 0) {
       const end = charLiteralEnd();
       for (let k = i; k < end; k++) keep[k] = top !== undefined;
@@ -93,12 +94,16 @@ export function spliceCodeOnly(line, state = newScanState()) {
   while (i < n) {
     const top = stack[stack.length - 1];
     if (top && top.kind === "comment") {
-      const end = line.indexOf("*/", i);
-      if (end < 0) i = n;
-      else {
-        i = end + 2;
-        stack.pop();
-      }
+      // Earliest of `/*` (opens a level) and `*/` (closes one); each consumes both characters.
+      const open = line.indexOf("/*", i);
+      const close = line.indexOf("*/", i);
+      if (open >= 0 && (close < 0 || open < close)) {
+        top.depth++;
+        i = open + 2;
+      } else if (close >= 0) {
+        i = close + 2;
+        if (--top.depth === 0) stack.pop();
+      } else i = n;
     } else if (top && top.kind === "lit") stepLiteral(top);
     else stepCode(top);
   }
