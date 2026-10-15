@@ -215,6 +215,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     page,
     request,
   }) => {
+    // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
+    test.setTimeout(120_000);
     await registerAndLogin(page, request, { ...AUTH, label: "narrow" });
     const { pipelineId } = await seedPipeline(page);
     // A PAUSED schedule: its state must stay visible at every width (never dropped from the header).
@@ -298,6 +300,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     page,
     request,
   }) => {
+    // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
+    test.setTimeout(120_000);
     await registerAndLogin(page, request, { ...AUTH, label: "select" });
     const { pipelineId } = await seedPipeline(page);
     await page.goto(`/pipelines/${pipelineId}`);
@@ -320,6 +324,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     page,
     request,
   }) => {
+    // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
+    test.setTimeout(120_000);
     await registerAndLogin(page, request, { ...AUTH, label: "lanes" });
     const { pipelineId } = await seedPipeline(page, true);
     await page.goto(`/pipelines/${pipelineId}`);
@@ -339,6 +345,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     page,
     request,
   }) => {
+    // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
+    test.setTimeout(120_000);
     await registerAndLogin(page, request, { ...AUTH, label: "flush" });
     const { pipelineId, stepIds } = await seedPipeline(page);
     await page.goto(`/pipelines/${pipelineId}`);
