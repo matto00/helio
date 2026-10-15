@@ -8,6 +8,8 @@ The per-Output History view opened from the pipeline Outputs tab: scrubbing reta
 ### Requirement: History view is opened per Output from the Outputs tab
 Each Output card in a pipeline's Outputs tab SHALL offer a "History" action with an accessible name naming the Output, distinct from opening the Output's editor. Activating it SHALL open a History view for that one Output, which fetches `GET /api/outputs/:id/history` and lists that Output's retained points newest first. The pipeline's run-history modal SHALL be unchanged except that its trigger labels come from the same shared trigger-source label helper, so an `auto-run` run reads "Auto-run". Closing the History view by any path (Escape, the Close button, or a backdrop click) SHALL return keyboard focus to the "History" action that opened it, never to the page body.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop each OUTPUTS card in the spine has a quiet menu whose "History" item (accessible name "History for <name>") opens the same History view, distinct from opening the Output's editor.
+
 #### Scenario: Opening history
 - **WHEN** the user activates "History" on an Output card
 - **THEN** a History view for that Output opens and requests `/api/outputs/<id>/history`, and the Output editor does not open
@@ -23,6 +25,10 @@ Each Output card in a pipeline's Outputs tab SHALL offer a "History" action with
 #### Scenario: Escape returns focus to the History action
 - **WHEN** the user opens the History view from an Output card's "History" action and presses Escape
 - **THEN** the view closes and that "History" action has keyboard focus
+
+#### Scenario: Desktop history from the card menu
+- **WHEN** the user opens an Output card's menu on desktop and chooses "History for <name>"
+- **THEN** the History view for that Output opens, not its editor
 
 ### Requirement: Scrubbing selects a point and shows its summary
 The History view SHALL provide a keyboard-operable scrubber over the returned points (newest selected by default; arrow keys move older/newer; each point's accessible name contains its localized capture time). A point's accessible name SHALL never read identically to the accessible name of either adjacent point: when a point shares its minute with an adjacent point its capture time SHALL include seconds; when it shares its second, milliseconds; and when its capture instant is identical to the millisecond with an adjacent point, its name SHALL carry a suffix that tells them apart. The selected point SHALL show its capture time, its trigger source as a human label (`manual`→Manual, `scheduled`→Scheduled, `external`→External, `auto-run`→Auto-run, any other value shown as its sentence-cased raw text, never empty or "undefined"), its row count, and, from its stored summary: the headline metric value when present, and the per-numeric-column count/sum/min/max when present. Summary display SHALL NOT require a payload.

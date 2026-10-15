@@ -828,3 +828,13 @@
   display: block;
   min-height: var(--space-8);
 }
+
+/* HEL-1579 -- the data type shown after a column header's name (pipeline step preview): mono,
+   muted, small, so the name stays the loudest thing in the header. */
+.ui-data-grid__th-type {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-regular);
+  color: var(--app-text-muted);
+}

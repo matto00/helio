@@ -9,6 +9,9 @@ export interface ActionsMenuItem {
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** Accessible name when it must differ from the visible `label` (e.g. a short visible "Move up"
+   *  whose accessible name names the thing it moves). Absent: the visible label is the name. */
+  ariaLabel?: string;
 }
 
 interface ActionsMenuProps {
@@ -133,6 +136,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
                     }}
                     type="button"
                     role="menuitem"
+                    aria-label={item.ariaLabel}
                     tabIndex={-1}
                     className={`actions-menu__item${item.danger ? " actions-menu__item--danger" : ""}`}
                     disabled={item.disabled}

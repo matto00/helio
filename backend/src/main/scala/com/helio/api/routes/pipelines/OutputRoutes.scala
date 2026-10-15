@@ -61,9 +61,17 @@ class OutputRoutes(
           get {
             parameter("nodeStepId".optional) { nodeStepId =>
               ServiceResponse.runWith(outputService.listByPipeline(pipelineId, nodeStepId, user)) { outputs =>
+                // HEL-1579 (design.md D13): `panelCount` per item from the same batched lookup `GET /api/outputs` uses,
+                // so the spine's OUTPUTS section needs no per-Output `GET /api/outputs/:id/panels`. Same ACL as
+                // `listPanels`: `listByPipeline` already required any level of access on this pipeline, and
+                // `listPanels` is readable by exactly those callers (the `outputs_select` policy is the same predicate).
                 onSuccess(outputService.configsFor(outputs)) { configs =>
-                  onSuccess(withAvailability(outputs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))))) { items =>
-                    complete(OutputsResponse(items))
+                  onSuccess(outputService.panelCountsFor(outputs)) { counts =>
+                    onSuccess(withAvailability(outputs.map(o =>
+                      outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty), Some(counts.getOrElse(o.id.value, 0)))
+                    ))) { items =>
+                      complete(OutputsResponse(items))
+                    }
                   }
                 }
               }

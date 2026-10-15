@@ -1,0 +1,48 @@
+/* HEL-1579 (design.md D12, AC 5): on the desktop page the accent marks Run, the selected step and focus
+   only (DESIGN.md §0). The editors, diff chips and add-buttons below are shared with the phone's river
+   view, whose accent rules stay untouched (C4); these overrides apply only under the spine page class.
+   Each one swaps the accent for neutral or intent tokens, using the secondary / ghost recipes of
+   DESIGN.md §5. The AC's literal "only Run, the selected step and focus rings" outranks DESIGN §0's
+   allowance for selection washes on checkboxes and toggles, so native checkbox/radio `accent-color` is
+   neutral here too. */
+
+.pipeline-detail-page.pipeline-detail-page--spine input[type="checkbox"],
+.pipeline-detail-page.pipeline-detail-page--spine input[type="radio"],
+.pipeline-detail-page.pipeline-detail-page--spine .pipeline-detail-page__select-fields-checkbox {
+  accent-color: var(--app-text);
+}
+
+/* Selected state of a combinator / segmented choice: a neutral lift, not an accent wash. */
+.pipeline-detail-page--spine .pipeline-detail-page__filter-combinator-btn--active {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+  font-weight: var(--weight-semibold);
+}
+
+/* "+ Add condition" / "+ Add sort": ghost with a dashed neutral hairline. */
+.pipeline-detail-page--spine .pipeline-detail-page__filter-add-btn,
+.pipeline-detail-page--spine .pipeline-detail-page__sort-config-add-btn {
+  border-color: var(--app-border-strong);
+  color: var(--app-text-muted);
+}
+
+.pipeline-detail-page--spine .pipeline-detail-page__filter-add-btn:hover,
+.pipeline-detail-page--spine .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+/* Schema-diff chips: added = success, dropped = error (already), renamed = warning (already),
+   retyped = neutral. */
+.pipeline-detail-page--spine .pipeline-detail-page__step-card-diff-chip--added {
+  background: var(--app-success-surface);
+  color: var(--app-success);
+  border-color: color-mix(in srgb, var(--app-success) 35%, transparent);
+}
+
+.pipeline-detail-page--spine .pipeline-detail-page__step-card-diff-chip--changed {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+  border-color: var(--app-border-subtle);
+}

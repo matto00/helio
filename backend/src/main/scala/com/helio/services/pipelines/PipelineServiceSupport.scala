@@ -208,6 +208,7 @@ private[pipelines] final class PipelineServiceSupport(
       lastRunAt            = s.lastRunAt,
       lastRunRowCount      = s.lastRunRowCount,
       lastRunTruncated     = s.lastRunTruncated,
+      lastRunStepRowCounts = s.lastRunStepRowCounts.flatMap(PipelineStepRowCounts.parse),
       ownerId              = if (s.ownerId.nonEmpty) Some(s.ownerId) else None,
       tag                  = s.tag,
       createdAt            = s.createdAt,

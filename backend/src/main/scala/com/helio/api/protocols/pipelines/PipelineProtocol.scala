@@ -98,27 +98,36 @@ final case class PipelineRootSummaryResponse(
  *  Outputs on a doomed step, or root-bound Outputs on this root), computed BEFORE the delete so
  *  a DB-level cascade never produces a report that undercounts. */
 final case class RemovePipelineRootResponse(removedStepCount: Int, removedOutputCount: Int)
+/** Field notes live here, not beside the fields: scripts/check-schema-drift.mjs extracts case class fields with a
+ *  regex that stops at the first closing round bracket and splits on commas, so any comment inside the parameter
+ *  list would hide later fields from the schemas/pipelines/pipeline-summary.schema.json check.
+ *
+ *  HEL-913 task 7.2a: `sourceDataSourceId`/`sourceDataSourceName` were REMOVED outright, the Stage-1 scalar
+ *  convenience pair naming the lowest-positioned root's source. proposal.md says the single-source read path is
+ *  deleted, not kept as a fallback, and R3 bans a response shape re-encoding that position means something: the
+ *  lowest-positioned root is not one of R3's three permitted deterministic tiebreaks. `roots[]` is the only
+ *  source-list shape now; a caller wanting the first root's source reads `roots.head` explicitly, which states the
+ *  assumption instead of hiding it in a field name.
+ *
+ *  HEL-873: `lastRunTruncated` absent means not recorded, mirroring `PipelineRunRecord.truncation`'s absence
+ *  semantics, never rendered as not truncated.
+ *
+ *  HEL-1579 and V135: `lastRunStepRowCounts` is the latest run's per-step row counts, step id to count. Absent
+ *  means not recorded: never run, or the latest run failed, was blocked or reaped. Never rendered as zero.
+ *
+ *  HEL-1022: `updatedAt` is last edited, distinct from `lastRunAt` which means last run and is `None` for a
+ *  never-run pipeline; it is the field the list view's default recency sort actually needs. */
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
-    // HEL-913 task 7.2a: `sourceDataSourceId`/`sourceDataSourceName` REMOVED outright (the
-    // Stage-1 scalar convenience pair, "the lowest-positioned root's source") -- proposal.md's
-    // "the single-source read path is deleted, not kept as a fallback" and R3's ban on a
-    // response shape re-encoding "position means something" (the lowest-positioned root is not
-    // one of R3's three permitted deterministic tiebreaks). `roots[]` is the only source-list
-    // shape now; a caller wanting "the first root's source" reads `roots.head` explicitly, which
-    // states the assumption instead of hiding it in a field name.
     roots: Vector[PipelineRootSummaryResponse],
     lastRunStatus: Option[String],
     lastRunAt: Option[String],
     lastRunRowCount: Option[Long],
-    // HEL-873: absent means not recorded, mirroring `PipelineRunRecord.truncation`'s absence
-    // semantics -- never rendered as "not truncated".
     lastRunTruncated: Option[Boolean] = None,
+    lastRunStepRowCounts: Option[Map[String, Long]] = None,
     ownerId: Option[String] = None,
     tag: Option[String] = None,
-    // HEL-1022: "last edited", distinct from `lastRunAt` ("last run", `None` for a never-run
-    // pipeline) -- the field the list view's default recency sort actually needs.
     createdAt: String = "",
     updatedAt: String = ""
 )
@@ -349,7 +358,7 @@ trait PipelineProtocol
     jsonFormat3(PipelineRootSummaryResponse.apply)
   implicit val removePipelineRootResponseFormat: RootJsonFormat[RemovePipelineRootResponse] =
     jsonFormat2(RemovePipelineRootResponse.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat11(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat12(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

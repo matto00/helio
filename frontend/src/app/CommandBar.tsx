@@ -20,6 +20,7 @@ import { ActionsMenu, type ActionsMenuItem } from "../shared/chrome/ActionsMenu"
 import { IconButton } from "../shared/ui/IconButton";
 import { useSaveState } from "../context/SaveStateContext";
 import { ICON_SIZE } from "../shared/ui/iconSize";
+import { hidesBreadcrumbItemName } from "./hidesBreadcrumbItemName";
 import { useIsPhoneShell } from "./shell/useIsPhoneShell";
 
 interface CommandBarProps {
@@ -87,6 +88,9 @@ export function CommandBar({
   ];
 
   const pickerSelection = usePickerSelection(location.pathname);
+  // HEL-1579: a route whose page header owns the item name (pipeline detail) shows only the section label.
+  const breadcrumbItemNameAllowed =
+    !onDashboardView && !hidesBreadcrumbItemName(location.pathname, isPhoneShell);
   const pickerId = pickerIdForPathname(location.pathname);
   const mobileTitleDisplayName =
     pickerId === "dashboards"
@@ -154,7 +158,7 @@ export function CommandBar({
                 </span>
               </>
             )}
-            {!onDashboardView && pickerSelection.activeItemName !== null && (
+            {breadcrumbItemNameAllowed && pickerSelection.activeItemName !== null && (
               <>
                 <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
                   /

@@ -59,6 +59,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
       pidStr:             String,
       resultRows:         Seq[Map[String, Any]],
       jsRows:             Vector[JsObject],
+      stepCounts:         Map[String, Long],
       nodeOutcomes:       Map[NodeKey, NodeOutcome],
       user:               AuthenticatedUser,
       ownerRun:           Boolean,
@@ -238,11 +239,13 @@ private[pipelines] final class PipelineRunSucceededWrites(
       val truncatedReadsJson = truncatedReadsToJson(primaryAvailableRowCount, truncatedReads)
       // HEL-1511 (design.md D4): `last_run_*` is written only when this run's terminal write won, so a run that was
       // reaped between the executor's open-check and here never overwrites the pipeline's last-run fields.
+      // HEL-1579 (design.md D9): the engine's per-step counts go to BOTH tables, each in its sibling count's statement.
+      val stepRowCountsJson = Some(PipelineStepRowCounts.toJson(stepCounts))
       val updateRun =
-        writeTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, ownerRun, truncatedReadsJson = Some(truncatedReadsJson))
+        writeTerminal(runId, "succeeded", now, rowCount = Some(resultRows.size), errorLog = None, user, ownerRun, truncatedReadsJson = Some(truncatedReadsJson), stepRowCountsJson = stepRowCountsJson)
       val updateMeta = updateRun.flatMap { won =>
         afterTerminalWin(runId, "succeeded", won) {
-          writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty))
+          writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty), stepRowCountsJson = stepRowCountsJson)
         }
       }
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
