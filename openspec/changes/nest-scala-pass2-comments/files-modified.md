@@ -1,3 +1,0 @@
-- `scripts/scala-code-only.mjs` — comment frame gains a nesting `depth`; earliest of `/*` and `*/` handled, header updated
-- `scripts/check-scala-quality.selftest.mjs` — nested block comment selftest cases (green, red, robustness)
-- `openspec/changes/nest-scala-pass2-comments/evidence/*.txt` — red-first, two mutation, differential/gates transcripts
