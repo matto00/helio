@@ -1,4 +1,5 @@
 const { localJestCaps } = require("./scripts/lib/jest-local-caps.cjs");
+const { timingReporters } = require("./scripts/lib/jest-timing-capture.cjs");
 
 module.exports = {
   preset: "ts-jest",
@@ -67,4 +68,6 @@ module.exports = {
   },
   // HEL-1442: local-only worker/memory/cache caps (empty under CI).
   ...localJestCaps(__dirname),
+  // HEL-1601: opt-in per-test timing capture (only when HELIO_JEST_TIMING_DIR is set; `{}` otherwise).
+  ...timingReporters("root", __dirname),
 };
