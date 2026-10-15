@@ -36,7 +36,7 @@
     "panelCount": {
       "type": ["integer", "null"],
       "minimum": 0,
-      "description": "Number of panels currently bound to this Output (HEL-909 CR2). Populated on `GET /api/outputs` (list) responses only, to avoid an N+1 `GET /api/outputs/:id/panels` fetch per card in the Output picker; `null`/absent on the single-resource endpoints (`GET/PATCH /api/outputs/:id`), which don't compute it."
+      "description": "Number of panels currently bound to this Output (HEL-909 CR2). Populated on `GET /api/outputs` (list) and, since HEL-1579, `GET /api/pipelines/:id/outputs` responses (owner and grantees alike, the same visibility as `GET /api/outputs/:id/panels`), to avoid an N+1 `GET /api/outputs/:id/panels` fetch per card; `null`/absent on the single-resource endpoints (`GET/PATCH /api/outputs/:id`) and on the create response, which don't compute it."
     },
     "rootId": {
       "type": ["string", "null"],

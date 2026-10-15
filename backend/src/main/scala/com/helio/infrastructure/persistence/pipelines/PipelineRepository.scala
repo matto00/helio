@@ -246,7 +246,7 @@ class PipelineRepository(
       // `*` (mirrors `lastSourceSchema`'s table-local-only convention) so the 9-arity `*` mapper
       // and every `PipelineRow(...)` construction site (`create`/`createAction`) stay unchanged --
       // it is read here, targeted, and written via the equally targeted `updateLastRun` projection.
-    } yield (pipeline, root.dataSourceId, dataSource.name, pipeline.lastRunTruncated)
+    } yield (pipeline, root.dataSourceId, dataSource.name, pipeline.lastRunTruncated, pipeline.lastRunStepRowCounts)
 
   /** HEL-913 task 7.2: every root (position-ordered) for the given pipeline ids, each joined to
     * its `DataSource` name -- the multi-root sibling of `summaryQuery`'s position-0-only join.
@@ -265,7 +265,7 @@ class PipelineRepository(
       PipelineRootSummary(rid, dsId, dsName)
     }.toVector).toMap)
 
-  private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary], lastRunTruncated: Option[Boolean]): PipelineSummary =
+  private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary], lastRunTruncated: Option[Boolean], lastRunStepRowCounts: Option[String]): PipelineSummary =
     PipelineSummary(
       id                   = p.id,
       name                 = p.name,
@@ -276,6 +276,7 @@ class PipelineRepository(
       lastRunAt            = p.lastRunAt.map(_.toString),
       lastRunRowCount      = p.lastRunRowCount,
       lastRunTruncated     = lastRunTruncated,
+      lastRunStepRowCounts = lastRunStepRowCounts,
       ownerId              = p.ownerId.toString,
       tag                  = p.tag,
       createdAt            = p.createdAt.toString,
@@ -291,7 +292,7 @@ class PipelineRepository(
           for {
             headOpt <- summaryQuery(pipelinesTable.filter(_.id === id.value)).result.headOption
             roots   <- rootsByPipelineId(Set(id.value))
-          } yield headOpt.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated) }
+          } yield headOpt.map { case (p, srcId, srcName, truncated, stepCounts) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated, stepCounts) }
         }
     }
 
@@ -302,7 +303,7 @@ class PipelineRepository(
       for {
         headOpt <- summaryQuery(pipelinesTable.filter(p => p.id === id.value && p.ownerId === ownerUuid)).result.headOption
         roots   <- rootsByPipelineId(Set(id.value))
-      } yield headOpt.map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated) }
+      } yield headOpt.map { case (p, srcId, srcName, truncated, stepCounts) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated, stepCounts) }
     }
   }
 
@@ -546,14 +547,17 @@ class PipelineRepository(
       // HEL-873 (design.md Decision 3): no default -- written in the SAME statement as
       // `rowCount` so the pair can never be written apart (the pair-drift the design explicitly
       // guards against). `None` is the not-recorded state; a real run passes `Some(...)`.
-      truncated: Option[Boolean]
+      truncated: Option[Boolean],
+      // HEL-1579 (design.md D9): written in the SAME statement as `rowCount`/`truncated`. Defaults to `None` = "not
+      // recorded", which is what every failed/blocked/Spark path must write (the column is cleared, never left stale).
+      stepRowCountsJson: Option[String] = None
   ): Future[Unit] = {
     val ownerUuid = UUID.fromString(user.id.value)
     ctx.withUserContext(user.id.value)(
       pipelinesTable
         .filter(r => r.id === id.value && r.ownerId === ownerUuid)
-        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.updatedAt))
-        .update((Some(status), Some(at), rowCount, truncated, at))
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.lastRunStepRowCounts, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, truncated, stepRowCountsJson, at))
     ).map(_ => ())
   }
 
@@ -581,13 +585,14 @@ class PipelineRepository(
       // forgotten call site must fail to compile rather than silently write NULL to a terminal
       // row. `rowCount` keeps its pre-existing default (unrelated to this ticket's invariant).
       rowCount: Option[Long] = None,
-      truncated: Option[Boolean]
+      truncated: Option[Boolean],
+      stepRowCountsJson: Option[String] = None
   ): Future[Unit] =
     ctx.withSystemContext(
       pipelinesTable
         .filter(_.id === id.value)
-        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.updatedAt))
-        .update((Some(status), Some(at), rowCount, truncated, at))
+        .map(r => (r.lastRunStatus, r.lastRunAt, r.lastRunRowCount, r.lastRunTruncated, r.lastRunStepRowCounts, r.updatedAt))
+        .update((Some(status), Some(at), rowCount, truncated, stepRowCountsJson, at))
     ).map(_ => ())
 
   /** Owner-scoped baseline write (HEL-462). Persists the source schema
@@ -665,8 +670,8 @@ class PipelineRepository(
         // `rowToSummary` produces below) -- `Instant.toString` drops trailing zero fractional
         // digits, which breaks lexical ordering between e.g. a whole-second and a sub-second
         // timestamp.
-        .sortBy { case (p, _, _, _) => p.updatedAt }(Ordering[Instant].reverse)
-        .map { case (p, srcId, srcName, truncated) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty), truncated) }
+        .sortBy { case (p, _, _, _, _) => p.updatedAt }(Ordering[Instant].reverse)
+        .map { case (p, srcId, srcName, truncated, stepCounts) => rowToSummary(p, srcId, srcName, roots.getOrElse(p.id, Vector.empty), truncated, stepCounts) }
         .toVector
     }
   }
@@ -708,6 +713,9 @@ object PipelineRepository {
       // HEL-873 (design.md Decision 3): NULL/None is "not recorded" -- see `pipelines
       // .last_run_truncated`'s own doc on `PipelineTable` below.
       lastRunTruncated: Option[Boolean] = None,
+      // HEL-1579 (V135): the latest run's per-step row counts as compact JSON text (step id -> count); None = not
+      // recorded. Parsed to an object at the protocol boundary.
+      lastRunStepRowCounts: Option[String] = None,
       ownerId: String = "",
       tag: Option[String] = None,
       // HEL-1022: the list-summaries default sort is "most recently edited first" -- `lastRunAt`
@@ -756,6 +764,10 @@ object PipelineRepository {
     // apart. Kept off `*`/`PipelineRow`, mirroring `lastSourceSchema` above -- read only via the
     // targeted `summaryQuery` projection (`PipelineSummary.lastRunTruncated`).
     def lastRunTruncated   = column[Option[Boolean]]("last_run_truncated")
+
+    // HEL-1579 (V135): the latest run's per-step row counts, written in the SAME statement as
+    // `lastRunRowCount`; off `*`/`PipelineRow` like `lastRunTruncated`, read via `summaryQuery`.
+    def lastRunStepRowCounts = column[Option[String]]("last_run_step_row_counts")
 
     def * =
       (id, name, lastRunStatus, lastRunAt, createdAt, updatedAt, lastRunRowCount, ownerId, tag)

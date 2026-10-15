@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 import { evidencePath } from "./support/evidencePath";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1311 — heatmap and histogram chart Outputs on a live dashboard, light + dark, desktop + 375px:
 //   * the heatmap draws a matrix whose cells carry the user's accent (opacity ramp), with a visualMap
@@ -496,7 +497,7 @@ for (const { theme, width } of [
 
       await page.goto(`/pipelines/${pipeline.id}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
 
       const minHeight = async (names: string[]) =>
         Promise.all(

@@ -1,0 +1,103 @@
+/* HEL-1579 (design.md D8): the preview table fills the rest of the centre column and scrolls inside
+   itself (sticky header); body rows use the condensed (~32px) density. */
+.step-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+.step-preview__header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--app-border-subtle);
+}
+
+.step-preview__title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.step-preview__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.step-preview__schema {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.step-preview__schema-chip {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--app-text-muted);
+}
+
+.step-preview__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The shared preview grid caps itself at 320px; here it owns the remaining height instead. */
+.step-preview__body .ui-data-grid__frame--preview {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-preview__body .ui-data-grid.step-preview__grid {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+}
+
+.step-preview__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.step-preview__note,
+.step-preview__error {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.step-preview__error {
+  color: var(--app-error);
+}
+
+/* Body rows show a hover state (the state-surface guard treats every `tbody tr` as interactive). The table
+   sits on a `--app-surface` card, so the rung is soft in light, strong in dark (DESIGN.md §3, HEL-866). */
+.step-preview .ui-data-grid tbody tr:hover {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .step-preview .ui-data-grid tbody tr:hover {
+  background: var(--app-surface-strong);
+}

@@ -709,6 +709,9 @@ export interface PipelineSummary {
   // a distinct state from `false`, never rendered as "complete". See
   // `RunTruncationRecord`'s own doc.
   lastRunTruncated?: boolean | null;
+  // HEL-1579 (V135): the latest run's per-step row counts, step id -> count. Absent/`null` means NOT
+  // RECORDED (never run, or the latest run failed/was blocked/reaped): the spine shows "—", never 0.
+  lastRunStepRowCounts?: Record<string, number> | null;
   ownerId?: string | null;
   // HEL-1022: "last edited", distinct from `lastRunAt` ("last run", `null` for a never-run
   // pipeline) -- the field the pipelines list's default recency sort actually needs. The wire

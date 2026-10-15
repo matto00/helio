@@ -2,6 +2,7 @@ import { appendFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { recordRegisteredUser } from "./support/userCleanup";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { clickRowMenuItem, spineTitles } from "./support/pipelineSpine";
 
 // HEL-1345 — a UI step append and a UI gap insert must PERSIST where the editor shows them.
 // Before the fix the backend head-spliced every `rootId` create (the bottom-row append sends
@@ -93,7 +94,8 @@ test.describe("HEL-1345 — rootId step create placement persists", () => {
     }
 
     await page.goto(`/pipelines/${pid}`);
-    const labels = page.locator(".pipeline-detail-page__step-card-label");
+    // HEL-1579: the desktop page lists steps as spine rows; a row's title is its step label.
+    const labels = spineTitles(page);
     await expect(labels).toHaveCount(2);
     await expect(labels.nth(0)).toHaveText("Limit rows");
     await expect(labels.nth(1)).toHaveText("Sort rows");
@@ -103,14 +105,14 @@ test.describe("HEL-1345 — rootId step create placement persists", () => {
     await page.getByRole("option", { name: /Select fields/ }).click();
     await expect(labels).toHaveCount(3);
     await expect(labels.nth(2)).toHaveText("Select fields");
-    // The toggle is disabled while the create is in flight; wait for it to settle.
-    await expect(page.getByRole("button", { name: /Select fields/ })).toBeEnabled();
+    // The (newly selected) step's editor is disabled while the create is in flight; wait for it to settle.
+    await expect(page.locator(".step-focused__fieldset")).toBeEnabled();
 
-    // Insert between Limit and Sort through the gap affordance.
-    await page.getByRole("button", { name: "Insert step here" }).nth(1).click();
+    // Insert between Limit and Sort through the first row's "Insert step after" menu item.
+    await clickRowMenuItem(page, 0, "Insert step after");
     await page.getByRole("option", { name: /Cast type/ }).click();
     await expect(labels).toHaveCount(4);
-    await expect(page.getByRole("button", { name: /Cast type/ })).toBeEnabled();
+    await expect(page.locator(".step-focused__fieldset")).toBeEnabled();
     const expected = ["Limit rows", "Cast type", "Sort rows", "Select fields"];
     await expect(labels).toHaveText(expected);
 

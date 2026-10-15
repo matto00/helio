@@ -80,11 +80,11 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   protected final class GatedRunRepo(c: DbContext) extends PipelineRunRepository(c) {
     override def updateRunTerminal(
         runId: PipelineRunId, status: String, completedAt: Instant, rowCount: Option[Int], errorLog: Option[String],
-        user: AuthenticatedUser, truncatedReadsJson: Option[String]
+        user: AuthenticatedUser, truncatedReadsJson: Option[String], stepRowCountsJson: Option[String]
     ): Future[Boolean] = {
       val gate    = terminalGate
       val written = terminalWritten // HEL-1565: bound at call start, so a late write completes ITS test's promise only
-      gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson))
+      gate.flatMap(_ => super.updateRunTerminal(runId, status, completedAt, rowCount, errorLog, user, truncatedReadsJson, stepRowCountsJson))
         .andThen { case _ => written.trySuccess(()) }
     }
   }

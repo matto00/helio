@@ -186,6 +186,28 @@ class PipelineAclSpec
         status shouldBe StatusCodes.NotFound
       }
     }
+    // HEL-1579 (design.md D9): `lastRunStepRowCounts` crosses the wire as an object; absent when not recorded.
+    "omit lastRunStepRowCounts for a never-run pipeline" in {
+      val pid = seedOwnedPipeline(userAId)
+      Get(s"/pipelines/${pid.value}") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields should not contain key("lastRunStepRowCounts")
+        responseAs[PipelineSummaryResponse].lastRunStepRowCounts shouldBe None
+      }
+    }
+    "return the stored latest-run per-step counts as an object, in the single and list responses" in {
+      import PostgresProfile.api._
+      val pid = seedOwnedPipeline(userAId)
+      await(db.run(sqlu"""UPDATE pipelines SET last_run_step_row_counts = '{"s1": 10, "s2": 4}'::jsonb WHERE id = ${pid.value}"""))
+      Get(s"/pipelines/${pid.value}") ~> routesFor(userA) ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[JsObject].fields("lastRunStepRowCounts") shouldBe JsObject("s1" -> JsNumber(10), "s2" -> JsNumber(4))
+        responseAs[PipelineSummaryResponse].lastRunStepRowCounts shouldBe Some(Map("s1" -> 10L, "s2" -> 4L))
+      }
+      Get("/pipelines") ~> routesFor(userA) ~> check {
+        responseAs[Vector[PipelineSummaryResponse]].find(_.id == pid.value).flatMap(_.lastRunStepRowCounts) shouldBe Some(Map("s1" -> 10L, "s2" -> 4L))
+      }
+    }
   }
 
   "PATCH /pipelines/:id" should {

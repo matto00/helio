@@ -7,6 +7,7 @@ import type { ReactFiber } from "./support/echartsFiber";
 import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { deleteExact } from "./support/remountBurstSeed";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1392 C4 -- reused rows and Output metadata must never outlive a write the app itself made.
 // In the running app: cross the desktop/phone boundary (cards reuse), edit an Output's config through
@@ -159,7 +160,7 @@ test.describe("HEL-1392 staleness in the running app", () => {
         // 2. An in-app Output edit alone (no run): the pipeline is untouched, so only the Output
         // write's own invalidation can keep the chart from being served stale.
         await spaNavigate(page, `/pipelines/${pipeline.id}`);
-        await page.getByRole("tab", { name: /^Outputs/ }).click();
+        await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
         await page.getByRole("button", { name: "Open HEL-1392 stale chart" }).click();
         await page.getByRole("combobox", { name: "Chart type" }).click();
         await page.getByRole("option", { name: "Line" }).click();
