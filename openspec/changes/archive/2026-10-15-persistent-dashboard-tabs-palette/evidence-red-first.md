@@ -323,3 +323,15 @@ Raw transcripts: `/home/matt/Development/helio/.concertino/runs/HEL-1575/evidenc
 - **jest `activeTabSnapshot.test.ts`** (`cd frontend && npx jest --maxWorkers=1 --testPathPatterns=activeTabSnapshot`), RED on the old code: 2 of 4 failed. "an idle, visible active tab sends 0 preferences PATCHes over 2x the heartbeat" received 2 `patchDashboardTabsRequest` calls (`lastViewedAt` 07:36:50.880Z and 07:37:50.880Z); "stamps only the browser copy" saw `tabs[0].lastViewedAt` change from null in the store. GREEN after: 4 of 4.
 - **jest `hydrateTabs.test.ts`**: "an idle active tab whose saved stamp is past the TTL is still warm on reload via the copy's stamp" fails (1 of 16) with the adoption of the copy's stamp disabled, passes (16 of 16) with it.
 - **e2e two devices** (`DEV_PORT=7007 BACKEND_PORT=9914 npx playwright test e2e/hel1575-dashboard-tabs.spec.ts -g "never overwrites the tab set" --workers=1`; B saves a 1-tab set through a second context, A idles visible for 125 s): RED on the old code (`e2e-two-device-RED.txt`): at +25 s the server held `[A, +2 reverted tabs]` instead of B's one-tab set. GREEN after (`e2e-two-device-GREEN.txt`): `1 passed (2.2m)`, B's set intact at every 25 s check through +125 s and 0 preferences PATCHes from the idle device.
+
+## Fix cycle 2 (evaluation-4.md): one PATCH per page leave
+
+Raw transcript: `openspec/changes/archive/2026-10-15-persistent-dashboard-tabs-palette/red-run-fix2.txt` (worktree `/home/matt/Development/helio/.claude/worktrees/feature/persistent-dashboard-tabs-palette/HEL-1575`, HEAD b91b454761). The new tests in `tabsBrowserTriggers.test.ts` were run against the unmodified b91b454761 `tabsBrowserTriggers.ts` (plus two exported constants so the file compiles). RED, 5 of 13 failed:
+
+- "one leave (hidden followed by pagehide) sends at most one PATCH": expected 1 call, received 2.
+- "sends nothing off the dashboard view": expected 0, received 2.
+- "still flushes a pending real tab change off the dashboard view, once": expected 1, received 2.
+- "skips the PATCH when only the re-stamp of a recently stamped tab would change": expected 0, received 2.
+- "a visible burst refreshes the signals once per gap, and never off the dashboard view": expected 1, received 2.
+
+GREEN after the fix: `npx jest src/features/dashboards/tabs` 17 suites / 213 tests passed.

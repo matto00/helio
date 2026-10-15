@@ -70,3 +70,30 @@ while the backend used a private DB), `e2e-rerun.txt` + `e2e-expired.txt` (those
 the one "expired tab" failure is a load flake, 3/3 green on its own), `sbt.txt` (`Tests: succeeded 8161, failed 0`).
 The shared dev DB had V136 applied by another lane and lacked V135, so Flyway refused to start; this run used a private
 scratch DB (created and dropped), not the shared one.
+
+## Fix cycle 2: one PATCH per page leave (evaluation-4.md)
+
+Defect: the general `/api` limit (120 per 60 s per user) tripped `e2e/state-surface-contrast-guard.spec.ts:760` (overlays, light),
+because `handlePageHidden` ran on both `visibilitychange`->hidden and `pagehide` on every route and re-stamped `lastViewedAt`,
+sending two keepalive PATCHes per leave. Neither the limit nor the guard changed.
+
+Fix (`tabsBrowserTriggers.ts`): a leave is handled once (hidden + pagehide; re-armed on visible/`pageshow`); the stamp and capture
+apply only on the dashboard view (`isDashboardViewPath`), and the stamp only when the stored one is older than 5 min; a pending real
+tab change is still flushed with `keepalive` from any page. `visibilitychange`->visible refreshes `/api/dashboard-changes` at most
+once per 30 s, and the visible/2-minute refreshes fire only on the dashboard view. Kept: hydrate and tab-add refreshes (hydrate
+decides the warm restore; tab-add is user-driven). Recorded as D7 in `design.md`.
+
+Unit tests (`tabsBrowserTriggers.test.ts`): RED on the pre-fix code (5 of 13 failed, `red-run-fix2.txt`), GREEN after (tabs dir:
+17 suites / 213 tests).
+
+Overlays (light), `--repeat-each 5 --workers=2 --trace on`, 5 passed, 0 HTTP 429s. `/api` requests per run, counted from the traces
+(`api-counts.txt`): 102, 103, 102, 102, 102 (of which `dashboard-changes` 11, 11, 11, 11, 10; preferences PATCH 1 each). That is 17-18
+requests (about 15%) under the 120 limit, against 117-123 before the fix. Load average at start 2.9.
+
+Gates (this worktree, SCRATCH `hel1575/`): lint, typecheck, format:check exit 0 (`static.txt`); `npm --prefix frontend run build`
+exit 0; `HELIO_JEST_MAX_WORKERS=2 npm test` exit 0: root 55 suites / 485 tests, frontend 641 suites / 7640 tests (`jest-full.txt`).
+Shared dev DB at V135 (flyway_schema_history), used by both backend and Playwright (`backend/.env`); no scratch DB created. No backend
+file changed, so no `sbt testFull`. origin/main had not moved (no merge needed).
+
+Full e2e (`flock ... e2e.lock nice -n 19 npx playwright test --workers=2`, `e2e-full-fix2.txt`): **333 passed, 1 skipped** (the opt-in
+`hel1575-switch-measurement`), 0 failed, 20.7 min; load average 5-9 during the run (below the 15 rerun threshold).

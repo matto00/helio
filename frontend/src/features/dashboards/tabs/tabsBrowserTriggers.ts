@@ -6,8 +6,10 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import { ACTIVE_HEARTBEAT_INTERVAL_MS, snapshotActiveTab } from "./activeTabSnapshot";
 import { tabViewed } from "./dashboardTabsSlice";
 import { refreshChangeSignals } from "./refreshChangeSignals";
-import { serverNowIso } from "./serverClock";
+import { isDashboardViewPath } from "../../../shared/chrome/sections";
+import { serverNowIso, serverNowMs } from "./serverClock";
 import { flushTabsWrite } from "./tabsPersistence";
+import { parseInstant } from "./tabTypes";
 import { captureTab } from "./warm/warmCapture";
 import { sweepWarmForState } from "./warm/warmSweep";
 import { WARM_SWEEP_INTERVAL_MS } from "./warm/warmConfig";
@@ -20,33 +22,66 @@ interface StoreLike {
   getState: () => RootState;
 }
 
-/** The page is going away or hidden (a best-effort extra: the active tab is already snapshotted while open): stamp the active tab's last view (so the TTL runs from now, not from
- *  activation), snapshot its loaded state into the browser store, and flush the tab PATCH with `keepalive`
- *  so the last change survives a reload. */
+/** A leave re-stamps the active tab (and so sends a PATCH) only when its stored stamp is older than this;
+ *  the warm TTL is 15 min, so a stamp at most this stale shortens it by at most this much. */
+export const LEAVE_STAMP_REFRESH_MS = 5 * 60_000;
+
+/** `visibilitychange`->visible refreshes the signals at most this often (a quick tab-switch burst is one request). */
+export const SIGNALS_VISIBLE_MIN_GAP_MS = 30_000;
+
+function onDashboardView(): boolean {
+  return isDashboardViewPath(window.location.pathname);
+}
+
+/** The page is going away or hidden (a best-effort extra: the active tab is already snapshotted while open).
+ *  D7: at most ONE PATCH per leave, and only for a dashboard actually on screen. Off the dashboard view
+ *  nothing is stamped; a pending (real) tab change is still flushed with `keepalive` so it survives. On the
+ *  dashboard view the active tab is re-stamped only when its stored stamp is older than
+ *  `LEAVE_STAMP_REFRESH_MS` (the browser copy is captured every time); the stamp and any pending change
+ *  ride the same single PATCH. */
 export function handlePageHidden(store: StoreLike): void {
   const state = store.getState();
   if (!state.dashboardTabs.hydrated) return;
   const { activeId } = state.dashboardTabs;
-  if (activeId !== null) {
-    store.dispatch(tabViewed({ id: activeId, at: serverNowIso() }));
+  if (activeId !== null && onDashboardView()) {
+    const stored = parseInstant(
+      state.dashboardTabs.tabs.find((t) => t.id === activeId)?.lastViewedAt,
+    );
+    if (stored === null || serverNowMs() - stored >= LEAVE_STAMP_REFRESH_MS) {
+      store.dispatch(tabViewed({ id: activeId, at: serverNowIso() }));
+    }
     captureTab(store.getState, activeId, { retain: false, immediate: true });
   }
   void flushTabsWrite({ keepalive: true });
 }
 
 export function startTabsBrowserTriggers(store: StoreLike): () => void {
+  let left = false; // one leave = hidden + pagehide (+ more): handled once, re-armed when the page is shown again
+  let lastRefreshAt = 0;
   const refresh = () => {
-    if (store.getState().dashboardTabs.hydrated) {
+    if (store.getState().dashboardTabs.hydrated && onDashboardView()) {
+      lastRefreshAt = Date.now();
       void store.dispatch(refreshChangeSignals(undefined));
     }
   };
-  const onVisibility = () => {
-    if (document.visibilityState === "hidden") handlePageHidden(store);
-    else refresh();
+  const leave = () => {
+    if (left) return;
+    left = true;
+    handlePageHidden(store);
   };
-  const onPageHide = () => handlePageHidden(store);
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden") leave();
+    else {
+      left = false;
+      if (Date.now() - lastRefreshAt >= SIGNALS_VISIBLE_MIN_GAP_MS) refresh();
+    }
+  };
+  const onPageShow = () => {
+    left = false;
+  };
   document.addEventListener("visibilitychange", onVisibility);
-  window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("pagehide", leave);
+  window.addEventListener("pageshow", onPageShow);
 
   const signalsTimer = setInterval(() => {
     if (document.visibilityState === "visible") refresh();
@@ -67,7 +102,8 @@ export function startTabsBrowserTriggers(store: StoreLike): () => void {
 
   return () => {
     document.removeEventListener("visibilitychange", onVisibility);
-    window.removeEventListener("pagehide", onPageHide);
+    window.removeEventListener("pagehide", leave);
+    window.removeEventListener("pageshow", onPageShow);
     clearInterval(signalsTimer);
     clearInterval(heartbeatTimer);
     clearInterval(sweepTimer);
