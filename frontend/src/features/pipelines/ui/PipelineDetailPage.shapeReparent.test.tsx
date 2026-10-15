@@ -33,6 +33,7 @@ import { defaultConfigFor } from "../state/stepNarrowing";
 import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import type { PipelineShapeCatalogEntry } from "../types/pipelineShape";
+import { installPhoneShell } from "./pipelineDetailPageTestUtils";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -220,6 +221,17 @@ const B = () => ps("B", "filter", { parent: "A" });
 const L = () => ps("L", "cast", { parent: "B", position: 1 });
 
 jest.setTimeout(40000);
+
+// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
+// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
+// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+let restorePhoneShell: () => void = () => {};
+beforeEach(() => {
+  restorePhoneShell = installPhoneShell();
+});
+afterEach(() => {
+  restorePhoneShell();
+});
 
 describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)", () => {
   const originalAsyncUtilTimeout = getConfig().asyncUtilTimeout;

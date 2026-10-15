@@ -190,25 +190,6 @@
     min-height: 44px;
   }
 
-  /* HEL-247: Collection editor — the grid/list layout segmented buttons must
-     also meet the 44px tap minimum. The base-type Select and the value-field /
-     label / unit Selects are already covered by the `.ui-select__trigger` rule
-     above, and the label/unit mode toggles by `.panel-detail-modal__mode-toggle-btn`. */
-  /* Hit expander, not an inflated box — see `shared/ui/tapTarget.css`. */
-  .panel-detail-modal__segmented-btn {
-    position: relative;
-  }
-
-  .panel-detail-modal__segmented-btn::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 44px;
-    transform: translateY(-50%);
-  }
-
   /* HEL-303 (cycle 2): the Chart Display checkbox rows — Show legend / Enable
      tooltip / Show X-axis label / Show Y-axis label — are `.panel-detail-modal__chart-label`
      flex rows wrapping a 13px native checkbox and render ~19px tall by default

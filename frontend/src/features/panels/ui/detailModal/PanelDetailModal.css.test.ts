@@ -189,16 +189,3 @@ describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-303 chart dis
     expect(body).toMatch(/min-height:\s*44px\s*;/);
   });
 });
-
-// HEL-247: the Collection editor's grid/list layout segmented buttons are
-// reachable in the panel-detail edit pane on mobile, so they must keep the
-// same mobile-scoped ≥44px override. The base-type Select and the value/label/
-// unit Selects reuse the shared Select (covered by `.ui-select__trigger`), and
-// the label/unit mode toggles reuse `.panel-detail-modal__mode-toggle-btn`.
-describe("PanelDetailModal.css — mobile ≥44px tap targets (HEL-247 collection editor)", () => {
-  const mobileBlock = findMediaBlock(css, "max-width: 768px");
-
-  it("the layout segmented buttons clear the 44px floor", () => {
-    expectTapExpander(mobileBlock, ".panel-detail-modal__segmented-btn");
-  });
-});

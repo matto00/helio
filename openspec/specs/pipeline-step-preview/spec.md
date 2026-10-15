@@ -99,6 +99,8 @@ The frontend StepCard component SHALL:
   **or the step's position in the editor's step list changes (reorder)** while the preview is
   active — without requiring a manual close/reopen or a full pipeline run
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop there is no Preview button or inline tray: the preview table under the focused editor shows the rows after the selected step, fetched on selection (and again, debounced, when the step's config changes), never reusing a settled response, and waiting for any pending step save before it is requested. The table header shows the step number, the row count, the schema-diff chips and the output-schema chips.
+
 #### Scenario: Preview shows sample rows and output schema together
 - **WHEN** the user activates the preview on an expanded StepCard for a pipeline with static data
   and analyze data is available for that step
@@ -144,6 +146,10 @@ The frontend StepCard component SHALL:
 #### Scenario: Second toggle hides the preview
 - **WHEN** the preview is visible and the user toggles the preview control again
 - **THEN** the preview is hidden and the control reflects the collapsed state
+
+#### Scenario: Desktop preview table fetches on selection
+- **WHEN** the user selects a step on desktop
+- **THEN** the preview table requests that step's preview once and renders its rows
 
 ### Requirement: Previewing a step whose closure has invalid step configuration returns a named 422
 When a step preview (`GET /api/pipelines/:id/steps/:stepId/preview`) or an Output preview
@@ -191,6 +197,8 @@ inline, without the step id or lane path. When `stepId` names a different (upstr
 upstream step of kind `stepKind` is not fully configured, followed by the reason. Other preview errors SHALL keep
 their existing rendering.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the preview table shows the same named reason in its `role=alert` error state when the step preview is rejected for invalid step configuration.
+
 #### Scenario: Own step incomplete
 - **WHEN** the preview of a step fails with `STEP_CONFIG_INVALID` naming that same step
 - **THEN** the tray shows the reason text and no UUID
@@ -198,6 +206,10 @@ their existing rendering.
 #### Scenario: Upstream step incomplete
 - **WHEN** the preview fails with `STEP_CONFIG_INVALID` naming an ancestor step
 - **THEN** the tray attributes the problem to the upstream step's kind and shows the reason
+
+#### Scenario: Desktop preview table shows the named reason
+- **WHEN** the step preview is rejected with a step-configuration error on desktop
+- **THEN** the preview table shows the named reason in an alert
 
 ### Requirement: Previews re-verify access immediately before executing
 

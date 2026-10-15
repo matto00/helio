@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-summary.schema.json",
+  "title": "PipelineSummaryResponse",
+  "description": "A pipeline as returned by GET /api/pipelines, GET /api/pipelines/:id and the create/rename responses. `lastRun*` describe the latest non-dry run. `lastRunStepRowCounts` (HEL-1579) is that run's per-step row counts keyed by step id; it is omitted when not recorded (a never-run pipeline, a latest run that failed, was blocked or reaped, a Spark run, or a run that predates the column) and is never rendered as zero.",
+  "type": "object",
+  "required": ["id", "name", "roots", "createdAt", "updatedAt"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string" },
+    "roots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "dataSourceId", "dataSourceName"],
+        "properties": {
+          "id": { "type": "string" },
+          "dataSourceId": { "type": "string" },
+          "dataSourceName": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "lastRunStatus": { "type": ["string", "null"] },
+    "lastRunAt": { "type": ["string", "null"] },
+    "lastRunRowCount": { "type": ["integer", "null"], "minimum": 0 },
+    "lastRunTruncated": { "type": ["boolean", "null"] },
+    "lastRunStepRowCounts": {
+      "type": ["object", "null"],
+      "description": "Step id to the number of rows that step produced in the latest run. Omitted or null when not recorded.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "ownerId": { "type": ["string", "null"] },
+    "tag": { "type": ["string", "null"] },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,353 @@
+/* HEL-1579 (design.md D3): the one-row header. Run is the only accent-filled control; every other control
+   is secondary or ghost (DESIGN.md §5). Below ~1100px the meta text truncates with an ellipsis before
+   anything wraps; the controls never wrap below the name. */
+.spine-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-4);
+}
+
+.spine-header__crumbs {
+  flex: 0 1 auto;
+  /* No overflow clipping here: it would clip the focus ring of the crumb link and the name button
+     (focus-presence guard). The name button ellipsizes itself instead. */
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.spine-header__crumb-link {
+  flex: none;
+  color: var(--app-text-muted);
+  text-decoration: none;
+}
+
+.spine-header__crumb-link:hover {
+  color: var(--app-text);
+}
+
+.spine-header__crumb-sep {
+  color: var(--app-text-muted);
+}
+
+/* The name is a quiet button in mono; the shell's sr-only <h1> stays the landmark name. */
+.spine-header__name {
+  flex: 0 1 auto;
+  min-width: 4ch;
+  max-width: 28ch;
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.spine-header__name:hover {
+  background: var(--app-surface-raised);
+}
+
+/* The header sits on the page canvas (`--app-bg`), so its hover rung is `--app-surface-raised`
+   (DESIGN.md §3, HEL-866), for the chip, the secondary buttons and the actions-menu trigger alike. */
+.spine-header .popover__trigger:hover {
+  background: var(--app-surface-raised);
+}
+
+.spine-header__name-input {
+  font-family: var(--font-mono);
+  width: 24ch;
+}
+
+.spine-header__error {
+  font-size: var(--text-xs);
+  color: var(--app-error);
+}
+
+.spine-header__edit-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.spine-header__cancel-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.spine-header__confirm {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-strong);
+  white-space: nowrap;
+}
+
+.spine-header__confirm-text {
+  font-size: var(--text-xs);
+}
+
+.spine-header__run-status {
+  flex: 0 2 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spine-header__run-status--failed {
+  color: var(--app-error);
+}
+
+.spine-header__meta {
+  flex: 0 10 auto;
+  overflow: hidden;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.spine-header__meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spine-header__trailing {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.spine-header__chip {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 26ch;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.spine-header__chip:hover {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.spine-header__chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spine-header__chip-sub {
+  flex: none;
+  color: var(--app-text-muted);
+}
+
+.spine-header__chip-sub--paused {
+  font-style: italic;
+}
+
+/* Secondary (DESIGN.md §5): hairline, muted text; hover gets the stronger hairline and a soft wash. */
+.spine-header__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.spine-header__btn:hover:not(:disabled) {
+  border-color: var(--app-border-strong);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.spine-header__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spine-header__btn--hidden {
+  visibility: hidden;
+}
+
+.spine-header__btn--danger {
+  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+  color: var(--app-error);
+}
+
+.spine-header__btn--danger:hover:not(:disabled) {
+  background: var(--app-error-surface);
+  color: var(--app-error);
+}
+
+/* Primary (the one accent control on the page). */
+.spine-header__btn--primary,
+.spine-header__btn--primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--app-accent);
+  color: var(--app-accent-ink);
+}
+
+.spine-header__btn--primary:hover:not(:disabled) {
+  background: var(--app-accent-strong);
+}
+
+.spine-header__run-short {
+  display: none;
+}
+
+.spine-header__chip-icon,
+.spine-header__dry-icon {
+  display: none;
+  flex: none;
+}
+
+@container (max-width: 600px) {
+  /* "rows written" would truncate to nothing here, so the meta group is hidden cleanly (the figures stay in Run
+     history); the status chip still says how the last run went. */
+  .spine-header__meta {
+    display: none;
+  }
+
+  /* If even the compact chip cannot fit beside the name, it collapses to its icon plus the Paused marker; the
+     full state stays in its title and the schedule menu items. */
+  .spine-header__chip-icon,
+  .spine-header__dry-icon {
+    display: inline-block;
+  }
+
+  /* About 70px leaner so Run and the actions menu always fit from 769px: the last-run chip shows only its dot, Dry
+     run is icon-only (accessible name and title kept), and the crumbs floor drops to 8ch. */
+  .spine-header__dry-label,
+  .spine-header__run-long {
+    display: none;
+  }
+
+  /* Run keeps its accessible name ("Run pipeline"); only the visible label shortens. */
+  .spine-header__run-short {
+    display: inline;
+  }
+
+  .spine-header__status-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .spine-header__chip-text {
+    display: none;
+  }
+}
+
+/* Below 1100px the page has little room left beside the rail and the context list. The command bar already
+   shows the section ("Data Pipelines"), so the "Pipelines /" crumb gives way first, and the schedule chip
+   narrows: the name, the status and the controls keep their place on one row. */
+@container (max-width: 800px) {
+  .spine-header__crumb-link,
+  .spine-header__crumb-sep {
+    display: none;
+  }
+
+  /* The schedule chip stays, but compact: the "next run" text drops (it is in the chip's title), the expression
+     ellipsizes, and the "Paused" marker stays visible. */
+  .spine-header__chip {
+    max-width: 16ch;
+    padding: 0 var(--space-2);
+  }
+
+  .spine-header__chip-sub--next {
+    display: none;
+  }
+
+  /* The floor lives on the container so the nav reserves the name's room; the name itself (min-width: 0) ellipsizes
+     inside it and can never run under the status chip. */
+  .spine-header__crumbs {
+    min-width: 14ch;
+  }
+
+  .spine-header__name {
+    min-width: 0;
+  }
+
+  .spine-header {
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+}
+
+/* After the 1100px block so it wins at <=900px: the name's floor drops to 8ch (it still ellipsizes inside). */
+@container (max-width: 600px) {
+  .spine-header__crumbs {
+    min-width: 8ch;
+  }
+
+  .spine-header .ui-status-chip {
+    position: relative;
+  }
+}
+
+@container (max-width: 600px) {
+  /* A paused chip is already a visible word ("Paused"), so it drops its icon; tighter gaps and padding keep Run and
+     the actions menu inside the viewport even beside the widest (400px) context list. */
+  .spine-header__chip--paused .spine-header__chip-icon {
+    display: none;
+  }
+
+  .spine-header {
+    gap: var(--space-1);
+    padding-inline: var(--space-2);
+  }
+}

@@ -80,7 +80,8 @@ test.describe("HEL-1521 — lane picker disables descendants and lane-linked dep
     });
 
     await page.goto(`/pipelines/${pipeline.id}`);
-    await page.getByRole("button", { name: "Union / append rows", exact: false }).click();
+    // HEL-1579: select the union step's row on the spine; its editor opens in the focused editor.
+    await page.getByRole("button", { name: /^Step \d+: Union \/ append rows/ }).click();
     await page.getByRole("combobox", { name: "Other source" }).click();
 
     for (const label of ["Sort rows", "Join tables"]) {

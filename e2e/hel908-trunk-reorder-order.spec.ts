@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { recordRegisteredUser } from "./support/userCleanup";
 import { uniqueEmail } from "./support/auth";
+import { clickRowMenuItem, spineTitles } from "./support/pipelineSpine";
 
 // HEL-908, Cycle 8 — closes a real coverage gap flagged by Cycle 6/the human:
 // `hel908-step-card-split.spec.ts`'s "Move step up" interaction only ever
@@ -79,7 +80,8 @@ test.describe("HEL-908 trunk-to-trunk reorder — real order assertion", () => {
     expect(selectRes.status()).toBe(201);
 
     await page.goto(`/pipelines/${pipeline.id}`);
-    const stepLabels = page.locator(".pipeline-detail-page__step-card-label");
+    // HEL-1579: the desktop page lists steps as spine rows; the title is the row's step label.
+    const stepLabels = spineTitles(page);
     await expect(stepLabels).toHaveCount(3);
 
     // Initial trunk order: Limit, Sort, Select.
@@ -98,12 +100,12 @@ test.describe("HEL-908 trunk-to-trunk reorder — real order assertion", () => {
     // a `stepIds` request derived from the PRE-first-reorder DOM). Assert
     // the intermediate state after each click so the second click always
     // targets a settled DOM.
-    await page.getByRole("button", { name: "Move step up" }).nth(2).click();
+    await clickRowMenuItem(page, 2, /^Move step up/);
     await expect(stepLabels.nth(0)).toHaveText("Limit rows");
     await expect(stepLabels.nth(1)).toHaveText("Select fields");
     await expect(stepLabels.nth(2)).toHaveText("Sort rows");
 
-    await page.getByRole("button", { name: "Move step up" }).nth(1).click();
+    await clickRowMenuItem(page, 1, /^Move step up/);
 
     // The real assertion this gap needed: actual resulting ORDER, not count.
     // Confirmed GREEN for real (test.fail() removed, see the file-header

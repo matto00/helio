@@ -1,10 +1,12 @@
 import { isAxiosError } from "axios";
 import { useEffect, useRef } from "react";
+import type { MutableRefObject } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import { updatePipelineStep } from "../services/pipelineService";
 import { extractErrorMessage } from "../../../services/extractErrorMessage";
 import { isTempStepId, isUnsupportedOpType } from "../state/stepNarrowing";
+import { useStepSaveContext } from "../state/stepSaveContext";
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 
@@ -22,6 +24,13 @@ type UseStepCardPersistArgs = {
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   setSaveError: Dispatch<SetStateAction<string | null>>;
   setSaveErrorIsValidation: Dispatch<SetStateAction<boolean>>;
+  /** HEL-1579 (design.md D7): opt-in, set only by the desktop focused editor. When true a pending
+   *  debounced persist is SENT on unmount (selecting another step must not lose the edit) instead
+   *  of cleared; the phone card keeps today's clear-on-unmount. */
+  flushOnUnmount?: boolean;
+  /** HEL-1579: receives a function that drops the pending persist without sending it, so the
+   *  focused editor's Remove cancels the edit before the step is deleted (no PATCH to a vanished row). */
+  cancelPendingRef?: MutableRefObject<(() => void) | null>;
 };
 
 export function useStepCardPersist({
@@ -29,6 +38,8 @@ export function useStepCardPersist({
   onConfigChange,
   setSaveError,
   setSaveErrorIsValidation,
+  flushOnUnmount = false,
+  cancelPendingRef,
 }: UseStepCardPersistArgs) {
   // Debounce ref for the persist path below, plus a monotonically
   // increasing request token: `persist` may be called many times in a row
@@ -42,10 +53,57 @@ export function useStepCardPersist({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestTokenRef = useRef(0);
 
+  // HEL-1579: the debounced edit not yet sent, and the page-level save seam (null on the phone).
+  const pendingRef = useRef<{ config: PipelineStepConfig; captureErrors: boolean } | null>(null);
+  const saveContext = useStepSaveContext();
+  const latest = useRef({ stepId: step.id, saveContext, flushOnUnmount, onConfigChange });
   useEffect(() => {
+    latest.current = { stepId: step.id, saveContext, flushOnUnmount, onConfigChange };
+  });
+
+  useEffect(() => {
+    if (cancelPendingRef) {
+      cancelPendingRef.current = () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        pendingRef.current = null;
+      };
+    }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      const pending = pendingRef.current;
+      pendingRef.current = null;
+      const {
+        stepId,
+        saveContext: ctx,
+        flushOnUnmount: flush,
+        onConfigChange: notify,
+      } = latest.current;
+      // HEL-1579 (design.md D7): flush instead of dropping, but only for a step that still exists.
+      // The PATCH is dispatched and registered with the tracker SYNCHRONOUSLY here, inside the
+      // cleanup, so the preview table's fetch effect for the newly selected step (which React runs
+      // after this cleanup in the same commit) already sees it pending.
+      if (flush && pending && ctx && ctx.isStepPresent(stepId)) {
+        const promise = updatePipelineStep(stepId, pending.config)
+          .then(() => {
+            // The editor is gone but the page still holds the pre-edit config: bring it in line (the normal path
+            // does the same after its PATCH), so a re-selected editor, the spine summary and the analyze
+            // fingerprint show the saved value and the next edit does not revert it.
+            notify(stepId, pending.config);
+            ctx.reportSaveError(stepId, null);
+          })
+          .catch((err: unknown) => {
+            ctx.reportSaveError(
+              stepId,
+              extractErrorMessage(
+                err,
+                "Failed to save this step's configuration — the server didn't say why.",
+              ),
+            );
+          });
+        ctx.tracker.register(promise);
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/unmount only; reads refs
   }, []);
 
   /** Shared persistence path — debounces, then PATCHes the typed config and
@@ -77,7 +135,9 @@ export function useStepCardPersist({
     // PATCH normally.
     if (isTempStepId(step.id)) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    pendingRef.current = { config: newConfig, captureErrors };
     debounceRef.current = setTimeout(() => {
+      pendingRef.current = null;
       const token = ++requestTokenRef.current;
       // Cleared at the start of THIS attempt (success or failure) so a stale error from a
       // previous rejected PATCH never lingers past a subsequent try.
@@ -85,8 +145,13 @@ export function useStepCardPersist({
         setSaveError(null);
         setSaveErrorIsValidation(false);
       }
-      void updatePipelineStep(step.id, newConfig)
+      const sent = updatePipelineStep(step.id, newConfig);
+      // HEL-1579 (design.md D8): the desktop page waits on every in-flight step save before it
+      // fetches a preview; a no-op without the page-level seam (the phone).
+      saveContext?.tracker.register(sent);
+      void sent
         .then(() => {
+          saveContext?.reportSaveError(step.id, null);
           // Drop a stale response: a newer edit may have already dispatched
           // (and possibly already resolved) its own PATCH while this one
           // was in flight.

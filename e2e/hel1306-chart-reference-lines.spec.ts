@@ -6,6 +6,7 @@ import { expect, test, type APIRequestContext, type Locator } from "@playwright/
 import { currentUserId, registerUser } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { loginThenIsolate } from "./support/isolateLivePage";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1306 -- reference lines and bands on a live dashboard, light + dark, desktop + 375px.
 //   * a bar chart whose threshold (95) lies ABOVE its data (max 40) draws the labelled line and a band, and
@@ -460,7 +461,7 @@ for (const { theme, width } of CASES) {
 
       await page.goto(`/pipelines/${pipeline.id}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.getByRole("tab", { name: /^Outputs/ }).click();
+      await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
       await page.getByRole("button", { name: "Open HEL-1306 Editor bar output" }).click();
 
       await page.getByRole("button", { name: "Add line" }).click();

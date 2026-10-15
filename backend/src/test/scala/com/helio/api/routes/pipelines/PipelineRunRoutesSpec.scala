@@ -33,7 +33,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.{JdbcBackend, PostgresProfile}
-import spray.json.{JsArray, JsNumber, JsObject, JsString}
+import spray.json.{JsArray, JsNumber, JsObject, JsString, enrichString}
 
 import java.nio.file.Paths
 import java.time.Instant
@@ -705,6 +705,46 @@ class PipelineRunRoutesSpec
       // applies end to end for the manual API path — no explicit argument
       // is passed by PipelineRunSubmitRoutes.
       runs.head.triggerSource shouldBe "manual"
+    }
+
+    // HEL-1579 (design.md D9): a succeeded run writes the engine's per-step counts to BOTH tables; a failed run and a
+    // dry run leave them NULL; the pipeline summary exposes the latest run's counts (absent when not recorded).
+    "POST /pipelines/:id/run (non-dry, success) persists per-step row counts on the run row and the pipeline" in {
+      import PostgresProfile.api._
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      val selectStep = await(stepRepo.insertInternal(
+        pid, "select", SelectConfig(Vector("name", "score")), enabled = true, explicitRootId = None))
+      val filterStep = await(stepRepo.insertInternal(
+        pid, "filter", FilterConfig("and", Vector(FilterCondition("score", ">", Some("40")))), enabled = true,
+        parentStepId = Some(selectStep.id), explicitRootId = None))
+      await(pipelineRepo.findSummaryById(pid, dummyUser)).get.lastRunStepRowCounts shouldBe None
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      val expected = Map(selectStep.id.value -> 2L, filterStep.id.value -> 1L)
+      val runCounts = await(db.run(sql"SELECT step_row_counts::text FROM pipeline_runs WHERE pipeline_id = ${pid.value}".as[Option[String]].head))
+      runCounts.map(_.parseJson.convertTo[Map[String, Long]]) shouldBe Some(expected)
+      val pipelineCounts = await(db.run(sql"SELECT last_run_step_row_counts::text FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head))
+      pipelineCounts.map(_.parseJson.convertTo[Map[String, Long]]) shouldBe Some(expected)
+      await(pipelineRepo.findSummaryById(pid, dummyUser)).get.lastRunStepRowCounts.map(_.parseJson.convertTo[Map[String, Long]]) shouldBe Some(expected)
+    }
+
+    "POST /pipelines/:id/run failure and ?dry=true leave per-step row counts NULL on both tables" in {
+      import PostgresProfile.api._
+      val cache = new PipelineRunCache()
+      val dsId  = seedDsWithData()
+      val pid   = seedPipeline(dsId)
+      Post(s"/pipelines/${pid.value}/run?dry=true") ~> makeRoutes(cache, pipelineRunRepo) ~> check { status shouldBe StatusCodes.OK }
+      await(db.run(sql"SELECT step_row_counts::text FROM pipeline_runs WHERE pipeline_id = ${pid.value}".as[Option[String]].head)) shouldBe None
+      await(db.run(sql"SELECT last_run_step_row_counts::text FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head)) shouldBe None
+
+      val missingSourceId = "00000000-0000-0000-0000-000000000099"
+      await(stepRepo.insertRootStep(pid, "join", JoinConfig(SecondaryInput.Source(missingSourceId), "name", "inner"), dummyUser))
+      Post(s"/pipelines/${pid.value}/run") ~> makeRoutes(cache, pipelineRunRepo) ~> check { status shouldBe StatusCodes.UnprocessableEntity }
+      await(db.run(sql"SELECT count(*) FROM pipeline_runs WHERE pipeline_id = ${pid.value} AND status = 'failed' AND step_row_counts IS NULL".as[Int].head)) shouldBe 1
+      await(db.run(sql"SELECT last_run_step_row_counts::text FROM pipelines WHERE id = ${pid.value}".as[Option[String]].head)) shouldBe None
     }
 
     // HEL-859 (design.md Decision 3): fan-out surface (c) — the persisted

@@ -43,6 +43,9 @@ export interface ColumnDef {
    *  `TableRenderer` for a Content-category or undeclared-in-schema column,
    *  which the server rejects as `400` if requested anyway. */
   disabledReason?: string;
+  /** HEL-1579 — a secondary mono label rendered after the header text (a column's data type on the
+   *  pipeline step preview). Only the plain, non-sortable header shows it; absent keeps the header as is. */
+  headerType?: string;
   /** HEL-1277 — a render-only column (e.g. a derived "Change" marker): no sort control, no
    *  per-column filter input and no resize handle, so it can never be mistaken for data. */
   inert?: boolean;
@@ -1087,7 +1090,12 @@ export function DataGrid({
                         {col.header ?? col.key}
                       </span>
                     ) : (
-                      (col.header ?? col.key)
+                      <>
+                        {col.header ?? col.key}
+                        {col.headerType !== undefined && (
+                          <span className="ui-data-grid__th-type">{col.headerType}</span>
+                        )}
+                      </>
                     )}
                     {pinnable && onPinToggle && (
                       // HEL-465 design.md Decision 1 consequence/3, CORRECTED

@@ -243,6 +243,8 @@ on colour alone.
 A run under the cap SHALL show no truncation indication — including for historical rows, which render without a
 truncation warning and equally without any completeness claim.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop this applies to the header's rows written (with the Partial badge) and to the spine's per-step counts: when the shown counts come from the persisted run and `lastRunTruncated` is true, or from the in-session run and its result is source-truncated, the Steps heading carries the Partial badge and each count's accessible name ends ", partial (row cap reached)".
+
 #### Scenario: The detail footer marks a partial count after a reload
 - **WHEN** the pipeline detail page is loaded fresh for a pipeline whose last run was truncated
 - **THEN** the rows-written figure is rendered as partial, alongside the server-composed notice
@@ -259,3 +261,7 @@ truncation warning and equally without any completeness claim.
 #### Scenario: A historical run is not marked truncated
 - **WHEN** a pipeline whose last run predates truncation recording is displayed
 - **THEN** no truncation warning is rendered, and the count is not asserted to be complete either
+
+#### Scenario: Desktop step counts carry the truncation context
+- **WHEN** the persisted latest run was truncated and the spine shows its per-step counts
+- **THEN** the Steps heading shows the Partial badge and each count's accessible name says it is partial

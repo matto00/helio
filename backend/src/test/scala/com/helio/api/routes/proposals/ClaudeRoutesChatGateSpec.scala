@@ -5,6 +5,7 @@ import com.helio.domain.util.Clock
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.assistant.TierErrorResponse
 import com.helio.api.protocols.panels.CreatePanelRequest
+import com.helio.api.protocols.proposals.DashboardAuthoringRequest
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.engine.SchemaField
 import com.helio.api.routes.assistant.AssistantConversationRoutes
@@ -54,7 +55,7 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 /** HEL-1205 — `POST /api/authoring/dashboard` (buffered + stream) and `POST /api/refinements` are
  *  gated through the SAME [[ChatAccessService]] the workspace assistant uses: free -> 403
@@ -72,6 +73,13 @@ class ClaudeRoutesChatGateSpec
   private implicit val typedSystem: ActorSystem[Nothing] = system.toTyped
   private def routeEc: ExecutionContextExecutor          = typedSystem.executionContext
 
+  // HEL-1610: see [[InFlightTracker]]. `trackedEc` is a stable lazy val so its singleton type is usable below.
+  private lazy val tracker = new InFlightTracker(routeEc)
+  private lazy val trackedEc: tracker.ec.type = tracker.ec
+
+  private def awaitQuiescence(): Unit =
+    if (!tracker.awaitQuiescence(10000L)) fail(s"Claude-reaching stack not quiescent after 10s (in flight: ${tracker.current})")
+
   private var embeddedPostgres: EmbeddedPostgres = _
   private var db: JdbcBackend.Database           = _
   private var userRepo: UserRepository           = _
@@ -88,14 +96,20 @@ class ClaudeRoutesChatGateSpec
   private def await[T](f: Future[T]): T = Await.result(f, 10.seconds)
 
   override def beforeAll(): Unit = {
-    implicit val ec: ExecutionContext = routeEc
+    // HEL-1610: the Claude-reaching stack captures `trackedEc` (declared FIRST); only the request-time
+    // gate collaborators (users, usage, converse) stay on the plain `routeEc`. The singleton type is
+    // load-bearing: RouteTest also offers `implicit def executor` (the actor-system dispatcher), and an
+    // `ExecutionContext`-typed local lost to that more specific member, so the whole stack silently ran
+    // untracked on the dispatcher (probe-confirmed: quiescence returned with the Claude call still pending).
+    implicit val ec: trackedEc.type = trackedEc
     embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
       .locations("classpath:db/migration")
       .load().migrate()
     db = JdbcBackend.Database.forDataSource(embeddedPostgres.getPostgresDatabase, Some(10))
-    val ctx = new DbContext(db, db)
+    val ctx      = new tracker.TrackedDbContext(db)
+    val plainCtx = new DbContext(db, db)(routeEc)
 
     val dashboardRepo    = new DashboardRepository(ctx)
     val panelRepo        = new PanelRepository(ctx)
@@ -121,12 +135,12 @@ class ClaudeRoutesChatGateSpec
     val previewService = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
     val grounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     val authoringConvRepo = new AuthoringConversationRepository(ctx)
-    authoringService  = client => new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, client, authoringConvRepo)(routeEc)
-    refinementService = client => new RefinementService(grounding, previewService, client, authoringConvRepo)(routeEc)
+    authoringService  = client => new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, client, authoringConvRepo)(trackedEc)
+    refinementService = client => new RefinementService(grounding, previewService, client, authoringConvRepo)(trackedEc)
 
     userRepo            = new UserRepository(db)(routeEc)
-    usageRepo           = new AssistantDailyUsageRepository(ctx, PinnedDayClock)(routeEc)
-    conversationService = new AssistantConversationService(new AssistantConversationRepository(ctx), fs)(routeEc)
+    usageRepo           = new AssistantDailyUsageRepository(plainCtx, PinnedDayClock)(routeEc)
+    conversationService = new AssistantConversationService(new AssistantConversationRepository(plainCtx), fs)(routeEc)
   }
 
   override def afterAll(): Unit = {
@@ -153,7 +167,7 @@ class ClaudeRoutesChatGateSpec
   }
 
   private def client(t: ClaudeTransport): ClaudeClient =
-    new ClaudeClient(ClaudeConfig("sk-ant-stub-never-used", "claude-test", 1.0, 4096, 100000), t)(routeEc)
+    new ClaudeClient(ClaudeConfig("sk-ant-stub-never-used", "claude-test", 1.0, 4096, 100000), t)(trackedEc)
 
   private val authoringJson = """{"dashboardName":"S","panels":[]}"""
 
@@ -225,17 +239,34 @@ class ClaudeRoutesChatGateSpec
     "get 403 TIER_FORBIDDEN on buffered authoring, with zero transport calls" in {
       val f = newUser("free"); val t = new CountingTransport(authoringJson)
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(chat(5)), chat(5)) ~> check { expectTier("TIER_FORBIDDEN", StatusCodes.Forbidden, None) }
+      awaitQuiescence()
       t.calls.get shouldBe 0
     }
     "get 403 on streaming authoring, with zero transport calls" in {
       val f = newUser("free"); val t = new CountingTransport(authoringJson)
       Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> routes(f, t, Some(chat(5)), chat(5)) ~> check { expectTier("TIER_FORBIDDEN", StatusCodes.Forbidden, None) }
+      // Limitation (HEL-1610): quiescence tracks Future-callback hops only. A regression that MATERIALIZES a
+      // denied stream runs its Claude call on Pekko's stream actor (untracked, behind HEL-1609's lazySource),
+      // which this guard cannot catch deterministically; it does catch the eager-call shape.
+      awaitQuiescence()
       t.calls.get shouldBe 0
     }
     "get 403 on refinements, with zero transport calls" in {
       val f = newUser("free"); val t = new CountingTransport(refineJson(f.panelId))
       Post("/refinements", jsonEntity(refineBody(f))) ~> routes(f, t, Some(chat(5)), chat(5)) ~> check { expectTier("TIER_FORBIDDEN", StatusCodes.Forbidden, None) }
+      awaitQuiescence()
       t.calls.get shouldBe 0
+    }
+  }
+
+  "the quiescence point" should {
+    // HEL-1610 positive control: an un-awaited async Claude call (real grounding DB work first) is
+    // only visible after awaitQuiescence(); with it a no-op this reads 0.
+    "wait for an un-awaited async Claude call to reach the transport" in {
+      val f = newUser("owner"); val t = new CountingTransport(authoringJson)
+      val _ = authoringService(client(t)).author(DashboardAuthoringRequest("Show revenue", None), f.user)
+      awaitQuiescence()
+      t.calls.get shouldBe 1
     }
   }
 
@@ -261,10 +292,12 @@ class ClaudeRoutesChatGateSpec
       // Wiring guard (HEL-1473): the stored usage_date IS the pinned day. Fails on SystemClock on any
       // day but 2026-01-01, so dropping the pin from the repo is caught immediately.
       await(db.run(sql"""SELECT usage_date::text FROM assistant_daily_usage WHERE user_id = ${f.user.id.value}::uuid""".as[String])) shouldBe Vector(pinnedDate.toString)
+      awaitQuiescence()
       val before = t.calls.get
       before shouldBe 2 // one buffered send + one stream, both permitted and now both observed
       Post("/authoring/dashboard", jsonEntity(goal)) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
       Post("/refinements", jsonEntity(refineBody(f))) ~> routes(f, t, Some(c), c) ~> check { expectTier("CHAT_LIMIT_REACHED", StatusCodes.TooManyRequests, Some(2)) }
+      awaitQuiescence()
       t.calls.get shouldBe before
       usage(f) shouldBe Some(2)
     }
@@ -332,6 +365,7 @@ class ClaudeRoutesChatGateSpec
       Post("/authoring/requests/abc/outcome", jsonEntity("""{"outcome":"accepted"}""")) ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.NoContent }
       Get(s"/authoring/conversations/${UUID.randomUUID()}") ~> routes(f, t, Some(c), c) ~> check { status shouldBe StatusCodes.NotFound }
       usage(f) shouldBe None
+      awaitQuiescence()
       t.calls.get shouldBe 0
     }
     "fail closed with 503 (zero transport calls) when the service exists but ChatAccessService is absent" in {
@@ -343,6 +377,7 @@ class ClaudeRoutesChatGateSpec
       Post("/authoring/dashboard", jsonEntity(goal)) ~> r ~> check { status shouldBe StatusCodes.ServiceUnavailable }
       Post("/authoring/dashboard?stream=true", jsonEntity(goal)) ~> r ~> check { status shouldBe StatusCodes.ServiceUnavailable }
       Post("/refinements", jsonEntity(refineBody(f))) ~> r ~> check { status shouldBe StatusCodes.ServiceUnavailable }
+      awaitQuiescence()
       t.calls.get shouldBe 0
     }
   }

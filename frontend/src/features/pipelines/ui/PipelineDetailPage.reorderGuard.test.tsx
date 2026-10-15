@@ -35,6 +35,7 @@ import {
 } from "../services/pipelineService";
 import type { PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import type { Step } from "../types/step";
+import { installPhoneShell } from "./pipelineDetailPageTestUtils";
 
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
@@ -102,6 +103,17 @@ function makeStore() {
     } as never,
   });
 }
+
+// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
+// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
+// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+let restorePhoneShell: () => void = () => {};
+beforeEach(() => {
+  restorePhoneShell = installPhoneShell();
+});
+afterEach(() => {
+  restorePhoneShell();
+});
 
 describe("handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path)", () => {
   beforeEach(() => {
