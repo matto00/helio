@@ -1,7 +1,7 @@
 # collection-panel-type Specification
 
 ## Purpose
-Defines the `collection` panel kind: its config shape (base type, shared field mapping, layout, per-base-type item options), persistence contract, and the rule that adding future base types requires no schema changes.
+Defines the `collection` Output kind, rendered inside an `output` panel (there is no `collection` panel kind): the keys its `config` accepts (`fieldMapping`, `layout`, `format`, `conditionalFormats`) and how unknown keys are handled.
 
 ## Requirements
 

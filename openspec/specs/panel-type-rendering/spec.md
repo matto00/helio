@@ -1,5 +1,5 @@
 ## Purpose
-Defines how each panel type renders its body content area inside the dashboard grid, including placeholder states when no data is bound and live states when data is present.
+Defines how each canonical panel kind (`output`, `text`, `markdown`, `image`, `divider`, `form`) renders its body content area inside the dashboard grid, including the type badge and creation type selector, and the loading, error, no-data and placeholder states. An `output` panel's body is chosen by the kind of the Output it is bound to.
 
 ## Requirements
 

@@ -1,0 +1,20 @@
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/mcp-panel-composition-tools/spec.md` — delta: REMOVED flat-field back-compat, caption/annotation and update_panel requirements; ADDED their restatements
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/panel-type-rendering/spec.md` — delta: MODIFIED both type-selector requirements ("or changing" dropped)
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/panel-polling/spec.md` — delta: REMOVED two `typeId` requirements; ADDED Output-binding / hook-contract versions
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/dashboard-export-import/spec.md` — delta: MODIFIED "Export dashboard endpoint" field list
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/collection-panel-type/spec.md` — delta: REMOVED baseType/itemOptions requirement; ADDED collection Output config keys
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/collection-panel-rendering/spec.md` — delta: REMOVED three stale requirements; ADDED two restatements (grid/list and overflow left, verified accurate)
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/collection-config-editor/spec.md` — delta: REMOVED three detail-modal-editor requirements; ADDED two Output-editor-sheet requirements
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/timeline-panel-type/spec.md` — delta: REMOVED panel-type contract requirement; ADDED Output-kind contract requirement
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/timeline-panel-rendering/spec.md` — delta: MODIFIED two requirements; REMOVED config-editor requirement; ADDED Output-editor-sheet requirement
+- `openspec/changes/restate-remaining-stale-panel-specs/specs/metric-panel-trend-indicator/spec.md` — delta: MODIFIED trend indicator (renderer-level only) and font-size (tokens)
+- `openspec/changes/restate-remaining-stale-panel-specs/evidence.md` — command + output for every claim, verdict tables, direct-edit diff, out-of-scope observations
+- `openspec/changes/restate-remaining-stale-panel-specs/{ticket,proposal,design,tasks}.md`, `skeptic-design-1.md`, `skeptic-design-2.md`, (`workflow-state.md` is excluded via `.git/info/exclude` and is NOT committed) — planning artifacts committed with the work; tasks.md all ticked
+- `openspec/specs/panel-type-rendering/spec.md` — DIRECT edit (design D2; a delta cannot address Purpose): Purpose line restated
+- `openspec/specs/collection-panel-type/spec.md` — DIRECT edit (D2): Purpose restated
+- `openspec/specs/collection-panel-rendering/spec.md` — DIRECT edit (D2): Purpose restated
+- `openspec/specs/collection-config-editor/spec.md` — DIRECT edit (D2): Purpose restated
+- `openspec/specs/timeline-panel-type/spec.md` — DIRECT edit (D2): Purpose restated
+- `openspec/specs/timeline-panel-rendering/spec.md` — DIRECT edit (D2): Purpose restated
+- `openspec/specs/metric-panel-trend-indicator/spec.md` — DIRECT edit (D2): `TBD` Purpose replaced
+- `openspec/specs/write-path-audit/spec.md` — DIRECT edit (D2): Write Path Table row 9 and payload detail 9 restated to the "Swap output" PATCH

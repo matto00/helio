@@ -1,7 +1,7 @@
 # metric-panel-trend-indicator Specification
 
 ## Purpose
-TBD - created by archiving change metric-panel-sizing. Update Purpose after archive.
+Defines `MetricRenderer`'s legacy `trend` string indicator (`.panel-content__metric-trend`): its direction classes and container-query font sizes. No production caller supplies `trend`; the history comparison marker reuses the same classes (see `metric-history-delta-ui`).
 ## Requirements
 ### Requirement: Metric panel renders trend indicator when trend data is present
 When the bound `MappedPanelData` map contains a `trend` key, the metric panel SHALL render a

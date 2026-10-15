@@ -1,7 +1,7 @@
 # collection-panel-rendering Specification
 
 ## Purpose
-Defines how a collection panel renders one homogeneous item per row of its bound multi-row DataType, in grid or list layout, including empty/unbound states and overflow behavior.
+Defines how an `output` panel bound to a collection-kind Output renders one metric item per loaded row, in grid or list layout, including the empty state and overflow behavior.
 
 ## Requirements
 

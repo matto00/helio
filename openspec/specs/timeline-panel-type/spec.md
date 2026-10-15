@@ -1,7 +1,7 @@
 # timeline-panel-type Specification
 
 ## Purpose
-Defines the `timeline` panel kind: its config shape (`dataTypeId`, `fieldMapping`, `timelineOptions.sort`), persistence contract (existing binding columns plus a `timeline_options` JSONB column), tolerant defaults, PATCH absent-vs-null semantics, duplication/export parity, and inclusion in every panel-`type` contract surface (JSON Schema, MCP tools).
+Defines the `timeline` Output kind, rendered inside an `output` panel (there is no `timeline` panel kind): its `fieldMapping` slots (`time`, `event`), its `sort` config key, and its inclusion in every Output-kind contract surface (JSON Schema, MCP tools).
 
 ## Requirements
 

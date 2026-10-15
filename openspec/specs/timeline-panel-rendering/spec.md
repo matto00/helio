@@ -1,7 +1,7 @@
 # timeline-panel-rendering Specification
 
 ## Purpose
-Defines how a `timeline` panel renders its bound rows as a vertical, chronological event list (marker/connector/time/description per entry), the configurable `time` + `event` field mapping and `sort` direction, size-proportional scaling, and graceful degradation for empty / single-row / long-description data.
+Defines how an `output` panel bound to a timeline-kind Output renders its rows as a vertical, chronological event list (marker/connector/time/description per entry), the `time` + `event` field mapping and `sort` direction, height-tiered scaling, and graceful degradation for empty / single-row / long-description data.
 ## Requirements
 ### Requirement: Timeline renders bound rows as a vertical chronological event list
 

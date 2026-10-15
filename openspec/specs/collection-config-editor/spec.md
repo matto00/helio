@@ -1,7 +1,7 @@
 # collection-config-editor Specification
 
 ## Purpose
-Defines the detail-modal editor for collection panels: base-type extension point, DataType binding, shared field-mapping slots with bound-or-literal label/unit, layout control, and mobile touch-target sizing.
+Defines how the Output editor sheet edits a collection-kind Output: the item field-mapping slots, the format and conditional-format controls, the grid layout written on create, and which config keys an edit sends.
 ## Requirements
 ### Requirement: Detail modal presents a collection editor
 The panel detail modal SHALL present a collection-specific editor for `collection` panels composing:
