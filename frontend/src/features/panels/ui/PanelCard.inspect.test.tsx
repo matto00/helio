@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
@@ -126,7 +127,8 @@ function renderChartPanelCard() {
 describe("PanelCard — HEL-572 tasks.md 4.2 (grid click → inspect)", () => {
   it("clicking a chart element opens the inspect view listing exactly the matching rows", async () => {
     renderChartPanelCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
 
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "Q1", seriesName: "West" });
@@ -141,7 +143,8 @@ describe("PanelCard — HEL-572 tasks.md 4.2 (grid click → inspect)", () => {
 describe("PanelCard — HEL-572 tasks.md 5.1 (ActionsMenu Inspect item)", () => {
   it("shows an Inspect item for a chart-eligible panel", async () => {
     renderChartPanelCard();
-    await screen.findByTestId("echarts");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("echarts");
     fireEvent.click(screen.getByRole("button", { name: "Revenue panel actions" }));
 
     expect(screen.getByRole("menuitem", { name: "Inspect" })).toBeInTheDocument();
@@ -158,7 +161,8 @@ describe("PanelCard — HEL-572 tasks.md 5.1 (ActionsMenu Inspect item)", () => 
 
   it("opens the inspect view's empty state when nothing is selected yet", async () => {
     renderChartPanelCard();
-    await screen.findByTestId("echarts");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("echarts");
     fireEvent.click(screen.getByRole("button", { name: "Revenue panel actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Inspect" }));
 
@@ -167,7 +171,8 @@ describe("PanelCard — HEL-572 tasks.md 5.1 (ActionsMenu Inspect item)", () => 
 
   it("opens the inspect view for the panel's current selection when one exists", async () => {
     renderChartPanelCard();
-    const chart = (await screen.findByTestId("echarts")) as MockChartNode;
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts") as MockChartNode;
     act(() => {
       chart.__onEvents?.click({ componentType: "series", name: "Q2", seriesName: "East" });
     });

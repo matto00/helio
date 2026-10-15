@@ -2,6 +2,7 @@ import { act, fireEvent, screen, within } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../test/panelFixtures";
+import { settleChartMount } from "../../../test/settleChartMount";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
@@ -356,20 +357,6 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     ["West", "405", "Q4"],
   ];
 
-  // The chart only mounts after `getOutputById` resolves (output meta) and the lazy `ChartPanel`
-  // chunk loads. Polling for it with `findBy*` races a fixed 1 s deadline against main-thread work
-  // of unknown length: a stall of about 1 s on a busy runner makes RTL's overdue timeout fire before
-  // React's next commit, so the test fails even though nothing is wrong. Instead, await the causal
-  // events themselves (every output-meta promise issued so far, and the lazy module) inside `act` so
-  // React flushes the resulting updates, then query synchronously. There is no wall-clock deadline
-  // here; the real chart path is still what is asserted on.
-  async function settleChartMount() {
-    await act(async () => {
-      await Promise.all(getOutputByIdMock.mock.results.map((r) => r.value));
-      await import("./ChartPanel");
-    });
-  }
-
   it("Fullscreen's nested Inspect shows the SAME narrowed row as the grid card's, not every quarter", async () => {
     getOutputByIdMock.mockResolvedValue(makeChartOutput());
     mockUsePanelData.mockReturnValue({
@@ -389,7 +376,7 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     renderPanelCard("panel-sibling");
 
     // --- Grid-context: click "West" on the chart, open Inspect, assert exactly 1 row.
-    await settleChartMount();
+    await settleChartMount(getOutputByIdMock);
     const gridChart = screen.getAllByTestId("echarts")[0] as MockChartNode;
     fireEvent.click(screen.getByRole("button", { name: "Revenue panel actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Inspect" }));
