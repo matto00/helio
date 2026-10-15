@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
-import { settleChartMount } from "../../../test/settleChartMount";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
 import { makeFormPanel, makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
@@ -103,7 +103,8 @@ describe("PanelContent — output kind dispatch", () => {
   it("renders the metric placeholder for output kind metric", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "metric" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    expect(await screen.findByText("--")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("--")).toBeInTheDocument();
   });
 
   it("renders an ECharts chart panel for output kind chart", async () => {
@@ -123,7 +124,8 @@ describe("PanelContent — output kind dispatch", () => {
         headers={["value"]}
       />,
     );
-    expect(await screen.findByRole("table")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByRole("table")).toBeInTheDocument();
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 
@@ -149,7 +151,10 @@ describe("PanelContent — output kind dispatch", () => {
         headers={["region"]}
       />,
     );
-    expect((await screen.findByTestId("markdown-content")).textContent).toBe("# Literal heading");
+    // Two stages: the output meta picks the renderer, then `MarkdownRenderer`'s own `React.lazy` loads.
+    await settleMocks(getOutputByIdMock);
+    await settleMocks(import("./MarkdownPanel"));
+    expect(screen.getByTestId("markdown-content").textContent).toBe("# Literal heading");
     expect(screen.queryByText("Bound value")).toBeNull();
   });
 });
@@ -350,7 +355,8 @@ describe("PanelContent — live table data", () => {
         headers={["Revenue", "Region"]}
       />,
     );
-    expect(await screen.findByText("Revenue")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("Revenue")).toBeInTheDocument();
     expect(screen.getByText("North")).toBeInTheDocument();
     expect(screen.getByText("2000")).toBeInTheDocument();
     const rows = container.querySelectorAll("tbody tr");
@@ -423,7 +429,8 @@ describe("PanelContent — form kind (HEL-1083)", () => {
     });
     const { container } = renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
 
-    await screen.findByRole("form", { name: panel.title });
+    await settleMocks(fetchDatasetSchemaMock);
+    screen.getByRole("form", { name: panel.title });
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
   });
 });
