@@ -10,6 +10,8 @@ repo-wide, is `shared/chrome/SaveStateIndicator.tsx`; no `features/*` dir
 imports it. It lives here anyway since it is `shared/chrome`'s dependency
 and `shared/` has no `hooks/` subdirectory of its own to hold it.
 
+`useNow.ts` is shared by `features/pipelines` and `features/sources` (the overview tables' relative-time labels).
+
 **Belongs here:** hooks used by more than one feature, or (as with
 `useRelativeTime.ts`) needed by `shared/` and with nowhere more specific to
 live. Verify with a real import grep before adding — do not assume

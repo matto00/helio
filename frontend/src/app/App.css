@@ -497,6 +497,9 @@
      apart. */
   .app-content {
     padding-bottom: var(--bottom-nav-height);
+    /* HEL-1605: scrollIntoView honours scroll-padding, so every reveal inside the page (a row Delete confirm,
+       a focus scroll) stops at the BottomNav's top edge instead of sliding under it. Same token as the padding. */
+    scroll-padding-bottom: var(--bottom-nav-height);
   }
 }
 

@@ -73,6 +73,7 @@ export function PipelinesPage() {
               <ConfirmInline
                 label={`Delete ${deletingPipeline.name}? Any panels bound to this pipeline's Outputs will stop working.`}
                 confirmLabel="Delete"
+                ignoreRepeatClicks
                 confirmAriaLabel={`Confirm delete ${deletingPipeline.name}`}
                 onConfirm={() => void confirmDelete(deletingPipeline)}
                 onCancel={() => {
