@@ -2,12 +2,22 @@ import { act, fireEvent, screen, within } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../test/panelFixtures";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { usePanelData } from "../hooks/usePanelData";
 import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
+
+// HEL-1600 -- stands in for GET /api/outputs/:id/history, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../history/outputHistoryService", () => ({
+  ...jest.requireActual("../history/outputHistoryService"),
+  fetchOutputHistory: jest.fn(() =>
+    Promise.reject(new Error("fetchOutputHistory: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
 
 // HEL-588 tasks.md 6.5/6.6 — a dedicated file (mirrors PanelCard.inspect.test.tsx's own
 // rationale) covering the cross-filter's effect at PanelCard's usePanelData call site: a sibling
@@ -164,7 +174,8 @@ describe("PanelCard — HEL-588 cross-filter application (tasks.md 6.5)", () => 
     getOutputByIdMock.mockResolvedValue(makeTableOutput());
     renderPanelCard("panel-sibling", { seedPaginationRows: paginationRows });
 
-    await screen.findByRole("table");
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
     expect(screen.getAllByText("Q1")).toHaveLength(2);
     expect(screen.queryByText("Q2")).not.toBeInTheDocument();
     expect(screen.queryByText("120")).not.toBeInTheDocument();
@@ -174,7 +185,8 @@ describe("PanelCard — HEL-588 cross-filter application (tasks.md 6.5)", () => 
     getOutputByIdMock.mockResolvedValue(makeTableOutput());
     renderPanelCard("origin-panel", { seedPaginationRows: paginationRows });
 
-    await screen.findByRole("table");
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
     expect(screen.getAllByText("Q1")).toHaveLength(2);
     expect(screen.getByText("Q2")).toBeInTheDocument();
     expect(screen.getByText("120")).toBeInTheDocument();
@@ -186,7 +198,8 @@ describe("PanelCard — HEL-588 cross-filter application (tasks.md 6.5)", () => 
     getOutputByIdMock.mockResolvedValue(makeTableOutput({ config: { columnOrder: ["revenue"] } }));
     renderPanelCard("panel-sibling", { seedPaginationRows: paginationRows });
 
-    await screen.findByRole("table");
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
     // All three rows' revenue values are still present — nothing was narrowed.
     expect(screen.getByText("100")).toBeInTheDocument();
     expect(screen.getByText("150")).toBeInTheDocument();
@@ -228,7 +241,8 @@ describe("PanelCard — HEL-588 metric panel recomputes over the filtered subset
     renderPanelCard("panel-sibling");
 
     // Full-set sum would be 100 + 150 + 120 = 370; filtered (Q1 only) is 250.
-    expect(await screen.findByText("250")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("250")).toBeInTheDocument();
     expect(screen.queryByText("370")).not.toBeInTheDocument();
   });
 
@@ -236,7 +250,8 @@ describe("PanelCard — HEL-588 metric panel recomputes over the filtered subset
     getOutputByIdMock.mockResolvedValue(makeMetricOutput());
     renderPanelCard("origin-panel");
 
-    expect(await screen.findByText("370")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("370")).toBeInTheDocument();
   });
 });
 
@@ -279,8 +294,9 @@ describe("PanelCard — HEL-588 Fullscreen disclosure agrees with the grid card 
     renderPanelCard("panel-sibling", { seedPaginationRows: paginationRows });
 
     // Grid-context disclosure: 2 of the 3 loaded rows match "Q1".
-    await screen.findByRole("table");
-    expect(await screen.findByText("2 of 3 loaded rows match.")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
+    expect(screen.getByText("2 of 3 loaded rows match.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Fullscreen Revenue" }));
     const fullscreenDialog = screen.getByRole("dialog", { name: "Revenue fullscreen" });
@@ -288,9 +304,7 @@ describe("PanelCard — HEL-588 Fullscreen disclosure agrees with the grid card 
     // Fullscreen-context disclosure for the SAME panel/filter state must
     // read the SAME "2 of 3" — never "2 of 2" (the bug: the denominator
     // collapsing to the already-filtered match count).
-    expect(
-      await within(fullscreenDialog).findByText("2 of 3 loaded rows match."),
-    ).toBeInTheDocument();
+    expect(within(fullscreenDialog).getByText("2 of 3 loaded rows match.")).toBeInTheDocument();
     expect(
       within(fullscreenDialog).queryByText("2 of 2 loaded rows match."),
     ).not.toBeInTheDocument();
@@ -347,20 +361,6 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     ["West", "405", "Q4"],
   ];
 
-  // The chart only mounts after `getOutputById` resolves (output meta) and the lazy `ChartPanel`
-  // chunk loads. Polling for it with `findBy*` races a fixed 1 s deadline against main-thread work
-  // of unknown length: a stall of about 1 s on a busy runner makes RTL's overdue timeout fire before
-  // React's next commit, so the test fails even though nothing is wrong. Instead, await the causal
-  // events themselves (every output-meta promise issued so far, and the lazy module) inside `act` so
-  // React flushes the resulting updates, then query synchronously. There is no wall-clock deadline
-  // here; the real chart path is still what is asserted on.
-  async function settleChartMount() {
-    await act(async () => {
-      await Promise.all(getOutputByIdMock.mock.results.map((r) => r.value));
-      await import("./ChartPanel");
-    });
-  }
-
   it("Fullscreen's nested Inspect shows the SAME narrowed row as the grid card's, not every quarter", async () => {
     getOutputByIdMock.mockResolvedValue(makeChartOutput());
     mockUsePanelData.mockReturnValue({
@@ -380,7 +380,7 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     renderPanelCard("panel-sibling");
 
     // --- Grid-context: click "West" on the chart, open Inspect, assert exactly 1 row.
-    await settleChartMount();
+    await settleChartMount(getOutputByIdMock);
     const gridChart = screen.getAllByTestId("echarts")[0] as MockChartNode;
     fireEvent.click(screen.getByRole("button", { name: "Revenue panel actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Inspect" }));
@@ -393,7 +393,7 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
       gridChart.__onEvents?.click({ componentType: "series", name: "West" });
     });
 
-    await within(gridInspect).findByText("Showing rows for region: West");
+    within(gridInspect).getByText("Showing rows for region: West");
     expect(within(gridInspect).getByText("105")).toBeInTheDocument();
     expect(within(gridInspect).queryByText("205")).not.toBeInTheDocument();
     expect(within(gridInspect).queryByText("305")).not.toBeInTheDocument();
@@ -417,7 +417,7 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
     const fullscreenInspect = within(fullscreenDialog).getByRole("dialog", {
       name: "Inspect Revenue",
     });
-    await within(fullscreenInspect).findByText("Showing rows for region: West");
+    within(fullscreenInspect).getByText("Showing rows for region: West");
 
     // THE regression this test guards: Fullscreen's nested Inspect must show
     // the SAME single Q1/West row — never all 4 quarters' West rows (the bug:

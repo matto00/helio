@@ -1,6 +1,10 @@
 import "@testing-library/jest-dom";
 
 import { resetOutputFreshness } from "../features/panels/state/outputFreshness";
+import { installNetworkGuard } from "./networkGuard";
+
+// HEL-1600 -- an unmocked network request fails the test that issued it (see networkGuard.ts).
+installNetworkGuard();
 
 // HEL-1392 -- the Output freshness registry and the metadata cache are module-level; a test must
 // never inherit another test's retained Outputs or cached metadata.

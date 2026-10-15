@@ -7,6 +7,15 @@ import { resetProvenanceCache } from "../../provenance/provenanceCache";
 import { fetchOutputProvenance } from "../../provenance/provenanceService";
 import { MobilePanelStack } from "./MobilePanelStack";
 
+// HEL-1600 -- stands in for GET /api/outputs/:id, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../../pipelines/services/outputService"),
+  getOutputById: jest.fn(() =>
+    Promise.reject(new Error("getOutputById: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
+
 // HEL-1207 A1/A2 — the mobile stack renders its own trigger beside the title (no footer), and
 // nothing inside the popover may bubble to the item's detail-modal click handler.
 

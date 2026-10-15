@@ -3,6 +3,7 @@ import path from "path";
 import { fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { makeMarkdownPanel, makeOutputPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
@@ -234,7 +235,8 @@ describe("PanelFullscreenOverlay — HEL-584 task 3.1 (chart resize wiring, desi
         {...basePanelDataProps}
       />,
     );
-    const chart = await screen.findByTestId("echarts");
+    await settleChartMount(getOutputByIdMock);
+    const chart = screen.getByTestId("echarts");
     expect(chart).toHaveAttribute("data-autoresize", "true");
   });
 });
@@ -280,14 +282,16 @@ describe("PanelFullscreenOverlay — HEL-1191 threaded crossFilterMode", () => {
 
   it("client-fallback narrows the loaded rows client-side", async () => {
     renderWithMode("client-fallback");
-    await screen.findByRole("table");
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
     expect(screen.getByText("100")).toBeInTheDocument();
     expect(screen.queryByText("120")).not.toBeInTheDocument();
   });
 
   it("server renders the rows it was given untouched (they arrive server-narrowed; no second filter)", async () => {
     renderWithMode("server");
-    await screen.findByRole("table");
+    await settleMocks(getOutputByIdMock);
+    screen.getByRole("table");
     expect(screen.getByText("100")).toBeInTheDocument();
     expect(screen.getByText("120")).toBeInTheDocument();
   });

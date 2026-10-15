@@ -1,12 +1,22 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../test/renderWithStore";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 import { PanelContent } from "./PanelContent";
 import type { ChartPanelProps } from "./ChartPanel";
 import { makeFormPanel, makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../pipelines/services/outputService";
 import { fetchDatasetSchema as fetchDatasetSchemaRequest } from "../../sources/services/dataSourceService";
 import type { Output } from "../../pipelines/types/output";
+
+// HEL-1600 -- stands in for GET /api/outputs/:id/history, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../history/outputHistoryService", () => ({
+  ...jest.requireActual("../history/outputHistoryService"),
+  fetchOutputHistory: jest.fn(() =>
+    Promise.reject(new Error("fetchOutputHistory: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
 
 let capturedChartProps: ChartPanelProps | null = null;
 
@@ -52,8 +62,9 @@ function makeOutput(overrides: Partial<Output> = {}): Output {
 // 1); even with the `./ChartPanel` mock above resolving immediately, it mounts asynchronously
 // behind a `Suspense` boundary. HEL-909 additionally means an output-kind panel's renderer choice
 // (metric/chart/table/etc.) itself resolves asynchronously (`useOutputMeta`'s `GET
-// /api/outputs/:id` fetch) — every assertion below awaits `screen.findByTestId(...)` or an
-// equivalent async query rather than asserting synchronously.
+// /api/outputs/:id` fetch) — every chart assertion below awaits `settleChartMount(...)` (HEL-1599:
+// the output-meta promise and the lazy module inside `act`, no 1 s `findBy*` deadline) and then
+// queries synchronously; the other kinds await an equivalent async query.
 describe("PanelContent — appearance forwarding", () => {
   it("forwards appearance prop to ChartPanel", async () => {
     const appearance = {
@@ -73,7 +84,8 @@ describe("PanelContent — appearance forwarding", () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel({ appearance });
     renderWithStore(<PanelContent crossFilterMode="none" panel={panel} appearance={appearance} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(appearance);
   });
 
@@ -81,7 +93,8 @@ describe("PanelContent — appearance forwarding", () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     const panel = makeOutputPanel();
     renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.appearance).toEqual(panel.appearance);
   });
 });
@@ -90,13 +103,15 @@ describe("PanelContent — output kind dispatch", () => {
   it("renders the metric placeholder for output kind metric", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "metric" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    expect(await screen.findByText("--")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("--")).toBeInTheDocument();
   });
 
   it("renders an ECharts chart panel for output kind chart", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    expect(await screen.findByTestId("chart-panel")).toBeInTheDocument();
+    await settleChartMount(getOutputByIdMock);
+    expect(screen.getByTestId("chart-panel")).toBeInTheDocument();
   });
 
   it("renders a table element for output kind table", async () => {
@@ -109,7 +124,8 @@ describe("PanelContent — output kind dispatch", () => {
         headers={["value"]}
       />,
     );
-    expect(await screen.findByRole("table")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByRole("table")).toBeInTheDocument();
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 
@@ -135,7 +151,10 @@ describe("PanelContent — output kind dispatch", () => {
         headers={["region"]}
       />,
     );
-    expect((await screen.findByTestId("markdown-content")).textContent).toBe("# Literal heading");
+    // Two stages: the output meta picks the renderer, then `MarkdownRenderer`'s own `React.lazy` loads.
+    await settleMocks(getOutputByIdMock);
+    await settleMocks(import("./MarkdownPanel"));
+    expect(screen.getByTestId("markdown-content").textContent).toBe("# Literal heading");
     expect(screen.queryByText("Bound value")).toBeNull();
   });
 });
@@ -261,7 +280,8 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
         headers={headers}
       />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual(fieldMapping);
     expect(capturedChartProps?.rawRows).toEqual(rawRows);
     expect(capturedChartProps?.headers).toEqual(headers);
@@ -270,7 +290,8 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   it("forwards an empty fieldMapping object to ChartPanel when the Output config has none", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.fieldMapping).toEqual({});
   });
 
@@ -279,14 +300,16 @@ describe("PanelContent — chart forwards all props to ChartPanel", () => {
   it("forwards compact=true to ChartPanel", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} compact />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBe(true);
   });
 
   it("leaves compact undefined for the desktop grid (no compact prop passed)", async () => {
     getOutputByIdMock.mockResolvedValue(makeOutput({ kind: "chart" }));
     renderWithStore(<PanelContent crossFilterMode="none" panel={makeOutputPanel()} />);
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(capturedChartProps?.compact).toBeUndefined();
   });
 });
@@ -302,7 +325,8 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     const { container } = renderWithStore(
       <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).toHaveTextContent("Fixed note");
   });
 
@@ -311,7 +335,8 @@ describe("PanelContent — chart annotation resolution (HEL-323)", () => {
     const { container } = renderWithStore(
       <PanelContent crossFilterMode="none" panel={makeOutputPanel()} />,
     );
-    await screen.findByTestId("chart-panel");
+    await settleChartMount(getOutputByIdMock);
+    screen.getByTestId("chart-panel");
     expect(container.querySelector(".chart-panel__annotation")).not.toBeInTheDocument();
   });
 });
@@ -330,7 +355,8 @@ describe("PanelContent — live table data", () => {
         headers={["Revenue", "Region"]}
       />,
     );
-    expect(await screen.findByText("Revenue")).toBeInTheDocument();
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByText("Revenue")).toBeInTheDocument();
     expect(screen.getByText("North")).toBeInTheDocument();
     expect(screen.getByText("2000")).toBeInTheDocument();
     const rows = container.querySelectorAll("tbody tr");
@@ -403,7 +429,8 @@ describe("PanelContent — form kind (HEL-1083)", () => {
     });
     const { container } = renderWithStore(<PanelContent crossFilterMode="none" panel={panel} />);
 
-    await screen.findByRole("form", { name: panel.title });
+    await settleMocks(fetchDatasetSchemaMock);
+    screen.getByRole("form", { name: panel.title });
     expect(container.querySelector(".panel-content--metric")).not.toBeInTheDocument();
   });
 });

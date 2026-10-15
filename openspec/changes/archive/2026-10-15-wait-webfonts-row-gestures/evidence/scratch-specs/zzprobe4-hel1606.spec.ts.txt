@@ -1,0 +1,14 @@
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+for (const route of ["/sources", "/pipelines"]) test(`families ${route}`, async ({ page, request }) => {
+  await registerAndLogin(page, request, { prefix: "hel1606f", displayName: "f", domain: "example.com", label: route.slice(1), isolate: true });
+  const r = await page.request.post("/api/data-sources", { data: { name: "F 1", type: "static", columns: [{ name: "a", type: "integer" }], rows: [[1]] }, headers: { "X-Helio-Requested-With": "1" } });
+  const id = ((await r.json()) as { id: string }).id;
+  await page.request.post("/api/pipelines", { data: { name: "F 1", roots: [{ sourceId: id }] }, headers: { "X-Helio-Requested-With": "1" } });
+  await page.goto(route);
+  const b = page.getByRole("button", { name: /^Delete F 1/ });
+  await expect(b).toHaveCount(1);
+  await page.waitForTimeout(1500);
+  const out = await b.evaluate((el) => { const row = el.closest("tr")!; const fam = new Set<string>(); for (const e of [row, ...row.querySelectorAll<HTMLElement>("*")]) if ([...e.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())) fam.add(getComputedStyle(e).fontFamily.split(",")[0].trim()); return [...fam].map((f) => `${f}:${[...document.fonts].filter((x) => x.family.replace(/["']/g, "") === f.replace(/["']/g, "")).map((x) => x.status).join("/")}`); });
+  console.log("FAMILIES " + route + " " + JSON.stringify(out));
+});

@@ -5,6 +5,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 
 import { renderWithStore } from "../../../../test/renderWithStore";
+import { settleChartMount } from "../../../../test/settleChartMount";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { getOutputById as getOutputByIdRequest } from "../../../pipelines/services/outputService";
 import type { Output } from "../../../pipelines/types/output";
@@ -24,6 +25,13 @@ jest.mock("../../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../../pipelines/services/outputService"),
   getOutputById: jest.fn(),
   getAssertionStatus: jest.fn(() => new Promise(() => {})),
+  // HEL-1600 -- stands in for GET /api/outputs/:id/filter-capabilities and /panels; the network guard fails an unmocked request.
+  getFilterCapabilities: jest.fn(() =>
+    Promise.reject(new Error("getFilterCapabilities: unmocked request stubbed (HEL-1600)")),
+  ),
+  listOutputPanels: jest.fn(() =>
+    Promise.reject(new Error("listOutputPanels: unmocked request stubbed (HEL-1600)")),
+  ),
 }));
 
 const records: Record<string, unknown>[] = [
@@ -81,7 +89,8 @@ describe("PanelDetailModal aggregated chart Output (HEL-1351)", () => {
     renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
       panels: { items: [panel] },
     });
-    const chart = await screen.findByTestId("echarts");
+    await settleChartMount(jest.mocked(getOutputByIdRequest));
+    const chart = screen.getByTestId("echarts");
     const opt = JSON.parse(chart.getAttribute("data-option") ?? "{}") as {
       xAxis?: { data?: unknown[] };
       series?: { type?: string; name?: string; data?: unknown[] }[];
@@ -95,7 +104,8 @@ describe("PanelDetailModal aggregated chart Output (HEL-1351)", () => {
     const { store } = renderWithStore(<PanelDetailModal panel={panel} onClose={jest.fn()} />, {
       panels: { items: [panel] },
     });
-    await screen.findByTestId("echarts");
+    await settleChartMount(jest.mocked(getOutputByIdRequest));
+    screen.getByTestId("echarts");
     fireEvent.click(screen.getByRole("button", { name: "Edit panel" }));
     fireEvent.change(screen.getByLabelText("Panel title"), { target: { value: "Revenue v2" } });
     fireEvent.click(screen.getByRole("button", { name: "Save panel settings" }));

@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 
 import { ThemeProvider } from "../../../theme/ThemeProvider";
+import { settleChartMount, settleMocks } from "../../../test/settleChartMount";
 
 import { PublicDashboardViewerPage } from "./PublicDashboardViewerPage";
 import { authReducer } from "../../auth/state/authSlice";
@@ -85,13 +86,21 @@ describe("PublicDashboardViewerPage chart truncation note (HEL-1358)", () => {
   it("names both counts when the public page holds fewer rows than the total", async () => {
     fetchRows.mockResolvedValue({ items: PAGE, total: 1234, offset: 0, limit: 200 });
     renderAt("/dashboards/dash-1/panels?token=t");
-    expect(await screen.findByText(/Based on the first 2 of 1,234 rows\./)).toBeInTheDocument();
+    // Same two-stage chain as below (panels -> meta + rows); the note is outside the lazy chart boundary,
+    // so settle the mocks inside `act` and query synchronously instead of racing a 1 s `findBy*` (HEL-1612).
+    await settleMocks(fetchPanels);
+    await settleMocks(fetchMeta, fetchRows);
+    expect(screen.getByText(/Based on the first 2 of 1,234 rows\./)).toBeInTheDocument();
   });
 
   it("shows no note when the page holds every row", async () => {
     fetchRows.mockResolvedValue({ items: PAGE, total: 2, offset: 0, limit: 200 });
     renderAt("/dashboards/dash-1/panels?token=t");
-    await screen.findByTestId("echarts");
+    // The data chain is panels -> (meta + rows): each stage issues the next one's request only after
+    // React flushes, so settle in two steps. Each `settleChartMount` awaits the promises already issued.
+    await settleChartMount(fetchPanels);
+    await settleChartMount(fetchMeta, fetchRows);
+    screen.getByTestId("echarts");
     expect(screen.queryByText(/Based on the first/)).toBeNull();
   });
 });

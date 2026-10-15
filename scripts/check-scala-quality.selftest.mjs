@@ -262,6 +262,43 @@ for (const [label, text] of [
   record(`does not flag ${label}`, hits(text).length === 0, JSON.stringify(hits(text)));
 }
 
+// HEL-1603: Scala block comments nest; pass 2 tracks depth, so only the matching `*/` returns to code.
+const SPLICE = 's"${java.util.UUID.randomUUID()}"';
+for (const [label, text] of [
+  ["a splice FQN after an inner close on one line", `/* a /* b */ ${SPLICE} */`],
+  ["a splice FQN after an inner close across lines", `/* a\n /* b */ ${SPLICE}\n*/\nval x = 1`],
+  ["a splice FQN inside a depth-3 nested comment", `/* 1 /* 2 /* 3 */ ${SPLICE} */ ${SPLICE} */`],
+  [
+    "a splice FQN inside a depth-3 nested comment across lines",
+    `/* 1\n /* 2\n /* 3 */ ${SPLICE}\n */ ${SPLICE}\n*/\nval x = 1`,
+  ],
+]) {
+  record(
+    `does not flag ${label} (nested comment)`,
+    hits(text).length === 0,
+    JSON.stringify(hits(text)),
+  );
+}
+for (const [label, text] of [
+  ["a splice FQN in code after a fully closed nested comment", `/* a /* b */ */ val s = ${SPLICE}`],
+  ["a splice FQN in code after an empty /**/ comment", `/**/ val s = ${SPLICE}`],
+]) {
+  record(`flags ${label} once`, hits(text).length === 1, JSON.stringify(hits(text)));
+}
+let threw = false;
+try {
+  const st = newScanState();
+  for (const l of ["/* a /* b", "  /* c */ still open", `val s = ${SPLICE}`]) spliceCodeOnly(l, st);
+} catch {
+  threw = true;
+}
+record("pass 2 does not throw on an unterminated nested comment", !threw);
+record(
+  "pass 2 keeps an unterminated nested comment open to the end of the text",
+  pass2Findings(`/* a /* b */\nval s = ${SPLICE}`).length === 0,
+  JSON.stringify(pass2Findings(`/* a /* b */\nval s = ${SPLICE}`)),
+);
+
 // Inherited from base (pass 1): these are base false positives and stay flagged so HEAD is a superset.
 for (const [label, text] of [
   ["an FQN on an inner text line", pass2Silent[2][1]],
