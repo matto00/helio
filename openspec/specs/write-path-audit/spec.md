@@ -22,7 +22,7 @@ request payload shape, and estimated call frequency per session.
 
 #### Scenario: Audit covers all panel-level write paths
 - **WHEN** a developer reviews the write-path-audit spec
-- **THEN** it SHALL list PATCH /api/panels/:id for title updates, appearance updates, and data binding updates
+- **THEN** it SHALL list POST /api/panels/updateBatch for staged panel title and appearance edits (flushed by the auto-save tick, Save now, or unmount), and PATCH /api/panels/:id for Output swaps (`config.outputId`)
 
 #### Scenario: Audit covers creation and duplication paths
 - **WHEN** a developer reviews the write-path-audit spec
