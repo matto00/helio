@@ -1,9 +1,0 @@
-- `.github/workflows/ci.yml` — frontend job: start/stop load sampler, env on `npm test`, summary, artifact upload (14 d)
-- `jest.config.cjs` — spread opt-in timing reporters (label root)
-- `frontend/jest.config.cjs` — spread opt-in timing reporters (label frontend)
-- `scripts/lib/jest-timing-capture.cjs` — helper returning reporters only when HELIO_JEST_TIMING_DIR is set
-- `scripts/lib/jest-timing-reporter.cjs` — NDJSON per-test/file timing reporter
-- `scripts/ci-load-sampler.cjs` — self-terminating 1 Hz /proc CPU/load/memory sampler
-- `scripts/jest-timing-report.cjs` — reader: slowest tests with overlapping load
-- `scripts/lib/jest-timing-capture.test.js`, `scripts/lib/jest-timing-reporter.test.js`, `scripts/ci-load-sampler.test.js`, `scripts/jest-timing-report.test.js` — root jest unit tests
-- `CONTRIBUTING.md` — how to read the artifact
