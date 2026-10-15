@@ -116,3 +116,35 @@ export interface StepCardProps {
    *  temp id is a no-op). Cleared on failure so the kept local step stays openable. */
   isCreating?: boolean;
 }
+
+/** HEL-1579 (design.md D7): the desktop "focused" variant of the step card (`StepCardFocused`, a sibling
+ *  of `StepCard` rather than a `variant` prop on it, so the phone card's prop type and every existing
+ *  `StepCard` test stay untouched) -- always expanded, one
+ *  editor at a time, no expand toggle/chevron/Outputs rail/Preview tray/drag handle/Move buttons
+ *  (those live on the spine row and the preview table). Disable/Duplicate/Remove are quiet text
+ *  actions. A distinct prop shape (not optional fields on `StepCardProps`) so the phone card's
+ *  contract is untouched. */
+export interface FocusedStepCardProps {
+  step: Step;
+  allSteps?: Step[];
+  isOwner?: boolean;
+  /** The step's 1-based number within its lane, as shown on the spine. */
+  stepNumber: number;
+  onRemove: (id: string) => void;
+  analyzeColumns: string[];
+  analyzeSchema: SchemaField[];
+  validationError?: string;
+  warnings?: AnalyzeWarning[];
+  onConfigChange: (stepId: string, config: PipelineStepConfig) => void;
+  onToggleEnabled: (stepId: string, enabled: boolean) => void;
+  onDuplicate: (stepId: string) => void;
+  isDuplicating: boolean;
+  estimatedRows?: number;
+  draftError?: string;
+  /** True while this step's optimistic create is in flight: the editor is shown disabled
+   *  ("Saving step…") because an edit made on the temp id would be a no-op. */
+  isCreating?: boolean;
+  /** HEL-1579 (design.md D7): the message of a flushed save that failed after this editor had
+   *  unmounted (page-level `stepSaveErrors`), shown in the `InlineError` position on re-select. */
+  savedError?: string;
+}

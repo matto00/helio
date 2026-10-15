@@ -61,6 +61,8 @@ plain non-interactive text (never a dead link) and never contributes a kind badg
 The user-facing label for a root is "source" everywhere in this header (aria-labels, menu items,
 toast copy) — "root"/"PipelineRoot" remain the internal names only (HEL-1022).
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the header no longer carries a source bar: the sources are the spine's Source cards (one per root, in `position` order, named in mono with the kind), each with a quiet menu "Source actions for <name>" holding "Edit source" (when the source resolves in the caller's own list) and "Remove from pipeline" (disabled with one root; it removes the root, never the data source), and a ghost "+ Add source". At 2+ roots the cards are numbered and no kind is repeated per chip; an unresolvable source shows its name only.
+
 #### Scenario: Bound source name and kind are rendered
 - **WHEN** the pipeline has exactly one root and `state.sources.items` contains a DataSource whose
   id matches that root's `dataSourceId`
@@ -105,6 +107,10 @@ toast copy) — "root"/"PipelineRoot" remain the internal names only (HEL-1022).
   or clicks a chip's linked name
 - **THEN** `sources.selectedSourceId` is set to that source's id and the app navigates to `/sources`
 
+#### Scenario: Desktop source cards
+- **WHEN** a pipeline with two roots is opened on desktop
+- **THEN** the spine shows a "Sources" heading with two numbered Source cards, each with its own actions menu, and "Remove from pipeline" is enabled on both
+
 ### Requirement: River view empty state
 When no transformation steps have been added, the river view SHALL display an empty state message containing "Add your first transformation step".
 
@@ -130,18 +136,30 @@ The user SHALL be able to remove a transformation step from the river view. Afte
 The footer bar SHALL display the pipeline's own name field (not a bound output-type name). The
 user SHALL be able to edit the pipeline name inline.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop (above the 768px phone boundary) the footer does not exist: the pipeline's own name is edited in the page header (the name beside the "Pipelines" breadcrumb, a quiet mono button that swaps to the same "Pipeline name" text field, with the same Save, Cancel and discard confirmation). The command bar's breadcrumb shows only the section label on this route, so the name appears once.
+
 #### Scenario: Output name is editable
 - **WHEN** the user activates the pipeline name field
 - **THEN** an input element is rendered allowing the name to be changed
+
+#### Scenario: Desktop name is editable in the header
+- **WHEN** the user activates the pipeline name in the desktop header
+- **THEN** a "Pipeline name" input is rendered allowing the name to be changed, and the command bar breadcrumb still shows only the section label
 
 ### Requirement: Run pipeline button shows placeholder
 The "Run pipeline" and "Dry run" buttons in the footer bar SHALL trigger a real pipeline run over
 SSE (this requirement no longer describes a placeholder; superseded by the shipped `pipeline-run-sse`
 and `pipeline-dry-run-ui` capabilities).
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the "Dry run" and "Run pipeline" buttons live in the header (Dry run secondary, Run the page's only primary action) instead of a footer; they trigger the same real runs and are disabled while a run is queued or running.
+
 #### Scenario: Run button shows placeholder on click
 - **WHEN** the user clicks the "Run pipeline" button
 - **THEN** a live run is submitted and its status streams via SSE, not a placeholder message
+
+#### Scenario: Desktop run buttons are in the header
+- **WHEN** the user clicks "Run pipeline" in the desktop header
+- **THEN** a live run is submitted and its status streams via SSE, shown as the header's run status chip
 
 ### Requirement: Pipeline detail page shows loading state while fetching
 `PipelineDetailPage` SHALL display a loading indicator while `fetchPipelineById` or
@@ -175,6 +193,8 @@ appear only when `currentPipeline.lastRunAt` is non-null, as part of the single 
 (not a separate bar). When `lastRunAt` is null, no last-run information is shown in the footer
 and no "Never run" placeholder is shown (the never-run state is communicated in the list view).
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop there is no footer: the persisted last-run information is the header's "Last run metadata" group (rows written, the relative last-run time and the truncation badge) beside the run status chip, shown only when `lastRunAt` is non-null and tolerating an absent row count (the wire omits a null field). When `lastRunAt` is null no last-run metadata and no "Never run" placeholder is shown.
+
 #### Scenario: Last-run metadata is visible when pipeline has run
 - **WHEN** `currentPipeline.lastRunAt` is a non-null ISO-8601 string
 - **THEN** the footer shows the relative timestamp, row count, and status, accessible via a "Last run metadata" label
@@ -194,6 +214,10 @@ and no "Never run" placeholder is shown (the never-run state is communicated in 
 #### Scenario: Last-run metadata shows status badge
 - **WHEN** `currentPipeline.lastRunStatus` is "succeeded" or "failed"
 - **THEN** the appropriate status badge is rendered in the footer's last-run metadata
+
+#### Scenario: Desktop header shows last-run metadata
+- **WHEN** `currentPipeline.lastRunAt` is non-null and `lastRunRowCount` is 4200 on desktop
+- **THEN** the header's "Last run metadata" group shows "4,200 rows written" and the relative time, and a Succeeded/Failed status chip
 
 ### Requirement: Bound-type bar displays the pipeline's output DataType
 The page header SHALL show source, schedule, run status, and the pipeline's total Outputs count
@@ -247,6 +271,8 @@ while the insert waits for its create or while other inserts complete. If that s
 when the create is sent, the step SHALL be appended at the trunk's end rather than rejected. A step
 the server created SHALL appear on screen even if another update replaced the step list while its
 create was in flight, unless the user removed it.
+
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the "insert step here" gaps are replaced by the step spine's row menu: "Insert step before" on the first row of the first source's trunk (the gap before the first step) and "Insert step after" on each row of that trunk (the gaps between steps). On the last row "Insert step after" appends, exactly as "+ Add step" does. The inserted step is placed with the same anchoring rules, shown optimistically and reconciled, and becomes the selected step. Rows of branch lanes and of other sources offer no Insert items, as they had no gaps before.
 
 #### Scenario: Insert before the first step
 
@@ -326,6 +352,10 @@ create was in flight, unless the user removed it.
 - **THEN** once the create completes, the created step is on screen exactly once and the steps it
   reparented show it as their parent
 
+#### Scenario: Desktop insert after from the row menu
+- **WHEN** the user opens the row menu of step 2 on the first source's trunk, chooses "Insert step after" and picks an op
+- **THEN** the step is created anchored on step 2, appears directly after it and becomes the selected step
+
 ### Requirement: Header actions consolidate into one menu
 The page header SHALL expose exactly one action-menu trigger button (not one button per action)
 for its per-field edit actions. The menu SHALL be built from the existing `ActionsMenu` shared
@@ -335,6 +365,8 @@ user has, gated exactly as each individual action's own requirement specifies ("
 schedule's enable/disable toggle SHALL remain a directly-visible control in the header, outside
 this menu.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the header's one "Pipeline actions" menu lists Rename, "Edit source" (exactly one resolvable root), "Set schedule"/"Edit schedule", "Pause schedule"/"Resume schedule" (when a schedule exists), "Run history" and "Share" (owner only). The schedule's enable/disable control moves from a visible toggle into this menu, and the schedule chip opens the schedule dialog. The menu has no Delete item (Delete lives only on the overview rows).
+
 #### Scenario: One trigger exposes every available action
 - **WHEN** the current user owns both the bound source and the output type, and the pipeline has an existing schedule
 - **THEN** the header shows exactly one actions-menu trigger button, and opening it lists "Edit source", "Edit type", and "Edit schedule" as menu items
@@ -342,6 +374,10 @@ this menu.
 #### Scenario: Menu narrows to only the actions the user has
 - **WHEN** the current user does not own the bound source (but owns the output type, and the pipeline has a schedule)
 - **THEN** opening the header's actions menu lists only "Edit type" and "Edit schedule", omitting "Edit source"
+
+#### Scenario: Desktop menu carries pause/resume and no Delete
+- **WHEN** the owner opens the desktop header's actions menu on a pipeline with an enabled schedule
+- **THEN** it lists Rename, Edit schedule, Pause schedule, Run history and Share, and no Delete item
 
 ### Requirement: Footer pins primary actions and collapses the rest into an overflow menu
 The page footer's action group SHALL always render exactly two plain, always-visible buttons —
@@ -351,6 +387,8 @@ The page footer's action group SHALL always render exactly two plain, always-vis
 `ActionsMenu` instance ("More actions") rendered alongside "Dry run"/"Run pipeline", rather than
 as their own always-visible buttons.
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the footer is replaced by the header: "Dry run" and "Run pipeline" stay plain, always-visible buttons there, and "Run history" and "Share" are items of the header's single "Pipeline actions" menu. The "Preview" item no longer exists (superseded by the preview table).
+
 #### Scenario: Dry run and Run pipeline remain always visible
 - **WHEN** the pipeline detail page footer is rendered, at any viewport width
 - **THEN** "Dry run" and "Run pipeline" are visible as plain buttons, not inside any menu
@@ -358,6 +396,10 @@ as their own always-visible buttons.
 #### Scenario: Run history, Preview, and Share collapse into the overflow menu
 - **WHEN** the current user owns the pipeline (Share available) and opens the footer's "More actions" menu
 - **THEN** "Run history", "Preview", and "Share" are listed as menu items, and none of the three renders as its own always-visible button
+
+#### Scenario: Desktop header keeps Dry run and Run visible
+- **WHEN** the desktop pipeline detail page is rendered at any desktop width
+- **THEN** "Dry run" and "Run pipeline" are visible plain buttons in the header, and "Run history" is an item of the "Pipeline actions" menu
 
 ### Requirement: A step card cannot be expanded while its create is in flight
 
@@ -367,6 +409,8 @@ Opening the editor or editing the step SHALL NOT be possible during that window,
 and no edit is discarded when the step is reconciled. If the create fails, the expand control SHALL become enabled
 again, so the user can open the card and use its existing controls, including Remove. A step that the editor
 deliberately keeps local until its configuration is complete (an AI draft step) SHALL remain expandable.
+
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop there are no expandable step cards: a step still being created shows a "Saving…" note on its spine row, and when it is selected its focused editor is disabled with a "Saving step…" status and its preview table shows that rows appear once it is saved and issues no preview request. After a failed create the step stays local and its editor is enabled again; an AI draft stays editable and shows a draft marker.
 
 #### Scenario: Expand is unavailable until the added step is persisted
 
@@ -390,6 +434,10 @@ deliberately keeps local until its configuration is complete (an AI draft step) 
 - **WHEN** the user adds an AI step that stays a local draft until its configuration is complete
 - **THEN** its step card's expand control is enabled and its editor can be opened and edited
 
+#### Scenario: Desktop creating step is disabled
+- **WHEN** the user adds a step on desktop and the server has not yet confirmed it
+- **THEN** the selected step's focused editor is disabled with "Saving step…", no preview request is made for it, and the editor is enabled once it is persisted
+
 ### Requirement: Pipeline detail boot requests are bounded
 
 Opening the pipeline detail page SHALL NOT issue more than one GET of the same resource for the same pipeline per page
@@ -401,6 +449,8 @@ earlier visit SHALL NOT be shown without being refetched), and refreshed after a
 finishes, as before; that refresh SHALL NOT be dropped because another run-history fetch is in flight, and an older
 response SHALL NOT overwrite a newer one. Every first-paint element the page showed before this requirement (header, schedule
 summary, bound sources, river view, Outputs tab with its count, footer last-run metadata) SHALL render unchanged.
+
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the first-paint elements are the header, the spine (sources, numbered steps with counts, outputs with their panel counts from the pipeline's Outputs list response) and the focused editor with its preview table, in place of the tabs, river view and footer. The only additions to the boot requests are exactly one step-preview GET for the initially selected step (also under React StrictMode, through a page-scoped in-flight-only dedupe) and nothing per Output: no `GET /api/outputs/:id/panels` is issued on first paint.
 
 #### Scenario: Run history is fetched at most once on open
 - **WHEN** the user opens the detail page of a pipeline whose last run was truncated
@@ -455,6 +505,10 @@ summary, bound sources, river view, Outputs tab with its count, footer last-run 
 #### Scenario: A finished run still refreshes run history
 - **WHEN** a run started or observed on the page reaches a terminal status
 - **THEN** run history is refreshed, so an open or later-opened modal lists that run
+
+#### Scenario: Desktop boot adds exactly one step-preview GET
+- **WHEN** the desktop detail page of a 3-step pipeline with Outputs is opened under React StrictMode
+- **THEN** exactly one step-preview GET is issued for the selected step and no per-Output placements GET is issued
 
 ### Requirement: Editor state is scoped to the current route pipeline
 

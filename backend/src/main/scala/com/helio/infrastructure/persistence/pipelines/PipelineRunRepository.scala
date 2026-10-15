@@ -298,7 +298,10 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-873 (design.md Decision 2a): every terminal write is required to pass a real value --
       // no default -- so a forgotten call site fails to compile rather than silently writing NULL
       // to a terminal row (the exact SparkJobSubmitter hazard task 2.8 calls out).
-      truncatedReadsJson: Option[String]
+      truncatedReadsJson: Option[String],
+      // HEL-1579: the run's per-step row counts (compact JSON, step id -> count), written in the same statement as
+      // `rowCount`. Defaults to `None` = "not recorded": every failure/blocked/reaped/Spark path writes NULL here.
+      stepRowCountsJson: Option[String] = None
   ): Future[Boolean] = {
     val ownerUuid = UUID.fromString(user.id.value)
     val ownedRunQuery = for {
@@ -307,7 +310,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield run.id
     ctx.withUserContext(user.id.value)(ownedRunQuery.result.headOption).flatMap {
       case None      => Future.successful(false)
-      case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog, truncatedReadsJson)
+      case Some(rid) => updateRunTerminalInternal(PipelineRunId(rid), status, completedAt, rowCount, errorLog, truncatedReadsJson, stepRowCountsJson)
     }
   }
 
@@ -322,13 +325,14 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       completedAt: Instant,
       rowCount: Option[Int],
       errorLog: Option[String],
-      truncatedReadsJson: Option[String]
+      truncatedReadsJson: Option[String],
+      stepRowCountsJson: Option[String] = None
   ): Future[Boolean] =
     ctx.withSystemContext(
       runsTable
         .filter(r => r.id === runId.value && r.completedAt.isEmpty)
-        .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog, r.truncatedReads))
-        .update((status, Some(completedAt), rowCount, errorLog, truncatedReadsJson))
+        .map(r => (r.status, r.completedAt, r.rowCount, r.errorLog, r.truncatedReads, r.stepRowCounts))
+        .update((status, Some(completedAt), rowCount, errorLog, truncatedReadsJson, stepRowCountsJson))
     ).map(_ > 0)
 
   /** HEL-1511 (design.md D4) / HEL-1518 (design.md D1): the run's state -- open, terminal (reaped or otherwise
@@ -390,7 +394,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       sql"""WITH reaped AS (
               UPDATE pipeline_runs
-              SET status = 'failed', completed_at = $nowTs, truncated_reads = $truncatedReadsJson::jsonb,
+              SET status = 'failed', completed_at = $nowTs, truncated_reads = $truncatedReadsJson::jsonb, step_row_counts = NULL,
                   error_log = CASE WHEN heartbeat_at IS NOT NULL
                                    THEN 'Run abandoned: no heartbeat for ' || floor(extract(epoch FROM ($nowTs::timestamptz - heartbeat_at)))::bigint
                                         || ' s (the server running it likely stopped)'
@@ -402,6 +406,7 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             ), last_run AS (
               UPDATE pipelines p
               SET last_run_status = 'failed', last_run_at = $nowTs, last_run_row_count = NULL, last_run_truncated = false,
+                  last_run_step_row_counts = NULL,
                   updated_at = $nowTs
               FROM reaped r
               WHERE p.id = r.pipeline_id
@@ -734,7 +739,10 @@ object PipelineRunRepository {
       // token's user). NULL on rows written before V124 and on the dormant SparkJobSubmitter path.
       triggeredByUserId: Option[UUID] = None,
       // HEL-1511: last liveness stamp; NULL = never stamped (rows predating V126, and dry runs).
-      heartbeatAt: Option[Instant] = None
+      heartbeatAt: Option[Instant] = None,
+      // HEL-1579 (V135): per-step row counts as compact JSON text (step id -> count); NULL = not recorded (failed /
+      // blocked / reaped / Spark / dry-run rows, and rows predating V135).
+      stepRowCounts: Option[String] = None
   )
 
   class PipelineRunTable(tag: Tag) extends Table[PipelineRunRow](tag, "pipeline_runs") {
@@ -757,7 +765,9 @@ object PipelineRunRepository {
 
     def heartbeatAt        = column[Option[Instant]]("heartbeat_at")
 
-    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads, triggeredByUserId, heartbeatAt).mapTo[PipelineRunRow]
+    def stepRowCounts      = column[Option[String]]("step_row_counts")
+
+    def * = (id, pipelineId, status, startedAt, completedAt, rowCount, errorLog, triggerSource, triggeredByTokenId, truncatedReads, triggeredByUserId, heartbeatAt, stepRowCounts).mapTo[PipelineRunRow]
   }
 
 

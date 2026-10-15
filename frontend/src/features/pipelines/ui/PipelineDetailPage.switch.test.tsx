@@ -33,6 +33,7 @@ import {
 } from "../services/pipelineService";
 import { httpClient } from "../../../services/httpClient";
 import type { PipelineStep, PipelineSummary } from "../types/pipelineStep";
+import { installPhoneShell } from "./pipelineDetailPageTestUtils";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -217,6 +218,17 @@ async function openAThenSwitchToB() {
   act(() => navigateTo("/pipelines/B"));
   return store;
 }
+
+// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
+// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
+// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+let restorePhoneShell: () => void = () => {};
+beforeEach(() => {
+  restorePhoneShell = installPhoneShell();
+});
+afterEach(() => {
+  restorePhoneShell();
+});
 
 describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
   it("shows exactly B's persisted steps after A -> B, never A's", async () => {

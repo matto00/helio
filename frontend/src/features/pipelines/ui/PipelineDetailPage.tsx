@@ -1,20 +1,18 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { RunHistoryModal } from "./RunHistoryModal";
 import { PipelineDetailFooter } from "./PipelineDetailFooter";
 import { PipelineRiverView } from "./PipelineRiverView";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
-import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
-import { PipelineShareDialog } from "./PipelineShareDialog";
 import { PipelineRiverSkeleton } from "./PipelineRiverSkeleton";
 import { PipelineDetailSkeleton } from "./PipelineDetailSkeleton";
 import { OutputsGalleryTab } from "./OutputsGalleryTab";
-import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
-import { OutputHistoryModal } from "./outputHistory/OutputHistoryModal";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
+import { useIsPhoneShell } from "../../../app/shell/useIsPhoneShell";
+import { PipelineDetailDialogs } from "./PipelineDetailDialogs";
+import { PipelineSpineLayout } from "./spine/PipelineSpineLayout";
 
 import "./PipelineDetailPage.css";
 import { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
@@ -45,6 +43,10 @@ export function PipelineDetailPage() {
 }
 
 function PipelineDetailPageContent() {
+  // HEL-1579 (design.md D1): above the 768px phone boundary the page is the step spine; the phone keeps
+  // today's header + tabs + river + footer exactly as before (HEL-1582 replaces it separately).
+  const isPhoneShell = useIsPhoneShell();
+  const page = usePipelineDetailPage();
   const {
     id,
     stepsLoading,
@@ -58,15 +60,9 @@ function PipelineDetailPageContent() {
     setOutputName,
     editingOutputName,
     setEditingOutputName,
-    historyOpen,
     openRunHistory,
-    closeRunHistory,
-    retryRunHistory,
-    runHistoryView,
     retryPipelineLoad,
-    shareOpen,
     setShareOpen,
-    scheduleOpen,
     setScheduleOpen,
     isConfirmingCancel,
     runStatus,
@@ -102,12 +98,8 @@ function PipelineDetailPageContent() {
     allOutputs,
     previewRowCountByOutputId,
     handleOpenOutput,
-    historyOutput,
     handleOpenOutputHistory,
-    handleCloseOutputHistory,
     handleAddOutput,
-    outputSheet,
-    handleCloseOutputSheet,
     handleEditSource,
     handleToggleScheduleEnabled,
     laneGraph,
@@ -116,7 +108,6 @@ function PipelineDetailPageContent() {
     handleRemoveRoot,
     handleAddStep,
     handleAddLaneStep,
-    handleAddOutputViaAggregateTail,
     handleInsertStep,
     handleInstantiateShape,
     handleStepConfigChange,
@@ -132,7 +123,7 @@ function PipelineDetailPageContent() {
     handleCancel,
     confirmCancelDiscard,
     dismissCancelConfirm,
-  } = usePipelineDetailPage();
+  } = page;
 
   // task 4.1 -- "Steps" (the river view) vs "Outputs (N)" (the gallery tab).
   // Local UI state, not run-scoped/persisted -- resets to "steps" on every
@@ -181,7 +172,9 @@ function PipelineDetailPageContent() {
     );
   }
 
-  return (
+  // The dialogs (Output sheet, History views, share, schedule) are a SIBLING of the layout, not inside it, so
+  // crossing the 768px boundary while one is open does not remount it and lose its state (HEL-1579).
+  const phoneLayout = (
     <div className="pipeline-detail-page">
       {/* ── Header: bound source(s) + bound type + schedule ── */}
       <PipelineDetailHeader
@@ -374,32 +367,6 @@ function PipelineDetailPageContent() {
         </div>
       )}
 
-      {/* ── Output editor sheet (task 5.1) ── */}
-      {outputSheet && (
-        <OutputEditorSheet
-          // Remount per Output (create mode keyed by its target step) so a `?outputId=` swap
-          // reseeds ALL of the sheet's state, not just name/kind/step.
-          key={outputSheet.output?.id ?? `create:${outputSheet.createTargetStepId ?? ""}`}
-          open
-          onClose={handleCloseOutputSheet}
-          pipelineId={id ?? ""}
-          output={outputSheet.output}
-          createTargetStepId={outputSheet.createTargetStepId}
-          steps={steps}
-          onAddAsTailWithAggregate={handleAddOutputViaAggregateTail}
-          onRunPipeline={() => void handleRunPipeline()}
-        />
-      )}
-
-      {/* ── Output history view (HEL-1277) ── */}
-      {historyOutput && (
-        <OutputHistoryModal
-          key={historyOutput.id}
-          output={historyOutput}
-          onClose={handleCloseOutputHistory}
-        />
-      )}
-
       {/* ── Footer bar ── */}
       <PipelineDetailFooter
         editingOutputName={editingOutputName}
@@ -432,38 +399,15 @@ function PipelineDetailPageContent() {
         lastRunTruncated={currentPipeline.lastRunTruncated ?? null}
       />
 
-      {/* ── Run history modal (opened from the header's actions menu) ── */}
-      {historyOpen && (
-        <RunHistoryModal
-          runs={runs}
-          view={runHistoryView}
-          onRetry={retryRunHistory}
-          onClose={closeRunHistory}
-        />
-      )}
-
-      {/* ── Share dialog (owner-only) ── */}
-      {id && (
-        <PipelineShareDialog
-          pipelineId={id}
-          pipelineName={pipelineName}
-          open={shareOpen}
-          onClose={() => setShareOpen(false)}
-        />
-      )}
-
-      {/* ── Schedule dialog ── */}
-      {id && (
-        <PipelineScheduleDialog
-          pipelineId={id}
-          schedule={pipelineSchedule}
-          open={scheduleOpen}
-          onClose={() => setScheduleOpen(false)}
-        />
-      )}
-
       {/* In-page back breadcrumb removed — the section breadcrumb in the top
        * command bar already shows "Data Pipelines / <pipeline name>". */}
     </div>
+  );
+
+  return (
+    <>
+      {isPhoneShell ? phoneLayout : <PipelineSpineLayout page={page} />}
+      <PipelineDetailDialogs page={page} />
+    </>
   );
 }

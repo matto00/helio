@@ -4,6 +4,7 @@ import { CSRF_HEADER, registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { setUserTierForTest } from "./support/historySeed";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
+import { showOutputs } from "./support/pipelineSpine";
 
 // HEL-1331 — the Output editor's "Keep each run's rows" toggle (`config.historyPayloads`).
 //  * a BETA-owned pipeline: the switch is enabled; turning it on and saving sends
@@ -63,7 +64,7 @@ async function cleanup(
 async function openEditor(page: Page, pipelineId: string, tier: string, theme: string) {
   await page.goto(`/pipelines/${pipelineId}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await page.getByRole("tab", { name: /^Outputs/ }).click();
+  await showOutputs(page); // HEL-1579: a tab on the phone, the spine's OUTPUTS section on desktop
   await page.getByRole("button", { name: `Open HEL-1331 ${tier} metric output` }).click();
 }
 

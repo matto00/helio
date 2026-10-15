@@ -2056,3 +2056,23 @@ describe("DataGrid gridMode (HEL-1080)", () => {
     outside.remove();
   });
 });
+
+// HEL-1579: a column may carry a secondary mono "type" label after its header text.
+describe("DataGrid column headerType", () => {
+  it("renders the type after the header name, and nothing extra when it is absent", () => {
+    render(
+      <DataGrid
+        variant="preview"
+        rows={[{ a: 1, b: "x" }]}
+        columns={[
+          { key: "a", header: "a", headerType: "integer" },
+          { key: "b", header: "b" },
+        ]}
+      />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[0]).toHaveTextContent("ainteger");
+    expect(headers[0].querySelector(".ui-data-grid__th-type")).toHaveTextContent("integer");
+    expect(headers[1].querySelector(".ui-data-grid__th-type")).toBeNull();
+  });
+});

@@ -48,6 +48,8 @@ placeholder chips (`+ col_a`, `− col_b`, `~ col_c`), which SHALL be removed. T
 - Render nothing (no empty container) when the diff is empty or analyze data for the step is
   unavailable
 
+**Layout scope (HEL-1579).** The paragraphs above and the scenarios below describe the phone layout (at or below 768px, the river view), which is unchanged. On desktop the schema-diff chips render in the preview table's header for the selected step (every op kind), with added fields in success intent, dropped in error, renamed in warning and retyped neutral, never the accent.
+
 #### Scenario: Real diff chips replace the placeholder
 - **WHEN** a step's analyze data is available and its output schema differs from its input schema
 - **THEN** the expanded StepCard shows chips reflecting the actual added/dropped/retyped/renamed
@@ -61,6 +63,10 @@ placeholder chips (`+ col_a`, `− col_b`, `~ col_c`), which SHALL be removed. T
 - **WHEN** a step's diff is empty, or analyze data for the step is unavailable (pending, failed,
   or unknown step id)
 - **THEN** the expanded StepCard renders no diff chips and no empty diff container
+
+#### Scenario: Desktop diff chips in the preview header
+- **WHEN** the selected step adds one column on desktop
+- **THEN** the preview table header shows a "+ <name>" chip in success intent
 
 ### Requirement: Schema diff chips have unique keys when field names repeat
 The schema diff chips SHALL render with unique React keys even when two diff entries in the same category share a

@@ -12,7 +12,7 @@ import {
 } from "../features/layout/state/layoutHistorySlice";
 import type { DashboardLayout } from "../features/dashboards/types/dashboard";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
-import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { fetchPipelines, pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { CommandBar } from "./CommandBar";
@@ -155,5 +155,32 @@ describe("CommandBar — HEL-1230 undo/redo buttons", () => {
     fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
     expect(viaKeys.getState().layoutHistory).toEqual(afterRedo);
     expect(viaKeys.getState().dashboards.items[0].layout).toEqual(layoutB);
+  });
+});
+
+// HEL-1579 (design.md D3, owner ruling `header-owns-name`): the pipeline detail page header carries
+// the pipeline's name, so the rail shell's breadcrumb shows only the section label there.
+describe("CommandBar — HEL-1579 pipeline detail breadcrumb", () => {
+  const pipeline = {
+    id: "pipe-1",
+    name: "Revenue rollup",
+    roots: [],
+    lastRunStatus: null,
+    lastRunAt: null,
+    lastRunRowCount: null,
+  };
+
+  function storeWithPipeline() {
+    const store = makeStore();
+    store.dispatch(fetchPipelines.fulfilled([pipeline], "req-1", undefined));
+    return store;
+  }
+
+  it("shows only the section label on /pipelines/:id (no item name in the visible breadcrumb)", () => {
+    const store = storeWithPipeline();
+    renderCommandBar("/pipelines/pipe-1", store);
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(breadcrumb).toHaveTextContent("Data Pipelines");
+    expect(breadcrumb).not.toHaveTextContent("Revenue rollup");
   });
 });

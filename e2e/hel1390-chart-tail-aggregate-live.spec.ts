@@ -4,6 +4,7 @@ import { evidencePath } from "./support/evidencePath";
 import { expectDeleted } from "./support/expectDeleted";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
+import { clickRowMenuItem } from "./support/pipelineSpine";
 
 // HEL-1390 — the seam probe for "Add as tail with aggregate" on a CHART Output. Client and server
 // each passed their own tests while disagreeing on the wire: the builder wrote fieldMapping
@@ -67,7 +68,8 @@ test("chart Output 'Add as tail with aggregate' stores xAxis/yAxis slots", async
     console.log(`[HEL-1390 e2e] created source ${created.source} pipeline ${created.pipeline}`);
 
     await page.goto(`/pipelines/${created.pipeline}`);
-    await page.getByRole("button", { name: "Add output" }).first().click();
+    // HEL-1579: "Add output" is an item of the step row's menu on the desktop spine (it was the rail's button).
+    await clickRowMenuItem(page, 0, "Add output");
     const sheet = page.getByRole("dialog").last();
     await sheet.getByLabel("Name").fill("HEL-1390 by region");
 
@@ -108,7 +110,9 @@ test("chart Output 'Add as tail with aggregate' stores xAxis/yAxis slots", async
 
     await page.reload();
     await expect(
-      page.locator(".outputs-rail__name", { hasText: "HEL-1390 by region" }).first(),
+      page
+        .locator(".spine-output-card .spine-card__name", { hasText: "HEL-1390 by region" })
+        .first(),
     ).toBeVisible();
     await page.screenshot({ path: evidencePath("HEL-1390", "after-tail.png") });
   } finally {

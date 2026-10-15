@@ -894,13 +894,13 @@ test.describe("HEL-866 state-surface contrast guard", () => {
 
         // skeptic-final-2.md / 2B CR2 — `/pipelines/:id` was previously visited only in its
         // DEFAULT (collapsed) DOM state, so the `--expanded` step-card branch was exercised by no
-        // gate. Expand the one seeded step card before probing. Asserted, not conditionally
-        // skipped: a missing toggle fails loudly.
+        // gate. HEL-1579: the desktop page has no expandable cards; its equivalent of that branch is
+        // the SELECTED spine row (accent wash) with its focused editor open, which the default
+        // selection already shows. Asserted, not conditionally skipped: a missing selected row or
+        // editor fails loudly.
         if (routeKey === "pipeline-detail") {
-          const toggle = page.locator(".pipeline-detail-page__step-card-toggle").first();
-          await expect(toggle).toHaveCount(1);
-          await toggle.click();
-          await expect(page.locator(".pipeline-detail-page__step-card--expanded")).toHaveCount(1);
+          await expect(page.locator(".spine-row--selected")).toHaveCount(1);
+          await expect(page.locator(".step-focused")).toHaveCount(1);
         }
 
         // THE STRUCTURAL FIX (skeptic-final-1.md CR3 / 1B CR2): stamp every visible/enabled
