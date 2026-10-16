@@ -97,3 +97,12 @@ file changed, so no `sbt testFull`. origin/main had not moved (no merge needed).
 
 Full e2e (`flock ... e2e.lock nice -n 19 npx playwright test --workers=2`, `e2e-full-fix2.txt`): **333 passed, 1 skipped** (the opt-in
 `hel1575-switch-measurement`), 0 failed, 20.7 min; load average 5-9 during the run (below the 15 rerun threshold).
+
+## Fix cycle 2b (evaluation-5 CR1)
+The leave capture now stamps the browser copy with the current time (`viewedAt: serverNowMs()`, local only), so a leave can no longer
+replace the heartbeat's fresher stamp with a stale stored one; C1 (15 min warm TTL) holds. design.md D7 corrected (it wrongly called a
+shortened TTL owner-approved). Red-first in `evidence-red-first.md`. Not done: making the hydrate refresh update the 30 s visible-refresh
+timer (the timer is closure-local; harmless extra request at most once per 30 s). Gates: lint/typecheck/format:check/build exit 0; tabs jest
+215 passed; full frontend jest 641 suites / 7642 tests exit 0; hel1575 e2e 21 passed; overlays (light) x5 passed, /api 105,103,102,102,102,
+0 429s. Full e2e result below.
+Full e2e (flock, workers=2, nice 19; `fix2b/e2e-full.txt`): **333 passed, 1 skipped**, 0 failed, 20.8 min.

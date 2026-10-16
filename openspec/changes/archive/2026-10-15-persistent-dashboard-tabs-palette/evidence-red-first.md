@@ -335,3 +335,17 @@ Raw transcript: `openspec/changes/archive/2026-10-15-persistent-dashboard-tabs-p
 - "a visible burst refreshes the signals once per gap, and never off the dashboard view": expected 1, received 2.
 
 GREEN after the fix: `npx jest src/features/dashboards/tabs` 17 suites / 213 tests passed.
+
+## Fix cycle 2b: the leave capture rewound the browser copy's stamp (evaluation-5, CR1)
+
+RED on e07eaaa5c (`tabsBrowserTriggers.test.ts`, "a leave capture never rewinds the browser copy's lastViewedAt below the fresher heartbeat stamp"; stored stamp 4 min old, heartbeat stamp 30 s ago, leave capture); transcript `fix2b/red.txt`:
+
+```
+Expected: >= 1792110430958
+Received:    1792110191957      (about 4 min old: the stale stored stamp replaced the fresher heartbeat stamp)
+Tests:       1 failed, 14 passed, 15 total
+```
+
+GREEN after passing `viewedAt: serverNowMs()` in the leave `captureTab`: tabs dir 17 suites / 215 tests passed (`fix2b/tabs-green.txt`).
+The other capture paths cannot rewind: the heartbeat and the tab-switch listener stamp with now (the switch dispatches `tabViewed` first), and the debounced captures go through `laterOf` with the store stamp.
+Note: the added "pending real change + hidden + pagehide = 1 PATCH" test passes with and without the `left` guard (mutation `fix2b/mutation.txt`: 15 passed), because after the first leave the stored stamp is fresh and nothing is pending; the guard is now belt-and-braces and that test pins the behaviour, not the guard.

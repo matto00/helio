@@ -36,8 +36,8 @@ function onDashboardView(): boolean {
 /** The page is going away or hidden (a best-effort extra: the active tab is already snapshotted while open).
  *  D7: at most ONE PATCH per leave, and only for a dashboard actually on screen. Off the dashboard view
  *  nothing is stamped; a pending (real) tab change is still flushed with `keepalive` so it survives. On the
- *  dashboard view the active tab is re-stamped only when its stored stamp is older than
- *  `LEAVE_STAMP_REFRESH_MS` (the browser copy is captured every time); the stamp and any pending change
+ *  dashboard view the active tab's SERVER stamp (the PATCH) is refreshed only when older than
+ *  `LEAVE_STAMP_REFRESH_MS`; the browser copy is captured every time, stamped with the current time; the stamp and any pending change
  *  ride the same single PATCH. */
 export function handlePageHidden(store: StoreLike): void {
   const state = store.getState();
@@ -50,7 +50,13 @@ export function handlePageHidden(store: StoreLike): void {
     if (stored === null || serverNowMs() - stored >= LEAVE_STAMP_REFRESH_MS) {
       store.dispatch(tabViewed({ id: activeId, at: serverNowIso() }));
     }
-    captureTab(store.getState, activeId, { retain: false, immediate: true });
+    // Always stamped with the current time (local only, like the heartbeat): the whole entry is replaced, so
+    // an unstamped capture would rewind a fresher heartbeat stamp to the possibly stale stored one.
+    captureTab(store.getState, activeId, {
+      retain: false,
+      immediate: true,
+      viewedAt: serverNowMs(),
+    });
   }
   void flushTabsWrite({ keepalive: true });
 }

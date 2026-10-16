@@ -10,7 +10,14 @@ import {
   startTabsBrowserTriggers,
 } from "./tabsBrowserTriggers";
 import { TABS_WRITE_DEBOUNCE_MS } from "./tabsPersistence";
-import { clearWarmState, retainTab, setListEntry, getListEntry } from "./warm/warmCache";
+import {
+  clearWarmState,
+  getListEntry,
+  getWarmStore,
+  retainTab,
+  setListEntry,
+} from "./warm/warmCache";
+import { captureTab } from "./warm/warmCapture";
 import { WARM_SWEEP_INTERVAL_MS, WARM_TTL_MS } from "./warm/warmConfig";
 
 jest.mock("./dashboardChangesService", () => ({ fetchDashboardChanges: jest.fn() }));
@@ -119,6 +126,44 @@ describe("tabs browser triggers (HEL-1575 D2/D4/D7)", () => {
     (global.fetch as jest.Mock).mockClear();
     setVisibility("hidden");
     await jest.advanceTimersByTimeAsync(0);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("HEL-1575 C1: a leave capture never rewinds the browser copy's lastViewedAt below the fresher heartbeat stamp", async () => {
+    const panels = [outputPanel("pa1", "a", "o1")];
+    const harness = makeTabsStore({
+      dashboards: [dash("a")],
+      tabs: [tab("a", new Date(Date.now() - 4 * 60_000).toISOString())],
+      activeId: "a",
+      selected: "a",
+      panels: { items: panels, loadedDashboardId: "a" },
+    });
+    setListEntry("a", { panels, contentCapturedAt: Date.now() - 60_000 });
+    stop = startTabsBrowserTriggers({
+      dispatch: harness.store.dispatch as never,
+      getState: harness.getState,
+    });
+    // The 60s heartbeat wrote a local-only stamp of 30s ago; the stored (server) stamp is 4 min old.
+    captureTab(harness.getState, "a", {
+      retain: false,
+      immediate: true,
+      viewedAt: Date.now() - 30_000,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    const before = Date.now();
+    setVisibility("hidden");
+    await jest.advanceTimersByTimeAsync(0);
+    const stored = await getWarmStore().read("user-1", "a");
+    expect(stored?.lastViewedAt).toBeGreaterThanOrEqual(before - 1000);
+    expect(global.fetch).not.toHaveBeenCalled(); // the stored stamp is < 5 min old: no PATCH
+  });
+
+  it("a pending real change plus hidden plus pagehide sends exactly one PATCH (the leave dedupe)", async () => {
+    const { dispatch } = start();
+    dispatch(closeTab("b"));
+    setVisibility("hidden");
+    window.dispatchEvent(new Event("pagehide"));
+    await jest.advanceTimersByTimeAsync(TABS_WRITE_DEBOUNCE_MS + 10);
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
