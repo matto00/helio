@@ -369,3 +369,19 @@ The same request signature is in the CI trace of run 38863940699 (hel1260 `:108`
 
 GREEN after the fix: `dashboards/tabs` jest 19 suites / 222 tests (`green-jest-tabs.txt`); `hel1575-reload-after-edit.spec.ts --repeat-each 6` 30/30 (`green-e2e-reload-after-edit.txt`); `hel1260 --repeat-each 30` 120/120 (`green-hel1260-x30.txt`).
 Note: hel1260 itself passed 40/40 locally on the unmodified code (`baseline-hel1260.txt`): its reload comes about 0.5 s after the create, and the local machine is faster than the CI runner. The new spec reloads at fixed distances from the write, so it fails without the fix on any machine.
+
+## Fix cycle 3b: the loading skeleton's grid keyed by dashboard (owner ruling A)
+
+Worktree `/home/matt/Development/helio/.claude/worktrees/feature/persistent-dashboard-tabs-palette/HEL-1575`, base 7f5ca8a63 (origin/main merged). Transcripts in `.concertino/scratch/HEL-1575/fix3b/`.
+
+RED jest (`DesktopPanelGridSkeleton.dashboardSwitch.test.tsx`: real react-grid-layout, dashboard and breakpoint change in one render; the optional `dashboardId` prop is threaded but the grid is NOT yet keyed; `red-jest-skeleton.txt`):
+
+```
+● DesktopPanelGridSkeleton — dashboard and breakpoint change in one render › settles instead of looping when the dashboard and the breakpoint change together
+    Error message: "LOOP: the skeleton grid never settled"
+      at onRender (...dashboardSwitch.test.tsx:18:28)
+```
+
+(Without the commit budget the test hangs: the loop is synchronous inside the library.)
+RED e2e (`e2e/hel1575-delayed-restore-no-update-loop.spec.ts`, key removed, `--repeat-each 3`, `red-e2e-delayed.txt`): 3 failed / 3; each fails on `expect(errors.filter(... "Maximum update depth")).toEqual([])` with 50+ "Maximum update depth exceeded" errors (panels still render).
+GREEN with the key: jest 662 suites / 7846 tests; the delayed-read e2e `--repeat-each 30` = 30/30 (`green-e2e-delayed-x30.txt`).

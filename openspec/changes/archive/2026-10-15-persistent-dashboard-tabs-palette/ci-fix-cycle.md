@@ -220,3 +220,17 @@ Transcripts: `.concertino/scratch/HEL-1575/fix3/` (each starts with the worktree
 
 40 harness runs, each asserting the server's tab count after every load (`harness/before-1/summary.txt`): tab count was 3 every time, and PATCH bodies are logged per run. No `pagehide` overwrite was observed.
 The one failed run (run-17) was a different symptom: `html` never received `data-theme` within 5 s on the first load (no trace was kept; the config now writes artifacts to the scratch directory). It is recorded, not explained.
+
+### Fix cycle 3b: owner ruling A (symptom 1 fixed)
+
+Ruling: key the skeleton's grid by dashboard id, exactly as `PanelGrid` is. Nothing was posted upstream; the transient wrong-dashboard selection on load is HEL-1624 (not fixed here).
+
+- **Fix.** `DesktopPanelGridSkeleton` takes an optional `dashboardId` and keys its `Responsive` by it (`?? "no-dashboard"`); `PanelGridSkeleton` threads it and `PanelList` passes `selectedDashboardId`. No `PanelGrid` logic changed.
+- **Guards.** `DesktopPanelGridSkeleton.dashboardSwitch.test.tsx` (jsdom, real library; red without the key) and `e2e/hel1575-delayed-restore-no-update-loop.spec.ts` (reload with the browser-store read delayed 800 ms past the 500 ms restore timeout; red without the key: 3/3 with 50+ update-depth errors). See `evidence-red-first.md`.
+- **Merge.** origin/main (HEL-1613, 29b39995a) merged conflict-free as 7f5ca8a63; it changed only e2e files (no backend); Flyway version of the shared DB 135 = latest migration V135.
+- **Proof on head 9218ff363** (transcripts in `.concertino/scratch/HEL-1575/fix3b/`):
+  - `hel1260 --repeat-each 30`: 120 passed, 0 failed.
+  - Evaluator's harness, 30 runs: 30 of 30 passed, `updateDepthErrors` 0 in all 30, `tabMismatch` empty in all 30 (`harness/summary.txt`).
+  - `hel1575-delayed-restore-no-update-loop --repeat-each 30`: 30 passed, 0 failed (taken on the same code before the commit).
+  - Full e2e suite under the lock, 2 workers: 367 passed, 1 skipped, 0 failed (21.7 min).
+  - Full jest (`npm test`, 2 workers): 58 suites / 493 tests (root) and 662 suites / 7846 tests (frontend) passed. lint, typecheck, format:check, `npm --prefix frontend run build`: exit 0. `sbt testFull` not run: no backend file changed.
