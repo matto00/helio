@@ -13,6 +13,11 @@ const vendor = fs.readFileSync(
 );
 
 /** Declarations of the rule whose selector list is exactly `selector`. */
+/** Escapes every regex metacharacter (including the backslash) so a selector is matched literally. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\>]/g, "\\$&").replace(/\s+/g, "\\s+");
   const match = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(source);
@@ -92,9 +97,7 @@ describe("PanelGrid.css reconciles the vendor grid timing (HEL-1032)", () => {
         placeholderTiming,
       ],
     ]) {
-      expect(css).toMatch(
-        new RegExp(`${none.replace(/[.>]/g, "\\$&")}[^{]*\\{[^}]*transition:\\s*none`),
-      );
+      expect(css).toMatch(new RegExp(`${escapeRegExp(none)}[^{]*\\{[^}]*transition:\\s*none`));
       expect(wins(none, timing)).toBe(true);
     }
   });
