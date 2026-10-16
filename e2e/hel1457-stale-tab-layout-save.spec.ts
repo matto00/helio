@@ -40,6 +40,7 @@ test("a drag saved from a stale tab keeps a panel created meanwhile", async ({ p
     await page.goto(`/dashboards/${dashboardId}`);
     await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
 
+    await page.getByRole("button", { name: "Edit layout" }).click(); // HEL-1576: drag only in edit mode
     const handle = page.locator(".panel-grid-card__handle").first();
     const bb = (await handle.boundingBox())!;
     const sx = bb.x + bb.width / 2;
@@ -113,6 +114,9 @@ test("a conflict that cannot be rebased shows the other writer's panel, and a fu
     await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
 
     const dragA = async (dx: number) => {
+      // HEL-1576: drag only in edit mode (idempotent once on).
+      const editToggle = page.getByRole("button", { name: "Edit layout" });
+      if ((await editToggle.count()) > 0) await editToggle.click();
       const handle = page
         .locator(".react-grid-item", { hasText: "HEL-1457 A" })
         .locator(".panel-grid-card__handle")

@@ -1,0 +1,67 @@
+- `DESIGN.md` — §9: meta row replaces the command bar, Edit layout, Tidy layout, grid gutter
+- `e2e/hel1023-breakpoint-layout-derivation.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel1028-layout-undo-redo-visual-revert.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel1189-output-panel-controls-live.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel1230-drag-then-create-persists.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel1260-orphan-owner-repair.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel1457-stale-tab-layout-save.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel516-palette-quick-create.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel909-output-picker-panel-sheet.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `e2e/hel910-pipeline-to-dashboard-flow.spec.ts` — re-pointed: enter Edit layout before drag/resize, Add panel via the meta row (phone keeps the kebab), 12px margin
+- `frontend/src/app/App.css` — removed the dead .undo-redo-btn comment and phone hide-list entry
+- `frontend/src/app/App.tsx` — CommandBar / DashboardMetaRow swap via usesDashboardMetaRow
+- `frontend/src/app/AppShell.dashboardMetaRow.test.tsx` — swap tests: meta row on the rail dashboard view, command bar elsewhere and on the phone
+- `frontend/src/app/CommandBar.test.tsx` — Undo/Redo buttons removed (shortcuts kept); doc comment; tests re-pointed
+- `frontend/src/app/CommandBar.tsx` — Undo/Redo buttons removed (shortcuts kept); doc comment; tests re-pointed
+- `frontend/src/app/dashboardChrome.test.ts` — usesDashboardMetaRow predicate composed from isDashboardViewPath
+- `frontend/src/app/dashboardChrome.ts` — usesDashboardMetaRow predicate composed from isDashboardViewPath
+- `frontend/src/app/dashboardMeta/DashboardMetaEditTools.tsx` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/DashboardMetaFacts.tsx` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.css` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.test.tsx` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.tsx` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/useMetaRowTier.test.ts` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/app/dashboardMeta/useMetaRowTier.ts` — dashboard meta row: facts, actions, edit tools, tier ladder, CSS, tests
+- `frontend/src/features/dashboards/state/dashboardLayout.ts` — liveEntries exported for tidyLayout
+- `frontend/src/features/dashboards/state/tidyLayout.test.ts` — pure Tidy layout over compactLayout (authored-layout rule) and tests
+- `frontend/src/features/dashboards/state/tidyLayout.ts` — pure Tidy layout over compactLayout (authored-layout rule) and tests
+- `frontend/src/features/layout/hooks/useLayoutEditEscape.ts` — Escape leaves edit mode (guards)
+- `frontend/src/features/layout/state/layoutHistorySlice.test.ts` — layout-history slice: edit mode, desktop-grid flag, recordLayoutTidy; tidy thunk and selectors; tests
+- `frontend/src/features/layout/state/layoutHistorySlice.ts` — layout-history slice: edit mode, desktop-grid flag, recordLayoutTidy; tidy thunk and selectors; tests
+- `frontend/src/features/layout/state/layoutHistoryThunks.test.ts` — layout-history slice: edit mode, desktop-grid flag, recordLayoutTidy; tidy thunk and selectors; tests
+- `frontend/src/features/layout/state/layoutHistoryThunks.ts` — layout-history slice: edit mode, desktop-grid flag, recordLayoutTidy; tidy thunk and selectors; tests
+- `frontend/src/features/panels/hooks/useDashboardMeta.test.tsx` — meta row facts hook (own summaries, terminal refresh) and tests
+- `frontend/src/features/panels/hooks/useDashboardMeta.ts` — meta row facts hook (own summaries, terminal refresh) and tests
+- `frontend/src/features/panels/state/dashboardMeta.test.ts` — pure derivation of the meta row facts and tests
+- `frontend/src/features/panels/state/dashboardMeta.ts` — pure derivation of the meta row facts and tests
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.editMode.test.tsx` — grid tests: edit mode (real RGL), tidy persistence, margin fixture, network mocks
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.processedWidth.test.tsx` — grid tests: edit mode (real RGL), tidy persistence, margin fixture, network mocks
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.tidy.test.tsx` — grid tests: edit mode (real RGL), tidy persistence, margin fixture, network mocks
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.tsx` — edit-mode gating of drag/resize, desktop-grid flag, data-short-card
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — comment about the shared 12px gutter
+- `frontend/src/features/panels/ui/grid/PanelGrid.css` — hide drag handle outside edit mode; short-card rhythm
+- `frontend/src/features/panels/ui/grid/panelGridConfig.test.ts` — GRID_GUTTER_PX = 12 and the theme.css drift test
+- `frontend/src/features/panels/ui/grid/panelGridConfig.ts` — GRID_GUTTER_PX = 12 and the theme.css drift test
+- `frontend/src/test/networkGuard.ts` — removed the processedWidth test from the HEL-1600 allowlist
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file-count pins recounted
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file-count pins recounted
+- `openspec/changes/dashboard-meta-row-gutters/.openspec.yaml` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/design.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/evaluation-1.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/evidence-red-first.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/measurements.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/proposal.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/skeptic-design-1.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/skeptic-design-2.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/skeptic-design-3.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/skeptic-design-4.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/skeptic-design-5.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/chat-quick-launcher/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/dashboard-layout-edit-toggle/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/dashboard-meta-row/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/layout-undo-redo/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/panel-content-sizing/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/specs/panel-save-state-indicator/spec.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/tasks.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/ticket.md` — change artifacts (proposal, design, tasks, specs, evidence docs)
+- `openspec/changes/dashboard-meta-row-gutters/ui-decisions.md` — change artifacts (proposal, design, tasks, specs, evidence docs)

@@ -1,0 +1,88 @@
+/* HEL-1576: the dashboard meta row. The root also carries `.app-command-bar`, so it takes the command bar's
+   grid slot, height, safe-area padding, opaque `--app-surface` background, hairline bottom border and
+   borderless-button rules; only its internal layout is defined here. */
+.dashboard-meta-row__left {
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.dashboard-meta-row__facts {
+  /* One visible line. A fact that does not fit wraps onto a second line that is clipped, so the facts
+     drop whole and last-first (sources, then the refresh state) instead of showing a truncated stub. The
+     full text stays in `title`. */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  line-height: 1.5;
+  height: 1.5em;
+  overflow: hidden;
+}
+
+.dashboard-meta-row__fact {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.dashboard-meta-row__left .save-state-indicator {
+  flex-shrink: 0;
+}
+
+.dashboard-meta-row__refresh {
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.dashboard-meta-row__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--app-radius-pill);
+  flex-shrink: 0;
+}
+
+.dashboard-meta-row__dot--success {
+  background: var(--app-success);
+}
+
+.dashboard-meta-row__dot--danger {
+  background: var(--app-danger);
+}
+
+/* The actions never wrap and never truncate. */
+.dashboard-meta-row__actions {
+  flex-shrink: 0;
+  gap: var(--space-2);
+}
+
+.dashboard-meta-row__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dashboard-meta-row__group .cmd-btn,
+.dashboard-meta-row__group .ui-icon-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Edit layout while on ("Done"): a neutral pressed state, never the accent (Add panel is the one accent
+   control). The chrome's own wash pair, the one `.cmd-btn:hover` uses on `--app-surface` (soft in light,
+   strong in dark: the only pair that clears the chrome contrast threshold in both themes), plus
+   full-strength text. */
+.dashboard-meta-row__pressed,
+.app-command-bar .dashboard-meta-row__pressed:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+:root[data-theme="dark"] .dashboard-meta-row__pressed,
+:root[data-theme="dark"] .app-command-bar .dashboard-meta-row__pressed:hover {
+  background: var(--app-surface-strong);
+}
