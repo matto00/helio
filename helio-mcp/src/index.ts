@@ -19,6 +19,7 @@ import { loadConfig } from "./config.js";
 import { HelioHttpClient } from "./httpClient.js";
 import { HelioApi } from "./helioApi.js";
 import { createServer } from "./server.js";
+import { installUnhandledRejectionGuard } from "./unhandledRejectionGuard.js";
 
 export { createServer } from "./server.js";
 
@@ -36,6 +37,7 @@ export { createServer } from "./server.js";
 const MAX_STDIO_BUFFER_BYTES = 64 * 1024 * 1024;
 
 async function main(): Promise<void> {
+  installUnhandledRejectionGuard(process, (line) => process.stderr.write(line));
   let api: HelioApi;
   try {
     const config = loadConfig();
