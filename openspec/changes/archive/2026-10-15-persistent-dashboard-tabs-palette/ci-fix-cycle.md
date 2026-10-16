@@ -155,3 +155,27 @@ idle A, plus zero PATCHes from A over 125 s). Fix: before B saves, the test wait
   grid), hel1605 (table cell), hel908 (pipeline editor). No other occurrence of the pattern.
 - Non-blocking: comment on `hidesBreadcrumbItemName` (dashboard clause latent: no command bar on the rail dashboard view); corrected the
   `processedWidth` attribution above (HEL-1576 removed it on main).
+
+## Merge with HEL-1572 (2a9f9e467, appearance preferences)
+
+Skeptic final round 4 found `git merge-tree` conflicts in 14 files (GitHub `CONFLICTING`) because both lanes had rewritten `PATCH /api/users/me/preferences`.
+
+- **One contract.** HEL-1572's `PreferencesPatch` + `patchPrefs` is the only patch path; `patchShellPrefs` is gone. `PreferencesPatch` gained
+  `dashboardTabs: Option[DashboardTabsPref]` (replaces the stored set as a whole). `UserPreferences` (response) and `UserPreferencesData` carry accentColor, zoomLevels,
+  contextListWidth, contextListCollapsed, typeStyle, density, motion and dashboardTabs (`jsonFormat8`); the route allow-list adds `dashboardTabs`;
+  `UserResponseAssembler`, the `/api/auth` update route and the route response all pass the union. `mergePrefs` keeps HEL-1572's `- 'motion'` clear branch.
+  Both JSON schemas, `openspec/specs/user-ui-preferences/spec.md` and the archived delta state the union (drift check passes). No migration, no dependency.
+- **Route tests (both directions, `UserPreferencesRoutesSpec`).** A `dashboardTabs` write leaves accent/width/typeStyle/density/motion stored values equal;
+  appearance writes (typeStyle, then `motion: null`) leave the stored `dashboardTabs` equal and `motion` absent; a mixed body applies both kinds, and a mixed body with
+  invalid tabs is a 400 that changes nothing. The user-isolation tests are kept. `AuthServiceSpec` now writes tabs and appearance through `patchPrefs`.
+- **Frontend.** `main.tsx` keeps `startTabsBrowserTriggers(store)` and HEL-1572's appearance wiring; `user.ts` keeps both lanes' fields. New
+  `dashboardTabsPrefsSeam.test.ts`: an `updateUserPreferences.fulfilled` response that carries a stale `dashboardTabs` does not change the in-memory tab set
+  (same object), schedules no tabs write and starts no hydration (this is a guard, not a red-first test: the existing code already behaved so; `hydrated` is
+  one-shot and `saveShell/AppearancePreferences` never write their response back).
+- **CSS pins.** `find frontend/src -name '*.css' | wc -l` = 146 (144 + `AppearanceSection.css` + `SegmentedRadioGroup.css`); both guards pin 146, none loosened. DESIGN.md keeps
+  HEL-1572's `--density-grid-gap` gutter text and this branch's `⌘K` button text. The network-guard allowlist did not conflict and was not touched.
+- **Visuals** (`.concertino/runs/HEL-1575/evidence/merge-1572/`): tab strip y 8-49 and meta row y 49-97 at 1280 and 820, light and dark, in default, Compact,
+  Serif and Compact+Serif; geometry identical across all 16 shots; the strip scrolls (third tab clipped at 820) as before.
+- **Gates on the merged tree:** lint, typecheck, format:check, build exit 0; `check:schemas` ok; full jest 660 suites / 7840 tests (the one failure was my new seam test's
+  wrong tab-order expectation, fixed, 2/2); `sbt testFull` under the lock 8170 succeeded, 0 failed (4 canceled, pre-existing); full e2e under the lock, 2 workers:
+  361 passed, 1 skipped, exit 0 (includes hel1572, hel1574, hel1575, hel1576). Transcripts in `SCRATCH/merge1572/`.
