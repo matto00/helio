@@ -14,15 +14,22 @@
 :root {
   color-scheme: dark;
 
-  --font-sans:
+  /* Raw faces (HEL-1572). NEVER rebound by a type style; only the Appearance type-style
+     preview cards read them (as an inline --font-heading value, never in a font-family
+     declaration), so each card shows its own face whatever style is active. */
+  --font-face-sans:
     "Schibsted Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-face-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  --font-face-serif: "Fraunces", "Iowan Old Style", Georgia, serif;
+
+  --font-sans: var(--font-face-sans);
   /* The serif face. Headings do NOT use it by default (DESIGN.md §3, v3): it is
      assigned to --font-heading only by the optional "Serif headings" type style. */
-  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-display: var(--font-face-serif);
   /* The heading face. Defaults to sans; one token switches the style, so no
      consumer hardcodes a family (DESIGN.md §3). */
   --font-heading: var(--font-sans);
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  --font-mono: var(--font-face-mono);
   font-family: var(--font-sans);
 
   --text-micro: 0.625rem; /* 10px */
@@ -89,6 +96,13 @@
   --motion-ease-standard: ease;
   --motion-ease-out: cubic-bezier(0.3, 0.9, 0.4, 1);
   --motion-ease-overshoot: cubic-bezier(0.2, 0.9, 0.3, 1.1);
+
+  /* Density (HEL-1572, DESIGN.md Spacing > Density). Comfortable is the default; the Compact
+     set is in `:root[data-density="compact"]` below. `--density-grid-gap` is the desktop
+     panel-grid gutter and must equal GRID_GUTTER_PX (panelGridConfig.ts) -- a guard test
+     (theme/appearanceTokens.css.test.ts) fails when they drift. */
+  --density-grid-gap: 18px;
+  --density-row-pad-y: var(--space-2);
 
   /* --- Layering (z-index scale) --- */
   /* All portalled popovers/menus/select dropdowns share one layer so they
@@ -157,6 +171,54 @@
        `--app-top-chrome-height` above recompute at this breakpoint. */
     --app-command-bar-height: calc(var(--control-lg) + var(--space-4));
   }
+}
+
+/* --- Appearance preferences (HEL-1572): root attributes set by ThemeProvider / the pre-paint script --- */
+
+/* Type style. Tokens only; no component branches on the style. Sans + mono is the default
+   (no override). Serif swaps the heading face; Mono rebinds the sans face to mono for the
+   WHOLE UI (--font-heading follows because it defaults to var(--font-sans)). */
+:root[data-type-style="serif"] {
+  --font-heading: var(--font-display);
+}
+
+:root[data-type-style="mono"] {
+  --font-sans: var(--font-mono);
+}
+
+/* Density. Compact is strictly tighter than Comfortable in each token. */
+:root[data-density="compact"] {
+  --density-grid-gap: var(--space-2);
+  --density-row-pad-y: var(--space-1);
+}
+
+/* Motion (DESIGN.md §10). "Off" and the OS-reduced no-preference case are near-zero (0.01ms), never
+   0s, so transitionend / animationend still fire for primitives that wait on them. Subtle drops
+   the overshoot curve; the per-primitive Subtle rules arrive with HEL-1573. */
+:root[data-motion="off"] {
+  --motion-duration-quick: 0.01ms;
+  --motion-duration-standard: 0.01ms;
+  --motion-duration-emphasized: 0.01ms;
+  --motion-duration-highlight: 0.01ms;
+  --motion-stagger: 0ms;
+  --app-transition: 0.01ms ease;
+  --transition-slow: 0.01ms cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) {
+    --motion-duration-quick: 0.01ms;
+    --motion-duration-standard: 0.01ms;
+    --motion-duration-emphasized: 0.01ms;
+    --motion-duration-highlight: 0.01ms;
+    --motion-stagger: 0ms;
+    --app-transition: 0.01ms ease;
+    --transition-slow: 0.01ms cubic-bezier(0.3, 0.9, 0.4, 1);
+  }
+}
+
+:root[data-motion="subtle"] {
+  --motion-ease-overshoot: var(--motion-ease-out);
 }
 
 :root[data-theme="dark"] {
@@ -478,14 +540,24 @@ a {
   outline-offset: 2px;
 }
 
+/* Reduced motion in effect = a saved "Off", or no saved choice and the OS asks for reduced motion
+   (an explicit saved choice beats the OS; DESIGN.md §10). */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :root:not([data-motion]) *,
+  :root:not([data-motion]) *::before,
+  :root:not([data-motion]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* Eyebrow labels: mono, small, uppercase, wide-tracked — the "gallery label" */

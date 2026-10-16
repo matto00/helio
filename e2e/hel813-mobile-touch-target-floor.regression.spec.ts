@@ -11,6 +11,7 @@ import {
   RENDERED_BOX_EPSILON_PX,
 } from "./support/touchTargetProbe";
 import { registerAndLogin } from "./support/auth";
+import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./support/typeStyle";
 
 const FLOOR = DEFAULT_MIN_PX - RENDERED_BOX_EPSILON_PX;
 
@@ -179,7 +180,10 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
     try {
       await page.setViewportSize({ width: 430, height: 900 });
       await registerAndLogin(page, request, { ...AUTH, label: "caseA" });
+      // HEL-1572: `HEL1572_TYPE_STYLE=mono` re-runs this harness under Mono (default: sans).
+      await seedTypeStyle(page.request, typeStyleUnderTest());
       await page.goto("/settings");
+      await assertTypeStyleActive(page, typeStyleUnderTest());
       await page.fill("#api-token-name", "HEL-813 Regression Token");
       await page.getByRole("button", { name: "Create token" }).click();
       await page.getByRole("button", { name: "Copy" }).click();
@@ -249,6 +253,7 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
     try {
       await page.setViewportSize({ width: 430, height: 900 });
       await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
+      await seedTypeStyle(page.request, typeStyleUnderTest());
       // HEL-1300: seeding below must not race the live post-login `/home`.
       await isolateLivePage(page);
       const dashboardRes = await page.request.post("/api/dashboards", {
@@ -257,6 +262,7 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
       });
       expect(dashboardRes.status()).toBe(201);
       await page.goto("/home");
+      await assertTypeStyleActive(page, typeStyleUnderTest());
       await page.getByRole("button", { name: /Switch dashboards/i }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();

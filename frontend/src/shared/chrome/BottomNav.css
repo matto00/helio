@@ -143,15 +143,19 @@
   outline-offset: -3px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* `transition: none` (not `-duration`), placed AFTER the rule it overrides
+/* `transition: none` (not `-duration`), placed AFTER the rule it overrides
      so it wins at equal specificity — theme.css's global reduced-motion rule
      already forces `transition-duration: 0.01ms !important`, which a
      longhand duration override here would be silently overridden by. Only
      the shorthand (via `transition-property: none`, which the global rule
      does not touch) actually removes the transition rather than merely
      shortening it. Same mechanism `Skeleton.css` uses for its shimmer. */
-  .bottom-nav__lozenge {
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) .bottom-nav__lozenge {
     transition: none;
   }
+}
+/* HEL-1572: an explicit saved "Off" gets the same treatment regardless of the OS setting. */
+:root[data-motion="off"] .bottom-nav__lozenge {
+  transition: none;
 }

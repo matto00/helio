@@ -1,0 +1,98 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/UserPreferenceRepository.scala` — typeStyle/density/motion in UserPreferencesData, PreferencesPatch, patchPrefs (one-statement merge, `- 'motion'` when cleared), enum sets, invalid stored values dropped on read
+- `backend/src/main/scala/com/helio/api/routes/auth/UserPreferencesRoutes.scala` — AllowedFields + enum validation; `motion: null` clears
+- `backend/src/main/scala/com/helio/api/protocols/auth/AuthProtocol.scala` — UserPreferences gains three optional fields (jsonFormat7)
+- `backend/src/main/scala/com/helio/services/auth/UserResponseAssembler.scala`, `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — route the new fields into every UserPreferences build
+- `backend/src/test/scala/com/helio/api/routes/auth/UserPreferencesRoutesSpec.scala` — accumulate, enum rejection, null clear, invalid stored value, cross-user isolation through the non-superuser app role
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala`, `MfaServiceSpec.scala`, `backend/src/test/scala/com/helio/api/routes/auth/BetaAccessRoutesSpec.scala` — patchPrefs call sites; auth responses carry the appearance fields
+- `schemas/auth/user-preferences.schema.json`, `schemas/auth/update-user-preferences-request.schema.json` — new fields (motion nullable in the request)
+- `frontend/src/theme/appearancePrefs.ts` (+ test) — enums, defaults, attribute writer, cache, effectiveMotion
+- `frontend/src/theme/useAppearanceState.ts`, `useOsReducedMotion.ts`, `ThemeProvider.tsx` (+ ThemeProvider.appearance.test.tsx) — appearance state, layout-effect attribute application, cache sync, sign-out reset, useDensity/useReducedMotion, context fields for charts
+- `frontend/src/theme/theme.css` — raw face tokens, type-style/density/motion token sets, scoped reduced-motion rule
+- `frontend/src/theme/appearanceTokens.css.test.ts`, `reducedMotionScopeGuard.css.test.ts`, `elevationTokenGuard.css.test.ts`, `motionTokenGuard.css.test.ts` — sync/scope guards, CSS file counts 141 -> 143
+- `frontend/app.html` — inline pre-paint script; JetBrains Mono 700 in both font links
+- `frontend/src/main.tsx`, `features/auth/{types/user.ts,services/authService.ts,state/authSlice.ts,state/authSlice.test.ts}` — wiring, optimistic apply + saveAppearancePreferences thunk
+- `frontend/src/features/panels/ui/grid/{panelGridConfig.ts,DesktopPanelGrid.tsx,DesktopPanelGridSkeleton.tsx,DesktopPanelGridSkeleton.density.test.tsx}` — GRID_GUTTER_PX, gridMetrics(density), real-RGL geometry test
+- `frontend/src/features/panels/ui/useChartOption.ts`, `useChartOption.appearance.test.tsx`, `features/adminUsage/ui/UsageChart.tsx` (+ test) — recompute on typeStyle/effective motion
+- `frontend/src/utils/prefersReducedMotion.ts` (+ precedence test) — saved choice beats the OS
+- `frontend/src/shared/chrome/{AccentPicker.tsx,AccentPicker.css,AccentPicker.css.test.ts}` — 28px swatches, 44x44 expanders, inner-dot hover
+- `frontend/src/shared/ui/{SegmentedRadioGroup.tsx,SegmentedRadioGroup.css,SegmentedRadioGroup.test.tsx,index.ts}` — segmented radio control
+- `frontend/src/features/settings/ui/{AppearanceSection.tsx,AppearanceSection.css,AppearanceSection.test.tsx,SettingsPage.tsx}` — Settings -> Appearance
+- `frontend/src/shared/{ui/Skeleton.css,ui/toast.css,ui/toast.css.test.ts,chrome/BottomNav.css,chrome/MobileNavSheet.css}`, `features/assistant/ui/StreamingText.css`, `features/dashboards/ui/RefinementChatDrawer.css` — reduced-motion rules scoped + Off twins
+- `frontend/src/features/{pipelines/ui/PipelinesPage.css,sources/ui/SourceListTable.css,connectors/ui/ConnectorsPage.css}`, `frontend/src/app/shell/ContextList.css` — vertical row padding reads --density-row-pad-y
+- `e2e/hel1572-appearance-preferences.spec.ts`, `e2e/support/typeStyle.ts` — new spec + type-style seeding helper
+- `e2e/hel813-mobile-touch-target-floor.spec.ts`, `.regression.spec.ts`, `e2e/state-surface-contrast-guard.spec.ts` — Mono parametrization with non-vacuity precondition
+- `DESIGN.md` — §3 type styles (Mono exception), Spacing density table, §10 implemented precedence
+
+Screenshots (96): (lost in the 15:42 reboot; evaluator/skeptic screenshots persisted under /home/matt/Development/helio/.concertino/runs/HEL-1572/evidence/) {appearance,dashboard}-{dark,light}-{sans,mono,serif}-{comfortable,compact}-{1280,820,768,375}.png
+- `frontend/src/theme/ThemeProvider.appearance.test.tsx` — ThemeProvider appearance application tests
+- `frontend/src/theme/appearancePrefs.test.ts` — appearance prefs module tests
+- `frontend/src/utils/prefersReducedMotion.precedence.test.ts` — saved-choice vs OS precedence tests
+
+## Complete declaration (orchestrator, from `git diff --name-only <merge-base 7fd2f4f29> 97b9fa449`, reviewed file by file)
+
+- `DESIGN.md`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`
+- `backend/src/main/scala/com/helio/api/protocols/auth/AuthProtocol.scala`
+- `backend/src/main/scala/com/helio/api/routes/auth/UserPreferencesRoutes.scala`
+- `backend/src/main/scala/com/helio/infrastructure/persistence/auth/UserPreferenceRepository.scala`
+- `backend/src/main/scala/com/helio/services/auth/UserResponseAssembler.scala`
+- `backend/src/test/scala/com/helio/api/routes/auth/BetaAccessRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/auth/UserPreferencesRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/services/auth/AuthServiceSpec.scala`
+- `backend/src/test/scala/com/helio/services/auth/MfaServiceSpec.scala`
+- `e2e/hel1572-appearance-preferences.spec.ts`
+- `e2e/hel813-mobile-touch-target-floor.regression.spec.ts`
+- `e2e/hel813-mobile-touch-target-floor.spec.ts`
+- `e2e/state-surface-contrast-guard.spec.ts`
+- `e2e/support/typeStyle.ts`
+- `frontend/app.html`
+- `frontend/src/app/shell/ContextList.css`
+- `frontend/src/features/adminUsage/ui/UsageChart.test.tsx`
+- `frontend/src/features/adminUsage/ui/UsageChart.tsx`
+- `frontend/src/features/assistant/ui/StreamingText.css`
+- `frontend/src/features/auth/services/authService.ts`
+- `frontend/src/features/auth/state/authSlice.test.ts`
+- `frontend/src/features/auth/state/authSlice.ts`
+- `frontend/src/features/auth/types/user.ts`
+- `frontend/src/features/connectors/ui/ConnectorsPage.css`
+- `frontend/src/features/dashboards/ui/RefinementChatDrawer.css`
+- `frontend/src/features/panels/ui/grid/DesktopPanelGrid.tsx`
+- `frontend/src/features/panels/ui/grid/DesktopPanelGridSkeleton.density.test.tsx`
+- `frontend/src/features/panels/ui/grid/DesktopPanelGridSkeleton.tsx`
+- `frontend/src/features/panels/ui/grid/panelGridConfig.ts`
+- `frontend/src/features/panels/ui/useChartOption.appearance.test.tsx`
+- `frontend/src/features/panels/ui/useChartOption.ts`
+- `frontend/src/features/pipelines/ui/PipelinesPage.css`
+- `frontend/src/features/settings/ui/AppearanceSection.css`
+- `frontend/src/features/settings/ui/AppearanceSection.test.tsx`
+- `frontend/src/features/settings/ui/AppearanceSection.tsx`
+- `frontend/src/features/settings/ui/SettingsPage.tsx`
+- `frontend/src/features/sources/ui/SourceListTable.css`
+- `frontend/src/main.tsx`
+- `frontend/src/shared/chrome/AccentPicker.css`
+- `frontend/src/shared/chrome/AccentPicker.css.test.ts`
+- `frontend/src/shared/chrome/AccentPicker.tsx`
+- `frontend/src/shared/chrome/BottomNav.css`
+- `frontend/src/shared/chrome/MobileNavSheet.css`
+- `frontend/src/shared/ui/SegmentedRadioGroup.css`
+- `frontend/src/shared/ui/SegmentedRadioGroup.test.tsx`
+- `frontend/src/shared/ui/SegmentedRadioGroup.tsx`
+- `frontend/src/shared/ui/Skeleton.css`
+- `frontend/src/shared/ui/index.ts`
+- `frontend/src/shared/ui/toast.css`
+- `frontend/src/shared/ui/toast.css.test.ts`
+- `frontend/src/theme/ThemeProvider.appearance.test.tsx`
+- `frontend/src/theme/ThemeProvider.tsx`
+- `frontend/src/theme/appearancePrefs.test.ts`
+- `frontend/src/theme/appearancePrefs.ts`
+- `frontend/src/theme/appearanceTokens.css.test.ts`
+- `frontend/src/theme/elevationTokenGuard.css.test.ts`
+- `frontend/src/theme/motionTokenGuard.css.test.ts`
+- `frontend/src/theme/reducedMotionScopeGuard.css.test.ts`
+- `frontend/src/theme/theme.css`
+- `frontend/src/theme/useAppearanceState.ts`
+- `frontend/src/theme/useOsReducedMotion.ts`
+- `frontend/src/utils/prefersReducedMotion.precedence.test.ts`
+- `frontend/src/utils/prefersReducedMotion.ts`
+- `schemas/auth/update-user-preferences-request.schema.json`
+- `schemas/auth/user-preferences.schema.json`

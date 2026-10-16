@@ -7,7 +7,15 @@ import type { ResponsiveGridLayoutProps } from "react-grid-layout";
 
 import { dashboardGridCols } from "../../../dashboards/state/dashboardLayout";
 import type { DashboardLayout, DashboardLayoutItem } from "../../../dashboards/types/dashboard";
+import type { Density } from "../../../../theme/appearancePrefs";
 import type { Panel } from "../../types/panel";
+
+/** The Comfortable (default) desktop panel-grid gutter in px, on both axes. Mirrors `--density-grid-gap` in
+ *  theme.css (guarded by `theme/appearanceTokens.css.test.ts`). */
+export const GRID_GUTTER_PX = 18;
+
+/** The Compact gutter (HEL-1572). Mirrors `:root[data-density="compact"] --density-grid-gap`. */
+export const COMPACT_GRID_GUTTER_PX = 8;
 
 export interface PanelGridConfig {
   breakpoints: NonNullable<ResponsiveGridLayoutProps["breakpoints"]>;
@@ -31,7 +39,7 @@ export const panelGridConfig: PanelGridConfig = {
   },
   cols: dashboardGridCols,
   rowHeight: 52,
-  margin: [18, 18],
+  margin: [GRID_GUTTER_PX, GRID_GUTTER_PX],
   containerPadding: [0, 0],
   initialWidth: 1280,
   itemHeights: {
@@ -39,6 +47,21 @@ export const panelGridConfig: PanelGridConfig = {
     min: 4,
   },
 };
+
+/** The density-dependent react-grid-layout metrics (HEL-1572). RGL lays a panel out at top `y·(rowHeight + margin)`
+ *  with height `h·rowHeight + (h−1)·margin`, so Compact adds the gutter difference d to `rowHeight`: the row step
+ *  `rowHeight + margin` is identical in both densities, panel tops never move (a shared dashboard looks the same to
+ *  every viewer), and every panel is exactly d taller (h·d − (h−1)·d), whatever its height. */
+export function gridMetrics(density: Density): {
+  rowHeight: number;
+  margin: readonly [number, number];
+} {
+  const gutter = density === "compact" ? COMPACT_GRID_GUTTER_PX : GRID_GUTTER_PX;
+  return {
+    rowHeight: panelGridConfig.rowHeight + (GRID_GUTTER_PX - gutter),
+    margin: [gutter, gutter],
+  };
+}
 
 /** RGL's `getBreakpointFromWidth` is strict (`width > breakpoint`), while `PanelGrid`'s phone-stack
  *  boundary and the documented breakpoints are inclusive (`>=`): a container of exactly 1440, 1100 or

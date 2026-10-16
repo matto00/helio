@@ -42,7 +42,8 @@ import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PanelCard } from "../PanelCard";
-import { createLayouts, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
+import { useDensity } from "../../../../theme/ThemeProvider";
+import { createLayouts, gridMetrics, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 import "./PanelGrid.css";
 import { useCommitFlag } from "./useCommitFlag";
 import { useGridLayoutInteraction } from "./useGridLayoutInteraction";
@@ -128,6 +129,7 @@ export function DesktopPanelGrid({
     armCommitFlag,
   });
   const { gridStyle, handleWidthChange } = useProcessedWidth(width);
+  const metrics = gridMetrics(useDensity());
 
   return (
     <>
@@ -139,8 +141,8 @@ export function DesktopPanelGrid({
         layouts={layouts}
         breakpoints={rglBreakpoints}
         cols={panelGridConfig.cols}
-        rowHeight={panelGridConfig.rowHeight}
-        margin={panelGridConfig.margin}
+        rowHeight={metrics.rowHeight}
+        margin={metrics.margin}
         containerPadding={panelGridConfig.containerPadding}
         dragConfig={{ handle: ".panel-grid-card__handle" }}
         compactor={noCompactorPreventCollision}
