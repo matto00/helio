@@ -124,7 +124,7 @@ and the chart timing of D10 (C1). Screenshots/recordings go to `.concertino/runs
 The branch's only gate-chain touch is a 5-line `ALLOWLIST` addition in `scripts/check-tokens.mjs` (`--motion-index`,
 `--indicator-x/y/w/h`), a script `.husky/pre-commit` invokes; no `.husky/**` file changes.
 
-- **What does it execute?** `scripts/check-tokens.mjs` is a read-only Node script: it scans frontend CSS/TSX text for
+- **What does it execute?** `scripts/check-tokens.mjs` is a read-only Node script: it scans the frontend's `.css` files for
   `var(--x)` references against the declared token set plus the `ALLOWLIST` of runtime-set custom properties. The change
   only adds five allowlist entries (string keys with rationale text); no new code path runs.
 - **What environment does it inherit, and from where?** The hook's git environment (including `GIT_DIR` when run from a
@@ -133,8 +133,9 @@ The branch's only gate-chain touch is a 5-line `ALLOWLIST` addition in `scripts/
 - **Does it write anything outside its own sandbox?** No. It only reads source files and prints findings to stdout/stderr;
   it writes no files and mutates no repo state.
 - **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves files relative to the
-  script's own directory, which is the worktree root in a linked worktree and the checkout root otherwise; verified by the
-  isolation test below under a hook-shaped environment.
+  script's own directory, which is the worktree root in a linked worktree and the checkout root otherwise; verified under a hook-shaped
+  environment by the isolation-test transcript persisted at
+  `.concertino/runs/HEL-1573/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-tokens.mjs.md` (verdict PASS).
 - **What happens on its first run?** The new entries only make previously-flagged undeclared properties pass. First run
   after the change reports no violations for the motion primitives' inline properties; an unlisted property is still
   reported, so the check keeps failing closed.
