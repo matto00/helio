@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator5
+R="$S/run.sh"; F=e2e/zzprobe813.spec.ts; L=$S/logs
+$R $L/c813-baseline.log tree none $F -g "surface 7"
+FONT_CSS=block $R $L/c813-fallback-css.log tree none $F -g "surface 7"
+FONT_HOLD=all FONT_AT=never $R $L/c813-hold-never.log tree none $F -g "surface 7"
+for p in after-cta before-dialog after-dialog before-row after-row; do
+  FONT_HOLD=all FONT_AT=$p FONT_AFTER=nowait $R $L/c813-all-release-$p-nowait.log tree none $F -g "surface 7"
+done
+for p in after-cta after-dialog after-row; do
+  FONT_HOLD=all FONT_AT=$p FONT_AFTER=settle $R $L/c813-all-release-$p-settle.log tree none $F -g "surface 7"
+done
+for fam in "Schibsted Grotesk" "JetBrains Mono" "Fraunces"; do for p in before-dialog before-row; do
+  FONT_HOLD="$fam" FONT_AT=$p FONT_AFTER=nowait $R "$L/c813-fam-${fam// /_}-$p-nowait.log" tree none $F -g "surface 7"
+done; done
+echo done > $S/c813.done

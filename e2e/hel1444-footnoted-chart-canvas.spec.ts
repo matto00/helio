@@ -5,6 +5,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { CSRF_HEADER, registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { deleteExact } from "./support/remountBurstSeed";
+import { waitForWebFonts } from "./support/webFonts";
 
 // HEL-1444 -- a short (h=4) desktop chart card carrying footnotes, optionally with a viewer-control bar,
 // keeps a usable canvas at every width, its value-axis labels never overprint, and its title is a native
@@ -401,6 +402,9 @@ for (const theme of ["light", "dark"] as const) {
           await card.scrollIntoViewIfNeeded();
           await page.mouse.move(0, 0);
           await page.waitForTimeout(200);
+          // The bar and header heights are font-metric dependent (the stacked bar is 57px with the web fonts, 58px in the
+          // fallback faces): measure only once the swap has landed (HEL-1613).
+          await waitForWebFonts(card);
           const m = await measure(card);
           const y = isOne(v) && v.h === 4 ? await yAxisProbe(card) : null;
           all[v.tag] = { m, y };

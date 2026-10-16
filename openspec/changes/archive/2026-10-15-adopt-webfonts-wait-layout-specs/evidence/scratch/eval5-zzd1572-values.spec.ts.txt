@@ -1,0 +1,87 @@
+import { expect, test, type Page } from "@playwright/test";
+import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { measureBox } from "./support/touchTargetProbe";
+import { assertTypeStyleActive, seedTypeStyle } from "./support/typeStyle";
+import { installGate } from "./zzfontgate";
+
+// SCRATCH (HEL-1613 evaluator5, check d): logs the font-metric-dependent values hel1572 asserts on, per font state
+// (zzfontgate env: FONT_CSS=block fallback-only, FONT_HOLD=<family|all> FONT_AT=never held for the whole test).
+const AUTH = { prefix: "hel1613e5", displayName: "HEL-1613 E5", domain: "example.com" } as const;
+const json = { [CSRF_HEADER]: "1" };
+const tag = () => `css=${process.env.FONT_CSS ?? "live"} hold=${process.env.FONT_HOLD ?? "none"}`;
+
+async function clipped(page: Page): Promise<string[]> {
+  return page.evaluate((list) => {
+    const bad: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>(list.join(","))) {
+      const style = getComputedStyle(el);
+      if (style.display === "inline" || style.display === "none") continue;
+      if (style.textOverflow === "ellipsis") continue;
+      if (!el.textContent?.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const over = range.getBoundingClientRect().width - el.clientWidth;
+      if (over > 1) bad.push(`${el.className} +${over.toFixed(2)}`);
+    }
+    return bad;
+  }, [".appearance button", ".appearance .appearance__label", ".appearance .appearance__type-card-title", ".app-command-bar button", ".bottom-nav button", ".bottom-nav a", ".app-rail a", ".app-rail button"]);
+}
+
+test("type cards + mono clipping", async ({ page, request }) => {
+  await registerAndLogin(page, request, { ...AUTH, label: "d-cards" });
+  const gate = await installGate(page);
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/settings", { waitUntil: "commit" });
+    await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+    const hs: number[] = [];
+    for (const card of await page.locator(".appearance__type-card").all()) hs.push((await measureBox(card)).height);
+    console.log(`[e5d] ${tag()} typecards@${width} heights=${hs.map((h) => h.toFixed(2)).join(",")} fonts=${await gate.state()}`);
+  }
+  await seedTypeStyle(page.request, "mono");
+  for (const width of [375, 768, 820, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/settings", { waitUntil: "commit" });
+    await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
+    await assertTypeStyleActive(page, "mono");
+    const ready = await page.evaluate(() => Promise.race([document.fonts.ready.then(() => "ready"), new Promise((r) => setTimeout(() => r("ready-timeout-3s"), 3000))]));
+    console.log(`[e5d] ${tag()} mono-clip@${width} ${ready} clipped=${JSON.stringify(await clipped(page))} fonts=${await gate.state()}`);
+  }
+  gate.releaseAll();
+});
+
+test("tabular durations", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await registerAndLogin(page, request, { ...AUTH, label: "d-tab" });
+  const gate = await installGate(page);
+  const source = await page.request.post("/api/data-sources", {
+    data: { name: "E5 Tabular", type: "static", columns: [{ name: "a", type: "string" }], rows: [["x"]] },
+    headers: json,
+  });
+  const sourceId = ((await source.json()) as { id: string }).id;
+  const pipeline = await page.request.post("/api/pipelines", { data: { name: "E5 Tab", roots: [{ sourceId }] }, headers: json });
+  const pipelineId = ((await pipeline.json()) as { id: string }).id;
+  expect((await page.request.post(`/api/pipelines/${pipelineId}/run`, { data: {}, headers: json })).status()).toBe(200);
+  const widths = (variant: string) =>
+    page.locator(".run-history-modal__row-duration").first().evaluate((el, v) => {
+      if (v) (el as HTMLElement).style.fontVariantNumeric = v;
+      const measure = (text: string) => { el.textContent = text; return (el as HTMLElement).getBoundingClientRect().width; };
+      (el as HTMLElement).style.minWidth = "0";
+      (el as HTMLElement).style.display = "inline-block";
+      return { ones: measure("1111"), eights: measure("8888"), family: getComputedStyle(el).fontFamily.split(",")[0] };
+    }, variant);
+  for (const style of ["sans", "mono", "serif"] as const) {
+    await page.request.patch("/api/users/me/preferences", { data: { typeStyle: style }, headers: json });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/pipelines/${pipelineId}`, { waitUntil: "commit" });
+    await assertTypeStyleActive(page, style);
+    await page.getByRole("button", { name: "Pipeline actions" }).click();
+    await page.getByRole("menuitem", { name: "Run history" }).click();
+    await expect(page.locator(".run-history-modal__row-duration").first()).toBeVisible();
+    const ready = await page.evaluate(() => Promise.race([document.fonts.ready.then(() => "ready"), new Promise((r) => setTimeout(() => r("ready-timeout-3s"), 3000))]));
+    const tab = await widths("");
+    const prop = await widths("proportional-nums");
+    console.log(`[e5d] ${tag()} tabular@${style} family=${tab.family} tab=${tab.ones.toFixed(2)}/${tab.eights.toFixed(2)} prop=${prop.ones.toFixed(2)}/${prop.eights.toFixed(2)} propDelta=${Math.abs(prop.ones - prop.eights).toFixed(2)} ${ready} fonts=${await gate.state()}`);
+  }
+  gate.releaseAll();
+});

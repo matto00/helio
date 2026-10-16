@@ -1,0 +1,8 @@
+e2e/hel1572-appearance-preferences.spec.ts
+e2e/hel813-mobile-touch-target-floor.spec.ts
+e2e/state-surface-contrast-guard.spec.ts
+e2e/focus-presence-guard.spec.ts
+e2e/hel1574-shell-rail.spec.ts
+e2e/hel1605-row-delete-confirm.spec.ts
+e2e/hel572-chart-click-drilldown.spec.ts
+e2e/hel588-cross-filter-panels.spec.ts
