@@ -12,6 +12,8 @@ import { useDensity } from "../../../../theme/ThemeProvider";
 import { createLayouts, gridMetrics, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 
 interface DesktopPanelGridSkeletonProps {
+  /** The dashboard being loaded. See the `key` on the grid below. */
+  dashboardId?: string | null;
   layout: DashboardLayout;
   /** Grid container width, measured by the parent `PanelGridSkeleton` —
    *  mirrors `DesktopPanelGrid`'s own `width` prop. */
@@ -28,7 +30,11 @@ interface DesktopPanelGridSkeletonProps {
  * construction; see `panelGridSkeletonStubs.ts` for how the placeholder
  * panel-id stand-ins are chosen.
  */
-export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkeletonProps) {
+export function DesktopPanelGridSkeleton({
+  dashboardId = null,
+  layout,
+  width,
+}: DesktopPanelGridSkeletonProps) {
   // `panelGridConfig.breakpoints`'s type is the generic `Breakpoints<string>`
   // (matching `ResponsiveGridLayoutProps`'s own default), so the library
   // widens its return type to `string` — but its four keys ARE exactly
@@ -46,6 +52,9 @@ export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkel
 
   return (
     <Responsive
+      // Keyed by dashboard exactly as `PanelGrid` is (`PanelList`'s `key={selectedDashboardId}`): react-grid-layout
+      // 2.2.4 never settles when one render changes both the layouts and the breakpoint (a fresh mount does not).
+      key={dashboardId ?? "no-dashboard"}
       className="panel-grid"
       width={width}
       layouts={layouts}

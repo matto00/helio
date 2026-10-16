@@ -406,6 +406,7 @@ export function PanelList() {
       >
         {showPanelGridSkeleton || showBootstrapSkeleton ? (
           <PanelGridSkeleton
+            dashboardId={selectedDashboardId}
             layout={selectedDashboard?.layout ?? defaultDashboardLayout}
             width={gridContainerWidth}
           />
