@@ -1,0 +1,141 @@
+{
+  "kind": "dedupe",
+  "vectors": [
+    {
+      "name": "keeps the first occurrence of each key",
+      "config": { "keys": ["k"], "keep": "first" },
+      "inputRows": [
+        { "k": "a", "n": 1.0 },
+        { "k": "b", "n": 2.0 },
+        { "k": "a", "n": 3.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": "a", "n": 1.0 },
+          { "k": "b", "n": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "keeps the last occurrence and the original order of the survivors",
+      "config": { "keys": ["k"], "keep": "last" },
+      "inputRows": [
+        { "k": "a", "n": 1.0 },
+        { "k": "b", "n": 2.0 },
+        { "k": "a", "n": 3.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": "b", "n": 2.0 },
+          { "k": "a", "n": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "empty keys dedupe on the whole row",
+      "config": { "keys": [] },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }, { "b": 2.0, "a": 1.0 }, { "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0, "b": 2.0 }, { "a": 1.0 }] }
+    },
+    {
+      "name": "an integral 1 and a double 1.0 are the same key",
+      "config": { "keys": ["k"] },
+      "inputRows": [
+        { "k": { "$int": 1 }, "t": "int" },
+        { "k": 1.0, "t": "double" },
+        { "k": { "$long": "1" }, "t": "long" },
+        { "k": "1", "t": "string" }
+      ],
+      "expect": {
+        "rows": [
+          { "k": { "$int": 1 }, "t": "int" },
+          { "k": "1", "t": "string" }
+        ]
+      }
+    },
+    {
+      "name": "an integral and a double 1 are equal in a whole-row key too",
+      "config": { "keys": [] },
+      "inputRows": [{ "k": { "$int": 1 } }, { "k": 1.0 }],
+      "expect": { "rows": [{ "k": { "$int": 1 } }] }
+    },
+    {
+      "name": "a missing key and an explicit null collapse",
+      "config": { "keys": ["k"] },
+      "inputRows": [{ "k": null, "t": 1.0 }, { "t": 2.0 }, { "k": "x", "t": 3.0 }],
+      "expect": {
+        "rows": [
+          { "k": null, "t": 1.0 },
+          { "k": "x", "t": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "every NaN is its own key",
+      "config": { "keys": ["k"] },
+      "inputRows": [
+        { "k": { "$double": "NaN" }, "t": 1.0 },
+        { "k": { "$double": "NaN" }, "t": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": { "$double": "NaN" }, "t": 1.0 },
+          { "k": { "$double": "NaN" }, "t": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "keep last with NaN keys keeps every row",
+      "config": { "keys": ["k"], "keep": "last" },
+      "inputRows": [
+        { "k": { "$double": "NaN" }, "t": 1.0 },
+        { "k": { "$double": "NaN" }, "t": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": { "$double": "NaN" }, "t": 1.0 },
+          { "k": { "$double": "NaN" }, "t": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "keep is matched case-insensitively",
+      "config": { "keys": ["k"], "keep": "LAST" },
+      "inputRows": [
+        { "k": "a", "n": 1.0 },
+        { "k": "a", "n": 2.0 }
+      ],
+      "expect": { "rows": [{ "k": "a", "n": 2.0 }] }
+    },
+    {
+      "name": "an unknown keep value is a step error",
+      "config": { "keys": ["k"], "keep": "middle" },
+      "inputRows": [{ "k": "a" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "multiple keys form a tuple",
+      "config": { "keys": ["a", "b"] },
+      "inputRows": [
+        { "a": 1.0, "b": "x" },
+        { "a": 1.0, "b": "y" },
+        { "a": 1.0, "b": "x" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": "x" },
+          { "a": 1.0, "b": "y" }
+        ]
+      }
+    },
+    {
+      "name": "zero and negative zero are the same key",
+      "config": { "keys": ["k"] },
+      "inputRows": [
+        { "k": 0.0, "t": 1.0 },
+        { "k": { "$double": "-0.0" }, "t": 2.0 }
+      ],
+      "expect": { "rows": [{ "k": 0.0, "t": 1.0 }] }
+    }
+  ]
+}

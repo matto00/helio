@@ -1,0 +1,41 @@
+{
+  "kind": "select",
+  "vectors": [
+    {
+      "name": "keeps the listed fields",
+      "config": { "fields": ["b", "a"] },
+      "inputRows": [{ "a": 1.0, "b": "x", "c": true }],
+      "expect": { "rows": [{ "a": 1.0, "b": "x" }] }
+    },
+    {
+      "name": "a missing field is omitted",
+      "config": { "fields": ["a", "zzz"] },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an empty field list yields empty rows",
+      "config": { "fields": [] },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "expect": { "rows": [{}, {}] }
+    },
+    {
+      "name": "nulls and absent keys stay as they are",
+      "config": { "fields": ["a", "b"] },
+      "inputRows": [{ "a": null, "b": 1.0 }, { "b": 2.0 }],
+      "expect": { "rows": [{ "a": null, "b": 1.0 }, { "b": 2.0 }] }
+    },
+    {
+      "name": "an integral keeps its class",
+      "config": { "fields": ["n"] },
+      "inputRows": [{ "n": { "$int": 3 }, "m": 1.0 }],
+      "expect": { "rows": [{ "n": { "$int": 3 } }] }
+    },
+    {
+      "name": "a non-string field entry cannot be decoded",
+      "config": { "fields": ["a", 1] },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+- `backend/src/test/scala/com/helio/domain/engine/OrderedJson.scala` — order- and number-text-preserving JSON tree so a regenerated corpus file differs only where an expectation was filled in
+- `backend/src/test/scala/com/helio/domain/engine/ParityCorpus.scala` — corpus value encoding ($int/$long/$double), two-way class comparator and file IO for the Scala oracle
+- `backend/src/test/scala/com/helio/domain/engine/ParityRunner.scala` — drives every vector through InProcessPipelineEngine.executeTree (step vectors as one-step trees, lane and source secondaries, closure re-runs)
+- `backend/src/test/scala/com/helio/domain/engine/ParityStepBuilder.scala` — test-local (kind, raw config) -> domain step builder with an arm for all 27 registered kinds
+- `backend/src/test/scala/com/helio/domain/engine/PipelineStepParitySpec.scala` — the Scala oracle spec: manifest vs Registry.keySet (check 1), builder coverage, step and walk vectors, PARITY_REGEN fill-only regeneration
+- `frontend/src/features/pipelines/README.md` — documents the evaluator module
+- `frontend/src/features/pipelines/evaluator/clientEvaluable.test.ts` — clientEvaluable decline reasons and agreement check 5 (unknown function declines)
+- `frontend/src/features/pipelines/evaluator/config.ts` — tolerant-but-typed step config decoders (port of StepCodecUtil) and required-config helpers
+- `frontend/src/features/pipelines/evaluator/evaluatePipeline.test.ts` — schema, incremental-recompute property test (reference reuse), HEL-970 rejoin, walk order
+- `frontend/src/features/pipelines/evaluator/evaluatePipeline.ts` — incremental pipeline walk: executeTree order, parent and lane edges, per-step cache, statuses, lane violations
+- `frontend/src/features/pipelines/evaluator/evaluateStep.ts` — clientEvaluable and single-step evaluation (decline, required-config problems, then evaluate)
+- `frontend/src/features/pipelines/evaluator/expression/compile.ts` — compute expression compile cache and the function/operator/literal tables for check 3
+- `frontend/src/features/pipelines/evaluator/expression/dateFunctions.ts` — seconds_between, date_trunc, add_days (port of ExpressionDateTimeFunctions)
+- `frontend/src/features/pipelines/evaluator/expression/decimal.ts` — exact decimal helpers over a double's shortest representation (round HALF_UP, add_days)
+- `frontend/src/features/pipelines/evaluator/expression/interpreter.ts` — compute row evaluation and function dispatch (port of ExpressionInterpreter)
+- `frontend/src/features/pipelines/evaluator/expression/parser.ts` — strict compute parser with the Scala Either control flow, depth limits and arity table
+- `frontend/src/features/pipelines/evaluator/expression/tokenizer.ts` — compute tokenizer (port of ExpressionTokenizer, Java isLetter/isDigit semantics)
+- `frontend/src/features/pipelines/evaluator/expression/types.ts` — shared types
+- `frontend/src/features/pipelines/evaluator/index.ts` — public surface of the evaluator (unused by the app until HEL-1631/HEL-1632)
+- `frontend/src/features/pipelines/evaluator/instants.ts` — UTC instants: nanosecond-aware parsing on top of parseChartInstant, Java Instant.toString rendering, civil calendar
+- `frontend/src/features/pipelines/evaluator/javaNumbers.ts` — Java/Scala numeric parse primitives (parseDouble, toDoubleOption, parseInt/Long, toBoolean), Java trim
+- `frontend/src/features/pipelines/evaluator/javaTimSort.ts` — faithful port of java.util.TimSort (incl. the contract-violation failure) used for window orderBy and sort
+- `frontend/src/features/pipelines/evaluator/javaTimSort.test.ts` — agreement with a stable sort at TimSort's thresholds and the contract-violation throw
+- `frontend/src/features/pipelines/evaluator/javaRegex.test.ts` — regex allowlist boundary tests
+- `frontend/src/features/pipelines/evaluator/javaRegex.ts` — Java Pattern to JS RegExp allowlist translator (Decision 1a)
+- `frontend/src/features/pipelines/evaluator/pipelineStepParity.test.ts` — the Jest half of the parity corpus: every step and walk vector, agreement checks 2 and 3
+- `frontend/src/features/pipelines/evaluator/scalaGroup.test.ts` — Scala hash and HashMap-order unit tests
+- `frontend/src/features/pipelines/evaluator/scalaGroup.ts` — Scala groupBy semantics: cooperative equality keys, MurmurHash3 Vector hash, CHAMP iteration order
+- `frontend/src/features/pipelines/evaluator/steps/aggregate.ts` — groupby, aggregate, pivot
+- `frontend/src/features/pipelines/evaluator/steps/cast.ts` — cast and datebucket
+- `frontend/src/features/pipelines/evaluator/steps/combine.ts` — join, union, lookup with lane and source secondaries (JoinColumnNaming parity)
+- `frontend/src/features/pipelines/evaluator/steps/compute.ts` — compute step
+- `frontend/src/features/pipelines/evaluator/steps/exactSum.ts` — exact running sum of doubles (BigDecimal equivalent) for rolling windows
+- `frontend/src/features/pipelines/evaluator/steps/fillnull.ts` — fillnull strategies
+- `frontend/src/features/pipelines/evaluator/steps/filterSort.ts` — filter and sort (three-tier comparator)
+- `frontend/src/features/pipelines/evaluator/steps/identity.ts` — assert and upsertsource identity kinds (writesOnSave flag, documented checkTarget gap)
+- `frontend/src/features/pipelines/evaluator/steps/numeric.ts` — toDouble and Double total-ordering helpers
+- `frontend/src/features/pipelines/evaluator/steps/registry.ts` — kind table: 23 client handlers plus server and AI kinds
+- `frontend/src/features/pipelines/evaluator/steps/rowOps.ts` — rename, select, limit, dedupe, unpivot
+- `frontend/src/features/pipelines/evaluator/steps/splitText.ts` — splittext and extractheadings
+- `frontend/src/features/pipelines/evaluator/steps/stringOps.ts` — stringops (Java trim/split, regex allowlist)
+- `frontend/src/features/pipelines/evaluator/steps/types.ts` — shared types
+- `frontend/src/features/pipelines/evaluator/steps/window.ts` — window functions (row_number, rank, running_sum, lag/lead)
+- `frontend/src/features/pipelines/evaluator/steps/windowRolling.ts` — rolling window frames (rows and days, exact sums)
+- `frontend/src/features/pipelines/evaluator/steps/windowShared.ts` — window config shape and row ordering shared by both halves
+- `frontend/src/features/pipelines/evaluator/testing/corpus.ts` — test support: corpus reader/decoder and the two-way class comparator
+- `frontend/src/features/pipelines/evaluator/value.test.ts` — value model and numeric parse primitive unit tests
+- `frontend/src/features/pipelines/evaluator/value.ts` — value model: double vs Integral, Java Double.toString, Any.toString, JSON output
+- `shared-test-fixtures/pipeline-step-parity/README.md` — how the corpus is laid out, read by both runners and regenerated from the oracle
+- `shared-test-fixtures/pipeline-step-parity/aggregate.json` — step vectors for aggregate, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/assert.json` — step vectors for assert, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/cast.json` — step vectors for cast, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/compute.json` — step vectors for compute, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/datebucket.json` — step vectors for datebucket, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/dedupe.json` — step vectors for dedupe, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/extractheadings.json` — step vectors for extractheadings, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/fillnull.json` — step vectors for fillnull, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/filter.json` — step vectors for filter, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/groupby.json` — step vectors for groupby, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/join.json` — step vectors for join, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/limit.json` — step vectors for limit, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/lookup.json` — step vectors for lookup, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/manifest.json` — classifies all 27 kinds (class, minVectors, features) plus the known-gap notes
+- `shared-test-fixtures/pipeline-step-parity/pipelines.json` — walk vectors with the Scala-verified frames and the client statuses
+- `shared-test-fixtures/pipeline-step-parity/pivot.json` — step vectors for pivot, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/rename.json` — step vectors for rename, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/select.json` — step vectors for select, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/sort.json` — step vectors for sort, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/splittext.json` — step vectors for splittext, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/stringops.json` — step vectors for stringops, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/union.json` — step vectors for union, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/unpivot.json` — step vectors for unpivot, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/upsertsource.json` — step vectors for upsertsource, expectations produced by the Scala engine
+- `shared-test-fixtures/pipeline-step-parity/window.json` — step vectors for window, expectations produced by the Scala engine
+- `openspec/changes/client-step-evaluator-parity/measurements.md` — recorded latency measurement (Decision 6)
+- `openspec/changes/client-step-evaluator-parity/tasks.md` — tasks done, implementation notes and cycle 2 amendments
+- `openspec/changes/client-step-evaluator-parity/design.md` — amended to what the oracle proved (unknown field, walk shapes, TimSort, sorted-TreeMap rename order, unknown root, gaps)
+- `openspec/changes/client-step-evaluator-parity/skeptic-final-1.md` — final-gate report (round 1)
+- `openspec/changes/client-step-evaluator-parity/evaluation-3.md` — evaluation report (cycle 3)

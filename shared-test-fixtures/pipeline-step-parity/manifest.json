@@ -1,0 +1,229 @@
+{
+  "description": "HEL-1581 parity corpus. Classifies all 27 registered step kinds. A Scala spec (PipelineStepParitySpec) runs every vector through InProcessPipelineEngine.executeTree and a Jest spec (pipelineStepParity.test.ts) runs the TypeScript evaluator over the same files. Each non-server kind has <kind>.json holding step vectors; pipelines.json holds walk vectors. The compute function, operator and literal lists are NOT repeated here: they are read from ../compute-expression-functions.json.",
+  "kinds": {
+    "rename": {
+      "class": "client",
+      "minVectors": 12,
+      "features": [
+        "renames map applied entry by entry",
+        "chained and swapped renames follow Scala map order (sorted keys up to 4 entries, hash order beyond)",
+        "missing source field ignored"
+      ]
+    },
+    "select": {
+      "class": "client",
+      "minVectors": 6,
+      "features": ["fields kept, others dropped", "missing fields omitted"]
+    },
+    "limit": {
+      "class": "client",
+      "minVectors": 9,
+      "features": ["count > 0 keeps the first N rows", "count <= 0 or non-Int is unlimited"]
+    },
+    "filter": {
+      "class": "client",
+      "minVectors": 37,
+      "features": [
+        "= != > >= < <= contains, is null, is not null",
+        "blank (null) handling",
+        "AND / OR combinator",
+        "numeric coercion via the ported parse primitives"
+      ]
+    },
+    "groupby": {
+      "class": "client",
+      "minVectors": 24,
+      "features": [
+        "sum, count",
+        "Scala HashMap group order",
+        "unsupported function is a step error"
+      ]
+    },
+    "dedupe": {
+      "class": "client",
+      "minVectors": 12,
+      "features": [
+        "keep first / last",
+        "key tuple or whole row",
+        "integral and double keys compare equal"
+      ]
+    },
+    "unpivot": {
+      "class": "client",
+      "minVectors": 7,
+      "features": [
+        "idVars, valueVars, varName, valueName",
+        "later assignment wins on a name collision"
+      ]
+    },
+    "extractheadings": {
+      "class": "client",
+      "minVectors": 12,
+      "features": ["ATX headings 1-6 with Java regex line semantics", "index and level fields"]
+    },
+    "splittext": {
+      "class": "client",
+      "minVectors": 16,
+      "features": [
+        "paragraph mode",
+        "heading mode with headingLevel",
+        "rows without text produce no segments"
+      ]
+    },
+    "sort": {
+      "class": "client*",
+      "minVectors": 21,
+      "features": [
+        "three-tier comparator: finite numbers (incl. numeric strings), then lexicographic, nulls last",
+        "asc / desc, multi-key stable chain"
+      ]
+    },
+    "cast": {
+      "class": "client*",
+      "minVectors": 21,
+      "features": [
+        "string integer long float double number boolean date timestamp",
+        "Java / Scala parse semantics through the ported primitives",
+        "date / timestamp keeps a parseable String, renders a whole-number epoch as Instant.toString, else null"
+      ]
+    },
+    "aggregate": {
+      "class": "client*",
+      "minVectors": 28,
+      "features": [
+        "sum avg min max count median percentile count_distinct",
+        "multi-key groupBy in Scala HashMap order",
+        "percentile = percentile_cont",
+        "empty input without groupBy yields one row"
+      ]
+    },
+    "datebucket": {
+      "class": "client*",
+      "minVectors": 16,
+      "features": [
+        "day week month quarter year, UTC floor",
+        "output as a yyyy-MM-dd string",
+        "all-unparseable input is a step error"
+      ]
+    },
+    "fillnull": {
+      "class": "client*",
+      "minVectors": 22,
+      "features": ["constant forwardFill mean median mode", "mode tie goes to the first value seen"]
+    },
+    "pivot": {
+      "class": "client*",
+      "minVectors": 21,
+      "features": [
+        "sum count avg min max first",
+        "generated column names from the JVM stringification of the pivot value",
+        "Scala HashMap group order"
+      ]
+    },
+    "window": {
+      "class": "client*",
+      "minVectors": 45,
+      "features": [
+        "row_number rank dense_rank running_sum lag lead rolling_avg rolling_sum rolling_min rolling_max rolling_count",
+        "partitionBy, orderBy asc/desc, offset, frameSize, frameUnit rows/days",
+        "rolling sums are exact (BigDecimal) before the single rounding"
+      ]
+    },
+    "stringops": {
+      "class": "client*",
+      "minVectors": 70,
+      "features": [
+        "trim (Java String.trim), upper, lower",
+        "split on a literal separator with trailing empties",
+        "concat",
+        "extractRegex within the Decision 1a allowlist",
+        "a Java-invalid or non-allowlisted pattern declines as unsafeRegex"
+      ]
+    },
+    "compute": {
+      "class": "client*",
+      "minVectors": 133,
+      "features": [
+        "the strict $-required grammar of docs/compute-expression-grammar.md",
+        "every function in compute-expression-functions.json",
+        "three-valued boolean logic, lazy if / coalesce",
+        "a parse problem is a step error, a per-row error is null",
+        "legacy bare-identifier expressions and unknown functions decline"
+      ]
+    },
+    "join": {
+      "class": "client*",
+      "minVectors": 26,
+      "features": [
+        "inner, left",
+        "lane secondary and complete source secondary",
+        "JoinColumnNaming right_ prefixing",
+        "a configured source secondary that is not cached completely declines"
+      ]
+    },
+    "union": {
+      "class": "client*",
+      "minVectors": 19,
+      "features": [
+        "byPosition, byName (first row of each side decides the keys)",
+        "lane secondary and complete source secondary"
+      ]
+    },
+    "lookup": {
+      "class": "client*",
+      "minVectors": 18,
+      "features": [
+        "first matching reference row",
+        "column collisions renamed as in a join",
+        "lane secondary and complete source secondary"
+      ]
+    },
+    "assert": {
+      "class": "identity",
+      "minVectors": 8,
+      "features": ["rows pass through unchanged", "no verdicts are produced client-side"]
+    },
+    "upsertsource": {
+      "class": "identity",
+      "minVectors": 10,
+      "features": [
+        "rows pass through, nothing is written, flagged writesOnSave",
+        "ExistingSource target checks are skipped (documented gap)"
+      ]
+    },
+    "chunkbytokencount": {
+      "class": "server",
+      "minVectors": 0,
+      "features": ["always needsServer when enabled"]
+    },
+    "convertformat": {
+      "class": "server",
+      "minVectors": 0,
+      "features": ["always needsServer when enabled"]
+    },
+    "analyzewithai": {
+      "class": "server",
+      "minVectors": 0,
+      "features": ["notPreviewed when enabled, and everything downstream"]
+    },
+    "generatetext": {
+      "class": "server",
+      "minVectors": 0,
+      "features": ["notPreviewed when enabled, and everything downstream"]
+    }
+  },
+  "notes": [
+    "Values: a plain JSON number is a Double; {\"$int\": n} is an Int; {\"$long\": \"n\"} is a Long; {\"$double\": \"NaN\" | \"Infinity\" | \"-Infinity\" | \"-0.0\"} is a non-JSON Double. Values compare by value AND class, in both directions.",
+    "Long precision: vectors stay within +/-2^53. A Long beyond 2^53 is not representable in the TypeScript value model; this is a known gap, deliberately left open.",
+    "Row order is compared; column order is not (Scala rows are unordered Maps).",
+    "groupby, aggregate and pivot emit one row per group in Scala's immutable.HashMap iteration order, which the evaluator reproduces (hash of the key Vector, CHAMP trie order). Keys with a fully equal improved hash (every NaN) keep first-seen order, as in Scala, so that case is exact.",
+    "A step config with a wrong-typed key cannot be decoded by the Scala engine either (the repository cannot load the step); both runners report it as an error.",
+    "Step vectors expect {rows}, {error: true} or {clientDeclines: <reason>, scalaRows | scalaError: true}. Walk vectors carry a scala block (frames | failsAt + framesWithout | laneError + removed + framesWithout | notRun + framesWithout) and a client block ({stepId: {status, rows?}}).",
+    "A source secondary's rows pass through JSON on the Scala side, so they can only hold doubles, strings, booleans and nulls, and every row needs the same keys.",
+    "window orderBy (and sort) are sorted with a faithful port of java.util.TimSort, so even a non-transitive mixed text/number order matches the JVM, including the 'Comparison method violates its general contract!' failure, which is a step error.",
+    "A parentless step whose rootId has no root frame fails the Scala run (an unresolved lane reference); the client marks that step an error and blocks its dependents.",
+    "A map-valued step config (rename's renames) reaches Scala through spray-json, which parses every object into a sorted TreeMap: with four or fewer entries the rename fold runs in String.compareTo (UTF-16 code unit) order, with five or more in immutable.HashMap order. The evaluator reproduces both, so integer-like column names need no special case.",
+    "Seq[Double].sum reduces from the first element when the collection has a known size (a Vector: all -0.0 sums to -0.0) and folds from 0.0 for a List. Source frames are Vectors; the frame downstream of aggregate / groupby / pivot is a List and stays one. The walk tracks that (listFrame); step vectors run on Vector frames, and two walk vectors cover the List case.",
+    "A numeric timestamp string is read with Java Long.parseLong / BigDecimal semantics, which accept any BMP Unicode decimal digit, in cast, datebucket, the compute date functions and window day frames. The chart's own parseChartInstant is ASCII-only there: a pre-existing gap outside this change, recorded as a follow-up."
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "kind": "extractheadings",
+  "vectors": [
+    {
+      "name": "extracts ATX headings with their level",
+      "config": { "field": "md" },
+      "inputRows": [
+        { "id": 1.0, "md": "# One\ntext\n## Two\n### Three  \nnot a heading\n#Four\n" }
+      ],
+      "expect": {
+        "rows": [
+          { "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "id": 1.0, "md": "One" },
+          { "headingIndex": { "$int": 1 }, "headingLevel": { "$int": 2 }, "id": 1.0, "md": "Two" },
+          { "headingIndex": { "$int": 2 }, "headingLevel": { "$int": 3 }, "id": 1.0, "md": "Three" }
+        ]
+      }
+    },
+    {
+      "name": "levels 1 to 6 and no more",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "# a\n## b\n### c\n#### d\n##### e\n###### f\n####### g" }],
+      "expect": {
+        "rows": [
+          { "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "a" },
+          { "headingIndex": { "$int": 1 }, "headingLevel": { "$int": 2 }, "md": "b" },
+          { "headingIndex": { "$int": 2 }, "headingLevel": { "$int": 3 }, "md": "c" },
+          { "headingIndex": { "$int": 3 }, "headingLevel": { "$int": 4 }, "md": "d" },
+          { "headingIndex": { "$int": 4 }, "headingLevel": { "$int": 5 }, "md": "e" },
+          { "headingIndex": { "$int": 5 }, "headingLevel": { "$int": 6 }, "md": "f" }
+        ]
+      }
+    },
+    {
+      "name": "custom index and level field names",
+      "config": { "field": "md", "indexField": "i", "levelField": "lvl" },
+      "inputRows": [{ "md": "# a\n## b" }],
+      "expect": {
+        "rows": [
+          { "i": { "$int": 0 }, "lvl": { "$int": 1 }, "md": "a" },
+          { "i": { "$int": 1 }, "lvl": { "$int": 2 }, "md": "b" }
+        ]
+      }
+    },
+    {
+      "name": "a row without text, or with a null cell, produces no rows",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": null }, { "id": 1.0 }, { "md": "# kept" }],
+      "expect": {
+        "rows": [{ "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "kept" }]
+      }
+    },
+    {
+      "name": "windows line endings are normalised",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "# a\r\n## b\r\nbody" }],
+      "expect": {
+        "rows": [
+          { "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "a" },
+          { "headingIndex": { "$int": 1 }, "headingLevel": { "$int": 2 }, "md": "b" }
+        ]
+      }
+    },
+    {
+      "name": "a title is trimmed the Java way and keeps NBSP",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "#  \u00a0padded\u00a0  \n#\t tab \t" }],
+      "expect": {
+        "rows": [
+          {
+            "headingIndex": { "$int": 0 },
+            "headingLevel": { "$int": 1 },
+            "md": "\u00a0padded\u00a0"
+          },
+          { "headingIndex": { "$int": 1 }, "headingLevel": { "$int": 1 }, "md": "tab" }
+        ]
+      }
+    },
+    {
+      "name": "a line terminator inside the line is not matched by .",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "# a\u0085b\n# c\u2028d\n# e\rf\n# ok" }],
+      "expect": {
+        "rows": [{ "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "ok" }]
+      }
+    },
+    {
+      "name": "an empty title still counts as a heading",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "# \n#   \n## x" }],
+      "expect": {
+        "rows": [
+          { "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "" },
+          { "headingIndex": { "$int": 1 }, "headingLevel": { "$int": 1 }, "md": "" },
+          { "headingIndex": { "$int": 2 }, "headingLevel": { "$int": 2 }, "md": "x" }
+        ]
+      }
+    },
+    {
+      "name": "a heading needs whitespace after the hashes",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": "#x\n# y" }],
+      "expect": {
+        "rows": [{ "headingIndex": { "$int": 0 }, "headingLevel": { "$int": 1 }, "md": "y" }]
+      }
+    },
+    {
+      "name": "the text field is stringified (a double)",
+      "config": { "field": "md" },
+      "inputRows": [{ "md": 3.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "the index field may overwrite the title field",
+      "config": { "field": "md", "indexField": "md" },
+      "inputRows": [{ "md": "# a\n# b" }],
+      "expect": {
+        "rows": [
+          { "headingLevel": { "$int": 1 }, "md": { "$int": 0 } },
+          { "headingLevel": { "$int": 1 }, "md": { "$int": 1 } }
+        ]
+      }
+    },
+    {
+      "name": "a blank field name is a step error",
+      "config": { "field": "" },
+      "inputRows": [{ "md": "# a" }],
+      "expect": { "error": true }
+    }
+  ]
+}

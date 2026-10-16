@@ -1,0 +1,529 @@
+{
+  "kind": "join",
+  "vectors": [
+    {
+      "name": "inner join on a lane; colliding non-key columns get the right_ prefix; fan-out on duplicate right keys",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "right_name": "A", "v": 10.0, "w": "x" },
+          { "id": 1.0, "name": "a", "right_name": "A2", "v": 10.0, "w": "y" },
+          { "id": 3.0, "name": "c", "right_name": "C", "v": 30.0, "w": "z" }
+        ]
+      }
+    },
+    {
+      "name": "left join keeps unmatched left rows unchanged",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "left"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "right_name": "A", "v": 10.0, "w": "x" },
+          { "id": 1.0, "name": "a", "right_name": "A2", "v": 10.0, "w": "y" },
+          { "id": 2.0, "name": "b", "v": 20.0 },
+          { "id": 3.0, "name": "c", "right_name": "C", "v": 30.0, "w": "z" }
+        ]
+      }
+    },
+    {
+      "name": "the join type is case-insensitive",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "LEFT"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "right_name": "A", "v": 10.0, "w": "x" },
+          { "id": 1.0, "name": "a", "right_name": "A2", "v": 10.0, "w": "y" },
+          { "id": 2.0, "name": "b", "v": 20.0 },
+          { "id": 3.0, "name": "c", "right_name": "C", "v": 30.0, "w": "z" }
+        ]
+      }
+    },
+    {
+      "name": "an unsupported join type is a step error",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "outer"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": { "error": true }
+    },
+    {
+      "name": "the right key column is dropped when the left has it",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [{ "id": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "id": 1.0, "z": 5.0 }], "complete": true },
+      "expect": { "rows": [{ "id": 1.0, "z": 5.0 }] }
+    },
+    {
+      "name": "a right key the left lacks is kept as an ordinary column",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "left"
+      },
+      "inputRows": [{ "other": 1.0, "id2": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "id": 1.0, "z": 5.0 }], "complete": true },
+      "expect": { "rows": [{ "id2": 1.0, "other": 1.0 }] }
+    },
+    {
+      "name": "rows join on equal values regardless of class: 1, 1.0 and 1L",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "k",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "k": { "$int": 1 }, "l": "int" },
+        { "k": 1.0, "l": "double" },
+        { "k": { "$long": "1" }, "l": "long" },
+        { "k": "1", "l": "string" }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "k": 1.0, "r": "one" },
+          { "k": "1", "r": "str" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": { "$int": 1 }, "l": "int", "r": "one" },
+          { "k": 1.0, "l": "double", "r": "one" },
+          { "k": { "$long": "1" }, "l": "long", "r": "one" },
+          { "k": "1", "l": "string", "r": "str" }
+        ]
+      }
+    },
+    {
+      "name": "integral keys on both sides of a lane",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "k",
+        "joinType": "inner"
+      },
+      "inputRows": [{ "k": { "$int": 1 } }, { "k": { "$int": 2 } }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "k": { "$int": 1 }, "r": "a" },
+          { "k": 2.0, "r": "b" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": { "$int": 1 }, "r": "a" },
+          { "k": { "$int": 2 }, "r": "b" }
+        ]
+      }
+    },
+    {
+      "name": "a null key joins a null key; NaN joins nothing",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "k",
+        "joinType": "left"
+      },
+      "inputRows": [
+        { "k": null, "l": 1.0 },
+        { "l": 2.0 },
+        { "k": { "$double": "NaN" }, "l": 3.0 },
+        { "k": "x", "l": 4.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "k": null, "r": "n" },
+          { "k": { "$double": "NaN" }, "r": "nan" },
+          { "k": "x", "r": "x" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": null, "l": 1.0, "r": "n" },
+          { "l": 2.0, "r": "n" },
+          { "k": { "$double": "NaN" }, "l": 3.0 },
+          { "k": "x", "l": 4.0, "r": "x" }
+        ]
+      }
+    },
+    {
+      "name": "a taken right_ name moves on to right_x_2",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [{ "id": 1.0, "x": "L", "right_x": "taken" }],
+      "secondary": { "kind": "lane", "rows": [{ "id": 1.0, "x": "R" }], "complete": true },
+      "expect": { "rows": [{ "id": 1.0, "right_x": "taken", "right_x_2": "R", "x": "L" }] }
+    },
+    {
+      "name": "several colliding columns are renamed in sorted order",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [{ "id": 1.0, "b": 1.0, "a": 2.0, "right_a": 0.0 }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [{ "id": 1.0, "a": "ra", "b": "rb", "c": "rc" }],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          {
+            "a": 2.0,
+            "b": 1.0,
+            "c": "rc",
+            "id": 1.0,
+            "right_a": 0.0,
+            "right_a_2": "ra",
+            "right_b": "rb"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the right key can be absent from right rows",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "left"
+      },
+      "inputRows": [{ "id": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "nothing": 1.0 }], "complete": true },
+      "expect": { "rows": [{ "id": 1.0 }] }
+    },
+    {
+      "name": "an empty right side: inner yields nothing, left keeps the rows",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "left"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "v": 10.0 },
+          { "id": 2.0, "name": "b", "v": 20.0 },
+          { "id": 3.0, "name": "c", "v": 30.0 }
+        ]
+      }
+    },
+    {
+      "name": "an empty right side with an inner join",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an empty left side",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "a blank join key is a step error",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "joinKey": "",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": { "error": true }
+    },
+    {
+      "name": "a source secondary the caller cached completely",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 3.0, "name": "C", "w": "z" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "right_name": "A", "v": 10.0, "w": "x" },
+          { "id": 3.0, "name": "c", "right_name": "C", "v": 30.0, "w": "z" }
+        ]
+      }
+    },
+    {
+      "name": "a source secondary: left join with text, boolean and null cells",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "joinKey": "id",
+        "joinType": "left"
+      },
+      "inputRows": [
+        { "id": "1", "v": 1.0 },
+        { "id": "2", "v": 2.0 }
+      ],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [
+          { "id": "1", "t": true },
+          { "id": "2", "t": null }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": "1", "t": true, "v": 1.0 },
+          { "id": "2", "t": null, "v": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "an empty dataSourceId secondary mirrors the engine: the data source is not found",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unconfigured secondary (no secondaryInput) is also not found",
+      "config": { "joinKey": "id" },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "the legacy rightDataSourceId field cannot be decoded",
+      "config": { "rightDataSourceId": "ds-2", "joinKey": "id" },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a secondaryInput of an unknown kind cannot be decoded",
+      "config": { "secondaryInput": { "kind": "table" }, "joinKey": "id" },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a lane secondaryInput without a stepId cannot be decoded",
+      "config": { "secondaryInput": { "kind": "lane" }, "joinKey": "id" },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a configured source secondary that is not cached declines (the engine cannot find it either)",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-9" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "expect": { "clientDeclines": "secondaryNotCached", "scalaError": true }
+    },
+    {
+      "name": "a truncated source secondary declines even though the engine joined the complete rows",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "joinKey": "id",
+        "joinType": "inner"
+      },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [{ "id": 1.0, "w": "x" }],
+        "complete": false
+      },
+      "expect": {
+        "clientDeclines": "secondaryNotCached",
+        "scalaRows": [{ "id": 1.0, "name": "a", "v": 10.0, "w": "x" }]
+      }
+    },
+    {
+      "name": "a disabled join is transparent",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "joinKey": "id" },
+      "inputRows": [
+        { "id": 1.0, "name": "a", "v": 10.0 },
+        { "id": 2.0, "name": "b", "v": 20.0 },
+        { "id": 3.0, "name": "c", "v": 30.0 }
+      ],
+      "enabled": false,
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "name": "A", "w": "x" },
+          { "id": 1.0, "name": "A2", "w": "y" },
+          { "id": 3.0, "name": "C", "w": "z" },
+          { "id": 4.0, "name": "D", "w": "q" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "id": 1.0, "name": "a", "v": 10.0 },
+          { "id": 2.0, "name": "b", "v": 20.0 },
+          { "id": 3.0, "name": "c", "v": 30.0 }
+        ]
+      }
+    }
+  ]
+}
