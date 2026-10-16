@@ -12,17 +12,15 @@
  *
  * Implementation is a CLIENT-SIDE FAN-OUT over existing endpoints, per the
  * brief's guidance to start simple and only add a backend `/api/context`
- * aggregation if fan-out proves too chatty. Call budget: 2 list calls
- * (sources, dashboards) + 1 pipelines list + 1 analyze per pipeline + 1
- * run-history per pipeline + 1 pipeline-shapes catalog call + 1 (paginated)
- * outputs fetch = 4 + 2N(pipelines), PLUS (HEL-1193) one placements call per Output and one
- * dashboard export per DISTINCT dashboard hosting a placement (to list each output panel's
- * controls) — no longer 5 + N(pipelines) with an
- * unbounded per-DataType row fetch layered on top, since there is no more
- * per-DataType sample-row/column-stats fan-out (design.md Decision 6: the
- * 220k-char overflow, HEL-857, was caused by that DataType/Metric
- * enumeration, which no longer exists in the target model). See README
- * "Context serializer" for the measured cost and the escalation trigger.
+ * aggregation if fan-out proves too chatty. Call budget (HEL-1619), P pipelines, Op Outputs with
+ * panels, D distinct hosting dashboards: 8 fixed (sources, dashboards, pipelines, shapes,
+ * preferences, memory, connectors, one outputs page) + 1 `GET /api/pipelines/context-details`
+ * (every pipeline's steps and latest-run assertions at once) + P analyze + Op placements + D
+ * dashboard exports. An older server answering 404 to the batched read costs P more (steps) and
+ * P more (run-history) instead. At most `MAX_IN_FLIGHT` requests are in flight. Before HEL-1619
+ * it was 8 + 4P + (one per Output) + D with no cap: 339 requests, 220 in flight, on a
+ * 55-pipeline / 110-Output workspace. See README "Context serializer" for the measured cost and
+ * the escalation trigger.
  */
 
 import {
@@ -31,14 +29,21 @@ import {
   type PanelControlsLookup,
 } from "./contextControls.js";
 import type { HelioApi } from "./helioApi.js";
+import { HelioApiError } from "./httpClient.js";
+import { createLimiter, limitApi } from "./requestLimiter.js";
 import type {
   AgentMemoryEntryResponse,
   AgentPreferencesResponse,
   AssertionSummaryResponse,
   ConnectorSummary,
   OutputResponse,
+  PipelineContextDetailsItemResponse,
   RowCountContractResponse,
 } from "./types.js";
+
+/** HEL-1619: the most HTTP requests one `buildWorkspaceContext` call keeps in flight at once --
+ *  every request it sends (fixed fetches included) goes through one limiter of this size. */
+export const MAX_IN_FLIGHT = 6;
 
 /** Flatten a `RowCountContractResponse` discriminated union to a display string (HEL-400
  *  design.md Decision 5): `"exactly-one"`, `"at-most-param:<paramName>"`, or `"unbounded"`. */
@@ -222,7 +227,9 @@ async function buildOutputSummariesByPipeline(
         nodeStepId: o.nodeStepId ?? null,
         rootId: o.rootId ?? null,
         schema: o.schema.map((f) => ({ name: f.name, type: f.type })),
-        placements: await fetchPlacements(api, o.id, controlsFor),
+        // HEL-1619: `panelCount === 0` is the same fact `GET /api/outputs/:id/panels` would answer
+        // (`[]`); only an absent count (older server) still asks.
+        placements: o.panelCount === 0 ? [] : await fetchPlacements(api, o.id, controlsFor),
       } satisfies WorkspaceContextOutputSummary,
     })),
   );
@@ -233,6 +240,38 @@ async function buildOutputSummariesByPipeline(
     else grouped.set(pipelineId, [summary]);
   }
   return grouped;
+}
+
+// ── Batched per-pipeline details (HEL-1619) ──────────────────────────────
+
+/** `GET /api/pipelines/context-details` keyed by pipeline id, or `null` when unavailable. NEVER
+ *  rejects: it is started before the fail-fast `Promise.all` and awaited after it (the HEL-1617
+ *  orphaned-rejection lesson). `null` makes every pipeline use the per-pipeline reads. A 404 (an
+ *  older server) is silent; any other failure -- or a body that is not `{items: [...]}`, i.e. a
+ *  client/server shape mismatch -- writes one stderr line, so a silent fallback in production
+ *  (about 3.5x the requests) is visible. */
+async function fetchContextDetails(
+  api: HelioApi,
+): Promise<Map<string, PipelineContextDetailsItemResponse> | null> {
+  try {
+    const response = await api.getPipelineContextDetails();
+    if (!Array.isArray((response as { items?: unknown } | undefined)?.items)) {
+      warnContextDetailsFallback("response has no items array");
+      return null;
+    }
+    return new Map(response.items.map((item) => [item.pipelineId, item]));
+  } catch (err) {
+    if (!(err instanceof HelioApiError && err.status === 404)) {
+      warnContextDetailsFallback(err instanceof Error ? err.message : String(err));
+    }
+    return null;
+  }
+}
+
+function warnContextDetailsFallback(reason: string): void {
+  process.stderr.write(
+    `helio-mcp: GET /api/pipelines/context-details unusable (${reason}); reading each pipeline separately\n`,
+  );
 }
 
 export interface WorkspaceContextTruncation {
@@ -487,10 +526,12 @@ function panelCount(layout: {
  *  is replaced by `inferredSchemaFieldCount`. Every Output's own `schema` is retained in full in
  *  both modes (design D2 — it is the field-mapping grounding source). */
 export async function buildWorkspaceContext(
-  api: HelioApi,
+  unlimitedApi: HelioApi,
   budgetBytes: number = DEFAULT_BUDGET_BYTES,
   concise = false,
 ): Promise<WorkspaceContext> {
+  // HEL-1619: one limiter per call; every request below goes through it (see `MAX_IN_FLIGHT`).
+  const api = limitApi(unlimitedApi, createLimiter(MAX_IN_FLIGHT));
   // HEL-521 (420-C) design.md Decision 6: kicked off here (concurrently with the fail-fast
   // Promise.all below) but deliberately NOT a member of that array — buildAgentContext's own
   // two fetches are already independently `.catch`-guarded, so a rejection here can never fail
@@ -521,6 +562,10 @@ export async function buildWorkspaceContext(
       }),
     );
 
+  // HEL-1619: every pipeline's steps + latest-run assertions in one request, same pattern as
+  // above (self-catching, started now, awaited after the fail-fast group); `null` = per-pipeline reads.
+  const contextDetailsPromise = fetchContextDetails(api);
+
   const [sourcesPage, dashboardsPage, pipelineSummaries, pipelineShapes] = await Promise.all([
     api.listDataSources(),
     api.listDashboards(),
@@ -530,7 +575,16 @@ export async function buildWorkspaceContext(
 
   const { map: outputsByPipeline, error: outputsError } = await outputsByPipelinePromise;
 
-  // Fan out one analyze + one run-history per pipeline for steps/output columns/assertions.
+  const contextDetails = await contextDetailsPromise;
+  if (contextDetails) {
+    const absent = pipelineSummaries.filter((p) => !contextDetails.has(p.id)).length;
+    if (absent > 0) {
+      warnContextDetailsFallback(`omitted ${absent} of ${pipelineSummaries.length} pipelines`);
+    }
+  }
+
+  // Fan out one analyze per pipeline for steps/output columns, plus -- only for a pipeline the
+  // batched read did not cover -- one run-history and one steps read.
   const pipelines = await Promise.all(
     pipelineSummaries.map(async (summary) => {
       const base = {
@@ -547,6 +601,7 @@ export async function buildWorkspaceContext(
       // via Promise.all, but each in its OWN independent try/catch — a
       // run-history-specific failure must never blank out `steps` or produce
       // a misleading `stepsError`, and vice versa.
+      const detail = contextDetails?.get(summary.id);
       const [stepsResult, lastRunAssertions, laneTreeResult] = await Promise.all([
         (async () => {
           try {
@@ -577,6 +632,9 @@ export async function buildWorkspaceContext(
           }
         })(),
         (async () => {
+          // HEL-1619: `latestRunAssertions` is omitted when the pipeline has never run, exactly
+          // as `history[0]?.assertions` was undefined for an empty history.
+          if (detail) return detail.latestRunAssertions ?? ZERO_ASSERTION_SUMMARY;
           try {
             const history = await api.getPipelineRunHistory(summary.id);
             return history[0]?.assertions ?? ZERO_ASSERTION_SUMMARY;
@@ -589,7 +647,9 @@ export async function buildWorkspaceContext(
         // degrades ONLY laneTree to [], never steps or lastRunAssertions.
         (async () => {
           try {
-            const { steps } = await api.getPipeline(summary.id);
+            // HEL-1619: the batched read's steps, else `GET /:id/steps` alone (`getPipeline` also
+            // fetched the summary, which this never used).
+            const steps = detail ? detail.steps : await api.listPipelineSteps(summary.id);
             const pipelineOutputs = outputsByPipeline.get(summary.id) ?? [];
             const outputIdsByStep = new Map<string, string[]>();
             for (const o of pipelineOutputs) {

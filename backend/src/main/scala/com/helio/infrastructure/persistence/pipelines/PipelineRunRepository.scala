@@ -657,6 +657,34 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withUserContext(user.id.value)(query.result).map(_.toVector)
   }
 
+  /** HEL-1619: the batched sibling of `listByPipelineInternal(...).head` -- the id of the most
+    * recent run (`startedAt` desc, any status, dry included) of each pipeline in `pipelineIds` that has
+    * one, from ONE query that reads only `(pipeline_id, id, started_at)`. A never-run pipeline is
+    * absent from the map. ACL-bypassing: the caller must feed it an id set it has ALREADY
+    * confirmed access to (here, the ids `PipelineService.listSummaries` returned), never an
+    * unvalidated caller-supplied set. */
+  def latestRunIdsInternalBatch(pipelineIds: Set[PipelineId]): Future[Map[PipelineId, String]] =
+    if (pipelineIds.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        runsTable
+          .filter(_.pipelineId.inSet(pipelineIds.map(_.value)))
+          .sortBy(_.startedAt.desc)
+          .map(r => (r.pipelineId, r.id))
+          .result
+      ).map(_.foldLeft(Map.empty[PipelineId, String]) { case (acc, (pid, runId)) =>
+        // Rows arrive newest-first, so the first one seen per pipeline is its latest run.
+        if (acc.contains(PipelineId(pid))) acc else acc.updated(PipelineId(pid), runId)
+      })
+
+  /** HEL-1619: [[listAssertionsByRunInternal]] for many runs in one query, grouped by run id. A
+    * run without assertion rows is absent from the map. Same ACL contract as the single-run method. */
+  def listAssertionsByRunsInternalBatch(runIds: Set[String]): Future[Map[String, Vector[PipelineRunAssertionRow]]] =
+    if (runIds.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(assertionsTable.filter(_.runId.inSet(runIds)).result)
+        .map(_.toVector.groupBy(_.runId))
+
   /** ACL-bypassing list of assertion results for a run. Safe to call only
     * after the caller's run/pipeline access has been confirmed at the
     * service layer (mirrors `listByPipelineInternal` — a future
