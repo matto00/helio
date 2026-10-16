@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator4; E=/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613/openspec/changes/archive/2026-10-15-adopt-webfonts-wait-layout-specs/evidence
+FONT_FORCE=css-block $S/run.sh $E/v6-merged-B-css-block.log fontdelay.cjs $(cat $S/files-all.txt)
+FONT_FORCE=late:1500:1500 $S/run.sh $E/v6-merged-C-late-1500.log fontdelay.cjs $(cat $S/files-all.txt)
+FONT_FIRST=1 FONT_FIRST_N=1 $S/run.sh $E/v6-merged-D-fontfirst-n1.log fontfirst.cjs $(cat $S/files-all.txt)
+for fam in Fraunces JetBrains_Mono Schibsted_Grotesk; do
+  FONT_FIRST=1 FONT_FIRST_N=1 FONT_FIRST_HOLD_FAMILY="${fam//_/ }" $S/run.sh $E/v6-merged-E-hold-$fam.log fontfirst.cjs $(cat $S/files-grid.txt)
+done
+echo done > $S/batch.done

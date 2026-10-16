@@ -89,3 +89,12 @@ the same way other lanes use `helio_hel157x`. Every merged-head log header names
 Full e2e suite on the merged head (`v3-full-suite.log`, header: cwd, HEAD 86663f574, ports 7045/9952, DB helio_hel1613,
 loadavg 8.51 at start / 4.65 at end, run under the driver's `flock` with `--workers=2` and `nice -n 19`):
 **312 passed, 0 failed, 0 skipped (15.0m)**. The `*.log` files are gitignored; the driver persists them separately.
+
+## Base drift after merging origin/main again (re-gate, HEAD 7e6967545, HEL-1576)
+
+`sweep-hits-v4-merged.txt`: 248 lines, 43 files, per-file counts identical to v3 (line shifts only in hel1230, hel909,
+hel1260, hel1457, hel1028; hel1023's `GRID_MARGIN` 18 -> 12 is a grep-invisible change and was included). The 32
+geometry files (225 tests) were re-run in fallback-only / late-1500 / first-measurement-in-fallback, and the 10
+dashboard-grid/meta-row specs under one-family holds: no font-driven red. Per-spec values, the hel1350 injector-budget
+analysis (not a font defect; passes 8/8 with a non-blocking release), and the re-run hel1444 red/green pair (58 vs 57
+-> 57) are in `../evaluation-4.md`. Full suite on 7e6967545: 312 passed (`v6-full-suite.log`, load 2.31 at start).

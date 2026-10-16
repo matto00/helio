@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# usage: run.sh <log> <preload|none> <files...>  (FONT_* env passes through)
+W=/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator4
+cd $W
+LOG="$1"; PRE="$2"; shift 2
+while [ "$(cut -d. -f1 /proc/loadavg)" -ge 10 ]; do sleep 60; done
+echo "### cwd=$PWD head=$(git rev-parse HEAD) DEV_PORT=7045 BACKEND_PORT=9952 DB=helio(shared,V135) start=$(date +%T) loadavg=$(cut -d' ' -f1-3 /proc/loadavg) FONT_ENV=[$(env | grep -E '^FONT_' | tr '\n' ' ')] files=$#" > "$LOG"
+if [ "$PRE" = none ]; then NO=""; else NO="--require $S/$PRE"; fi
+NODE_OPTIONS="$NO" DEV_PORT=7045 BACKEND_PORT=9952 flock -w 3600 /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/e2e.lock nice -n 19 npx playwright test "$@" --workers=2 >> "$LOG" 2>&1
+echo "exit=$? end=$(date +%T) loadavg=$(cut -d' ' -f1-3 /proc/loadavg)" >> "$LOG"
