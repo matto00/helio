@@ -43,7 +43,7 @@ The command bar breadcrumb SHALL display "Data Pipelines" when the current route
 - **THEN** the breadcrumb label reads "Data Pipelines"
 
 #### Scenario: Breadcrumb shows Dashboards on /
-- **WHEN** the current route is `/home`
+- **WHEN** the current route is `/dashboards`
 - **THEN** the breadcrumb label reads "Dashboards"
 
 #### Scenario: Breadcrumb shows Data Sources on /sources

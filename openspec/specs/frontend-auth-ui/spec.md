@@ -20,7 +20,7 @@ keep their existing `autocomplete` attributes so iOS offers Keychain autofill.
 
 #### Scenario: Successful login redirects to home
 - **WHEN** the user submits valid credentials on the login page for an account without MFA
-- **THEN** the app navigates to `/home` and the main dashboard view is shown
+- **THEN** the app navigates to `/home` and the Home page is shown
 
 #### Scenario: MFA-enabled login proceeds to verification
 - **WHEN** the user submits valid credentials for an account with MFA enabled
@@ -54,7 +54,7 @@ The frontend SHALL provide a `/register` page with email, password, and optional
 
 #### Scenario: Successful registration redirects to home
 - **WHEN** the user submits valid registration data
-- **THEN** the app navigates to `/home` and the main dashboard view is shown
+- **THEN** the app navigates to `/home` and the Home page is shown
 
 #### Scenario: Duplicate email shows error
 - **WHEN** the user submits a registration form with an already-registered email
