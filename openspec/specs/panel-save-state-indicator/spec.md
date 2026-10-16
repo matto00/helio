@@ -2,9 +2,11 @@
 
 ## Purpose
 TBD - created by archiving change last-saved-indicator. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Save state indicator renders in the toolbar when a dashboard is open
-The system SHALL display a save-state label in the dashboard command bar whenever a dashboard is selected and the user is on the dashboard view.
+The system SHALL display a save-state label whenever a dashboard is selected and the user is on the dashboard view: in the dashboard meta row above the phone boundary (where the meta row replaces the command bar), and in the command bar on the phone shell.
 
 #### Scenario: Indicator not shown when no dashboard is selected
 - **WHEN** the user is on the dashboard view with no dashboard selected
@@ -12,7 +14,7 @@ The system SHALL display a save-state label in the dashboard command bar wheneve
 
 #### Scenario: Indicator is shown when a dashboard is open
 - **WHEN** the user is on the dashboard view with a dashboard selected
-- **THEN** the save-state indicator is visible in the command bar near the dashboard title
+- **THEN** the save-state indicator is visible in the dashboard meta row after its facts at 1280px wide, and in the command bar at 375px wide
 
 ### Requirement: Label reflects dirty vs clean save state
 The system SHALL show "Unsaved changes" when `pendingPanelUpdates` is non-empty and a "Last saved X ago" relative timestamp when it is empty.
@@ -91,4 +93,3 @@ The system SHALL register a `beforeunload` handler that prompts the user when `p
 #### Scenario: beforeunload does not fire without pending changes
 - **WHEN** `pendingPanelUpdates` is empty AND the user closes or navigates away from the page
 - **THEN** no confirmation prompt is shown
-
