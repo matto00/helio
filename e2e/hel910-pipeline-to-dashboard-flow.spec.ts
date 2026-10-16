@@ -175,10 +175,14 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     for (let i = 0; i < outputNames.length; i++) {
       const outputName = outputNames[i];
       if (i === 0) {
-        await io.click(page.getByRole("button", { name: "Add panel" }));
+        await io.click(page.getByRole("button", { name: "Add panel" }).first());
       } else {
-        await io.click(page.getByRole("button", { name: "Dashboard actions", exact: true }));
-        await io.click(page.getByRole("menuitem", { name: "Add panel" }));
+        // HEL-1576: Add panel is the dashboard meta row's primary button, not a kebab item.
+        await io.click(
+          page
+            .getByRole("group", { name: "Dashboard actions" })
+            .getByRole("button", { name: "Add panel" }),
+        );
       }
       const picker = page.getByRole("dialog", { name: "Add panel" });
       await expect(picker).toBeVisible();
@@ -242,7 +246,8 @@ test.describe("HEL-910 place an already-existing Output on a dashboard (<= 2 int
     // Interaction 1: the "No panels yet" empty-state CTA opens the Output
     // picker directly (PanelList.tsx -- `setPanelCreationModalOpen(true)`),
     // no kebab menu required on a fresh dashboard.
-    await io.click(page.getByRole("button", { name: "Add panel" }));
+    // HEL-1576: the meta row's primary shares the name; either opens the picker.
+    await io.click(page.getByRole("button", { name: "Add panel" }).first());
     const picker = page.getByRole("dialog", { name: "Add panel" });
     await expect(picker).toBeVisible();
 

@@ -26,10 +26,10 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Responsive } from "react-grid-layout";
 
-import { createScaledStrategy, noCompactor } from "react-grid-layout/core";
+import { createScaledStrategy, getBreakpointFromWidth, noCompactor } from "react-grid-layout/core";
 
 const noCompactorPreventCollision = { ...noCompactor, preventCollision: true };
 
@@ -37,7 +37,12 @@ import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayou
 import { useTheme } from "../../../../theme/ThemeProvider";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
-import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
+import {
+  selectIsEditingLayout,
+  setDesktopGridDashboardId,
+  setEditingLayoutDashboardId,
+} from "../../../layout/state/layoutHistorySlice";
 import { useLayoutSave } from "../../hooks/useLayoutSave";
 import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
@@ -80,6 +85,19 @@ export function DesktopPanelGrid({
   // list contents alone. See design.md's Decision (design-gate round 2).
   const panelsStatus = useAppSelector((state) => state.panels.status);
   const { theme } = useTheme();
+  // HEL-1576: panels move and resize only while layout edit mode is on (the meta row's Edit layout toggle).
+  const isEditingLayout = useAppSelector(selectIsEditingLayout(dashboardId));
+  // Tells the meta row a movable grid is on screen (below the `sm` boundary the read-only stack renders
+  // instead, so Edit layout and Tidy layout are not offered there).
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    dispatch(setDesktopGridDashboardId(dashboardId));
+    return () => {
+      dispatch(setDesktopGridDashboardId(null));
+      // Leaving the movable grid (a dashboard switch, or the width dropping below `sm`) ends edit mode.
+      dispatch(setEditingLayoutDashboardId(null));
+    };
+  }, [dispatch, dashboardId]);
   // HEL-1418: hook DECLARATION ORDER is load-bearing (effects run, and clean up, in declaration
   // order): title editing, detail state, the commit flag (its cleanup stays before
   // `useLayoutSave`'s unmount flush), `useLayoutSave`, then the hooks that consume its outputs as
@@ -105,6 +123,17 @@ export function DesktopPanelGrid({
   );
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const layouts = useMemo(() => createLayouts(resolvedLayout), [resolvedLayout]);
+  // HEL-1576: at the 12px gutter a minimum-height (4-row) card is 244px, 18px shorter than at the old 18px
+  // gutter, and the chart canvas floors (HEL-1398/1444) are measured on that card. Cards at the minimum
+  // height get a tighter vertical rhythm (see `PanelGrid.css`, `data-short-card`) so the floors still hold.
+  const shortCardIds = useMemo(() => {
+    const bp = getBreakpointFromWidth(rglBreakpoints, width) as keyof DashboardLayout;
+    return new Set(
+      resolvedLayout[bp]
+        .filter((item) => item.h <= panelGridConfig.itemHeights.min)
+        .map((item) => item.panelId),
+    );
+  }, [resolvedLayout, width]);
 
   const { commitOnNextLayoutChangeRef, clearCommitFlag, armCommitFlag } = useCommitFlag();
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
@@ -134,7 +163,7 @@ export function DesktopPanelGrid({
   return (
     <>
       <Responsive
-        className="panel-grid"
+        className={isEditingLayout ? "panel-grid panel-grid--editing" : "panel-grid"}
         width={width}
         style={gridStyle}
         onWidthChange={handleWidthChange}
@@ -144,7 +173,8 @@ export function DesktopPanelGrid({
         rowHeight={metrics.rowHeight}
         margin={metrics.margin}
         containerPadding={panelGridConfig.containerPadding}
-        dragConfig={{ handle: ".panel-grid-card__handle" }}
+        dragConfig={{ enabled: isEditingLayout, handle: ".panel-grid-card__handle" }}
+        resizeConfig={{ enabled: isEditingLayout }}
         compactor={noCompactorPreventCollision}
         positionStrategy={scaledPositionStrategy}
         onDragStart={interaction.handleDragStart}
@@ -157,7 +187,7 @@ export function DesktopPanelGrid({
           const isEditingTitle = title.editingTitleId === panel.id;
           const isConfirmingDelete = detail.confirmDeletePanelId === panel.id;
           return (
-            <div key={panel.id}>
+            <div key={panel.id} data-short-card={shortCardIds.has(panel.id) ? "" : undefined}>
               <PanelCard
                 panel={panel}
                 theme={theme}

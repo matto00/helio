@@ -10,10 +10,6 @@ import type { DashboardLayout, DashboardLayoutItem } from "../../../dashboards/t
 import type { Density } from "../../../../theme/appearancePrefs";
 import type { Panel } from "../../types/panel";
 
-/** The Comfortable (default) desktop panel-grid gutter in px, on both axes. Mirrors `--density-grid-gap` in
- *  theme.css (guarded by `theme/appearanceTokens.css.test.ts`). */
-export const GRID_GUTTER_PX = 18;
-
 /** The Compact gutter (HEL-1572). Mirrors `:root[data-density="compact"] --density-grid-gap`. */
 export const COMPACT_GRID_GUTTER_PX = 8;
 
@@ -29,6 +25,11 @@ export interface PanelGridConfig {
     min: number;
   };
 }
+
+/** Desktop grid gutter in px, horizontal and vertical. Must equal the `--space-3` token (12px, DESIGN.md
+ *  §9 "Dashboard grid gutter"); `panelGridConfig.test.ts` parses `theme.css` so the two cannot drift. It is also the
+ *  Comfortable `--density-grid-gap` (guarded by `theme/appearanceTokens.css.test.ts`). */
+export const GRID_GUTTER_PX = 12;
 
 export const panelGridConfig: PanelGridConfig = {
   breakpoints: {

@@ -5,9 +5,8 @@
 .mobile-panel-stack {
   display: flex;
   flex-direction: column;
-  /* W4.4: --space-3 (12px) rhythm replaces the desktop grid's
-     margin:[18,18] + containerPadding for both inter-card gutters and the
-     stack's own container padding. */
+  /* W4.4: the --space-3 (12px) rhythm is the inter-card gutter and the stack's own container padding. The
+     desktop grid uses the same gutter (`GRID_GUTTER_PX`, HEL-1576) with no container padding. */
   gap: var(--space-3);
   padding: var(--space-3);
 }

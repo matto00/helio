@@ -101,7 +101,7 @@
      set is in `:root[data-density="compact"]` below. `--density-grid-gap` is the desktop
      panel-grid gutter and must equal GRID_GUTTER_PX (panelGridConfig.ts) -- a guard test
      (theme/appearanceTokens.css.test.ts) fails when they drift. */
-  --density-grid-gap: 18px;
+  --density-grid-gap: var(--space-3);
   --density-row-pad-y: var(--space-2);
 
   /* --- Layering (z-index scale) --- */

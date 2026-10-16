@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
@@ -90,9 +90,10 @@ describe("CommandBar — HEL-746 mobile 'New chat' affordance", () => {
   });
 });
 
-// HEL-1230 — the toolbar buttons and the keyboard shortcuts share one traversal implementation
-// (`applyLayoutUndo`/`applyLayoutRedo`), so both leave identical layout and history state.
-describe("CommandBar — HEL-1230 undo/redo buttons", () => {
+// HEL-1576: the layout undo/redo buttons moved to the dashboard meta row's edit mode
+// (`dashboardMeta/DashboardMetaRow.test.tsx`); the command bar keeps only the keyboard shortcuts, which still
+// share the one traversal implementation (`applyLayoutUndo`/`applyLayoutRedo`) with those buttons.
+describe("CommandBar — layout undo/redo shortcuts (HEL-1230, buttons moved by HEL-1576)", () => {
   const layoutA: DashboardLayout = {
     lg: [{ panelId: "a", x: 0, y: 0, w: 2, h: 2 }],
     md: [],
@@ -106,7 +107,7 @@ describe("CommandBar — HEL-1230 undo/redo buttons", () => {
     xs: [],
   };
 
-  function seededStore(withHistory: boolean) {
+  function seededStore() {
     const store = makeStore();
     store.dispatch(
       fetchDashboards.fulfilled(
@@ -127,34 +128,23 @@ describe("CommandBar — HEL-1230 undo/redo buttons", () => {
         undefined,
       ),
     );
-    if (withHistory) store.dispatch(pushLayoutSnapshot({ dashboardId: "d1", layout: layoutA }));
+    store.dispatch(pushLayoutSnapshot({ dashboardId: "d1", layout: layoutA }));
     return store;
   }
 
-  it("disables both buttons with empty history", () => {
-    renderCommandBar("/home", seededStore(false));
-    expect(screen.getByRole("button", { name: "Undo layout change" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Redo layout change" })).toBeDisabled();
+  it("renders no undo or redo button", () => {
+    renderCommandBar("/home", seededStore());
+    expect(screen.queryByRole("button", { name: "Undo layout change" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Redo layout change" })).not.toBeInTheDocument();
   });
 
-  it("button undo/redo end in the same state as the keyboard shortcut path", () => {
-    const viaButtons = seededStore(true);
-    renderCommandBar("/home", viaButtons);
-    fireEvent.click(screen.getByRole("button", { name: "Undo layout change" }));
-    expect(viaButtons.getState().dashboards.items[0].layout).toEqual(layoutA);
-    const afterUndo = viaButtons.getState().layoutHistory;
-    fireEvent.click(screen.getByRole("button", { name: "Redo layout change" }));
-    expect(viaButtons.getState().dashboards.items[0].layout).toEqual(layoutB);
-    const afterRedo = viaButtons.getState().layoutHistory;
-    cleanup();
-
-    const viaKeys = seededStore(true);
-    renderCommandBar("/home", viaKeys);
+  it("the keyboard shortcuts still undo and redo", () => {
+    const store = seededStore();
+    renderCommandBar("/home", store);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
-    expect(viaKeys.getState().layoutHistory).toEqual(afterUndo);
+    expect(store.getState().dashboards.items[0].layout).toEqual(layoutA);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });
-    expect(viaKeys.getState().layoutHistory).toEqual(afterRedo);
-    expect(viaKeys.getState().dashboards.items[0].layout).toEqual(layoutB);
+    expect(store.getState().dashboards.items[0].layout).toEqual(layoutB);
   });
 });
 

@@ -1,6 +1,12 @@
+import { setSelectedDashboardId } from "../../dashboards/state/dashboardsSlice";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import {
   layoutHistoryReducer,
+  recordLayoutTidy,
+  selectIsDesktopGridMounted,
+  selectIsEditingLayout,
+  setDesktopGridDashboardId,
+  setEditingLayoutDashboardId,
   pushLayoutSnapshot,
   redoLayout,
   selectAppliedLayout,
@@ -203,5 +209,74 @@ describe("applied layout (HEL-1230)", () => {
     state = layoutHistoryReducer(state, redoLayout({ dashboardId, currentLayout: layoutC }));
     expect(selectAppliedLayout(dashboardId)(root(state))).toEqual(layoutB);
     expect(selectAppliedLayout(null)(root(state))).toBeNull();
+  });
+});
+
+describe("recordLayoutTidy (HEL-1576)", () => {
+  const stateOf = (s: ReturnType<typeof layoutHistoryReducer>) => ({ layoutHistory: s }) as never;
+
+  it("pushes the before layout, clears redo, marks after applied and bumps the revision", () => {
+    let state = layoutHistoryReducer(
+      undefined,
+      pushLayoutSnapshot({ dashboardId, layout: layoutA }),
+    );
+    state = layoutHistoryReducer(state, undoLayout({ dashboardId, currentLayout: layoutB }));
+    expect(selectCanRedo(dashboardId)(stateOf(state))).toBe(true);
+
+    state = layoutHistoryReducer(
+      state,
+      recordLayoutTidy({ dashboardId, before: layoutB, after: layoutC }),
+    );
+    expect(state.byDashboard[dashboardId]).toMatchObject({
+      past: [layoutB],
+      future: [],
+      applied: layoutC,
+      revision: 2,
+    });
+  });
+
+  it("caps the undo stack at 50 entries like every other push", () => {
+    let state = layoutHistoryReducer(undefined, { type: "init" });
+    for (let i = 0; i < 55; i++) {
+      state = layoutHistoryReducer(
+        state,
+        recordLayoutTidy({ dashboardId, before: makeLayout(`b${i}`), after: layoutC }),
+      );
+    }
+    expect(state.byDashboard[dashboardId].past).toHaveLength(50);
+  });
+});
+
+describe("layout edit mode state (HEL-1576)", () => {
+  const stateOf = (s: ReturnType<typeof layoutHistoryReducer>) => ({ layoutHistory: s }) as never;
+
+  it("is off by default and on only for the dashboard that was switched on", () => {
+    const initial = layoutHistoryReducer(undefined, { type: "init" });
+    expect(selectIsEditingLayout(dashboardId)(stateOf(initial))).toBe(false);
+    const on = layoutHistoryReducer(initial, setEditingLayoutDashboardId(dashboardId));
+    expect(selectIsEditingLayout(dashboardId)(stateOf(on))).toBe(true);
+    expect(selectIsEditingLayout("other")(stateOf(on))).toBe(false);
+    expect(selectIsEditingLayout(null)(stateOf(on))).toBe(false);
+  });
+
+  it("is turned off by selecting any dashboard, so switching away and back starts in view mode", () => {
+    let state = layoutHistoryReducer(undefined, setEditingLayoutDashboardId(dashboardId));
+    state = layoutHistoryReducer(state, setSelectedDashboardId("dash-2"));
+    expect(state.editingLayoutDashboardId).toBeNull();
+    state = layoutHistoryReducer(state, setSelectedDashboardId(dashboardId));
+    expect(selectIsEditingLayout(dashboardId)(stateOf(state))).toBe(false);
+  });
+});
+
+describe("desktop grid mounted flag (HEL-1576)", () => {
+  it("is on only for the dashboard whose movable grid reported itself", () => {
+    const stateOf = (s: ReturnType<typeof layoutHistoryReducer>) => ({ layoutHistory: s }) as never;
+    let state = layoutHistoryReducer(undefined, { type: "init" });
+    expect(selectIsDesktopGridMounted(dashboardId)(stateOf(state))).toBe(false);
+    state = layoutHistoryReducer(state, setDesktopGridDashboardId(dashboardId));
+    expect(selectIsDesktopGridMounted(dashboardId)(stateOf(state))).toBe(true);
+    expect(selectIsDesktopGridMounted("other")(stateOf(state))).toBe(false);
+    state = layoutHistoryReducer(state, setDesktopGridDashboardId(null));
+    expect(selectIsDesktopGridMounted(dashboardId)(stateOf(state))).toBe(false);
   });
 });

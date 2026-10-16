@@ -40,6 +40,8 @@ import { ToastViewport } from "../shared/ui/Toast";
 import { ErrorBoundary } from "../shared/chrome/ErrorBoundary";
 import { AppRoutes } from "./AppRoutes";
 import { CommandBar } from "./CommandBar";
+import { usesDashboardMetaRow } from "./dashboardChrome";
+import { DashboardMetaRow } from "./dashboardMeta/DashboardMetaRow";
 import { AppRail } from "./shell/AppRail";
 import { ContextList } from "./shell/ContextList";
 import { ContextListBody, contextListSectionFor } from "./shell/ContextListBody";
@@ -225,16 +227,24 @@ export function AppShell() {
               <ContextListBody pickerId={pickerIdForPathname(location.pathname)} />
             </ContextList>
           )}
-          <CommandBar
-            isMobileNavSheetOpen={isMobileNavSheetOpen}
-            // HEL-773 design.md D2 — the trigger now toggles: tapping it again
-            // while the sheet is open closes it, preserving the behavior
-            // today's full-viewport backdrop already provided.
-            onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
-            onOpenRefinement={() => setIsRefinementOpen(true)}
-            onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
-            setDraftAppearance={setDraftAppearance}
-          />
+          {usesDashboardMetaRow(location.pathname, isPhoneShell) ? (
+            <DashboardMetaRow
+              onOpenRefinement={() => setIsRefinementOpen(true)}
+              onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
+              setDraftAppearance={setDraftAppearance}
+            />
+          ) : (
+            <CommandBar
+              isMobileNavSheetOpen={isMobileNavSheetOpen}
+              // HEL-773 design.md D2 — the trigger now toggles: tapping it again
+              // while the sheet is open closes it, preserving the behavior
+              // today's full-viewport backdrop already provided.
+              onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
+              onOpenRefinement={() => setIsRefinementOpen(true)}
+              onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
+              setDraftAppearance={setDraftAppearance}
+            />
+          )}
 
           {/* -- BODY (content; the rail and context list are grid siblings above) -- */}
           <div className="app-body">
