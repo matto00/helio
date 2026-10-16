@@ -656,7 +656,14 @@ test.describe("HEL-1575 dashboard tabs", () => {
   }) => {
     test.setTimeout(240_000);
     const ws = await openThreeTabs(page, request);
-    await expectSavedActive(page, ws.dashboards["Tabs A"]);
+    // Wait for A's OWN last write, the whole three-tab set, not just the active id: the first
+    // coalesced PATCH already carries the right active id with one tab, so waiting on that alone
+    // let A's later 1 s coalesced PATCH of the tabs it opened land after B's save (CI 38834564117).
+    await expectSaved(
+      page,
+      [ws.dashboards["Tabs A"], ws.dashboards["Tabs B"], ws.dashboards["Tabs C"]],
+      ws.dashboards["Tabs A"],
+    );
 
     // Device B (a second context, same user) closes two tabs; device A stays open, visible and untouched.
     const deviceB = await secondContext(browser, page);
