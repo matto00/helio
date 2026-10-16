@@ -93,11 +93,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mobile-nav-sheet__panel,
-  .mobile-nav-sheet__backdrop,
-  .mobile-nav-sheet__clip {
+  :root:not([data-motion]) .mobile-nav-sheet__panel,
+  :root:not([data-motion]) .mobile-nav-sheet__backdrop,
+  :root:not([data-motion]) .mobile-nav-sheet__clip {
     animation: none;
   }
+}
+/* HEL-1572: an explicit saved "Off" gets the same treatment regardless of the OS setting. */
+:root[data-motion="off"] .mobile-nav-sheet__panel,
+:root[data-motion="off"] .mobile-nav-sheet__backdrop,
+:root[data-motion="off"] .mobile-nav-sheet__clip {
+  animation: none;
 }
 
 .mobile-nav-sheet__header {

@@ -888,7 +888,7 @@ final class ApiRoutes(
                           val updateFuture = Future.sequence(futures.toSeq)
                           onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
                             case Success(prefs) =>
-                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed))
+                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed, prefs.typeStyle, prefs.density, prefs.motion))
                             case Failure(ex) =>
                               // HEL-311: log the full exception server-side; never echo
                               // raw exception text in the client-facing body.

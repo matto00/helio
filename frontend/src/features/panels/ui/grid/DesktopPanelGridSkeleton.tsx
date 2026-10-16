@@ -8,7 +8,8 @@ import {
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import { PanelCardSkeleton } from "../PanelCardSkeleton";
 import { buildSkeletonStubPanels } from "./panelGridSkeletonStubs";
-import { createLayouts, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
+import { useDensity } from "../../../../theme/ThemeProvider";
+import { createLayouts, gridMetrics, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 
 interface DesktopPanelGridSkeletonProps {
   layout: DashboardLayout;
@@ -41,6 +42,7 @@ export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkel
   const stubs = buildSkeletonStubPanels(layout, activeBreakpoint);
   const resolvedLayout = resolveDashboardLayout(stubs, layout);
   const layouts = createLayouts(resolvedLayout);
+  const metrics = gridMetrics(useDensity());
 
   return (
     <Responsive
@@ -49,8 +51,8 @@ export function DesktopPanelGridSkeleton({ layout, width }: DesktopPanelGridSkel
       layouts={layouts}
       breakpoints={rglBreakpoints}
       cols={panelGridConfig.cols}
-      rowHeight={panelGridConfig.rowHeight}
-      margin={panelGridConfig.margin}
+      rowHeight={metrics.rowHeight}
+      margin={metrics.margin}
       containerPadding={panelGridConfig.containerPadding}
       dragConfig={{ enabled: false }}
       resizeConfig={{ enabled: false }}

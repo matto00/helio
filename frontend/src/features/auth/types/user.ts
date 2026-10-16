@@ -1,6 +1,8 @@
 // Auth domain types — extracted from `types/models.ts` as part of CS4 cycle 1
 // to colocate types with their feature folder.
 
+import type { Density, Motion, TypeStyle } from "../../../theme/appearancePrefs";
+
 export interface UserPreferences {
   accentColor: string | null;
   zoomLevels: Record<string, number>;
@@ -8,6 +10,12 @@ export interface UserPreferences {
   contextListWidth?: number;
   /** HEL-1574: context list collapsed to rail-only. Absent until the user first sets it. */
   contextListCollapsed?: boolean;
+  /** HEL-1572: absent until the user first sets it (the client then uses Sans + mono). */
+  typeStyle?: TypeStyle;
+  /** HEL-1572: absent until the user first sets it (the client then uses Comfortable). */
+  density?: Density;
+  /** HEL-1572: absent = follow the OS reduce-motion setting. */
+  motion?: Motion;
 }
 
 /** Body of `PATCH /api/users/me/preferences`: any non-empty subset. */
@@ -15,6 +23,16 @@ export interface ShellPreferencesPatch {
   contextListWidth?: number;
   contextListCollapsed?: boolean;
 }
+
+/** HEL-1572: the appearance keys of the same endpoint. `motion: null` clears the saved choice (follow the OS). */
+export interface AppearancePreferencesPatch {
+  typeStyle?: TypeStyle;
+  density?: Density;
+  motion?: Motion | null;
+}
+
+/** The whole `PATCH /api/users/me/preferences` body. */
+export type PreferencesPatch = ShellPreferencesPatch & AppearancePreferencesPatch;
 
 // HEL-703: gates chat/assistant access — `free` (default) is denied every assistant endpoint,
 // `beta` is capped per UTC day, `owner` is unlimited. Rides every existing user payload

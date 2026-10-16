@@ -5,7 +5,7 @@ import com.helio.services.ServiceError
 import com.helio.services.auth.MfaService
 import com.helio.api.protocols.auth.{MfaConfirmRequest, MfaReauthRequest, MfaVerifyRequest}
 import com.helio.domain.model.{AuthenticatedUser, User, UserId}
-import com.helio.infrastructure.persistence.auth.{MfaRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{MfaRepository, PreferencesPatch, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import com.helio.testkit.VerifiedEmbeddedPostgres
@@ -198,7 +198,7 @@ class MfaServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       val withPrefs      = new MfaService(mfaRepo, userRepo, preferenceRepo = Some(prefRepo))
       val user           = seedUser()
       val (secret, _)    = enableMfa(user)
-      await(prefRepo.patchShellPrefs(user.id, Some(320), Some(true)))
+      await(prefRepo.patchPrefs(user.id, PreferencesPatch(Some(320), Some(true))))
       val profile        = await(userRepo.findById(user.id)).get
       val challengeToken = await(withPrefs.createLoginChallenge(profile)).get
 

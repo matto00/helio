@@ -26,8 +26,9 @@
 }
 
 .pipeline-list-table__td {
-  /* HEL-830: 10px -> 8px, dense table-row cell padding */
-  padding: var(--space-2);
+  /* HEL-830: 10px -> 8px, dense table-row cell padding. HEL-1572: the vertical part is the density token
+     (Comfortable = --space-2, the HEL-830 value). */
+  padding: var(--density-row-pad-y) var(--space-2);
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
 }

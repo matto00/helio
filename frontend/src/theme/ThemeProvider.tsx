@@ -9,7 +9,11 @@ import {
   type SetStateAction,
 } from "react";
 
+import type { AppearancePreferencesPatch } from "../features/auth/types/user";
 import { applyAccentTokens } from "./appearance";
+import { DEFAULT_DENSITY, type Density, type Motion, type TypeStyle } from "./appearancePrefs";
+import { useAppearanceState, type PreferredAppearance } from "./useAppearanceState";
+import { useOsReducedMotion } from "./useOsReducedMotion";
 import {
   AccentStorageKey,
   getInitialAccentColor,
@@ -24,6 +28,17 @@ interface ThemeContextValue {
   toggleTheme: () => void;
   accentColor: string;
   setAccentColor: Dispatch<SetStateAction<string>>;
+  /** HEL-1572: the saved type style / density (defaults Sans + mono / Comfortable). */
+  typeStyle: TypeStyle;
+  setTypeStyle: (value: TypeStyle) => void;
+  density: Density;
+  setDensity: (value: Density) => void;
+  /** The saved motion choice, or `null` when none is saved (the OS reduce-motion setting decides). */
+  motion: Motion | null;
+  /** `null` clears the saved choice. */
+  setMotion: (value: Motion | null) => void;
+  /** The motion level in effect: the saved choice, else Off under OS reduce-motion, else Full. */
+  effectiveMotion: Motion;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -39,13 +54,23 @@ interface ThemeProviderProps extends PropsWithChildren {
    * disagree. Ignored while falsy/absent.
    */
   preferredAccentColor?: string | null;
+  /** HEL-1572: the signed-in user's saved type style / density / motion (see `PreferredAppearance`). Like the
+   *  accent, ThemeProvider is the sole writer of the matching root attributes. */
+  preferredAppearance?: PreferredAppearance;
+  /** Called with the patch for a user-driven appearance pick, to persist it. */
+  onAppearanceChange?: (patch: AppearancePreferencesPatch) => void;
 }
 
 export function ThemeProvider({
   children,
   onAccentChange,
   preferredAccentColor,
+  preferredAppearance,
+  onAppearanceChange,
 }: ThemeProviderProps) {
+  const appearance = useAppearanceState(preferredAppearance, onAppearanceChange);
+  const osReduced = useOsReducedMotion();
+  const effectiveMotion: Motion = appearance.motion ?? (osReduced ? "off" : "full");
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
   // A server preference known at first render wins immediately over
   // localStorage/the built-in default.
@@ -112,6 +137,13 @@ export function ThemeProvider({
       },
       accentColor,
       setAccentColor,
+      typeStyle: appearance.typeStyle,
+      setTypeStyle: appearance.setTypeStyle,
+      density: appearance.density,
+      setDensity: appearance.setDensity,
+      motion: appearance.motion,
+      setMotion: appearance.setMotion,
+      effectiveMotion,
     }),
     // `setAccentColor` is recreated each render (closes over the latest
     // `onAccentChange` prop, matching its pre-F-106 effect-dependency
@@ -119,10 +151,24 @@ export function ThemeProvider({
     // invalidating `value` (and every consumer reading it) on every render
     // regardless of an actual theme/accentColor change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme, accentColor],
+    [theme, accentColor, appearance, effectiveMotion],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+/** The active density for non-React-context-aware callers (the panel grid): falls back to Comfortable outside a
+ *  `ThemeProvider` so isolated component tests need no provider. */
+export function useDensity(): Density {
+  return useContext(ThemeContext)?.density ?? DEFAULT_DENSITY;
+}
+
+/** Reactive "reduced motion in effect" (saved Off, or no saved choice and OS reduce), the hook twin of
+ *  `utils/prefersReducedMotion.ts`. Works outside a `ThemeProvider` by following the OS setting alone. */
+export function useReducedMotion(): boolean {
+  const osReduced = useOsReducedMotion();
+  const context = useContext(ThemeContext);
+  return context ? context.effectiveMotion === "off" : osReduced;
 }
 
 export function useTheme(): ThemeContextValue {

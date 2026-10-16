@@ -48,7 +48,9 @@ export function useChartOption({
   // when the user flips light/dark or changes accent — `resolveChartTheme()`
   // re-reads the live computed CSS custom properties itself and isn't
   // derived from either value directly.
-  const { theme, accentColor } = useTheme();
+  // HEL-1572: `typeStyle` (Mono rebinds `--font-sans`) and the effective motion (`prefersReducedMotion()` reads it)
+  // are read the same way: chart options resolve them from the DOM once per build.
+  const { theme, accentColor, typeStyle, effectiveMotion } = useTheme();
 
   // HEL-566 skeptic-final-1 CR1 — a `theme`/`accentColor` change alone is
   // NOT enough to guarantee the memo below reads the CORRECT tokens: on the
@@ -74,7 +76,7 @@ export function useChartOption({
   useEffect(() => {
     const raf = requestAnimationFrame(() => setThemeSyncTick((n) => n + 1));
     return () => cancelAnimationFrame(raf);
-  }, [theme, accentColor]);
+  }, [theme, accentColor, typeStyle, effectiveMotion]);
 
   // F-231 — this used to rebuild the full ECharts option object on every
   // render. Memoized on the actual inputs that can change its shape.
@@ -91,6 +93,8 @@ export function useChartOption({
     // comment above its `useEffect` above.
     void theme;
     void accentColor;
+    void typeStyle;
+    void effectiveMotion;
     void themeSyncTick;
 
     const themeTokens = resolveChartTheme();
@@ -126,6 +130,8 @@ export function useChartOption({
     measuredPieLegendOverlap,
     theme,
     accentColor,
+    typeStyle,
+    effectiveMotion,
     themeSyncTick,
   ]);
 

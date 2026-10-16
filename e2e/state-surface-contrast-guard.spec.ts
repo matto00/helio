@@ -20,6 +20,7 @@ import { waitForSettingsAuditTable } from "./support/settingsReady";
 import { settleTransitions } from "./support/settleTransitions";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerUser } from "./support/auth";
+import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./support/typeStyle";
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
 // design.md D4). Walks the RUNNING app (not a static parse of theme.css or
@@ -610,9 +611,13 @@ async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
     headers: { [CSRF_HEADER]: "1" },
   });
   expect(loginRes.status()).toBe(200);
+  // HEL-1572: `HEL1572_TYPE_STYLE=mono` re-runs the whole guard with Mono saved server-side (the same session
+  // cookie the page receives below), and the cell asserts Mono is really on before probing.
+  await seedTypeStyle(request, typeStyleUnderTest());
   await page.context().addCookies((await request.storageState()).cookies);
   await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
   await page.goto("/home");
+  await assertTypeStyleActive(page, typeStyleUnderTest());
   await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
   return { client, pipelineId: pipeline.id as string };
 }

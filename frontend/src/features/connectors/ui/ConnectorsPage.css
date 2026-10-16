@@ -101,7 +101,7 @@
 }
 
 .connectors-page__td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--density-row-pad-y) var(--space-3); /* HEL-1572: vertical = density token */
   border-bottom: 1px solid var(--app-border-subtle);
   color: var(--app-text);
   vertical-align: top;

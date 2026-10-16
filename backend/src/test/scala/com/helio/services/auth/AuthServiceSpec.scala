@@ -5,7 +5,7 @@ import com.helio.api.protocols.auth.{GoogleProfile, LoginRequest, RegisterReques
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.domain.model.UserId
 import com.helio.domain.util.SystemClock
-import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{OAuthStateRepository, PreferencesPatch, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.persistence.telemetry.ProductEventRepository
 import com.helio.services.telemetry.{ProductEventService, ValidatedProductEvent}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
@@ -241,14 +241,17 @@ class AuthServiceSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll {
       val registered = register(service, "prefs@example.com")
       registered.response.user.preferences.map(_.contextListWidth) shouldBe Some(None)
 
-      await(prefs.patchShellPrefs(UserId(registered.response.user.id), Some(320), Some(true)))
+      await(prefs.patchPrefs(UserId(registered.response.user.id), PreferencesPatch(Some(320), Some(true), Some("serif"), Some("compact"), Some(Some("off")))))
       val loggedIn = login(service, "prefs@example.com").response.user.preferences.get
       loggedIn.contextListWidth shouldBe Some(320)
+      loggedIn.typeStyle shouldBe Some("serif")
+      loggedIn.density shouldBe Some("compact")
+      loggedIn.motion shouldBe Some("off")
       loggedIn.contextListCollapsed shouldBe Some(true)
 
       val oauthOutcome = await(service.completeOAuth(GoogleProfile("g-prefs", Some("g-prefs@example.com"), None, None)))
       val oauthUser    = oauthOutcome.asInstanceOf[LoginOutcome.SessionEstablished].result.response.user
-      await(prefs.patchShellPrefs(UserId(oauthUser.id), Some(250), None))
+      await(prefs.patchPrefs(UserId(oauthUser.id), PreferencesPatch(Some(250), None)))
       val oauthAgain = await(service.completeOAuth(GoogleProfile("g-prefs", Some("g-prefs@example.com"), None, None)))
       oauthAgain.asInstanceOf[LoginOutcome.SessionEstablished].result.response.user.preferences.get.contextListWidth shouldBe Some(250)
     }
