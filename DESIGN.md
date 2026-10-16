@@ -987,10 +987,33 @@ edit".
   dashboard's identity, so the dashboard page renders no `<h1>` title of its
   own. It still needs an accessible name for the landmark (visually hidden or
   `aria-label`). **[judgment]**
-- **Meta row.** A slim row under the tab bar in `--font-mono`, `--text-xs`,
-  muted: panel count · refreshed (a success-intent dot) · source. Actions trail
-  on the right with **one** primary. It states facts and carries no title.
+- **Meta row.** On the rail shell's dashboard view the meta row **replaces** the
+  command bar (it takes the command bar's slot; every other page and the phone
+  shell keep the command bar): a slim row in `--font-mono`, `--text-xs`, muted,
+  stating panel count, last refresh (a success- or danger-intent dot, "refreshed
+  9 hours ago" / "last run failed 9 hours ago" / "not refreshed yet", omitted when
+  no feeding pipeline is known), source(s) and the save state. Actions trail on
+  the right with **one** primary: Edit layout, Share and **Add panel**, then the
+  appearance editor, the assistant and the overflow menu. It states facts and
+  carries no title and no dashboard name. Its controls follow the chrome rule
+  (§5): borderless, with Add panel the single accent control. Below about 820px
+  of row width the edit tools, Edit layout and Share become icon-only; below
+  about 640px Share and the assistant move into the overflow menu; below about
+  520px the facts collapse to the panel count. Actions never wrap or truncate.
   **[judgment]**
+- **Edit layout.** Panels are moved and resized only while Edit layout is on
+  (an `aria-pressed` toggle that reads "Done" while on; Escape also leaves it,
+  unless focus is in an editable element, a menu or dialog is open, or a drag is
+  in progress). The drag handle and resize handles are not shown otherwise.
+  Undo, Redo (shown with their `⌘Z` / `⇧⌘Z` shortcuts, which work in and out of
+  edit mode) and **Tidy layout** appear only while editing. Tidy layout closes
+  empty rows by moving panels up, as one undoable change that is saved like any
+  other layout edit; it is only ever started by that click and never runs on
+  load. Edit mode is session state: opening or switching a dashboard starts in
+  view mode. **[judgment]**
+- **Dashboard grid gutter.** `--space-3` (12px), horizontal and vertical, above the
+  phone boundary. The JS value `GRID_GUTTER_PX` mirrors the token and a test
+  keeps them equal. **[mechanical]**
 - **`⌘K`.** A box in the tab bar with the placeholder "Search, jump, or ask".
   Typing searches and jumps; a question hands off to the Assistant.
   Home and Pipeline top bars carry a small sans breadcrumb or label rather

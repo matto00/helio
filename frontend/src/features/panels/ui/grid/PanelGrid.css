@@ -142,6 +142,22 @@
   cursor: grabbing;
 }
 
+/* HEL-1576: a minimum-height (4-row) card is 244px at the 12px gutter (262px at the old 18px one). The chart
+   canvas floors of HEL-1398/HEL-1444 are measured on that card, so it takes a tighter vertical rhythm: 12px
+   block padding (was up to 20px) and an 8px gap (was 12px), which returns 24px to the content. Only the
+   minimum height is affected; `data-short-card` is set by `DesktopPanelGrid` from the resolved layout. */
+.react-grid-item[data-short-card] > .panel-grid-card {
+  padding-block: var(--space-3);
+  gap: var(--space-2);
+}
+
+/* HEL-1576: panels move only while layout edit mode is on, so the drag handle is not shown (and is out
+   of the tab order and the accessibility tree) otherwise. React Grid Layout stops rendering the resize
+   handles itself when `resizeConfig.enabled` is false. */
+.panel-grid:not(.panel-grid--editing) .panel-grid-card__handle {
+  display: none;
+}
+
 .panel-grid-card__delete-confirm-btn {
   height: 24px;
   padding: 0 var(--space-2);

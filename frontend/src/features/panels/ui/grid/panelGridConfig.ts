@@ -22,6 +22,10 @@ export interface PanelGridConfig {
   };
 }
 
+/** Desktop grid gutter in px, horizontal and vertical. Must equal the `--space-3` token (12px, DESIGN.md
+ *  §9 "Dashboard grid gutter"); `panelGridConfig.test.ts` parses `theme.css` so the two cannot drift. */
+export const GRID_GUTTER_PX = 12;
+
 export const panelGridConfig: PanelGridConfig = {
   breakpoints: {
     lg: 1440,
@@ -31,7 +35,7 @@ export const panelGridConfig: PanelGridConfig = {
   },
   cols: dashboardGridCols,
   rowHeight: 52,
-  margin: [18, 18],
+  margin: [GRID_GUTTER_PX, GRID_GUTTER_PX],
   containerPadding: [0, 0],
   initialWidth: 1280,
   itemHeights: {
