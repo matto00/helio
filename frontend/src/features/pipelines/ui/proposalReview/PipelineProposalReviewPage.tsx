@@ -90,9 +90,9 @@ export function PipelineProposalReviewPage() {
 
   // Mirrors `ProposalReviewPage`/`PatchSetReviewPage`'s reject destination
   // (design.md D6 only calls out ACCEPT's destination as diverging from
-  // the shared "/home" convention — nothing was created, so reject has no
+  // the shared "/dashboards" convention — nothing was created, so reject has no
   // reason to diverge from it too).
-  const handleReject = () => navigate("/home");
+  const handleReject = () => navigate("/dashboards");
 
   // F-002: no proposal handed off via navigation state, and not a DEV build
   // — there is nothing to review and no reasonable proposal to synthesize.
@@ -103,7 +103,7 @@ export function PipelineProposalReviewPage() {
           icon={<GitBranch />}
           title="Nothing to review"
           description="This page reviews a pipeline proposal handed off from another flow. Start from the dashboards list instead."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );

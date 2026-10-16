@@ -239,12 +239,12 @@ async function secondContext(browser: Browser, page: Page): Promise<BrowserConte
   });
 }
 
-/** Opens `/home` in the second device's context and waits until its tab strip is up and its change signals
+/** Opens `/dashboards` in the second device's context and waits until its tab strip is up and its change signals
  *  (set up before the navigation: the response can land before the first line after `goto` runs) have loaded. */
 async function openOtherDevice(context: BrowserContext): Promise<Page> {
   const second = await context.newPage();
   const changes = second.waitForResponse((r) => r.url().includes("/api/dashboard-changes"));
-  await second.goto("/home");
+  await second.goto("/dashboards");
   await expect(tablist(second)).toBeVisible();
   await changes;
   await second.waitForTimeout(500);
@@ -379,7 +379,7 @@ test.describe("HEL-1575 dashboard tabs", () => {
       [ws.dashboards["Tabs C"], ws.dashboards["Tabs B"], ws.dashboards["Tabs A"]],
       ws.dashboards["Tabs B"],
     );
-    await page.goto("/home"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
+    await page.goto("/dashboards"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
     await expect(tablist(page)).toBeVisible();
     expect(await tabOrder(page)).toEqual(["Tabs C", "Tabs B", "Tabs A"]);
     await expect(tabNamed(page, "Tabs B")).toHaveAttribute("aria-selected", "true");
@@ -402,7 +402,7 @@ test.describe("HEL-1575 dashboard tabs", () => {
     await expect(page.getByText("No dashboard open")).toBeVisible();
     await expect(page.locator(".dashboard-tab")).toHaveCount(0);
     await expectSaved(page, [], null);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator(".dashboard-tab")).toHaveCount(0);
   });
 
@@ -580,7 +580,7 @@ test.describe("HEL-1575 dashboard tabs", () => {
     const other = await secondContext(browser, page);
     try {
       const second = await other.newPage();
-      await second.goto("/home");
+      await second.goto("/dashboards");
       await expect(tablist(second)).toBeVisible();
       expect(await tabOrder(second)).toEqual(["Tabs A", "Tabs B", "Tabs C"]);
       await expect(tabNamed(second, "Tabs B")).toHaveAttribute("aria-selected", "true");
@@ -736,7 +736,7 @@ test.describe("HEL-1575 changed dot and own edits", () => {
     await expectTableRendered(page, "Tabs B");
     await expectSavedActive(page, ws.dashboards["Tabs B"]);
     const reloadFrom = net.mark();
-    await page.goto("/home"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
+    await page.goto("/dashboards"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
     await expectTableRendered(page, "Tabs B");
     await refreshSignals(page);
     await expect(dotOf(page, ws.dashboards["Tabs A"])).toHaveCount(0);
@@ -779,7 +779,7 @@ test.describe("HEL-1575 changed dot and own edits", () => {
     await tabNamed(page, "Tabs B").click();
     await expectTableRendered(page, "Tabs B");
     await expectSavedActive(page, ws.dashboards["Tabs B"]);
-    await page.goto("/home"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
+    await page.goto("/dashboards"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
     await expectTableRendered(page, "Tabs B");
     await refreshSignals(page);
     await expect(dotOf(page, ws.dashboards["Tabs A"])).toHaveCount(0);
@@ -908,7 +908,7 @@ test.describe("HEL-1575 changed dot and own edits", () => {
     await runPipeline(request, ws.pipelines["Tabs B"]);
     await expectSavedActive(page, ws.dashboards["Tabs B"]);
     const net = recorder(page);
-    await page.goto("/home"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
+    await page.goto("/dashboards"); // a fresh document; the URL of a deep-linked start would beat the saved active tab
     await expectTableRendered(page, "Tabs B");
     await expect.poll(() => net.all().filter((c) => ROWS.test(c)).length).toBeGreaterThanOrEqual(1);
   });

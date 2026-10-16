@@ -155,7 +155,7 @@ test.describe("HEL-968 multi-root editor (live UI proof)", () => {
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashRes.status()).toBe(201);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByRole("heading", { name: /HEL-968 Multi-Root Dashboard/ })).toBeVisible();
     await page.getByRole("button", { name: "Add panel" }).click();
     const picker = page.getByRole("dialog", { name: "Add panel" });

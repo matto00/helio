@@ -237,7 +237,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     // `waitForURL` (which only observes the URL). A `page.goto` immediately after `waitForURL`
     // is a REAL browser navigation that can unload the page before that effect has flushed,
     // silently dropping the write — confirmed directly: without this wait, the very next
-    // `page.goto("/home")` below landed with `localStorage.getItem("helio.recentVisits")` still
+    // `page.goto("/dashboards")` below landed with `localStorage.getItem("helio.recentVisits")` still
     // `null`. Waiting for the detail page's own heading (a signal the mount, and therefore its
     // effects, have committed) closes that race.
     await expect(page.getByRole("heading", { name: source.name, exact: true })).toBeVisible();
@@ -245,7 +245,7 @@ test.describe("HEL-519 recent navigation — recording fires in a real browser",
     // A fresh registered account has no dashboards, so "Active dashboard" never appears here —
     // this file's own post-mount precondition wait ("Add dashboard" — see `waitForShell` in
     // above) is what a full reload of `/home` genuinely settles on for this account.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
 
     await openPalette(page);

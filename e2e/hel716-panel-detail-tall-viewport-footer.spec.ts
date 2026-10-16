@@ -68,7 +68,7 @@ test.describe("HEL-716 PanelDetailModal tall-viewport footer visibility", () => 
     });
     expect(panelRes.status()).toBe(201);
 
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await page.getByText("Total value").click();
 
     const dialog = page.getByRole("dialog").first();

@@ -261,7 +261,7 @@ test.describe("HEL-813 demonstrated-RED regression harness", () => {
         headers: { [CSRF_HEADER]: "1" },
       });
       expect(dashboardRes.status()).toBe(201);
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await assertTypeStyleActive(page, typeStyleUnderTest());
       await page.getByRole("button", { name: /Switch dashboards/i }).click();
       const dialog = page.getByRole("dialog");

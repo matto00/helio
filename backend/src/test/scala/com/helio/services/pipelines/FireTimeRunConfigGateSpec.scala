@@ -250,9 +250,20 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
       nextRunAt(s) shouldBe Some(t0.plus(30, ChronoUnit.MINUTES))
     }
 
-    "keep at most 10 runs over 12 fires, newest being the recorded skip (1.1a; guard for the prune call)" in {
+    "prune runs older than 24h on every scheduled skip, and keep every fire of the last day (1.1a; HEL-1578 keep-24h; guard for the prune call)" in {
+      import PostgresProfile.api._
       cleanDb()
       val s = seedScenario()
+      // More than 10 real runs started 3 days ago: only a prune (pruneOldRuns = true) can remove them, because the
+      // 12 fires below all start inside the 24h window and are spared by it.
+      (1 to 14).foreach { i =>
+        await(db.run(
+          sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, row_count)
+                 VALUES (${UUID.randomUUID().toString}, ${s.pid.value}, 'succeeded', now() - interval '3 days' + ${i} * interval '1 minute',
+                         now() - interval '3 days' + ${i} * interval '1 minute', 1)"""
+        ))
+      }
+      runs(s).size shouldBe 14
       val step = seedMisconfiguredStep(s, enabled = false)
       val clock = new FakeClock(t0)
       seedDueSchedule(s, t0.minusSeconds(60))
@@ -265,10 +276,12 @@ class FireTimeRunConfigGateSpec extends AnyWordSpec with Matchers with BeforeAnd
         Thread.sleep(5)
       }
 
-      val rs = runs(s)
-      rs.size should be <= 10
-      rs.size shouldBe 10
-      // Red on main: newest run carries the engine's text, not the gate's prefix.
+      val rs     = runs(s)
+      val cutoff = Instant.now().minusSeconds(24L * 3600L)
+      // Every old run is gone (the 10 newest overall are the fires themselves) ...
+      rs.count(_.startedAt.isBefore(cutoff)) shouldBe 0
+      // ... and all 12 fires of the last day survive, the newest being the recorded skip.
+      rs.size shouldBe 12
       rs.maxBy(_.startedAt).errorLog.getOrElse("") should startWith(SkipPrefix)
     }
   }

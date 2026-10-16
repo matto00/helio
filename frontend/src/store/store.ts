@@ -6,6 +6,7 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import { homeSummaryReducer } from "../features/home/state/homeSummarySlice";
 import { dashboardTabsReducer } from "../features/dashboards/tabs/dashboardTabsSlice";
 import { addDashboardTabsListeners } from "../features/dashboards/tabs/dashboardTabsListeners";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
@@ -44,6 +45,7 @@ export const store = configureStore({
     connectors: connectorsReducer,
     dashboardFolders: dashboardFoldersReducer,
     dashboards: dashboardsReducer,
+    homeSummary: homeSummaryReducer,
     dashboardTabs: dashboardTabsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,

@@ -66,7 +66,7 @@ describe("CommandBar — HEL-746 mobile 'New chat' affordance", () => {
   });
 
   it("does not render the New chat control on a non-chat route (e.g. the dashboard)", () => {
-    renderCommandBar("/home");
+    renderCommandBar("/dashboards");
     expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
   });
 
@@ -133,14 +133,14 @@ describe("CommandBar — layout undo/redo shortcuts (HEL-1230, buttons moved by 
   }
 
   it("renders no undo or redo button", () => {
-    renderCommandBar("/home", seededStore());
+    renderCommandBar("/dashboards", seededStore());
     expect(screen.queryByRole("button", { name: "Undo layout change" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Redo layout change" })).not.toBeInTheDocument();
   });
 
   it("the keyboard shortcuts still undo and redo", () => {
     const store = seededStore();
-    renderCommandBar("/home", store);
+    renderCommandBar("/dashboards", store);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     expect(store.getState().dashboards.items[0].layout).toEqual(layoutA);
     fireEvent.keyDown(window, { key: "z", ctrlKey: true, shiftKey: true });

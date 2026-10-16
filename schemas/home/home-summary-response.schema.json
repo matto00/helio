@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/home/home-summary-response.schema.json",
+  "title": "HomeSummaryResponse",
+  "description": "GET /api/home-summary (HEL-1578): the caller's last 24h of real pipeline runs, projected schedule fires for the next 6h, items that need attention, the soonest fires, and (when ?dashboardIds is passed) dashboard change times. Owner-scoped.",
+  "type": "object",
+  "properties": {
+    "serverNow": { "type": "string", "format": "date-time" },
+    "windowStart": { "type": "string", "format": "date-time" },
+    "horizonEnd": { "type": "string", "format": "date-time" },
+    "pipelines": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/pipeline" } },
+    "pipelinesWithActivity": { "type": "integer", "minimum": 0 },
+    "attention": { "type": "array", "items": { "$ref": "#/$defs/attention" } },
+    "upNext": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/upNext" } },
+    "dashboardChanges": { "type": "array", "items": { "$ref": "#/$defs/dashboardChange" } }
+  },
+  "required": [
+    "serverNow",
+    "windowStart",
+    "horizonEnd",
+    "pipelines",
+    "pipelinesWithActivity",
+    "attention",
+    "upNext",
+    "dashboardChanges"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "run": {
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string" },
+        "status": { "type": "string", "enum": ["queued", "running", "succeeded", "failed"] },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": ["string", "null"], "format": "date-time" },
+        "triggerSource": { "type": "string" },
+        "rowCount": { "type": ["integer", "null"] },
+        "errorLog": { "type": ["string", "null"], "maxLength": 500 }
+      },
+      "required": [
+        "runId",
+        "status",
+        "startedAt",
+        "completedAt",
+        "triggerSource",
+        "rowCount",
+        "errorLog"
+      ],
+      "additionalProperties": false
+    },
+    "pipeline": {
+      "type": "object",
+      "properties": {
+        "pipelineId": { "type": "string" },
+        "name": { "type": "string" },
+        "runs": { "type": "array", "maxItems": 150, "items": { "$ref": "#/$defs/run" } },
+        "runsOmitted": { "type": "integer", "minimum": 0 },
+        "upcoming": {
+          "type": "array",
+          "maxItems": 24,
+          "items": { "type": "string", "format": "date-time" }
+        }
+      },
+      "required": ["pipelineId", "name", "runs", "runsOmitted", "upcoming"],
+      "additionalProperties": false
+    },
+    "attention": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string", "enum": ["failed", "stuck", "missed"] },
+        "pipelineId": { "type": "string" },
+        "pipelineName": { "type": "string" },
+        "runId": { "type": ["string", "null"] },
+        "at": { "type": "string", "format": "date-time" },
+        "reason": { "type": ["string", "null"], "maxLength": 500 },
+        "resolvedAt": { "type": ["string", "null"], "format": "date-time" },
+        "inFlight": { "type": "boolean" }
+      },
+      "required": [
+        "kind",
+        "pipelineId",
+        "pipelineName",
+        "runId",
+        "at",
+        "reason",
+        "resolvedAt",
+        "inFlight"
+      ],
+      "additionalProperties": false
+    },
+    "upNext": {
+      "type": "object",
+      "properties": {
+        "pipelineId": { "type": "string" },
+        "pipelineName": { "type": "string" },
+        "at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["pipelineId", "pipelineName", "at"],
+      "additionalProperties": false
+    },
+    "dashboardChange": {
+      "type": "object",
+      "properties": {
+        "dashboardId": { "type": "string" },
+        "contentUpdatedAt": { "type": ["string", "null"], "format": "date-time" },
+        "dataUpdatedAt": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "required": ["dashboardId", "contentUpdatedAt", "dataUpdatedAt"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -18,6 +18,7 @@ import com.helio.api.routes.assistant._
 import com.helio.api.routes.audit._
 import com.helio.api.routes.auth._
 import com.helio.api.routes.dashboards._
+import com.helio.api.routes.home.HomeSummaryRoutes
 import com.helio.api.routes.hooks._
 import com.helio.api.routes.panels._
 import com.helio.api.routes.patchsets._
@@ -35,6 +36,7 @@ import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthServic
 import com.helio.services.assistant.{AssistantConversationService, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
 import com.helio.services.firstrun.FirstRunDashboardService
+import com.helio.services.home.HomeSummaryService
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
 import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
 import com.helio.infrastructure.persistence.sources.ConnectorCompletionTokenRepository
@@ -70,6 +72,7 @@ import com.helio.infrastructure.persistence.dashboards.{DashboardChangesReposito
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
+import com.helio.infrastructure.persistence.home.HomeSummaryRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import com.helio.infrastructure.persistence.workspace.WorkspaceTeardownRepository
@@ -361,6 +364,8 @@ final class ApiRoutes(
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService), Option(userPreferenceRepo))
   private val dashboardFolderService = new DashboardFolderService(new DashboardFolderRepository(dbContext), accessChecker)
   private val dashboardChangesService = new DashboardChangesService(new DashboardChangesRepository(dbContext))
+  // HEL-1578: Home reuses the change-signal service for `dashboardIds` (never a second query).
+  private val homeSummaryService = new HomeSummaryService(new HomeSummaryRepository(dbContext), dashboardChangesService, SystemClock)
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
@@ -988,6 +993,8 @@ final class ApiRoutes(
                   alertRuleServiceOpt.fold(reject: Route)(svc => new AlertRuleRoutes(svc, authenticatedUser).routes),
                   alertEventServiceOpt.fold(reject: Route)(svc => new AlertEventRoutes(svc, authenticatedUser).routes),
                   pipelineScheduleServiceOpt.fold(reject: Route)(svc => new PipelineScheduleRoutes(svc, authenticatedUser).routes),
+                  // HEL-1578: GET /api/home-summary. Mounted unconditionally: it needs only `dbContext`, which is required.
+                  new HomeSummaryRoutes(homeSummaryService, authenticatedUser).routes,
                   // HEL-663: /api/assistant-conversations. HEL-665 (reopened composer ticket)
                   // design.md D3/D4: assistantServiceOpt is passed in as an independently
                   // nullable dependency — only the POST /:id/converse route checks it and

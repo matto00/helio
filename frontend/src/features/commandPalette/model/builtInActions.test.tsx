@@ -28,7 +28,7 @@ describe("buildNavigationActions", () => {
 
     dashboardsAction.run();
 
-    expect(navigate).toHaveBeenCalledWith("/home");
+    expect(navigate).toHaveBeenCalledWith("/dashboards");
   });
 });
 

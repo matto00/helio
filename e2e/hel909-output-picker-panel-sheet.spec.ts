@@ -93,7 +93,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "desktop" });
     const { latencyId } = await seedThroughputOutput(page, request);
 
-    await page.goto("/home");
+    await page.goto("/dashboards");
     // Reached via the dashboard meta row's primary "Add panel" button (HEL-1576; it was the command bar's
     // "Dashboard actions" kebab item, HEL-813 surface 6's precedent, which the phone shell still uses) --
     // the single Add-panel entry point once a dashboard is selected, regardless of whether the onboarding checklist
@@ -169,7 +169,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
       await registerAndLogin(page, request, { ...AUTH, label: `mobile-${width}` });
       await seedThroughputOutput(page, request);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       // Phone chrome: the meta row never renders on the phone shell, so "Add panel" is reached via the
       // command bar's dashboard-actions kebab (HEL-813 surface 6's own precedent) at these widths.
       await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
@@ -207,7 +207,7 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "kbnav" });
     const { throughputId } = await seedThroughputOutput(page, request);
 
-    await page.goto("/home");
+    await page.goto("/dashboards");
     // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
     await page
       .getByRole("group", { name: "Dashboard actions" })

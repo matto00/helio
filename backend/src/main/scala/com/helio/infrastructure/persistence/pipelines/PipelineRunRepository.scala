@@ -484,17 +484,34 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case true  => deleteOldRunsInternal(pipelineId, keepN)
     }
 
-  /** ACL-bypassing retention pass for the privileged Spark driver path. */
+  /** ACL-bypassing retention pass for the privileged Spark driver path.
+    *
+    *  HEL-1578 (owner answer `keep-24h`): keeps the `keepN` newest real runs UNION every real run started
+    *  within the last [[RetentionWindowHours]] hours, then caps the survivors at the [[RetentionMaxRuns]]
+    *  newest. Dry runs are never touched here. */
   def deleteOldRunsInternal(pipelineId: PipelineId, keepN: Int = 10): Future[Unit] = {
-    val pid = pipelineId.value
-    val keepIds = runsTable
+    val pid         = pipelineId.value
+    val windowStart = Instant.now().minusSeconds(RetentionWindowHours * 3600L)
+    val newestN = runsTable
       .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
       .sortBy(_.startedAt.desc)
       .take(keepN)
       .map(_.id)
+    val inWindow = runsTable
+      .filter(r => r.pipelineId === pid && r.status =!= "dry_run" && r.startedAt >= windowStart)
+      .map(_.id)
+    // The cap: only the RetentionMaxRuns newest runs may survive, whatever the union says.
+    val capped = runsTable
+      .filter(r => r.pipelineId === pid && r.status =!= "dry_run")
+      .sortBy(_.startedAt.desc)
+      .take(RetentionMaxRuns)
+      .map(_.id)
 
     val action = runsTable
-      .filter(r => r.pipelineId === pid && r.status =!= "dry_run" && !r.id.in(keepIds))
+      .filter(r =>
+        r.pipelineId === pid && r.status =!= "dry_run" &&
+          (!(r.id.in(newestN) || r.id.in(inWindow)) || !r.id.in(capped))
+      )
       .delete
 
     ctx.withSystemContext(action).map(_ => ())
@@ -701,6 +718,11 @@ class PipelineRunRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object PipelineRunRepository {
+
+  /** HEL-1578: real runs started inside this window survive retention (owner answer `keep-24h`). */
+  val RetentionWindowHours: Long = 24L
+  /** HEL-1578: hard cap on kept real runs per pipeline, bounding a very busy pipeline. */
+  val RetentionMaxRuns: Int = 300
 
   /** HEL-1518: where a run stands. `Missing` = no row (deleted with its pipeline, or pruned). */
   sealed trait RunState

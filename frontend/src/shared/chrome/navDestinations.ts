@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { BarChart3, House } from "lucide-react";
 
-import { isNavSection, sections } from "./sections";
+import { isDashboardViewPath, isNavSection, sections } from "./sections";
 
 /** A single top-level nav destination. Shared by the desktop sidebar nav
  * (`Sidebar.tsx`) and the phone `BottomNav` so the two surfaces can never
@@ -32,13 +32,21 @@ export const adminUsageDestination: NavDestination = {
   icon: BarChart3,
 };
 
-/** HEL-1574: the Home entry that leads the desktop rail and the phone `BottomNav`. Outside the registry (the five
- * nav-visible entries stay exactly five): until the Home page exists (HEL-1578) it aliases the dashboards view, `/home` (HEL-1562 moved the app there; `/` is the marketing page).
- * Both surfaces render it as a plain link that is NEVER marked current, so on a dashboard route exactly one item (the
- * Dashboards destination) is active. */
+/** The Home entry that leads the desktop rail and the phone `BottomNav` (HEL-1574). Outside the registry (the five
+ * nav-visible entries stay exactly five). HEL-1578: it opens the real Home page (`/home`, the app home; `/` is the
+ * marketing page) and is marked current there, so on `/home` exactly one item is active. */
 export const homeAlias: NavDestination = {
   to: "/home",
   end: true,
   label: "Home",
   icon: House,
 };
+
+/** Whether a rail / BottomNav item is the current one. Home owns `/home`; the dashboards destination (the only other
+ * `end` entry, `/dashboards`) owns the dashboard view, which includes `/dashboards/:id`; every other destination owns
+ * its path prefix. Shared by both surfaces so they cannot drift. */
+export function isDestinationActive(destination: NavDestination, pathname: string): boolean {
+  if (destination.to === homeAlias.to) return pathname === homeAlias.to;
+  if (destination.end) return isDashboardViewPath(pathname);
+  return pathname === destination.to || pathname.startsWith(`${destination.to}/`);
+}

@@ -78,13 +78,13 @@ describe("hrefFor — task 1.2", () => {
 
 describe("useResourceNavigator — task 1.1", () => {
   it("routes a source ref to /sources/:id", () => {
-    const { navigate, getPathname } = renderNavigator("/home");
+    const { navigate, getPathname } = renderNavigator("/dashboards");
     act(() => navigate({ kind: "source", id: "s1" }));
     expect(getPathname()).toBe("/sources/s1");
   });
 
   it("routes a pipeline ref to /pipelines/:id", () => {
-    const { navigate, getPathname } = renderNavigator("/home");
+    const { navigate, getPathname } = renderNavigator("/dashboards");
     act(() => navigate({ kind: "pipeline", id: "p1" }));
     expect(getPathname()).toBe("/pipelines/p1");
   });
@@ -93,22 +93,22 @@ describe("useResourceNavigator — task 1.1", () => {
   // the real-browser-adjacent proof that the `never`-exhaustiveness guard corresponds to a
   // WORKING branch, not merely a compiling one.
   it("routes an output ref to /pipelines/:pipelineId?outputId=:id", () => {
-    const { navigate, getPathname } = renderNavigator("/home");
+    const { navigate, getPathname } = renderNavigator("/dashboards");
     act(() => navigate({ kind: "output", id: "o1", pipelineId: "p1" }));
     expect(getPathname()).toBe("/pipelines/p1");
   });
 
-  it("selects the dashboard in Redux AND navigates to /home from a non-/home route", () => {
+  it("selects the dashboard in Redux AND navigates to /dashboards from a non-/dashboards route", () => {
     const { navigate, store, getPathname } = renderNavigator("/sources");
     act(() => navigate({ kind: "dashboard", id: "d1" }));
     expect(store.getState().dashboards.selectedDashboardId).toBe("d1");
-    expect(getPathname()).toBe("/home");
+    expect(getPathname()).toBe("/dashboards");
   });
 
-  it("selects the dashboard without an extra navigate call when already at /home", () => {
-    const { navigate, store, getPathname } = renderNavigator("/home");
+  it("selects the dashboard without an extra navigate call when already at /dashboards", () => {
+    const { navigate, store, getPathname } = renderNavigator("/dashboards");
     act(() => navigate({ kind: "dashboard", id: "d1" }));
     expect(store.getState().dashboards.selectedDashboardId).toBe("d1");
-    expect(getPathname()).toBe("/home");
+    expect(getPathname()).toBe("/dashboards");
   });
 });

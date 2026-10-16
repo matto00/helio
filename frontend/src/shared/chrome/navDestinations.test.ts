@@ -21,7 +21,7 @@ describe("navDestinations", () => {
 
   it("lists the matching route paths", () => {
     expect(navDestinations.map((d) => d.to)).toEqual([
-      "/home",
+      "/dashboards",
       "/sources",
       "/pipelines",
       "/connectors",
@@ -30,9 +30,9 @@ describe("navDestinations", () => {
   });
 
   it("marks only the Dashboards destination as an exact ('end') route match", () => {
-    const dashboards = navDestinations.find((d) => d.to === "/home");
+    const dashboards = navDestinations.find((d) => d.to === "/dashboards");
     expect(dashboards?.end).toBe(true);
-    for (const destination of navDestinations.filter((d) => d.to !== "/home")) {
+    for (const destination of navDestinations.filter((d) => d.to !== "/dashboards")) {
       expect(destination.end).not.toBe(true);
     }
   });

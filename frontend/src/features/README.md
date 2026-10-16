@@ -5,7 +5,7 @@ state, service calls, types, and UI; a feature typically has some subset of
 `hooks/`, `services/`, `state/`, `types/`, `ui/`, `utils/` (not every feature
 has all of them — see each feature's own README for what it actually has).
 
-Feature dirs: `assistant`, `auth`, `dashboards`, `dataTypes`, `layout`,
+Feature dirs: `assistant`, `auth`, `dashboards`, `dataTypes`, `home`, `layout`,
 `metrics`, `onboarding`, `panels`, `patchSets`, `pipelines`, `proposals`,
 `settings`, `sources`, `toasts`.
 

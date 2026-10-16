@@ -986,10 +986,14 @@ DESIGN.md edit".
   contrast-guaranteed accent-as-text token) and carries `aria-current="page"`;
   it is static until the motion foundation (HEL-1573) adds the indicator slide.
   Usage is not a primary-nav item: owners reach it from the avatar menu.
-  **Home** aliases `/home` (the app's dashboards view) until HEL-1578 repoints it, and is
-  therefore never marked current, so exactly one item is active; the phone
-  `BottomNav` leads with the same Home alias (owner ruling 2026-10-13: the phone
-  has no rail). **[mechanical]** (accessible names, tokens) **[judgment]**
+  **Home** is a real page at `/home` (HEL-1578): the rail and phone
+  `BottomNav` Home item opens it and is marked current only there, so exactly
+  one item is active; the dashboard view lives at `/dashboards` (and
+  `/dashboards/:id`), where Dashboards is current instead. Home has no context
+  list (the rail only, the saved collapsed state unchanged), and its top bar
+  carries the label "Home" rather than a display `<h1>`. The phone `BottomNav`
+  leads with the same Home item (owner ruling 2026-10-13: the phone has no
+  rail). **[mechanical]** (accessible names, tokens) **[judgment]**
   (composition)
 - **Context list.** Resizable by a drag handle, collapsible to the rail.
   Width: min 200px, default 248px, max 400px (owner ruling 2026-10-13). Width
@@ -1085,6 +1089,16 @@ DESIGN.md edit".
   bars carry a small sans breadcrumb or label rather than a display `<h1>`.
   Section pages keep `PageHeader`/`.page-title` until the shell tickets migrate
   them (§6).
+- **Home page (HEL-1578).** A mono date eyebrow and one plain-language sentence
+  (templated, never a model), a shelf of up to four dashboard cards (layout
+  thumbnail, name, relative time, a "changed since your last visit" dot), a 24h
+  pipeline-run timeline, Needs attention and Up next. Run status is carried by
+  shape as well as colour (succeeded a filled circle, failed a filled diamond,
+  running a ring with a centre dot, scheduled a hollow ring). The changed dot,
+  the "now" line and the secondary buttons are never accent-coloured (§0.3).
+  On a coarse pointer (any width) or the phone shell the timeline becomes one
+  disclosure row per pipeline (>=44px) that expands to a list of runs (§3's
+  touch gate). **[judgment]**
 - **Accent discipline in the shell.** The accent appears on the active rail
   item, the active tab indicator, the single primary action and focus — and
   nothing else (§0). A view with five accent-coloured secondary controls is the
@@ -1228,9 +1242,9 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   defect this replaces. **[mechanical]**
 - **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
   the desktop context list. **[judgment]**
-- **Home tab (HEL-1574).** Until glass nav v2 lands, the bottom nav leads with a
-  **Home** tab that aliases `/home` and is never marked active (owner ruling
-  2026-10-13: the phone has no rail), so it shows six tabs, seven for an owner
+- **Home tab (HEL-1574, HEL-1578).** Until glass nav v2 lands, the bottom nav leads with a
+  **Home** tab that opens the real Home page (`/home`) and is current there
+  only (owner ruling 2026-10-13: the phone has no rail), so it shows six tabs, seven for an owner
   (who keeps Usage there). At 375px each tab is at least 44px wide and none
   overlap; at 320px the owner's seven tabs (7 x 44 = 308px) exceed the roughly
   278px usable width and overflow, which is accepted and handed to HEL-1583,

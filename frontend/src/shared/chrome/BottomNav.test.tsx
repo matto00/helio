@@ -29,7 +29,7 @@ function renderAt(pathname: string, tier?: User["tier"]) {
 
 describe("BottomNav", () => {
   it("renders exactly the navDestinations as icon-only tabs, in order, each exposing its full label as its accessible name (HEL-774)", () => {
-    renderAt("/home");
+    renderAt("/dashboards");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
@@ -47,7 +47,7 @@ describe("BottomNav", () => {
   });
 
   it("marks the Dashboards tab active on the root route and no other tab active", () => {
-    renderAt("/home");
+    renderAt("/dashboards");
 
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).getByRole("link", { name: "Dashboards" })).toHaveClass(
@@ -83,19 +83,19 @@ describe("BottomNav", () => {
 
   // HEL-1211: the owner-only Usage entry is rendered for owners and for nobody else.
   it.each(["free", "beta"] as const)("has no Usage tab for a %s-tier user", (tier) => {
-    renderAt("/home", tier);
+    renderAt("/dashboards", tier);
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
   });
 
   it("has no Usage tab when signed out", () => {
-    renderAt("/home");
+    renderAt("/dashboards");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(within(nav).queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
   });
 
   it("appends a Usage tab linking to /admin/usage for an owner", () => {
-    renderAt("/home", "owner");
+    renderAt("/dashboards", "owner");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.getAttribute("aria-label"))).toEqual([
@@ -109,18 +109,31 @@ describe("BottomNav", () => {
     );
   });
 
-  it("never marks Home active: on '/home' only the Dashboards tab is (HEL-1574)", () => {
+  it("marks only Home current on '/home' (HEL-1578)", () => {
     renderAt("/home");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     const home = within(nav).getByRole("link", { name: "Home" });
     expect(home).toHaveAttribute("href", "/home");
-    expect(home).not.toHaveClass("bottom-nav__tab--active");
-    expect(home).not.toHaveAttribute("aria-current");
+    expect(home).toHaveClass("bottom-nav__tab--active");
+    expect(home).toHaveAttribute("aria-current", "page");
     const active = within(nav)
       .getAllByRole("link")
       .filter((link) => link.classList.contains("bottom-nav__tab--active"));
-    expect(active.map((link) => link.getAttribute("aria-label"))).toEqual(["Dashboards"]);
+    expect(active.map((link) => link.getAttribute("aria-label"))).toEqual(["Home"]);
   });
+
+  it.each(["/dashboards", "/dashboards/abc-123"])(
+    "marks only Dashboards current on %s, never Home",
+    (path) => {
+      renderAt(path);
+      const nav = screen.getByRole("navigation", { name: "Primary" });
+      const active = within(nav)
+        .getAllByRole("link")
+        .filter((link) => link.classList.contains("bottom-nav__tab--active"));
+      expect(active.map((link) => link.getAttribute("aria-label"))).toEqual(["Dashboards"]);
+      expect(within(nav).getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
+    },
+  );
 
   it("shows six tabs for a non-owner and seven for an owner, Home first", () => {
     const nonOwner = renderAt("/", "free");

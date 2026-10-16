@@ -174,7 +174,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
 
   describe("above the phone breakpoint", () => {
     it("renders the rail with every section reachable, and exactly one avatar menu and one logo link", async () => {
-      renderShell("/");
+      renderShell("/dashboards");
       const rail = await screen.findByRole("navigation", { name: "Main navigation" });
       for (const name of [
         "Home",
@@ -191,7 +191,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("shows the dashboards context list with an accessible resize separator", async () => {
-      renderShell("/");
+      renderShell("/dashboards");
       expect(
         await screen.findByRole("complementary", { name: "Dashboards list" }),
       ).toBeInTheDocument();
@@ -200,7 +200,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("paints the saved width on the first render, with no default flash and no request", async () => {
-      renderShell("/", { preferences: { contextListWidth: 320 } });
+      renderShell("/dashboards", { preferences: { contextListWidth: 320 } });
       const shell = document.querySelector<HTMLElement>(".app-shell");
       expect(shell?.style.getPropertyValue("--context-list-width")).toBe("320px");
       expect(
@@ -210,7 +210,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("renders collapsed on first paint when saved collapsed, keeping every rail item", async () => {
-      renderShell("/", { preferences: { contextListCollapsed: true } });
+      renderShell("/dashboards", { preferences: { contextListCollapsed: true } });
       expect(await screen.findByRole("button", { name: "Expand list" })).toBeInTheDocument();
       expect(
         screen.queryByRole("complementary", { name: "Dashboards list" }),
@@ -223,7 +223,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("collapses through the list button with one write, and re-expands from the rail", async () => {
-      renderShell("/");
+      renderShell("/dashboards");
       fireEvent.click(await screen.findByRole("button", { name: "Collapse list" }));
       await waitFor(() => expect(patchMock).toHaveBeenCalledWith({ contextListCollapsed: true }));
       expect(patchMock).toHaveBeenCalledTimes(1);
@@ -234,7 +234,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("moves focus to the rail's Expand button when the list collapses, and back to Collapse on expand", async () => {
-      renderShell("/home");
+      renderShell("/dashboards");
       fireEvent.click(await screen.findByRole("button", { name: "Collapse list" }));
       const expand = await screen.findByRole("button", { name: "Expand list" });
       await waitFor(() => expect(expand).toHaveFocus());
@@ -244,7 +244,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("moves focus to the Expand button when the separator collapses with Enter", async () => {
-      renderShell("/home");
+      renderShell("/dashboards");
       fireEvent.keyDown(await screen.findByRole("separator", { name: "Resize dashboard list" }), {
         key: "Enter",
       });
@@ -254,7 +254,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("does not steal focus on first render", async () => {
-      renderShell("/home");
+      renderShell("/dashboards");
       await screen.findByRole("button", { name: "Collapse list" });
       expect(document.body).toHaveFocus();
     });
@@ -262,7 +262,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     it("resizes from the keyboard and writes once for a burst", async () => {
       jest.useFakeTimers();
       try {
-        renderShell("/");
+        renderShell("/dashboards");
         const separator = await screen.findByRole("separator", { name: "Resize dashboard list" });
         fireEvent.keyDown(separator, { key: "ArrowRight" });
         fireEvent.keyDown(separator, { key: "ArrowRight" });
@@ -299,7 +299,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("moves Usage into the avatar menu for an owner, not the rail", async () => {
-      renderShell("/", { tier: "owner" });
+      renderShell("/dashboards", { tier: "owner" });
       const rail = await screen.findByRole("navigation", { name: "Main navigation" });
       expect(within(rail).queryByRole("link", { name: "Usage" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "User menu" }));
@@ -307,7 +307,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     });
 
     it("gives a free-tier user no Usage item", async () => {
-      renderShell("/", { tier: "free" });
+      renderShell("/dashboards", { tier: "free" });
       fireEvent.click(await screen.findByRole("button", { name: "User menu" }));
       expect(screen.queryByRole("menuitem", { name: "Usage" })).not.toBeInTheDocument();
     });
@@ -316,7 +316,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
   describe("at the phone breakpoint (768px and below)", () => {
     it("renders no rail and no context list, only the command bar's avatar and logo, and the bottom nav", async () => {
       mockPhoneWidth(true);
-      renderShell("/");
+      renderShell("/dashboards");
       await screen.findByRole("navigation", { name: "Primary" });
       expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
       expect(document.querySelector(".app-rail")).toBeNull();
@@ -335,7 +335,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
     ];
 
     it("mounts above the phone breakpoint on the dashboard view, with the tabpanel, and no breadcrumb (the meta row replaced the command bar)", async () => {
-      renderShell("/home", { openTabs });
+      renderShell("/dashboards", { openTabs });
       const list = await screen.findByRole("tablist", { name: "Open dashboards" });
       expect(within(list).getAllByRole("tab")).toHaveLength(2);
       const panel = screen.getByRole("tabpanel");
@@ -360,7 +360,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
 
     it("is absent at the phone breakpoint, which keeps its own switcher", async () => {
       mockPhoneWidth(true);
-      renderShell("/home", { openTabs });
+      renderShell("/dashboards", { openTabs });
       await screen.findByRole("navigation", { name: "Primary" });
       expect(screen.queryByRole("tablist")).toBeNull();
       expect(document.querySelector(".app-shell")).not.toHaveClass("app-shell--tabs");

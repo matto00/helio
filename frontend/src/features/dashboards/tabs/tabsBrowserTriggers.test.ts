@@ -36,7 +36,7 @@ function setVisibility(state: "visible" | "hidden") {
 describe("tabs browser triggers (HEL-1575 D2/D4/D7)", () => {
   let stop: () => void = () => undefined;
   beforeEach(async () => {
-    window.history.pushState({}, "", "/home");
+    window.history.pushState({}, "", "/dashboards");
     jest.useFakeTimers({ doNotFake: ["Date"] });
     changesMock.mockReset();
     changesMock.mockResolvedValue({ serverNow: new Date().toISOString(), items: [] });

@@ -38,8 +38,17 @@ test.describe("HEL-1574 shell rail and context list", () => {
       request,
     }) => {
       await page.setViewportSize({ width, height: 900 });
-      await registerAndLogin(page, request, { ...AUTH, label: `rail${width}`, waitForShell: true });
+      await registerAndLogin(page, request, { ...AUTH, label: `rail${width}` });
       const rail = page.getByRole("navigation", { name: "Main navigation" });
+      await expect(rail).toBeVisible();
+      // HEL-1578: sign-in lands on the Home page (rail only, Home current, no context list).
+      await expect(page).toHaveURL(/\/home$/);
+      await expect(rail.getByRole("link", { name: "Home" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(await shellRenders(page)).toEqual({ rail: 1, list: 0, bottomNav: false });
+      await page.goto("/dashboards");
       await expect(rail).toBeVisible();
       for (const name of [
         "Home",
@@ -196,7 +205,7 @@ test.describe("HEL-1574 shell rail and context list", () => {
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(created.status()).toBe(201);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await page.getByRole("button", { name: "New folder" }).click();
     await page.getByRole("textbox", { name: "Folder name" }).fill("Daily");
     await page.getByRole("button", { name: "Create folder" }).click();
@@ -255,7 +264,7 @@ test.describe("HEL-1574 shell rail and context list", () => {
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(filed.status()).toBe(204);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     const toggle = page.getByRole("button", { name: "Holder 1" });
     const row = page.getByRole("button", { name: "HEL-1574 Active", exact: true });
     await expect(toggle).toHaveAttribute("aria-expanded", "true");

@@ -146,7 +146,7 @@ describe("authenticated shell: dashboard meta row replaces the command bar (HEL-
 
   it("renders the meta row, not the command bar, on the rail-shell dashboard view", async () => {
     mockPhoneWidth(false);
-    renderShell("/home");
+    renderShell("/dashboards");
     expect(await screen.findByRole("button", { name: "Open assistant" })).toBeInTheDocument();
     expect(document.querySelector(".app-command-bar--dashboard-meta")).not.toBeNull();
     expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).not.toBeInTheDocument();
@@ -164,7 +164,7 @@ describe("authenticated shell: dashboard meta row replaces the command bar (HEL-
 
   it("keeps the command bar on the phone shell's dashboard view", async () => {
     mockPhoneWidth(true);
-    renderShell("/home");
+    renderShell("/dashboards");
     expect(await screen.findByRole("button", { name: /^Switch dashboards/ })).toBeInTheDocument();
     expect(document.querySelector(".app-command-bar--dashboard-meta")).toBeNull();
   });

@@ -185,7 +185,7 @@ interface RenderAppOptions {
 }
 
 function renderApp(options: RenderAppOptions = {}) {
-  const { initialPath = "/", authenticated = true } = options;
+  const { initialPath = "/dashboards", authenticated = true } = options;
 
   const preloadedState = {
     auth: authenticated

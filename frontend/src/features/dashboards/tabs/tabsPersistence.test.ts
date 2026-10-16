@@ -117,7 +117,7 @@ describe("tab set persistence (design D2)", () => {
     });
 
     it("hidden/pagehide stamps the active tab's last view, then flushes with keepalive", async () => {
-      window.history.pushState({}, "", "/home"); // the leave stamp applies on the dashboard view only (D7)
+      window.history.pushState({}, "", "/dashboards"); // the leave stamp applies on the dashboard view only (D7)
       const { store, getState } = makeTabsStore({
         dashboards: [dash("a"), dash("b")],
         tabs: [tab("a"), tab("b")],

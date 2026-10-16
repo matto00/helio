@@ -55,7 +55,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/home");
+    await page.goto("/dashboards");
 
     await openSheet(page, /Switch dashboards/i);
 
@@ -116,7 +116,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
 
     for (const width of [430, 768]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await openSheet(page, /Switch dashboards/i);
 
       const measurements = await page.evaluate(() => {
@@ -212,11 +212,11 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
     expect(dashboardRes.status()).toBe(201);
     // HEL-1300: the loop below sets localStorage via page.evaluate, which needs the app origin
     // (about:blank has none); this load is also the first one that can see the seeded dashboard.
-    await page.goto("/home");
+    await page.goto("/dashboards");
 
     for (const theme of ["dark", "light"] as const) {
       await page.evaluate((t) => localStorage.setItem("helio-theme", t), theme);
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await openSheet(page, /Switch dashboards/i);
 
@@ -252,7 +252,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/home");
+    await page.goto("/dashboards");
 
     const trigger = page.getByRole("button", { name: /Switch dashboards/i });
     await trigger.click();
@@ -307,7 +307,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       });
       expect(res.status()).toBe(201);
     }
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await openSheet(page, /Switch dashboards/i);
 
     const { dragStripBottom, bottomNavTop } = await page.evaluate(() => {
@@ -341,7 +341,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
       headers: { [CSRF_HEADER]: "1" },
     });
     expect(dashboardRes.status()).toBe(201);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await openSheet(page, /Switch dashboards/i);
 
     const animationNames = await page.evaluate(() => {
@@ -384,7 +384,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
 
     // Dashboards: async, pending-capable create. Scoped to the sheet's own
     // dialog (see the sources section below for why).
-    await page.goto("/home");
+    await page.goto("/dashboards");
     const dashboardsDialog = page.getByRole("dialog", { name: "Dashboards" });
     await openSheet(page, /Switch dashboards/i);
     await dashboardsDialog.getByRole("button", { name: "New dashboard" }).click();
@@ -459,7 +459,7 @@ test.describe("HEL-773 top-anchored mobile nav sheet — live verification", () 
         });
         expect(dashboardRes.status()).toBe(201);
 
-        await page.goto("/home");
+        await page.goto("/dashboards");
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         const dashboardsTrigger = await openSheet(page, /Switch dashboards/i);
         const dashboardsGeometry = await page.evaluate(() => {
