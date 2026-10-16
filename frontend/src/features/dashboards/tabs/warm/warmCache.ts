@@ -84,11 +84,21 @@ export function noteOwnDashboardWrite(
   dispatch: Dispatch<UnknownAction>,
   userId: string | null,
   dashboardId: string,
+  listLoaded: boolean,
 ): void {
   const at = serverNowMs() + OWN_WRITE_SLACK_MS;
   setOwnWriteAt(dashboardId, at);
   dispatch(tabOwnWrite({ id: dashboardId, at: new Date(at).toISOString() }));
-  if (userId !== null) void store.patchOwnWrite(userId, dashboardId, at);
+  if (userId === null) return;
+  if (listLoaded) {
+    // The stored copy was captured BEFORE this write (the loaded list is re-snapshotted shortly after it),
+    // so the write must not be claimed as covering it: that would validate the old list against the newer
+    // change signal and restore it on a reload with no request. Drop the copy (and any queued or in-flight
+    // write of an older list); the next snapshot stores the list that includes the write.
+    void store.remove(userId, dashboardId);
+    return;
+  }
+  void store.patchOwnWrite(userId, dashboardId, at);
 }
 
 // ---- tab-level retention ------------------------------------------------------------------------------

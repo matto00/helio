@@ -179,3 +179,44 @@ Skeptic final round 4 found `git merge-tree` conflicts in 14 files (GitHub `CONF
 - **Gates on the merged tree:** lint, typecheck, format:check, build exit 0; `check:schemas` ok; full jest 660 suites / 7840 tests (the one failure was my new seam test's
   wrong tab-order expectation, fixed, 2/2); `sbt testFull` under the lock 8170 succeeded, 0 failed (4 canceled, pre-existing); full e2e under the lock, 2 workers:
   361 passed, 1 skipped, exit 0 (includes hel1572, hel1574, hel1575, hel1576). Transcripts in `SCRATCH/merge1572/`.
+
+## Fix cycle 3 — reload path (evaluation-9, CI run 38863940699)
+
+Three symptoms; they do NOT share one cause. Head e6dbad79a, worktree `/home/matt/Development/helio/.claude/worktrees/feature/persistent-dashboard-tabs-palette/HEL-1575`.
+Transcripts: `.concertino/scratch/HEL-1575/fix3/` (each starts with the worktree path and head SHA).
+
+### Symptom 2 (CI hel1260:148, "no .react-grid-item after reload"): root cause found and fixed
+
+- **Probe.** The CI trace (`fix3/ci/tr`) shows, after `page.reload()`, `/me`, `/dashboards`, `/dashboard-changes` and NO `GET /panels`; the page text says "0 panels".
+  So a stored browser copy with an empty list was restored as valid. Server times in the trace: first panels fetch started 07:00:50.8 (empty list captured then), the create committed at
+  `contentUpdatedAt` 52.574, own-write receipt plus 2 s slack = 54.6. The copy validates when `contentUpdatedAt <= max(contentCapturedAt, ownWriteAt)`: 52.574 <= 54.6.
+- **Cause.** An own write was claimed as covering a stored copy that did not contain it, by two paths:
+  1. `noteOwnDashboardWrite` called `patchOwnWrite`, which merges the new `ownWriteAt` into the stored copy of the LOADED dashboard (the copy still holds the pre-write list). Live probe of IndexedDB
+     (`probe/idb.spec.ts`): after the create the stored entry was `panels: 0, own: <the write>`; 2.8 s later `panels: 1`. A reload inside that window restored `[]`.
+     `markDashboardPanelsStale` is itself an own-write source and clears `loadedDashboardId`, so a "loaded" check alone missed the real `createPanel` sequence (found by this probe).
+  2. A debounced write built its entry at fire time: `items` and `contentCapturedAt` were frozen when it was queued, but `ownWriteAt` was read live, so a write that happened between queue and fire was
+     attributed to an older list. (Reproduced by the second red jest test.)
+  The pref flush on pagehide carries `ownWriteAt` too (`applyWarmEntry` takes the later of the two), so a stored copy must simply never exist across a write that it does not include.
+- **Fix (product code).** `warmCache.noteOwnDashboardWrite` takes `listLoaded`: for the on-screen dashboard (active tab, or loaded list) the stored copy is removed (`BoundedWarmStore.remove` also cancels a queued write)
+  instead of patched; `warmListeners` then queues a fresh capture straight away, claiming the write it now includes. `warmCapture` freezes `ownWriteAt` with the items at capture time
+  (`buildWarmEntry` takes it as a parameter). A left tab still gets the patch (design D4; a rename or layout flush after leaving does not change its panel list).
+- **Guards that fail on the old code.** `warmReloadStaleCopy.test.ts` (jest, 2 red / 5, see `evidence-red-first.md`) and `e2e/hel1575-reload-after-edit.spec.ts` (e2e; reloads at 0 / 0.3 / 1.2 / 1.8 / 2.4 s after the create; 4 of 6 fail on the old code).
+- **Counts.** `hel1575-reload-after-edit` `--repeat-each 6` = 30/30; `hel1260` `--repeat-each 30` = 120/120; `dashboards/tabs` jest 222/222.
+
+### Symptom 1 (intermittent "Maximum update depth exceeded"): root cause found; it sits inside react-grid-layout, so this is an ESCALATION (no workaround applied)
+
+- **Deterministic reproduction** (`probe/probe.spec.ts`): a warm tab, a reload, and the browser-store read delayed past the 500 ms restore timeout (the skeleton stays up for the whole window).
+  3 of 3 runs: 52 to 61 update-depth errors, all before the first panels request, exactly the evaluator's signature. The slow read only widens the window; the loop starts as soon as the skeleton mounts.
+- **What loops** (the dependency was re-served with logging via `page.route`): the skeleton's `Responsive` is first rendered for dashboard X at the initial width 1280 (breakpoint `md`), then in the next render receives
+  dashboard Y's layouts (the URL's dashboard; `fetchDashboards` first selects the most recent one) AND the measured width 928 (breakpoint `sm`). Its inner `GridLayout` sync effect then alternates between the `md` layout
+  (w 5) and the `sm` layout (w 3) forever (`RGLSYNC` log: `props` and `cur` swap on every pass).
+- **It is the library.** A bare `Responsive` from react-grid-layout 2.2.4 with no Helio code (`fix3/rgl-bare-repro.test.tsx.txt`) loops when ONE render changes both `layouts` (and the children) and crosses a breakpoint;
+  each change alone settles in 2 renders. The real `PanelGrid` is mounted with `key={selectedDashboardId}`, which is why it never meets this; the skeleton is not keyed.
+- **Why only on this branch (hypothesis, main was not instrumented).** On main the panel area is probably first mounted under the bootstrap skeleton (no dashboard selected yet), so the width has settled before the selection moves. Here the first skeleton render already has the dashboard list loaded (the log shows both renders at +7114 ms, right after `/dashboards`).
+- **Stopped here** per the owner's plan: any fix (key the skeleton by dashboard, stop the transient wrong-dashboard selection, patch or replace the library) works around a library defect and needs the owner's decision.
+- **Rate in this cycle.** 39 of 40 runs of the evaluator's harness were clean (0 update-depth errors) with the symptom-2 fix in place, so the harness alone is a poor guard here; the delayed-read probe above is the reliable reproduction.
+
+### Symptom 3 (3-tab set seeded through the API loaded as 1 tab): not reproduced
+
+40 harness runs, each asserting the server's tab count after every load (`harness/before-1/summary.txt`): tab count was 3 every time, and PATCH bodies are logged per run. No `pagehide` overwrite was observed.
+The one failed run (run-17) was a different symptom: `html` never received `data-theme` within 5 s on the first load (no trace was kept; the config now writes artifacts to the scratch directory). It is recorded, not explained.

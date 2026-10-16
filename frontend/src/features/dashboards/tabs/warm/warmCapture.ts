@@ -23,7 +23,15 @@ function laterOf(a: number | null, b: number | null): number | null {
   return a === null ? b : b === null ? a : Math.max(a, b);
 }
 
-/** Builds the browser-store entry for a dashboard from the current store state. */
+/** The own writes `dashboardId`'s list already includes: read when the list is captured and frozen with it
+ *  (never re-read when a debounced write fires, by which time a newer own write may not be in `items`). */
+function ownWriteCoveredBy(state: RootState, dashboardId: string): number | null {
+  const tab = state.dashboardTabs.tabs.find((t) => t.id === dashboardId);
+  return laterOf(getOwnWriteAt(dashboardId), parseInstant(tab?.ownWriteAt));
+}
+
+/** Builds the browser-store entry for a dashboard from the current store state. `ownWriteAt` is the own
+ *  write the `items` were captured with (see `ownWriteCoveredBy`). */
 export function buildWarmEntry(
   state: RootState,
   userId: string,
@@ -31,6 +39,7 @@ export function buildWarmEntry(
   items: Panel[],
   contentCapturedAt: number,
   viewedAt: number | null = null,
+  ownWriteAt: number | null = null,
 ): WarmEntry {
   const rows: Record<string, StoredWindow> = {};
   const outputMeta: Record<string, Output> = {};
@@ -67,15 +76,12 @@ export function buildWarmEntry(
     };
   }
   const tab = state.dashboardTabs.tabs.find((t) => t.id === dashboardId);
-  const ownMemory = getOwnWriteAt(dashboardId);
-  const ownTab = parseInstant(tab?.ownWriteAt);
   return {
     v: 1,
     userId,
     dashboardId,
     contentCapturedAt,
-    ownWriteAt:
-      ownMemory === null && ownTab === null ? null : Math.max(ownMemory ?? 0, ownTab ?? 0),
+    ownWriteAt,
     lastViewedAt: laterOf(parseInstant(tab?.lastViewedAt), viewedAt),
     panels: items,
     rows,
@@ -100,6 +106,7 @@ export function captureTab(
   if (!userId || items === null || prior === undefined) return;
   // The user's own edits replace the panels; the capture instant only moves forward with own writes.
   const contentCapturedAt = Math.max(prior.contentCapturedAt, getOwnWriteAt(dashboardId) ?? 0);
+  const ownWriteAt = ownWriteCoveredBy(state, dashboardId);
   setListEntry(dashboardId, { panels: items, contentCapturedAt });
   if (options.retain) retainTab(dashboardId, items);
   const build = () => {
@@ -113,6 +120,7 @@ export function captureTab(
       items,
       contentCapturedAt,
       options.viewedAt ?? null,
+      ownWriteAt,
     );
   };
   if (options.immediate) {

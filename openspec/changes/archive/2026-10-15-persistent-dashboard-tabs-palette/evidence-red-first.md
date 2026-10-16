@@ -349,3 +349,23 @@ Tests:       1 failed, 14 passed, 15 total
 GREEN after passing `viewedAt: serverNowMs()` in the leave `captureTab`: tabs dir 17 suites / 215 tests passed (`fix2b/tabs-green.txt`).
 The other capture paths cannot rewind: the heartbeat and the tab-switch listener stamp with now (the switch dispatches `tabViewed` first), and the debounced captures go through `laterOf` with the store stamp.
 Note: the added "pending real change + hidden + pagehide = 1 PATCH" test passes with and without the `left` guard (mutation `fix2b/mutation.txt`: 15 passed), because after the first leave the stored stamp is fresh and nothing is pending; the guard is now belt-and-braces and that test pins the behaviour, not the guard.
+
+## Fix cycle 3 (evaluation-9): a reload right after an own edit restored a stale panel list
+
+Worktree `/home/matt/Development/helio/.claude/worktrees/feature/persistent-dashboard-tabs-palette/HEL-1575`, HEAD e6dbad79a. Transcripts in `.concertino/scratch/HEL-1575/fix3/`.
+
+RED jest (`warmReloadStaleCopy.test.ts` against unmodified e6dbad79a sources; `red-jest-2.txt`):
+
+```
+● a reload after an own edit never restores a copy that predates the edit › an own write patched into a stored copy of the LOADED dashboard does not make its old list valid
+● a reload after an own edit never restores a copy that predates the edit › a debounced write queued before the edit does not claim the edit for its older list
+Tests:       2 failed, 3 passed, 5 total
+```
+
+RED e2e (`e2e/hel1575-reload-after-edit.spec.ts`, same unmodified sources, `--repeat-each 3`; `red-e2e-1.txt`): 4 of 6 "reload immediately" and "reload after 300 ms" cases fail with
+`expect(locator('.react-grid-item')).toHaveCount(1)` received 0 after 15 s (the page says "0 panels" / "No panels yet"); the 1.2 s, 1.8 s and 2.4 s cases pass.
+The failing trace shows no `GET /api/dashboards/:id/panels` after the reload (`red-trace-requests.txt`): the stale list was restored from the browser copy with no request.
+The same request signature is in the CI trace of run 38863940699 (hel1260 `:108`, `ci/tr`).
+
+GREEN after the fix: `dashboards/tabs` jest 19 suites / 222 tests (`green-jest-tabs.txt`); `hel1575-reload-after-edit.spec.ts --repeat-each 6` 30/30 (`green-e2e-reload-after-edit.txt`); `hel1260 --repeat-each 30` 120/120 (`green-hel1260-x30.txt`).
+Note: hel1260 itself passed 40/40 locally on the unmodified code (`baseline-hel1260.txt`): its reload comes about 0.5 s after the create, and the local machine is faster than the CI runner. The new spec reloads at fixed distances from the write, so it fails without the fix on any machine.

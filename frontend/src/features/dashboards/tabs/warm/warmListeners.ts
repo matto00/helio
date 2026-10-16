@@ -45,6 +45,7 @@ import {
   recordFetchResult,
   recordFetchStart,
 } from "./warmCache";
+import { captureTab } from "./warmCapture";
 
 /** One client content-write path: the actions that signal its success, and the dashboard ids it wrote. */
 export interface OwnWriteSource {
@@ -163,13 +164,22 @@ export function addWarmListeners(startListening: AppStartListening): void {
   startListening({
     predicate: (action) => OWN_WRITE_SOURCES.some((source) => source.matches(action)),
     effect: (action, listenerApi) => {
-      const userId = (listenerApi.getState() as RootState).auth.currentUser?.id ?? null;
+      const state = listenerApi.getState() as RootState;
+      const userId = state.auth.currentUser?.id ?? null;
       for (const source of OWN_WRITE_SOURCES) {
         if (!source.matches(action)) continue;
         // `matches` has just narrowed `action` to this source's own action shape, but the table mixes shapes, so
         // `dashboardIds` is typed `never`-in; `warmListeners.test.ts`'s own-write table exercises every shape.
         for (const id of source.dashboardIds(action as never)) {
-          noteOwnDashboardWrite(listenerApi.dispatch, userId, id);
+          // "On screen": the active tab, or the loaded list. `markDashboardPanelsStale` (itself an own-write
+          // source) clears `loadedDashboardId` until its refetch lands, so the loaded list alone misses it.
+          const listLoaded =
+            state.dashboardTabs.activeId === id || state.panels.loadedDashboardId === id;
+          noteOwnDashboardWrite(listenerApi.dispatch, userId, id, listLoaded);
+          // The loaded list already reflects this write (its reducer, or the refetch inside the thunk, ran
+          // before this effect), so store it again straight away, claiming the write it now includes.
+          if (listLoaded)
+            captureTab(listenerApi.getState as () => RootState, id, { retain: false });
         }
       }
     },
