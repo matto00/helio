@@ -12,6 +12,8 @@ import { usesDashboardTabBar } from "./dashboardChrome";
 
 const PIPELINE_DETAIL_PATH = /^\/pipelines\/[^/]+/;
 
+// Note: the command bar never mounts on the rail dashboard view (the meta row replaces it), so the dashboard
+// clause below is latent there; it keeps the predicate correct should the bar return on that route.
 export function hidesBreadcrumbItemName(pathname: string, isPhoneShell: boolean): boolean {
   if (isPhoneShell) return false;
   return PIPELINE_DETAIL_PATH.test(pathname) || usesDashboardTabBar(pathname, isPhoneShell);

@@ -126,8 +126,8 @@ idle A, plus zero PATCHes from A over 125 s). Fix: before B saves, the test wait
   `hidesBreadcrumbItemName` takes its dashboard clause from `usesDashboardTabBar`. Behaviour identical for both lanes (tests in
   `dashboardChrome.test.ts`).
 - CSS-file pins recounted with `find frontend/src -name "*.css" | wc -l` = 144 (135 + 6 HEL-1579 + 2 HEL-1575 + 1 HEL-1576), both guards; not loosened.
-- `networkGuard.ts`: kept this branch's drained allowlist; HEL-1576's `DesktopPanelGrid.processedWidth` entry removed because on the merged tree
-  that file makes no network request (the guard itself failed the suite until it was removed).
+- `networkGuard.ts`: kept this branch's drained allowlist; HEL-1576 itself removed the `DesktopPanelGrid.processedWidth` entry on main (that file makes no
+  network request on the merged tree); this branch only took main's version.
 - Adapted tests: `AppShell.dashboardMetaRow.test.tsx` store gets the `dashboardTabs` reducer (hydrated); `AppShell.rail.test.tsx` no longer expects a
   breadcrumb on the dashboard view (the meta row replaced the command bar; the name rule is covered in CommandBar tests); the hel1575 e2e drag
   helper turns Edit layout on first (panels move only in edit mode now).
@@ -140,3 +140,18 @@ idle A, plus zero PATCHes from A over 125 s). Fix: before B saves, the test wait
   331 passed, 1 skipped, 2 failed: the hel1575 dragged-panel test (the Edit-layout helper above, fixed) and `hel813 ... surface 7: Connectors page`
   (a create-connector dialog stayed open once; touches nothing in this diff; 12/12 on `--repeat-each 6` of it, and it passed in the rerun). Rerun of
   the whole hel1575 + hel813 specs: 35 passed. Transcripts in `SCRATCH/fix2c/`.
+
+## evaluation-7
+
+- Failure: `hel1457-stale-tab-layout-save.spec.ts` ("a conflict that cannot be rebased"), `boundingBox()` null in `dragA`. Cause: the
+  `.react-grid-item` count wait is satisfiable by the loading skeleton; the meta row's "Edit layout" button mounts only with the real desktop
+  grid, so the guarded click (`count() > 0`) was skipped and the drag handle did not exist yet. HEL-1575 loads panels after tab hydration,
+  which widens the window (same mechanism as the hel1028 fix).
+- Reproduced before the fix: 8 repeats passed, then 16 repeats failed once (1/16) at the same line (`fix2d/hel1457-prefix*.txt`).
+- Fix: both gotos now wait for `getByLabel("Loading panels")` to reach count 0; `dragA` asserts the "Done" button is visible after the guarded
+  click so a skipped click fails at its cause. No assertion weakened. After: `--repeat-each 12` = 24/24 pass under the lock.
+- Sweep of every spec using "Edit layout", a drag handle or `mouse.down`: hel1028 (already waits for the skeleton), hel1230 (unconditional
+  auto-waiting click), hel1575-dashboard-tabs (`enterLayoutEditMode` asserts "Done"; drag helper runs after load), hel1574 (separator drag, no
+  grid), hel1605 (table cell), hel908 (pipeline editor). No other occurrence of the pattern.
+- Non-blocking: comment on `hidesBreadcrumbItemName` (dashboard clause latent: no command bar on the rail dashboard view); corrected the
+  `processedWidth` attribution above (HEL-1576 removed it on main).
