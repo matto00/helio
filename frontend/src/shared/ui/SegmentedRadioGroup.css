@@ -1,0 +1,61 @@
+/* Segmented single-choice control (HEL-1572). The painted option is --control-md tall on every device; on touch
+   layouts each option takes the tapTarget.css invisible 44px hit expander (never an inflated painted box). */
+.ui-segmented {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: transparent;
+  max-width: 100%;
+}
+
+.ui-segmented__option {
+  height: var(--control-md);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+/* Hover shows as a border step (translucent neutral, so it separates from any backdrop in both themes) on the
+   selected AND unselected option: a colour-only hover has no measurable state background (HEL-866 guard). */
+.ui-segmented__option:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.ui-segmented__option--selected {
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+}
+
+.ui-segmented__option:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 1px;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .ui-segmented__option {
+    position: relative;
+  }
+
+  .ui-segmented__option::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}

@@ -55,8 +55,13 @@
  * animation outright via the shorthand and replaces the gradient with a flat
  * fill. */
 @media (prefers-reduced-motion: reduce) {
-  .ui-skeleton {
+  :root:not([data-motion]) .ui-skeleton {
     animation: none;
     background: var(--app-surface-soft);
   }
+}
+/* HEL-1572: an explicit saved "Off" gets the same treatment regardless of the OS setting. */
+:root[data-motion="off"] .ui-skeleton {
+  animation: none;
+  background: var(--app-surface-soft);
 }

@@ -255,6 +255,27 @@ var(--app-radius-pill)` and uses `-3px`, which keeps the ring inside the
 **[mechanical]** All margin/padding/gap use a `--space-*` token (small optical
 tweaks ≤ 4px may be literal).
 
+**Density (HEL-1572).** The user's Comfortable / Compact choice sets
+`data-density` on the root and switches two documented tokens, read by the
+desktop panel grid, the section overview list tables and the shell context
+list. Comfortable is the default and the pre-existing spacing; Compact is
+strictly tighter in each token. Panel internals, `DataGrid` (own `density`
+prop) and the phone stack are unchanged; touch layouts keep the 44px minimum.
+
+| Token / value         | Comfortable (default)                                        | Compact                     |
+| --------------------- | ------------------------------------------------------------ | --------------------------- |
+| `--density-grid-gap`  | `--space-3` (12px, `GRID_GUTTER_PX` in `panelGridConfig.ts`) | 8px (`--space-2`)           |
+| grid `rowHeight` (JS) | 52                                                           | `52 + (GRID_GUTTER_PX − 8)` |
+| `--density-row-pad-y` | `--space-2` (8px)                                            | `--space-1` (4px)           |
+
+react-grid-layout places a panel at `y·(rowHeight + margin)` with height
+`h·rowHeight + (h−1)·margin`. Compact adds the gutter difference to `rowHeight`,
+so the row step is identical in both densities: panel tops never move (a
+shared dashboard looks the same to every viewer) and every panel is exactly the
+gutter difference taller. **[mechanical]** `--density-grid-gap` in both
+densities is pinned to `GRID_GUTTER_PX` / `COMPACT_GRID_GUTTER_PX` by
+`theme/appearanceTokens.css.test.ts`.
+
 ### Control metrics
 
 Every button, input, and select uses a control-height token:
@@ -345,7 +366,21 @@ separates (Appendix A.4 for the worked example).
 - **Headings are sans, set by hierarchy not by face.** Distinguish a heading
   by `--text-*` size and `--weight-semibold`, not by a different family.
   Mono is for metadata (counts, timestamps, sources, keyboard hints), never
-  for a title. **[judgment]**
+  for a title. **[judgment]** The one exception is the user's opt-in **Mono**
+  type style (below).
+- **Type styles (HEL-1572).** The user picks one in Settings → Appearance; it
+  is the root attribute `data-type-style`, and every style is a token override
+  in `theme.css`, never a component branch. **Sans + mono** (default): no
+  override. **Serif headings**: `--font-heading: var(--font-display)`.
+  **Mono**: `--font-sans: var(--font-mono)`, so the WHOLE UI (headings, body,
+  controls, data) renders in JetBrains Mono (`--font-heading` follows because
+  it defaults to `var(--font-sans)`). Because Mono rebinds `--font-sans`, the
+  raw faces are also declared as `--font-face-sans|mono|serif`, which no style
+  rebinds; only the Appearance type-style preview cards read them (as an inline
+  `--font-heading` value, never in a `font-family` declaration) so each card
+  shows its own face under any active style. JetBrains Mono is loaded at 400,
+  500, 600 and 700. Non-CSS consumers (ECharts) resolve `--font-sans` from the
+  DOM and recompute on a style change (`ThemeContext.typeStyle`).
 - **Eyebrows** (section labels): mono, `--text-micro`, uppercase, tracked
   `--eyebrow-tracking`. Use the `.eyebrow` utility or copy its recipe.
 - `.mono` utility for tabular numerals; metric values are mono.
@@ -1036,9 +1071,11 @@ DESIGN.md edit".
   other layout edit; it is only ever started by that click and never runs on
   load. Edit mode is session state: opening or switching a dashboard starts in
   view mode. **[judgment]**
-- **Dashboard grid gutter.** `--space-3` (12px), horizontal and vertical, above the
-  phone boundary. The JS value `GRID_GUTTER_PX` mirrors the token and a test
-  keeps them equal. **[mechanical]**
+- **Dashboard grid gutter.** `--density-grid-gap`, horizontal and vertical, above
+  the phone boundary: `--space-3` (12px) in the Comfortable (default) density and
+  `--space-2` (8px) in Compact (Spacing > Density). The JS value `GRID_GUTTER_PX`
+  mirrors the Comfortable token and a test keeps them equal; Compact's 8px is
+  pinned the same way. **[mechanical]**
 - **`⌘K` (HEL-1575).** A button in the tab bar labelled "Search, jump, or
   ask" that opens the command palette, with the platform's shortcut shown
   (`⌘K` or `Ctrl K`). Below 560px of tab-bar width only the icon and shortcut
@@ -1123,13 +1160,31 @@ single deceleration shape.
 choice beats the OS" are **owner rulings** (2026-10-13, recorded under HEL-1571;
 this section used to label them driver defaults). HEL-1572 implements them.
 
-**Interim implementation (today's tree).** `data-motion` and the saved
-preference do not exist yet. The global `@media (prefers-reduced-motion:
-reduce)` rule in `theme.css` (`!important` near-zero durations) is unscoped and
-stays as it is. While it stands, an OS reduced-motion setting always wins and
-an explicit "Full" choice cannot override it. HEL-1572/HEL-1573 must scope that
-rule to users with no saved preference (for example
-`:root:not([data-motion])`) when they add the attribute. **[mechanical]**
+**Implemented precedence (HEL-1572).** "Reduced motion in effect" is a saved
+`off`, or no saved choice and OS `reduce`. The root carries `data-motion` only
+when a choice is saved (Settings → Appearance; "Use system setting" clears it).
+In `theme.css`:
+
+- the global reduced-motion rule is scoped to `:root:not([data-motion])`, with
+  an identical unconditional `:root[data-motion="off"]` block;
+- Off (and the OS-reduced no-preference case) pins `--motion-duration-quick`,
+  `-standard`, `-emphasized`, `-highlight` to `0.01ms`, `--motion-stagger` to
+  `0ms`, `--app-transition` to `0.01ms ease` and `--transition-slow` to
+  `0.01ms cubic-bezier(0.3, 0.9, 0.4, 1)`. Near-zero, never `0s`, so
+  `transitionend` / `animationend` still fire for primitives that wait on them;
+- every component-level reduced-motion rule (`Skeleton`, `toast`,
+  `RefinementChatDrawer`, `StreamingText`, `MobileNavSheet`, `BottomNav`) has
+  the same two-selector shape, and `utils/prefersReducedMotion.ts` /
+  `useReducedMotion` follow the same precedence. **[mechanical]**
+  `theme/reducedMotionScopeGuard.css.test.ts` fails for any unscoped
+  `prefers-reduced-motion` block under `frontend/src`. The public landing page
+  (`frontend/src/landing/`) is excluded: it never carries `data-motion`, so the
+  OS setting is its only signal.
+
+**Known gap (HEL-1573).** Today Subtle only swaps `--motion-ease-overshoot`
+for the ease-out curve. The sheet, drawer and toast keep their translate
+entrances under Subtle until HEL-1573 implements the per-primitive Subtle
+rules above.
 
 ## 11. Live preview
 

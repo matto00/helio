@@ -1,0 +1,195 @@
+/* Settings → Appearance (HEL-1572). Mono eyebrow labels in a left column, controls right; below 768px the labels
+   stack above their controls. Selection states use --app-accent* tokens only (accent-agnostic). */
+.appearance {
+  gap: var(--space-5);
+}
+
+.appearance__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.appearance__subtitle {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+.appearance__row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.appearance__label {
+  padding-top: var(--space-2);
+  color: var(--app-text-muted);
+}
+
+.appearance__control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  width: 100%;
+}
+
+.appearance__hint {
+  margin: 0;
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
+
+.appearance__link-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-accent-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.appearance__link-btn:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .appearance__link-btn {
+    position: relative;
+  }
+
+  .appearance__link-btn::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
+/* --- Type style cards (>= 88px tall by content) --- */
+.appearance__type-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.appearance__type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 88px;
+  padding: var(--space-4);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-lg);
+  background: transparent;
+  color: var(--app-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    border-color var(--app-transition);
+}
+
+.appearance__type-card:hover {
+  border-color: var(--app-border-strong);
+}
+
+.appearance__type-card--selected {
+  border-color: var(--app-accent);
+  background: var(--app-accent-dim);
+}
+
+.appearance__type-card:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Each card sets its own --font-heading inline (a raw face token), so it previews that face under any active style. */
+.appearance__type-card-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.appearance__type-card-number {
+  font-size: var(--text-xl);
+}
+
+.appearance__type-card-label {
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* --- Theme: later --- */
+.appearance__theme-later {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+}
+
+.appearance__theme-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.appearance__theme-swatches {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.appearance__theme-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-sm);
+}
+
+.appearance__theme-swatch--dark {
+  background: var(--app-surface-strong);
+}
+
+.appearance__theme-swatch--light {
+  background: var(--app-text);
+}
+
+.appearance__theme-swatch--accent {
+  background: var(--app-accent);
+}
+
+@media (max-width: 768px) {
+  .appearance__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  .appearance__label {
+    padding-top: 0;
+  }
+
+  .appearance__type-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .appearance__theme-later {
+    flex-wrap: wrap;
+  }
+}

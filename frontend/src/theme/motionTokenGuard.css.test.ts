@@ -184,8 +184,9 @@ describe("motion token guard (HEL-441)", () => {
     // HEL-1579 added `PipelineSpine.css`, `PipelineSpineHeader.css`, `PipelineSpineLayout.css`, `PipelineSpineAccent.css`,
     // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
     // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css`, HEL-1576 added `DashboardMetaRow.css`; tokens only, no shadow/radius/motion literals.
-    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) = 144, recounted with find, not carried from any side.
-    expect(files.length).toBe(144);
+    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
+    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) = 146, recounted with find, not carried from any side.
+    expect(files.length).toBe(146);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

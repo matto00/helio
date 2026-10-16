@@ -17,3 +17,4 @@ export { PanelSuspenseFallback, PageSuspenseFallback } from "./SuspenseFallback"
 export { PageShell } from "./PageShell";
 export { PageHeader } from "./PageHeader";
 export { PageStatus } from "./PageStatus";
+export { SegmentedRadioGroup, type SegmentedOption } from "./SegmentedRadioGroup";

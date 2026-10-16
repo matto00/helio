@@ -35,17 +35,20 @@ export function UsageChart({
   valueFormatter,
   ariaLabel,
 }: UsageChartProps) {
-  const { theme, accentColor } = useTheme();
+  const { theme, accentColor, typeStyle, effectiveMotion } = useTheme();
   // Same corrective post-paint recompute `useChartOption` documents: the theme tokens are only
   // correct after ThemeProvider's own effect has written them to the document.
   const [themeSyncTick, setThemeSyncTick] = useState(0);
   useEffect(() => {
     const raf = requestAnimationFrame(() => setThemeSyncTick((n) => n + 1));
     return () => cancelAnimationFrame(raf);
-  }, [theme, accentColor]);
+  }, [theme, accentColor, typeStyle, effectiveMotion]);
 
   const option = useMemo<EChartsOption>(() => {
     void themeSyncTick;
+    // HEL-1572: a live type-style / motion switch changes what resolveChartTheme() reads.
+    void typeStyle;
+    void effectiveMotion;
     const tokens = resolveChartTheme();
     // HEL-1342 — the usage page has no panel appearance, so an undefined appearance resolves to the
     // live `--app-text` token exactly as an inherited panel colour does. `appearanceToEChartsOption`
@@ -113,7 +116,7 @@ export function UsageChart({
         ...(kind === "line" ? { showSymbol: categories.length <= 31, smooth: false } : {}),
       })),
     } as EChartsOption;
-  }, [categories, series, kind, valueFormatter, themeSyncTick, theme]);
+  }, [categories, series, kind, valueFormatter, themeSyncTick, theme, typeStyle, effectiveMotion]);
 
   return (
     <div className="usage-chart" role="img" aria-label={ariaLabel}>

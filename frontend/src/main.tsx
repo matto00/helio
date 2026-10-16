@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
@@ -6,11 +6,17 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { App } from "./app/App";
 import { OverlayProvider } from "./shared/chrome/OverlayProvider";
-import { updateUserPreferences } from "./features/auth/state/authSlice";
+import {
+  applyAppearancePreferences,
+  saveAppearancePreferences,
+  updateUserPreferences,
+} from "./features/auth/state/authSlice";
+import type { AppearancePreferencesPatch } from "./features/auth/types/user";
 import { setupAuthInterceptor } from "./services/httpClient";
 import { setTelemetryIdentity } from "./features/telemetry/track";
 import { store, type RootState, type AppDispatch } from "./store/store";
 import { startTabsBrowserTriggers } from "./features/dashboards/tabs/tabsBrowserTriggers";
+import { resolveAppearance } from "./theme/appearancePrefs";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
 import "./shared/ui/tapTarget.css";
@@ -43,6 +49,38 @@ function ThemedApp() {
     (state: RootState) => state.auth.currentUser?.preferences?.accentColor ?? null,
   );
 
+  // HEL-1572: undefined while auth is unresolved (keep what the pre-paint script applied), null once signed out
+  // (reset + drop the cache), else the saved values resolved to their defaults.
+  const authStatus = useSelector((state: RootState) => state.auth.status);
+  const savedTypeStyle = useSelector(
+    (state: RootState) => state.auth.currentUser?.preferences?.typeStyle,
+  );
+  const savedDensity = useSelector(
+    (state: RootState) => state.auth.currentUser?.preferences?.density,
+  );
+  const savedMotion = useSelector(
+    (state: RootState) => state.auth.currentUser?.preferences?.motion,
+  );
+  const preferredAppearance = useMemo(() => {
+    if (authStatus === "unauthenticated") return null;
+    if (authStatus !== "authenticated") return undefined;
+    return resolveAppearance({
+      typeStyle: savedTypeStyle,
+      density: savedDensity,
+      motion: savedMotion,
+    });
+  }, [authStatus, savedTypeStyle, savedDensity, savedMotion]);
+
+  // Optimistic Redux update first (so the saved value is already in the store), then persist.
+  const handleAppearanceChange = useCallback(
+    (patch: AppearancePreferencesPatch) => {
+      if (!isAuthenticated) return;
+      dispatch(applyAppearancePreferences(patch));
+      void dispatch(saveAppearancePreferences(patch));
+    },
+    [dispatch, isAuthenticated],
+  );
+
   function handleAccentChange(color: string) {
     // Guards against PATCHing back a value that just arrived FROM the server via
     // `preferredAccentColor` — without this, ThemeProvider's own sync effect (which calls this
@@ -58,7 +96,12 @@ function ThemedApp() {
   }
 
   return (
-    <ThemeProvider onAccentChange={handleAccentChange} preferredAccentColor={preferredAccentColor}>
+    <ThemeProvider
+      onAccentChange={handleAccentChange}
+      preferredAccentColor={preferredAccentColor}
+      preferredAppearance={preferredAppearance}
+      onAppearanceChange={handleAppearanceChange}
+    >
       <OverlayProvider>
         <App />
       </OverlayProvider>

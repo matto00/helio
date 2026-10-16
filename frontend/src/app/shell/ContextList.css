@@ -128,7 +128,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--density-row-pad-y) var(--space-3); /* HEL-1572: vertical = density token */
   border-radius: var(--app-radius-sm);
   color: var(--app-text);
   font-size: var(--text-sm);

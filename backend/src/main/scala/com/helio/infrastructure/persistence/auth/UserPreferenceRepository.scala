@@ -16,7 +16,23 @@ final case class UserPreferencesData(
     // HEL-1574: shell layout keys in the same `users.preferences` JSON; None = never set.
     contextListWidth: Option[Int] = None,
     contextListCollapsed: Option[Boolean] = None,
+    // HEL-1572: appearance keys in the same JSON; None = never set (motion None = follow the OS).
+    typeStyle: Option[String] = None,
+    density: Option[String] = None,
+    motion: Option[String] = None,
     // HEL-1575: the saved dashboard tab set; None = never set (or an invalid stored value, dropped on read).
+    dashboardTabs: Option[DashboardTabsPref] = None
+)
+
+/** HEL-1572: a validated partial update. `motion` is `None` = leave, `Some(None)` = clear (follow the OS),
+ *  `Some(Some(v))` = set. */
+final case class PreferencesPatch(
+    contextListWidth: Option[Int] = None,
+    contextListCollapsed: Option[Boolean] = None,
+    typeStyle: Option[String] = None,
+    density: Option[String] = None,
+    motion: Option[Option[String]] = None,
+    // HEL-1575: replaces the stored tab set as a whole.
     dashboardTabs: Option[DashboardTabsPref] = None
 )
 
@@ -61,32 +77,44 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         case _                  => None
       }
 
+      def enum(key: String, allowed: Set[String]): Option[String] = fields.get(key) match {
+        case Some(JsString(v)) if allowed.contains(v) => Some(v)
+        case _                                        => None
+      }
+
       val tabs = fields.get("dashboardTabs").flatMap(v => DashboardTabsPrefs.parse(v).toOption)
 
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
-      UserPreferencesData(accentColor, zoomMap, width, collapsed, tabs)
+      UserPreferencesData(
+        accentColor,
+        zoomMap,
+        width,
+        collapsed,
+        enum("typeStyle", TypeStyles),
+        enum("density", Densities),
+        enum("motion", MotionLevels),
+        tabs
+      )
     }
   }
 
   def upsertGlobalPrefs(userId: UserId, accentColor: String): Future[Unit] =
     mergePrefs(userId, JsObject("accentColor" -> JsString(accentColor)))
 
-  /** HEL-1574: merges only the shell keys present; every other stored key is untouched. The caller has validated the
-   *  ranges. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level).
-   *  HEL-1575: `dashboardTabs` replaces the stored tab set as a whole. */
-  def patchShellPrefs(
-      userId: UserId,
-      width: Option[Int],
-      collapsed: Option[Boolean],
-      tabs: Option[DashboardTabsPref] = None
-  ): Future[Unit] = {
-    val fields = Vector(
-      width.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
-      collapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue)),
-      tabs.map(t => "dashboardTabs" -> tabsJson(t))
+  /** HEL-1574/HEL-1572: merges only the keys present; every other stored key is untouched. The caller has validated
+   *  the values. HEL-1575: `dashboardTabs` replaces the stored tab set as a whole. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
+  def patchPrefs(userId: UserId, patch: PreferencesPatch): Future[Unit] = {
+    val fields: Map[String, JsValue] = Vector(
+      patch.contextListWidth.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
+      patch.contextListCollapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue)),
+      patch.typeStyle.map(v => "typeStyle" -> (JsString(v): JsValue)),
+      patch.density.map(v => "density" -> (JsString(v): JsValue)),
+      patch.motion.flatten.map(v => "motion" -> (JsString(v): JsValue)),
+      patch.dashboardTabs.map(t => "dashboardTabs" -> tabsJson(t))
     ).flatten.toMap
-    if (fields.isEmpty) Future.unit else mergePrefs(userId, JsObject(fields))
+    val clearMotion = patch.motion.contains(None)
+    if (fields.isEmpty && !clearMotion) Future.unit else mergePrefs(userId, JsObject(fields), clearMotion)
   }
 
   /** Stored shape: absent optionals are omitted, so a `null` in the request and an omitted field read the same. */
@@ -105,13 +133,19 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
     ).flatten.toMap
   )
 
-  /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. */
-  private def mergePrefs(userId: UserId, patch: JsObject): Future[Unit] = {
-    val patchStr   = patch.compactPrint
+  /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. When
+   *  `clearMotion` the `motion` key is removed in the same UPDATE (the patch never carries it then). */
+  private def mergePrefs(userId: UserId, patch: JsObject, clearMotion: Boolean = false): Future[Unit] = {
+    val patchStr = patch.compactPrint
     val action =
-      sqlu"""UPDATE users
-             SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
-             WHERE id = ${userId.value}::uuid"""
+      if (clearMotion)
+        sqlu"""UPDATE users
+               SET preferences = ((COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb) - 'motion')::text
+               WHERE id = ${userId.value}::uuid"""
+      else
+        sqlu"""UPDATE users
+               SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
+               WHERE id = ${userId.value}::uuid"""
     db.run(action).map(_ => ())
   }
 
@@ -132,6 +166,10 @@ object UserPreferenceRepository {
 
   val ContextListMinWidth: Int = 200
   val ContextListMaxWidth: Int = 400
+  // HEL-1572: the closed value sets (lowercase tokens, not labels).
+  val TypeStyles: Set[String]   = Set("sans", "mono", "serif")
+  val Densities: Set[String]    = Set("comfortable", "compact")
+  val MotionLevels: Set[String] = Set("full", "subtle", "off")
 
   final case class UserDashboardZoomRow(
       userId: UUID,

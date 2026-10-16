@@ -96,7 +96,9 @@ describe("toast.css — entrance uses the §3 entrance token, not the hover toke
 describe("toast.css — reduced motion disables animation outright (not just shortens it)", () => {
   it("both .toast and .toast--exiting get animation: none", () => {
     const { body } = findMediaBlockFor(css, "prefers-reduced-motion: reduce", ".toast");
-    expect(body).toMatch(/\.toast\s*,\s*\n?\s*\.toast--exiting\s*\{/);
+    expect(body).toMatch(
+      /:root:not\(\[data-motion\]\) \.toast\s*,\s*\n?\s*:root:not\(\[data-motion\]\) \.toast--exiting\s*\{/,
+    );
     expect(body).toMatch(/animation:\s*none\s*;/);
   });
 });

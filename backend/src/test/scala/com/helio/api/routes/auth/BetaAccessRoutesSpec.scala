@@ -5,7 +5,7 @@ import com.helio.api.{JsonProtocols, UserResponse}
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.email.EmailSender
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, UserPreferenceRepository, UserRepository}
+import com.helio.infrastructure.persistence.auth.{InviteCodeRepository, PreferencesPatch, UserPreferenceRepository, UserRepository}
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.services.auth.{BetaAccessService, UserTierConfig}
 import com.helio.testkit.HelioRouteTest
@@ -212,7 +212,7 @@ class BetaAccessRoutesSpec
       cleanDb()
       val user = newUser("free")
       issueCode(user.id, "pref-code")
-      await(new UserPreferenceRepository(appDb)(routeEc).patchShellPrefs(user.id, Some(320), Some(true)))
+      await(new UserPreferenceRepository(appDb)(routeEc).patchPrefs(user.id, PreferencesPatch(Some(320), Some(true))))
 
       Post("/beta-access/redeem", jsonEntity("""{"code":"pref-code"}""")) ~> routesFor(user, None, withPreferences = true) ~> check {
         status shouldBe StatusCodes.OK

@@ -4,6 +4,7 @@ import * as authService from "../services/authService";
 import type { AuthResponse, MfaRequiredResponse, User } from "../types/user";
 import {
   authReducer,
+  applyAppearancePreferences,
   applyShellPreferences,
   clearAuth,
   handleOAuthCallback,
@@ -11,6 +12,7 @@ import {
   logout,
   register,
   rehydrateAuth,
+  saveAppearancePreferences,
   setAuth,
   updateUserPreferences,
   verifyMfa,
@@ -481,5 +483,51 @@ describe("shell preferences (HEL-1574)", () => {
     const store = makeStore();
     store.dispatch(applyShellPreferences({ contextListWidth: 300 }));
     expect(store.getState().auth.currentUser).toBeNull();
+  });
+
+  describe("appearance preferences (HEL-1572)", () => {
+    it("applyAppearancePreferences merges the keys sent and keeps accent, zoom and shell keys", () => {
+      const store = makeStore();
+      store.dispatch(setAuth({ user: withPrefs }));
+      store.dispatch(applyAppearancePreferences({ typeStyle: "serif", density: "compact" }));
+      store.dispatch(applyAppearancePreferences({ motion: "off" }));
+      expect(store.getState().auth.currentUser?.preferences).toEqual({
+        accentColor: "#f97316",
+        zoomLevels: {},
+        contextListWidth: 320,
+        typeStyle: "serif",
+        density: "compact",
+        motion: "off",
+      });
+    });
+
+    it("a null motion removes the saved choice and leaves the other keys", () => {
+      const store = makeStore();
+      store.dispatch(setAuth({ user: withPrefs }));
+      store.dispatch(applyAppearancePreferences({ typeStyle: "mono", motion: "full" }));
+      store.dispatch(applyAppearancePreferences({ motion: null }));
+      const prefs = store.getState().auth.currentUser?.preferences;
+      expect(prefs).not.toHaveProperty("motion");
+      expect(prefs?.typeStyle).toBe("mono");
+    });
+
+    it("is a no-op when signed out", () => {
+      const store = makeStore();
+      store.dispatch(applyAppearancePreferences({ typeStyle: "serif" }));
+      expect(store.getState().auth.currentUser).toBeNull();
+    });
+
+    it("saveAppearancePreferences PATCHes exactly the patch, and swallows a failure", async () => {
+      mockedAuthService.patchShellPreferencesRequest.mockResolvedValue({
+        accentColor: null,
+        zoomLevels: {},
+      });
+      const store = makeStore();
+      await store.dispatch(saveAppearancePreferences({ motion: null }));
+      expect(mockedAuthService.patchShellPreferencesRequest).toHaveBeenCalledWith({ motion: null });
+      mockedAuthService.patchShellPreferencesRequest.mockRejectedValue(new Error("offline"));
+      const result = await store.dispatch(saveAppearancePreferences({ typeStyle: "mono" }));
+      expect(result.type).toBe("auth/saveAppearancePreferences/fulfilled");
+    });
   });
 });

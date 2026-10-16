@@ -10,10 +10,9 @@
 import { useEffect } from "react";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { AccentPicker } from "../../../shared/chrome/AccentPicker";
-import { useTheme } from "../../../theme/ThemeProvider";
 import { AuditHistorySection } from "../../audit/ui/AuditHistorySection";
 import { fetchAgentMemory, fetchApiTokens, fetchPreferences } from "../state/settingsSlice";
+import { AppearanceSection } from "./AppearanceSection";
 import { AgentMemoryList } from "./AgentMemoryList";
 import { ApiTokensSection } from "./ApiTokensSection";
 import { BetaAccessSection } from "./BetaAccessSection";
@@ -24,15 +23,12 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import "./SettingsPage.css";
-import { Moon, Sun } from "lucide-react";
-import { ICON_SIZE } from "../../../shared/ui/iconSize";
 
 export function SettingsPage() {
   const dispatch = useAppDispatch();
   const preferences = useAppSelector((state) => state.settings.preferences);
   const agentMemory = useAppSelector((state) => state.settings.agentMemory);
   const apiTokens = useAppSelector((state) => state.settings.apiTokens);
-  const { accentColor, setAccentColor, theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     void dispatch(fetchPreferences());
@@ -51,29 +47,9 @@ export function SettingsPage() {
       <PageHeader title="Settings" />
 
       <div className="settings-page__sections">
-        {/* HEL-728: accent moves here from the UserMenu popover -- a persisted,
-            infrequently-changed preference belongs alongside Preferences, not
-            behind a quick top-bar affordance. Immediate-apply (no Save button)
-            is preserved unchanged via the same useTheme() setAccentColor the
-            command bar already uses. HEL-745: the light/dark theme toggle
-            moves here too, from a standalone CommandBar icon button -- same
-            immediate-apply, no-Save-button semantics via the same useTheme()
-            call, just relocated. Label/aria-label/title copy matches the
-            pre-F-082 UserMenu dropdown row this replaces. */}
-        <section className="settings-page__section">
-          <h2 className="settings-page__section-heading">Appearance</h2>
-          <AccentPicker accentColor={accentColor} setAccentColor={setAccentColor} />
-          <button
-            type="button"
-            className="settings-page__theme-toggle"
-            onClick={toggleTheme}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-          >
-            {theme === "dark" ? <Sun size={ICON_SIZE.sm} /> : <Moon size={ICON_SIZE.sm} />}
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </button>
-        </section>
+        {/* HEL-728/HEL-745: accent and the light/dark toggle live here, immediate-apply with no Save button;
+            HEL-1572 adds type style, density and motion (see AppearanceSection). */}
+        <AppearanceSection />
 
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Preferences</h2>

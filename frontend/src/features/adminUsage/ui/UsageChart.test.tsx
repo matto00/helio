@@ -114,3 +114,39 @@ describe("UsageChart text colour (HEL-1342)", () => {
     expect((option.yAxis as { axisLabel?: Texty }).axisLabel?.fontFamily).toBeTruthy();
   });
 });
+
+describe("UsageChart follows a live type-style switch (HEL-1572)", () => {
+  it("rebuilds the global text style when the type style changes", () => {
+    const style = document.createElement("style");
+    style.textContent = `
+      :root { --font-sans: SansFace, sans-serif; }
+      :root[data-type-style="mono"] { --font-sans: MonoFace, monospace; }`;
+    document.head.appendChild(style);
+    localStorage.setItem("helio-theme", "dark");
+    function SwitchHarness() {
+      const { setTypeStyle } = useTheme();
+      return (
+        <>
+          <button onClick={() => setTypeStyle("mono")}>to-mono</button>
+          <UsageChart
+            categories={["a", "b"]}
+            series={[{ name: "DAU", values: [1, 2] }]}
+            kind="line"
+            ariaLabel="usage"
+          />
+        </>
+      );
+    }
+    render(
+      <ThemeProvider>
+        <SwitchHarness />
+      </ThemeProvider>,
+    );
+    flush();
+    expect((lastOption!.textStyle as Texty).fontFamily).toBe("SansFace, sans-serif");
+    fireEvent.click(screen.getByText("to-mono"));
+    flush();
+    expect((lastOption!.textStyle as Texty).fontFamily).toBe("MonoFace, monospace");
+    style.remove();
+  });
+});

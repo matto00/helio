@@ -2,13 +2,17 @@
 
 ### Requirement: Partial update of the caller's preferences
 
-`PATCH /api/users/me/preferences` SHALL accept any subset of `{contextListWidth, contextListCollapsed, dashboardTabs}`, store only the
-fields present, leave every other stored preference unchanged (including `accentColor`), and return the caller's full
-preferences. `contextListWidth` SHALL be an integer in 200..400 and `contextListCollapsed` a boolean. `dashboardTabs`
-SHALL be `{tabs: [{id, lastViewedAt, ownWriteAt?}], activeId}` and replaces the stored tab set as a whole: at most 20 tabs, each `id` a
-non-empty string of at most 64 characters, ids unique, `lastViewedAt` an ISO-8601 instant or `null`, optional `ownWriteAt` an ISO-8601 instant or `null`, and `activeId` either
-`null` or one of the tab ids. Any other value or unknown field SHALL be rejected with `400` and change nothing; an invalid
-stored value is treated as never set when read. Unauthenticated calls SHALL get `401`. Contracts:
+`PATCH /api/users/me/preferences` SHALL accept any subset of `{contextListWidth, contextListCollapsed, typeStyle,
+density, motion, dashboardTabs}`, store only the fields present, leave every other stored preference unchanged
+(including `accentColor`, and every key not in the request), and return the caller's full preferences.
+`contextListWidth` SHALL be an integer in 200..400 and `contextListCollapsed` a boolean. `typeStyle` SHALL be one of
+`"sans"`, `"mono"`, `"serif"`; `density` one of `"comfortable"`, `"compact"`; `motion` one of `"full"`, `"subtle"`,
+`"off"`, or `null`, where `null` removes the saved motion choice so the user follows the OS setting again.
+`dashboardTabs` SHALL be `{tabs: [{id, lastViewedAt, ownWriteAt?}], activeId}` and replaces the stored tab set as a
+whole: at most 20 tabs, each `id` a non-empty string of at most 64 characters, ids unique, `lastViewedAt` an ISO-8601
+instant or `null`, optional `ownWriteAt` an ISO-8601 instant or `null`, and `activeId` either `null` or one of the tab
+ids. Any other value or unknown field SHALL be rejected with `400` and change nothing; an invalid stored tab set is
+treated as never set when read. Unauthenticated calls SHALL get `401`. Contracts:
 `schemas/auth/user-preferences.schema.json` and `schemas/auth/update-user-preferences-request.schema.json`.
 
 #### Scenario: Partial updates accumulate
@@ -35,3 +39,8 @@ stored value is treated as never set when read. Unauthenticated calls SHALL get 
 
 - **WHEN** the caller PATCHes 21 tabs, a duplicate id, or an `activeId` not among the tabs
 - **THEN** the response is 400 and the stored tab set is unchanged
+
+#### Scenario: Tab and appearance writes do not disturb each other
+
+- **WHEN** a caller with saved typeStyle `serif`, density `compact`, motion `off` PATCHes `dashboardTabs`, and later PATCHes `{motion: null}`
+- **THEN** after the first write the appearance keys are byte-identical, and after the second the stored `dashboardTabs` is unchanged and `motion` is absent

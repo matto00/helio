@@ -4,35 +4,70 @@
    however many 20px swatches + gap happen to fit per row. */
 .accent-picker {
   display: grid;
-  grid-template-columns: repeat(4, 20px);
-  gap: var(--space-2);
+  /* HEL-1572: 28px swatches on a 44px pitch (28px + a --space-4 gap), so the 44x44 hit expanders below touch and
+     never overlap. One row of 8 above 768px (the board); 4x2 at 768px and below. */
+  grid-template-columns: repeat(8, 28px);
+  gap: var(--space-4);
   padding: 2px 0;
 }
 
+@media (max-width: 768px) {
+  .accent-picker {
+    grid-template-columns: repeat(4, 28px);
+  }
+}
+
 .accent-picker__swatch {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: 0;
+  background: transparent;
   padding: 0;
   cursor: pointer;
   outline: none;
   transition:
     border-color var(--app-transition),
-    box-shadow var(--app-transition),
-    transform var(--app-transition);
+    box-shadow var(--app-transition);
 }
 
-.accent-picker__swatch:hover {
+/* The painted colour. Only this inner circle scales on hover, never the swatch: a transform on the swatch would
+   scale its ::after expander too and let neighbouring hit areas overlap. */
+.accent-picker__dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transition: transform var(--app-transition);
+}
+
+.accent-picker__swatch:hover .accent-picker__dot {
   transform: scale(1.15);
 }
 
-/* F-169: the ring's inner gap used --app-bg (the page background), but this
-   picker only ever renders inside the UserMenu popover, whose surface is
-   --app-surface-strong — a different color in both themes. That mismatch
-   painted a visible ring-shaped halo around the swatch instead of a clean
-   selection ring. Matching the popover's own surface token makes the gap
-   disappear into it as intended.
+/* Tap-target expander (shared/ui/tapTarget.css pattern): an invisible 44x44 hit area centred on the swatch. Sized
+   explicitly on BOTH axes (tapTarget.css's .tap-expand-44 sizes the height only). */
+@media (max-width: 768px), (pointer: coarse) {
+  .accent-picker__swatch {
+    position: relative;
+  }
+
+  .accent-picker__swatch::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* F-169: the ring's inner gap must match the surface the picker sits on, or a
+   ring-shaped halo shows around the swatch. The picker now renders only in
+   Settings -> Appearance (HEL-728 moved it out of the UserMenu popover), but the
+   gap keeps --app-surface-strong, which the existing ring guards pin.
  *
  * HEL-1050 D5/3.8: the ring's colour is --app-focus-ring-color (contrast-
  * derived, 3:1 by construction), not the raw --app-accent the selected

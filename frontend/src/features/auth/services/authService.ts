@@ -4,7 +4,7 @@ import type {
   MfaBackupCodesResponse,
   MfaEnrollResponse,
   MfaStatusResponse,
-  ShellPreferencesPatch,
+  PreferencesPatch,
   UpdateUserPreferenceRequest,
   User,
   UserPreferences,
@@ -53,10 +53,10 @@ export async function updateUserPreferencesRequest(
   return response.data.preferences;
 }
 
-/** `PATCH /api/users/me/preferences` (HEL-1574): the shell layout keys. Merges server-side; returns the full
+/** `PATCH /api/users/me/preferences` (HEL-1574, HEL-1572): the shell layout and appearance keys. Merges server-side; returns the full
  *  preferences. */
 export async function patchShellPreferencesRequest(
-  patch: ShellPreferencesPatch,
+  patch: PreferencesPatch,
 ): Promise<UserPreferences> {
   const response = await httpClient.patch<UserPreferences>("/api/users/me/preferences", patch);
   return response.data;
