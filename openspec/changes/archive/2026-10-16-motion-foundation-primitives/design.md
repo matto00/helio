@@ -119,6 +119,26 @@ layout slide, indicator, crossfade, grid items) that no transform/position anima
 (so it can go red). It also asserts grid computed styles in dragging, resizing and placeholder-resizing states (C2),
 and the chart timing of D10 (C1). Screenshots/recordings go to `.concertino/runs/HEL-1573/evidence/`.
 
+## Gate-Chain Implications Checklist
+
+The branch's only gate-chain touch is a 5-line `ALLOWLIST` addition in `scripts/check-tokens.mjs` (`--motion-index`,
+`--indicator-x/y/w/h`), a script `.husky/pre-commit` invokes; no `.husky/**` file changes.
+
+- **What does it execute?** `scripts/check-tokens.mjs` is a read-only Node script: it scans frontend CSS/TSX text for
+  `var(--x)` references against the declared token set plus the `ALLOWLIST` of runtime-set custom properties. The change
+  only adds five allowlist entries (string keys with rationale text); no new code path runs.
+- **What environment does it inherit, and from where?** The hook's git environment (including `GIT_DIR` when run from a
+  linked worktree) plus the user's shell. The script uses repo-relative paths from its own location and never invokes
+  git, so the inherited `GIT_DIR` does not affect it.
+- **Does it write anything outside its own sandbox?** No. It only reads source files and prints findings to stdout/stderr;
+  it writes no files and mutates no repo state.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves files relative to the
+  script's own directory, which is the worktree root in a linked worktree and the checkout root otherwise; verified by the
+  isolation test below under a hook-shaped environment.
+- **What happens on its first run?** The new entries only make previously-flagged undeclared properties pass. First run
+  after the change reports no violations for the motion primitives' inline properties; an unlisted property is still
+  reported, so the check keeps failing closed.
+
 ## Risks / Trade-offs
 
 - [Grid feel: 280ms vs 180ms reflow, lost placeholder lead] → judge a real drag/resize on the running app; record.
