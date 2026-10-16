@@ -1,0 +1,100 @@
+// SCRATCH (HEL-1613): "first measurement in the fallback face" injector for UNMODIFIED specs (v2).
+// The Google Fonts stylesheet is ABORTED until the spec's N-th geometry measurement (locator.boundingBox, or
+// page/locator.evaluate(All) whose function reads getBoundingClientRect/scrollWidth/clientWidth/offsetWidth/
+// offsetHeight/clientHeight/scrollHeight). That measurement therefore runs in the fallback faces. Right after it,
+// the live <link> is re-pointed at the stylesheet (media=all) so the web faces load and swap in; the injector then
+// waits for the swap, so EVERY later measurement sees the web faces. (A held font response is not used: a pending
+// font hangs the load event, so page.goto never returns.)
+const base = "/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613/node_modules/playwright-core/lib/client/";
+const N = Number(process.env.FONT_FIRST_N ?? "1");
+if (process.env.FONT_FIRST) {
+  const { BrowserContext } = require(base + "browserContext.js");
+  const { Locator } = require(base + "locator.js");
+  const { Page } = require(base + "page.js");
+  const states = new WeakMap();
+  const RE = /getBoundingClientRect|scrollWidth|clientWidth|offsetWidth|offsetHeight|clientHeight|scrollHeight|getBoundingRect|measureText/;
+  const origNewPage = BrowserContext.prototype.newPage;
+  BrowserContext.prototype.newPage = async function (...a) {
+    const page = await origNewPage.apply(this, a);
+    const st = { released: false, count: 0, log: [] };
+    states.set(page, st);
+    await page.route(/fonts\.googleapis\.com\/css2/, async (route) => {
+      const hold = process.env.FONT_FIRST_HOLD_FAMILY;
+      if (!st.released && hold) {
+        // hold ONE family: serve the stylesheet without that family's @font-face blocks until release
+        try {
+          const resp = await route.fetch();
+          const body = (await resp.text()).replace(/@font-face\s*\{[^}]*\}/g, (m) => (m.includes("'" + hold + "'") ? "" : m));
+          return await route.fulfill({ response: resp, body });
+        } catch { return; }
+      }
+      if (!st.released) return route.abort().catch(() => {});
+      await route.continue().catch(() => {});
+    });
+    return page;
+  };
+  const DELAY = Number(process.env.FONT_FIRST_ASK_DELAY_MS ?? "0");
+  async function afterMeasure(page) {
+    const st = states.get(page);
+    if (!st || st.released) return;
+    if (st.asked && DELAY > 0) {
+      // concurrent release: the swap lands DELAY ms after the spec asked for it, while its wait is polling
+      if (!st.timer) st.timer = setTimeout(() => { st.count = N; afterMeasure.force = true; doRelease(page, st).catch(() => {}); }, DELAY);
+      return;
+    }
+    st.count += 1;
+    if (st.count < N && !st.asked) return;
+    await doRelease(page, st);
+  }
+  async function doRelease(page, st) {
+    if (st.released) return;
+    st.released = true;
+    console.log(`[fontfirst] releasing web fonts after measurement #${st.count}; caller: ${new Error().stack.split('\n').filter((l) => l.includes('/e2e/')).slice(0,2).map((l) => l.trim().replace(/.*\/e2e\//, 'e2e/')).join(' <- ')}`);
+    await Page.prototype.evaluate.__orig.call(page, () => {
+      for (const l of document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com/css2"]')) {
+        const href = l.getAttribute("href");
+        l.media = "all";
+        l.removeAttribute("href");
+        l.setAttribute("href", href);
+      }
+    });
+    if (process.env.FONT_FIRST_NOWAIT) { console.log("[fontfirst] nowait: swap proceeds while the spec continues"); return; }
+    await page.waitForFunction(() => {
+      const l = document.querySelector('link[rel="stylesheet"][href*="fonts.googleapis.com/css2"]');
+      return l && l.sheet && [...document.fonts].length > 0;
+    }, undefined, { timeout: 8000 }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 300));
+    await page.waitForFunction(() => [...document.fonts].every((f) => f.status !== "loading"), undefined, { timeout: 8000 }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  const wrap = (proto, name, isMeasure, getPage) => {
+    const orig = proto[name];
+    proto[name] = async function (...args) {
+      const measure = isMeasure(args);
+      // The spec asking about web fonts (waitForWebFonts' readFontState) is the signal that it WAITS for them:
+      // the held fonts are released at that point, so the wait is shown actually blocking on the swap.
+      if (measure && typeof args[0] === "function" && /stylesheetMedia/.test(args[0].toString())) {
+        const st = states.get(getPage(this));
+        if (st) st.asked = true;
+      }
+      const out = await orig.apply(this, args);
+      if (measure) await afterMeasure(getPage(this));
+      return out;
+    };
+    proto[name].__orig = orig;
+  };
+  const fnIsMeasure = (args) => typeof args[0] === "function" ? RE.test(args[0].toString()) : typeof args[0] === "string" && RE.test(args[0]);
+  wrap(Locator.prototype, "boundingBox", () => true, (l) => l.page());
+  wrap(Locator.prototype, "evaluate", fnIsMeasure, (l) => l.page());
+  wrap(Locator.prototype, "evaluateAll", fnIsMeasure, (l) => l.page());
+  if (process.env.FONT_FIRST_ON_TIMEOUT) {
+    // release right BEFORE the spec's fixed waitForTimeout(ms): charts already laid out in the fallback face
+    const origWT = Page.prototype.waitForTimeout;
+    Page.prototype.waitForTimeout = async function (ms, ...r) {
+      const st = states.get(this);
+      if (st && !st.released && ms === Number(process.env.FONT_FIRST_ON_TIMEOUT)) { st.count = N; await doRelease(this, st); }
+      return origWT.call(this, ms, ...r);
+    };
+  }
+  wrap(Page.prototype, "evaluate", fnIsMeasure, (p) => p);
+}

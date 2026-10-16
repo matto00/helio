@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+cd /home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+LOG=/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613/openspec/changes/archive/2026-10-15-adopt-webfonts-wait-layout-specs/evidence/v3-full-suite.log
+while [ "$(cut -d. -f1 /proc/loadavg)" -ge 10 ]; do sleep 60; done
+echo "### cwd=$PWD head=$(git rev-parse HEAD) DEV_PORT=7045 BACKEND_PORT=9952 DB=helio_hel1613 loadavg_start=$(cut -d' ' -f1-3 /proc/loadavg) start=$(date +%T)" > $LOG
+export DATABASE_URL="jdbc:postgresql://localhost:5432/helio_hel1613?user=matt&password="
+DEV_PORT=7045 BACKEND_PORT=9952 flock -w 3600 /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/e2e.lock nice -n 19 npx playwright test --workers=2 >> $LOG 2>&1
+echo "exit=$? end=$(date +%T) loadavg_end=$(cut -d' ' -f1-3 /proc/loadavg)" >> $LOG
+echo done > /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1613/executor/hel1613-full.done

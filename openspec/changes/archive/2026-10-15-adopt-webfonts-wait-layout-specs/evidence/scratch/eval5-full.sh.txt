@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+W=/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator5
+LOG=$W/openspec/changes/archive/2026-10-15-adopt-webfonts-wait-layout-specs/evidence/v8-full-suite.log
+LOCK=/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/e2e.lock
+cd $W
+n=0; while [ "$(cut -d. -f1 /proc/loadavg)" -ge 10 ] && [ $n -lt 30 ]; do sleep 60; n=$((n+1)); done
+echo "### evaluator5 cwd=$PWD head=$(git rev-parse HEAD) dirty_code=$(git status --porcelain -- e2e frontend backend playwright.config.ts | wc -l) DEV_PORT=7045 BACKEND_PORT=9952 DB=helio(shared,Flyway V135=HEAD V135) start=$(date +%T) loadavg_start=$(cut -d' ' -f1-3 /proc/loadavg) cmd=[flock -w 3600 e2e.lock nice -n 19 npx playwright test --workers=2]" > $LOG
+DEV_PORT=7045 BACKEND_PORT=9952 flock -w 3600 $LOCK bash -c 'echo "### lock_acquired=$(date +%T) loadavg=$(cut -d" " -f1-3 /proc/loadavg)"; nice -n 19 npx playwright test --workers=2' >> $LOG 2>&1
+echo "exit=$? end=$(date +%T) head_end=$(git rev-parse HEAD) loadavg_end=$(cut -d' ' -f1-3 /proc/loadavg)" >> $LOG
+echo done > $S/full.done

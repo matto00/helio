@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+W=/home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator5
+E=$W/openspec/changes/archive/2026-10-15-adopt-webfonts-wait-layout-specs/evidence
+LOCK=/tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/e2e.lock
+while [ ! -f $S/d.done ]; do sleep 20; done
+one() { # <log> <rundir> [extra env...]
+  local LOG=$1 RD=$2; shift 2
+  n=0; while [ "$(cut -d. -f1 /proc/loadavg)" -ge 10 ] && [ $n -lt 30 ]; do sleep 60; n=$((n+1)); done
+  cd $RD
+  echo "### evaluator5 cwd=$PWD head=$(git -C $W rev-parse HEAD) rundir=$RD hel1444_sha256=$(sha256sum e2e/hel1444-footnoted-chart-canvas.spec.ts | cut -c1-16) DEV_PORT=7045 BACKEND_PORT=9952 DB=helio(shared,Flyway V135) start=$(date +%T) loadavg_start=$(cut -d' ' -f1-3 /proc/loadavg) FONT_ENV=[FONT_FIRST=1 FONT_FIRST_N=100000 $*] preload=fontfirst.cjs args=[e2e/hel1444-footnoted-chart-canvas.spec.ts -g canvas floors --workers=1]" > $LOG
+  env "$@" DATABASE_URL='jdbc:postgresql://localhost:5432/helio?user=matt&password=' FONT_FIRST=1 FONT_FIRST_N=100000 NODE_OPTIONS="--require $S/fontfirst.cjs" DEV_PORT=7045 BACKEND_PORT=9952 flock -w 3600 $LOCK nice -n 19 npx playwright test e2e/hel1444-footnoted-chart-canvas.spec.ts -g "canvas floors" --workers=1 >> $LOG 2>&1
+  echo "exit=$? end=$(date +%T) loadavg_end=$(cut -d' ' -f1-3 /proc/loadavg)" >> $LOG
+}
+one $E/v8-redgreen-hel1444-base-RED.log $S/tree-base X=1
+one $E/v8-redgreen-hel1444-converted-GREEN.log $W FONT_FIRST_ASK_DELAY_MS=400
+echo done > $S/e.done

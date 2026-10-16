@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# usage: hel1613-run.sh <log> <preload|none> <files...>  (env passes through)
+cd /home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+LOG="$1"; PRE="$2"; shift 2
+echo "### cwd=$PWD head=$(git rev-parse HEAD) DEV_PORT=7045 BACKEND_PORT=9952 start=$(date +%T) env=$(env | grep -E '^FONT_' | tr '\n' ' ')" > "$LOG"
+if [ "$PRE" = none ]; then NO=""; else NO="--require /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1613/executor/$PRE"; fi
+NODE_OPTIONS="$NO" DEV_PORT=7045 BACKEND_PORT=9952 nice -n 19 npx playwright test "$@" --workers=2 >> "$LOG" 2>&1
+echo "exit=$? end=$(date +%T)" >> "$LOG"

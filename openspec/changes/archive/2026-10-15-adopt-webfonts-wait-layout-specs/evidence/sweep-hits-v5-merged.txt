@@ -1,0 +1,262 @@
+e2e/hel588-cross-filter-panels.spec.ts:226:  const box = await canvas.boundingBox();
+e2e/hel588-cross-filter-panels.spec.ts:346:      const box = await indicator.boundingBox();
+e2e/hel1275-metric-delta-sparkline.spec.ts:47:        reads.push(JSON.stringify(await locator.boundingBox()));
+e2e/hel1275-metric-delta-sparkline.spec.ts:225:          card.boundingBox(),
+e2e/hel1275-metric-delta-sparkline.spec.ts:226:          spark.boundingBox(),
+e2e/hel1275-metric-delta-sparkline.spec.ts:227:          card.getByText("\u25B2 12% vs 7d", { exact: true }).boundingBox(),
+e2e/hel813-mobile-touch-target-floor.spec.ts:21:// target floor. Measures RENDERED geometry (`getBoundingClientRect()`) at
+e2e/hel813-mobile-touch-target-floor.spec.ts:56: *  verified by `sweepSurface`, which measures `getBoundingClientRect()` and
+e2e/hel813-mobile-touch-target-floor.spec.ts:90:        // so they're verified via `elementFromPoint` bisection, not
+e2e/hel813-mobile-touch-target-floor.spec.ts:91:        // `getBoundingClientRect`/`getComputedStyle`. The sheet's own rows
+e2e/hel813-mobile-touch-target-floor.spec.ts:221:        // `getBoundingClientRect()` height reliably measures a hair under
+e2e/hel1230-drag-then-create-persists.spec.ts:84:    const bb = (await handle.boundingBox())!;
+e2e/hel520-focus-presence-guard.regression.spec.ts:294:      // ancestor box measured live before the fix (its overflow is
+e2e/hel1277-output-history-scrubber.spec.ts:175:      const rangeBox = await scrubber.boundingBox();
+e2e/hel1277-output-history-scrubber.spec.ts:310:            const box = await canvas.boundingBox();
+e2e/hel1307-conditional-formatting.spec.ts:336:      expect(await css(note, "text-overflow")).toBe("ellipsis");
+e2e/hel1307-conditional-formatting.spec.ts:337:      expect(await note.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+e2e/hel912-lanes-rejoin.spec.ts:138:        const box = await children.nth(i).boundingBox();
+e2e/hel909-output-picker-panel-sheet.spec.ts:126:    const box = await panelCard.boundingBox();
+e2e/hel909-output-picker-panel-sheet.spec.ts:187:      const cardBox = await card.boundingBox();
+e2e/hel909-output-picker-panel-sheet.spec.ts:188:      // The card must fit within the viewport width (no horizontal overflow
+e2e/hel968-multi-root-editor-flow.spec.ts:213:      const addRootBox = await addRootBtn.boundingBox();
+e2e/hel968-multi-root-editor-flow.spec.ts:220:      const removeBox = await removeBtn.boundingBox();
+e2e/hel1306-chart-reference-lines.spec.ts:349:      const box = (await markedCard.locator("canvas").first().boundingBox())!;
+e2e/hel1306-chart-reference-lines.spec.ts:485:        ].map(async (l) => (await l.boundingBox())!.height),
+e2e/hel1512-category-axis-labels.spec.ts:46:        getBoundingRect?: () => { x: number; y: number; width: number; height: number };
+e2e/hel1512-category-axis-labels.spec.ts:73:        if (el.style?.text && el.getBoundingRect) {
+e2e/hel1512-category-axis-labels.spec.ts:74:          const r = el.getBoundingRect();
+e2e/hel1512-category-axis-labels.spec.ts:82:          const tm = ctx.measureText(el.style.text);
+e2e/hel1444-footnoted-chart-canvas.spec.ts:220:      const r = el.getBoundingClientRect();
+e2e/hel1444-footnoted-chart-canvas.spec.ts:226:      return Math.round((el.getBoundingClientRect().height - pad) / parseFloat(cs.lineHeight));
+e2e/hel1444-footnoted-chart-canvas.spec.ts:231:      article.getBoundingClientRect().bottom -
+e2e/hel1444-footnoted-chart-canvas.spec.ts:254:      footerOverrunPx: footer ? footer.getBoundingClientRect().bottom - contentBoxBottom : 0,
+e2e/hel1444-footnoted-chart-canvas.spec.ts:256:      labelClipped: label ? label.scrollWidth > label.clientWidth + 0.5 : false,
+e2e/hel1444-footnoted-chart-canvas.spec.ts:298:        getBoundingRect(): Rect;
+e2e/hel1444-footnoted-chart-canvas.spec.ts:335:                const r = el.getBoundingRect().clone();
+e2e/hel1444-footnoted-chart-canvas.spec.ts:655:      const box = async () => (await input.boundingBox())!;
+e2e/hel1444-footnoted-chart-canvas.spec.ts:701:      const canvas = await stackCard.locator(".chart-panel__canvas").boundingBox();
+e2e/hel503-palette-global-resource-search.spec.ts:200:  // Skeptic-final-1 CR1/CR2 (final gate, round 1) — the skeptic clicked the overflow row live
+e2e/hel503-palette-global-resource-search.spec.ts:204:  test("the overflow notice is unreachable by keyboard, unclickable, and aligned with icon rows", async ({
+e2e/hel503-palette-global-resource-search.spec.ts:208:    await registerAndLoginWithDashboard(page, request, "overflow");
+e2e/hel503-palette-global-resource-search.spec.ts:209:    // 7 sources matching "Zeta" — one more than the cap (5), so exactly one overflow notice
+e2e/hel503-palette-global-resource-search.spec.ts:235:    expect(activeDescendant).not.toContain("overflow");
+e2e/hel503-palette-global-resource-search.spec.ts:251:    const noticeBox = await notice.boundingBox();
+e2e/hel503-palette-global-resource-search.spec.ts:253:    const optionTitleBox = await optionTitle.boundingBox();
+e2e/hel1562-landing-page.spec.ts:122:        const overflow = await page.evaluate(
+e2e/hel1562-landing-page.spec.ts:123:          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+e2e/hel1562-landing-page.spec.ts:125:        expect(overflow).toBeLessThanOrEqual(0);
+e2e/hel1510-output-editor-table-overflow.spec.ts:6:// HEL-1510 -- rendered-geometry guard for HEL-1464's Output editor desktop-overflow fix. A table
+e2e/hel1510-output-editor-table-overflow.spec.ts:10:// `title`. All numbers come from getBoundingClientRect / scrollWidth (never CSS text), so a
+e2e/hel1510-output-editor-table-overflow.spec.ts:28:      node.getBoundingClientRect().right -
+e2e/hel1510-output-editor-table-overflow.spec.ts:35:test("table Output editor at 1100px: an 86-char column name overflows nothing", async ({
+e2e/hel1510-output-editor-table-overflow.spec.ts:54:      name: "HEL-1510 overflow source",
+e2e/hel1510-output-editor-table-overflow.spec.ts:67:      name: "HEL-1510 overflow pipeline",
+e2e/hel1510-output-editor-table-overflow.spec.ts:105:    const overflows: string[] = [];
+e2e/hel1510-output-editor-table-overflow.spec.ts:107:      const right = await controls.nth(i).evaluate((n) => n.getBoundingClientRect().right);
+e2e/hel1510-output-editor-table-overflow.spec.ts:110:        overflows.push(`${label} right=${right.toFixed(1)} limit=${limit.toFixed(1)}`);
+e2e/hel1510-output-editor-table-overflow.spec.ts:113:    expect(overflows, `controls past the Configuration card content box`).toEqual([]);
+e2e/hel1510-output-editor-table-overflow.spec.ts:117:    const dims = await body.evaluate((n) => ({ sw: n.scrollWidth, cw: n.clientWidth }));
+e2e/hel1510-output-editor-table-overflow.spec.ts:120:      `modal body scrollWidth ${dims.sw} vs clientWidth ${dims.cw}`,
+e2e/hel1510-output-editor-table-overflow.spec.ts:123:    const nameBox = await name.boundingBox();
+e2e/hel1351-aggregated-chart-overlay.spec.ts:68:        height: inst.getDom().getBoundingClientRect().height as number,
+e2e/hel1351-aggregated-chart-overlay.spec.ts:245:            const box = await canvas.boundingBox();
+e2e/hel1350-chart-compare-picker.spec.ts:158:            const y = (await picker.boundingBox())?.y ?? 0;
+e2e/hel1350-chart-compare-picker.spec.ts:173:      const listBox = (await listbox.boundingBox())!;
+e2e/hel1350-chart-compare-picker.spec.ts:212:            const box = await canvas.boundingBox();
+e2e/hel1574-shell-rail.spec.ts:54:      expect((await page.locator(".app-rail").boundingBox())?.width).toBe(56);
+e2e/hel1574-shell-rail.spec.ts:91:        const r = el.getBoundingClientRect();
+e2e/hel1574-shell-rail.spec.ts:103:      return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+e2e/hel1574-shell-rail.spec.ts:133:    expect((await page.locator(".context-list").boundingBox())?.width).toBeCloseTo(264, 0);
+e2e/hel1574-shell-rail.spec.ts:148:      .boundingBox())!;
+e2e/hel1574-shell-rail.spec.ts:402:      await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+e2e/hel1574-shell-rail.spec.ts:403:      const scrollBefore = await scroller.evaluate((el) => el.scrollTop);
+e2e/hel1574-shell-rail.spec.ts:411:      const scrollAfter = await scroller.evaluate((el) => el.scrollTop);
+e2e/hel1574-shell-rail.spec.ts:443:      await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
+e2e/hel1574-shell-rail.spec.ts:448:        group.boundingBox(),
+e2e/hel1574-shell-rail.spec.ts:449:        page.locator(scroller).boundingBox(),
+e2e/hel1574-shell-rail.spec.ts:455:      await expect(group.getByText(new RegExp(`Delete ${itemName}\\?`))).toBeInViewport();
+e2e/hel1574-shell-rail.spec.ts:458:      ).toBeInViewport();
+e2e/hel1574-shell-rail.spec.ts:464:    const share = await page.getByRole("button", { name: `Share ${pipelineName}` }).boundingBox();
+e2e/hel1574-shell-rail.spec.ts:467:      .boundingBox();
+e2e/hel1574-shell-rail.spec.ts:525:        await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
+e2e/focus-presence-guard.spec.ts:64:        const rect = el.getBoundingClientRect();
+e2e/focus-presence-guard.spec.ts:305:            // one `overflow: hidden` box, sized 1x1, that a real focus
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:225:      const b = el.getBoundingClientRect();
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:443:            // Phone stack: one column, no horizontal page overflow, reading order of lg
+e2e/hel1023-breakpoint-layout-derivation.spec.ts:450:              await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:72:        const sheetRect = panel.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:73:        const barRect = bar.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:77:        const rowRect = firstRow?.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:142:      // control's centre with `elementFromPoint` — the same technique
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:147:        const rect = el.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:155:            const at = document.elementFromPoint(cx, cy + direction * next);
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:199:  // `getBoundingClientRect` on the rendered <svg> itself, scoped to the
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:226:        const rect = svg?.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:240:  // Task 6.4 / design.md D3 — element-at-point (not getBoundingClientRect,
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:270:        const rect = bar.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:273:        const elAtCentre = document.elementFromPoint(cx, cy);
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:287:      const rect = trigger.getBoundingClientRect();
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:288:      const el = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:318:        dragStripBottom: dragStrip.getBoundingClientRect().bottom,
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:319:        bottomNavTop: bottomNav.getBoundingClientRect().top,
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:470:            sheetTop: panel.getBoundingClientRect().top,
+e2e/hel773-top-anchored-mobile-nav-sheet.spec.ts:471:            barBottom: bar.getBoundingClientRect().bottom,
+e2e/hel1260-orphan-owner-repair.spec.ts:89:      const rectBefore = await page.locator(".react-grid-item").first().boundingBox();
+e2e/hel1260-orphan-owner-repair.spec.ts:94:      const rectAfter = await page.locator(".react-grid-item").first().boundingBox();
+e2e/hel1260-orphan-owner-repair.spec.ts:145:      const rectBefore = await page.locator(".react-grid-item").first().boundingBox();
+e2e/hel1260-orphan-owner-repair.spec.ts:150:      const rectAfter = await page.locator(".react-grid-item").first().boundingBox();
+e2e/hel1398-chart-narrow-footnotes.spec.ts:35:      const r = (el: Element | null) => (el ? el.getBoundingClientRect() : null);
+e2e/hel1398-chart-narrow-footnotes.spec.ts:41:        return Math.round((el.getBoundingClientRect().height - pad) / lh);
+e2e/hel1398-chart-narrow-footnotes.spec.ts:46:          if (getComputedStyle(s).display !== "none" && s.getBoundingClientRect().width > 2) {
+e2e/hel1398-chart-narrow-footnotes.spec.ts:57:          `${el.tagName.toLowerCase()}.${(el.getAttribute("class") ?? "").split(" ").slice(0, 2).join(".")} h=${el.getBoundingClientRect().height.toFixed(1)} pad=${cs.paddingTop}/${cs.paddingBottom}`,
+e2e/hel1398-chart-narrow-footnotes.spec.ts:62:              `  sibling ${sib.tagName.toLowerCase()}.${(sib.getAttribute("class") ?? "").split(" ")[0]} h=${sib.getBoundingClientRect().height.toFixed(1)}`,
+e2e/hel1398-chart-narrow-footnotes.spec.ts:163:      const r = el.getBoundingClientRect();
+e2e/hel1398-chart-narrow-footnotes.spec.ts:261:            el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight),
+e2e/hel1398-chart-narrow-footnotes.spec.ts:263:          cardWidth: el.closest(".react-grid-item")!.getBoundingClientRect().width,
+e2e/hel1457-stale-tab-layout-save.spec.ts:45:    const bb = (await handle.boundingBox())!;
+e2e/hel1457-stale-tab-layout-save.spec.ts:124:      const bb = (await handle.boundingBox())!;
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:102:  // `hel1085-form-field-renderers-keyboard.spec.ts` exercises a different (overflow/D8) claim.
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:439:        // overflow is the actual fold this finding is about.
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:442:        const buttonBox = await submitButton.boundingBox();
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:443:        const bodyBox = await panelBody.boundingBox();
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:446:        const overflowPx =
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:449:          `[HEL-1158 remeasure][${theme}] submit button bottom vs panel body bottom: overflowPx=${overflowPx.toFixed(2)}`,
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:453:        // keyboard reachability regardless of the measured overflow: Tab to submit and confirm
+e2e/hel1090-form-panel-assembled-a11y.spec.ts:457:        const focusedBox = await submitButton.boundingBox();
+e2e/hel1311-heatmap-histogram-charts.spec.ts:103:  const box = await card.locator("canvas").first().boundingBox();
+e2e/hel1311-heatmap-histogram-charts.spec.ts:303:          getBoundingRect(): { x: number; y: number; width: number; height: number };
+e2e/hel1311-heatmap-histogram-charts.spec.ts:313:        const rect = poly.getBoundingRect();
+e2e/hel1311-heatmap-histogram-charts.spec.ts:505:            async (n) => (await page.getByRole("combobox", { name: n }).boundingBox())!.height,
+e2e/hel1311-heatmap-histogram-charts.spec.ts:524:      const binHeight = (await bins.boundingBox())!.height;
+e2e/hel572-chart-click-drilldown.spec.ts:173:  const box = await canvas.boundingBox();
+e2e/hel510-keyboard-shortcuts.spec.ts:76:    const rowBox = await firstRow.boundingBox();
+e2e/hel510-keyboard-shortcuts.spec.ts:77:    const labelBox = await groupLabel.boundingBox();
+e2e/hel1605-row-delete-confirm.spec.ts:78:async function scrollTopOf(page: Page): Promise<number> {
+e2e/hel1605-row-delete-confirm.spec.ts:79:  return pageScroller(page).evaluate((el) => el.scrollTop);
+e2e/hel1605-row-delete-confirm.spec.ts:117:          // above can nudge scrollTop a few px through scroll anchoring; the reveal moves it by the confirm's height.
+e2e/hel1605-row-delete-confirm.spec.ts:123:            expect(Math.abs(sample.scrollTop - early[0].scrollTop)).toBeLessThan(20);
+e2e/hel1605-row-delete-confirm.spec.ts:132:  // A's confirm moves B up by its height; the pin scrolls the page back, which needs scrollTop >= that height.
+e2e/hel1605-row-delete-confirm.spec.ts:136:    // 768 is the widest phone shell. On Sources the table scroller there overflows vertically by 1px (HEL-1605
+e2e/hel1605-row-delete-confirm.spec.ts:139:      "I14 (1px-overflowing table scroller): page scrolled by about A's confirm height",
+e2e/hel1605-row-delete-confirm.spec.ts:170:      const aHeight = (await aGroup.locator("xpath=ancestor::tr").boundingBox())!.height;
+e2e/hel1605-row-delete-confirm.spec.ts:181:      expect(await scrollTopOf(page)).toBeGreaterThanOrEqual(aHeight);
+e2e/hel1605-row-delete-confirm.spec.ts:231:      .evaluate((el) => (el.scrollLeft = el.scrollWidth));
+e2e/hel1605-row-delete-confirm.spec.ts:232:    await pageScroller(page).evaluate((el) => (el.scrollTop = 0));
+e2e/hel1605-row-delete-confirm.spec.ts:237:    expect(await scrollTopOf(page)).toBeLessThan(5);
+e2e/hel1605-row-delete-confirm.spec.ts:238:    const box = (await b.boundingBox())!;
+e2e/hel1605-row-delete-confirm.spec.ts:284:      await page.locator(scroller).evaluate((el) => (el.scrollLeft = el.scrollWidth));
+e2e/hel1605-row-delete-confirm.spec.ts:288:      await pageScroller(page).evaluate((el) => el.scrollTo(0, el.scrollHeight));
+e2e/hel1605-row-delete-confirm.spec.ts:290:      await pageScroller(page).evaluate((el) => el.scrollTo(0, el.scrollHeight));
+e2e/hel1605-row-delete-confirm.spec.ts:311:      const box = (await cell.boundingBox())!;
+e2e/state-surface-contrast-guard.spec.ts:226:        const rect = el.getBoundingClientRect();
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:14:// measures `getBoundingClientRect()`/computed style on the RUNNING app, the
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:27:// 3.2 (`scrollWidth > clientWidth`) is asserted explicitly below rather than
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:155:  scrollWidth: number;
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:156:  clientWidth: number;
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:169:    const l = label.getBoundingClientRect();
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:170:    const i = icon.getBoundingClientRect();
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:176:      scrollWidth: (th as HTMLElement).scrollWidth,
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:177:      clientWidth: (th as HTMLElement).clientWidth,
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:197:        result.scrollWidth,
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:198:        "the long-label header must actually be truncating (scrollWidth > clientWidth)",
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:199:      ).toBeGreaterThan(result.clientWidth);
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:236:      const thBox = await th.first().boundingBox();
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:239:      const buttonRect = await pinButton.evaluate((el) => el.getBoundingClientRect());
+e2e/hel1065-pin-toggle-css-fixes.spec.ts:283:    const rowBox = await headerRow.boundingBox();
+e2e/support/rowDeleteGesture.ts:15:      const delta = target.getBoundingClientRect().bottom - (window.innerHeight - 75);
+e2e/support/rowDeleteGesture.ts:16:      el.scrollTop += delta;
+e2e/support/rowDeleteGesture.ts:28:  let current = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
+e2e/support/rowDeleteGesture.ts:32:    current = await button.evaluate((el) => el.closest("tr")!.getBoundingClientRect().top);
+e2e/support/rowDeleteGesture.ts:56:        if (tracked !== null) tops.push(tracked.closest("tr")!.getBoundingClientRect().top);
+e2e/support/rowDeleteGesture.ts:93:    const box = group?.getBoundingClientRect();
+e2e/support/rowDeleteGesture.ts:98:      navTop: navVisible ? nav.getBoundingClientRect().top : null,
+e2e/support/rowDeleteGesture.ts:138:/** From the next mouse press on, samples the row's top and the page's scrollTop every animation frame for 1.5 s, stamped with the time since
+e2e/support/rowDeleteGesture.ts:142:    const samples: { t: number; top: number; scrollTop: number }[] = [];
+e2e/support/rowDeleteGesture.ts:154:              top: button.closest("tr")!.getBoundingClientRect().top,
+e2e/support/rowDeleteGesture.ts:155:              scrollTop: document.querySelector(".app-content")!.scrollTop,
+e2e/support/rowDeleteGesture.ts:168:): Promise<{ t: number; top: number; scrollTop: number }[]> {
+e2e/support/rowDeleteGesture.ts:171:      (window as unknown as { __topSamples: { t: number; top: number; scrollTop: number }[] })
+e2e/support/accentAudit.ts:131:      const rect = el.getBoundingClientRect();
+e2e/support/focusPresenceProbe.ts:56:    const r = el.getBoundingClientRect();
+e2e/support/focusPresenceProbe.ts:107: *  (only ancestors whose computed overflow actually clips are included —
+e2e/support/focusPresenceProbe.ts:118:      const clipsX = s.overflowX === "hidden" || s.overflowX === "clip";
+e2e/support/focusPresenceProbe.ts:119:      const clipsY = s.overflowY === "hidden" || s.overflowY === "clip";
+e2e/support/focusPresenceProbe.ts:121:        const r = node.getBoundingClientRect();
+e2e/support/webFonts.ts:61:  scope.getBoundingClientRect();
+e2e/support/touchTargetProbe.ts:12:// Deliberately measures `getBoundingClientRect()` at runtime, never CSS
+e2e/support/touchTargetProbe.ts:18: *  (`getBoundingClientRect()`) floor checks in `assertFloor`/`sweepSurface`.
+e2e/support/touchTargetProbe.ts:24: *  `calc()`, no fractional line-height overflow (`line-height: 19.6px`
+e2e/support/touchTargetProbe.ts:30: *  reports a round integer pixel height while its `getBoundingClientRect`
+e2e/support/touchTargetProbe.ts:78:/** Visibility-gated `getBoundingClientRect()` read. A zero-area or
+e2e/support/touchTargetProbe.ts:88:  const box = await locator.boundingBox();
+e2e/support/touchTargetProbe.ts:160:/** `elementFromPoint` bisection along one axis for `::after`-hit-expander
+e2e/support/touchTargetProbe.ts:174: *  TWO separate Node↔browser round trips (`locator.boundingBox()` then a
+e2e/support/touchTargetProbe.ts:221:        const at = document.elementFromPoint(cx, cy);
+e2e/support/touchTargetProbe.ts:244:            const r1 = elHandle.getBoundingClientRect();
+e2e/support/touchTargetProbe.ts:251:              const r2 = elHandle.getBoundingClientRect();
+e2e/support/touchTargetProbe.ts:268:        const atPoint = document.elementFromPoint(x, y);
+e2e/hel1392-remount-request-burst.spec.ts:195:    const box = await canvas.boundingBox();
+e2e/hel1003-actions-menu-keyboard-reach.spec.ts:96:    const restingWidth = await rowButton.evaluate((el) => el.getBoundingClientRect().width);
+e2e/hel1003-actions-menu-keyboard-reach.spec.ts:111:        const triggerRect = (triggerEl as Element).getBoundingClientRect();
+e2e/hel1003-actions-menu-keyboard-reach.spec.ts:112:        const wrapperRect = (wrapperEl as Element).getBoundingClientRect();
+e2e/hel1003-actions-menu-keyboard-reach.spec.ts:119:          rowButtonWidth: (rowButtonEl as Element).getBoundingClientRect().width,
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:12:// 90vh); overflow: hidden; }` gives the dialog a narrower fixed height at any
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:15:// box. Since the dialog clips overflow, the footer (Cancel/Save) and the
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:17:// (confirmed via `document.elementFromPoint` — a real click at the Save
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:85:        dialogHeight: dlg.getBoundingClientRect().height,
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:86:        innerHeight: inner.getBoundingClientRect().height,
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:95:    const saveBox = await saveButton.boundingBox();
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:97:    const saveHit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, {
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:109:    const bannerBox = await banner.boundingBox();
+e2e/hel716-panel-detail-tall-viewport-footer.spec.ts:111:    const bannerHit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, {
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:12:// `.panel-grid-card__handle`, asserting the RENDERED boundingBox (never the store). Before the fix a
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:77:  const box = await page.locator(".react-grid-item").nth(index).boundingBox();
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:121:  const bb = (await handle.boundingBox())!;
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:135:  const bb = (await handle.boundingBox())!;
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:191:            // `boundingBox()` does not wait for visibility (it returns null while the grid
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts:195:            const container = (await page.locator(".panel-grid").boundingBox())!;
+e2e/hel1331-history-payloads-toggle.spec.ts:179:      await expect(settings.getByRole("heading", { name: "Beta access" })).toBeInViewport();
+e2e/hel1572-appearance-preferences.spec.ts:74:/** "Clipped" = a block/inline-block/flex container whose computed `text-overflow` is NOT `ellipsis` and whose TEXT is
+e2e/hel1572-appearance-preferences.spec.ts:75: *  wider than its box. The text width comes from a Range over the element's contents, not `scrollWidth`: a
+e2e/hel1572-appearance-preferences.spec.ts:76: *  control's `::after` hit expander overflows its box by design and must not read as clipping. Intentionally
+e2e/hel1572-appearance-preferences.spec.ts:86:      const range = document.createRange();
+e2e/hel1572-appearance-preferences.spec.ts:88:      if (range.getBoundingClientRect().width > el.clientWidth + 1) {
+e2e/hel1572-appearance-preferences.spec.ts:300:        const r = (el as HTMLElement).getBoundingClientRect();
+e2e/hel1572-appearance-preferences.spec.ts:323:        const px = probe.getBoundingClientRect().width;
+e2e/hel1572-appearance-preferences.spec.ts:475:        const first = await swatches.nth(0).boundingBox();
+e2e/hel1572-appearance-preferences.spec.ts:476:        const second = await swatches.nth(1).boundingBox();
+e2e/hel1572-appearance-preferences.spec.ts:481:          // Below the fold at phone width: elementFromPoint is null off-screen, and an edge-aligned control would truncate the extent at the viewport edge, so centre it first.
+e2e/hel1572-appearance-preferences.spec.ts:489:          els.map((el) => Math.round(el.getBoundingClientRect().y)),
+e2e/hel1572-appearance-preferences.spec.ts:500:  test("under Mono no Appearance control or bottom-nav/command-bar label is clipped (non-ellipsized overflow) at 375/768/820/1280", async ({
+e2e/hel1572-appearance-preferences.spec.ts:540:      label.style.overflow = "visible";
+e2e/hel1572-appearance-preferences.spec.ts:588:            return (el as HTMLElement).getBoundingClientRect().width;
+e2e/hel1579-pipeline-spine-layout.spec.ts:135:      scrollHeight: document.documentElement.scrollHeight,
+e2e/hel1579-pipeline-spine-layout.spec.ts:138:    expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.innerHeight);
+e2e/hel1579-pipeline-spine-layout.spec.ts:141:      const box = (await locator.boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:147:      const box = (await rows.nth(i).boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:165:      scrollHeight: document.documentElement.scrollHeight,
+e2e/hel1579-pipeline-spine-layout.spec.ts:169:    expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.innerHeight);
+e2e/hel1579-pipeline-spine-layout.spec.ts:238:        const fieldBox = (await row.locator("> *").nth(0).boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:239:        const valueBox = (await row.locator("input").last().boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:243:          visible: el.clientWidth,
+e2e/hel1579-pipeline-spine-layout.spec.ts:244:          full: el.scrollWidth,
+e2e/hel1579-pipeline-spine-layout.spec.ts:255:        const chipBox = (await chip.boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:267:            .filter((el) => el.getClientRects().length > 0 && el.offsetWidth > 0)
+e2e/hel1579-pipeline-spine-layout.spec.ts:270:              ...el.getBoundingClientRect().toJSON(),
+e2e/hel1579-pipeline-spine-layout.spec.ts:282:        const box = (await header.boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:286:          sh: document.documentElement.scrollHeight,
+e2e/hel1579-pipeline-spine-layout.spec.ts:288:          sw: document.documentElement.scrollWidth,
+e2e/hel1579-pipeline-spine-layout.spec.ts:336:    const trunk = (await page.getByRole("button", { name: /^Step 2: Sort rows/ }).boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:337:    const branch = (await lane.getByRole("button", { name: /^Step 1: Limit rows/ }).boundingBox())!;
+e2e/hel1579-pipeline-spine-layout.spec.ts:381:          () => document.documentElement.scrollHeight <= window.innerHeight,
+e2e/hel1579-pipeline-spine-layout.spec.ts:392:  // nothing in the header overflows or is clipped, Run and the actions menu stay inside the viewport, the editor's
+e2e/hel1579-pipeline-spine-layout.spec.ts:431:              .filter((el) => el.offsetWidth > 0)
+e2e/hel1579-pipeline-spine-layout.spec.ts:434:                ...el.getBoundingClientRect().toJSON(),
+e2e/hel1579-pipeline-spine-layout.spec.ts:437:            const main = document.querySelector(".spine-body__main")!.getBoundingClientRect();
+e2e/hel1579-pipeline-spine-layout.spec.ts:440:            ).map((el) => el.getBoundingClientRect().right);
+e2e/hel1579-pipeline-spine-layout.spec.ts:444:              headerOverflow: header.scrollWidth - header.clientWidth,
+e2e/hel1579-pipeline-spine-layout.spec.ts:448:              docH: doc.scrollHeight - window.innerHeight,
+e2e/hel1579-pipeline-spine-layout.spec.ts:449:              docW: doc.scrollWidth - vw,
+e2e/hel1579-pipeline-spine-layout.spec.ts:455:            `${at}: header scrollWidth must not exceed clientWidth (over by ${m.headerOverflow}px; items ${m.items.map((i) => `${i.cls}:${Math.round(i.width)}`).join(" ")})`,
+e2e/hel1579-pipeline-spine-layout.spec.ts:479:            const box = (await menu.boundingBox())!;

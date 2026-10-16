@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+cd /home/matt/Development/helio/.claude/worktrees/task/adopt-webfonts-wait-layout-specs/hel-1613
+FONT_FORCE="$1" NODE_OPTIONS="--require /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1613/executor/hel1613-fontdelay-preload.cjs" DEV_PORT=7045 BACKEND_PORT=9952 nice -n 19 npx playwright test $(cat /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/hel1613/executor/hel1613-sweepfiles.txt | tr '\n' ' ') --workers=2 > "$2" 2>&1
+echo "exit=$?" >> "$2"

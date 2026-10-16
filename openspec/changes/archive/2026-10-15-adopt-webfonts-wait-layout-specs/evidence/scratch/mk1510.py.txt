@@ -1,0 +1,16 @@
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+t = open(src).read()
+t = t.replace('import { CSRF_HEADER', 'import { installGate } from "./zzfontgate";\nimport { CSRF_HEADER',1)
+t = t.replace('    await page.goto(`/pipelines/${pipeline.id}`);', '    gate = await installGate(page);\n    gate.arm();\n    await page.goto(`/pipelines/${pipeline.id}`);',1)
+t = t.replace('    const limit = (await contentRight(card)) + 0.5;', '    const limit = (await contentRight(card)) + 0.5;\n    console.log(`[probe1510] limit=${limit} state=${await gate.state()}`);\n    await gate.point("after-limit");',1)
+t = t.replace('    expect(overflows, `controls past', '    await gate.point("after-controls");\n    expect(overflows, `controls past',1)
+t = t.replace('    expect(\n      dims.sw,', '    console.log(`[probe1510] sw=${dims.sw} cw=${dims.cw} contentRightNow=${await contentRight(card)} state=${await gate.state()}`);\n    expect(\n      dims.sw,',1)
+t = t.replace('  } finally {', '  } finally {\n    gate?.releaseAll();',1)
+t = t.replace('  let ids:', '  let gate: Awaited<ReturnType<typeof installGate>> | undefined;\n  let ids:',1)
+t = t.replace('    const gate = await installGate(page);', '    gate = await installGate(page);',1).replace('    gate.arm();','    gate.arm();',1)
+t = t.replace('await gate.state()','await gate!.state()').replace('await gate.point','await gate!.point')
+t = t.replace('table Output editor at 1100px','PROBE table Output editor at 1100px')
+open(dst,'w').write(t)
+t=open(dst).read().replace('await page.goto(`/pipelines/${pipeline.id}`);','await page.goto(`/pipelines/${pipeline.id}`, { waitUntil: "commit" });')
+open(dst,'w').write(t)

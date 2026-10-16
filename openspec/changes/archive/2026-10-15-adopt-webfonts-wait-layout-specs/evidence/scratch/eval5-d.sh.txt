@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator5
+R="$S/run.sh"; L=$S/logs; FILES=$(cat $S/d-files.txt)
+while [ ! -f $S/c813.done ]; do sleep 20; done
+$R $L/d-A-baseline.log wt none $FILES
+FONT_FORCE=css-block $R $L/d-B-css-block.log wt fontdelay.cjs $FILES
+FONT_FORCE=late:1500:1500 $R $L/d-C-late-1500.log wt fontdelay.cjs $FILES
+FONT_FIRST=1 FONT_FIRST_N=1 $R $L/d-D-fontfirst-n1.log wt fontfirst.cjs $FILES
+FONT_FIRST=1 FONT_FIRST_N=1 FONT_FIRST_NOWAIT=1 $R $L/d-D-fontfirst-n1-nowait.log wt fontfirst-nowait.cjs $FILES
+for fam in Fraunces JetBrains_Mono Schibsted_Grotesk; do
+  FONT_FIRST=1 FONT_FIRST_N=1 FONT_FIRST_HOLD_FAMILY="${fam//_/ }" $R $L/d-E-hold-$fam.log wt fontfirst.cjs $FILES
+done
+SSC=e2e/state-surface-contrast-guard.spec.ts
+HEL1572_TYPE_STYLE=mono $R $L/d-ssc-mono-A-baseline.log wt none $SSC
+HEL1572_TYPE_STYLE=mono FONT_FORCE=css-block $R $L/d-ssc-mono-B-css-block.log wt fontdelay.cjs $SSC
+HEL1572_TYPE_STYLE=mono FONT_FORCE=late:1500:1500 $R $L/d-ssc-mono-C-late-1500.log wt fontdelay.cjs $SSC
+HEL1572_TYPE_STYLE=mono FONT_FIRST=1 FONT_FIRST_N=1 $R $L/d-ssc-mono-D-fontfirst-n1.log wt fontfirst.cjs $SSC
+HEL1572_TYPE_STYLE=mono FONT_FIRST=1 FONT_FIRST_N=1 FONT_FIRST_NOWAIT=1 $R $L/d-ssc-mono-D-fontfirst-n1-nowait.log wt fontfirst-nowait.cjs $SSC
+HEL1572_TYPE_STYLE=mono FONT_FIRST=1 FONT_FIRST_N=1 FONT_FIRST_HOLD_FAMILY="JetBrains Mono" $R $L/d-ssc-mono-E-hold-JetBrains_Mono.log wt fontfirst.cjs $SSC
+echo done > $S/d.done

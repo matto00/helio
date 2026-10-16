@@ -1,0 +1,10 @@
+e2e/hel1023-breakpoint-layout-derivation.spec.ts
+e2e/hel1028-layout-undo-redo-visual-revert.spec.ts
+e2e/hel1260-orphan-owner-repair.spec.ts
+e2e/hel1230-drag-then-create-persists.spec.ts
+e2e/hel1457-stale-tab-layout-save.spec.ts
+e2e/hel1003-actions-menu-keyboard-reach.spec.ts
+e2e/hel1398-chart-narrow-footnotes.spec.ts
+e2e/hel1512-category-axis-labels.spec.ts
+e2e/hel1275-metric-delta-sparkline.spec.ts
+e2e/hel1444-footnoted-chart-canvas.spec.ts

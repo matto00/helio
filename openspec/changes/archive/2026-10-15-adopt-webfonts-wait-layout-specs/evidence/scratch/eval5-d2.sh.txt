@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+S=/home/matt/Development/helio/.concertino/scratch/HEL-1613/evaluator5
+R="$S/run.sh"; L=$S/logs; F=e2e/zzd1572-values.spec.ts
+while [ ! -f $S/e.done ]; do sleep 20; done
+$R $L/d2-1572-baseline.log tree none $F
+FONT_CSS=block $R $L/d2-1572-fallback-css.log tree none $F
+FONT_HOLD=all FONT_AT=never $R $L/d2-1572-hold-all-never.log tree none $F
+for fam in "Schibsted Grotesk" "JetBrains Mono" "Fraunces"; do
+  FONT_HOLD="$fam" FONT_AT=never $R "$L/d2-1572-hold-${fam// /_}-never.log" tree none $F
+done
+echo done > $S/d2.done
