@@ -1,16 +1,15 @@
-/** Live, one-shot read of the OS/browser reduced-motion preference — the one
- *  shared implementation (HEL-1179). Use it wherever JS (not CSS) has to
- *  honour `prefers-reduced-motion`, e.g. ECharts option config or a JS-timed
- *  exit animation; CSS should keep using its own `@media` block.
+import { effectiveMotion } from "../theme/appearancePrefs";
+
+/** Live, one-shot read of whether reduced motion is in effect — the one shared implementation (HEL-1179, HEL-1572).
+ *  Use it wherever JS (not CSS) has to honour reduced motion, e.g. ECharts option config or a JS-timed exit
+ *  animation; CSS keeps its own scoped `@media` block.
  *
- *  ECharts hover-emphasis motion must be gated in JS because it is
- *  option config, not CSS: `theme/motionTokenGuard.css.test.ts` only scans
- *  `.css` files, so neither that guard nor a CSS `@media` block reaches it.
+ *  Precedence (DESIGN.md §10): a saved motion choice (`data-motion` on the root) wins — Off is reduced, Full and
+ *  Subtle are not — and with no saved choice the OS `prefers-reduced-motion: reduce` setting decides.
  *
- *  Guards `matchMedia` itself, not just `window` — jsdom (the test
- *  environment) doesn't implement it at all, so an unmocked test would
- *  otherwise throw rather than simply behaving as "no preference". */
+ *  ECharts hover-emphasis motion must be gated in JS because it is option config, not CSS:
+ *  `theme/motionTokenGuard.css.test.ts` only scans `.css` files, so neither that guard nor a CSS `@media` block
+ *  reaches it. */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return effectiveMotion() === "off";
 }

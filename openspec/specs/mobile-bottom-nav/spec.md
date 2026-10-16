@@ -163,16 +163,15 @@ render (the desktop sidebar's own "+" trigger remains the only "New chat" entry 
 - **THEN** the command bar's "New chat" control is not rendered
 
 ### Requirement: Added bottom-nav motion respects reduced-motion preference
-Any motion introduced by the floating tab bar SHALL be disabled outright when the user prefers
-reduced motion, not merely shortened, and SHALL be disabled by a declaration that clears the
-transition property rather than only its duration. This requirement constrains added motion; it does
-not mandate that motion exist — a per-tab lozenge does not travel between tabs, so it may be
-satisfied vacuously. The active tab SHALL still be correctly indicated either way.
+Any motion introduced by the floating tab bar SHALL be disabled outright when reduced motion is in effect, not merely
+shortened, and SHALL be disabled by a declaration that clears the transition property rather than only its duration.
+"Reduced motion in effect" means the user saved Motion = Off, or saved no motion choice while the OS reports `prefers-reduced-motion: reduce` (appearance-preferences). A saved Full or Subtle choice is not reduced motion, whatever the OS reports. This requirement constrains added motion; it does not mandate that motion exist — a per-tab lozenge does not
+travel between tabs, so it may be satisfied vacuously. The active tab SHALL still be correctly indicated either way.
 
 #### Scenario: Reduced motion disables any added transition
-- **WHEN** `prefers-reduced-motion: reduce` is set and the user switches tabs
-- **THEN** no added transition runs on the active tab's lozenge — either because none was declared,
-  or because the declared one is removed rather than shortened — and the correct tab is indicated
+- **WHEN** reduced motion is in effect (OS reduce with no saved choice, or a saved Off) and the user switches tabs
+- **THEN** no added transition runs on the active tab's lozenge — either because none was declared, or because the
+  declared one is removed rather than shortened — and the correct tab is indicated
 
 ### Requirement: Every one of the five current routes is escapable via the tab bar
 The bottom tab bar SHALL render exactly the five current nav destinations (Dashboards, Data Sources, Data Pipelines, Connectors, Assistant); no tab exists for the retired Data Types or Metrics routes. Every route remains reachable from the tab bar with no trapped route; content continues to scroll clear of the floating bar and clearance stays in sync with bar geometry, exactly as before this change.

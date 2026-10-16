@@ -16,11 +16,17 @@ export function AccentPicker({ accentColor, setAccentColor }: AccentPickerProps)
             key={preset.hex}
             type="button"
             className={`accent-picker__swatch${isSelected ? " accent-picker__swatch--selected" : ""}`}
-            style={{ backgroundColor: preset.hex }}
             aria-label={preset.label}
             aria-pressed={isSelected}
             onClick={() => setAccentColor(preset.hex)}
-          />
+          >
+            {/* The painted circle is a child so the hover scale never moves the 44px hit expander. */}
+            <span
+              className="accent-picker__dot"
+              style={{ backgroundColor: preset.hex }}
+              aria-hidden="true"
+            />
+          </button>
         );
       })}
     </div>

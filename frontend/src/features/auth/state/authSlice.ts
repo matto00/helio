@@ -16,6 +16,8 @@ import type {
   AuthResponse,
   LoginResult,
   MfaRequiredResponse,
+  AppearancePreferencesPatch,
+  PreferencesPatch,
   ShellPreferencesPatch,
   UpdateUserPreferenceRequest,
   User,
@@ -179,6 +181,21 @@ export const saveShellPreferences = createAsyncThunk<void, ShellPreferencesPatch
   },
 );
 
+/** HEL-1572: persists appearance keys (type style / density / motion; `motion: null` clears the choice). Like the
+ *  shell write: the local value is applied first (`applyAppearancePreferences`), a failure keeps it silently, and the
+ *  response is not written back over newer local state. */
+export const saveAppearancePreferences = createAsyncThunk<void, AppearancePreferencesPatch>(
+  "auth/saveAppearancePreferences",
+  async (patch) => {
+    const body: PreferencesPatch = patch;
+    try {
+      await patchShellPreferencesRequest(body);
+    } catch {
+      // Keep the local value; the next change or the next load reconciles.
+    }
+  },
+);
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -208,6 +225,21 @@ const authSlice = createSlice({
         ...state.currentUser.preferences,
         ...action.payload,
       };
+    },
+    /** HEL-1572: applies appearance keys locally (optimistic); `saveAppearancePreferences` persists them. A `null`
+     *  motion removes the saved choice, mirroring the server. */
+    applyAppearancePreferences(state, action: PayloadAction<AppearancePreferencesPatch>) {
+      if (state.currentUser === null) return;
+      const { motion, ...rest } = action.payload;
+      const next = {
+        accentColor: null,
+        zoomLevels: {},
+        ...state.currentUser.preferences,
+        ...rest,
+      };
+      if (motion === null) delete next.motion;
+      else if (motion !== undefined) next.motion = motion;
+      state.currentUser.preferences = next;
     },
     clearAuth(state) {
       state.currentUser = null;
@@ -305,5 +337,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAuth, clearAuth, applyShellPreferences } = authSlice.actions;
+export const { setAuth, clearAuth, applyShellPreferences, applyAppearancePreferences } =
+  authSlice.actions;
 export const authReducer = authSlice.reducer;

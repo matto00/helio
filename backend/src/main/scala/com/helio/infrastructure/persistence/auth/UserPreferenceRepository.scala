@@ -14,7 +14,21 @@ final case class UserPreferencesData(
     zoomLevels: Map[String, Double],
     // HEL-1574: shell layout keys in the same `users.preferences` JSON; None = never set.
     contextListWidth: Option[Int] = None,
-    contextListCollapsed: Option[Boolean] = None
+    contextListCollapsed: Option[Boolean] = None,
+    // HEL-1572: appearance keys in the same JSON; None = never set (motion None = follow the OS).
+    typeStyle: Option[String] = None,
+    density: Option[String] = None,
+    motion: Option[String] = None
+)
+
+/** HEL-1572: a validated partial update. `motion` is `None` = leave, `Some(None)` = clear (follow the OS),
+ *  `Some(Some(v))` = set. */
+final case class PreferencesPatch(
+    contextListWidth: Option[Int] = None,
+    contextListCollapsed: Option[Boolean] = None,
+    typeStyle: Option[String] = None,
+    density: Option[String] = None,
+    motion: Option[Option[String]] = None
 )
 
 class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
@@ -58,32 +72,55 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         case _                  => None
       }
 
+      def enum(key: String, allowed: Set[String]): Option[String] = fields.get(key) match {
+        case Some(JsString(v)) if allowed.contains(v) => Some(v)
+        case _                                        => None
+      }
+
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
-      UserPreferencesData(accentColor, zoomMap, width, collapsed)
+      UserPreferencesData(
+        accentColor,
+        zoomMap,
+        width,
+        collapsed,
+        enum("typeStyle", TypeStyles),
+        enum("density", Densities),
+        enum("motion", MotionLevels)
+      )
     }
   }
 
   def upsertGlobalPrefs(userId: UserId, accentColor: String): Future[Unit] =
     mergePrefs(userId, JsObject("accentColor" -> JsString(accentColor)))
 
-  /** HEL-1574: merges only the shell keys present; every other stored key is untouched. The caller has validated the
-   *  ranges. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
-  def patchShellPrefs(userId: UserId, width: Option[Int], collapsed: Option[Boolean]): Future[Unit] = {
-    val fields = Vector(
-      width.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
-      collapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue))
+  /** HEL-1574/HEL-1572: merges only the keys present; every other stored key is untouched. The caller has validated
+   *  the values. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
+  def patchPrefs(userId: UserId, patch: PreferencesPatch): Future[Unit] = {
+    val fields: Map[String, JsValue] = Vector(
+      patch.contextListWidth.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
+      patch.contextListCollapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue)),
+      patch.typeStyle.map(v => "typeStyle" -> (JsString(v): JsValue)),
+      patch.density.map(v => "density" -> (JsString(v): JsValue)),
+      patch.motion.flatten.map(v => "motion" -> (JsString(v): JsValue))
     ).flatten.toMap
-    if (fields.isEmpty) Future.unit else mergePrefs(userId, JsObject(fields))
+    val clearMotion = patch.motion.contains(None)
+    if (fields.isEmpty && !clearMotion) Future.unit else mergePrefs(userId, JsObject(fields), clearMotion)
   }
 
-  /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. */
-  private def mergePrefs(userId: UserId, patch: JsObject): Future[Unit] = {
-    val patchStr   = patch.compactPrint
+  /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. When
+   *  `clearMotion` the `motion` key is removed in the same UPDATE (the patch never carries it then). */
+  private def mergePrefs(userId: UserId, patch: JsObject, clearMotion: Boolean = false): Future[Unit] = {
+    val patchStr = patch.compactPrint
     val action =
-      sqlu"""UPDATE users
-             SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
-             WHERE id = ${userId.value}::uuid"""
+      if (clearMotion)
+        sqlu"""UPDATE users
+               SET preferences = ((COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb) - 'motion')::text
+               WHERE id = ${userId.value}::uuid"""
+      else
+        sqlu"""UPDATE users
+               SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
+               WHERE id = ${userId.value}::uuid"""
     db.run(action).map(_ => ())
   }
 
@@ -104,6 +141,10 @@ object UserPreferenceRepository {
 
   val ContextListMinWidth: Int = 200
   val ContextListMaxWidth: Int = 400
+  // HEL-1572: the closed value sets (lowercase tokens, not labels).
+  val TypeStyles: Set[String]   = Set("sans", "mono", "serif")
+  val Densities: Set[String]    = Set("comfortable", "compact")
+  val MotionLevels: Set[String] = Set("full", "subtle", "off")
 
   final case class UserDashboardZoomRow(
       userId: UUID,
