@@ -180,7 +180,8 @@ Every dashboard an agent reads (`list_dashboards`, `get_dashboard`) and every la
 
 - `update_dashboard_layout` **requires** `expectedLayoutVersion`: the `layoutVersion` of the dashboard as you last
   read it. This is a breaking change to the tool's input: a call without it is rejected by the tool schema before
-  any request is sent.
+  any request is sent. Callers written before HEL-1524 that omit it now get a validation error; read the
+  dashboard first and pass its `layoutVersion` (**contract change**: no fallback, not optional).
 - `auto_layout_dashboard` accepts an optional `expectedLayoutVersion`, sent when given. Without it the server packs
   against the live layout and keeps every panel you did not name.
 - `place_outputs` sends no precondition on its internal pack (its own creates already made any held version stale);
@@ -230,8 +231,13 @@ entirely):
   pipelines:   [{…summary, steps:[{position,type,outputColumns[],validationError}],
                  lastRunAssertions, outputs:[{id,name,kind,nodeStepId,schema[],placements[{dashboardId,panelId,controls[]}]}]}],
   dashboards:  [{id,name,panelCount}],
-  pipelineShapes, truncation, agentContext, connectors }
+  pipelineShapes, truncation, agentContext, connectors, outputsError? }
 ```
+
+`outputsError` (**HEL-1617**) appears only when the Outputs fetch failed (e.g. a 429 past the retry budget): every
+pipeline's `outputs` is then `[]` and `outputsError` carries the failure message, so an agent can tell "fetch failed"
+from "no Outputs". A failure of the core fetches (sources, dashboards, pipelines, shapes) still fails the call with
+an `isError` rate-limit result.
 
 It is a **client-side fan-out** over existing endpoints — no backend
 aggregation. Call budget: `2` list calls (sources, dashboards) `+ 1` pipelines

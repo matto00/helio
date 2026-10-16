@@ -452,6 +452,10 @@ export interface WorkspaceContext {
    *  whole call. Lets an agent see what it can author a REST source against without a separate
    *  `list_connectors` call. */
   connectors: ConnectorSummary[];
+  /** HEL-1617: present ONLY when the Outputs fetch failed (e.g. a 429 past the retry budget) --
+   *  every pipeline's `outputs` is then `[]`, and this carries the failure message so an agent can
+   *  tell "fetch failed" from "no Outputs" (mirrors `stepsError`). Omitted on success. */
+  outputsError?: string;
 }
 
 /** Distinct panelIds referenced across all four breakpoints of a layout. */
@@ -497,13 +501,25 @@ export async function buildWorkspaceContext(
   // immediately above — buildConnectors is already self-`.catch`-guarded, so a rejection here
   // can never fail this whole call, only degrade `connectors` to `[]`.
   const connectorsPromise = buildConnectors(api);
-  // HEL-907 design.md Decision 6: same pattern — Outputs are fetched and grouped independently
-  // (`fetchAllOutputs`/`buildOutputSummariesByPipeline`), each Output's placement lookup already
-  // self-`.catch`-guarded (`fetchPlacements`), so a failure here degrades only the `outputs`
-  // field of each affected pipeline, never the whole call.
-  const outputsByPipelinePromise = fetchAllOutputs(api).then((outputs) =>
-    buildOutputSummariesByPipeline(api, outputs),
-  );
+  // HEL-907 design.md Decision 6 / HEL-1617: same pattern — Outputs are fetched and grouped
+  // independently (`fetchAllOutputs`/`buildOutputSummariesByPipeline`), each Output's placement
+  // lookup already self-`.catch`-guarded (`fetchPlacements`). The promise carries its OWN catch so
+  // it can never reject: it is started before the fail-fast Promise.all below and awaited only
+  // after it, so an unguarded rejection would be orphaned (an unhandled rejection that kills the
+  // process) whenever it settles first. A failure degrades only the `outputs` field of each
+  // pipeline (to `[]`) and sets the top-level `outputsError`, never the whole call.
+  const outputsByPipelinePromise: Promise<{
+    map: Map<string, WorkspaceContextOutputSummary[]>;
+    error?: string;
+  }> = fetchAllOutputs(api)
+    .then((outputs) => buildOutputSummariesByPipeline(api, outputs))
+    .then(
+      (map) => ({ map }),
+      (err: unknown) => ({
+        map: new Map<string, WorkspaceContextOutputSummary[]>(),
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
 
   const [sourcesPage, dashboardsPage, pipelineSummaries, pipelineShapes] = await Promise.all([
     api.listDataSources(),
@@ -512,7 +528,7 @@ export async function buildWorkspaceContext(
     api.listPipelineShapes(),
   ]);
 
-  const outputsByPipeline = await outputsByPipelinePromise;
+  const { map: outputsByPipeline, error: outputsError } = await outputsByPipelinePromise;
 
   // Fan out one analyze + one run-history per pipeline for steps/output columns/assertions.
   const pipelines = await Promise.all(
@@ -647,6 +663,7 @@ export async function buildWorkspaceContext(
     truncation: PLACEHOLDER_TRUNCATION,
     agentContext,
     connectors,
+    ...(outputsError !== undefined ? { outputsError } : {}),
   };
 
   return applyBudget(
