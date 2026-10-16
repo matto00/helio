@@ -8,7 +8,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -29,7 +29,7 @@ import slick.jdbc.PostgresProfile.api._
 
 import java.util.UUID
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** HEL-1574: the full route tree over a non-BYPASSRLS `helio_app_test` app pool with three seeded users, each with
  *  their own session cookie, so a spec can prove that user B never sees or alters what user A created. */
@@ -69,6 +69,10 @@ abstract class TwoUserRlsApiFixture
   }
 
   protected def await[T](f: Future[T]): T = Await.result(f, 20.seconds)
+
+  /** HEL-1619: a spec that needs persisted pipeline runs (run history, assertions) overrides this to return a
+   *  real repository over `ctx`; `null` (the default) is the pre-existing wiring, so other specs are untouched. */
+  protected def pipelineRunRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): PipelineRunRepository = null
 
   override def beforeAll(): Unit = {
     embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
@@ -122,6 +126,7 @@ abstract class TwoUserRlsApiFixture
       new UserRepository(appDb)(ec), sessionRepo, prefRepo, pipelineRepo, new PipelineStepRepository(ctx)(ec),
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(ec),
       pipelineScheduleRepo = new PipelineScheduleRepository(ctx)(ec),
+      pipelineRunRepo = pipelineRunRepoFor(ctx)(ec),
       dbContext = ctx
     ).routes
 

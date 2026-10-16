@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/pipeline-context-details-response.schema.json",
+  "title": "PipelineContextDetailsResponse",
+  "description": "GET /api/pipelines/context-details response body (HEL-1619): one item per pipeline `GET /api/pipelines` returns for the same caller (owner-scoped, same order). Each item carries that pipeline's steps -- the same elements `GET /api/pipelines/:id/steps` returns -- and, when the pipeline has at least one persisted run, the latest run's assertion summary (the same value as `GET /api/pipelines/:id/run-history`'s first entry's `assertions`). `latestRunAssertions` is OMITTED (not null) for a never-run pipeline, so it is not in `required`. helio-mcp's `get_workspace_context` reads this instead of three requests per pipeline; `additionalProperties: false` so a renamed key fails validation on both the backend and the MCP test.",
+  "type": "object",
+  "$defs": {
+    "PipelineStep": {
+      "type": "object",
+      "description": "One element of `GET /api/pipelines/:id/steps`. `config`'s shape depends on `type`; `parentStepId` and `rootId` are omitted when absent (spray-json drops `Option = None`).",
+      "properties": {
+        "id": { "type": "string" },
+        "pipelineId": { "type": "string" },
+        "position": { "type": "integer" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "config": {},
+        "enabled": { "type": "boolean" },
+        "parentStepId": { "type": "string" },
+        "rootId": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "pipelineId",
+        "position",
+        "createdAt",
+        "updatedAt",
+        "config",
+        "enabled",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "PipelineContextDetailsItem": {
+      "type": "object",
+      "properties": {
+        "pipelineId": { "type": "string" },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PipelineStep" }
+        },
+        "latestRunAssertions": {
+          "$ref": "https://helio.local/schemas/pipelines/pipeline-run-record.schema.json#/$defs/AssertionSummary"
+        }
+      },
+      "required": ["pipelineId", "steps"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PipelineContextDetailsItem" }
+    }
+  },
+  "required": ["items"],
+  "additionalProperties": false
+}

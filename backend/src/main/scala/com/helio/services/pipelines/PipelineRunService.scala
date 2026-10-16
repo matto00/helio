@@ -4,7 +4,7 @@ import com.helio.domain.ai.AiStepClient
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
-import com.helio.api.protocols.pipelines.{LatestRunResponse, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse}
+import com.helio.api.protocols.pipelines.{AssertionSummary, LatestRunResponse, PipelinePreviewResponse, PipelineRunRecord, RunResultResponse}
 import com.helio.api.routes.pipelines.PipelineRunRegistry
 import com.helio.domain.model.{AuthenticatedUser, OutputId, PipelineId, PipelineRootId, PipelineRunId, PipelineStepId, TruncatedRead}
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineExecutionBackend}
@@ -297,6 +297,11 @@ final class PipelineRunService(
   /** Delegates to [[PipelineRunQueries.history]], where the method and its documentation live. */
   def history(pipelineId: PipelineId, user: AuthenticatedUser): Future[Either[ServiceError, Vector[PipelineRunRecord]]] =
     queries.history(pipelineId, user)
+
+  /** Delegates to [[PipelineRunQueries.latestAssertionsFor]]. The caller must already have confirmed
+   *  access to every id (see that method). Empty when no run repository is wired. */
+  def latestAssertionsFor(pipelineIds: Set[PipelineId]): Future[Map[PipelineId, AssertionSummary]] =
+    queries.latestAssertionsFor(pipelineIds)
 
   /** SSE event stream (delegates to the registry). Routes wrap this into the
    *  `text/event-stream` HTTP response. */

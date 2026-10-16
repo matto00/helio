@@ -1,0 +1,5803 @@
+{
+  "counts": {
+    "dataSources": 5,
+    "pipelines": 55,
+    "dashboards": 1
+  },
+  "dataSources": [
+    {
+      "id": "src-0",
+      "name": "Source 0",
+      "type": "csv",
+      "tag": null,
+      "inferredSchema": [
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "src-1",
+      "name": "Source 1",
+      "type": "csv",
+      "tag": null,
+      "inferredSchema": [
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "src-2",
+      "name": "Source 2",
+      "type": "csv",
+      "tag": null,
+      "inferredSchema": [
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "src-3",
+      "name": "Source 3",
+      "type": "csv",
+      "tag": null,
+      "inferredSchema": [
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "id": "src-4",
+      "name": "Source 4",
+      "type": "csv",
+      "tag": null,
+      "inferredSchema": [
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "label",
+          "type": "string"
+        }
+      ]
+    }
+  ],
+  "pipelines": [
+    {
+      "id": "p-0",
+      "name": "Pipeline 0",
+      "roots": [
+        {
+          "id": "r-0-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-0-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": "bad config",
+          "warnings": [
+            {
+              "code": "w",
+              "message": "hm"
+            }
+          ]
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-0-1",
+          "parentId": null,
+          "rootId": "r-0-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-0-2",
+          "parentId": "s-0-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-1"]
+        },
+        {
+          "id": "s-0-3",
+          "parentId": "s-0-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-0-4",
+          "parentId": null,
+          "rootId": "r-0-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-0",
+          "name": "Out 0.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-0-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-0",
+              "controls": [
+                {
+                  "id": "c-0",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 0"
+                },
+                {
+                  "id": "c-0-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-1",
+          "name": "Out 0.1",
+          "kind": "metric",
+          "nodeStepId": "s-0-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-1",
+      "name": "Pipeline 1",
+      "roots": [
+        {
+          "id": "r-1-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-1-1",
+          "parentId": null,
+          "rootId": "r-1-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-1-2",
+          "parentId": "s-1-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-11"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-10",
+          "name": "Out 1.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-1-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-11",
+          "name": "Out 1.1",
+          "kind": "metric",
+          "nodeStepId": "s-1-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-2",
+      "name": "Pipeline 2",
+      "roots": [
+        {
+          "id": "r-2-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-2-1",
+          "parentId": null,
+          "rootId": "r-2-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-2-2",
+          "parentId": "s-2-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-21"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-20",
+          "name": "Out 2.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-2-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-21",
+          "name": "Out 2.1",
+          "kind": "metric",
+          "nodeStepId": "s-2-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-3",
+      "name": "Pipeline 3",
+      "roots": [
+        {
+          "id": "r-3-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-3-1",
+          "parentId": null,
+          "rootId": "r-3-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-3-2",
+          "parentId": "s-3-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-31"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-30",
+          "name": "Out 3.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-3-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-3",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-31",
+          "name": "Out 3.1",
+          "kind": "metric",
+          "nodeStepId": "s-3-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-4",
+      "name": "Pipeline 4",
+      "roots": [
+        {
+          "id": "r-4-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": null,
+      "lastRunAt": null,
+      "lastRunRowCount": null,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 0,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-4-1",
+          "parentId": null,
+          "rootId": "r-4-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-4-2",
+          "parentId": "s-4-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-41"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-40",
+          "name": "Out 4.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-4-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-41",
+          "name": "Out 4.1",
+          "kind": "metric",
+          "nodeStepId": "s-4-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-5",
+      "name": "Pipeline 5",
+      "roots": [
+        {
+          "id": "r-5-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-5-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-5-1",
+          "parentId": null,
+          "rootId": "r-5-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-5-2",
+          "parentId": "s-5-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-51"]
+        },
+        {
+          "id": "s-5-3",
+          "parentId": "s-5-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-5-4",
+          "parentId": null,
+          "rootId": "r-5-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-50",
+          "name": "Out 5.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-5-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-51",
+          "name": "Out 5.1",
+          "kind": "metric",
+          "nodeStepId": "s-5-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-6",
+      "name": "Pipeline 6",
+      "roots": [
+        {
+          "id": "r-6-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [],
+      "stepsError": "400 400: analyze exploded",
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-6-1",
+          "parentId": null,
+          "rootId": "r-6-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-6-2",
+          "parentId": "s-6-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-61"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-60",
+          "name": "Out 6.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-6-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-6",
+              "controls": [
+                {
+                  "id": "c-6",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 6"
+                },
+                {
+                  "id": "c-6-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-61",
+          "name": "Out 6.1",
+          "kind": "metric",
+          "nodeStepId": "s-6-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-7",
+      "name": "Pipeline 7",
+      "roots": [
+        {
+          "id": "r-7-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-7-1",
+          "parentId": null,
+          "rootId": "r-7-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-7-2",
+          "parentId": "s-7-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-71"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-70",
+          "name": "Out 7.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-7-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-71",
+          "name": "Out 7.1",
+          "kind": "metric",
+          "nodeStepId": "s-7-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-8",
+      "name": "Pipeline 8",
+      "roots": [
+        {
+          "id": "r-8-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-8-1",
+          "parentId": null,
+          "rootId": "r-8-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-8-2",
+          "parentId": "s-8-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-81"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-80",
+          "name": "Out 8.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-8-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-81",
+          "name": "Out 8.1",
+          "kind": "metric",
+          "nodeStepId": "s-8-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-9",
+      "name": "Pipeline 9",
+      "roots": [
+        {
+          "id": "r-9-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [],
+      "outputs": [
+        {
+          "id": "o-90",
+          "name": "Out 9.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-9-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-9",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-91",
+          "name": "Out 9.1",
+          "kind": "metric",
+          "nodeStepId": null,
+          "rootId": "r-9-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-10",
+      "name": "Pipeline 10",
+      "roots": [
+        {
+          "id": "r-10-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-10-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-10-1",
+          "parentId": null,
+          "rootId": "r-10-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-10-2",
+          "parentId": "s-10-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-101"]
+        },
+        {
+          "id": "s-10-3",
+          "parentId": "s-10-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-10-4",
+          "parentId": null,
+          "rootId": "r-10-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-100",
+          "name": "Out 10.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-10-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-101",
+          "name": "Out 10.1",
+          "kind": "metric",
+          "nodeStepId": "s-10-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-11",
+      "name": "Pipeline 11",
+      "roots": [
+        {
+          "id": "r-11-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": "bad config"
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-11-1",
+          "parentId": null,
+          "rootId": "r-11-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-11-2",
+          "parentId": "s-11-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-111"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-110",
+          "name": "Out 11.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-11-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-111",
+          "name": "Out 11.1",
+          "kind": "metric",
+          "nodeStepId": "s-11-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-12",
+      "name": "Pipeline 12",
+      "roots": [
+        {
+          "id": "r-12-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-12-1",
+          "parentId": null,
+          "rootId": "r-12-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-12-2",
+          "parentId": "s-12-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-121"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-120",
+          "name": "Out 12.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-12-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-12",
+              "controls": [
+                {
+                  "id": "c-12",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 12"
+                },
+                {
+                  "id": "c-12-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-121",
+          "name": "Out 12.1",
+          "kind": "metric",
+          "nodeStepId": "s-12-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-13",
+      "name": "Pipeline 13",
+      "roots": [
+        {
+          "id": "r-13-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null,
+          "warnings": [
+            {
+              "code": "w",
+              "message": "hm"
+            }
+          ]
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-13-1",
+          "parentId": null,
+          "rootId": "r-13-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-13-2",
+          "parentId": "s-13-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-131"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-130",
+          "name": "Out 13.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-13-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-131",
+          "name": "Out 13.1",
+          "kind": "metric",
+          "nodeStepId": "s-13-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-14",
+      "name": "Pipeline 14",
+      "roots": [
+        {
+          "id": "r-14-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-14-1",
+          "parentId": null,
+          "rootId": "r-14-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-14-2",
+          "parentId": "s-14-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-141"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-140",
+          "name": "Out 14.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-14-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-141",
+          "name": "Out 14.1",
+          "kind": "metric",
+          "nodeStepId": "s-14-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-15",
+      "name": "Pipeline 15",
+      "roots": [
+        {
+          "id": "r-15-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-15-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-15-1",
+          "parentId": null,
+          "rootId": "r-15-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-15-2",
+          "parentId": "s-15-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-151"]
+        },
+        {
+          "id": "s-15-3",
+          "parentId": "s-15-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-15-4",
+          "parentId": null,
+          "rootId": "r-15-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-150",
+          "name": "Out 15.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-15-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-15",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-151",
+          "name": "Out 15.1",
+          "kind": "metric",
+          "nodeStepId": "s-15-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-16",
+      "name": "Pipeline 16",
+      "roots": [
+        {
+          "id": "r-16-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-16-1",
+          "parentId": null,
+          "rootId": "r-16-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-16-2",
+          "parentId": "s-16-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-161"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-160",
+          "name": "Out 16.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-16-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-161",
+          "name": "Out 16.1",
+          "kind": "metric",
+          "nodeStepId": "s-16-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-17",
+      "name": "Pipeline 17",
+      "roots": [
+        {
+          "id": "r-17-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-17-1",
+          "parentId": null,
+          "rootId": "r-17-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-17-2",
+          "parentId": "s-17-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-171"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-170",
+          "name": "Out 17.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-17-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-171",
+          "name": "Out 17.1",
+          "kind": "metric",
+          "nodeStepId": "s-17-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-18",
+      "name": "Pipeline 18",
+      "roots": [
+        {
+          "id": "r-18-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-18-1",
+          "parentId": null,
+          "rootId": "r-18-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-18-2",
+          "parentId": "s-18-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-181"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-180",
+          "name": "Out 18.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-18-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-18",
+              "controls": [
+                {
+                  "id": "c-18",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 18"
+                },
+                {
+                  "id": "c-18-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-181",
+          "name": "Out 18.1",
+          "kind": "metric",
+          "nodeStepId": "s-18-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-19",
+      "name": "Pipeline 19",
+      "roots": [
+        {
+          "id": "r-19-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-19-1",
+          "parentId": null,
+          "rootId": "r-19-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-19-2",
+          "parentId": "s-19-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-191"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-190",
+          "name": "Out 19.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-19-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-191",
+          "name": "Out 19.1",
+          "kind": "metric",
+          "nodeStepId": "s-19-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-20",
+      "name": "Pipeline 20",
+      "roots": [
+        {
+          "id": "r-20-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-20-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-20-1",
+          "parentId": null,
+          "rootId": "r-20-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-20-2",
+          "parentId": "s-20-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-201"]
+        },
+        {
+          "id": "s-20-3",
+          "parentId": "s-20-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-20-4",
+          "parentId": null,
+          "rootId": "r-20-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-200",
+          "name": "Out 20.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-20-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-201",
+          "name": "Out 20.1",
+          "kind": "metric",
+          "nodeStepId": "s-20-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-21",
+      "name": "Pipeline 21",
+      "roots": [
+        {
+          "id": "r-21-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-21-1",
+          "parentId": null,
+          "rootId": "r-21-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-21-2",
+          "parentId": "s-21-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-211"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-210",
+          "name": "Out 21.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-21-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-21",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-211",
+          "name": "Out 21.1",
+          "kind": "metric",
+          "nodeStepId": "s-21-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-22",
+      "name": "Pipeline 22",
+      "roots": [
+        {
+          "id": "r-22-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": "bad config"
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-22-1",
+          "parentId": null,
+          "rootId": "r-22-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-22-2",
+          "parentId": "s-22-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-221"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-220",
+          "name": "Out 22.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-22-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-221",
+          "name": "Out 22.1",
+          "kind": "metric",
+          "nodeStepId": "s-22-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-23",
+      "name": "Pipeline 23",
+      "roots": [
+        {
+          "id": "r-23-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-23-1",
+          "parentId": null,
+          "rootId": "r-23-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-23-2",
+          "parentId": "s-23-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-231"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-230",
+          "name": "Out 23.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-23-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-231",
+          "name": "Out 23.1",
+          "kind": "metric",
+          "nodeStepId": "s-23-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-24",
+      "name": "Pipeline 24",
+      "roots": [
+        {
+          "id": "r-24-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-24-1",
+          "parentId": null,
+          "rootId": "r-24-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-24-2",
+          "parentId": "s-24-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-241"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-240",
+          "name": "Out 24.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-24-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-24",
+              "controls": [
+                {
+                  "id": "c-24",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 24"
+                },
+                {
+                  "id": "c-24-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-241",
+          "name": "Out 24.1",
+          "kind": "metric",
+          "nodeStepId": "s-24-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-25",
+      "name": "Pipeline 25",
+      "roots": [
+        {
+          "id": "r-25-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-25-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-25-1",
+          "parentId": null,
+          "rootId": "r-25-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-25-2",
+          "parentId": "s-25-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-251"]
+        },
+        {
+          "id": "s-25-3",
+          "parentId": "s-25-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-25-4",
+          "parentId": null,
+          "rootId": "r-25-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-250",
+          "name": "Out 25.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-25-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-251",
+          "name": "Out 25.1",
+          "kind": "metric",
+          "nodeStepId": "s-25-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-26",
+      "name": "Pipeline 26",
+      "roots": [
+        {
+          "id": "r-26-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null,
+          "warnings": [
+            {
+              "code": "w",
+              "message": "hm"
+            }
+          ]
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-26-1",
+          "parentId": null,
+          "rootId": "r-26-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-26-2",
+          "parentId": "s-26-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-261"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-260",
+          "name": "Out 26.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-26-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-261",
+          "name": "Out 26.1",
+          "kind": "metric",
+          "nodeStepId": "s-26-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-27",
+      "name": "Pipeline 27",
+      "roots": [
+        {
+          "id": "r-27-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-27-1",
+          "parentId": null,
+          "rootId": "r-27-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-27-2",
+          "parentId": "s-27-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-271"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-270",
+          "name": "Out 27.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-27-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-27",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-271",
+          "name": "Out 27.1",
+          "kind": "metric",
+          "nodeStepId": "s-27-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-28",
+      "name": "Pipeline 28",
+      "roots": [
+        {
+          "id": "r-28-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-28-1",
+          "parentId": null,
+          "rootId": "r-28-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-28-2",
+          "parentId": "s-28-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-281"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-280",
+          "name": "Out 28.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-28-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-281",
+          "name": "Out 28.1",
+          "kind": "metric",
+          "nodeStepId": "s-28-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-29",
+      "name": "Pipeline 29",
+      "roots": [
+        {
+          "id": "r-29-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-29-1",
+          "parentId": null,
+          "rootId": "r-29-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-29-2",
+          "parentId": "s-29-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-291"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-290",
+          "name": "Out 29.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-29-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-291",
+          "name": "Out 29.1",
+          "kind": "metric",
+          "nodeStepId": "s-29-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-30",
+      "name": "Pipeline 30",
+      "roots": [
+        {
+          "id": "r-30-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-30-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-30-1",
+          "parentId": null,
+          "rootId": "r-30-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-30-2",
+          "parentId": "s-30-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-301"]
+        },
+        {
+          "id": "s-30-3",
+          "parentId": "s-30-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-30-4",
+          "parentId": null,
+          "rootId": "r-30-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-300",
+          "name": "Out 30.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-30-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-30",
+              "controls": [
+                {
+                  "id": "c-30",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 30"
+                },
+                {
+                  "id": "c-30-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-301",
+          "name": "Out 30.1",
+          "kind": "metric",
+          "nodeStepId": "s-30-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-31",
+      "name": "Pipeline 31",
+      "roots": [
+        {
+          "id": "r-31-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-31-1",
+          "parentId": null,
+          "rootId": "r-31-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-31-2",
+          "parentId": "s-31-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-311"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-310",
+          "name": "Out 31.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-31-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-311",
+          "name": "Out 31.1",
+          "kind": "metric",
+          "nodeStepId": "s-31-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-32",
+      "name": "Pipeline 32",
+      "roots": [
+        {
+          "id": "r-32-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-32-1",
+          "parentId": null,
+          "rootId": "r-32-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-32-2",
+          "parentId": "s-32-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-321"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-320",
+          "name": "Out 32.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-32-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-321",
+          "name": "Out 32.1",
+          "kind": "metric",
+          "nodeStepId": "s-32-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-33",
+      "name": "Pipeline 33",
+      "roots": [
+        {
+          "id": "r-33-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": "bad config"
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-33-1",
+          "parentId": null,
+          "rootId": "r-33-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-33-2",
+          "parentId": "s-33-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-331"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-330",
+          "name": "Out 33.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-33-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-33",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-331",
+          "name": "Out 33.1",
+          "kind": "metric",
+          "nodeStepId": "s-33-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-34",
+      "name": "Pipeline 34",
+      "roots": [
+        {
+          "id": "r-34-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-34-1",
+          "parentId": null,
+          "rootId": "r-34-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-34-2",
+          "parentId": "s-34-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-341"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-340",
+          "name": "Out 34.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-34-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-341",
+          "name": "Out 34.1",
+          "kind": "metric",
+          "nodeStepId": "s-34-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-35",
+      "name": "Pipeline 35",
+      "roots": [
+        {
+          "id": "r-35-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-35-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-35-1",
+          "parentId": null,
+          "rootId": "r-35-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-35-2",
+          "parentId": "s-35-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-351"]
+        },
+        {
+          "id": "s-35-3",
+          "parentId": "s-35-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-35-4",
+          "parentId": null,
+          "rootId": "r-35-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-350",
+          "name": "Out 35.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-35-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-351",
+          "name": "Out 35.1",
+          "kind": "metric",
+          "nodeStepId": "s-35-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-36",
+      "name": "Pipeline 36",
+      "roots": [
+        {
+          "id": "r-36-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-36-1",
+          "parentId": null,
+          "rootId": "r-36-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-36-2",
+          "parentId": "s-36-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-361"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-360",
+          "name": "Out 36.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-36-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-36",
+              "controls": [
+                {
+                  "id": "c-36",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 36"
+                },
+                {
+                  "id": "c-36-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-361",
+          "name": "Out 36.1",
+          "kind": "metric",
+          "nodeStepId": "s-36-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-37",
+      "name": "Pipeline 37",
+      "roots": [
+        {
+          "id": "r-37-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-37-1",
+          "parentId": null,
+          "rootId": "r-37-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-37-2",
+          "parentId": "s-37-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-371"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-370",
+          "name": "Out 37.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-37-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-371",
+          "name": "Out 37.1",
+          "kind": "metric",
+          "nodeStepId": "s-37-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-38",
+      "name": "Pipeline 38",
+      "roots": [
+        {
+          "id": "r-38-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-38-1",
+          "parentId": null,
+          "rootId": "r-38-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-38-2",
+          "parentId": "s-38-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-381"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-380",
+          "name": "Out 38.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-38-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-381",
+          "name": "Out 38.1",
+          "kind": "metric",
+          "nodeStepId": "s-38-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-39",
+      "name": "Pipeline 39",
+      "roots": [
+        {
+          "id": "r-39-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null,
+          "warnings": [
+            {
+              "code": "w",
+              "message": "hm"
+            }
+          ]
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-39-1",
+          "parentId": null,
+          "rootId": "r-39-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-39-2",
+          "parentId": "s-39-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-391"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-390",
+          "name": "Out 39.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-39-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-39",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-391",
+          "name": "Out 39.1",
+          "kind": "metric",
+          "nodeStepId": "s-39-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-40",
+      "name": "Pipeline 40",
+      "roots": [
+        {
+          "id": "r-40-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-40-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-40-1",
+          "parentId": null,
+          "rootId": "r-40-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-40-2",
+          "parentId": "s-40-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-401"]
+        },
+        {
+          "id": "s-40-3",
+          "parentId": "s-40-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-40-4",
+          "parentId": null,
+          "rootId": "r-40-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-400",
+          "name": "Out 40.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-40-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-401",
+          "name": "Out 40.1",
+          "kind": "metric",
+          "nodeStepId": "s-40-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-41",
+      "name": "Pipeline 41",
+      "roots": [
+        {
+          "id": "r-41-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-41-1",
+          "parentId": null,
+          "rootId": "r-41-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-41-2",
+          "parentId": "s-41-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-411"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-410",
+          "name": "Out 41.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-41-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-411",
+          "name": "Out 41.1",
+          "kind": "metric",
+          "nodeStepId": "s-41-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-42",
+      "name": "Pipeline 42",
+      "roots": [
+        {
+          "id": "r-42-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-42-1",
+          "parentId": null,
+          "rootId": "r-42-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-42-2",
+          "parentId": "s-42-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-421"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-420",
+          "name": "Out 42.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-42-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-42",
+              "controls": [
+                {
+                  "id": "c-42",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 42"
+                },
+                {
+                  "id": "c-42-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-421",
+          "name": "Out 42.1",
+          "kind": "metric",
+          "nodeStepId": "s-42-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-43",
+      "name": "Pipeline 43",
+      "roots": [
+        {
+          "id": "r-43-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-43-1",
+          "parentId": null,
+          "rootId": "r-43-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-43-2",
+          "parentId": "s-43-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-431"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-430",
+          "name": "Out 43.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-43-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-431",
+          "name": "Out 43.1",
+          "kind": "metric",
+          "nodeStepId": "s-43-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-44",
+      "name": "Pipeline 44",
+      "roots": [
+        {
+          "id": "r-44-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": "bad config"
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-44-1",
+          "parentId": null,
+          "rootId": "r-44-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-44-2",
+          "parentId": "s-44-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-441"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-440",
+          "name": "Out 44.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-44-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-441",
+          "name": "Out 44.1",
+          "kind": "metric",
+          "nodeStepId": "s-44-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-45",
+      "name": "Pipeline 45",
+      "roots": [
+        {
+          "id": "r-45-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-45-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-45-1",
+          "parentId": null,
+          "rootId": "r-45-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-45-2",
+          "parentId": "s-45-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-451"]
+        },
+        {
+          "id": "s-45-3",
+          "parentId": "s-45-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-45-4",
+          "parentId": null,
+          "rootId": "r-45-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-450",
+          "name": "Out 45.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-45-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-45",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-451",
+          "name": "Out 45.1",
+          "kind": "metric",
+          "nodeStepId": "s-45-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-46",
+      "name": "Pipeline 46",
+      "roots": [
+        {
+          "id": "r-46-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-46-1",
+          "parentId": null,
+          "rootId": "r-46-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-46-2",
+          "parentId": "s-46-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-461"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-460",
+          "name": "Out 46.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-46-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-461",
+          "name": "Out 46.1",
+          "kind": "metric",
+          "nodeStepId": "s-46-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-47",
+      "name": "Pipeline 47",
+      "roots": [
+        {
+          "id": "r-47-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-47-1",
+          "parentId": null,
+          "rootId": "r-47-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-47-2",
+          "parentId": "s-47-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-471"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-470",
+          "name": "Out 47.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-47-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-471",
+          "name": "Out 47.1",
+          "kind": "metric",
+          "nodeStepId": "s-47-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-48",
+      "name": "Pipeline 48",
+      "roots": [
+        {
+          "id": "r-48-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-48-1",
+          "parentId": null,
+          "rootId": "r-48-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-48-2",
+          "parentId": "s-48-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-481"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-480",
+          "name": "Out 48.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-48-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-48",
+              "controls": [
+                {
+                  "id": "c-48",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 48"
+                },
+                {
+                  "id": "c-48-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-481",
+          "name": "Out 48.1",
+          "kind": "metric",
+          "nodeStepId": "s-48-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-49",
+      "name": "Pipeline 49",
+      "roots": [
+        {
+          "id": "r-49-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": "demo",
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-49-1",
+          "parentId": null,
+          "rootId": "r-49-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-49-2",
+          "parentId": "s-49-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-491"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-490",
+          "name": "Out 49.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-49-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-491",
+          "name": "Out 49.1",
+          "kind": "metric",
+          "nodeStepId": "s-49-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-50",
+      "name": "Pipeline 50",
+      "roots": [
+        {
+          "id": "r-50-a",
+          "sourceId": "src-0",
+          "name": "a"
+        },
+        {
+          "id": "r-50-b",
+          "sourceId": "src-1",
+          "name": "b"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "group",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 0,
+          "type": "limit",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-50-1",
+          "parentId": null,
+          "rootId": "r-50-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-50-2",
+          "parentId": "s-50-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-501"]
+        },
+        {
+          "id": "s-50-3",
+          "parentId": "s-50-1",
+          "rootId": "",
+          "op": "group",
+          "outputIds": []
+        },
+        {
+          "id": "s-50-4",
+          "parentId": null,
+          "rootId": "r-50-b",
+          "op": "limit",
+          "outputIds": []
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-500",
+          "name": "Out 50.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-50-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-501",
+          "name": "Out 50.1",
+          "kind": "metric",
+          "nodeStepId": "s-50-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-51",
+      "name": "Pipeline 51",
+      "roots": [
+        {
+          "id": "r-51-a",
+          "sourceId": "src-1",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-51-1",
+          "parentId": null,
+          "rootId": "r-51-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-51-2",
+          "parentId": "s-51-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-511"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-510",
+          "name": "Out 51.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-51-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-51",
+              "controls": []
+            }
+          ]
+        },
+        {
+          "id": "o-511",
+          "name": "Out 51.1",
+          "kind": "metric",
+          "nodeStepId": "s-51-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-52",
+      "name": "Pipeline 52",
+      "roots": [
+        {
+          "id": "r-52-a",
+          "sourceId": "src-2",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null,
+          "warnings": [
+            {
+              "code": "w",
+              "message": "hm"
+            }
+          ]
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-52-1",
+          "parentId": null,
+          "rootId": "r-52-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-52-2",
+          "parentId": "s-52-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-521"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-520",
+          "name": "Out 52.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-52-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-521",
+          "name": "Out 52.1",
+          "kind": "metric",
+          "nodeStepId": "s-52-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-53",
+      "name": "Pipeline 53",
+      "roots": [
+        {
+          "id": "r-53-a",
+          "sourceId": "src-3",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 3,
+        "warnFailed": 1,
+        "errorFailed": 1,
+        "failures": [
+          {
+            "kind": "not_null",
+            "field": "amount",
+            "severity": "error",
+            "message": "amount is null in 4 rows"
+          },
+          {
+            "kind": "range",
+            "field": "score",
+            "severity": "warn",
+            "message": "score above 100"
+          }
+        ]
+      },
+      "laneTree": [
+        {
+          "id": "s-53-1",
+          "parentId": null,
+          "rootId": "r-53-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-53-2",
+          "parentId": "s-53-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-531"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-530",
+          "name": "Out 53.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-53-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        },
+        {
+          "id": "o-531",
+          "name": "Out 53.1",
+          "kind": "metric",
+          "nodeStepId": "s-53-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    },
+    {
+      "id": "p-54",
+      "name": "Pipeline 54",
+      "roots": [
+        {
+          "id": "r-54-a",
+          "sourceId": "src-4",
+          "name": "a"
+        }
+      ],
+      "lastRunStatus": "succeeded",
+      "lastRunAt": "2026-10-02T10:00:05Z",
+      "lastRunRowCount": 10,
+      "tag": null,
+      "steps": [
+        {
+          "position": 0,
+          "type": "filter",
+          "outputColumns": ["amount", "label"],
+          "validationError": null
+        },
+        {
+          "position": 1,
+          "type": "sort",
+          "outputColumns": ["amount"],
+          "validationError": null
+        }
+      ],
+      "lastRunAssertions": {
+        "passed": 2,
+        "warnFailed": 0,
+        "errorFailed": 0,
+        "failures": []
+      },
+      "laneTree": [
+        {
+          "id": "s-54-1",
+          "parentId": null,
+          "rootId": "r-54-a",
+          "op": "filter",
+          "outputIds": []
+        },
+        {
+          "id": "s-54-2",
+          "parentId": "s-54-1",
+          "rootId": "",
+          "op": "sort",
+          "outputIds": ["o-541"]
+        }
+      ],
+      "outputs": [
+        {
+          "id": "o-540",
+          "name": "Out 54.0",
+          "kind": "table",
+          "nodeStepId": null,
+          "rootId": "r-54-a",
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": [
+            {
+              "dashboardId": "d-1",
+              "panelId": "x-54",
+              "controls": [
+                {
+                  "id": "c-54",
+                  "kind": "select",
+                  "column": "label",
+                  "label": "Label 54"
+                },
+                {
+                  "id": "c-54-b",
+                  "kind": "range",
+                  "column": "amount",
+                  "label": "Amount",
+                  "orphaned": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "o-541",
+          "name": "Out 54.1",
+          "kind": "metric",
+          "nodeStepId": "s-54-2",
+          "rootId": null,
+          "schema": [
+            {
+              "name": "amount",
+              "type": "number"
+            },
+            {
+              "name": "label",
+              "type": "string"
+            }
+          ],
+          "placements": []
+        }
+      ]
+    }
+  ],
+  "dashboards": [
+    {
+      "id": "d-1",
+      "name": "Main",
+      "panelCount": 19
+    }
+  ],
+  "pipelineShapes": [
+    {
+      "id": "top-n",
+      "label": "Top N",
+      "description": "d",
+      "paramsSchema": [
+        {
+          "name": "n",
+          "label": "N",
+          "dataType": "number",
+          "required": true,
+          "description": "how many"
+        }
+      ],
+      "outputRowCount": "at-most-param:n",
+      "outputDescription": "o"
+    }
+  ],
+  "truncation": {
+    "applied": false,
+    "budgetBytes": 50000000,
+    "estimatedSizeBytes": 63997,
+    "structuralFloorExceedsBudget": false,
+    "paginationTruncatedResources": [],
+    "omittedDetailKinds": []
+  },
+  "agentContext": {
+    "preferences": {
+      "extras": {
+        "tone": "terse"
+      }
+    },
+    "memory": []
+  },
+  "connectors": [
+    {
+      "id": "c1",
+      "name": "C",
+      "kind": "rest",
+      "host": "https://x.test",
+      "pending": false
+    }
+  ]
+}

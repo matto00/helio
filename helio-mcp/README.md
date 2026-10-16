@@ -239,22 +239,41 @@ pipeline's `outputs` is then `[]` and `outputsError` carries the failure message
 from "no Outputs". A failure of the core fetches (sources, dashboards, pipelines, shapes) still fails the call with
 an `isError` rate-limit result.
 
-It is a **client-side fan-out** over existing endpoints — no backend
-aggregation. Call budget: `2` list calls (sources, dashboards) `+ 1` pipelines
-list `+ 1` analyze per pipeline `+ 1` run-history per pipeline `+ 1`
-pipeline-shapes catalog call `+ 1` (paginated) outputs fetch across every
-pipeline = **4 + 2N(pipelines)** — the outputs fetch is one paginated
-`listAllOutputs` call, not a per-pipeline fan-out, so it stays flat in
-pipeline count. For workspace-sized data (handfuls of each) this is
-comfortably fast. There is no more per-column sample-row/statistics fetch —
+It is a **client-side fan-out** over existing endpoints, bounded (**HEL-1619**). Call budget, for `P` pipelines,
+`Op` Outputs that have at least one panel and `D` distinct dashboards hosting those panels:
+
+- **8 fixed** requests: data sources, dashboards, pipelines, pipeline shapes, preferences, agent memory, connectors,
+  and one page of `GET /api/outputs`.
+- **+ 1** `GET /api/pipelines/context-details`: every pipeline's steps (for `laneTree`) and its latest run's
+  assertion summary (`lastRunAssertions`) in one response.
+- **+ P** `GET /api/pipelines/:id/analyze` (steps' output columns; not batched, so the cost stays O(P)).
+- **+ Op** `GET /api/outputs/:id/panels`: an Output whose `GET /api/outputs` item reports `panelCount: 0` is not
+  asked (its `placements` is `[]`); an item with no `panelCount` (older server) is asked.
+- **+ D** `GET /api/dashboards/:id/export` for each dashboard that hosts a placement (panel controls).
+
+Total `8 + 1 + P + Op + D`. Measured on the 55-pipeline / 110-Output / 19-placed / 1-dashboard fixture
+(`contextBudgetFixture.ts`, through the real `HelioHttpClient`): **84 requests, at most 6 in flight**, where the
+unbatched code sent **339 requests with 220 in flight**, past the default `RATE_LIMIT_REQUESTS_PER_WINDOW` of
+120 per 60 s. Every request goes through one per-call limiter (`MAX_IN_FLIGHT = 6`), fixed fetches included.
+
+The payload is byte-identical to the unbatched code's (`__golden__/` is the pre-change output on that fixture,
+asserted on every path below). If `GET /api/pipelines/context-details` is missing (an older server answers 404)
+or fails, each pipeline is read as before (`run-history` and `GET /api/pipelines/:id/steps`, i.e. `8 + 1 + 3P + Op + D`
+= 194 on the fixture, still fewer than the 339 it replaces); a pipeline the response omits is read the same way. Any
+fallback other than a 404 writes one `helio-mcp: GET /api/pipelines/context-details unusable (...)` line to stderr,
+so a client/server shape mismatch is visible instead of silently costing about 3.5x the requests.
+
+**Still O(P):** `analyze` is one request per pipeline, so beyond roughly 100 pipelines one call exceeds 120 requests
+again. Batching `analyze` is the remaining step (a follow-up, not built). The consumer must also rebuild
+`helio-mcp/dist` (gitignored, not rebuilt by a merge) to get any of this.
+
+For workspace-sized data (handfuls of each) this is comfortably fast. There is no more per-column sample-row/statistics fetch —
 that was the DataType/Metric enumeration (HEL-857's 220k-char overflow) that
 no longer exists in this model; a 25-source/43-pipeline fixture
 (`context.test.ts`) verifies the result stays comfortably under the byte
 budget without a separate truncation strategy.
 
-**When to add a backend `/api/context`:** only if pipeline count grows enough
-that the `2N` analyze/run-history calls become the bottleneck. Not needed at
-Phase 2 scale — this is flagged, not built, per the brief.
+**When to add a backend `/api/context`:** only if the remaining per-pipeline `analyze` calls become the bottleneck.
 
 > **spray-json gotcha (load-bearing):** the backend omits `Option` fields that
 > are `None` from the JSON entirely. An Output attached directly to a

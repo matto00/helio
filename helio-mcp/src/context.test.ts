@@ -19,6 +19,7 @@ import {
   type WorkspaceContext,
 } from "./context.js";
 import { HelioApi } from "./helioApi.js";
+import { HelioApiError } from "./httpClient.js";
 import type {
   AgentMemoryEntryResponse,
   DataSourceResponse,
@@ -31,6 +32,11 @@ import type {
   PipelineShapeCatalogEntryResponse,
   PipelineSummaryResponse,
 } from "./types.js";
+
+/** `GET /api/pipelines/context-details` on a server that predates it. */
+const notFound = async (): Promise<never> => {
+  throw new HelioApiError(404, "https://helio.test/api/pipelines/context-details", "404 Not Found");
+};
 
 function emptyPage<T>(): Paged<T> {
   return { items: [], total: 0, offset: 0, limit: 200 };
@@ -53,6 +59,8 @@ function baseFakeApi(): Record<string, unknown> {
     getAgentPreferences: async () => ({ extras: {} }),
     listAgentMemory: async () => [] as AgentMemoryEntryResponse[],
     listConnectorInstances: async () => [],
+    // HEL-1619: an older server -- the per-pipeline reads below are what these tests exercise.
+    getPipelineContextDetails: notFound,
   };
 }
 
@@ -440,20 +448,17 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
   it("reports laneTree with id/parentId/rootId/op/outputIds per node", async () => {
     const context = await buildWorkspaceContext(
       fakeApiWithPipeline({
-        getPipeline: async () => ({
-          ...summary,
-          steps: [
-            { id: "step-0", type: "select", position: 0, config: {}, rootId: "root-1" },
-            {
-              id: "step-1",
-              type: "rename",
-              position: 0,
-              config: {},
-              parentStepId: "step-0",
-              rootId: "root-1",
-            },
-          ],
-        }),
+        listPipelineSteps: async () => [
+          { id: "step-0", type: "select", position: 0, config: {}, rootId: "root-1" },
+          {
+            id: "step-1",
+            type: "rename",
+            position: 0,
+            config: {},
+            parentStepId: "step-0",
+            rootId: "root-1",
+          },
+        ],
       }) as unknown as HelioApi,
     );
 
@@ -463,10 +468,10 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
     ]);
   });
 
-  it("degrades laneTree to [] (without affecting steps/outputs) when getPipeline fails", async () => {
+  it("degrades laneTree to [] (without affecting steps/outputs) when the steps read fails", async () => {
     const context = await buildWorkspaceContext(
       fakeApiWithPipeline({
-        getPipeline: async () => {
+        listPipelineSteps: async () => {
           throw new Error("boom");
         },
       }) as unknown as HelioApi,
@@ -852,7 +857,8 @@ function realisticFakeApi(f: RealisticFixture): HelioApi {
       if (!found) throw new Error(`no fixture analyze for ${id}`);
       return found;
     },
-    getPipeline: async (id: string) => ({ steps: f.steps.get(id) ?? [] }),
+    listPipelineSteps: async (id: string) => f.steps.get(id) ?? [],
+    getPipelineContextDetails: notFound,
     getPipelineRunHistory: async () => [] as PipelineRunRecordResponse[],
     listAllOutputs: async (limit: number, offset: number) => {
       const slice = f.outputs.slice(offset, offset + limit);

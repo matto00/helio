@@ -114,6 +114,7 @@ trait JsonProtocols
     with AlertRuleProtocol
     with AlertEventProtocol
     with PipelineScheduleProtocol
+    with PipelineContextDetailsProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol
     with PipelineStepCatalogProtocol
