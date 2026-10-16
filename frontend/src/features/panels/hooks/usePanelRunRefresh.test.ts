@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 
 import { subscribeToPipelineSucceeded } from "../services/pipelineRunFanout";
+import { fetchOutputMeta } from "../state/outputMetaCache";
 import { useOutputMeta } from "./useOutputMeta";
 import { usePanelRunRefresh } from "./usePanelRunRefresh";
 import type { Output } from "../../pipelines/types/output";
@@ -9,12 +10,17 @@ jest.mock("../services/pipelineRunFanout", () => ({
   subscribeToPipelineSucceeded: jest.fn(),
 }));
 
+jest.mock("../state/outputMetaCache", () => ({
+  fetchOutputMeta: jest.fn(() => Promise.resolve({})),
+}));
+
 jest.mock("./useOutputMeta", () => ({
   useOutputMeta: jest.fn(),
 }));
 
 const mockSubscribe = jest.mocked(subscribeToPipelineSucceeded);
 const mockUseOutputMeta = jest.mocked(useOutputMeta);
+const mockFetchOutputMeta = jest.mocked(fetchOutputMeta);
 
 function makeOutput(overrides: Partial<Output> = {}): Output {
   return {
@@ -35,6 +41,7 @@ describe("usePanelRunRefresh", () => {
   beforeEach(() => {
     mockSubscribe.mockReset();
     mockUseOutputMeta.mockReset();
+    mockFetchOutputMeta.mockClear();
   });
 
   it("does not subscribe when outputId is null", () => {
@@ -86,6 +93,22 @@ describe("usePanelRunRefresh", () => {
     deliveredCallback?.();
 
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-reads the Output metadata with the rows refresh, so the held metadata keeps pace with the run's generation bump (HEL-1575)", () => {
+    mockUseOutputMeta.mockReturnValue({ output: makeOutput(), isLoading: false });
+    let deliveredCallback: (() => void) | undefined;
+    mockSubscribe.mockImplementation((_pipelineId, onSucceeded) => {
+      deliveredCallback = onSucceeded;
+      return jest.fn();
+    });
+
+    renderHook(() => usePanelRunRefresh("out-1", jest.fn()));
+    expect(mockFetchOutputMeta).not.toHaveBeenCalled();
+    deliveredCallback?.();
+
+    expect(mockFetchOutputMeta).toHaveBeenCalledTimes(1);
+    expect(mockFetchOutputMeta).toHaveBeenCalledWith("out-1");
   });
 
   it("does NOT call refresh after unmount", () => {

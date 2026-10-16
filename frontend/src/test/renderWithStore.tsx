@@ -11,14 +11,21 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import {
+  dashboardTabsReducer,
+  initialDashboardTabsState,
+} from "../features/dashboards/tabs/dashboardTabsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
+import { outputsReducer } from "../features/pipelines/state/outputsSlice";
 import { pipelinesReducer } from "../features/pipelines/state/pipelinesSlice";
+import { shareTokensReducer } from "../features/dashboards/state/shareTokensSlice";
 import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
+import { addDashboardTabsListeners } from "../features/dashboards/tabs/dashboardTabsListeners";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "../store/listenerMiddleware";
@@ -93,6 +100,8 @@ interface TestState {
      *  resolves. Defaults to `{}` (no seeded pagination state), matching the
      *  slice's own initial state. */
     paginationState?: Record<string, PanelPaginationState>;
+    /** HEL-1575 task 4.5(6) -- see `panelsSlice.ts`'s `PanelsState.restoringDashboardId`. */
+    restoringDashboardId?: string | null;
   };
   sources?: {
     items?: DataSource[];
@@ -151,6 +160,10 @@ export interface RenderWithStoreOptions {
    *  guarantee, where the toast comes from the listener, not the component).
    *  Registered once per call — see the guard below. */
   withToastListeners?: boolean;
+  /** HEL-1575 -- off by default. Registers the dashboard-tab and warm-cache listeners on the module
+   *  listener middleware (once per test FILE, like the toast listeners) and starts the tab set UNHYDRATED
+   *  so `hydrateTabs` runs for real. Without it the test store starts hydrated and inert. */
+  withTabListeners?: boolean;
 }
 
 // HEL-535 — registers `toastListeners.ts` on the module-level
@@ -163,6 +176,13 @@ function ensureToastListenersRegistered() {
   if (toastListenersRegistered) return;
   addToastListeners(startAppListening);
   toastListenersRegistered = true;
+}
+
+let tabListenersRegistered = false;
+function ensureTabListenersRegistered() {
+  if (tabListenersRegistered) return;
+  addDashboardTabsListeners(startAppListening);
+  tabListenersRegistered = true;
 }
 
 export function renderWithStore(
@@ -182,10 +202,14 @@ export function renderWithStore(
     connectors: connectorsReducer,
     dashboardFolders: dashboardFoldersReducer,
     dashboards: dashboardsReducer,
+    dashboardTabs: dashboardTabsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
     panels: panelsReducer,
     pipelines: pipelinesReducer,
+    // HEL-1575: present so a full `AppShell` can render in this harness (the real store has them).
+    outputs: outputsReducer,
+    shareTokens: shareTokensReducer,
     scheduledItems: scheduledItemsReducer,
     settings: settingsReducer,
     sources: sourcesReducer,
@@ -193,8 +217,12 @@ export function renderWithStore(
     toasts: toastsReducer,
   };
 
+  // HEL-1575: the test store has no tab listeners, so nothing would ever hydrate the tab set; it starts
+  // hydrated (inert) so `App.tsx`'s panel effect behaves exactly as it did before tabs existed.
+  const tabsState = { ...initialDashboardTabsState, hydrated: !options?.withTabListeners };
   const normalizedState = preloadedState
     ? {
+        dashboardTabs: tabsState,
         ...(preloadedState.auth !== undefined && {
           auth: {
             status: preloadedState.auth.status ?? "idle",
@@ -227,6 +255,7 @@ export function renderWithStore(
           error: preloadedState.panels?.error ?? null,
           pendingPanelUpdates: {},
           paginationState: preloadedState.panels?.paginationState ?? {},
+          restoringDashboardId: preloadedState.panels?.restoringDashboardId ?? null,
           // HEL-1027 skeptic-final-1.md CR2 — `fetchPanelPage.pending` writes
           // `latestFetchRequestId[panelId]` unconditionally; every test using this shared harness
           // needs the field present (as an empty map, same convention as `panelsSlice.ts`'s own
@@ -276,12 +305,15 @@ export function renderWithStore(
   if (options?.withToastListeners) {
     ensureToastListenersRegistered();
   }
+  if (options?.withTabListeners) {
+    ensureTabListenersRegistered();
+  }
 
   const store = configureStore({
     reducer: reducer as never,
-    preloadedState: normalizedState as never,
+    preloadedState: (normalizedState ?? { dashboardTabs: tabsState }) as never,
     middleware: (getDefaultMiddleware) =>
-      options?.withToastListeners
+      options?.withToastListeners || options?.withTabListeners
         ? getDefaultMiddleware().prepend(listenerMiddleware.middleware)
         : getDefaultMiddleware(),
   });

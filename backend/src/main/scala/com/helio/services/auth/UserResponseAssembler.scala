@@ -16,7 +16,7 @@ final class UserResponseAssembler(preferenceRepo: Option[UserPreferenceRepositor
     preferenceRepo match {
       case Some(repo) =>
         repo.getPreferences(user.id).map { p =>
-          Some(UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion))
+          Some(UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion, p.dashboardTabs))
         }
       case None => Future.successful(None)
     }

@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.auth
 
+import com.helio.api.protocols.auth.{DashboardTabsPref, DashboardTabsPrefs}
 import com.helio.domain.model.{DashboardId, UserId}
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
@@ -18,7 +19,9 @@ final case class UserPreferencesData(
     // HEL-1572: appearance keys in the same JSON; None = never set (motion None = follow the OS).
     typeStyle: Option[String] = None,
     density: Option[String] = None,
-    motion: Option[String] = None
+    motion: Option[String] = None,
+    // HEL-1575: the saved dashboard tab set; None = never set (or an invalid stored value, dropped on read).
+    dashboardTabs: Option[DashboardTabsPref] = None
 )
 
 /** HEL-1572: a validated partial update. `motion` is `None` = leave, `Some(None)` = clear (follow the OS),
@@ -28,7 +31,9 @@ final case class PreferencesPatch(
     contextListCollapsed: Option[Boolean] = None,
     typeStyle: Option[String] = None,
     density: Option[String] = None,
-    motion: Option[Option[String]] = None
+    motion: Option[Option[String]] = None,
+    // HEL-1575: replaces the stored tab set as a whole.
+    dashboardTabs: Option[DashboardTabsPref] = None
 )
 
 class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
@@ -77,6 +82,8 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         case _                                        => None
       }
 
+      val tabs = fields.get("dashboardTabs").flatMap(v => DashboardTabsPrefs.parse(v).toOption)
+
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
       UserPreferencesData(
@@ -86,7 +93,8 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         collapsed,
         enum("typeStyle", TypeStyles),
         enum("density", Densities),
-        enum("motion", MotionLevels)
+        enum("motion", MotionLevels),
+        tabs
       )
     }
   }
@@ -95,18 +103,35 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
     mergePrefs(userId, JsObject("accentColor" -> JsString(accentColor)))
 
   /** HEL-1574/HEL-1572: merges only the keys present; every other stored key is untouched. The caller has validated
-   *  the values. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
+   *  the values. HEL-1575: `dashboardTabs` replaces the stored tab set as a whole. Keyed solely on the authenticated user's id (`users` has no RLS -- isolation is application-level). */
   def patchPrefs(userId: UserId, patch: PreferencesPatch): Future[Unit] = {
     val fields: Map[String, JsValue] = Vector(
       patch.contextListWidth.map(w => "contextListWidth" -> (JsNumber(w): JsValue)),
       patch.contextListCollapsed.map(c => "contextListCollapsed" -> (JsBoolean(c): JsValue)),
       patch.typeStyle.map(v => "typeStyle" -> (JsString(v): JsValue)),
       patch.density.map(v => "density" -> (JsString(v): JsValue)),
-      patch.motion.flatten.map(v => "motion" -> (JsString(v): JsValue))
+      patch.motion.flatten.map(v => "motion" -> (JsString(v): JsValue)),
+      patch.dashboardTabs.map(t => "dashboardTabs" -> tabsJson(t))
     ).flatten.toMap
     val clearMotion = patch.motion.contains(None)
     if (fields.isEmpty && !clearMotion) Future.unit else mergePrefs(userId, JsObject(fields), clearMotion)
   }
+
+  /** Stored shape: absent optionals are omitted, so a `null` in the request and an omitted field read the same. */
+  private def tabsJson(t: DashboardTabsPref): JsValue = JsObject(
+    Vector(
+      Some("tabs" -> JsArray(t.tabs.map { tab =>
+        JsObject(
+          Vector(
+            Some("id" -> (JsString(tab.id): JsValue)),
+            tab.lastViewedAt.map(v => "lastViewedAt" -> (JsString(v): JsValue)),
+            tab.ownWriteAt.map(v => "ownWriteAt" -> (JsString(v): JsValue))
+          ).flatten.toMap
+        ): JsValue
+      })),
+      t.activeId.map(a => "activeId" -> (JsString(a): JsValue))
+    ).flatten.toMap
+  )
 
   /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. When
    *  `clearMotion` the `motion` key is removed in the same UPDATE (the patch never carries it then). */

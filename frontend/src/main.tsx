@@ -15,6 +15,7 @@ import type { AppearancePreferencesPatch } from "./features/auth/types/user";
 import { setupAuthInterceptor } from "./services/httpClient";
 import { setTelemetryIdentity } from "./features/telemetry/track";
 import { store, type RootState, type AppDispatch } from "./store/store";
+import { startTabsBrowserTriggers } from "./features/dashboards/tabs/tabsBrowserTriggers";
 import { resolveAppearance } from "./theme/appearancePrefs";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import "./theme/theme.css";
@@ -33,6 +34,9 @@ setupAuthInterceptor(
     }
   },
 );
+
+// HEL-1575: page-lifecycle triggers of the dashboard tabs (hidden/pagehide flush, change-signal refresh, sweep).
+startTabsBrowserTriggers(store);
 
 setTelemetryIdentity(() => store.getState().auth.currentUser?.id ?? null);
 

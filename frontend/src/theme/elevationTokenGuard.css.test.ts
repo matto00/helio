@@ -399,9 +399,10 @@ describe("elevation token guard (HEL-442)", () => {
     // HEL-1574 added `AppRail.css`, `ContextList.css`, `AssistantContextList.css` and removed `SidebarBody.css` (133 -> 135); tokens only.
     // HEL-1579 added `PipelineSpine.css`, `PipelineSpineHeader.css`, `PipelineSpineLayout.css`, `PipelineSpineAccent.css`,
     // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
-    // HEL-1576 added `DashboardMetaRow.css` (141 -> 142); tokens only, no shadow/radius/motion literals.
-    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css` (142 -> 144); tokens only.
-    expect(files.length).toBe(144);
+    // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css`, HEL-1576 added `DashboardMetaRow.css`; tokens only, no shadow/radius/motion literals.
+    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
+    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) = 146, recounted with find, not carried from any side.
+    expect(files.length).toBe(146);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

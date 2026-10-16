@@ -95,6 +95,7 @@ trait JsonProtocols
     with PanelProtocol
     with DashboardProtocol
     with DashboardFolderProtocol
+    with DashboardChangesProtocol
     with DashboardProposalProtocol
     with PipelineProposalProtocol
     with CombinedProposalProtocol

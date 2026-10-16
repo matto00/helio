@@ -4,10 +4,19 @@ import type { ReactNode } from "react";
 import { createCommandRegistry } from "./model/commandRegistry";
 import type { CommandRegistry } from "./model/commandRegistry";
 
+/** HEL-1575 D11: `open-tab` is the tab bar's "+" mode: dashboards only, chosen one opens as a new tab. */
+export type PaletteIntent = "open-tab";
+
+export interface PaletteOpenOptions {
+  intent?: PaletteIntent;
+}
+
 interface CommandPaletteContextValue {
   registry: CommandRegistry;
   isOpen: boolean;
-  open: () => void;
+  /** The mode the palette was opened in; `null` is the ordinary palette. Reset on close. */
+  intent: PaletteIntent | null;
+  open: (options?: PaletteOpenOptions) => void;
   close: () => void;
 }
 
@@ -24,19 +33,26 @@ interface CommandPaletteProviderProps {
 export function CommandPaletteProvider({ children }: CommandPaletteProviderProps) {
   const [registry] = useState<CommandRegistry>(() => createCommandRegistry());
   const [isOpen, setIsOpen] = useState(false);
+  const [intent, setIntent] = useState<PaletteIntent | null>(null);
 
   const value = useMemo<CommandPaletteContextValue>(
     () => ({
       registry,
       isOpen,
-      open: () => setIsOpen(true),
+      intent,
+      // `open` is also handed to onClick handlers, so a stray event object must read as "no options".
+      open: (options?: PaletteOpenOptions) => {
+        setIntent(options?.intent === "open-tab" ? "open-tab" : null);
+        setIsOpen(true);
+      },
       close: () => {
         setIsOpen(false);
+        setIntent(null);
         // `command-palette-shell` spec: reopening starts from a clean query.
         registry.setQuery("");
       },
     }),
-    [registry, isOpen],
+    [registry, isOpen, intent],
   );
 
   return <CommandPaletteContext.Provider value={value}>{children}</CommandPaletteContext.Provider>;

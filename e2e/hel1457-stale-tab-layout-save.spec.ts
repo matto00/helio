@@ -39,6 +39,9 @@ test("a drag saved from a stale tab keeps a panel created meanwhile", async ({ p
 
     await page.goto(`/dashboards/${dashboardId}`);
     await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+    // The loading skeleton also renders `.react-grid-item`s, and the meta row's "Edit layout" button mounts only
+    // with the real desktop grid (HEL-1575 loads panels after tab hydration). Wait for the real grid.
+    await expect(page.getByLabel("Loading panels")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Edit layout" }).click(); // HEL-1576: drag only in edit mode
     const handle = page.locator(".panel-grid-card__handle").first();
@@ -112,11 +115,15 @@ test("a conflict that cannot be rebased shows the other writer's panel, and a fu
 
     await page.goto(`/dashboards/${dashboardId}`);
     await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+    // The loading skeleton also renders `.react-grid-item`s, and the meta row's "Edit layout" button mounts only
+    // with the real desktop grid (HEL-1575 loads panels after tab hydration). Wait for the real grid.
+    await expect(page.getByLabel("Loading panels")).toHaveCount(0);
 
     const dragA = async (dx: number) => {
       // HEL-1576: drag only in edit mode (idempotent once on).
       const editToggle = page.getByRole("button", { name: "Edit layout" });
       if ((await editToggle.count()) > 0) await editToggle.click();
+      await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
       const handle = page
         .locator(".react-grid-item", { hasText: "HEL-1457 A" })
         .locator(".panel-grid-card__handle")

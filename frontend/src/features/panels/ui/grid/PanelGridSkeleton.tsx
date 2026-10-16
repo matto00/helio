@@ -5,6 +5,8 @@ import { panelGridConfig } from "./panelGridConfig";
 import "./PanelGrid.css";
 
 interface PanelGridSkeletonProps {
+  /** The dashboard this placeholder stands in for; keys the desktop grid (see `DesktopPanelGridSkeleton`). */
+  dashboardId?: string | null;
   layout: DashboardLayout;
   /** HEL-528 skeptic-final-1.md CR1 — see `PanelGrid.tsx`'s `width` prop doc.
    *  Sourced from the same `PanelList`-owned `useContainerWidth()` call
@@ -21,7 +23,7 @@ interface PanelGridSkeletonProps {
  * desktop-grid-vs-phone-stack shape the resolved content will, rather than
  * guessing — and never disagrees with it on width.
  */
-export function PanelGridSkeleton({ layout, width }: PanelGridSkeletonProps) {
+export function PanelGridSkeleton({ dashboardId = null, layout, width }: PanelGridSkeletonProps) {
   const isPhone = width < panelGridConfig.breakpoints.sm;
 
   return (
@@ -29,7 +31,7 @@ export function PanelGridSkeleton({ layout, width }: PanelGridSkeletonProps) {
       {isPhone ? (
         <MobilePanelStackSkeleton layout={layout} />
       ) : (
-        <DesktopPanelGridSkeleton layout={layout} width={width} />
+        <DesktopPanelGridSkeleton dashboardId={dashboardId} layout={layout} width={width} />
       )}
     </div>
   );

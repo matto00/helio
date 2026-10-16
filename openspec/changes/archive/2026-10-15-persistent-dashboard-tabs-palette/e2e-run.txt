@@ -1,0 +1,50 @@
+
+Running 21 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1575-1792050199442-90530@example.test
+[HEL-1300 e2e] throwaway user: hel1575-1792050199465-45915@example.test
+  ✓   2 e2e/hel1575-dashboard-tabs.spec.ts:401:7 › HEL-1575 dashboard tabs › touch: a tap on a tab's left edge lands in that tab, not on the previous tab's close expander (6.6s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050205225-73601@example.test
+  ✓   1 e2e/hel1575-dashboard-tabs.spec.ts:324:7 › HEL-1575 dashboard tabs › open, activate, replace, close and reorder by mouse and keyboard; the order survives a reload (11.2s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050209842-81217@example.test
+  ✓   3 e2e/hel1575-dashboard-tabs.spec.ts:434:7 › HEL-1575 dashboard tabs › a plain list click replaces the active tab and keeps the others (5.9s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050211152-79225@example.test
+  ✓   4 e2e/hel1575-dashboard-tabs.spec.ts:450:7 › HEL-1575 dashboard tabs › open-tab mode: the + button opens the palette listing dashboards, and a pick opens a new active tab (6.4s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050216292-77251@example.test
+  ✓   5 e2e/hel1575-dashboard-tabs.spec.ts:477:7 › HEL-1575 dashboard tabs › a /dashboards/:id deep link beats the saved active tab, with no panel request for another dashboard (8.5s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050219657-42608@example.test
+  ✓   6 e2e/hel1575-dashboard-tabs.spec.ts:505:7 › HEL-1575 dashboard tabs › deleting an open dashboard: the active one moves to its neighbour, an inactive one just loses its tab (7.7s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050223960-69856@example.test
+  ✓   8 e2e/hel1575-dashboard-tabs.spec.ts:585:7 › HEL-1575 dashboard tabs › an expired tab (16 minutes) refetches its panels (6.0s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050229971-41748@example.test
+  ✓   7 e2e/hel1575-dashboard-tabs.spec.ts:533:7 › HEL-1575 dashboard tabs › a warm switch makes no panel-list or rows request; reload within the TTL is warm; a second context restores the tabs (14.7s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050234312-90075@example.test
+  ✓   9 e2e/hel1575-dashboard-tabs.spec.ts:619:7 › HEL-1575 dashboard tabs › logout clears the browser-stored warm copy (5.8s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050235794-35485@example.test
+  ✓  10 e2e/hel1575-dashboard-tabs.spec.ts:629:7 › HEL-1575 dashboard tabs › reload of the only, never-left dashboard is warm: no panel list or rows request (8.0s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050242283-67322@example.test
+  ✓  12 e2e/hel1575-dashboard-tabs.spec.ts:696:7 › HEL-1575 changed dot and own edits › a dragged panel: switch and return is warm with no dot, also after a reload and in a second context (12.0s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050254326-54728@example.test
+  ✓  13 e2e/hel1575-dashboard-tabs.spec.ts:741:7 › HEL-1575 changed dot and own edits › a renamed panel: switch and return is warm with no dot, also after a reload and in a second context (12.5s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050266875-48819@example.test
+  ✓  14 e2e/hel1575-dashboard-tabs.spec.ts:781:7 › HEL-1575 changed dot and own edits › a run while the tab is active, then leave and return within the TTL: still warm (8.3s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050275135-87251@example.test
+  ✓  15 e2e/hel1575-dashboard-tabs.spec.ts:805:7 › HEL-1575 changed dot and own edits › a run while the tab is away marks it with a dot, refreshes its rows on return without a panel-list request, and the dot clears (7.0s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050282148-56510@example.test
+  ✓  16 e2e/hel1575-dashboard-tabs.spec.ts:843:7 › HEL-1575 changed dot and own edits › own edit, leave, then a run: the dot shows (own edits never hide new data) (6.6s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050288730-11029@example.test
+  ✓  17 e2e/hel1575-dashboard-tabs.spec.ts:859:7 › HEL-1575 changed dot and own edits › another user's edit would mark; the own session never marks itself (content edit by API from a second session) (5.8s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050294560-93546@example.test
+  ✓  18 e2e/hel1575-dashboard-tabs.spec.ts:885:7 › HEL-1575 changed dot and own edits › data changed before a reload: the restored tab refetches its rows instead of showing the old ones (7.0s)
+[HEL-1300 e2e] throwaway user: hel1575-1792050301605-61680@example.test
+  ✓  19 e2e/hel1575-dashboard-tabs.spec.ts:905:7 › HEL-1575 palette box and ask handoff › the Search, jump, or ask box opens the palette (3.6s)
+[HEL-1300 e2e] throwaway user: hel1575ask-1792050305244-78932@example.test
+[HEL-1575 e2e] created user a6b02e86-8aa1-4aed-a321-a5e0844e57b1; tier set for a6b02e86-8aa1-4aed-a321-a5e0844e57b1
+  ✓  20 e2e/hel1575-dashboard-tabs.spec.ts:922:7 › HEL-1575 palette box and ask handoff › Ask the assistant hands the text to /chat and sends exactly one converse request (7.1s)
+[HEL-1300 e2e] throwaway user: hel1575chat-1792050312328-76946@example.test
+[HEL-1575 e2e] created user 2dd6aef8-1d6a-4ebd-8414-13d53dc9dae9; tier set for 2dd6aef8-1d6a-4ebd-8414-13d53dc9dae9
+  ✓  21 e2e/hel1575-dashboard-tabs.spec.ts:961:7 › HEL-1575 palette box and ask handoff › Ask the assistant while already on /chat sends once per ask, and a reload sends nothing (11.9s)
+  ✓  11 e2e/hel1575-dashboard-tabs.spec.ts:652:7 › HEL-1575 dashboard tabs › an idle, visible device never overwrites the tab set another device saved (two devices, 125 s idle) (2.2m)
+[HEL-1301 e2e] deleted 21 recorded throwaway user(s)
+
+  21 passed (2.8m)

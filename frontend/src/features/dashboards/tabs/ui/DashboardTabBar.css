@@ -1,0 +1,224 @@
+/* HEL-1575 D8: the dashboard tab bar (DESIGN.md §9). Tokens only; static (no motion tokens, C6). Chrome paints
+   --app-surface-soft like the context list; the active tab is raised to --app-surface so it joins the command
+   bar below, and carries the one accent mark: a 2px --app-accent top edge (§0 accent discipline). The changed
+   dot is NON-accent on purpose (--app-text, a neutral foreground: no accent preset equals it in either theme, and an
+   intent colour such as --app-warning can match the Yellow preset): the accent is reserved for the active mark. */
+.dashboard-tab-bar {
+  grid-column: 3;
+  grid-row: 1;
+  container-type: inline-size;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  /* The height the bar has with tabs (the tab, the top padding and the border), so closing the last tab does
+     not shift the page below up. */
+  min-height: calc(var(--control-lg) + var(--space-2) + 1px);
+  padding: var(--space-2) var(--space-5) 0 var(--space-3);
+  background: var(--app-surface-soft);
+  border-bottom: 1px solid var(--app-border-subtle);
+  position: relative;
+  z-index: 2;
+}
+
+/* The strip scrolls sideways when the tabs do not fit; the scrollbar is the thin native one. */
+.dashboard-tab-bar__strip {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  /* The strip reaches 1px into the bar's bottom border, so the active tab (below) covers the line and joins
+     the command bar as on the B2 board; the margin keeps the bar's height unchanged. */
+  margin-bottom: -1px;
+}
+
+.dashboard-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 240px;
+  height: var(--control-lg);
+  border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+  color: var(--app-text-muted);
+}
+
+.dashboard-tab:hover {
+  color: var(--app-text);
+}
+
+/* Hover/selected wash (HEL-866 state-surface guard; DESIGN.md section 3 rung table). The rung depends on the
+   real backdrop: an inactive tab, the "+" and the box sit on the bar's --app-surface-soft, where
+   --app-surface-strong measures 1.167 dark / 1.179 light; the active tab sits on --app-surface, where the rung is
+   --app-surface-strong in dark and --app-surface-soft in light (1.133 / 1.150). The wash is on the tab's name
+   button and on the close control (siblings, so a nested interactive is never needed). */
+.dashboard-tab__button:hover,
+.dashboard-tab__close:hover {
+  background: var(--app-surface-strong);
+}
+
+.dashboard-tab--active .dashboard-tab__button:hover,
+.dashboard-tab--active .dashboard-tab__close:hover {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__button:hover,
+:root[data-theme="dark"] .dashboard-tab--active .dashboard-tab__close:hover {
+  background: var(--app-surface-strong);
+}
+
+.dashboard-tab--active {
+  box-sizing: border-box;
+  height: calc(var(--control-lg) + 1px);
+  /* Keeps the label on the inactive tabs' baseline: the extra pixel is the bar border it covers. */
+  padding-top: 1px;
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+
+/* The active tab's accent top edge (a 2px bar, not a box-shadow, so the elevation guard stays literal-free). */
+.dashboard-tab--active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--app-accent);
+  border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
+  pointer-events: none;
+}
+
+.dashboard-tab--dragging {
+  opacity: 0.5;
+}
+
+/* Drop indicator: a 2px bar on the hovered tab's near edge. */
+.dashboard-tab--drop-before::before,
+.dashboard-tab--drop-after::before {
+  content: "";
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  width: 2px;
+  background: var(--app-accent-mid);
+  pointer-events: none;
+}
+
+.dashboard-tab--drop-before::before {
+  left: 0;
+}
+
+.dashboard-tab--drop-after::before {
+  right: 0;
+}
+
+.dashboard-tab__button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-1) 0 var(--space-4);
+  border: 0;
+  border-radius: var(--app-radius-md) 0 0 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.dashboard-tab--active .dashboard-tab__button {
+  font-weight: var(--weight-medium);
+}
+
+/* The tab fills the strip's height and the strip clips (overflow), so the default outset ring would be cut. */
+.dashboard-tab__button:focus-visible {
+  outline-offset: -2px;
+}
+
+.dashboard-tab__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-tab__dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-text);
+}
+
+.dashboard-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* 24px: the dense-row mini icon-button size of DESIGN.md section 3 (the tab row is dense chrome). */
+  width: 24px;
+  height: 24px;
+  margin-right: var(--space-2);
+  padding: 0;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+}
+
+.dashboard-tab__close:hover {
+  color: var(--app-text);
+}
+
+.dashboard-tab-bar__add {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* The ghost IconButton's hover wash is --app-surface-soft, the bar's own background: nothing would change. */
+.dashboard-tab-bar .dashboard-tab-bar__add:hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
+.dashboard-tab-bar__spacer {
+  flex: 1 1 0;
+}
+
+.dashboard-tab-bar > .palette-search-box {
+  align-self: center;
+  margin-bottom: var(--space-1);
+}
+
+/* Touch: the tab is the bar's own geometry (like BottomNav tabs), so it grows to the 44px floor. The close is the
+   28px --control-sm box here and gets the canonical 44px expander (`shared/ui/tapTarget.css`): centred on the
+   close, it extends (44 - 28) / 2 = 8px per side, exactly the 8px margin to its own tab's right edge, so it tiles
+   against the next tab without covering any of it (a 24px box would reach 10px and capture 2px of the next tab).
+   Its keyboard path is still Delete. */
+@media (pointer: coarse) {
+  .dashboard-tab {
+    height: 44px;
+  }
+
+  .dashboard-tab__close {
+    position: relative;
+    width: var(--control-sm);
+    height: var(--control-sm);
+  }
+
+  .dashboard-tab__close::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}

@@ -62,3 +62,20 @@ export function fetchOutputMeta(outputId: string): Promise<Output> {
   cache.set(outputId, entry);
   return entry.promise;
 }
+
+/** HEL-1575 D5: the held metadata regardless of retention, for capturing a warm entry. */
+export function peekOutputMeta(outputId: string): Output | undefined {
+  return cache.get(outputId)?.value;
+}
+
+/** HEL-1575 D5 step 3: seeds a restored copy of `outputId`'s metadata. Registers its pipeline (so a
+ *  pipeline-level invalidation reaches the Output) and stamps the CURRENT generation: the counters
+ *  restart at zero on a page load, so the generation it was fetched under is meaningless now. */
+export function seedOutputMeta(outputId: string, meta: Output): void {
+  registerOutputPipeline(outputId, meta.pipelineId);
+  cache.set(outputId, {
+    promise: Promise.resolve(meta),
+    value: meta,
+    generation: currentGeneration(outputId),
+  });
+}

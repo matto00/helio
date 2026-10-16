@@ -490,6 +490,10 @@ export interface PanelPaginationState {
   /** HEL-1392 design.md D2 — the failure of the latest page-0 request, with that request's id so a
    *  card that waited on it can tell its failure from a later, unrelated one. */
   lastError?: PanelFetchError | null;
+  /** HEL-1575 D4 -- the SERVER-time instant (epoch ms) at the start of the window's latest page-0
+   *  request (`fetchPanelPage.pending`). A warm tab's window is invalidated only when its Output's
+   *  `dataUpdatedAt` is later than this, so a run observed while the tab was active leaves it warm. */
+  capturedAt?: number;
 }
 
 export interface PanelFetchError {

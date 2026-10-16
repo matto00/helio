@@ -6,6 +6,8 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import { dashboardTabsReducer } from "../features/dashboards/tabs/dashboardTabsSlice";
+import { addDashboardTabsListeners } from "../features/dashboards/tabs/dashboardTabsListeners";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
@@ -31,6 +33,8 @@ addToastListeners(startAppListening);
 addRecentVisitsListeners(startAppListening);
 // HEL-1562: keeps the landing page's "signed in" hint in step with `auth.status`.
 registerSignedInHintListener(startAppListening);
+// HEL-1575: open-dashboard tabs (selection sync, persistence, hydration) and the warm cache's listeners.
+addDashboardTabsListeners(startAppListening);
 
 export const store = configureStore({
   reducer: {
@@ -40,6 +44,7 @@ export const store = configureStore({
     connectors: connectorsReducer,
     dashboardFolders: dashboardFoldersReducer,
     dashboards: dashboardsReducer,
+    dashboardTabs: dashboardTabsReducer,
     layoutHistory: layoutHistoryReducer,
     onboarding: onboardingReducer,
     panels: panelsReducer,

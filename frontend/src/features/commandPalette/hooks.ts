@@ -1,6 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 
-import { useCommandPaletteContext } from "./CommandPaletteProvider";
+import {
+  useCommandPaletteContext,
+  type PaletteIntent,
+  type PaletteOpenOptions,
+} from "./CommandPaletteProvider";
 import type { CommandAction } from "./model/types";
 
 /**
@@ -28,9 +32,14 @@ export function useCommandQuery(): string {
 }
 
 /** Open/close state and controls for the palette overlay. */
-export function useCommandPalette(): { isOpen: boolean; open: () => void; close: () => void } {
-  const { isOpen, open, close } = useCommandPaletteContext();
-  return { isOpen, open, close };
+export function useCommandPalette(): {
+  isOpen: boolean;
+  intent: PaletteIntent | null;
+  open: (options?: PaletteOpenOptions) => void;
+  close: () => void;
+} {
+  const { isOpen, intent, open, close } = useCommandPaletteContext();
+  return { isOpen, intent, open, close };
 }
 
 /** Internal: read the live, unranked action list. Used by `CommandPalette` itself. */

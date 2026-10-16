@@ -3,6 +3,7 @@ package com.helio.api.routes.auth
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.{Directives, Route}
+import com.helio.api.protocols.auth.{DashboardTabsPref, DashboardTabsPrefs}
 import com.helio.api.{ErrorResponse, JsonProtocols, UserPreferences}
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.infrastructure.persistence.auth.{PreferencesPatch, UserPreferenceRepository}
@@ -13,7 +14,7 @@ import scala.concurrent.ExecutionContextExecutor
 import scala.util.{Failure, Success}
 
 /** `PATCH /api/users/me/preferences` (HEL-1574): a partial update of the caller's shell layout preferences
- *  (`contextListWidth` 200..400, `contextListCollapsed`) and, HEL-1572, appearance (`typeStyle`, `density`, `motion`). The endpoint takes no user id: the merge is keyed only on
+ *  (`contextListWidth` 200..400, `contextListCollapsed`), HEL-1572 appearance (`typeStyle`, `density`, `motion`) and, since HEL-1575, the saved `dashboardTabs`. The endpoint takes no user id: the merge is keyed only on
  *  the authenticated session user, which is the isolation boundary (`users` has no RLS). */
 final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: AuthenticatedUser)(implicit
     system: ActorSystem[_]
@@ -24,7 +25,7 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
   private val log = LoggerFactory.getLogger(getClass)
 
   private val AllowedFields =
-    Set("contextListWidth", "contextListCollapsed", "typeStyle", "density", "motion")
+    Set("contextListWidth", "contextListCollapsed", "typeStyle", "density", "motion", "dashboardTabs")
 
   private def enumField(
       fields: Map[String, JsValue],
@@ -63,13 +64,18 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
           case Some(JsNull) => Right(Some(None))
           case _            => enumField(fields, "motion", UserPreferenceRepository.MotionLevels).map(_.map(Some(_)))
         }
+        val tabs: Either[String, Option[DashboardTabsPref]] = fields.get("dashboardTabs") match {
+          case None    => Right(None)
+          case Some(v) => DashboardTabsPrefs.parse(v).map(Some(_))
+        }
         for {
           w <- width
           c <- collapsed
           t <- enumField(fields, "typeStyle", UserPreferenceRepository.TypeStyles)
           d <- enumField(fields, "density", UserPreferenceRepository.Densities)
           m <- motion
-        } yield PreferencesPatch(w, c, t, d, m)
+          b <- tabs
+        } yield PreferencesPatch(w, c, t, d, m, b)
       }
     case _ => Left("Request body must be a JSON object")
   }
@@ -87,7 +93,7 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
                   case Success(p) =>
                     complete(
                       StatusCodes.OK,
-                      UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion)
+                      UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion, p.dashboardTabs)
                     )
                   case Failure(ex) =>
                     // HEL-311: log the full exception server-side; never echo it in the response body.

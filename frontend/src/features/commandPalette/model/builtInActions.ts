@@ -20,6 +20,8 @@ export const RECENT_SECTION = "Recent";
 // string, imported by `useResourceSearchActions.ts` for the same reason `RECENT_SECTION` is
 // declared here rather than there: kept alongside the array it's an entry of so it can't drift.
 export const SEARCH_SECTION = "Search results";
+// HEL-1575 D10 — the "Ask the assistant" action's section, always last.
+export const ASK_SECTION = "Ask";
 
 /** skeptic-final-1.md CR1 — the palette's top-level section order is DATA, declared once here,
  * rather than an emergent property of whichever registrant's mount effect happened to commit
@@ -41,6 +43,7 @@ export const SECTION_DISPLAY_ORDER: readonly string[] = [
   NAVIGATION_SECTION,
   GENERAL_SECTION,
   CREATE_SECTION,
+  ASK_SECTION,
 ];
 
 /**

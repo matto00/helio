@@ -38,9 +38,8 @@ export function PanelList() {
     selectedDashboardId,
     status: dashboardsStatus,
   } = useAppSelector((state) => state.dashboards);
-  const { items, status, error, staleDashboardId, panelCreationModalOpen } = useAppSelector(
-    (state) => state.panels,
-  );
+  const { items, status, error, staleDashboardId, panelCreationModalOpen, restoringDashboardId } =
+    useAppSelector((state) => state.panels);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
   // HEL-548 D5/D6 — the create-action seam. `createDashboardAction` owns the
   // isPending/error state PanelList used to hold itself (`handleCreateDashboard`
@@ -108,9 +107,14 @@ export function PanelList() {
   // clear `items`, so a dashboard switch needs its own check beyond "no
   // items" or the PREVIOUS dashboard's panels would keep rendering under the
   // new dashboard's layout while the fetch is still in flight.
+  // HEL-1575 task 4.5(6): while a lazy warm restore reads the browser store (at most 500 ms), `status` is
+  // still "succeeded" with the PREVIOUS dashboard's items, which would otherwise render neither the grid
+  // nor this skeleton.
   const showPanelGridSkeleton =
     selectedDashboardId !== null &&
-    (status === "loading" || (status === "idle" && staleDashboardId !== selectedDashboardId)) &&
+    (status === "loading" ||
+      restoringDashboardId === selectedDashboardId ||
+      (status === "idle" && staleDashboardId !== selectedDashboardId)) &&
     !panelsMatchDashboard(items, selectedDashboardId);
 
   // HEL-528 evaluation-1.md CR3 — the dashboards fetch itself (`App.tsx`'s
@@ -402,6 +406,7 @@ export function PanelList() {
       >
         {showPanelGridSkeleton || showBootstrapSkeleton ? (
           <PanelGridSkeleton
+            dashboardId={selectedDashboardId}
             layout={selectedDashboard?.layout ?? defaultDashboardLayout}
             width={gridContainerWidth}
           />
@@ -466,8 +471,8 @@ export function PanelList() {
           dashboards.length > 0 ? (
             <EmptyState
               icon={<LayoutDashboard />}
-              title="Select a dashboard"
-              description="Choose a dashboard from the sidebar to view its panels."
+              title="No dashboard open"
+              description="Choose a dashboard from the list, or press ⌘K."
             />
           ) : null}
           {/* HEL-548 D1/D2/task 2.3 — admits the terminal (post-delete)

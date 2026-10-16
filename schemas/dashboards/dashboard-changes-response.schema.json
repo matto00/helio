@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-changes-response.schema.json",
+  "title": "DashboardChangesResponse",
+  "description": "GET /api/dashboard-changes?ids= (HEL-1575): one item per requested dashboard the caller can read; ids the caller cannot read, or that do not exist, are omitted (never an error). 1..20 ids, otherwise 400. `serverNow` is the server clock, from which the client derives its offset.",
+  "type": "object",
+  "properties": {
+    "serverNow": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "dashboard-change-item.schema.json"
+      }
+    }
+  },
+  "required": ["serverNow", "items"],
+  "additionalProperties": false
+}

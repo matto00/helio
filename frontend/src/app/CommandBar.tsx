@@ -86,9 +86,9 @@ export function CommandBar({
   ];
 
   const pickerSelection = usePickerSelection(location.pathname);
-  // HEL-1579: a route whose page header owns the item name (pipeline detail) shows only the section label.
-  const breadcrumbItemNameAllowed =
-    !onDashboardView && !hidesBreadcrumbItemName(location.pathname, isPhoneShell);
+  // HEL-1579/HEL-1575: a route whose page chrome owns the item name (pipeline detail header, dashboard
+  // tab bar) shows only the section label.
+  const breadcrumbNameHidden = hidesBreadcrumbItemName(location.pathname, isPhoneShell);
   const pickerId = pickerIdForPathname(location.pathname);
   const mobileTitleDisplayName =
     pickerId === "dashboards"
@@ -136,7 +136,7 @@ export function CommandBar({
           )}
           <nav className="app-command-bar__breadcrumb" aria-label="Breadcrumb">
             <span>{pickerSelection.heading}</span>
-            {onDashboardView && selectedDashboard !== null && (
+            {onDashboardView && selectedDashboard !== null && !breadcrumbNameHidden && (
               <>
                 <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
                   /
@@ -146,19 +146,21 @@ export function CommandBar({
                 </span>
               </>
             )}
-            {breadcrumbItemNameAllowed && pickerSelection.activeItemName !== null && (
-              <>
-                <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
-                  /
-                </span>
-                <span
-                  className="app-command-bar__breadcrumb-current"
-                  title={pickerSelection.activeItemName}
-                >
-                  {pickerSelection.activeItemName}
-                </span>
-              </>
-            )}
+            {!onDashboardView &&
+              !breadcrumbNameHidden &&
+              pickerSelection.activeItemName !== null && (
+                <>
+                  <span className="app-command-bar__breadcrumb-sep" aria-hidden="true">
+                    /
+                  </span>
+                  <span
+                    className="app-command-bar__breadcrumb-current"
+                    title={pickerSelection.activeItemName}
+                  >
+                    {pickerSelection.activeItemName}
+                  </span>
+                </>
+              )}
           </nav>
         </div>
         {/* Phone-only: the breadcrumb above is display:none <768px (App.css),

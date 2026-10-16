@@ -27,6 +27,7 @@ import {
 import { isAxiosError } from "axios";
 
 import { currentGeneration } from "./outputFreshness";
+import { serverNowMs } from "../../dashboards/tabs/serverClock";
 
 import {
   composeOutputRowsFilter,
@@ -355,6 +356,8 @@ export const fetchPanelPage = createAsyncThunk<
       kind: RequestErrorKind;
       code?: typeof CROSS_FILTER_EQ_REJECTED;
     };
+    /** HEL-1575 D4 -- the server-time instant the request started. */
+    pendingMeta: { capturedAt: number };
   }
 >(
   "panels/fetchPanelPage",
@@ -398,4 +401,5 @@ export const fetchPanelPage = createAsyncThunk<
       return rejectWithValue(classifyRequestError(err, "Failed to load panel data."));
     }
   },
+  { getPendingMeta: () => ({ capturedAt: serverNowMs() }) },
 );
