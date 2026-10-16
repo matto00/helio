@@ -334,7 +334,7 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
       { id: "b", name: "Beta" },
     ];
 
-    it("mounts above the phone breakpoint on the dashboard view, with the tabpanel and no breadcrumb name", async () => {
+    it("mounts above the phone breakpoint on the dashboard view, with the tabpanel, and no breadcrumb (the meta row replaced the command bar)", async () => {
       renderShell("/home", { openTabs });
       const list = await screen.findByRole("tablist", { name: "Open dashboards" });
       expect(within(list).getAllByRole("tab")).toHaveLength(2);
@@ -343,9 +343,9 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
         "aria-labelledby",
         within(list).getByRole("tab", { name: "Alpha" }).id,
       );
-      // The command bar's breadcrumb keeps the section but drops the dashboard name; the sr-only h1 stays.
-      const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-      expect(within(breadcrumb).queryByText("Alpha")).toBeNull();
+      // HEL-1576: the dashboard meta row takes the command bar's slot, so there is no breadcrumb to repeat the
+      // name (the breadcrumb-name rule itself is covered in CommandBar.test.tsx); the sr-only h1 stays.
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
       expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Alpha");
       expect(screen.getByRole("button", { name: "Search, jump, or ask" })).toBeInTheDocument();
       expect(document.querySelector(".app-shell")).toHaveClass("app-shell--tabs");

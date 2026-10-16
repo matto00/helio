@@ -32,7 +32,6 @@ export interface NetworkViolation {
  */
 export const NETWORK_ALLOWLIST: Readonly<Record<string, string>> = {
   // Drain after the owning lane merges: delete the entry and mock the file's calls (follow-up ticket).
-  "src/features/panels/ui/grid/DesktopPanelGrid.processedWidth.test.tsx": "HEL-1576",
   "src/features/pipelines/ui/PipelineDetailPage.test.tsx": "HEL-1579",
   "src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx": "HEL-1579",
   "src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx": "HEL-1579",

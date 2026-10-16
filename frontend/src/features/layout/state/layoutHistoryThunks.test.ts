@@ -4,7 +4,15 @@ import type { AppDispatch } from "../../../store/store";
 import { dashboardsReducer, fetchDashboards } from "../../dashboards/state/dashboardsSlice";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 import { layoutHistoryReducer, pushLayoutSnapshot } from "./layoutHistorySlice";
-import { applyLayoutRedo, applyLayoutUndo } from "./layoutHistoryThunks";
+import { fetchPanels } from "../../panels/state/panelThunks";
+import { panelsReducer } from "../../panels/state/panelsSlice";
+import { makeTextPanel } from "../../../test/panelFixtures";
+import {
+  applyLayoutRedo,
+  applyLayoutTidy,
+  applyLayoutUndo,
+  selectCanTidyLayout,
+} from "./layoutHistoryThunks";
 
 const layout = (id: string, x: number): DashboardLayout => ({
   lg: [{ panelId: id, x, y: 0, w: 2, h: 2 }],
@@ -84,6 +92,84 @@ describe("layoutHistoryThunks (HEL-1230)", () => {
     store.dispatch(pushLayoutSnapshot({ dashboardId: "missing", layout: layoutA }));
     const before = store.getState();
     expect(dispatchOf(store)(applyLayoutUndo("missing"))).toBe(false);
+    expect(store.getState()).toBe(before);
+  });
+});
+
+describe("applyLayoutTidy (HEL-1576)", () => {
+  const gappy: DashboardLayout = {
+    lg: [
+      { panelId: "a", x: 0, y: 0, w: 6, h: 4 },
+      { panelId: "b", x: 0, y: 10, w: 6, h: 4 },
+    ],
+    md: [],
+    sm: [
+      { panelId: "a", x: 0, y: 0, w: 3, h: 4 },
+      { panelId: "b", x: 0, y: 8, w: 3, h: 4 },
+    ],
+    xs: [],
+  };
+
+  function tidyStore(loadedDashboardId: string | null = dashboardId) {
+    const store = configureStore({
+      reducer: {
+        dashboards: dashboardsReducer,
+        layoutHistory: layoutHistoryReducer,
+        panels: panelsReducer,
+      },
+    });
+    store.dispatch(
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: dashboardId,
+            name: "D",
+            meta: { createdBy: "s", createdAt: "", lastUpdated: "" },
+            appearance: { background: "transparent", gridBackground: "transparent" },
+            layout: gappy,
+          },
+        ],
+        "req",
+        undefined,
+      ),
+    );
+    if (loadedDashboardId !== null) {
+      const loaded = ["a", "b"].map((id) => makeTextPanel({ id, dashboardId }));
+      store.dispatch(fetchPanels.pending("req-p", loadedDashboardId));
+      store.dispatch(fetchPanels.fulfilled(loaded, "req-p", loadedDashboardId));
+    }
+    return store;
+  }
+
+  it("compacts every authored breakpoint as ONE history entry that a single undo reverses exactly", () => {
+    const store = tidyStore();
+    expect(selectCanTidyLayout(dashboardId)(store.getState() as never)).toBe(true);
+    expect(dispatchOf(store as never)(applyLayoutTidy(dashboardId))).toBe(true);
+    const tidied = store.getState().dashboards.items[0].layout;
+    expect(tidied.lg.map((i) => i.y)).toEqual([0, 4]);
+    expect(tidied.sm.map((i) => i.y)).toEqual([0, 4]);
+    expect(tidied.md).toEqual([]);
+    expect(store.getState().layoutHistory.byDashboard[dashboardId].past).toEqual([gappy]);
+
+    expect(dispatchOf(store as never)(applyLayoutUndo(dashboardId))).toBe(true);
+    expect(store.getState().dashboards.items[0].layout).toEqual(gappy);
+    expect(selectCanTidyLayout(dashboardId)(store.getState() as never)).toBe(true);
+  });
+
+  it("has nothing to tidy afterwards and dispatches nothing the second time", () => {
+    const store = tidyStore();
+    dispatchOf(store as never)(applyLayoutTidy(dashboardId));
+    expect(selectCanTidyLayout(dashboardId)(store.getState() as never)).toBe(false);
+    const before = store.getState();
+    expect(dispatchOf(store as never)(applyLayoutTidy(dashboardId))).toBe(false);
+    expect(store.getState()).toBe(before);
+  });
+
+  it("does nothing while the dashboard's panels are not loaded", () => {
+    const store = tidyStore(null);
+    expect(selectCanTidyLayout(dashboardId)(store.getState() as never)).toBe(false);
+    const before = store.getState();
+    expect(dispatchOf(store as never)(applyLayoutTidy(dashboardId))).toBe(false);
     expect(store.getState()).toBe(before);
   });
 });

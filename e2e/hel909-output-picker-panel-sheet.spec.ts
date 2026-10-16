@@ -94,12 +94,14 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     const { latencyId } = await seedThroughputOutput(page, request);
 
     await page.goto("/home");
-    // Reached via the command bar's "Dashboard actions" kebab (HEL-813
-    // surface 6's own precedent) -- the single Add-panel entry point once a
-    // dashboard is selected, regardless of whether the onboarding checklist
+    // Reached via the dashboard meta row's primary "Add panel" button (HEL-1576; it was the command bar's
+    // "Dashboard actions" kebab item, HEL-813 surface 6's precedent, which the phone shell still uses) --
+    // the single Add-panel entry point once a dashboard is selected, regardless of whether the onboarding checklist
     // or the "No panels yet" empty state is also on screen underneath it.
-    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Add panel" }).click();
+    await page
+      .getByRole("group", { name: "Dashboard actions" })
+      .getByRole("button", { name: "Add panel" })
+      .click();
 
     const picker = page.getByRole("dialog", { name: "Add panel" });
     await expect(picker).toBeVisible();
@@ -168,9 +170,8 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
       await seedThroughputOutput(page, request);
 
       await page.goto("/home");
-      // Phone chrome: "Add panel" is reached via the command bar's
-      // dashboard-actions kebab (HEL-813 surface 6's own precedent), not a
-      // header-row button, at these widths.
+      // Phone chrome: the meta row never renders on the phone shell, so "Add panel" is reached via the
+      // command bar's dashboard-actions kebab (HEL-813 surface 6's own precedent) at these widths.
       await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
       await page.getByRole("menuitem", { name: "Add panel" }).click();
 
@@ -207,8 +208,11 @@ test.describe("HEL-909 OutputPicker + Panel sheet live verification", () => {
     const { throughputId } = await seedThroughputOutput(page, request);
 
     await page.goto("/home");
-    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Add panel" }).click();
+    // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
+    await page
+      .getByRole("group", { name: "Dashboard actions" })
+      .getByRole("button", { name: "Add panel" })
+      .click();
 
     const picker = page.getByRole("dialog", { name: "Add panel" });
     await expect(picker).toBeVisible();

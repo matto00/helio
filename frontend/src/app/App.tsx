@@ -43,6 +43,8 @@ import { AppRoutes } from "./AppRoutes";
 import { CommandBar } from "./CommandBar";
 import { DashboardTabBar } from "../features/dashboards/tabs/ui/DashboardTabBar";
 import { DASHBOARD_TABPANEL_ID, dashboardTabDomId } from "../features/dashboards/tabs/ui/tabDomIds";
+import { usesDashboardMetaRow, usesDashboardTabBar } from "./dashboardChrome";
+import { DashboardMetaRow } from "./dashboardMeta/DashboardMetaRow";
 import { AppRail } from "./shell/AppRail";
 import { ContextList } from "./shell/ContextList";
 import { ContextListBody, contextListSectionFor } from "./shell/ContextListBody";
@@ -188,7 +190,7 @@ export function AppShell() {
   const showList = showRail && listSection !== null && !contextListLayout.collapsed;
   // HEL-1575 D8: the tab bar is the first row of the content column, on the rail shell's dashboard view only
   // (the phone keeps its own switcher). The command bar's dashboard-name breadcrumb yields to the active tab.
-  const showTabBar = showRail && onDashboardView;
+  const showTabBar = usesDashboardTabBar(location.pathname, isPhoneShell);
   const activeTabId = useAppSelector((state) => state.dashboardTabs.activeId);
   const shellClassName = [
     "app-shell",
@@ -244,16 +246,24 @@ export function AppShell() {
               </ContextList>
             )}
             {showTabBar && <DashboardTabBar />}
-            <CommandBar
-              isMobileNavSheetOpen={isMobileNavSheetOpen}
-              // HEL-773 design.md D2 — the trigger now toggles: tapping it again
-              // while the sheet is open closes it, preserving the behavior
-              // today's full-viewport backdrop already provided.
-              onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
-              onOpenRefinement={() => setIsRefinementOpen(true)}
-              onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
-              setDraftAppearance={setDraftAppearance}
-            />
+            {usesDashboardMetaRow(location.pathname, isPhoneShell) ? (
+              <DashboardMetaRow
+                onOpenRefinement={() => setIsRefinementOpen(true)}
+                onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
+                setDraftAppearance={setDraftAppearance}
+              />
+            ) : (
+              <CommandBar
+                isMobileNavSheetOpen={isMobileNavSheetOpen}
+                // HEL-773 design.md D2 — the trigger now toggles: tapping it again
+                // while the sheet is open closes it, preserving the behavior
+                // today's full-viewport backdrop already provided.
+                onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
+                onOpenRefinement={() => setIsRefinementOpen(true)}
+                onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
+                setDraftAppearance={setDraftAppearance}
+              />
+            )}
 
             {/* -- BODY (content; the rail and context list are grid siblings above) -- */}
             <div className="app-body">

@@ -329,7 +329,8 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     // Place the Output via the `/home` flow's own "Add panel" trigger.
-    await page.getByRole("button", { name: "Add panel" }).click();
+    // HEL-1576: the meta row's primary and the empty state's button share the name; either opens the flow.
+    await page.getByRole("button", { name: "Add panel" }).first().click();
     await expect(page.getByRole("dialog", { name: "Add panel" })).toHaveAttribute("open");
     await page.fill('[aria-label="Search outputs"]', "Parity Output");
     await page.getByRole("option", { name: /Parity Output/ }).click();
@@ -343,10 +344,13 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
 
     // Reopen the SAME `/home` picker and confirm the `/home` flow itself marks it "On this board" —
     // this is the baseline the off-route mount must match. Once a dashboard HAS panels, "Add
-    // panel" moves from the empty-state button into the header's "Dashboard actions" kebab menu
-    // (CommandBar.tsx) — the standalone button no longer exists.
-    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Add panel" }).click();
+    // panel" is the dashboard meta row's primary button (HEL-1576; it was the command bar's kebab item
+    // before) — the empty-state button no longer exists.
+    // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
+    await page
+      .getByRole("group", { name: "Dashboard actions" })
+      .getByRole("button", { name: "Add panel" })
+      .click();
     await page.fill('[aria-label="Search outputs"]', "Parity Output");
     await expect(
       page.getByRole("option", { name: /Parity Output.*already on this board/ }),

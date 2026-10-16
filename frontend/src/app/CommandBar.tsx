@@ -1,4 +1,4 @@
-import { ChevronDown, MessagesSquare, Plus, RotateCcw, RotateCw } from "lucide-react";
+import { ChevronDown, MessagesSquare, Plus } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { UserMenu } from "../features/auth/ui/UserMenu";
@@ -6,8 +6,6 @@ import { logout } from "../features/auth/state/authSlice";
 import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
-import { selectCanRedo, selectCanUndo } from "../features/layout/state/layoutHistorySlice";
-import { applyLayoutRedo, applyLayoutUndo } from "../features/layout/state/layoutHistoryThunks";
 import { useLayoutUndoRedo } from "../features/layout/hooks/useLayoutUndoRedo";
 import { useCreatePanelAction } from "../features/panels/hooks/useCreatePanelAction";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -32,10 +30,10 @@ interface CommandBarProps {
 }
 
 /** The command bar: logo, breadcrumb, phone title/switcher trigger,
- * save-state indicator, undo/redo, appearance editor, refine-with-AI, the
- * quick-launcher trigger, and the user menu. Owns undo/redo entirely
- * (design.md "App.tsx split boundary") since it's unconditionally mounted
- * for exactly `AppShell`'s lifetime. Reads `usePickerSelection` directly
+ * save-state indicator, appearance editor, refine-with-AI, the
+ * quick-launcher trigger, and the user menu. It is rendered on every page EXCEPT the rail shell's
+ * dashboard view, where `DashboardMetaRow` takes its slot (HEL-1576, `usesDashboardMetaRow`); the phone
+ * shell keeps it everywhere. Reads `usePickerSelection` directly
  * rather than receiving a hand-drilled prop bag. HEL-745: the theme toggle
  * lives in Settings' Appearance section now, not here. */
 export function CommandBar({
@@ -106,19 +104,9 @@ export function CommandBar({
   // one (F-016).
   const mobileTitleVisible = pickerId !== "other";
 
-  const canUndo = useAppSelector(selectCanUndo(selectedDashboardId));
-  const canRedo = useAppSelector(selectCanRedo(selectedDashboardId));
-
+  // The layout undo/redo shortcuts. The dashboard meta row owns them on the rail-shell dashboard view
+  // (HEL-1576); this bar mounts everywhere else, so they stay registered for the phone shell's dashboard view.
   useLayoutUndoRedo(selectedDashboardId);
-
-  // HEL-1230: the buttons and the keyboard shortcuts share one traversal implementation.
-  function handleUndo() {
-    if (selectedDashboardId) dispatch(applyLayoutUndo(selectedDashboardId));
-  }
-
-  function handleRedo() {
-    if (selectedDashboardId) dispatch(applyLayoutRedo(selectedDashboardId));
-  }
 
   async function handleLogout() {
     await dispatch(logout());
@@ -233,34 +221,6 @@ export function CommandBar({
         </div>
       </div>
       <div className="app-command-bar__right" inert={isMobileNavSheetOpen}>
-        {onDashboardView && (
-          <>
-            {/* F-186: `undo-redo-btn` used to be its own full button recipe,
-                byte-identical to `.cmd-btn`'s hover/disabled states — it's
-                now just a marker class the <=768px media query hides on,
-                with `.cmd-btn` supplying the actual look. */}
-            <button
-              type="button"
-              className="cmd-btn undo-redo-btn"
-              onClick={handleUndo}
-              disabled={!canUndo}
-              aria-label="Undo layout change"
-              title="Undo (Ctrl+Z)"
-            >
-              <RotateCcw size={ICON_SIZE.sm} /> Undo
-            </button>
-            <button
-              type="button"
-              className="cmd-btn undo-redo-btn"
-              onClick={handleRedo}
-              disabled={!canRedo}
-              aria-label="Redo layout change"
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              Redo <RotateCw size={ICON_SIZE.sm} />
-            </button>
-          </>
-        )}
         {onDashboardView && (
           <DashboardAppearanceEditor
             dashboard={selectedDashboard}

@@ -72,8 +72,11 @@ async function seedOrdersOutput(page: Page, request: APIRequestContext) {
 }
 
 async function placeOrdersPanel(page: Page) {
-  await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Add panel" }).click();
+  // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
+  await page
+    .getByRole("group", { name: "Dashboard actions" })
+    .getByRole("button", { name: "Add panel" })
+    .click();
   const picker = page.getByRole("dialog", { name: "Add panel" });
   await expect(picker).toBeVisible();
   await page.getByLabel("Search outputs").fill("orders");

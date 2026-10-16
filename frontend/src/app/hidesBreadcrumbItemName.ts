@@ -8,11 +8,11 @@
 // One shared predicate on purpose: a route that needs the same treatment extends this function rather
 // than adding a second competing conditional in `CommandBar.tsx`.
 
-import { isDashboardViewPath } from "../shared/chrome/sections";
+import { usesDashboardTabBar } from "./dashboardChrome";
 
 const PIPELINE_DETAIL_PATH = /^\/pipelines\/[^/]+/;
 
 export function hidesBreadcrumbItemName(pathname: string, isPhoneShell: boolean): boolean {
   if (isPhoneShell) return false;
-  return PIPELINE_DETAIL_PATH.test(pathname) || isDashboardViewPath(pathname);
+  return PIPELINE_DETAIL_PATH.test(pathname) || usesDashboardTabBar(pathname, isPhoneShell);
 }

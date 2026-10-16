@@ -113,7 +113,16 @@ async function expectBox(page: Page, expected: Box, index = 0) {
     .toBe([expected.x, expected.y, expected.width, expected.height].map(Math.round).join(","));
 }
 
+// HEL-1576: panels move and resize only while layout edit mode is on, so every drag/resize starts by
+// turning it on (idempotent: once on, the toggle is named "Done").
+async function enterLayoutEditMode(page: Page) {
+  const toggle = page.getByRole("button", { name: "Edit layout" });
+  if ((await toggle.count()) > 0) await toggle.click();
+  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
+}
+
 async function dragPanel(page: Page, dx: number, dy: number) {
+  await enterLayoutEditMode(page);
   const handle = page.locator(".panel-grid-card__handle").first();
   const bb = (await handle.boundingBox())!;
   const sx = bb.x + bb.width / 2;
@@ -127,6 +136,7 @@ async function dragPanel(page: Page, dx: number, dy: number) {
 }
 
 async function resizePanel(page: Page, dy: number) {
+  await enterLayoutEditMode(page);
   const handle = page.locator(".react-resizable-handle").first();
   const bb = (await handle.boundingBox())!;
   const sx = bb.x + bb.width / 2;

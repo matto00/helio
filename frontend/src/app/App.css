@@ -331,16 +331,6 @@
   white-space: nowrap;
 }
 
-/* F-186: `.undo-redo-btn` and `.topbar-theme-btn` used to be full,
- * near-byte-identical duplicates of `.cmd-btn`/`.cmd-btn--icon` (same
- * height, border, colors, hover/disabled states) — three copies of one
- * recipe. Undo/Redo (icon+text) use `.cmd-btn` directly; `.undo-redo-btn`
- * survives only as a marker class for the <=768px hide rule below (mobile
- * has no layout editing — see that rule's own comment). HEL-718: the
- * icon-only topbar buttons (theme toggle, "Refine with AI", quick-launcher)
- * moved off `.cmd-btn--icon` (now deleted) onto the shared `IconButton`
- * primitive (`shared/ui/IconButton.css`, `variant="secondary"`). */
-
 /* --- COMMAND BAR: phone-only dashboard-switcher title (App.tsx) ---
  * Hidden by default; shown only <=768px below. Sits alongside (never
  * replaces) the desktop breadcrumb markup, which stays untouched. */
@@ -477,14 +467,13 @@
     transform: translate(-50%, -50%);
   }
 
-  /* Desktop layout-editing affordances (undo/redo, dashboard appearance,
+  /* Desktop layout-editing affordances (dashboard appearance,
      save-now) are out of scope for the phone viewer (mobile-pwa-handoff.md
      §2 — no CRUD/editing on phone) and, left in place, they crowd the
      command bar enough to squeeze the mobile title control to zero width
      (F-054/F-077 — "Save now" specifically used to reserve ~90px even while
      invisible). Hide them here so the dashboard switcher stays usable; this
      does not touch PanelGrid or any HEL-301 file. */
-  .undo-redo-btn,
   .dashboard-appearance-editor,
   .app-command-bar .save-state-indicator {
     display: none;
