@@ -92,6 +92,20 @@
   }
 }
 
+/* HEL-1573: Subtle fades the sheet in place instead of descending (DESIGN.md §10). */
+@keyframes mobile-nav-sheet-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+:root[data-motion="subtle"] .mobile-nav-sheet__panel {
+  animation-name: mobile-nav-sheet-fade-in;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion]) .mobile-nav-sheet__panel,
   :root:not([data-motion]) .mobile-nav-sheet__backdrop,

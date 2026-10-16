@@ -1,5 +1,6 @@
 import { useId } from "react";
 
+import { useValueTween } from "../../../../shared/motion/useValueTween";
 import type { MappedPanelData } from "../../types/panel";
 import type { MetricFormat } from "../../../pipelines/ui/outputEditor/outputConfigTypes";
 import { FILTERED_NOTE, type MetricComparison } from "../../history/metricHistoryView";
@@ -124,6 +125,26 @@ function ComparisonLine({
   );
 }
 
+/** The headline figure. While the value tween is in flight the counting text is hidden from assistive technology and the
+ *  final value is exposed instead, so a screen reader never hears intermediate numbers. */
+function MetricFigureText({
+  shown,
+  final,
+  tweening,
+}: {
+  shown: string;
+  final: string;
+  tweening: boolean;
+}) {
+  if (!tweening) return <>{final}</>;
+  return (
+    <>
+      <span aria-hidden="true">{shown}</span>
+      <span className="sr-only">{final}</span>
+    </>
+  );
+}
+
 export function MetricRenderer({
   data,
   format,
@@ -149,6 +170,16 @@ export function MetricRenderer({
   const hasValue = !!data?.value;
   const matched = resolveRule(conditionalFormats, data?.value);
   const valueText = formatMetricValue(data?.value, format) || "--";
+  // HEL-1573 value tween: a changed finite value counts to its new figure; the settled frame is `valueText` exactly.
+  const rawValue = data?.value ?? "";
+  const numericValue = rawValue.trim() !== "" ? Number(rawValue) : null;
+  const tweenedValue = useValueTween(
+    numericValue !== null && Number.isFinite(numericValue) ? numericValue : null,
+  );
+  const tweening = tweenedValue !== null && tweenedValue !== numericValue;
+  const shownText = tweening
+    ? (formatMetricValue(String(tweenedValue), format) ?? valueText)
+    : valueText;
 
   return (
     <div className="panel-content panel-content--metric">
@@ -161,11 +192,11 @@ export function MetricRenderer({
             title={ruleName(matched)}
           >
             <ToneGlyph tone={matched.tone} size="lg" />
-            {valueText}
+            <MetricFigureText shown={shownText} final={valueText} tweening={tweening} />
             <ToneSrText rule={matched} />
           </span>
         ) : (
-          valueText
+          <MetricFigureText shown={shownText} final={valueText} tweening={tweening} />
         )}
         {data?.unit && !isDurationFormat(format) && (
           <span className="panel-content__metric-unit">{data.unit}</span>

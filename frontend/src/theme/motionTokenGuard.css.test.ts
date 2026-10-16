@@ -8,11 +8,9 @@ import path from "path";
 //   (a) inside a `prefers-reduced-motion: reduce` media block,
 //   (b) a pinned, commented allowlist of single-use loop keyframes
 //       (name AND exact duration — a name-only allowlist would license the
-//       keyframe to silently become any duration at all), or
-//   (c) `PanelGrid.css`'s three `180ms` transition literals, pinned to
-//       their exact declarations and annotated with HEL-1032 (the ticket
-//       that removes them). D4-REVISED deliberately leaves these in place;
-//       without this exception the guard is RED on day one.
+//       keyframe to silently become any duration at all).
+// HEL-1573 removed the former third exception (`PanelGrid.css`'s `180ms`
+// literals, HEL-1032): the grid now times itself from the motion tokens.
 //
 // Parsing is multi-line-aware (declarations routinely wrap across several
 // lines, e.g. `PanelGrid.css`'s `transition:\n  transform 180ms ease,\n...`)
@@ -76,16 +74,6 @@ const LOOP_ALLOWLIST: Array<{ name: string; duration: string }> = [
   { name: "pipeline-run-pulse", duration: "1.2s" },
 ];
 
-// (c) — PanelGrid.css's pinned transition literals (D4-REVISED / HEL-1032).
-// Pinned to file + exact literal text, not just a keyframe name, because
-// this exception guards a `transition:` shorthand, not a keyframe — a
-// keyframe-only staleness check would let this exception survive forever
-// after HEL-1032 removes these literals.
-const PANEL_GRID_EXCEPTION = {
-  file: "features/panels/ui/grid/PanelGrid.css",
-  literals: ["180ms", "180ms", "180ms"],
-};
-
 interface Hit {
   file: string;
   line: number;
@@ -101,7 +89,6 @@ const TIME_LITERAL_RE = /\b\d*\.?\d+m?s\b/g;
 // the guard rather than sit as a permanent, unused hole. Populated by
 // `findHits` as a side effect of the walk in the main guard test.
 const usedLoopAllowlistEntries = new Set<string>();
-let panelGridExceptionUsedCount = 0;
 
 function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
   const text = stripComments(rawText);
@@ -134,18 +121,12 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
       }
     }
 
-    const isPanelGrid = relPath === PANEL_GRID_EXCEPTION.file;
-
     const literalMatches = declText.match(TIME_LITERAL_RE) ?? [];
     for (const literal of literalMatches) {
       // cubic-bezier control points never carry an `s`/`ms` suffix, so this
       // regex cannot false-positive on them; guard anyway against a bare
       // "0" that could appear as an iteration-count-like token (defensive).
       if (allowedLoop) continue;
-      if (isPanelGrid && literal === "180ms") {
-        panelGridExceptionUsedCount++;
-        continue; // exception (c)
-      }
       hits.push({
         file: relPath,
         line: lineAt(text, declStart),
@@ -160,7 +141,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 144)", () => {
+  it("walks every CSS file in frontend/src (currently 146)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -185,7 +166,8 @@ describe("motion token guard (HEL-441)", () => {
     // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
     // HEL-1576 added `DashboardMetaRow.css` (141 -> 142); tokens only, no shadow/radius/motion literals.
     // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css` (142 -> 144); tokens only.
-    expect(files.length).toBe(144);
+    // HEL-1573 added `shared/motion/motion.css` and `shared/ui/Crossfade.css` (144 -> 146); tokens only.
+    expect(files.length).toBe(146);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {
@@ -204,23 +186,16 @@ describe("motion token guard (HEL-441)", () => {
     }
   });
 
-  it("PanelGrid.css's pinned 180ms exception still matches exactly three literals", () => {
-    // Confirms exception (c) is scoped to what actually exists, not a
-    // blanket file-level pass — if HEL-1032 removes these literals this
-    // count must be revisited (see the stale-exception mutation test).
-    const abs = path.join(SRC_ROOT, PANEL_GRID_EXCEPTION.file);
-    const text = stripComments(fs.readFileSync(abs, "utf-8"));
-    const declRe = /\btransition\s*:\s*([\s\S]+?);/;
-    const m = declRe.exec(text);
-    expect(m).toBeTruthy();
-    const literalCount = (m![0].match(/180ms/g) ?? []).length;
-    expect(literalCount).toBe(3);
+  it("PanelGrid.css carries no literal duration any more (HEL-1032 closed by HEL-1573)", () => {
+    const abs = path.join(SRC_ROOT, "features/panels/ui/grid/PanelGrid.css");
+    const text = fs.readFileSync(abs, "utf-8");
+    expect(findHits(abs, "features/panels/ui/grid/PanelGrid.css", text)).toEqual([]);
+    expect(stripComments(text)).not.toMatch(/\b180ms\b/);
   });
 
   it("no CSS file carries a literal transition/animation duration outside the pinned exceptions", () => {
     const allHits: Hit[] = [];
     usedLoopAllowlistEntries.clear();
-    panelGridExceptionUsedCount = 0;
     for (const abs of files) {
       const rel = path.relative(SRC_ROOT, abs);
       const text = fs.readFileSync(abs, "utf-8");
@@ -248,7 +223,6 @@ describe("motion token guard (HEL-441)", () => {
     // PanelGrid exception survive forever once HEL-1032 removes those
     // literals.
     usedLoopAllowlistEntries.clear();
-    panelGridExceptionUsedCount = 0;
     for (const abs of files) {
       const rel = path.relative(SRC_ROOT, abs);
       const text = fs.readFileSync(abs, "utf-8");
@@ -257,6 +231,5 @@ describe("motion token guard (HEL-441)", () => {
     for (const entry of LOOP_ALLOWLIST) {
       expect(usedLoopAllowlistEntries.has(`${entry.name}:${entry.duration}`)).toBe(true);
     }
-    expect(panelGridExceptionUsedCount).toBe(PANEL_GRID_EXCEPTION.literals.length);
   });
 });

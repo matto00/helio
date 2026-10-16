@@ -1,0 +1,81 @@
+- `frontend/src/theme/theme.css` — `--motion-duration-move` / `--motion-rise-distance` role tokens; zeroed under Subtle and both Off blocks
+- `frontend/src/theme/ThemeProvider.tsx` — `useMotion()` (the one reader); `useReducedMotion` derived from it
+- `frontend/src/shared/motion/motionTokens.ts` — `readMotionDuration`/`readMotionEasing`/`isInstant` (token reads for JS primitives)
+- `frontend/src/shared/motion/motion.css` — `.motion-enter` stagger keyframes and the `.motion-indicator` slide, tokens only
+- `frontend/src/shared/motion/useStaggeredEntrance.ts` — staggered entrance primitive
+- `frontend/src/shared/motion/useLayoutSlide.ts` — layout slide primitive (FLIP over `data-motion-key` children)
+- `frontend/src/shared/motion/useValueTween.ts` — value tween primitive
+- `frontend/src/shared/motion/useIndicatorSlide.ts` — indicator slide primitive
+- `frontend/src/shared/ui/Crossfade.tsx`, `frontend/src/shared/ui/Crossfade.css` — crossfade primitive (skeleton to content in place)
+- `frontend/src/features/dashboards/ui/DashboardList.tsx` — consumer: stagger + layout slide on the rows
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.tsx` — consumer: value tween on the headline figure
+- `frontend/src/features/panels/ui/PanelContent.tsx` — consumer: crossfade from the loading skeleton to the body
+- `frontend/src/app/shell/AppRail.tsx`, `frontend/src/app/shell/AppRail.css` — consumer: the active wash is the sliding indicator
+- `frontend/src/shared/ui/SegmentedRadioGroup.tsx`, `frontend/src/shared/ui/SegmentedRadioGroup.css` — consumer: the selected background is the sliding indicator
+- `frontend/src/features/panels/ui/grid/PanelGrid.css` — HEL-1032: one move token + ease-out for items, placeholder, container; vendor none-states re-asserted by specificity (CSS only)
+- `frontend/src/utils/chartAppearance.ts` — `applyChartMotion` (token-timed entrance, no replay, Subtle/Off)
+- `frontend/src/features/panels/ui/useChartEntranceMotion.ts` — HEL-1034: entrance window + `applyChartMotion` hook
+- `frontend/src/features/panels/ui/ChartPanel.tsx`, `frontend/src/features/adminUsage/ui/UsageChart.tsx` — use the entrance hook
+- `frontend/src/shared/ui/toast.css`, `frontend/src/shared/chrome/MobileNavSheet.css`, `frontend/src/features/dashboards/ui/RefinementChatDrawer.css` — Subtle opacity-only entrances
+- `DESIGN.md` — §10 primitive APIs, role tokens, Subtle as implemented, aliases, notMerge note; rail/§3 cross-references
+- Tests: `frontend/src/shared/motion/*.test.ts(x)`, `frontend/src/shared/ui/Crossfade.test.tsx`, `frontend/src/features/panels/ui/useChartEntranceMotion.test.tsx`, `frontend/src/features/panels/ui/grid/PanelGrid.css.test.ts`, `frontend/src/features/dashboards/ui/DashboardList.motion.test.tsx`, `frontend/src/shared/chrome/MobileNavSheet.subtle.css.test.ts`, plus updates to `theme/appearanceTokens.css.test.ts`, `theme/motionTokenGuard.css.test.ts` (HEL-1032 exception removed), `theme/elevationTokenGuard.css.test.ts` (CSS file count), `theme/ThemeProvider.appearance.test.tsx`, `app/shell/AppRail.test.tsx`, `app/shell/shell.css.test.ts`, `shared/ui/SegmentedRadioGroup.test.tsx`, `shared/ui/toast.css.test.ts`, `features/panels/ui/PanelContent.test.tsx`, `features/panels/ui/renderers/MetricRenderer.test.tsx`
+- `e2e/hel1573-motion-primitives.spec.ts`, `e2e/support/motionRecorder.ts`, `e2e/support/motionPrimitivesSeed.ts` — real-browser proof (Full/Subtle/Off/OS-reduce, both themes, grid C2, chart C1, drag/resize)
+- `scripts/check-tokens.mjs` — allowlist the five runtime-assigned custom properties (`--motion-index`, `--indicator-x/-y/-w/-h`), each naming its setter
+- Cycle 2: `shared/motion/useValueTween.ts` (frames rounded to endpoint precision; token read in a layout effect), `shared/motion/useIndicatorSlide.ts` (snap outside Full), `shared/motion/motion.css` (fill `backwards`), `features/panels/ui/useChartEntranceMotion.ts` (read-site comment), `DESIGN.md` §10 and `design.md` D6/D10 (where tokens are read), `e2e/hel1573-motion-primitives.spec.ts` (mode x theme tests, no sleep), new `e2e/hel1573-motion-grid-chart.spec.ts` (grid C2, chart C1 + series-type-change replay case, drag/resize), `e2e/support/motionPrimitivesSeed.ts`, and tests for each
+- Cycle 3: `shared/motion/useIndicatorSlide.ts` (read all offsets, set snap, then write), `e2e/support/motionRecorder.ts` (delay field, animationstart fallback to computed animation-*), `e2e/hel1573-motion-primitives.spec.ts` (stagger delay progression, 5 of 5 restored, Motion-group indicator test)
+- Cycle 4: `shared/ui/Crossfade.css` (layer child min-width: 0; content fade fill backwards), `DESIGN.md` §10 (emphasized-rise over-claim removed; --motion-duration-move resolves at :root), `e2e/hel1573-motion-grid-chart.spec.ts` (shrink-after-load fit regression), `e2e/support/motionRecorder.ts` (inferred flag), tests
+
+## Full-path declaration (orchestrator, Delivery; every path reviewed against the plan)
+
+- `DESIGN.md`
+- `e2e/hel1573-motion-grid-chart.spec.ts`
+- `e2e/hel1573-motion-primitives.spec.ts`
+- `e2e/support/motionPrimitivesSeed.ts`
+- `e2e/support/motionRecorder.ts`
+- `frontend/src/app/shell/AppRail.css`
+- `frontend/src/app/shell/AppRail.test.tsx`
+- `frontend/src/app/shell/AppRail.tsx`
+- `frontend/src/app/shell/shell.css.test.ts`
+- `frontend/src/features/adminUsage/ui/UsageChart.tsx`
+- `frontend/src/features/dashboards/ui/DashboardList.motion.test.tsx`
+- `frontend/src/features/dashboards/ui/DashboardList.tsx`
+- `frontend/src/features/dashboards/ui/RefinementChatDrawer.css`
+- `frontend/src/features/panels/ui/ChartPanel.tsx`
+- `frontend/src/features/panels/ui/PanelContent.test.tsx`
+- `frontend/src/features/panels/ui/PanelContent.tsx`
+- `frontend/src/features/panels/ui/grid/PanelGrid.css`
+- `frontend/src/features/panels/ui/grid/PanelGrid.css.test.ts`
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.test.tsx`
+- `frontend/src/features/panels/ui/renderers/MetricRenderer.tsx`
+- `frontend/src/features/panels/ui/useChartEntranceMotion.test.tsx`
+- `frontend/src/features/panels/ui/useChartEntranceMotion.ts`
+- `frontend/src/shared/chrome/MobileNavSheet.css`
+- `frontend/src/shared/chrome/MobileNavSheet.subtle.css.test.ts`
+- `frontend/src/shared/motion/motion.css`
+- `frontend/src/shared/motion/motionPrimitiveLiterals.test.ts`
+- `frontend/src/shared/motion/motionTokens.test.ts`
+- `frontend/src/shared/motion/motionTokens.ts`
+- `frontend/src/shared/motion/useIndicatorSlide.test.tsx`
+- `frontend/src/shared/motion/useIndicatorSlide.ts`
+- `frontend/src/shared/motion/useLayoutSlide.test.tsx`
+- `frontend/src/shared/motion/useLayoutSlide.ts`
+- `frontend/src/shared/motion/useStaggeredEntrance.test.tsx`
+- `frontend/src/shared/motion/useStaggeredEntrance.ts`
+- `frontend/src/shared/motion/useValueTween.test.tsx`
+- `frontend/src/shared/motion/useValueTween.ts`
+- `frontend/src/shared/ui/Crossfade.css`
+- `frontend/src/shared/ui/Crossfade.test.tsx`
+- `frontend/src/shared/ui/Crossfade.tsx`
+- `frontend/src/shared/ui/SegmentedRadioGroup.css`
+- `frontend/src/shared/ui/SegmentedRadioGroup.test.tsx`
+- `frontend/src/shared/ui/SegmentedRadioGroup.tsx`
+- `frontend/src/shared/ui/toast.css`
+- `frontend/src/shared/ui/toast.css.test.ts`
+- `frontend/src/theme/ThemeProvider.appearance.test.tsx`
+- `frontend/src/theme/ThemeProvider.tsx`
+- `frontend/src/theme/appearanceTokens.css.test.ts`
+- `frontend/src/theme/elevationTokenGuard.css.test.ts`
+- `frontend/src/theme/motionTokenGuard.css.test.ts`
+- `frontend/src/theme/theme.css`
+- `frontend/src/utils/chartAppearance.ts`
+- `scripts/check-tokens.mjs`

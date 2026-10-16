@@ -1,5 +1,5 @@
 /* The 56px icon rail (DESIGN.md §9). Chrome paints `--app-bg`, darker than cards (`--app-surface`). Tokens only: no
-   literal colours, fonts or durations. The active indicator is static until HEL-1573 ships the slide primitive. */
+   literal colours, fonts or durations. The active wash is the sliding `.motion-indicator` (HEL-1573). */
 .app-rail {
   grid-column: 1;
   grid-row: 1 / span 2;
@@ -62,6 +62,8 @@
   color: var(--app-text-muted);
   cursor: pointer;
   text-decoration: none;
+  position: relative;
+  z-index: 1;
   transition:
     background-color var(--motion-duration-quick) var(--motion-ease-standard),
     color var(--motion-duration-quick) var(--motion-ease-standard);
@@ -74,10 +76,15 @@
   color: var(--app-text);
 }
 
-/* The one accent-washed item: `--app-accent-dim` wash, accent icon (DESIGN.md §9). The glyph uses `--app-accent-text`,
-   the contrast-guaranteed accent-as-text token (HEL-1048); raw `--app-accent` never colours text or glyphs. */
-.app-rail__item--active {
+/* The one accent-washed item: the sliding indicator paints the `--app-accent-dim` wash behind it, the glyph is accent
+   (DESIGN.md §9). The glyph uses `--app-accent-text`, the contrast-guaranteed accent-as-text token (HEL-1048); raw
+   `--app-accent` never colours text or glyphs. */
+.app-rail__indicator {
+  border-radius: var(--app-radius-md);
   background: var(--app-accent-dim);
+}
+
+.app-rail__item--active {
   color: var(--app-accent-text);
 }
 

@@ -103,6 +103,11 @@ export const ALLOWLIST = {
     "theme/panelReadableTones.ts via features/panels/ui/PanelCard.tsx (inline style)",
   "--mobile-panel-height":
     "features/panels/ui/grid/MobilePanelStack.tsx:104 (inline CSSProperties)",
+  "--motion-index": "shared/motion/useStaggeredEntrance.ts (inline style per item)",
+  "--indicator-x": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
+  "--indicator-y": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
+  "--indicator-w": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
+  "--indicator-h": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
 };
 
 // files: Map<relPath, rawText>. The token source set is every `--x:`

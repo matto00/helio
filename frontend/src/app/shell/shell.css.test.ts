@@ -61,7 +61,11 @@ describe("shell stylesheet contract (HEL-1574, DESIGN.md §4 and §9)", () => {
         );
       const selectors = accentRules.map((rule) => rule.split("{")[0]?.trim());
       if (file === "AppRail.css") {
-        expect(selectors.every((s) => s?.includes("app-rail__item--active"))).toBe(true);
+        expect(
+          selectors.every(
+            (s) => s?.includes("app-rail__item--active") || s?.includes("app-rail__indicator"),
+          ),
+        ).toBe(true);
       } else if (file === "AssistantContextList.css") {
         // The one pre-existing text link of the locked notice (HEL-1048's accent-as-text token).
         expect(selectors).toEqual([".assistant-context-list__locked-link"]);

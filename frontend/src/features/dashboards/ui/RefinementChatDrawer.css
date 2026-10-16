@@ -64,6 +64,11 @@
   }
 }
 
+/* HEL-1573: Subtle fades the drawer in place instead of sliding it in (DESIGN.md §10). */
+:root[data-motion="subtle"] .refinement-drawer {
+  animation-name: refinement-drawer-backdrop-in;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion]) .refinement-drawer,
   :root:not([data-motion]) .refinement-drawer__backdrop {

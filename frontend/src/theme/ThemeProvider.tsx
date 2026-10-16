@@ -163,12 +163,19 @@ export function useDensity(): Density {
   return useContext(ThemeContext)?.density ?? DEFAULT_DENSITY;
 }
 
-/** Reactive "reduced motion in effect" (saved Off, or no saved choice and OS reduce), the hook twin of
- *  `utils/prefersReducedMotion.ts`. Works outside a `ThemeProvider` by following the OS setting alone. */
-export function useReducedMotion(): boolean {
+/** The one React reader of the effective Motion level (full | subtle | off), HEL-1573. It is the context's
+ *  `effectiveMotion` (saved choice, else Off under OS reduce, else Full); outside a `ThemeProvider` it follows the OS
+ *  setting alone. Primitives read only this (or `appearancePrefs.effectiveMotion()` from non-React code). */
+export function useMotion(): Motion {
   const osReduced = useOsReducedMotion();
   const context = useContext(ThemeContext);
-  return context ? context.effectiveMotion === "off" : osReduced;
+  return context ? context.effectiveMotion : osReduced ? "off" : "full";
+}
+
+/** Reactive "reduced motion in effect" (saved Off, or no saved choice and OS reduce), the hook twin of
+ *  `utils/prefersReducedMotion.ts`. A derivation of `useMotion()`. */
+export function useReducedMotion(): boolean {
+  return useMotion() === "off";
 }
 
 export function useTheme(): ThemeContextValue {

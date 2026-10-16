@@ -112,4 +112,18 @@ describe("AppRail", () => {
     renderRail("/connectors", { listCollapsed: true, sectionHasList: false });
     expect(screen.queryByRole("button", { name: "Expand list" })).not.toBeInTheDocument();
   });
+
+  it("hosts the sliding indicator and marks exactly the active item for it (HEL-1573)", () => {
+    const { container } = renderRail("/pipelines");
+    expect(container.querySelectorAll(".app-rail > .motion-indicator")).toHaveLength(1);
+    const marked = container.querySelectorAll("[data-indicator-active]");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toBe(screen.getByRole("link", { name: "Data Pipelines" }));
+  });
+
+  it("marks Settings for the indicator on the settings route (HEL-1573)", () => {
+    const { container } = renderRail("/settings");
+    expect(container.querySelectorAll("[data-indicator-active]")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("data-indicator-active");
+  });
 });

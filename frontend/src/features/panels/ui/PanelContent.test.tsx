@@ -176,6 +176,23 @@ describe("PanelContent — loading state", () => {
   });
 });
 
+describe("PanelContent — skeleton to content crossfade (HEL-1573)", () => {
+  it("fades the loading skeleton into the body in place, hiding the outgoing skeleton from assistive tech", () => {
+    const panel = makeOutputPanel();
+    const { rerender } = render(
+      <PanelContent crossFilterMode="none" panel={panel} isLoading={true} />,
+    );
+    expect(screen.getByLabelText("Loading data")).toBeInTheDocument();
+    rerender(<PanelContent crossFilterMode="none" panel={panel} isLoading={false} noData={true} />);
+    expect(screen.getByText("No data available")).toBeInTheDocument();
+    const outgoing = screen.getByLabelText("Loading data", {
+      selector: "[aria-label]",
+    }).parentElement;
+    expect(outgoing).toHaveAttribute("aria-hidden", "true");
+    expect(outgoing).toHaveAttribute("inert");
+  });
+});
+
 describe("PanelContent — error state", () => {
   it("shows the error message", () => {
     render(

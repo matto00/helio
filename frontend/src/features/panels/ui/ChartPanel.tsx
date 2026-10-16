@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 // F-022 — `/core` entry point + our own selectively-registered `echarts`
 // instance (`echartsCore.ts`), instead of the default `echarts-for-react`
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
@@ -22,6 +22,7 @@ import type { ChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
 import { useHeatmapDefaultCursor } from "./useHeatmapDefaultCursor";
+import { useChartEntranceMotion } from "./useChartEntranceMotion";
 import { resolveChartType } from "../../../utils/chartAppearance";
 import echarts from "./echartsCore";
 
@@ -87,7 +88,7 @@ export function ChartPanel({
   const measuredPieLegendOverlap =
     measuredHeight > 0 && measuredHeight <= PIE_LEGEND_HIDE_HEIGHT_PX;
 
-  const option = useChartOption({
+  const builtOption = useChartOption({
     appearance,
     rawRows,
     headers,
@@ -113,7 +114,17 @@ export function ChartPanel({
   });
 
   // HEL-1311 -- a heatmap cell is not clickable, so the canvas must not show a pointer over it.
-  const onChartReady = useHeatmapDefaultCursor(resolveChartType(appearance?.chart) === "heatmap");
+  const onHeatmapReady = useHeatmapDefaultCursor(resolveChartType(appearance?.chart) === "heatmap");
+
+  // HEL-1034 / HEL-1573 -- token-timed entrance that plays once per chart mount and is not replayed by option changes.
+  const { option, onChartReady: onEntranceReady } = useChartEntranceMotion(builtOption);
+  const onChartReady = useCallback(
+    (chart: Parameters<typeof onHeatmapReady>[0] & Parameters<typeof onEntranceReady>[0]) => {
+      onHeatmapReady(chart);
+      onEntranceReady(chart);
+    },
+    [onHeatmapReady, onEntranceReady],
+  );
 
   return (
     <div ref={wrapperRef} style={{ height: "100%", width: "100%" }}>

@@ -155,3 +155,25 @@ describe("toast.css — .toast__close stays 20px above the mobile breakpoint (DE
     expect(body).toMatch(/height:\s*20px\s*;/);
   });
 });
+
+describe("Subtle drops the toast slide (HEL-1573)", () => {
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("swaps the entrance and the exit to opacity-only keyframes under data-motion=subtle", () => {
+    expect(findRuleBodyInSource(code, ':root[data-motion="subtle"] .toast {')).toMatch(
+      /animation-name:\s*toast-fade-in\b/,
+    );
+    expect(findRuleBodyInSource(code, ':root[data-motion="subtle"] .toast--exiting {')).toMatch(
+      /animation-name:\s*toast-fade-out-in-place\b/,
+    );
+  });
+
+  it("the replacement keyframes carry no transform", () => {
+    for (const name of ["toast-fade-in", "toast-fade-out-in-place"]) {
+      const start = code.indexOf(`@keyframes ${name}`);
+      expect(start).toBeGreaterThan(-1);
+      const body = code.slice(start, code.indexOf("\n}\n", start) + 3);
+      expect(body).not.toMatch(/transform/);
+    }
+  });
+});
