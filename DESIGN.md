@@ -1046,9 +1046,11 @@ edit".
   other layout edit; it is only ever started by that click and never runs on
   load. Edit mode is session state: opening or switching a dashboard starts in
   view mode. **[judgment]**
-- **Dashboard grid gutter.** `--space-3` (12px), horizontal and vertical, above the
-  phone boundary. The JS value `GRID_GUTTER_PX` mirrors the token and a test
-  keeps them equal. **[mechanical]**
+- **Dashboard grid gutter.** `--density-grid-gap`, horizontal and vertical, above
+  the phone boundary: `--space-3` (12px) in the Comfortable (default) density and
+  `--space-2` (8px) in Compact (Spacing > Density). The JS value `GRID_GUTTER_PX`
+  mirrors the Comfortable token and a test keeps them equal; Compact's 8px is
+  pinned the same way. **[mechanical]**
 - **`⌘K`.** A box in the tab bar with the placeholder "Search, jump, or ask".
   Typing searches and jumps; a question hands off to the Assistant.
   Home and Pipeline top bars carry a small sans breadcrumb or label rather

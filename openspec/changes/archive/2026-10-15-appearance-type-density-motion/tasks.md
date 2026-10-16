@@ -85,6 +85,7 @@
 - HEL-1576 had NOT merged at start (`git fetch origin`): `GRID_GUTTER_PX = 18` (today's value) is introduced in
   `panelGridConfig.ts`, the Comfortable CSS token is `18px`, Compact `rowHeight` derives to 62. HEL-1576's change to 12
   conflicts only on those two values and `theme/appearanceTokens.css.test.ts` fails until both agree.
+  Re-baselined: HEL-1576 merged first (cycle 3), so the shipped values are `GRID_GUTTER_PX = 12`, Comfortable `--space-3` and Compact `rowHeight` 56; the 18px/62 above are the superseded plan.
 - 3.6 enumeration (recorded grep; `rg "td\b|__td|context-list__row" ...`): the SortableTable consumers are
   `PipelinesPage.css` (`.pipeline-list-table__td`), `SourceListTable.css` (`.source-list-table td`) and
   `ConnectorsPage.css` (`.connectors-page__td`), plus `ContextList.css` (`.context-list__row`). Each reads
