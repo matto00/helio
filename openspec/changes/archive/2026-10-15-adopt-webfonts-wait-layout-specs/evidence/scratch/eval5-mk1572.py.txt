@@ -1,0 +1,53 @@
+import sys
+src,dst=sys.argv[1],sys.argv[2]
+t=open(src).read()
+s=t.index('test.describe("HEL-1572 density"'); e=t.index('test.describe("HEL-1572 motion"')
+head='''import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { measureBox } from "./support/touchTargetProbe";
+import { waitForWebFonts } from "./support/webFonts";
+import { installGate } from "./zzfontgate";
+
+// SCRATCH (HEL-1613 evaluator5): HEL-1572's two density tests, verbatim except for logged values and font gating.
+// zzfontgate env + E5_FIRST_WAIT / E5_SECOND_WAIT: call waitForWebFonts on the measured scope before the first /
+// second measurement (used to FORCE the second document into the web face, and to model the conversion).
+test.describe.configure({ mode: "parallel" });
+const AUTH = { prefix: "hel1613e5", displayName: "HEL-1613 E5", domain: "example.com" } as const;
+const json = { [CSRF_HEADER]: "1" };
+const TAG = () => `hold=${process.env.FONT_HOLD ?? "none"} at=${process.env.FONT_AT ?? "-"} timer=${process.env.FONT_TIMER_MS ?? "-"} firstWait=${process.env.E5_FIRST_WAIT ?? "0"} secondWait=${process.env.E5_SECOND_WAIT ?? "0"}`;
+
+'''
+body=t[s:e]
+def rep(a,b,cnt=1):
+    global body
+    assert body.count(a)>=cnt, a
+    body=body.replace(a,b,cnt)
+# --- grid test ---
+rep('''    await registerAndLogin(page, request, { ...AUTH, label: "density", isolate: true });
+    await seedDashboard(page.request);''','''    await registerAndLogin(page, request, { ...AUTH, label: "density", isolate: true });
+    await seedDashboard(page.request);
+    const gate = await installGate(page);
+    gate.arm();''')
+rep('''    const before = await gridBoxes(page);''','''    if (process.env.E5_FIRST_WAIT) await waitForWebFonts(page.locator("#app-main-content"));
+    const before = await gridBoxes(page);
+    console.log(`[e5g] ${TAG()} before=${JSON.stringify(before.map((b) => [b.top, b.height]))} fonts=${await gate.state()}`);
+    await gate.point("after-first");''')
+rep('''    const after = await gridBoxes(page);''','''    if (process.env.E5_SECOND_WAIT) await waitForWebFonts(page.locator("#app-main-content"));
+    const after = await gridBoxes(page);
+    console.log(`[e5g] ${TAG()} after=${JSON.stringify(after.map((b) => [b.top, b.height]))} fonts=${await gate.state()}`);''')
+# --- rows test ---
+rep('''    await page.setViewportSize({ width: 1280, height: 900 });
+    const rowHeight''','''    await page.setViewportSize({ width: 1280, height: 900 });
+    const gate = await installGate(page);
+    gate.arm();
+    const rowHeight''')
+rep('''    const comfortable = await rowHeight();''','''    if (process.env.E5_FIRST_WAIT) await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
+    const comfortable = await rowHeight();
+    console.log(`[e5r] ${TAG()} comfortable=${comfortable} fonts=${await gate.state()}`);
+    await gate.point("after-first");''')
+rep('''    expect(comfortable - (await rowHeight())).toBeCloseTo(8, 0);''','''    if (process.env.E5_SECOND_WAIT) await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
+    const compact = await rowHeight();
+    console.log(`[e5r] ${TAG()} compact=${compact} diff=${comfortable - compact} fonts=${await gate.state()}`);
+    expect(comfortable - compact).toBeCloseTo(8, 0);''')
+body=body.replace('await page.goto("/home");','await page.goto("/home", { waitUntil: "commit" });').replace('await page.goto("/sources");','await page.goto("/sources", { waitUntil: "commit" });').replace('await page.goto("/settings");','await page.goto("/settings", { waitUntil: "commit" });')
+open(dst,'w').write(head+body)

@@ -11,6 +11,7 @@ import { CSRF_HEADER, registerAndLogin, TEST_PASSWORD } from "./support/auth";
 import { isolateLivePage, uiLogin } from "./support/isolateLivePage";
 import { bisectHitExtent, measureBox } from "./support/touchTargetProbe";
 import { assertTypeStyleActive, seedTypeStyle } from "./support/typeStyle";
+import { waitForWebFonts } from "./support/webFonts";
 
 // HEL-1572 — Settings -> Appearance in a real browser: type style (no reload, survives a fresh browser context =
 // another device, no flash of the default face), density (grid gutter + list rows), motion (Off / Full vs OS
@@ -381,6 +382,8 @@ test.describe("HEL-1572 density", () => {
         .first()
         .evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
     expect(await padTop()).toBe(8);
+    // The row re-flows ~2px when the web face swaps in; measure only after it has (HEL-1613).
+    await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
     const comfortable = await rowHeight();
 
     await setPref(page.request, { density: "compact" });
@@ -389,6 +392,7 @@ test.describe("HEL-1572 density", () => {
     await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
     expect(await padTop()).toBe(4);
     // Top and bottom padding each shrink 8 -> 4.
+    await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
     expect(comfortable - (await rowHeight())).toBeCloseTo(8, 0);
   });
 });

@@ -1,0 +1,64 @@
+import { expect, test } from "@playwright/test";
+import { registerAndLogin } from "./support/auth";
+import { assertTypeStyleActive, seedTypeStyle, type TypeStyle } from "./support/typeStyle";
+import { waitForWebFonts } from "./support/webFonts";
+import { installGate } from "./zzfontgate";
+
+// SCRATCH (HEL-1613 evaluator5, check b): does waitForWebFonts still find the live stylesheet on the HEL-1572
+// font URL, and does it pick up the first computed family under each type style (mono rebinds the whole UI to
+// JetBrains Mono; serif puts headings in Fraunces)? Env FONT_HOLD/FONT_TIMER_MS/FONT_CSS via zzfontgate.
+const AUTH = { prefix: "hel1613e5", displayName: "HEL-1613 E5", domain: "example.com" } as const;
+
+for (const style of ["sans", "mono", "serif"] as TypeStyle[]) {
+  test(`waitForWebFonts under ${style}`, async ({ page, request }) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await registerAndLogin(page, request, { ...AUTH, label: `b-${style}` });
+    await seedTypeStyle(page.request, style);
+    const gate = await installGate(page);
+    gate.arm();
+    await page.goto("/connectors", { waitUntil: "commit" });
+    await assertTypeStyleActive(page, style);
+    const main = page.locator("#app-main-content");
+    await expect(main.locator(".ui-empty-state__cta")).toBeVisible();
+    const t0 = Date.now();
+    let err = "";
+    let pendingAfterHold = "n/a";
+    try {
+      if (process.env.E5_MANUAL) {
+        // held family stays held: the wait must still be pending 1500ms later; then release and it must resolve
+        let done = false;
+        const p = waitForWebFonts(main).then(() => (done = true));
+        await new Promise((r) => setTimeout(r, 1500));
+        pendingAfterHold = done ? "RESOLVED-WHILE-HELD" : "pending";
+        console.log(`[e5b] style=${style} held state at 1500ms: ${await gate.state()}`);
+        gate.releaseAll();
+        await p;
+      } else {
+        await waitForWebFonts(main);
+      }
+    } catch (e) {
+      err = String(e).slice(0, 300);
+    }
+    const ms = Date.now() - t0;
+    const info = await main.evaluate((scope) => {
+      const links = [...document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"][href*="fonts.googleapis.com/css2"]')];
+      const unq = (s: string) => s.trim().replace(/^["']|["']$/g, "");
+      const fams = new Set<string>();
+      for (const el of [scope, ...scope.querySelectorAll<HTMLElement>("*")]) {
+        const hasText = [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
+        if (hasText) fams.add(unq(getComputedStyle(el).fontFamily.split(",")[0]));
+      }
+      const faces = [...document.fonts];
+      const jb700 = faces.filter((f) => unq(f.family) === "JetBrains Mono" && f.weight === "700" && f.style === "normal");
+      return {
+        links: links.map((l) => `${l.media}|${l.getAttribute("href")?.replace(/.*JetBrains\+Mono:/, "JBM:").replace(/&display.*/, "")}`),
+        firstFamilies: [...fams],
+        loadedFamilies: [...new Set(faces.filter((f) => f.status === "loaded").map((f) => `${unq(f.family)}/${f.weight}`))],
+        jb700: `${jb700.length} faces, statuses ${[...new Set(jb700.map((f) => f.status))].join("|")}`,
+        h1: document.querySelector("h1") ? getComputedStyle(document.querySelector("h1")!).fontFamily : null,
+      };
+    });
+    console.log(`[e5b] style=${style} hold=${process.env.FONT_HOLD ?? "none"} css=${process.env.FONT_CSS ?? "live"} timer=${process.env.FONT_TIMER_MS ?? "-"} waitMs=${ms} pendingAfterHold=${pendingAfterHold} err=${err || "none"} info=${JSON.stringify(info)}`);
+    gate.releaseAll();
+  });
+}

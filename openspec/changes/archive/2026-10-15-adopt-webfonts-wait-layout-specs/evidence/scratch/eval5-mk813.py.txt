@@ -1,0 +1,24 @@
+import sys
+src,dst=sys.argv[1],sys.argv[2]
+t=open(src).read()
+i=t.index('test("surface 7: Connectors page"')
+head,body=t[:i],t[i:]
+def rep(a,b):
+    global body
+    assert a in body, a
+    body=body.replace(a,b,1)
+head=head.replace('import { registerAndLogin } from "./support/auth";','''import { registerAndLogin } from "./support/auth";
+import { installGate } from "./zzfontgate";
+async function boxes(label: string, loc: Locator) {
+  const n = await loc.count();
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) { const b = await loc.nth(i).boundingBox(); if (b) out.push(`${b.width.toFixed(2)}x${b.height.toFixed(2)}`); }
+  console.log(`[probe813] ${label}: ${out.join(" ")}`);
+}''',1)
+P='          '
+rep(P+'await page.goto("/connectors");', P+'const gate = await installGate(page);\n'+P+'gate.arm();\n'+P+'await page.goto("/connectors", { waitUntil: "commit" });')
+rep(P+'await sweepSurface(page, { selectors: [".ui-empty-state__cta"], scope: main });', P+'await boxes(`cta@${width}/${style} fonts=${await gate.state()}`, main.locator(".ui-empty-state__cta"));\n'+P+'await sweepSurface(page, { selectors: [".ui-empty-state__cta"], scope: main });\n'+P+'await gate.point("after-cta");')
+rep(P+'await assertExpanderFloor(page, createDialog.locator(".connectors-page__btn"));', P+'await gate.point("before-dialog");\n'+P+'await boxes(`dialog-btns@${width}/${style} fonts=${await gate.state()}`, createDialog.locator(".connectors-page__btn"));\n'+P+'await assertExpanderFloor(page, createDialog.locator(".connectors-page__btn"));\n'+P+'await gate.point("after-dialog");')
+rep(P+'await assertExpanderFloor(page, main.locator("tbody .actions-menu__trigger").first());', P+'await gate.point("before-row");\n'+P+'await boxes(`row-trigger@${width}/${style} fonts=${await gate.state()}`, main.locator("tbody .actions-menu__trigger").first());\n'+P+'await boxes(`row-tr@${width}/${style}`, main.locator("tbody tr").first());\n'+P+'await assertExpanderFloor(page, main.locator("tbody .actions-menu__trigger").first());\n'+P+'await gate.point("after-row");\n'+P+'await boxes(`toolbar-btn@${width}/${style} fonts=${await gate.state()}`, main.locator(".connectors-page__btn"));')
+rep(P+'await assertExpanderFloor(page, main.locator(".connectors-page__btn"));\n        });', P+'await assertExpanderFloor(page, main.locator(".connectors-page__btn"));\n'+P+'gate.releaseAll();\n        });')
+open(dst,'w').write(head+body)

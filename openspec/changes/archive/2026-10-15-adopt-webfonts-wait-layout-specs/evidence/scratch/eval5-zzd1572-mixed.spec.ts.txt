@@ -1,0 +1,175 @@
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { CSRF_HEADER, registerAndLogin } from "./support/auth";
+import { measureBox } from "./support/touchTargetProbe";
+import { waitForWebFonts } from "./support/webFonts";
+import { installGate } from "./zzfontgate";
+
+// SCRATCH (HEL-1613 evaluator5): HEL-1572's two density tests, verbatim except for logged values and font gating.
+// zzfontgate env + E5_FIRST_WAIT / E5_SECOND_WAIT: call waitForWebFonts on the measured scope before the first /
+// second measurement (used to FORCE the second document into the web face, and to model the conversion).
+test.describe.configure({ mode: "parallel" });
+const AUTH = { prefix: "hel1613e5", displayName: "HEL-1613 E5", domain: "example.com" } as const;
+const json = { [CSRF_HEADER]: "1" };
+async function setPref(request: APIRequestContext, body: Record<string, unknown>) {
+  const res = await request.patch("/api/users/me/preferences", { data: body, headers: json });
+  expect(res.status()).toBe(200);
+}
+const TAG = () => `hold=${process.env.FONT_HOLD ?? "none"} at=${process.env.FONT_AT ?? "-"} timer=${process.env.FONT_TIMER_MS ?? "-"} firstWait=${process.env.E5_FIRST_WAIT ?? "0"} secondWait=${process.env.E5_SECOND_WAIT ?? "0"}`;
+
+test.describe("HEL-1572 density", () => {
+  async function seedDashboard(request: APIRequestContext) {
+    const dash = await request.post("/api/dashboards", {
+      data: { name: "HEL-1572 Density" },
+      headers: json,
+    });
+    expect(dash.status()).toBe(201);
+    const dashboardId = ((await dash.json()) as { id: string }).id;
+    const ids: string[] = [];
+    for (const title of ["A", "B", "C"]) {
+      const panel = await request.post("/api/panels", {
+        data: {
+          dashboardId,
+          title: `HEL-1572 ${title}`,
+          type: "markdown",
+          config: { content: title },
+        },
+        headers: json,
+      });
+      expect(panel.status()).toBe(201);
+      ids.push(((await panel.json()) as { id: string }).id);
+    }
+    const item = (panelId: string, x: number, y: number, w: number) => ({ panelId, x, y, w, h: 5 });
+    const row = (w: number) => [
+      item(ids[0], 0, 0, w),
+      item(ids[1], w, 0, w),
+      item(ids[2], 0, 5, w),
+    ];
+    // Two columns per row on lg / md / sm (half of 12 / 10 / 6 columns); xs is one 2-wide column.
+    const layout = {
+      lg: row(6),
+      md: row(5),
+      sm: row(3),
+      xs: [item(ids[0], 0, 0, 2), item(ids[1], 0, 5, 2), item(ids[2], 0, 10, 2)],
+    };
+    const patch = await request.patch(`/api/dashboards/${dashboardId}/update`, {
+      data: { fields: ["layout"], dashboard: { layout } },
+      headers: json,
+    });
+    expect(patch.status(), await patch.text()).toBe(200);
+  }
+
+  /** Grid items in visual order (top, then left): DOM order follows the panel list, not the layout. */
+  async function gridBoxes(page: Page) {
+    const boxes = await page.locator(".react-grid-item").evaluateAll((els) =>
+      els.map((el) => {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        return { top: r.top, left: r.left, width: r.width, height: r.height };
+      }),
+    );
+    return boxes.sort((a, b) => a.top - b.top || a.left - b.left);
+  }
+
+  test("Compact changes the grid gutter and row padding; panel tops do not move", async ({
+    page,
+    request,
+  }) => {
+    await registerAndLogin(page, request, { ...AUTH, label: "density", isolate: true });
+    await seedDashboard(page.request);
+    const gate = await installGate(page);
+    gate.arm();
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.goto("/home", { waitUntil: "commit" });
+    await expect(page.locator(".react-grid-item")).toHaveCount(3);
+    await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
+    // Resolve the token to px through a real box (the computed custom property may still read "0.5rem").
+    const gapToken = () =>
+      page.evaluate(() => {
+        const probe = document.createElement("div");
+        probe.style.width = "var(--density-grid-gap)";
+        document.body.appendChild(probe);
+        const px = probe.getBoundingClientRect().width;
+        probe.remove();
+        return px;
+      });
+    const comfortableGap = await gapToken();
+    // Let RGL settle its first layout pass.
+    await expect.poll(async () => (await gridBoxes(page))[0]?.height).toBeGreaterThan(100);
+    if (process.env.E5_FIRST_WAIT) await waitForWebFonts(page.locator("#app-main-content"));
+    const before = await gridBoxes(page);
+    console.log(`[e5g] ${TAG()} before=${JSON.stringify(before.map((b) => [b.top, b.height]))} fonts=${await gate.state()}`);
+    await gate.point("after-first");
+    const horizontalGapBefore = before[1].left - (before[0].left + before[0].width);
+    expect(horizontalGapBefore).toBeCloseTo(comfortableGap, 0);
+
+    await page.goto("/settings", { waitUntil: "commit" });
+    await page.getByRole("radio", { name: "Compact" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+    const compactGap = await gapToken();
+    expect(compactGap).toBeLessThan(comfortableGap);
+    await page.goto("/home", { waitUntil: "commit" });
+    await expect(page.locator(".react-grid-item")).toHaveCount(3);
+    await expect.poll(async () => (await gridBoxes(page))[0]?.height).toBeGreaterThan(100);
+    if (process.env.E5_SECOND_WAIT) await waitForWebFonts(page.locator("#app-main-content"));
+    const after = await gridBoxes(page);
+    console.log(`[e5g] ${TAG()} after=${JSON.stringify(after.map((b) => [b.top, b.height]))} fonts=${await gate.state()}`);
+
+    const horizontalGapAfter = after[1].left - (after[0].left + after[0].width);
+    expect(horizontalGapAfter).toBeCloseTo(compactGap, 0);
+    // Panel tops never move; every panel is exactly the gutter difference taller.
+    after.forEach((box, i) => {
+      expect(box.top).toBeCloseTo(before[i].top, 0);
+      expect(box.height).toBeCloseTo(before[i].height + (comfortableGap - compactGap), 0);
+    });
+    // The vertical gutter between row 1 and row 2 shrank by the same difference.
+    const verticalGapBefore = before[2].top - (before[0].top + before[0].height);
+    const verticalGapAfter = after[2].top - (after[0].top + after[0].height);
+    expect(verticalGapBefore).toBeCloseTo(comfortableGap, 0);
+    expect(verticalGapAfter).toBeCloseTo(compactGap, 0);
+  });
+
+  test("Compact tightens overview list rows and the context list by the documented token difference", async ({
+    page,
+    request,
+  }) => {
+    await registerAndLogin(page, request, { ...AUTH, label: "density-rows", isolate: true });
+    const source = await page.request.post("/api/data-sources", {
+      data: {
+        name: "HEL-1572 Source",
+        type: "static",
+        columns: [{ name: "a", type: "string" }],
+        rows: [["x"]],
+      },
+      headers: json,
+    });
+    expect(source.status()).toBe(201);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const gate = await installGate(page);
+    gate.arm();
+    const rowHeight = async () =>
+      (await measureBox(page.locator(".source-list-table tbody tr").first())).height;
+    await page.goto("/sources", { waitUntil: "commit" });
+    await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
+    const padTop = () =>
+      page
+        .locator(".source-list-table tbody td")
+        .first()
+        .evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+    expect(await padTop()).toBe(8);
+    if (process.env.E5_FIRST_WAIT) await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
+    const comfortable = await rowHeight();
+    console.log(`[e5r] ${TAG()} comfortable=${comfortable} fonts=${await gate.state()}`);
+    await gate.point("after-first");
+
+    await setPref(page.request, { density: "compact" });
+    await page.goto("/sources", { waitUntil: "commit" });
+    await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
+    await expect(page.locator(".source-list-table tbody tr").first()).toBeVisible();
+    expect(await padTop()).toBe(4);
+    // Top and bottom padding each shrink 8 -> 4.
+    if (process.env.E5_SECOND_WAIT) await waitForWebFonts(page.locator(".source-list-table tbody tr").first());
+    const compact = await rowHeight();
+    console.log(`[e5r] ${TAG()} compact=${compact} diff=${comfortable - compact} fonts=${await gate.state()}`);
+    expect(comfortable - compact).toBeCloseTo(8, 0);
+  });
+});
+

@@ -1,0 +1,23 @@
+import sys
+src,dst=sys.argv[1],sys.argv[2]
+t=open(src).read()
+t=t.replace('import { CSRF_HEADER','import { installGate } from "./zzfontgate";\nimport { CSRF_HEADER',1)
+a='''    const rowHeight = async () =>'''
+assert t.count(a)==1
+t=t.replace(a,'''    const gate = await installGate(page);
+    gate.arm();
+'''+a)
+a='''    const comfortable = await rowHeight();
+'''
+assert t.count(a)==1
+t=t.replace(a,a+'''    console.log(`[x4r] comfortable=${comfortable} fonts=${await gate.state()}`);
+    await gate.point("after-first");
+''')
+a='''    expect(comfortable - (await rowHeight())).toBeCloseTo(8, 0);'''
+assert t.count(a)==1
+t=t.replace(a,'''    const compact = await rowHeight();
+    console.log(`[x4r] compact=${compact} diff=${comfortable - compact} fonts=${await gate.state()}`);
+    expect(comfortable - compact).toBeCloseTo(8, 0);''')
+i=t.index('Compact tightens overview list rows'); 
+t=t[:i]+t[i:].replace('await page.goto("/sources");','await page.goto("/sources", { waitUntil: "commit" });')
+open(dst,'w').write(t)

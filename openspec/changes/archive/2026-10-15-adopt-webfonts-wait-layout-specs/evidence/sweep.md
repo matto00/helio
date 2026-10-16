@@ -98,3 +98,20 @@ geometry files (225 tests) were re-run in fallback-only / late-1500 / first-meas
 dashboard-grid/meta-row specs under one-family holds: no font-driven red. Per-spec values, the hel1350 injector-budget
 analysis (not a font defect; passes 8/8 with a non-blocking release), and the re-run hel1444 red/green pair (58 vs 57
 -> 57) are in `../evaluation-4.md`. Full suite on 7e6967545: 312 passed (`v6-full-suite.log`, load 2.31 at start).
+
+## Base drift after merging origin/main a third time (HEAD 9e26e04db, HEL-1572; evaluation-5)
+
+`sweep-hits-v5-merged.txt`: 262 lines, 44 files (v4: 248 / 43). New hit file: `hel1572-appearance-preferences.spec.ts`
+(14 hits: grid-item rects, `--density-grid-gap` probe, accent swatch boxes, `findClipped` Range width, tabular-digit widths).
+Line-shift-only: hel813 (20/51/84/85/205 -> 21/56/90/91/221, comments), state-surface-contrast-guard (225 -> 226).
+
+| file | class | result |
+| --- | --- | --- |
+| **converted: hel1572:358** (`hel1572-appearance-preferences.spec.ts`, "Compact tightens overview list rows and the context list ...", `rowHeight()` = `.source-list-table tbody tr` first) | ASSERTS-GEOMETRY across two documents (comfortable row height minus compact row height, expects 8) | **converted.** `waitForWebFonts(<first source row>)` before each of the two `rowHeight()` calls (:386 and :395 after the edit). Before: red when the first document measured in the fallback face and the second in the web face (44 vs 34, diff 10; row heights 44/42 comfortable and 36/34 compact in fallback/web); 3 of 10 natural red at load 4.1. Red/green in that forced mode: `v9-redgreen-hel1572-base-RED.log` (diff=10, failed) / `v9-redgreen-hel1572-converted-GREEN.log` (42 vs 34, diff 8, passed; fonts held, released by a 1500 ms timer so the wait is exercised). Natural: `v9-hel1572-repeat10.log`, 10 of 10 passed. Probe sources: `scratch/exec4-*`. |
+| hel1572 grid-density, type-card, mono-clip and tabular assertions | ASSERTS-GEOMETRY | font-insensitive with values (grid panel tops 72/72/392 and heights 308/312 in every state; type cards 110/110/106, floor 88; `clipped=[]` at 375/768/820/1280; tabular 1111 == 8888 in every state); not converted. |
+| hel813 (28 tests, sans and mono), state-surface-contrast-guard (sans and mono) | ASSERTS-GEOMETRY | font-insensitive in baseline, fallback-only, late, first-in-fallback and one-family holds; guard summaries byte-identical in all 14 runs; surface 7 heights identical in every state, only widths move. Not converted. |
+
+Sweep-method gap recorded: the forced-state set must include "first document in the fallback face, later document in the web
+face". `FONT_FIRST`, css-block and late-swap keep both sides of a cross-navigation comparison in the same face, so a spec that
+compares measurements from two documents is only caught by this state (it is how hel1572:358 was found). Full detail:
+`../evaluation-5.md`.
