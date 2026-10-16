@@ -96,7 +96,12 @@ describe("appearancePrefs", () => {
   // (renamed key, new enum value on one side only) fails this test instead of silently flashing the default.
   describe("app.html pre-paint script", () => {
     const html = fs.readFileSync(path.join(__dirname, "../../app.html"), "utf-8");
-    const script = /<script>\s*([\s\S]*?)<\/script>/.exec(html)![1];
+    // The inline pre-paint script: the <script> with no `src` (never the type="module" entry tag).
+    const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)].filter(
+      (match) => !/\bsrc\s*=/i.test(match[1]),
+    );
+    expect(inlineScripts).toHaveLength(1);
+    const script = inlineScripts[0][2];
 
     it("reads the same storage key and the same value sets as this module", () => {
       expect(script).toContain(`"${AppearanceStorageKey}"`);

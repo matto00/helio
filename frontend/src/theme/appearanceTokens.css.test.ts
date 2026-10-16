@@ -14,8 +14,13 @@ function rule(selector: string, from = 0): string {
   return css.slice(css.indexOf("{", start) + 1, css.indexOf("}", start));
 }
 
+/** Escapes every regex metacharacter (and `-`, `/`) so a property name is matched literally. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");
+}
+
 function decl(body: string, prop: string): string {
-  const match = new RegExp(`${prop.replace(/[-]/g, "\\-")}:\\s*([^;]+);`).exec(body);
+  const match = new RegExp(`${escapeRegExp(prop)}:\\s*([^;]+);`).exec(body);
   if (!match) throw new Error(`declaration not found: ${prop}`);
   return match[1].trim();
 }
