@@ -184,7 +184,15 @@ async function renamePanel(page: Page, from: string, to: string) {
   await expect(page.getByRole("heading", { name: to })).toBeVisible();
 }
 
+// HEL-1576: panels move only while layout edit mode is on (idempotent: once on, the toggle is named "Done").
+async function enterLayoutEditMode(page: Page) {
+  const toggle = page.getByRole("button", { name: "Edit layout" });
+  if ((await toggle.count()) > 0) await toggle.click();
+  await expect(page.getByRole("button", { name: "Done" })).toBeVisible();
+}
+
 async function dragFirstCardDown(page: Page) {
+  await enterLayoutEditMode(page);
   const handle = page.locator(".panel-grid-card__handle").first();
   const bb = (await handle.boundingBox())!;
   const sx = bb.x + bb.width / 2;

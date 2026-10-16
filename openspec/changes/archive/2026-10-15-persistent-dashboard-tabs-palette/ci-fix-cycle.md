@@ -106,3 +106,37 @@ timer (the timer is closure-local; harmless extra request at most once per 30 s)
 215 passed; full frontend jest 641 suites / 7642 tests exit 0; hel1575 e2e 21 passed; overlays (light) x5 passed, /api 105,103,102,102,102,
 0 429s. Full e2e result below.
 Full e2e (flock, workers=2, nice 19; `fix2b/e2e-full.txt`): **333 passed, 1 skipped**, 0 failed, 20.8 min.
+
+## CI two-device + HEL-1576 merge
+**CI failure (run 38834564117, e2e (4), head 76fca5fa6, `hel1575-dashboard-tabs.spec.ts:652`, two devices, 125 s idle).** Root cause: a TEST RACE,
+not a product defect. Probe: the CI trace (`playwright-report-shard-4`, downloaded to `SCRATCH/ci-art`) holds every network request of the three
+contexts. Device A (the idle page) sent two preferences PATCHes: 01:29:11.892 (one tab, the active id) and 01:29:15.167 (the full three-tab set,
+`lastViewedAt` values 01:29:12.4 / 13.3 / 14.0). Device B's save landed at 01:29:14.579, between them. A's second PATCH is the 1 s coalesced
+save of the two tabs A opened in `openThreeTabs`; it was queued by A's OWN edits (last at :14.031), not by an idle path (no visibilitychange, pagehide,
+hydration write or heartbeat PATCH occurred; the only other A request in the window was `POST /api/events`). The test waited only on
+`expectSavedActive`, which already passes on the FIRST write (active id A, one tab), so B saved before A's own writes had settled. Last-write-wins
+is the designed behaviour for a user's own edit, so the product is unchanged and the assertion is untouched (B's set must never be reverted by an
+idle A, plus zero PATCHes from A over 125 s). Fix: before B saves, the test waits for the server to hold A's full set, `expectSaved(page,
+[A, B, C], A)`. Proof: `--repeat-each 5` 5/5 passed (2.2-2.3 min each), and 2/2 with three busy-loop CPU hogs (load 5.7-6) running
+(`fix2c/two-device-repeat5.txt`, `two-device-stress.txt`).
+
+**Merge of origin/main (HEL-1576, 38de7610a).** Conflicts: `App.tsx`, `DESIGN.md`, `networkGuard.ts`, the two token-guard CSS-count pins. Resolved:
+- Shared predicate: `app/dashboardChrome.ts` now has one private `isRailDashboardView` (`!isPhoneShell && isDashboardViewPath`) with two exports,
+  `usesDashboardMetaRow` (HEL-1576) and `usesDashboardTabBar` (this branch; `App.tsx`'s `showTabBar` no longer has its own conditional).
+  `hidesBreadcrumbItemName` takes its dashboard clause from `usesDashboardTabBar`. Behaviour identical for both lanes (tests in
+  `dashboardChrome.test.ts`).
+- CSS-file pins recounted with `find frontend/src -name "*.css" | wc -l` = 144 (135 + 6 HEL-1579 + 2 HEL-1575 + 1 HEL-1576), both guards; not loosened.
+- `networkGuard.ts`: kept this branch's drained allowlist; HEL-1576's `DesktopPanelGrid.processedWidth` entry removed because on the merged tree
+  that file makes no network request (the guard itself failed the suite until it was removed).
+- Adapted tests: `AppShell.dashboardMetaRow.test.tsx` store gets the `dashboardTabs` reducer (hydrated); `AppShell.rail.test.tsx` no longer expects a
+  breadcrumb on the dashboard view (the meta row replaced the command bar; the name rule is covered in CommandBar tests); the hel1575 e2e drag
+  helper turns Edit layout on first (panels move only in edit mode now).
+- No backend change and no migration in the merge (latest V135): no `sbt testFull`.
+- Visual check at 1280 and 820, light and dark (`.concertino/runs/HEL-1575/evidence/merge-1576/`): the meta row sits directly under the 49 px tab strip
+  (tab bar y 0-49, meta row y 49-97, same x/width), tabs/search box/Share/Add panel render in both themes; phone shell 768 and 375: no tab list,
+  no meta row, the command bar (unchanged).
+- Gates on 4f492359d (+ the e2e helper edit committed after): lint, typecheck, format:check, build exit 0; full jest 650 suites / 7761 tests exit 0;
+  overlays x5 (light+dark, 10 runs) passed, /api 102-104 per run, 11 `dashboard-changes`, 1 preferences PATCH, 0 429s; full e2e (flock, workers 2):
+  331 passed, 1 skipped, 2 failed: the hel1575 dragged-panel test (the Edit-layout helper above, fixed) and `hel813 ... surface 7: Connectors page`
+  (a create-connector dialog stayed open once; touches nothing in this diff; 12/12 on `--repeat-each 6` of it, and it passed in the rerun). Rerun of
+  the whole hel1575 + hel813 specs: 35 passed. Transcripts in `SCRATCH/fix2c/`.
