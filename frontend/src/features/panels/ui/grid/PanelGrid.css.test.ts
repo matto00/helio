@@ -12,12 +12,12 @@ const vendor = fs.readFileSync(
   "utf-8",
 );
 
-/** Declarations of the rule whose selector list is exactly `selector`. */
 /** Escapes every regex metacharacter (including the backslash) so a selector is matched literally. */
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Declarations of the rule whose selector list is exactly `selector`. */
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\>]/g, "\\$&").replace(/\s+/g, "\\s+");
   const match = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(source);
