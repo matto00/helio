@@ -945,6 +945,9 @@ final class ApiRoutes(
                   // `pipelines` — same reason `pipeline-shapes` is top-level immediately above
                   // (design.md Decision 2); mount order relative to PipelineRoutes doesn't matter.
                   new PipelineStepCatalogRoutes(pipelineStepCatalogService, authenticatedUser).routes,
+                  // HEL-1619: MUST precede PipelineRoutes -- its unconstrained PipelineIdSegment GET would
+                  // otherwise swallow the literal "context-details" segment as a pipeline id.
+                  new PipelineContextDetailsRoutes(pipelineService, pipelineRunService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.

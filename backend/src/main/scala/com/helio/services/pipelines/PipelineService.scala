@@ -229,6 +229,25 @@ final class PipelineService(
           .recover { case ex => Left(PipelineService.classifyDbError(ex)) }
     }
 
+  /** HEL-1619: the steps of EVERY pipeline `listSummaries(user)` returns (no tag filter -- owner-scoped, the
+   *  exact set `GET /api/pipelines` lists), in that order, each as `GET /api/pipelines/:id/steps` would
+   *  render it -- same ordering ([[PipelineStepRepository.listByPipelineInternalBatch]] applies
+   *  `executionOrder` per pipeline), same [[PipelineStepResponse.fromDomain]] mapper with the same
+   *  root-id side-map. Two step queries for the whole set instead of two per pipeline. A pipeline with no
+   *  steps still gets an entry (`Vector.empty`). Only ids `listSummaries` returned reach the ACL-bypassing
+   *  `*InternalBatch` reads -- no caller-supplied id is trusted. */
+  def contextStepsForOwner(user: AuthenticatedUser): Future[Either[ServiceError, Vector[(PipelineId, Vector[PipelineStepResponse])]]] =
+    (for {
+      summaries <- pipelineRepo.listSummaries(user, None)
+      ids = summaries.map(s => PipelineId(s.id))
+      idSet = ids.toSet
+      stepsByPipeline <- listByPipelineInternalBatch(idSet)
+      rootsByPipeline <- rootIdsOfBatch(idSet)
+    } yield Right(ids.map { id =>
+      val rootIdOfStep = rootsByPipeline.getOrElse(id, Map.empty).map { case (k, v) => k.value -> v.value }
+      id -> stepsByPipeline.getOrElse(id, Vector.empty).map(PipelineStepResponse.fromDomain(_, rootIdOfStep))
+    })).recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+
   /** Step creation — requires Editor or Owner. Viewer grantees get 403. */
   def addStep(pipelineId: PipelineId, req: CreatePipelineStepRequest, user: AuthenticatedUser): Future[Either[ServiceError, PipelineStepResponse]] =
     addStepReporting(pipelineId, req, user).map(_.map(_._1))

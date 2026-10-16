@@ -49,6 +49,7 @@ import type {
   PipelineRunRecordResponse,
   PipelineScheduleResponse,
   PipelineShapeCatalogEntryResponse,
+  PipelineContextDetailsResponse,
   PipelineStepResponse,
   PipelineSummaryResponse,
   ProposalPanel,
@@ -848,6 +849,12 @@ export class HelioApi {
           })
         : [],
     };
+  }
+
+  /** `GET /api/pipelines/context-details` (HEL-1619) -- every pipeline `listPipelines` returns,
+   *  each with its steps and latest-run assertion summary, in ONE request. 404 on an older server. */
+  getPipelineContextDetails(): Promise<PipelineContextDetailsResponse> {
+    return this.http.get<PipelineContextDetailsResponse>("/api/pipelines/context-details");
   }
 
   /** `GET /api/pipelines/:id/steps` -- the pipeline's steps (each with `parentStepId`/`rootId`). */
