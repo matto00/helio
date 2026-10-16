@@ -234,7 +234,13 @@ test.describe("HEL-1572 type style", () => {
       const request = route.request();
       if (request.resourceType() !== "document") return route.continue();
       const response = await route.fetch();
-      const html = (await response.text()).replace(/<script>\s*\(function[\s\S]*?<\/script>/, "");
+      // String slicing, not a regex over tags: cut the inline pre-paint script (the one holding the IIFE).
+      const text = await response.text();
+      const marker = text.indexOf("(function ()");
+      const start = text.lastIndexOf("<script", marker);
+      const end = text.indexOf(">", text.indexOf("</script", marker)) + 1;
+      expect(marker, "inline pre-paint script present in app.html").toBeGreaterThan(-1);
+      const html = text.slice(0, start) + text.slice(end);
       await route.fulfill({ response, body: html });
     });
     await page.addInitScript(PROBE);

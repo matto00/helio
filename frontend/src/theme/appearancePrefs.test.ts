@@ -96,12 +96,17 @@ describe("appearancePrefs", () => {
   // (renamed key, new enum value on one side only) fails this test instead of silently flashing the default.
   describe("app.html pre-paint script", () => {
     const html = fs.readFileSync(path.join(__dirname, "../../app.html"), "utf-8");
-    // The inline pre-paint script: the <script> with no `src` (never the type="module" entry tag).
-    const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)].filter(
-      (match) => !/\bsrc\s*=/i.test(match[1]),
-    );
-    expect(inlineScripts).toHaveLength(1);
-    const script = inlineScripts[0][2];
+    // Parsed with a real HTML parser (jsdom's DOMParser), never a regex over tags. The inline pre-paint script is
+    // the <script> with no `src` (never the type="module" entry tag).
+    const inlineScripts = [
+      ...new DOMParser().parseFromString(html, "text/html").querySelectorAll("script:not([src])"),
+    ];
+    const script = inlineScripts[0]?.textContent ?? "";
+
+    it("has exactly one inline pre-paint script", () => {
+      expect(inlineScripts).toHaveLength(1);
+      expect(script).not.toBe("");
+    });
 
     it("reads the same storage key and the same value sets as this module", () => {
       expect(script).toContain(`"${AppearanceStorageKey}"`);
