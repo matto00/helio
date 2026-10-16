@@ -1,0 +1,73 @@
+/* HEL-1575 D9. A recessed well (--app-surface-soft) like an input, on the tab bar's chrome backdrop. Neutral:
+   the accent appears only on its focus ring (global focus-visible rule). Collapses to icon + shortcut when its
+   host container (`.dashboard-tab-bar`) is narrower than 560px (ui-decisions.md). */
+.palette-search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 280px;
+  min-width: 0;
+  height: var(--control-md);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.palette-search-box:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.palette-search-box__icon {
+  flex-shrink: 0;
+}
+
+.palette-search-box__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-search-box__keys {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+@container (max-width: 560px) {
+  .palette-search-box {
+    flex: 0 0 auto;
+    padding-left: var(--space-2);
+  }
+
+  .palette-search-box__label {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .palette-search-box {
+    position: relative;
+  }
+
+  .palette-search-box::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}

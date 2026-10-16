@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { subscribeToPipelineSucceeded } from "../services/pipelineRunFanout";
+import { fetchOutputMeta } from "../state/outputMetaCache";
 import { useOutputMeta } from "./useOutputMeta";
 
 /**
@@ -24,6 +25,12 @@ export function usePanelRunRefresh(outputId: string | null, refresh: () => void)
 
   useEffect(() => {
     if (!pipelineId) return;
-    return subscribeToPipelineSucceeded(pipelineId, () => refreshRef.current());
-  }, [pipelineId]);
+    return subscribeToPipelineSucceeded(pipelineId, () => {
+      refreshRef.current();
+      // HEL-1575: the run bumped this Output's freshness generation, which leaves the held metadata one
+      // generation behind the rows this refresh fetches. Re-read it so a later remount (a return to this
+      // dashboard's tab) can still reuse those rows instead of requesting metadata and rows again.
+      if (outputId) void fetchOutputMeta(outputId).catch(() => undefined);
+    });
+  }, [pipelineId, outputId]);
 }

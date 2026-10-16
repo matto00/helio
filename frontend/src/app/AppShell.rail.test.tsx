@@ -8,6 +8,10 @@ import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import {
+  dashboardTabsReducer,
+  initialDashboardTabsState,
+} from "../features/dashboards/tabs/dashboardTabsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
@@ -20,7 +24,18 @@ import type { UserPreferences } from "../features/auth/types/user";
 import { patchShellPreferencesRequest } from "../features/auth/services/authService";
 import { OverlayProvider } from "../shared/chrome/OverlayProvider";
 import { ThemeProvider } from "../theme/ThemeProvider";
+import { dash, tab } from "../test/tabsTestStore";
+import { fetchDashboards as fetchDashboardsRequest } from "../features/dashboards/services/dashboardService";
 import { App } from "./App";
+
+// HEL-1600 -- stands in for GET /api/connectors, which this test reaches but does not exercise
+// (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
+jest.mock("../features/connectors/services/connectorEntityService", () => ({
+  ...jest.requireActual("../features/connectors/services/connectorEntityService"),
+  fetchConnectors: jest.fn(() =>
+    Promise.reject(new Error("fetchConnectors: unmocked request stubbed (HEL-1600)")),
+  ),
+}));
 
 jest.mock("../features/dashboards/services/dashboardFolderService", () => ({
   fetchDashboardFolders: jest.fn().mockResolvedValue({ folders: [], assignments: [] }),
@@ -64,8 +79,16 @@ const patchMock = jest.mocked(patchShellPreferencesRequest);
 
 function renderShell(
   path: string,
-  options: { tier?: "free" | "beta" | "owner"; preferences?: Partial<UserPreferences> } = {},
+  options: {
+    tier?: "free" | "beta" | "owner";
+    preferences?: Partial<UserPreferences>;
+    /** HEL-1575: open dashboards (all tabs), the first active. */
+    openTabs?: Array<{ id: string; name: string }>;
+  } = {},
 ) {
+  const openTabs = options.openTabs ?? [];
+  const dashboardItems = openTabs.map((d) => dash(d.id, d.name));
+  jest.mocked(fetchDashboardsRequest).mockResolvedValue(dashboardItems);
   const store = configureStore({
     reducer: {
       assistantConversations: assistantConversationsReducer,
@@ -73,6 +96,7 @@ function renderShell(
       connectors: connectorsReducer,
       dashboardFolders: dashboardFoldersReducer,
       dashboards: dashboardsReducer,
+      dashboardTabs: dashboardTabsReducer,
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
       panels: panelsReducer,
@@ -83,6 +107,19 @@ function renderShell(
       toasts: toastsReducer,
     },
     preloadedState: {
+      // HEL-1575: no tab listeners run in this store, so the tab set starts hydrated (inert).
+      dashboardTabs: {
+        ...initialDashboardTabsState,
+        hydrated: true,
+        tabs: openTabs.map((d) => tab(d.id)),
+        activeId: openTabs[0]?.id ?? null,
+      },
+      dashboards: {
+        ...dashboardsReducer(undefined, { type: "@@test/init" }),
+        items: dashboardItems,
+        status: "succeeded" as const,
+        selectedDashboardId: openTabs[0]?.id ?? null,
+      },
       auth: {
         currentUser: {
           id: "u1",
@@ -288,6 +325,45 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
       expect(screen.getAllByRole("link", { name: "Helio home" })).toHaveLength(1);
       const primary = screen.getByRole("navigation", { name: "Primary" });
       expect(within(primary).getAllByRole("link")[0]).toHaveAttribute("aria-label", "Home");
+    });
+  });
+
+  describe("the dashboard tab bar (HEL-1575 D8)", () => {
+    const openTabs = [
+      { id: "a", name: "Alpha" },
+      { id: "b", name: "Beta" },
+    ];
+
+    it("mounts above the phone breakpoint on the dashboard view, with the tabpanel, and no breadcrumb (the meta row replaced the command bar)", async () => {
+      renderShell("/home", { openTabs });
+      const list = await screen.findByRole("tablist", { name: "Open dashboards" });
+      expect(within(list).getAllByRole("tab")).toHaveLength(2);
+      const panel = screen.getByRole("tabpanel");
+      expect(panel).toHaveAttribute(
+        "aria-labelledby",
+        within(list).getByRole("tab", { name: "Alpha" }).id,
+      );
+      // HEL-1576: the dashboard meta row takes the command bar's slot, so there is no breadcrumb to repeat the
+      // name (the breadcrumb-name rule itself is covered in CommandBar.test.tsx); the sr-only h1 stays.
+      expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Alpha");
+      expect(screen.getByRole("button", { name: "Search, jump, or ask" })).toBeInTheDocument();
+      expect(document.querySelector(".app-shell")).toHaveClass("app-shell--tabs");
+    });
+
+    it("is absent off the dashboard view", async () => {
+      renderShell("/pipelines", { openTabs });
+      await screen.findByRole("navigation", { name: "Main navigation" });
+      expect(screen.queryByRole("tablist")).toBeNull();
+      expect(screen.queryByRole("tabpanel")).toBeNull();
+    });
+
+    it("is absent at the phone breakpoint, which keeps its own switcher", async () => {
+      mockPhoneWidth(true);
+      renderShell("/home", { openTabs });
+      await screen.findByRole("navigation", { name: "Primary" });
+      expect(screen.queryByRole("tablist")).toBeNull();
+      expect(document.querySelector(".app-shell")).not.toHaveClass("app-shell--tabs");
     });
   });
 });

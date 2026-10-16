@@ -227,8 +227,20 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
   /** Privileged delete: uses withSystemContext because PanelService has confirmed
    *  ownership before calling this. The V36 RLS DELETE policy (owner's dashboard
    *  only) would enforce the same rule on the app pool. */
-  def delete(id: PanelId): Future[Boolean] =
-    ctx.withSystemContext(table.filter(_.id === id.value).delete).map(_ > 0)
+  def delete(id: PanelId): Future[Boolean] = {
+    // HEL-1575: a delete is a content change, so the dashboard's `last_updated` advances in the same transaction,
+    // after the panel delete: that keeps V122/V129's panels-then-dashboards lock order, and the layout-version
+    // trigger (V127) ignores a `last_updated`-only update. Create already bumps it; layout repair deliberately does not.
+    val deleted = sql"DELETE FROM panels WHERE id = ${id.value} RETURNING dashboard_id".as[String].headOption
+    ctx.withSystemContext(
+      deleted.flatMap {
+        case Some(dashboardId) =>
+          val now = Timestamp.from(Instant.now())
+          sqlu"UPDATE dashboards SET last_updated = $now WHERE id = $dashboardId".map(_ => true)
+        case None => DBIO.successful(false)
+      }
+    )
+  }
 
   /** Privileged appearance update: uses withSystemContext because PanelService
    *  has confirmed ownership before calling this. The V36 RLS UPDATE policy

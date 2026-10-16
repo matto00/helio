@@ -42,7 +42,7 @@ import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
-import com.helio.services.dashboards.{DashboardContentsService, DashboardFolderService, DashboardService}
+import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -66,7 +66,7 @@ import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorC
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
-import com.helio.infrastructure.persistence.dashboards.{DashboardFolderRepository, DashboardRepository}
+import com.helio.infrastructure.persistence.dashboards.{DashboardChangesRepository, DashboardFolderRepository, DashboardRepository}
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.FileSystem
@@ -360,6 +360,7 @@ final class ApiRoutes(
   private val productEventService = new ProductEventService(new ProductEventRepository(dbContext), SystemClock)
   private val authService       = new AuthService(userRepo, userTierConfig, mfaServiceOpt, auditService, oauthStateStore, Some(productEventService), Option(userPreferenceRepo))
   private val dashboardFolderService = new DashboardFolderService(new DashboardFolderRepository(dbContext), accessChecker)
+  private val dashboardChangesService = new DashboardChangesService(new DashboardChangesRepository(dbContext))
   private val dashboardService  = new DashboardService(dashboardRepo, accessChecker, auditService, outputRepo)
   // HEL-822: same nullable-optional wiring pattern as connectorEntityServiceOpt below —
   // constructed early (before sourceService) so SourceService.createRest's legacy-url
@@ -888,7 +889,7 @@ final class ApiRoutes(
                           val updateFuture = Future.sequence(futures.toSeq)
                           onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
                             case Success(prefs) =>
-                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed, prefs.typeStyle, prefs.density, prefs.motion))
+                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed, prefs.typeStyle, prefs.density, prefs.motion, prefs.dashboardTabs))
                             case Failure(ex) =>
                               // HEL-311: log the full exception server-side; never echo
                               // raw exception text in the client-facing body.
@@ -904,6 +905,7 @@ final class ApiRoutes(
                   new DashboardContentsRoutes(dashboardContentsService, authenticatedUser).routes,
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
                   new DashboardFolderRoutes(dashboardFolderService, authenticatedUser).routes,
+                  new DashboardChangesRoutes(dashboardChangesService, authenticatedUser).routes,
                   new DashboardRoutes(dashboardService, authenticatedUser).routes,
                   new DashboardSnapshotRoutes(dashboardService, authenticatedUser).routes,
                   // HEL-904: `BoundPanelRoutes`/`POST /api/panels/bound` removed
@@ -943,6 +945,9 @@ final class ApiRoutes(
                   // `pipelines` — same reason `pipeline-shapes` is top-level immediately above
                   // (design.md Decision 2); mount order relative to PipelineRoutes doesn't matter.
                   new PipelineStepCatalogRoutes(pipelineStepCatalogService, authenticatedUser).routes,
+                  // HEL-1619: MUST precede PipelineRoutes -- its unconstrained PipelineIdSegment GET would
+                  // otherwise swallow the literal "context-details" segment as a pipeline id.
+                  new PipelineContextDetailsRoutes(pipelineService, pipelineRunService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.

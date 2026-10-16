@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/dashboards/dashboard-change-item.schema.json",
+  "title": "DashboardChangeItem",
+  "description": "When one dashboard's content last changed and when its panels' Outputs last received new data (HEL-1575). `dataUpdatedAt` is the latest over `outputs`, or null.",
+  "type": "object",
+  "properties": {
+    "dashboardId": {
+      "type": "string"
+    },
+    "contentUpdatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dataUpdatedAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "dashboard-change-output.schema.json"
+      }
+    }
+  },
+  "required": ["dashboardId", "contentUpdatedAt", "dataUpdatedAt", "outputs"],
+  "additionalProperties": false
+}

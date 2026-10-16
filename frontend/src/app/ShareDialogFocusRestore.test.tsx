@@ -17,6 +17,10 @@ import { assistantConversationsReducer } from "../features/assistant/state/assis
 import { authReducer } from "../features/auth/state/authSlice";
 import { dashboardFoldersReducer } from "../features/dashboards/state/dashboardFoldersSlice";
 import { dashboardsReducer } from "../features/dashboards/state/dashboardsSlice";
+import {
+  dashboardTabsReducer,
+  initialDashboardTabsState,
+} from "../features/dashboards/tabs/dashboardTabsSlice";
 import { layoutHistoryReducer } from "../features/layout/state/layoutHistorySlice";
 import { onboardingReducer } from "../features/onboarding/state/onboardingSlice";
 import { panelsReducer } from "../features/panels/state/panelsSlice";
@@ -102,6 +106,7 @@ function renderApp() {
       auth: authReducer,
       dashboardFolders: dashboardFoldersReducer,
       dashboards: dashboardsReducer,
+      dashboardTabs: dashboardTabsReducer,
       layoutHistory: layoutHistoryReducer,
       onboarding: onboardingReducer,
       panels: panelsReducer,
@@ -113,6 +118,8 @@ function renderApp() {
       shareTokens: shareTokensReducer,
     },
     preloadedState: {
+      // HEL-1575: no tab listeners run in this store, so the tab set starts hydrated (inert).
+      dashboardTabs: { ...initialDashboardTabsState, hydrated: true },
       auth: {
         currentUser: {
           id: "test-user",

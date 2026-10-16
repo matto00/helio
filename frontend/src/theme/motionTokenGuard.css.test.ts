@@ -141,7 +141,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 146)", () => {
+  it("walks every CSS file in frontend/src (currently 148)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -164,10 +164,10 @@ describe("motion token guard (HEL-441)", () => {
     // HEL-1574 added `AppRail.css`, `ContextList.css`, `AssistantContextList.css` and removed `SidebarBody.css` (133 -> 135); tokens only.
     // HEL-1579 added `PipelineSpine.css`, `PipelineSpineHeader.css`, `PipelineSpineLayout.css`, `PipelineSpineAccent.css`,
     // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
-    // HEL-1576 added `DashboardMetaRow.css` (141 -> 142); tokens only, no shadow/radius/motion literals.
-    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css` (142 -> 144); tokens only.
-    // HEL-1573 added `shared/motion/motion.css` and `shared/ui/Crossfade.css` (144 -> 146); tokens only.
-    expect(files.length).toBe(146);
+    // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css`, HEL-1576 added `DashboardMetaRow.css`; tokens only, no shadow/radius/motion literals.
+    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
+    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 2 (HEL-1573: motion.css, Crossfade.css) = 148, recounted with find, not carried from any side.
+    expect(files.length).toBe(148);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

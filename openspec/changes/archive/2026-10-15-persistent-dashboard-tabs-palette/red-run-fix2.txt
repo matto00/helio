@@ -1,0 +1,19 @@
+RED run against HEAD b91b454761 triggers file (+2 exported consts so the test compiles)
+/home/matt/Development/helio/.claude/worktrees/feature/persistent-dashboard-tabs-palette/HEL-1575/frontend
+b91b454761beae0d1103b0c86058150864c9f3cf
+  ● tabs browser triggers (HEL-1575 D2/D4/D7) › one leave (hidden followed by pagehide) sends at most one PATCH
+    Expected number of calls: 1
+    Received number of calls: 2
+  ● tabs browser triggers (HEL-1575 D2/D4/D7) › sends nothing off the dashboard view
+    Expected number of calls: 0
+    Received number of calls: 2
+  ● tabs browser triggers (HEL-1575 D2/D4/D7) › still flushes a pending real tab change off the dashboard view, once
+    Expected number of calls: 1
+    Received number of calls: 2
+  ● tabs browser triggers (HEL-1575 D2/D4/D7) › skips the PATCH when only the re-stamp of a recently stamped tab would change
+    Expected number of calls: 0
+    Received number of calls: 2
+  ● tabs browser triggers (HEL-1575 D2/D4/D7) › a visible burst refreshes the signals once per gap, and never off the dashboard view
+    Expected number of calls: 1
+    Received number of calls: 2
+Tests:       5 failed, 8 passed, 13 total

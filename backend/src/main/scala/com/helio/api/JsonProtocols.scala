@@ -95,6 +95,7 @@ trait JsonProtocols
     with PanelProtocol
     with DashboardProtocol
     with DashboardFolderProtocol
+    with DashboardChangesProtocol
     with DashboardProposalProtocol
     with PipelineProposalProtocol
     with CombinedProposalProtocol
@@ -114,6 +115,7 @@ trait JsonProtocols
     with AlertRuleProtocol
     with AlertEventProtocol
     with PipelineScheduleProtocol
+    with PipelineContextDetailsProtocol
     with ConnectorProtocol
     with PipelineShapeProtocol
     with PipelineStepCatalogProtocol

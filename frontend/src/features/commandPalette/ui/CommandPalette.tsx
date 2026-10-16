@@ -15,6 +15,8 @@ import type { CommandAction } from "../model/types";
 import { useRecentPaletteActions } from "../useRecentPaletteActions";
 import { useResourceIndexing } from "../useResourceIndexing";
 import { useResourceSearchActions } from "../useResourceSearchActions";
+import { useAskAssistantAction } from "../useAskAssistantAction";
+import { useOpenTabActions } from "../useOpenTabActions";
 
 const UNSECTIONED = "";
 
@@ -63,7 +65,8 @@ function groupBySection(actions: CommandAction[]): ResultGroup[] {
  * the palette closes any other active overlay, and vice versa.
  */
 export function CommandPalette() {
-  const { isOpen, close } = useCommandPalette();
+  const { isOpen, intent, close } = useCommandPalette();
+  const openTabMode = intent === "open-tab";
   const overlay = useOverlay();
   const registeredActions = useCommandRegistryActions();
   const setQuery = useSetCommandQuery();
@@ -120,18 +123,32 @@ export function CommandPalette() {
     overflowNotices,
   } = useResourceSearchActions();
 
+  // HEL-1575 D10/D11 — the ask action is offered only in the ordinary palette; the "open in a new tab" mode
+  // lists dashboards and nothing else.
+  const askActions = useAskAssistantAction(!openTabMode);
+  const openTabActions = useOpenTabActions(openTabMode);
+
   const results = useMemo(() => {
+    if (openTabMode) return openTabActions;
     // design.md D5 — search results are merged into the SAME array `rankActions` scores, so
     // their `matchesQuery: true` opt-out (kept unscored, in registrant order) is honored by the
     // existing sort rather than a second, parallel merge step. `searchActions` is itself always
     // `[]` for an empty query (`useResourceSearchActions`/`searchResourceItems`), so this can
     // never leak resource rows into the always-shown empty-query default list.
-    const ranked = rankActions([...registeredActions, ...searchActions], query);
+    const ranked = rankActions([...registeredActions, ...searchActions, ...askActions], query);
     if (query.trim() === "" && recentActions.length > 0) {
       return [...recentActions, ...ranked];
     }
     return ranked;
-  }, [registeredActions, searchActions, query, recentActions]);
+  }, [
+    openTabMode,
+    openTabActions,
+    registeredActions,
+    searchActions,
+    askActions,
+    query,
+    recentActions,
+  ]);
   const groups = useMemo(() => groupBySection(results), [results]);
   // design.md D4/task 4.4 — a query that currently matches nothing only because indexing
   // hasn't finished must not read as "no results" (a permanent, wrong answer) — it reads as
@@ -202,8 +219,8 @@ export function CommandPalette() {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search actions..."
-          aria-label="Search commands"
+          placeholder={openTabMode ? "Open a dashboard in a new tab" : "Search actions..."}
+          aria-label={openTabMode ? "Search dashboards" : "Search commands"}
           role="combobox"
           aria-expanded="true"
           aria-controls="command-palette-results"
@@ -216,7 +233,7 @@ export function CommandPalette() {
 
       {/* HEL-503 design.md D4 — coverage caveat, derived from live per-kind status; absent
         entirely once every kind has `succeeded` (task 4.3), never a hardcoded string. */}
-      {coverageMessage && (
+      {coverageMessage && !openTabMode && (
         <div className="command-palette__coverage" role="status">
           {coverageMessage}
         </div>

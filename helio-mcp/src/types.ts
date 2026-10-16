@@ -211,6 +211,9 @@ export interface OutputResponse {
   historyPayloadsAvailable?: boolean;
   /** HEL-1372: read-only; the payload-history limits the server enforces (env overrides included). */
   historyPayloadLimits?: HistoryPayloadLimits;
+  /** HEL-1619: how many panels are bound to this Output (`GET /api/outputs` list items carry it).
+   *  `0` means `GET /api/outputs/:id/panels` would return `[]`; absent on an older server. */
+  panelCount?: number;
 }
 
 export interface HistoryPayloadTierLimit {
@@ -519,6 +522,20 @@ export interface AssertionSummaryResponse {
   warnFailed: number;
   errorFailed: number;
   failures: AssertionFailureDetailResponse[];
+}
+
+/** One item of `GET /api/pipelines/context-details` (HEL-1619): a pipeline's steps (the same
+ *  elements as `GET /api/pipelines/:id/steps`) and, when it has ever run, its latest run's
+ *  assertion summary (the same value as `run-history[0].assertions`). */
+export interface PipelineContextDetailsItemResponse {
+  pipelineId: string;
+  steps: PipelineStepResponse[];
+  /** Omitted (not null) when the pipeline has never run. */
+  latestRunAssertions?: AssertionSummaryResponse;
+}
+
+export interface PipelineContextDetailsResponse {
+  items: PipelineContextDetailsItemResponse[];
 }
 
 /** `GET /api/pipelines/:id/run-history` entry (HEL-581) — mirrors the

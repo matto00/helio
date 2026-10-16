@@ -29,7 +29,7 @@ import { useCallback, useEffect, useImperativeHandle, useRef, type Ref } from "r
 
 import {
   buildBatchRequest,
-  clearPendingPanelUpdates,
+  clearSentPendingPanelUpdates,
   resetPanelSaveState,
   updatePanelsBatch,
 } from "../state/panelsSlice";
@@ -93,7 +93,8 @@ export function usePanelUpdatesFlush({
     void dispatch(updatePanelsBatch(buildBatchRequest(pending)))
       .unwrap()
       .then(() => {
-        dispatch(clearPendingPanelUpdates());
+        // HEL-1575 4.5(5): clear only what was sent, so an edit staged during the round trip survives.
+        dispatch(clearSentPendingPanelUpdates(pending));
       })
       .catch(() => {
         // Network or server error — retain pending updates; next interval tick retries
@@ -126,6 +127,17 @@ export function usePanelUpdatesFlush({
       }
     };
   }, [flushAll]);
+
+  // HEL-1575 C7 (owner-approved behaviour change): flush pending panel edits when the grid UNMOUNTS.
+  // `PanelList` keys `<PanelGrid>` by the selected dashboard id, so a dashboard switch remounts the grid
+  // and the dashboard-switch effect below (first-render guard) never runs: before this, a staged panel
+  // edit waited for the NEXT grid's 30 s tick. Latest-ref + empty deps (the `useLayoutSave` pattern), in
+  // this hook so it covers every width, the phone picker included.
+  const flushPanelUpdatesRef = useRef(flushPanelUpdates);
+  useEffect(() => {
+    flushPanelUpdatesRef.current = flushPanelUpdates;
+  });
+  useEffect(() => () => flushPanelUpdatesRef.current(), []);
 
   // Reset save state when the user switches dashboards.
   const isFirstRenderRef = useRef(true);

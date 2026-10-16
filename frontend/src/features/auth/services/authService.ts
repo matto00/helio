@@ -62,6 +62,12 @@ export async function patchShellPreferencesRequest(
   return response.data;
 }
 
+/** `PATCH /api/users/me/preferences` with the `dashboardTabs` key (HEL-1575): replaces the saved tab set as a
+ *  whole. Resolves to nothing: the response is deliberately not written back (it could clobber newer state). */
+export async function patchDashboardTabsRequest(wire: unknown): Promise<void> {
+  await httpClient.patch("/api/users/me/preferences", { dashboardTabs: wire });
+}
+
 export async function oauthCallbackRequest(code: string, state?: string): Promise<LoginResult> {
   const params: Record<string, string> = { code };
   if (state !== undefined) {

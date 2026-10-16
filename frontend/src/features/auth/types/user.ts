@@ -1,3 +1,5 @@
+import type { DashboardTabsWire } from "../../dashboards/tabs/tabTypes";
+
 // Auth domain types — extracted from `types/models.ts` as part of CS4 cycle 1
 // to colocate types with their feature folder.
 
@@ -16,6 +18,9 @@ export interface UserPreferences {
   density?: Density;
   /** HEL-1572: absent = follow the OS reduce-motion setting. */
   motion?: Motion;
+  /** HEL-1575: the saved open-tab set. Absent until the user first opens a tab; the server omits unset
+   *  `lastViewedAt`/`ownWriteAt`/`activeId`, so every one of those may be missing (normalise on read). */
+  dashboardTabs?: DashboardTabsWire;
 }
 
 /** Body of `PATCH /api/users/me/preferences`: any non-empty subset. */

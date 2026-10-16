@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/auth/update-user-preferences-request.schema.json",
   "title": "UpdateShellPreferencesRequest",
-  "description": "Body of PATCH /api/users/me/preferences (HEL-1574, HEL-1572): any non-empty subset of the shell keys (contextListWidth, contextListCollapsed) and appearance keys (typeStyle, density, motion); unknown fields and out-of-range/unknown values are rejected with 400. Only the fields present are stored. `motion: null` removes the saved motion choice so the user follows the OS reduce-motion setting again.",
+  "description": "Body of PATCH /api/users/me/preferences (HEL-1574, HEL-1572, HEL-1575): any non-empty subset of the shell keys (contextListWidth, contextListCollapsed), appearance keys (typeStyle, density, motion) and `dashboardTabs` (replaces the stored tab set as a whole: at most 20 tabs, unique non-empty ids of at most 64 characters, `activeId` null or one of the tab ids); unknown fields and out-of-range/unknown values are rejected with 400. Only the fields present are stored. `motion: null` removes the saved motion choice so the user follows the OS reduce-motion setting again.",
   "type": "object",
   "properties": {
     "contextListWidth": {
@@ -24,7 +24,51 @@
     "motion": {
       "type": ["string", "null"],
       "enum": ["full", "subtle", "off", null]
+    },
+    "dashboardTabs": {
+      "$ref": "#/$defs/DashboardTabsPref"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "DashboardTabsPref": {
+      "type": "object",
+      "properties": {
+        "tabs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/DashboardTabPref"
+          }
+        },
+        "activeId": {
+          "type": ["string", "null"]
+        }
+      },
+      "required": ["tabs"],
+      "additionalProperties": false,
+      "title": "DashboardTabsPref"
+    },
+    "DashboardTabPref": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "lastViewedAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "ownWriteAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      },
+      "required": ["id"],
+      "additionalProperties": false,
+      "title": "DashboardTabPref"
+    }
+  }
 }

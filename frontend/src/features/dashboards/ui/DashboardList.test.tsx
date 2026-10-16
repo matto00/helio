@@ -616,4 +616,78 @@ describe("DashboardList", () => {
       });
     });
   });
+
+  // HEL-1575: middle-click and Cmd/Ctrl-click open a background tab; a plain click selects as before.
+  describe("open in a background tab", () => {
+    function renderThree() {
+      return renderWithStore(<DashboardList />, {
+        dashboards: {
+          items: [
+            { id: "a", name: "Alpha", meta: defaultMeta },
+            { id: "b", name: "Beta", meta: defaultMeta },
+            { id: "c", name: "Gamma", meta: defaultMeta },
+          ],
+          status: "succeeded",
+          selectedDashboardId: "a",
+        },
+        panels: { items: [] },
+      });
+    }
+    const tabIds = (store: ReturnType<typeof renderThree>["store"]) =>
+      store.getState().dashboardTabs.tabs.map((t: { id: string }) => t.id);
+
+    it("opens a Ctrl-clicked dashboard after the active tab without selecting it", () => {
+      const { store } = renderThree();
+      store.dispatch({
+        type: "dashboardTabs/tabsHydrated",
+        payload: {
+          tabs: [{ id: "a", lastViewedAt: null, ownWriteAt: null }],
+          activeId: "a",
+          persist: false,
+        },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Beta" }), { ctrlKey: true });
+      expect(tabIds(store)).toEqual(["a", "b"]);
+      expect(store.getState().dashboards.selectedDashboardId).toBe("a");
+      expect(store.getState().dashboardTabs.activeId).toBe("a");
+    });
+
+    it("opens a meta-clicked dashboard the same way", () => {
+      const { store } = renderThree();
+      store.dispatch({
+        type: "dashboardTabs/tabsHydrated",
+        payload: {
+          tabs: [{ id: "a", lastViewedAt: null, ownWriteAt: null }],
+          activeId: "a",
+          persist: false,
+        },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Gamma" }), { metaKey: true });
+      expect(tabIds(store)).toEqual(["a", "c"]);
+      expect(store.getState().dashboards.selectedDashboardId).toBe("a");
+    });
+
+    it("opens a middle-clicked dashboard and does nothing when it is already open", () => {
+      const { store } = renderThree();
+      store.dispatch({
+        type: "dashboardTabs/tabsHydrated",
+        payload: {
+          tabs: [{ id: "a", lastViewedAt: null, ownWriteAt: null }],
+          activeId: "a",
+          persist: false,
+        },
+      });
+      const beta = screen.getByRole("button", { name: "Beta" });
+      fireEvent(beta, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+      fireEvent(beta, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
+      expect(tabIds(store)).toEqual(["a", "b"]);
+      expect(store.getState().dashboards.selectedDashboardId).toBe("a");
+    });
+
+    it("selects on a plain click", () => {
+      const { store } = renderThree();
+      fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+      expect(store.getState().dashboards.selectedDashboardId).toBe("b");
+    });
+  });
 });

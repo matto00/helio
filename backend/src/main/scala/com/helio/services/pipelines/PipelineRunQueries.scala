@@ -117,6 +117,20 @@ private[pipelines] final class PipelineRunQueries(
           }
       }
 
+  /** HEL-1619: the latest run's [[AssertionSummary]] for each of `pipelineIds` that has run -- equal to
+   *  `history(id).head.assertions` per pipeline (same latest-run rule, same [[summarizeAssertions]]) but
+   *  from two queries for the whole set. A never-run pipeline is absent. CALLER MUST HAVE CONFIRMED ACCESS
+   *  to every id (ACL-bypassing reads; mirrors `history`'s "access first, then system-context reads"). */
+  def latestAssertionsFor(pipelineIds: Set[PipelineId]): Future[Map[PipelineId, AssertionSummary]] =
+    if (pipelineRunRepo == null) Future.successful(Map.empty)
+    else
+      for {
+        latestRunIds  <- pipelineRunRepo.latestRunIdsInternalBatch(pipelineIds)
+        assertionRows <- pipelineRunRepo.listAssertionsByRunsInternalBatch(latestRunIds.values.toSet)
+      } yield latestRunIds.map { case (pid, runId) =>
+        pid -> summarizeAssertions(assertionRows.getOrElse(runId, Vector.empty))
+      }
+
   /** HEL-873 (design.md Decision 2, task 3.3; evaluation-1.md CR1/CR4): maps a non-null
     * `truncated_reads` column to a present [[RunTruncationRecord]] -- NULL (the column absent
     * entirely, never reaching this method at all -- see the `.flatMap` at the call site above) is

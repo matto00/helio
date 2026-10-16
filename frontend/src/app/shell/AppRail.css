@@ -2,7 +2,7 @@
    literal colours, fonts or durations. The active wash is the sliding `.motion-indicator` (HEL-1573). */
 .app-rail {
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
