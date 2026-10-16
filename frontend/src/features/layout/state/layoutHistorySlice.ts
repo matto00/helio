@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import type { RootState } from "../../../store/store";
+import { setSelectedDashboardId } from "../../dashboards/state/dashboardsSlice";
 import type { DashboardLayout } from "../../dashboards/types/dashboard";
 
 const MAX_HISTORY_DEPTH = 50;
@@ -19,10 +20,21 @@ interface DashboardLayoutHistory {
 
 interface LayoutHistoryState {
   byDashboard: Record<string, DashboardLayoutHistory>;
+  /** HEL-1576: the dashboard whose layout edit mode is on, or null. Session UI state only: never
+   *  persisted, never sent to the server. Edit mode is on for a dashboard iff it equals that
+   *  dashboard's id, and selecting any dashboard clears it, so opening or switching dashboards
+   *  always starts in view mode. */
+  editingLayoutDashboardId: string | null;
+  /** HEL-1576: the dashboard whose DESKTOP grid is mounted right now, or null (the phone-style stack
+   *  renders below the `sm` boundary, where panels cannot be moved). The meta row offers the layout
+   *  edit controls only while it matches the selected dashboard. Session UI state only. */
+  desktopGridDashboardId: string | null;
 }
 
 const initialState: LayoutHistoryState = {
   byDashboard: {},
+  editingLayoutDashboardId: null,
+  desktopGridDashboardId: null,
 };
 
 function getOrInit(state: LayoutHistoryState, dashboardId: string): DashboardLayoutHistory {
@@ -87,11 +99,67 @@ const layoutHistorySlice = createSlice({
       }
       history.revision += 1;
     },
+    /**
+     * HEL-1576 "Tidy layout": one history entry for a user-requested compaction. Pushes `before` onto
+     * the undo stack, clears redo, and marks `after` as the applied layout with a bumped revision, so
+     * `useLayoutSave` classifies the store write as a history traversal (class 2: pending, PATCHed by
+     * the normal flush) instead of server truth. `pushLayoutSnapshot` alone would not.
+     */
+    recordLayoutTidy(
+      state,
+      action: PayloadAction<{
+        dashboardId: string;
+        before: DashboardLayout;
+        after: DashboardLayout;
+      }>,
+    ) {
+      const { dashboardId, before, after } = action.payload;
+      const history = getOrInit(state, dashboardId);
+      history.past.push(before);
+      if (history.past.length > MAX_HISTORY_DEPTH) {
+        history.past.shift();
+      }
+      history.future = [];
+      history.applied = after;
+      history.revision += 1;
+    },
+    /** HEL-1576: turn layout edit mode on for `dashboardId`, or off with `null`. */
+    setEditingLayoutDashboardId(state, action: PayloadAction<string | null>) {
+      state.editingLayoutDashboardId = action.payload;
+    },
+    /** HEL-1576: `DesktopPanelGrid` reports itself mounted for `dashboardId` (and `null` on unmount). */
+    setDesktopGridDashboardId(state, action: PayloadAction<string | null>) {
+      state.desktopGridDashboardId = action.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(setSelectedDashboardId, (state) => {
+      state.editingLayoutDashboardId = null;
+    });
   },
 });
 
-export const { pushLayoutSnapshot, undoLayout, redoLayout } = layoutHistorySlice.actions;
+export const {
+  pushLayoutSnapshot,
+  undoLayout,
+  redoLayout,
+  recordLayoutTidy,
+  setEditingLayoutDashboardId,
+  setDesktopGridDashboardId,
+} = layoutHistorySlice.actions;
 export const layoutHistoryReducer = layoutHistorySlice.reducer;
+
+/** Whether layout edit mode is on for `dashboardId` (HEL-1576). */
+export function selectIsEditingLayout(dashboardId: string | null) {
+  return (state: RootState): boolean =>
+    dashboardId !== null && state.layoutHistory.editingLayoutDashboardId === dashboardId;
+}
+
+/** Whether the desktop (movable) grid is what `dashboardId` currently renders (HEL-1576). */
+export function selectIsDesktopGridMounted(dashboardId: string | null) {
+  return (state: RootState): boolean =>
+    dashboardId !== null && state.layoutHistory.desktopGridDashboardId === dashboardId;
+}
 
 export function selectCanUndo(dashboardId: string | null) {
   return (state: RootState): boolean => {

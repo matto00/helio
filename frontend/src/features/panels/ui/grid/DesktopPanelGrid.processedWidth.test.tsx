@@ -33,6 +33,15 @@ jest.mock("../../hooks/usePanelData", () => ({
   }),
 }));
 jest.mock("../../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
+// HEL-1600 -- stands in for the output reads this test reaches but does not exercise (the network guard
+// fails an unmocked request); rejects in place of the AxiosError network failure.
+jest.mock("../../../pipelines/services/outputService", () => ({
+  ...jest.requireActual("../../../pipelines/services/outputService"),
+  getOutputById: jest.fn(() => Promise.reject(new Error("getOutputById: stubbed (HEL-1600)"))),
+  getAssertionStatus: jest.fn(() =>
+    Promise.reject(new Error("getAssertionStatus: stubbed (HEL-1600)")),
+  ),
+}));
 
 const MockResponsive = jest.mocked(Responsive);
 const PROP = "--panel-grid-processed-width";
@@ -63,7 +72,7 @@ describe("DesktopPanelGrid processed width (HEL-1413)", () => {
     const { rerender } = renderWithStore(<Grid width={1612} />, { panels: { items: panels } });
     rerender(<Grid width={1212} />);
     expect(lastProps().style[PROP]).toBe("1612px");
-    act(() => lastProps().onWidthChange(1212, [18, 18], 10, null));
+    act(() => lastProps().onWidthChange(1212, [12, 12], 10, null));
     expect(lastProps().style[PROP]).toBe("1212px");
   });
 });

@@ -130,8 +130,11 @@ for (const theme of ["light", "dark"] as const) {
     try {
       await page.goto(`/dashboards/${dashboardId}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-      await page.getByRole("menuitem", { name: "Add panel" }).click();
+      // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
+      await page
+        .getByRole("group", { name: "Dashboard actions" })
+        .getByRole("button", { name: "Add panel" })
+        .click();
       await page.getByRole("option", { name: "Add Text panel" }).click();
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
 

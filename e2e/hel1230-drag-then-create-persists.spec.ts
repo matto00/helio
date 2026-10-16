@@ -79,6 +79,7 @@ test("drag, then add a panel, then Save now PATCHes the dragged position", async
     await page.goto(`/dashboards/${ids.dashboardId}`);
     await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
 
+    await page.getByRole("button", { name: "Edit layout" }).click(); // HEL-1576: drag only in edit mode
     const handle = page.locator(".panel-grid-card__handle").first();
     const bb = (await handle.boundingBox())!;
     const sx = bb.x + bb.width / 2;
@@ -92,8 +93,11 @@ test("drag, then add a panel, then Save now PATCHes the dragged position", async
     await expect(page.getByText("Unsaved changes")).toBeVisible();
 
     // Add a panel BEFORE any flush.
-    await page.getByRole("button", { name: "Dashboard actions", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Add panel" }).click();
+    // HEL-1576: Add panel is the dashboard meta row's primary button now, not a kebab item.
+    await page
+      .getByRole("group", { name: "Dashboard actions" })
+      .getByRole("button", { name: "Add panel" })
+      .click();
     const picker = page.getByRole("dialog", { name: "Add panel" });
     await expect(picker).toBeVisible();
     await page.getByLabel("Search outputs").fill("HEL1230");

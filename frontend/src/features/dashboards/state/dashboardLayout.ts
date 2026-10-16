@@ -105,7 +105,10 @@ function sanitizeLayoutItem(item: DashboardLayoutItem): DashboardLayoutItem {
 
 /** One breakpoint's saved entries restricted to live panel ids (first entry per id wins, blank ids
  * dropped), sanitized. Stale ids (panels of another board or since deleted) never count. */
-function liveEntries(saved: DashboardLayoutItem[], liveIds: Set<string>): DashboardLayoutItem[] {
+export function liveEntries(
+  saved: DashboardLayoutItem[],
+  liveIds: Set<string>,
+): DashboardLayoutItem[] {
   const seen = new Set<string>();
   const out: DashboardLayoutItem[] = [];
   for (const item of saved) {

@@ -20,7 +20,7 @@ test.describe.configure({ mode: "parallel" });
 // Windows used: 1900 (lg), 1500 (md), 1200 (sm), 1120 (container exactly 768 = sm), 400 (phone stack).
 
 const CSRF_HEADER = { "X-Helio-Requested-With": "1" };
-const GRID_MARGIN = 18;
+const GRID_MARGIN = 12; // HEL-1576: the desktop grid gutter is `--space-3` (12px)
 const ROW_HEIGHT = 52;
 const COLS = { lg: 12, md: 10, sm: 6, xs: 2 } as const;
 
