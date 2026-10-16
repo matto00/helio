@@ -302,6 +302,42 @@ describe("buildWorkspaceContext — pipelines carry Outputs, not an implicit out
     expect(context.pipelines[0]?.outputs).toEqual([]);
   });
 
+  // HEL-1617: an Outputs-fetch failure degrades only `outputs`, with a signal.
+  it("degrades every pipeline's outputs to [] and sets outputsError when the Outputs fetch fails", async () => {
+    const context = await buildWorkspaceContext(
+      fakeApiWithPipeline({
+        listAllOutputs: async () => {
+          throw new Error("outputs boom");
+        },
+      }) as unknown as HelioApi,
+    );
+
+    expect(context.pipelines).toHaveLength(1);
+    expect(context.pipelines.every((p) => p.outputs.length === 0)).toBe(true);
+    expect(context.outputsError).toBe("outputs boom");
+  });
+
+  it("keeps outputsError through concise mode and a tiny budget", async () => {
+    const failing = () =>
+      fakeApiWithPipeline({
+        listAllOutputs: async () => {
+          throw new Error("outputs boom");
+        },
+      }) as unknown as HelioApi;
+
+    const concise = await buildWorkspaceContext(failing(), DEFAULT_BUDGET_BYTES, true);
+    const tiny = await buildWorkspaceContext(failing(), 1);
+
+    expect(concise.outputsError).toBe("outputs boom");
+    expect(tiny.outputsError).toBe("outputs boom");
+  });
+
+  it("omits outputsError entirely when the Outputs fetch succeeds", async () => {
+    const context = await buildWorkspaceContext(fakeApiWithPipeline() as unknown as HelioApi);
+
+    expect(context).not.toHaveProperty("outputsError");
+  });
+
   it("degrades one Output's placements to [] when listOutputPanels fails, without failing the whole call", async () => {
     const context = await buildWorkspaceContext(
       fakeApiWithPipeline({
