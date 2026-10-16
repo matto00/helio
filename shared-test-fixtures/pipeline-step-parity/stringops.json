@@ -1,0 +1,969 @@
+{
+  "kind": "stringops",
+  "vectors": [
+    {
+      "name": "trim strips only code units up to U+0020 (Java String.trim)",
+      "config": { "operation": "trim", "outputColumn": "o", "field": "s" },
+      "inputRows": [
+        { "s": "  a b \t\n" },
+        { "s": "\u00a0nbsp\u00a0" },
+        { "s": "\u2003em\u2003" },
+        { "s": "\u0000x\u001f" },
+        { "s": "  " },
+        { "s": "" },
+        { "s": null },
+        { "s": 5.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "o": "a b", "s": "  a b \t\n" },
+          { "o": "\u00a0nbsp\u00a0", "s": "\u00a0nbsp\u00a0" },
+          { "o": "\u2003em\u2003", "s": "\u2003em\u2003" },
+          { "o": "x", "s": "\u0000x\u001f" },
+          { "o": "", "s": "  " },
+          { "o": "", "s": "" },
+          { "o": null, "s": null },
+          { "o": "5.0", "s": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "upper and lower",
+      "config": { "operation": "upper", "outputColumn": "o", "field": "s" },
+      "inputRows": [
+        { "s": "abc" },
+        { "s": "Stra\u00dfe" },
+        { "s": "i\u0307x" },
+        { "s": null },
+        { "s": 1.5 }
+      ],
+      "expect": {
+        "rows": [
+          { "o": "ABC", "s": "abc" },
+          { "o": "STRASSE", "s": "Stra\u00dfe" },
+          { "o": "I\u0307X", "s": "i\u0307x" },
+          { "o": null, "s": null },
+          { "o": "1.5", "s": 1.5 }
+        ]
+      }
+    },
+    {
+      "name": "lower",
+      "config": { "operation": "lower", "outputColumn": "o", "field": "s" },
+      "inputRows": [
+        { "s": "ABC" },
+        { "s": "\u0130I" },
+        { "s": "\u03a3A\u03a3" },
+        { "s": null },
+        { "s": true }
+      ],
+      "expect": {
+        "rows": [
+          { "o": "abc", "s": "ABC" },
+          { "o": "i\u0307i", "s": "\u0130I" },
+          { "o": "\u03c3a\u03c2", "s": "\u03a3A\u03a3" },
+          { "o": null, "s": null },
+          { "o": "true", "s": true }
+        ]
+      }
+    },
+    {
+      "name": "split on a dot: a literal separator, trailing empties kept",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": ".",
+        "index": 1
+      },
+      "inputRows": [
+        { "s": "a.b.c" },
+        { "s": "a.b." },
+        { "s": "." },
+        { "s": "" },
+        { "s": "abc" },
+        { "s": ".a" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": "b", "s": "a.b.c" },
+          { "o": "b", "s": "a.b." },
+          { "o": "", "s": "." },
+          { "o": null, "s": "" },
+          { "o": null, "s": "abc" },
+          { "o": "a", "s": ".a" }
+        ]
+      }
+    },
+    {
+      "name": "split on a pipe: trailing empties are kept (limit -1)",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": "|",
+        "index": 2
+      },
+      "inputRows": [{ "s": "x|y||" }, { "s": "|" }, { "s": "x" }],
+      "expect": {
+        "rows": [
+          { "o": "", "s": "x|y||" },
+          { "o": null, "s": "|" },
+          { "o": null, "s": "x" }
+        ]
+      }
+    },
+    {
+      "name": "split index past the end, and negative, is null",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": ",",
+        "index": 5
+      },
+      "inputRows": [{ "s": "a,b" }],
+      "expect": { "rows": [{ "o": null, "s": "a,b" }] }
+    },
+    {
+      "name": "split with a negative index is null",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": ",",
+        "index": -1
+      },
+      "inputRows": [{ "s": "a,b" }],
+      "expect": { "rows": [{ "o": null, "s": "a,b" }] }
+    },
+    {
+      "name": "split on a double field uses the Java rendering (3.0)",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": ".",
+        "index": 1
+      },
+      "inputRows": [{ "s": 3.0 }, { "s": 10000000.0 }, { "s": 0.5 }, { "s": { "$int": 12 } }],
+      "expect": {
+        "rows": [
+          { "o": "0", "s": 3.0 },
+          { "o": "0E7", "s": 1.0e7 },
+          { "o": "5", "s": 0.5 },
+          { "o": null, "s": { "$int": 12 } }
+        ]
+      }
+    },
+    {
+      "name": "split on a multi-character separator is not a regex",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": "--",
+        "index": 1
+      },
+      "inputRows": [{ "s": "a--b--c" }, { "s": "a-b" }, { "s": "----" }],
+      "expect": {
+        "rows": [
+          { "o": "b", "s": "a--b--c" },
+          { "o": null, "s": "a-b" },
+          { "o": "", "s": "----" }
+        ]
+      }
+    },
+    {
+      "name": "split on a regex metacharacter separator",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": "[",
+        "index": 1
+      },
+      "inputRows": [{ "s": "a[b]c" }, { "s": "a*b*c" }],
+      "expect": {
+        "rows": [
+          { "o": "b]c", "s": "a[b]c" },
+          { "o": null, "s": "a*b*c" }
+        ]
+      }
+    },
+    {
+      "name": "split with an empty separator splits between UTF-16 units and keeps a trailing empty",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": "",
+        "index": 3
+      },
+      "inputRows": [{ "s": "abc" }, { "s": "" }, { "s": "a\ud83d\ude00" }],
+      "expect": {
+        "rows": [
+          { "o": "", "s": "abc" },
+          { "o": null, "s": "" },
+          { "o": "", "s": "a\ud83d\ude00" }
+        ]
+      }
+    },
+    {
+      "name": "split with an empty separator, index 0",
+      "config": {
+        "operation": "split",
+        "outputColumn": "o",
+        "field": "s",
+        "separator": "",
+        "index": 0
+      },
+      "inputRows": [{ "s": "abc" }, { "s": "" }],
+      "expect": {
+        "rows": [
+          { "o": "a", "s": "abc" },
+          { "o": "", "s": "" }
+        ]
+      }
+    },
+    {
+      "name": "split without a separator is a step error",
+      "config": { "operation": "split", "outputColumn": "o", "field": "s", "index": 0 },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "split without an index is a step error",
+      "config": { "operation": "split", "outputColumn": "o", "field": "s", "separator": "," },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "concat joins fields with the separator; null is empty; doubles render the Java way",
+      "config": {
+        "operation": "concat",
+        "outputColumn": "o",
+        "fields": ["a", "b", "c", "d", "e", "f", "g", "gone"],
+        "separator": "/"
+      },
+      "inputRows": [
+        {
+          "a": "x",
+          "b": 10000000.0,
+          "c": null,
+          "d": true,
+          "e": 0.0001,
+          "f": { "$int": 5 },
+          "g": 100.0
+        }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "a": "x",
+            "b": 1.0e7,
+            "c": null,
+            "d": true,
+            "e": 1.0e-4,
+            "f": { "$int": 5 },
+            "g": 100.0,
+            "o": "x/1.0E7//true/1.0E-4/5/100.0/"
+          }
+        ]
+      }
+    },
+    {
+      "name": "concat without a separator or fields",
+      "config": { "operation": "concat", "outputColumn": "o" },
+      "inputRows": [{ "a": "x" }],
+      "expect": { "rows": [{ "a": "x", "o": "" }] }
+    },
+    {
+      "name": "concat with an empty field list",
+      "config": { "operation": "concat", "outputColumn": "o", "fields": [], "separator": "-" },
+      "inputRows": [{ "a": "x" }],
+      "expect": { "rows": [{ "a": "x", "o": "" }] }
+    },
+    {
+      "name": "an unsupported operation is a step error",
+      "config": { "operation": "reverse", "outputColumn": "o", "field": "s" },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank field is a step error for single-field operations",
+      "config": { "operation": "trim", "outputColumn": "o", "field": "" },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank output column is a step error",
+      "config": { "operation": "trim", "outputColumn": "", "field": "s" },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a disabled step is transparent",
+      "config": { "operation": "upper", "field": "s", "outputColumn": "o" },
+      "inputRows": [{ "s": "abc" }],
+      "enabled": false,
+      "expect": { "rows": [{ "s": "abc" }] }
+    },
+    {
+      "name": "regex: a simple group",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(\\d+)"
+      },
+      "inputRows": [{ "s": "order 123 and 45" }, { "s": "none" }, { "s": null }, { "s": 7.0 }],
+      "expect": {
+        "rows": [
+          { "o": "123", "s": "order 123 and 45" },
+          { "o": null, "s": "none" },
+          { "o": null, "s": null },
+          { "o": "7", "s": 7.0 }
+        ]
+      }
+    },
+    {
+      "name": "regex: the first match wins and group 1 is returned",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([a-z]+)-([a-z]+)"
+      },
+      "inputRows": [{ "s": "foo-bar baz-qux" }],
+      "expect": { "rows": [{ "o": "foo", "s": "foo-bar baz-qux" }] }
+    },
+    {
+      "name": "regex: an alternation with a non-participating group is null",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "a(b)|c(d)"
+      },
+      "inputRows": [{ "s": "cd" }, { "s": "ab" }],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "cd" },
+          { "o": "b", "s": "ab" }
+        ]
+      }
+    },
+    {
+      "name": "regex: a lazy quantifier",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "<(.+?)>"
+      },
+      "inputRows": [{ "s": "<a><b>" }],
+      "expect": { "rows": [{ "o": "a", "s": "<a><b>" }] }
+    },
+    {
+      "name": "regex: greedy versus lazy ranges",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "x(a{2,3})"
+      },
+      "inputRows": [{ "s": "xaaaa" }, { "s": "xa" }],
+      "expect": {
+        "rows": [
+          { "o": "aaa", "s": "xaaaa" },
+          { "o": null, "s": "xa" }
+        ]
+      }
+    },
+    {
+      "name": "regex: \\s matches the ASCII space set only (U+00A0, U+2003 do not match; a tab does)",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(\\s)"
+      },
+      "inputRows": [{ "s": "\u00a0" }, { "s": "\u2003" }, { "s": "\t" }, { "s": " x" }],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "\u00a0" },
+          { "o": null, "s": "\u2003" },
+          { "o": "\t", "s": "\t" },
+          { "o": " ", "s": " x" }
+        ]
+      }
+    },
+    {
+      "name": "regex: \\s as the only separator keeps NBSP out",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "a(\\s+)b"
+      },
+      "inputRows": [{ "s": "a\u00a0b" }, { "s": "a \tb" }],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "a\u00a0b" },
+          { "o": " \t", "s": "a \tb" }
+        ]
+      }
+    },
+    {
+      "name": "regex: $ matches before a final line terminator",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(abc)$"
+      },
+      "inputRows": [
+        { "s": "abc\n" },
+        { "s": "abc\r\n" },
+        { "s": "abc\n\n" },
+        { "s": "abc\r" },
+        { "s": "abc" },
+        { "s": "abcd" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": "abc", "s": "abc\n" },
+          { "o": "abc", "s": "abc\r\n" },
+          { "o": null, "s": "abc\n\n" },
+          { "o": "abc", "s": "abc\r" },
+          { "o": "abc", "s": "abc" },
+          { "o": null, "s": "abcd" }
+        ]
+      }
+    },
+    {
+      "name": "regex: $ never matches between \\r and a final \\n",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(a\\r)$"
+      },
+      "inputRows": [{ "s": "a\r\n" }, { "s": "a\r" }, { "s": "a\n" }],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "a\r\n" },
+          { "o": "a\r", "s": "a\r" },
+          { "o": null, "s": "a\n" }
+        ]
+      }
+    },
+    {
+      "name": "regex: . does not match line terminators but matches an astral character as one unit",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(.)"
+      },
+      "inputRows": [
+        { "s": "\u0085" },
+        { "s": "\ud83d\ude00" },
+        { "s": "\n" },
+        { "s": "\u2028x" },
+        { "s": "\r" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "\u0085" },
+          { "o": "\ud83d\ude00", "s": "\ud83d\ude00" },
+          { "o": null, "s": "\n" },
+          { "o": "x", "s": "\u2028x" },
+          { "o": null, "s": "\r" }
+        ]
+      }
+    },
+    {
+      "name": "regex: . on U+0085 inside a longer string",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "a(.)b"
+      },
+      "inputRows": [
+        { "s": "a\u0085b" },
+        { "s": "a\u2028b" },
+        { "s": "axb" },
+        { "s": "a\ud83d\ude00b" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": null, "s": "a\u0085b" },
+          { "o": null, "s": "a\u2028b" },
+          { "o": "x", "s": "axb" },
+          { "o": "\ud83d\ude00", "s": "a\ud83d\ude00b" }
+        ]
+      }
+    },
+    {
+      "name": "regex: escaped hyphen \\- outside a class",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(a\\-b)"
+      },
+      "inputRows": [{ "s": "a-b" }, { "s": "ab" }],
+      "expect": {
+        "rows": [
+          { "o": "a-b", "s": "a-b" },
+          { "o": null, "s": "ab" }
+        ]
+      }
+    },
+    {
+      "name": "regex: a character class with a range",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([a-c]+)"
+      },
+      "inputRows": [{ "s": "xxabcabdd" }, { "s": "zzz" }],
+      "expect": {
+        "rows": [
+          { "o": "abcab", "s": "xxabcabdd" },
+          { "o": null, "s": "zzz" }
+        ]
+      }
+    },
+    {
+      "name": "regex: a negated class",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([^0-9]+)"
+      },
+      "inputRows": [{ "s": "123abc456" }],
+      "expect": { "rows": [{ "o": "abc", "s": "123abc456" }] }
+    },
+    {
+      "name": "regex: a class with \\d and \\w escapes",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([\\d_]+)"
+      },
+      "inputRows": [{ "s": "ab12_3cd" }],
+      "expect": { "rows": [{ "o": "12_3", "s": "ab12_3cd" }] }
+    },
+    {
+      "name": "regex: a class with a leading and trailing hyphen",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([-a]+)"
+      },
+      "inputRows": [{ "s": "x-a-y" }],
+      "expect": { "rows": [{ "o": "-a-", "s": "x-a-y" }] }
+    },
+    {
+      "name": "regex: escaped class members",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "([\\]\\[\\\\]+)"
+      },
+      "inputRows": [{ "s": "ab]\\[cd" }],
+      "expect": { "rows": [{ "o": "]\\[", "s": "ab]\\[cd" }] }
+    },
+    {
+      "name": "regex: an anchored pattern",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "^(\\w+)"
+      },
+      "inputRows": [{ "s": "hello world" }, { "s": " lead" }],
+      "expect": {
+        "rows": [
+          { "o": "hello", "s": "hello world" },
+          { "o": null, "s": " lead" }
+        ]
+      }
+    },
+    {
+      "name": "regex: alternation inside the group",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(cat|dog)s?"
+      },
+      "inputRows": [{ "s": "hotdogs" }, { "s": "cats" }],
+      "expect": {
+        "rows": [
+          { "o": "dog", "s": "hotdogs" },
+          { "o": "cat", "s": "cats" }
+        ]
+      }
+    },
+    {
+      "name": "regex: an empty group matches the empty string",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "a()b"
+      },
+      "inputRows": [{ "s": "ab" }],
+      "expect": { "rows": [{ "o": "", "s": "ab" }] }
+    },
+    {
+      "name": "regex: a non-ASCII literal",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(\u00e9+)"
+      },
+      "inputRows": [{ "s": "caf\u00e9\u00e9" }],
+      "expect": { "rows": [{ "o": "\u00e9\u00e9", "s": "caf\u00e9\u00e9" }] }
+    },
+    {
+      "name": "regex: a pattern without a capturing group is a step error",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "abc"
+      },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "regex: an empty pattern has no group and is a step error",
+      "config": { "operation": "extractRegex", "outputColumn": "o", "field": "s", "pattern": "" },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "regex: a double field is matched through its Java rendering (3.0)",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(\\d+\\.\\d+)"
+      },
+      "inputRows": [{ "s": 3.0 }, { "s": 10000000.0 }],
+      "expect": {
+        "rows": [
+          { "o": "3.0", "s": 3.0 },
+          { "o": "1.0", "s": 1.0e7 }
+        ]
+      }
+    },
+    {
+      "name": "regex: a quantifier bound at Integer.MAX_VALUE is allowed",
+      "config": {
+        "operation": "extractRegex",
+        "outputColumn": "o",
+        "field": "s",
+        "pattern": "(a{0,2147483647})"
+      },
+      "inputRows": [{ "s": "aaa" }],
+      "expect": { "rows": [{ "o": "aaa", "s": "aaa" }] }
+    },
+    {
+      "name": "regex declines: \\b is not in the allowlist",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(\\w+)\\b"
+      },
+      "inputRows": [{ "s": "caf\u00e9s" }, { "s": "cafe" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "caf", "s": "caf\u00e9s" },
+          { "o": "cafe", "s": "cafe" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: \\b inside a group",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a\\b)"
+      },
+      "inputRows": [{ "s": "a b" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "a", "s": "a b" }] }
+    },
+    {
+      "name": "regex declines: a range end that is a class escape",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([\\d-z])"
+      },
+      "inputRows": [{ "s": "5" }, { "s": "-" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "5", "s": "5" },
+          { "o": "-", "s": "-" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: ] as the first class member (Java reads it as a literal)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([]a])"
+      },
+      "inputRows": [{ "s": "]" }, { "s": "a" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "]", "s": "]" },
+          { "o": "a", "s": "a" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: \\S inside a class",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([\\S])"
+      },
+      "inputRows": [{ "s": "x" }, { "s": " " }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "x", "s": "x" },
+          { "o": null, "s": " " }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: a quantifier on a group",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a?)*"
+      },
+      "inputRows": [{ "s": "aaa" }, { "s": "b" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "", "s": "aaa" },
+          { "o": "", "s": "b" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: a quantified group with an inner group",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(ab)+"
+      },
+      "inputRows": [{ "s": "abab" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "ab", "s": "abab" }] }
+    },
+    {
+      "name": "regex declines: a quantifier on an anchor",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(^*a)"
+      },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "a", "s": "a" }] }
+    },
+    {
+      "name": "regex declines: a quantifier bound above Integer.MAX_VALUE (Java rejects it)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a{0,99999999999})"
+      },
+      "inputRows": [{ "s": "aaa" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a quantifier bound just above Integer.MAX_VALUE",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a{2147483648})"
+      },
+      "inputRows": [{ "s": "aaa" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a leading-zero bound above Integer.MAX_VALUE",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "a{0000000000002147483648}"
+      },
+      "inputRows": [{ "s": "aaa" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a dangling brace (Java-invalid)",
+      "config": { "operation": "extractRegex", "field": "s", "outputColumn": "o", "pattern": "a{" },
+      "inputRows": [{ "s": "a{" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: an empty class (Java-invalid)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([])"
+      },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a non-capturing group",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(?:a)(b)"
+      },
+      "inputRows": [{ "s": "ab" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "b", "s": "ab" }] }
+    },
+    {
+      "name": "regex declines: a back-reference",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a)\\1"
+      },
+      "inputRows": [{ "s": "aa" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "a", "s": "aa" }] }
+    },
+    {
+      "name": "regex declines: a possessive quantifier",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a*+)"
+      },
+      "inputRows": [{ "s": "aaa" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "aaa", "s": "aaa" }] }
+    },
+    {
+      "name": "regex declines: \\p{L}",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(\\p{L}+)"
+      },
+      "inputRows": [{ "s": "abc" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "abc", "s": "abc" }] }
+    },
+    {
+      "name": "regex declines: an unbalanced parenthesis (Java-invalid)",
+      "config": { "operation": "extractRegex", "field": "s", "outputColumn": "o", "pattern": "(a" },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a lookahead",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a)(?=b)"
+      },
+      "inputRows": [{ "s": "ab" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "a", "s": "ab" }] }
+    },
+    {
+      "name": "regex declines: an inline flag",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(?i)(a)"
+      },
+      "inputRows": [{ "s": "A" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "A", "s": "A" }] }
+    },
+    {
+      "name": "regex declines: a class intersection",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([a-z&&[^b]])"
+      },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "a", "s": "a" }] }
+    },
+    {
+      "name": "regex declines: a nested class union",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([a[b]])"
+      },
+      "inputRows": [{ "s": "b" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaRows": [{ "o": "b", "s": "b" }] }
+    },
+    {
+      "name": "regex declines: a reversed range (Java-invalid)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "([z-a])"
+      },
+      "inputRows": [{ "s": "m" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: a dangling quantifier (Java-invalid)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(*a)"
+      },
+      "inputRows": [{ "s": "a" }],
+      "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    }
+  ]
+}

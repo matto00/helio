@@ -1,0 +1,586 @@
+{
+  "kind": "aggregate",
+  "vectors": [
+    {
+      "name": "sum avg min max count per group (six groups in hash order)",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "s", "fn": "sum", "field": "n" },
+          { "alias": "a", "fn": "avg", "field": "n" },
+          { "alias": "lo", "fn": "min", "field": "n" },
+          { "alias": "hi", "fn": "max", "field": "n" },
+          { "alias": "c", "fn": "count", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "north", "n": 0.0 },
+        { "k": "south", "n": 1.0 },
+        { "k": "east", "n": 2.0 },
+        { "k": "west", "n": 3.0 },
+        { "k": "up", "n": 4.0 },
+        { "k": "down", "n": 5.0 },
+        { "k": "north", "n": 6.0 },
+        { "k": "south", "n": 7.0 },
+        { "k": "east", "n": 8.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 3.0, "c": { "$long": "2" }, "hi": 6.0, "k": "north", "lo": 0.0, "s": 6.0 },
+          { "a": 3.0, "c": { "$long": "1" }, "hi": 3.0, "k": "west", "lo": 3.0, "s": 3.0 },
+          { "a": 4.0, "c": { "$long": "1" }, "hi": 4.0, "k": "up", "lo": 4.0, "s": 4.0 },
+          { "a": 4.0, "c": { "$long": "2" }, "hi": 7.0, "k": "south", "lo": 1.0, "s": 8.0 },
+          { "a": 5.0, "c": { "$long": "1" }, "hi": 5.0, "k": "down", "lo": 5.0, "s": 5.0 },
+          { "a": 5.0, "c": { "$long": "2" }, "hi": 8.0, "k": "east", "lo": 2.0, "s": 10.0 }
+        ]
+      }
+    },
+    {
+      "name": "two group columns",
+      "config": {
+        "groupBy": [
+          { "name": "a", "type": "string" },
+          { "name": "b", "type": "string" }
+        ],
+        "aggregations": [{ "alias": "s", "fn": "sum", "field": "n" }]
+      },
+      "inputRows": [
+        { "a": "x", "b": 1.0, "n": 1.0 },
+        { "a": "x", "b": 2.0, "n": 2.0 },
+        { "a": "x", "b": 1.0, "n": 3.0 },
+        { "a": "y", "b": 1.0, "n": 4.0 },
+        { "a": "y", "b": null, "n": 5.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "x", "b": 1.0, "s": 4.0 },
+          { "a": "x", "b": 2.0, "s": 2.0 },
+          { "a": "y", "b": 1.0, "s": 4.0 },
+          { "a": "y", "b": null, "s": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "empty groupBy collapses everything into one row",
+      "config": {
+        "groupBy": [],
+        "aggregations": [
+          { "alias": "s", "fn": "sum", "field": "n" },
+          { "alias": "c", "fn": "count", "field": "n" }
+        ]
+      },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }, { "n": null }],
+      "expect": { "rows": [{ "c": { "$long": "2" }, "s": 3.0 }] }
+    },
+    {
+      "name": "empty input and no groupBy yields one row of 0L counts and nulls",
+      "config": {
+        "groupBy": [],
+        "aggregations": [
+          { "alias": "s", "fn": "sum", "field": "n" },
+          { "alias": "c", "fn": "count", "field": "n" },
+          { "alias": "d", "fn": "count_distinct", "field": "n" },
+          { "alias": "a", "fn": "avg", "field": "n" },
+          { "alias": "m", "fn": "median", "field": "n" }
+        ]
+      },
+      "inputRows": [],
+      "expect": {
+        "rows": [{ "a": null, "c": { "$long": "0" }, "d": { "$long": "0" }, "m": null, "s": null }]
+      }
+    },
+    {
+      "name": "empty input with groupBy yields no rows",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "s", "fn": "sum", "field": "n" }]
+      },
+      "inputRows": [],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "median interpolates between the two middle values",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "m", "fn": "median", "field": "n" }]
+      },
+      "inputRows": [
+        { "k": "a", "n": 1.0 },
+        { "k": "a", "n": 2.0 },
+        { "k": "a", "n": 4.0 },
+        { "k": "a", "n": 10.0 },
+        { "k": "b", "n": 3.0 },
+        { "k": "b", "n": 1.0 },
+        { "k": "b", "n": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": "b", "m": 2.0 },
+          { "k": "a", "m": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "percentile is percentile_cont (linear interpolation)",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "p0", "fn": "percentile", "field": "n", "p": 0.0 },
+          { "alias": "p25", "fn": "percentile", "field": "n", "p": 25.0 },
+          { "alias": "p90", "fn": "percentile", "field": "n", "p": 90.0 },
+          { "alias": "p100", "fn": "percentile", "field": "n", "p": 100.0 },
+          { "alias": "p33", "fn": "percentile", "field": "n", "p": 33.3 }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": 5.0 },
+        { "k": "a", "n": 1.0 },
+        { "k": "a", "n": 9.0 },
+        { "k": "a", "n": 3.0 },
+        { "k": "a", "n": 7.0 },
+        { "k": "a", "n": 2.0 }
+      ],
+      "expect": {
+        "rows": [{ "k": "a", "p0": 1.0, "p100": 9.0, "p25": 2.25, "p33": 2.665, "p90": 8.0 }]
+      }
+    },
+    {
+      "name": "percentile and median ignore NaN but sum keeps it",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "m", "fn": "median", "field": "n" },
+          { "alias": "p", "fn": "percentile", "field": "n", "p": 50.0 },
+          { "alias": "s", "fn": "sum", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": "NaN" },
+        { "k": "a", "n": 1.0 },
+        { "k": "a", "n": 3.0 }
+      ],
+      "expect": { "rows": [{ "k": "a", "m": 2.0, "p": 2.0, "s": { "$double": "NaN" } }] }
+    },
+    {
+      "name": "percentile of a single value, and of none",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "p", "fn": "percentile", "field": "n", "p": 70.0 },
+          { "alias": "m", "fn": "median", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": 4.0 },
+        { "k": "b", "n": null },
+        { "k": "b", "n": "x" }
+      ],
+      "expect": {
+        "rows": [
+          { "k": "b", "m": null, "p": null },
+          { "k": "a", "m": 4.0, "p": 4.0 }
+        ]
+      }
+    },
+    {
+      "name": "count_distinct treats 1, 1.0 and 1L as one value and a string as another",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "d", "fn": "count_distinct", "field": "v" }]
+      },
+      "inputRows": [
+        { "k": "a", "v": { "$int": 1 } },
+        { "k": "a", "v": 1.0 },
+        { "k": "a", "v": { "$long": "1" } },
+        { "k": "a", "v": "1" },
+        { "k": "a", "v": null },
+        { "k": "a", "v": "1" }
+      ],
+      "expect": { "rows": [{ "d": { "$long": "2" }, "k": "a" }] }
+    },
+    {
+      "name": "count_distinct counts every NaN as distinct",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "d", "fn": "count_distinct", "field": "v" }]
+      },
+      "inputRows": [
+        { "k": "a", "v": { "$double": "NaN" } },
+        { "k": "a", "v": { "$double": "NaN" } },
+        { "k": "a", "v": 2.0 }
+      ],
+      "expect": { "rows": [{ "d": { "$long": "3" }, "k": "a" }] }
+    },
+    {
+      "name": "sum coerces numeric strings the Java way",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "s", "fn": "sum", "field": "n" }]
+      },
+      "inputRows": [
+        { "k": "a", "n": "1d" },
+        { "k": "a", "n": "1f" },
+        { "k": "a", "n": " 1 " },
+        { "k": "a", "n": "0x1p3" },
+        { "k": "a", "n": "0x10" },
+        { "k": "a", "n": "+1" },
+        { "k": "a", "n": ".5" },
+        { "k": "a", "n": "5." },
+        { "k": "a", "n": "abc" },
+        { "k": "a", "n": "" }
+      ],
+      "expect": { "rows": [{ "k": "a", "s": 17.5 }] }
+    },
+    {
+      "name": "min and max with NaN and Infinity strings",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "lo", "fn": "min", "field": "n" },
+          { "alias": "hi", "fn": "max", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": "NaN" },
+        { "k": "a", "n": 2.0 },
+        { "k": "a", "n": "Infinity" },
+        { "k": "b", "n": "NaN" },
+        { "k": "c", "n": "-Infinity" },
+        { "k": "c", "n": 0.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "hi": { "$double": "NaN" }, "k": "b", "lo": { "$double": "NaN" } },
+          { "hi": { "$double": "NaN" }, "k": "a", "lo": 2.0 },
+          { "hi": 0.0, "k": "c", "lo": { "$double": "-Infinity" } }
+        ]
+      }
+    },
+    {
+      "name": "min and max under the total ordering of negative zero",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "lo", "fn": "min", "field": "n" },
+          { "alias": "hi", "fn": "max", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": 0.0 },
+        { "k": "a", "n": { "$double": "-0.0" } }
+      ],
+      "expect": { "rows": [{ "hi": 0.0, "k": "a", "lo": { "$double": "-0.0" } }] }
+    },
+    {
+      "name": "avg, min and max of a group with no numeric value are null",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "a", "fn": "avg", "field": "n" },
+          { "alias": "lo", "fn": "min", "field": "n" },
+          { "alias": "hi", "fn": "max", "field": "n" },
+          { "alias": "s", "fn": "sum", "field": "n" },
+          { "alias": "c", "fn": "count", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": "x" },
+        { "k": "a", "n": null }
+      ],
+      "expect": {
+        "rows": [{ "a": null, "c": { "$long": "1" }, "hi": null, "k": "a", "lo": null, "s": 0.0 }]
+      }
+    },
+    {
+      "name": "count counts non-null cells of any kind",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "c", "fn": "count", "field": "n" }]
+      },
+      "inputRows": [
+        { "k": "a", "n": "x" },
+        { "k": "a", "n": false },
+        { "k": "a", "n": null },
+        { "k": "a" }
+      ],
+      "expect": { "rows": [{ "c": { "$long": "2" }, "k": "a" }] }
+    },
+    {
+      "name": "group keys 1, 1.0 and null form groups by Scala equality",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "c", "fn": "count", "field": "n" }]
+      },
+      "inputRows": [
+        { "k": { "$int": 1 }, "n": 1.0 },
+        { "k": 1.0, "n": 1.0 },
+        { "k": null, "n": 1.0 },
+        { "k": "1", "n": 1.0 },
+        { "n": 1.0 },
+        { "k": { "$double": "NaN" }, "n": 1.0 },
+        { "k": { "$double": "NaN" }, "n": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "c": { "$long": "2" }, "k": { "$int": 1 } },
+          { "c": { "$long": "1" }, "k": "1" },
+          { "c": { "$long": "2" }, "k": null },
+          { "c": { "$long": "1" }, "k": { "$double": "NaN" } },
+          { "c": { "$long": "1" }, "k": { "$double": "NaN" } }
+        ]
+      }
+    },
+    {
+      "name": "an alias equal to a group column replaces the key",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "k", "fn": "count", "field": "n" }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "rows": [{ "k": { "$long": "1" } }] }
+    },
+    {
+      "name": "function names are case-insensitive",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "s", "fn": "SUM", "field": "n" },
+          { "alias": "m", "fn": "MeDiAn", "field": "n" }
+        ]
+      },
+      "inputRows": [
+        { "k": "a", "n": 2.0 },
+        { "k": "a", "n": 4.0 }
+      ],
+      "expect": { "rows": [{ "k": "a", "m": 3.0, "s": 6.0 }] }
+    },
+    {
+      "name": "ten string groups, two aggregations, hash order",
+      "config": {
+        "groupBy": [{ "name": "team", "type": "string" }],
+        "aggregations": [
+          { "alias": "pts", "fn": "sum", "field": "pts" },
+          { "alias": "games", "fn": "count", "field": "pts" }
+        ]
+      },
+      "inputRows": [
+        { "team": "ATL", "pts": 0.0 },
+        { "team": "BOS", "pts": 3.0 },
+        { "team": "CHI", "pts": 6.0 },
+        { "team": "DAL", "pts": 9.0 },
+        { "team": "DEN", "pts": 12.0 },
+        { "team": "GSW", "pts": 15.0 },
+        { "team": "HOU", "pts": 18.0 },
+        { "team": "LAL", "pts": 21.0 },
+        { "team": "MIA", "pts": 24.0 },
+        { "team": "NYK", "pts": 27.0 },
+        { "team": "PHX", "pts": 30.0 },
+        { "team": "SEA", "pts": 33.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "games": { "$long": "1" }, "pts": 3.0, "team": "BOS" },
+          { "games": { "$long": "1" }, "pts": 15.0, "team": "GSW" },
+          { "games": { "$long": "1" }, "pts": 30.0, "team": "PHX" },
+          { "games": { "$long": "1" }, "pts": 24.0, "team": "MIA" },
+          { "games": { "$long": "1" }, "pts": 9.0, "team": "DAL" },
+          { "games": { "$long": "1" }, "pts": 33.0, "team": "SEA" },
+          { "games": { "$long": "1" }, "pts": 27.0, "team": "NYK" },
+          { "games": { "$long": "1" }, "pts": 6.0, "team": "CHI" },
+          { "games": { "$long": "1" }, "pts": 12.0, "team": "DEN" },
+          { "games": { "$long": "1" }, "pts": 21.0, "team": "LAL" },
+          { "games": { "$long": "1" }, "pts": 18.0, "team": "HOU" },
+          { "games": { "$long": "1" }, "pts": 0.0, "team": "ATL" }
+        ]
+      }
+    },
+    {
+      "name": "an unsupported function is a step error",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "stddev", "field": "n" }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unsupported function fails even with no input",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "stddev", "field": "n" }]
+      },
+      "inputRows": [],
+      "expect": { "error": true }
+    },
+    {
+      "name": "percentile without p is a step error",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "percentile", "field": "n" }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "percentile with p above 100 is a step error",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "percentile", "field": "n", "p": 100.5 }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "p on another function is a step error",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "sum", "field": "n", "p": 50.0 }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an aggregation without a field cannot be decoded",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "x", "fn": "sum" }]
+      },
+      "inputRows": [{ "k": "a", "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "two group columns of numbers in hash order",
+      "config": {
+        "groupBy": [
+          { "name": "a", "type": "string" },
+          { "name": "b", "type": "string" }
+        ],
+        "aggregations": [{ "alias": "c", "fn": "count", "field": "n" }]
+      },
+      "inputRows": [
+        { "a": 0.0, "b": 0.0, "n": 1.0 },
+        { "a": 1.0, "b": 1.0, "n": 1.0 },
+        { "a": 2.0, "b": 2.0, "n": 1.0 },
+        { "a": 0.0, "b": 3.0, "n": 1.0 },
+        { "a": 1.0, "b": 0.0, "n": 1.0 },
+        { "a": 2.0, "b": 1.0, "n": 1.0 },
+        { "a": 0.0, "b": 2.0, "n": 1.0 },
+        { "a": 1.0, "b": 3.0, "n": 1.0 },
+        { "a": 2.0, "b": 0.0, "n": 1.0 },
+        { "a": 0.0, "b": 1.0, "n": 1.0 },
+        { "a": 1.0, "b": 2.0, "n": 1.0 },
+        { "a": 2.0, "b": 3.0, "n": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 2.0, "b": 0.0, "c": { "$long": "1" } },
+          { "a": 0.0, "b": 3.0, "c": { "$long": "1" } },
+          { "a": 1.0, "b": 3.0, "c": { "$long": "1" } },
+          { "a": 2.0, "b": 1.0, "c": { "$long": "1" } },
+          { "a": 2.0, "b": 3.0, "c": { "$long": "1" } },
+          { "a": 0.0, "b": 0.0, "c": { "$long": "1" } },
+          { "a": 0.0, "b": 1.0, "c": { "$long": "1" } },
+          { "a": 1.0, "b": 2.0, "c": { "$long": "1" } },
+          { "a": 1.0, "b": 1.0, "c": { "$long": "1" } },
+          { "a": 0.0, "b": 2.0, "c": { "$long": "1" } },
+          { "a": 1.0, "b": 0.0, "c": { "$long": "1" } },
+          { "a": 2.0, "b": 2.0, "c": { "$long": "1" } }
+        ]
+      }
+    },
+    {
+      "name": "three group columns of mixed kinds",
+      "config": {
+        "groupBy": [
+          { "name": "a", "type": "string" },
+          { "name": "b", "type": "string" },
+          { "name": "c", "type": "string" }
+        ],
+        "aggregations": [{ "alias": "s", "fn": "sum", "field": "n" }]
+      },
+      "inputRows": [
+        { "a": "x", "b": 1.0, "c": true, "n": 1.0 },
+        { "a": "x", "b": 2.0, "c": false, "n": 1.0 },
+        { "a": "y", "b": 1.0, "c": null, "n": 1.0 },
+        { "a": "y", "b": 1.0, "c": null, "n": 1.0 },
+        { "a": "z", "b": 3.0, "c": true, "n": 1.0 },
+        { "a": "x", "b": 1.0, "c": true, "n": 1.0 },
+        { "a": "w", "b": 9.0, "c": false, "n": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "x", "b": 1.0, "c": true, "s": 2.0 },
+          { "a": "y", "b": 1.0, "c": null, "s": 2.0 },
+          { "a": "x", "b": 2.0, "c": false, "s": 1.0 },
+          { "a": "w", "b": 9.0, "c": false, "s": 1.0 },
+          { "a": "z", "b": 3.0, "c": true, "s": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "sum of Unicode-digit strings is zero",
+      "config": {
+        "groupBy": [],
+        "aggregations": [
+          { "alias": "s", "fn": "sum", "field": "v" },
+          { "alias": "n", "fn": "count", "field": "v" }
+        ]
+      },
+      "inputRows": [
+        { "v": "\u0663" },
+        { "v": "\uff12" },
+        { "v": "\u0967\u0968" },
+        { "v": "\uff11\uff10" },
+        { "v": "\u0661.\u0665" }
+      ],
+      "expect": { "rows": [{ "n": { "$long": "5" }, "s": 0.0 }] }
+    },
+    {
+      "name": "sum and avg of negative zeros keep the sign on a Vector frame",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [
+          { "alias": "s", "fn": "sum", "field": "v" },
+          { "alias": "a", "fn": "avg", "field": "v" }
+        ]
+      },
+      "inputRows": [
+        { "k": "x", "v": "-0.0" },
+        { "k": "y", "v": { "$double": "-0.0" } },
+        { "k": "y", "v": "-0" },
+        { "k": "z", "v": { "$double": "-0.0" } },
+        { "k": "z", "v": 0.0 },
+        { "k": "w", "v": "-1e-400" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": { "$double": "-0.0" }, "k": "y", "s": { "$double": "-0.0" } },
+          { "a": { "$double": "-0.0" }, "k": "x", "s": { "$double": "-0.0" } },
+          { "a": 0.0, "k": "z", "s": 0.0 },
+          { "a": { "$double": "-0.0" }, "k": "w", "s": { "$double": "-0.0" } }
+        ]
+      }
+    },
+    {
+      "name": "three NaN group keys are three groups, in first-seen order",
+      "config": {
+        "groupBy": [{ "name": "k", "type": "string" }],
+        "aggregations": [{ "alias": "c", "fn": "count", "field": "n" }]
+      },
+      "inputRows": [
+        { "k": { "$double": "NaN" }, "n": 1.0 },
+        { "k": { "$double": "NaN" }, "n": 2.0 },
+        { "k": { "$double": "NaN" }, "n": 3.0 },
+        { "k": "a", "n": 4.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "c": { "$long": "1" }, "k": "a" },
+          { "c": { "$long": "1" }, "k": { "$double": "NaN" } },
+          { "c": { "$long": "1" }, "k": { "$double": "NaN" } },
+          { "c": { "$long": "1" }, "k": { "$double": "NaN" } }
+        ]
+      }
+    }
+  ]
+}

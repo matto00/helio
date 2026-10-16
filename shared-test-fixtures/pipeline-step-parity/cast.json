@@ -1,0 +1,616 @@
+{
+  "kind": "cast",
+  "vectors": [
+    {
+      "name": "integer: Java Integer.parseInt first, then the double fallback",
+      "config": { "casts": { "v": "integer" } },
+      "inputRows": [
+        { "v": "1d" },
+        { "v": "1f" },
+        { "v": " 1 " },
+        { "v": " 1" },
+        { "v": "0x1p3" },
+        { "v": "0x10" },
+        { "v": "NaN" },
+        { "v": "Infinity" },
+        { "v": "+1" },
+        { "v": "1_000" },
+        { "v": "1e400" },
+        { "v": "-0" },
+        { "v": "" },
+        { "v": "abc" },
+        { "v": "1.9" },
+        { "v": "2147483648" },
+        { "v": "-2147483649" },
+        { "v": "1e3" },
+        { "v": "\u0663" },
+        { "v": "\u2460" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": { "$int": 1 } },
+          { "v": { "$int": 1 } },
+          { "v": { "$int": 1 } },
+          { "v": { "$int": 1 } },
+          { "v": { "$int": 8 } },
+          { "v": null },
+          { "v": { "$int": 0 } },
+          { "v": { "$int": 2147483647 } },
+          { "v": { "$int": 1 } },
+          { "v": null },
+          { "v": { "$int": 2147483647 } },
+          { "v": { "$int": 0 } },
+          { "v": null },
+          { "v": null },
+          { "v": { "$int": 1 } },
+          { "v": { "$int": 2147483647 } },
+          { "v": { "$int": -2147483648 } },
+          { "v": { "$int": 1000 } },
+          { "v": { "$int": 3 } },
+          { "v": null }
+        ]
+      }
+    },
+    {
+      "name": "integer from numbers, booleans and null",
+      "config": { "casts": { "v": "integer" } },
+      "inputRows": [
+        { "v": 3.7 },
+        { "v": -3.7 },
+        { "v": { "$int": 5 } },
+        { "v": { "$long": "9" } },
+        { "v": true },
+        { "v": null },
+        { "v": { "$double": "NaN" } },
+        { "v": { "$double": "Infinity" } },
+        { "v": { "$double": "-Infinity" } },
+        { "v": 10000000000.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "v": { "$int": 3 } },
+          { "v": { "$int": -3 } },
+          { "v": { "$int": 5 } },
+          { "v": { "$int": 9 } },
+          { "v": null },
+          { "v": null },
+          { "v": { "$int": 0 } },
+          { "v": { "$int": 2147483647 } },
+          { "v": { "$int": -2147483648 } },
+          { "v": { "$int": 2147483647 } }
+        ]
+      }
+    },
+    {
+      "name": "integer parses Unicode decimal digits like Character.digit",
+      "config": { "casts": { "v": "integer" } },
+      "inputRows": [{ "v": "\u0663" }, { "v": "\uff11\uff12" }, { "v": "1\u0662" }],
+      "expect": {
+        "rows": [{ "v": { "$int": 3 } }, { "v": { "$int": 12 } }, { "v": { "$int": 12 } }]
+      }
+    },
+    {
+      "name": "long: Java Long.parseLong first, then the double fallback",
+      "config": { "casts": { "v": "long" } },
+      "inputRows": [
+        { "v": "12" },
+        { "v": "-12" },
+        { "v": "+5" },
+        { "v": "2147483648" },
+        { "v": "9007199254740991" },
+        { "v": "1.9" },
+        { "v": " 7 " },
+        { "v": "1d" },
+        { "v": "NaN" },
+        { "v": "abc" },
+        { "v": "0x10" },
+        { "v": "1e3" },
+        { "v": "" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": { "$long": "12" } },
+          { "v": { "$long": "-12" } },
+          { "v": { "$long": "5" } },
+          { "v": { "$long": "2147483648" } },
+          { "v": { "$long": "9007199254740991" } },
+          { "v": { "$long": "1" } },
+          { "v": { "$long": "7" } },
+          { "v": { "$long": "1" } },
+          { "v": { "$long": "0" } },
+          { "v": null },
+          { "v": null },
+          { "v": { "$long": "1000" } },
+          { "v": null }
+        ]
+      }
+    },
+    {
+      "name": "long from numbers and null",
+      "config": { "casts": { "v": "long" } },
+      "inputRows": [
+        { "v": 2147483648.0 },
+        { "v": -2.5 },
+        { "v": { "$int": 7 } },
+        { "v": null },
+        { "v": { "$double": "NaN" } }
+      ],
+      "expect": {
+        "rows": [
+          { "v": { "$long": "2147483648" } },
+          { "v": { "$long": "-2" } },
+          { "v": { "$long": "7" } },
+          { "v": null },
+          { "v": { "$long": "0" } }
+        ]
+      }
+    },
+    {
+      "name": "double, float and number parse the Java way and yield Doubles",
+      "config": { "casts": { "a": "double", "b": "float", "c": "number" } },
+      "inputRows": [
+        { "a": "1d", "b": "1d", "c": "1d" },
+        { "a": "1f", "b": "1f", "c": "1f" },
+        { "a": " 1 ", "b": " 1 ", "c": " 1 " },
+        { "a": " 1", "b": " 1", "c": " 1" },
+        { "a": "0x1p3", "b": "0x1p3", "c": "0x1p3" },
+        { "a": "0x10", "b": "0x10", "c": "0x10" },
+        { "a": "NaN", "b": "NaN", "c": "NaN" },
+        { "a": "Infinity", "b": "Infinity", "c": "Infinity" },
+        { "a": "+1", "b": "+1", "c": "+1" },
+        { "a": "1_000", "b": "1_000", "c": "1_000" },
+        { "a": "1e400", "b": "1e400", "c": "1e400" },
+        { "a": "-0", "b": "-0", "c": "-0" },
+        { "a": "", "b": "", "c": "" },
+        { "a": "abc", "b": "abc", "c": "abc" },
+        { "a": "1.9", "b": "1.9", "c": "1.9" },
+        { "a": "2147483648", "b": "2147483648", "c": "2147483648" },
+        { "a": "-2147483649", "b": "-2147483649", "c": "-2147483649" },
+        { "a": "1e3", "b": "1e3", "c": "1e3" },
+        { "a": "\u0663", "b": "\u0663", "c": "\u0663" },
+        { "a": "\u2460", "b": "\u2460", "c": "\u2460" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 1.0, "c": 1.0 },
+          { "a": 1.0, "b": 1.0, "c": 1.0 },
+          { "a": 1.0, "b": 1.0, "c": 1.0 },
+          { "a": 1.0, "b": 1.0, "c": 1.0 },
+          { "a": 8.0, "b": 8.0, "c": 8.0 },
+          { "a": null, "b": null, "c": null },
+          { "a": { "$double": "NaN" }, "b": { "$double": "NaN" }, "c": { "$double": "NaN" } },
+          {
+            "a": { "$double": "Infinity" },
+            "b": { "$double": "Infinity" },
+            "c": { "$double": "Infinity" }
+          },
+          { "a": 1.0, "b": 1.0, "c": 1.0 },
+          { "a": null, "b": null, "c": null },
+          {
+            "a": { "$double": "Infinity" },
+            "b": { "$double": "Infinity" },
+            "c": { "$double": "Infinity" }
+          },
+          { "a": { "$double": "-0.0" }, "b": { "$double": "-0.0" }, "c": { "$double": "-0.0" } },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": 1.9, "b": 1.9, "c": 1.9 },
+          { "a": 2147483648.0, "b": 2147483648.0, "c": 2147483648.0 },
+          { "a": -2147483649.0, "b": -2147483649.0, "c": -2147483649.0 },
+          { "a": 1000.0, "b": 1000.0, "c": 1000.0 },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null }
+        ]
+      }
+    },
+    {
+      "name": "double from integral, boolean and double cells",
+      "config": { "casts": { "v": "double" } },
+      "inputRows": [
+        { "v": { "$int": 3 } },
+        { "v": { "$long": "4" } },
+        { "v": 2.5 },
+        { "v": true },
+        { "v": null },
+        { "v": { "$double": "-0.0" } }
+      ],
+      "expect": {
+        "rows": [
+          { "v": 3.0 },
+          { "v": 4.0 },
+          { "v": 2.5 },
+          { "v": null },
+          { "v": null },
+          { "v": { "$double": "-0.0" } }
+        ]
+      }
+    },
+    {
+      "name": "boolean: equalsIgnoreCase true / false only",
+      "config": { "casts": { "v": "boolean" } },
+      "inputRows": [
+        { "v": "true" },
+        { "v": "TRUE" },
+        { "v": "False" },
+        { "v": "fAlSe" },
+        { "v": "yes" },
+        { "v": "1" },
+        { "v": "0" },
+        { "v": "" },
+        { "v": " true" },
+        { "v": "tru" },
+        { "v": "t" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": true },
+          { "v": true },
+          { "v": false },
+          { "v": false },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null }
+        ]
+      }
+    },
+    {
+      "name": "boolean from cells that are not strings",
+      "config": { "casts": { "v": "boolean" } },
+      "inputRows": [
+        { "v": true },
+        { "v": false },
+        { "v": 1.0 },
+        { "v": { "$int": 0 } },
+        { "v": null }
+      ],
+      "expect": {
+        "rows": [{ "v": true }, { "v": false }, { "v": null }, { "v": null }, { "v": null }]
+      }
+    },
+    {
+      "name": "boolean treats a long s like Java's equalsIgnoreCase",
+      "config": { "casts": { "v": "boolean" } },
+      "inputRows": [{ "v": "fal\u017fe" }, { "v": "TRUE" }, { "v": "tr\u00dce" }],
+      "expect": { "rows": [{ "v": false }, { "v": true }, { "v": null }] }
+    },
+    {
+      "name": "string renders doubles the Java way",
+      "config": { "casts": { "v": "string" } },
+      "inputRows": [
+        { "v": 3.0 },
+        { "v": 0.5 },
+        { "v": 10000000.0 },
+        { "v": 9999999.0 },
+        { "v": 0.0001 },
+        { "v": 0.001 },
+        { "v": 123456789.0 },
+        { "v": 1e21 },
+        { "v": 1.5e-7 },
+        { "v": 100.0 },
+        { "v": { "$double": "-0.0" } },
+        { "v": { "$double": "NaN" } },
+        { "v": { "$double": "Infinity" } },
+        { "v": { "$double": "-Infinity" } },
+        { "v": true },
+        { "v": { "$int": 5 } },
+        { "v": { "$long": "6" } },
+        { "v": "txt" },
+        { "v": null },
+        { "v": 0.1 },
+        { "v": 5e-324 },
+        { "v": 1.7976931348623157e308 },
+        { "v": 12345.678 },
+        { "v": 1000000.0 },
+        { "v": 0.00123 }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "3.0" },
+          { "v": "0.5" },
+          { "v": "1.0E7" },
+          { "v": "9999999.0" },
+          { "v": "1.0E-4" },
+          { "v": "0.001" },
+          { "v": "1.23456789E8" },
+          { "v": "1.0E21" },
+          { "v": "1.5E-7" },
+          { "v": "100.0" },
+          { "v": "-0.0" },
+          { "v": "NaN" },
+          { "v": "Infinity" },
+          { "v": "-Infinity" },
+          { "v": "true" },
+          { "v": "5" },
+          { "v": "6" },
+          { "v": "txt" },
+          { "v": null },
+          { "v": "0.1" },
+          { "v": "4.9E-324" },
+          { "v": "1.7976931348623157E308" },
+          { "v": "12345.678" },
+          { "v": "1000000.0" },
+          { "v": "0.00123" }
+        ]
+      }
+    },
+    {
+      "name": "date: a parseable string is kept as written, an unparseable one becomes null",
+      "config": { "casts": { "v": "date" } },
+      "inputRows": [
+        { "v": "2026-10-01" },
+        { "v": "2026-10-01T12:00:00Z" },
+        { "v": " 2026-10-01 " },
+        { "v": "2026-02-29" },
+        { "v": "not a date" },
+        { "v": "" },
+        { "v": "10/01/2026" },
+        { "v": "1700000000" },
+        { "v": "2026-10-01 12:00:00.123456" },
+        { "v": "\u00a02026-10-01" },
+        { "v": "2026-10-01T24:00:00Z" },
+        { "v": "0000-01-01" },
+        { "v": null }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "2026-10-01" },
+          { "v": "2026-10-01T12:00:00Z" },
+          { "v": " 2026-10-01 " },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": "10/01/2026" },
+          { "v": "1700000000" },
+          { "v": "2026-10-01 12:00:00.123456" },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null }
+        ]
+      }
+    },
+    {
+      "name": "timestamp: whole-second and millisecond epoch numbers render as ISO instants",
+      "config": { "casts": { "v": "timestamp" } },
+      "inputRows": [
+        { "v": 1700000000.0 },
+        { "v": 1700000000123.0 },
+        { "v": 0.0 },
+        { "v": -1.0 },
+        { "v": 9999999999.0 },
+        { "v": 10000000000.0 },
+        { "v": { "$int": 1700000000 } },
+        { "v": { "$long": "1700000000123" } },
+        { "v": 253402300799.0 },
+        { "v": 253402300800.0 },
+        { "v": -62135596800.0 },
+        { "v": -62135596801.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "2023-11-14T22:13:20Z" },
+          { "v": "2023-11-14T22:13:20.123Z" },
+          { "v": "1970-01-01T00:00:00Z" },
+          { "v": "1969-12-31T23:59:59Z" },
+          { "v": "2286-11-20T17:46:39Z" },
+          { "v": "1970-04-26T17:46:40Z" },
+          { "v": "2023-11-14T22:13:20Z" },
+          { "v": "2023-11-14T22:13:20.123Z" },
+          { "v": "1978-01-11T21:31:40.799Z" },
+          { "v": "1978-01-11T21:31:40.800Z" },
+          { "v": "1968-01-12T20:06:43.200Z" },
+          { "v": "1968-01-12T20:06:43.199Z" }
+        ]
+      }
+    },
+    {
+      "name": "timestamp: a fractional epoch is not an epoch and becomes null",
+      "config": { "casts": { "v": "timestamp" } },
+      "inputRows": [
+        { "v": 1.5 },
+        { "v": 1700000000.5 },
+        { "v": { "$double": "NaN" } },
+        { "v": { "$double": "Infinity" } },
+        { "v": true },
+        { "v": 1e30 }
+      ],
+      "expect": {
+        "rows": [
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null },
+          { "v": null }
+        ]
+      }
+    },
+    {
+      "name": "timestamp: an epoch written as a string is kept as a string",
+      "config": { "casts": { "v": "timestamp" } },
+      "inputRows": [
+        { "v": "1700000000" },
+        { "v": "1700000000.0" },
+        { "v": "1.7E9" },
+        { "v": "1700000000.5" },
+        { "v": "99999999999999" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "1700000000" },
+          { "v": "1700000000.0" },
+          { "v": "1.7E9" },
+          { "v": null },
+          { "v": "99999999999999" }
+        ]
+      }
+    },
+    {
+      "name": "a field the row does not have is added as null",
+      "config": { "casts": { "gone": "string" } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0, "gone": null }] }
+    },
+    {
+      "name": "an unsupported target passes the value through unchanged",
+      "config": { "casts": { "v": "weird" } },
+      "inputRows": [{ "v": 1.0 }, { "v": "x" }, { "v": null }],
+      "expect": { "rows": [{ "v": 1.0 }, { "v": "x" }, { "v": null }] }
+    },
+    {
+      "name": "several casts at once",
+      "config": { "casts": { "a": "integer", "b": "string", "c": "boolean" } },
+      "inputRows": [{ "a": "5", "b": 2.0, "c": "true", "d": "keep" }],
+      "expect": { "rows": [{ "a": { "$int": 5 }, "b": "2.0", "c": true, "d": "keep" }] }
+    },
+    {
+      "name": "a disabled cast is transparent",
+      "config": { "casts": { "v": "integer" } },
+      "inputRows": [{ "v": "5" }],
+      "enabled": false,
+      "expect": { "rows": [{ "v": "5" }] }
+    },
+    {
+      "name": "a non-string target cannot be decoded",
+      "config": { "casts": { "v": 1 } },
+      "inputRows": [{ "v": "5" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "string of an integral and a double that are whole",
+      "config": { "casts": { "a": "string", "b": "string" } },
+      "inputRows": [{ "a": { "$int": 1 }, "b": 1.0 }],
+      "expect": { "rows": [{ "a": "1", "b": "1.0" }] }
+    },
+    {
+      "name": "timestamp: a numeric string written with Unicode decimal digits is an epoch, as on the JVM",
+      "config": { "casts": { "v": "timestamp" } },
+      "inputRows": [
+        { "v": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+        { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+        { "v": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" },
+        { "v": "\u0663" },
+        { "v": "\uff11.\uff10" },
+        { "v": "\uff11e\uff13" },
+        { "v": "\uff11.\uff15" },
+        { "v": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 " },
+        { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0" },
+        { "v": "\uff11\u2009" },
+        { "v": "\u0967\u0968" },
+        { "v": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+          { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+          { "v": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" },
+          { "v": "\u0663" },
+          { "v": "\uff11.\uff10" },
+          { "v": "\uff11e\uff13" },
+          { "v": null },
+          { "v": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 " },
+          { "v": null },
+          { "v": null },
+          { "v": "\u0967\u0968" },
+          { "v": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" }
+        ]
+      }
+    },
+    {
+      "name": "date: Unicode-digit epoch strings keep their text",
+      "config": { "casts": { "v": "date" } },
+      "inputRows": [
+        { "v": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+        { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+        { "v": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" },
+        { "v": "\u0663" },
+        { "v": "\uff11.\uff10" },
+        { "v": "\uff11e\uff13" },
+        { "v": "\uff11.\uff15" },
+        { "v": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 " },
+        { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0" },
+        { "v": "\uff11\u2009" },
+        { "v": "\u0967\u0968" },
+        { "v": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" }
+      ],
+      "expect": {
+        "rows": [
+          { "v": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+          { "v": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+          { "v": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" },
+          { "v": "\u0663" },
+          { "v": "\uff11.\uff10" },
+          { "v": "\uff11e\uff13" },
+          { "v": null },
+          { "v": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 " },
+          { "v": null },
+          { "v": null },
+          { "v": "\u0967\u0968" },
+          { "v": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" }
+        ]
+      }
+    },
+    {
+      "name": "integer, long and double of Unicode-digit strings",
+      "config": { "casts": { "a": "integer", "b": "long", "c": "double" } },
+      "inputRows": [
+        {
+          "a": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+          "b": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+          "c": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660"
+        },
+        {
+          "a": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+          "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+          "c": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+        },
+        {
+          "a": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966",
+          "b": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966",
+          "c": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966"
+        },
+        { "a": "\u0663", "b": "\u0663", "c": "\u0663" },
+        { "a": "\uff11.\uff10", "b": "\uff11.\uff10", "c": "\uff11.\uff10" },
+        { "a": "\uff11e\uff13", "b": "\uff11e\uff13", "c": "\uff11e\uff13" },
+        { "a": "\uff11.\uff15", "b": "\uff11.\uff15", "c": "\uff11.\uff15" },
+        {
+          "a": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 ",
+          "b": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 ",
+          "c": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 "
+        },
+        {
+          "a": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0",
+          "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0",
+          "c": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0"
+        },
+        { "a": "\uff11\u2009", "b": "\uff11\u2009", "c": "\uff11\u2009" },
+        { "a": "\u0967\u0968", "b": "\u0967\u0968", "c": "\u0967\u0968" },
+        {
+          "a": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+          "b": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+          "c": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+        }
+      ],
+      "expect": {
+        "rows": [
+          { "a": { "$int": 1700000000 }, "b": { "$long": "1700000000" }, "c": null },
+          { "a": { "$int": 1700000000 }, "b": { "$long": "1700000000" }, "c": null },
+          { "a": { "$int": 1700000000 }, "b": { "$long": "1700000000" }, "c": null },
+          { "a": { "$int": 3 }, "b": { "$long": "3" }, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": null, "b": null, "c": null },
+          { "a": { "$int": 12 }, "b": { "$long": "12" }, "c": null },
+          { "a": null, "b": { "$long": "1000000000000" }, "c": null }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "kind": "upsertsource",
+  "vectors": [
+    {
+      "name": "a new-source target passes the rows through (nothing is written)",
+      "config": { "target": { "kind": "newSource", "name": "Scores" }, "mode": "append" },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }] }
+    },
+    {
+      "name": "replace mode on a new source",
+      "config": { "target": { "kind": "newSource", "name": "Scores" }, "mode": "replace" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an empty new-source name is a step error",
+      "config": { "target": { "kind": "newSource", "name": " " } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a new-source target without a name reads as empty and is a step error",
+      "config": { "target": { "kind": "newSource" } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a missing target is an empty existing-source target and a step error",
+      "config": {},
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty existing-source id is a step error",
+      "config": { "target": { "kind": "existingSource", "dataSourceId": "" } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unknown target kind cannot be decoded",
+      "config": { "target": { "kind": "table" } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a target that is not an object cannot be decoded",
+      "config": { "target": "x" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a disabled upsertsource is transparent",
+      "config": { "target": { "kind": "newSource", "name": "S" } },
+      "inputRows": [{ "a": 1.0 }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an empty input stays empty",
+      "config": { "target": { "kind": "newSource", "name": "S" } },
+      "inputRows": [],
+      "expect": { "rows": [] }
+    }
+  ]
+}

@@ -1,0 +1,2138 @@
+{
+  "vectors": [
+    {
+      "name": "linear: filter, sort, compute (the board pipeline)",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "run": 0, "duration_s": 120.0 },
+            { "run": 1, "duration_s": 45.0 },
+            { "run": 2, "duration_s": 300.0 },
+            { "run": 3, "duration_s": 90.0 },
+            { "run": 4, "duration_s": 15.0 }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "filter",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "duration_s", "operator": ">=", "value": "60" }]
+          }
+        },
+        {
+          "id": "s2",
+          "kind": "sort",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "duration_s", "direction": "desc" }] }
+        },
+        {
+          "id": "s3",
+          "kind": "compute",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "column": "minutes", "expression": "$duration_s / 60" }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "duration_s": 120.0, "run": 0.0 },
+            { "duration_s": 300.0, "run": 2.0 },
+            { "duration_s": 90.0, "run": 3.0 }
+          ],
+          "s2": [
+            { "duration_s": 300.0, "run": 2.0 },
+            { "duration_s": 120.0, "run": 0.0 },
+            { "duration_s": 90.0, "run": 3.0 }
+          ],
+          "s3": [
+            { "duration_s": 300.0, "minutes": 5.0, "run": 2.0 },
+            { "duration_s": 120.0, "minutes": 2.0, "run": 0.0 },
+            { "duration_s": 90.0, "minutes": 1.5, "run": 3.0 }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "duration_s": 120.0, "run": 0.0 },
+            { "duration_s": 300.0, "run": 2.0 },
+            { "duration_s": 90.0, "run": 3.0 }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "duration_s": 300.0, "run": 2.0 },
+            { "duration_s": 120.0, "run": 0.0 },
+            { "duration_s": 90.0, "run": 3.0 }
+          ]
+        },
+        "s3": {
+          "status": "ok",
+          "rows": [
+            { "duration_s": 300.0, "minutes": 5.0, "run": 2.0 },
+            { "duration_s": 120.0, "minutes": 2.0, "run": 0.0 },
+            { "duration_s": 90.0, "minutes": 1.5, "run": 3.0 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a tail branch is evaluated from its parent's frame",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "s2",
+          "kind": "filter",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "age", "operator": ">", "value": "30" }]
+          }
+        },
+        {
+          "id": "t1",
+          "kind": "sort",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "desc" }] }
+        },
+        {
+          "id": "t2",
+          "kind": "select",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 2,
+          "enabled": true,
+          "config": { "fields": ["who"] }
+        },
+        {
+          "id": "t1b",
+          "kind": "limit",
+          "parentStepId": "t1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 2 }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "s2": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ],
+          "t1": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "t2": [{ "who": "ann" }, { "who": "bob" }, { "who": "cy" }, { "who": "di" }],
+          "t1b": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "t2": {
+          "status": "ok",
+          "rows": [{ "who": "ann" }, { "who": "bob" }, { "who": "cy" }, { "who": "di" }]
+        },
+        "t1b": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "HEL-970 rejoin: a join whose lane secondary is a non-ancestor lane in the same root",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "select",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "fields": ["id", "name", "age"] }
+        },
+        {
+          "id": "j",
+          "kind": "join",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "secondaryInput": { "kind": "lane", "stepId": "t2" },
+            "joinKey": "id",
+            "joinType": "left"
+          }
+        },
+        {
+          "id": "t1",
+          "kind": "filter",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "age", "operator": ">", "value": "30" }]
+          }
+        },
+        {
+          "id": "t2",
+          "kind": "compute",
+          "parentStepId": "t1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "column": "senior", "expression": "true" }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ],
+          "j": [
+            {
+              "age": 31.0,
+              "id": 1.0,
+              "name": "ann",
+              "right_age": 31.0,
+              "right_name": "ann",
+              "senior": true
+            },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            {
+              "age": 40.0,
+              "id": 3.0,
+              "name": "cy",
+              "right_age": 40.0,
+              "right_name": "cy",
+              "senior": true
+            },
+            { "age": null, "id": 4.0, "name": "di" }
+          ],
+          "t1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "t2": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "senior": true },
+            { "age": 40.0, "id": 3.0, "name": "cy", "senior": true }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        },
+        "j": {
+          "status": "ok",
+          "rows": [
+            {
+              "age": 31.0,
+              "id": 1.0,
+              "name": "ann",
+              "right_age": 31.0,
+              "right_name": "ann",
+              "senior": true
+            },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            {
+              "age": 40.0,
+              "id": 3.0,
+              "name": "cy",
+              "right_age": 40.0,
+              "right_name": "cy",
+              "senior": true
+            },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "t2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "senior": true },
+            { "age": 40.0, "id": 3.0, "name": "cy", "senior": true }
+          ]
+        }
+      }
+    },
+    {
+      "name": "multi-root: a union rejoins another root's lane",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        },
+        { "rootId": "r2", "rows": [{ "id": 9.0, "name": "zed", "age": 77.0 }] }
+      ],
+      "steps": [
+        {
+          "id": "a1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "b1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r2",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "a2",
+          "kind": "union",
+          "parentStepId": "a1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "secondaryInput": { "kind": "lane", "stepId": "b1" }, "mode": "byName" }
+        },
+        {
+          "id": "a3",
+          "kind": "sort",
+          "parentStepId": "a2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "desc" }] }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "a1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "b1": [{ "age": 77.0, "id": 9.0, "who": "zed" }],
+          "a2": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" },
+            { "age": 77.0, "id": 9.0, "who": "zed" }
+          ],
+          "a3": [
+            { "age": 77.0, "id": 9.0, "who": "zed" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        }
+      },
+      "client": {
+        "a1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "b1": { "status": "ok", "rows": [{ "age": 77.0, "id": 9.0, "who": "zed" }] },
+        "a2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" },
+            { "age": 77.0, "id": 9.0, "who": "zed" }
+          ]
+        },
+        "a3": {
+          "status": "ok",
+          "rows": [
+            { "age": 77.0, "id": 9.0, "who": "zed" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "multi-root: a lookup from the second root and an independent trunk",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        },
+        {
+          "rootId": "r2",
+          "rows": [
+            { "id": 1.0, "team": "red" },
+            { "id": 3.0, "team": "blue" }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "a1",
+          "kind": "lookup",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "secondaryInput": { "kind": "lane", "stepId": "b1" },
+            "sourceKey": "id",
+            "lookupKey": "id",
+            "columns": ["team"]
+          }
+        },
+        {
+          "id": "b1",
+          "kind": "select",
+          "parentStepId": null,
+          "rootId": "r2",
+          "position": 0,
+          "enabled": true,
+          "config": { "fields": ["id", "team"] }
+        },
+        {
+          "id": "b2",
+          "kind": "limit",
+          "parentStepId": "b1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 1 }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "a1": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "team": "red" },
+            { "age": 25.0, "id": 2.0, "name": "bob", "team": null },
+            { "age": 40.0, "id": 3.0, "name": "cy", "team": "blue" },
+            { "age": null, "id": 4.0, "name": "di", "team": null }
+          ],
+          "b1": [
+            { "id": 1.0, "team": "red" },
+            { "id": 3.0, "team": "blue" }
+          ],
+          "b2": [{ "id": 1.0, "team": "red" }]
+        }
+      },
+      "client": {
+        "a1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "team": "red" },
+            { "age": 25.0, "id": 2.0, "name": "bob", "team": null },
+            { "age": 40.0, "id": 3.0, "name": "cy", "team": "blue" },
+            { "age": null, "id": 4.0, "name": "di", "team": null }
+          ]
+        },
+        "b1": {
+          "status": "ok",
+          "rows": [
+            { "id": 1.0, "team": "red" },
+            { "id": 3.0, "team": "blue" }
+          ]
+        },
+        "b2": { "status": "ok", "rows": [{ "id": 1.0, "team": "red" }] }
+      }
+    },
+    {
+      "name": "an error at step k: dependents are blocked, independent nodes are still computed",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "s2",
+          "kind": "datebucket",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "field": "who", "granularity": "hour" }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        },
+        {
+          "id": "t1",
+          "kind": "filter",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "age", "operator": ">", "value": "30" }]
+          }
+        },
+        {
+          "id": "s4",
+          "kind": "limit",
+          "parentStepId": "s3",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 1 }
+        }
+      ],
+      "scala": {
+        "failsAt": "s2",
+        "framesWithout": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "t1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "s2": { "status": "error" },
+        "s3": { "status": "blocked" },
+        "s4": { "status": "blocked" },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "an error in a lane step blocks the join that reads it",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        },
+        {
+          "rootId": "r2",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "a1",
+          "kind": "join",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "secondaryInput": { "kind": "lane", "stepId": "b2" }, "joinKey": "id" }
+        },
+        {
+          "id": "b1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r2",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "n2" } }
+        },
+        {
+          "id": "b2",
+          "kind": "fillnull",
+          "parentStepId": "b1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "columns": ["age"], "strategy": "constant" }
+        },
+        {
+          "id": "a2",
+          "kind": "limit",
+          "parentStepId": "a1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 2 }
+        }
+      ],
+      "scala": {
+        "failsAt": "b2",
+        "framesWithout": {
+          "b1": [
+            { "age": 31.0, "id": 1.0, "n2": "ann" },
+            { "age": 25.0, "id": 2.0, "n2": "bob" },
+            { "age": 40.0, "id": 3.0, "n2": "cy" },
+            { "age": null, "id": 4.0, "n2": "di" }
+          ]
+        }
+      },
+      "client": {
+        "a1": { "status": "blocked" },
+        "b1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "n2": "ann" },
+            { "age": 25.0, "id": 2.0, "n2": "bob" },
+            { "age": 40.0, "id": 3.0, "n2": "cy" },
+            { "age": null, "id": 4.0, "n2": "di" }
+          ]
+        },
+        "b2": { "status": "error" },
+        "a2": { "status": "blocked" }
+      }
+    },
+    {
+      "name": "a server kind mid-pipeline needs the server; its dependents are blocked; Scala evaluates it normally",
+      "rootFrames": [
+        { "rootId": "r1", "rows": [{ "t": "alpha beta gamma delta" }, { "t": "one two" }] }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "t": "text" } }
+        },
+        {
+          "id": "s2",
+          "kind": "chunkbytokencount",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "field": "text", "targetTokenCount": 2 }
+        },
+        {
+          "id": "s3",
+          "kind": "limit",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "t1",
+          "kind": "stringops",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "operation": "upper", "field": "text", "outputColumn": "up" }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [{ "text": "alpha beta gamma delta" }, { "text": "one two" }],
+          "s2": [
+            { "chunkIndex": { "$int": 0 }, "text": "alpha beta", "tokenCount": { "$int": 2 } },
+            { "chunkIndex": { "$int": 1 }, "text": " gamma delta", "tokenCount": { "$int": 2 } },
+            { "chunkIndex": { "$int": 0 }, "text": "one two", "tokenCount": { "$int": 2 } }
+          ],
+          "s3": [
+            { "chunkIndex": { "$int": 0 }, "text": "alpha beta", "tokenCount": { "$int": 2 } },
+            { "chunkIndex": { "$int": 1 }, "text": " gamma delta", "tokenCount": { "$int": 2 } },
+            { "chunkIndex": { "$int": 0 }, "text": "one two", "tokenCount": { "$int": 2 } }
+          ],
+          "t1": [
+            { "text": "alpha beta gamma delta", "up": "ALPHA BETA GAMMA DELTA" },
+            { "text": "one two", "up": "ONE TWO" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [{ "text": "alpha beta gamma delta" }, { "text": "one two" }]
+        },
+        "s2": { "status": "needsServer", "reason": "serverKind" },
+        "s3": { "status": "blocked" },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "text": "alpha beta gamma delta", "up": "ALPHA BETA GAMMA DELTA" },
+            { "text": "one two", "up": "ONE TWO" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "an enabled AI step mid-pipeline is not previewed, nor is anything downstream of it",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "select",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "fields": ["id", "name"] }
+        },
+        {
+          "id": "s2",
+          "kind": "analyzewithai",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "inputField": "name",
+            "instruction": "classify",
+            "outputSchema": [{ "name": "kind", "type": "string" }]
+          }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "name", "direction": "asc" }] }
+        },
+        {
+          "id": "t1",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "count": 2 }
+        }
+      ],
+      "scala": {
+        "notRun": ["s2"],
+        "framesWithout": {
+          "s1": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ],
+          "t1": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ]
+        },
+        "s2": { "status": "notPreviewed" },
+        "s3": { "status": "notPreviewed" },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a generatetext step is not previewed; a join reading it through a lane is not previewed either",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "select",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "fields": ["id", "name"] }
+        },
+        {
+          "id": "g",
+          "kind": "generatetext",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "inputField": "name", "instruction": "shout", "outputField": "shout" }
+        },
+        {
+          "id": "j",
+          "kind": "join",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "secondaryInput": { "kind": "lane", "stepId": "g" }, "joinKey": "id" }
+        }
+      ],
+      "scala": {
+        "notRun": ["g"],
+        "framesWithout": {
+          "s1": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ]
+        },
+        "g": { "status": "notPreviewed" },
+        "j": { "status": "notPreviewed" }
+      }
+    },
+    {
+      "name": "a disabled mid-pipeline step is transparent",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "rename",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "s2",
+          "kind": "filter",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": false,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "age", "operator": ">", "value": "100" }]
+          }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "desc" }] }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "s2": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ],
+          "s3": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "s2": {
+          "status": "disabled",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        },
+        "s3": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "who": "cy" },
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": null, "id": 4.0, "who": "di" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a disabled AI step with steps below it: the steps below are computed",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "select",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "fields": ["id", "name"] }
+        },
+        {
+          "id": "s2",
+          "kind": "analyzewithai",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": false,
+          "config": {
+            "inputField": "name",
+            "instruction": "classify",
+            "outputSchema": [{ "name": "kind", "type": "string" }]
+          }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "name", "direction": "desc" }] }
+        },
+        {
+          "id": "s4",
+          "kind": "limit",
+          "parentStepId": "s3",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 2 }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ],
+          "s2": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ],
+          "s3": [
+            { "id": 4.0, "name": "di" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 1.0, "name": "ann" }
+          ],
+          "s4": [
+            { "id": 4.0, "name": "di" },
+            { "id": 3.0, "name": "cy" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ]
+        },
+        "s2": {
+          "status": "disabled",
+          "rows": [
+            { "id": 1.0, "name": "ann" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 4.0, "name": "di" }
+          ]
+        },
+        "s3": {
+          "status": "ok",
+          "rows": [
+            { "id": 4.0, "name": "di" },
+            { "id": 3.0, "name": "cy" },
+            { "id": 2.0, "name": "bob" },
+            { "id": 1.0, "name": "ann" }
+          ]
+        },
+        "s4": {
+          "status": "ok",
+          "rows": [
+            { "id": 4.0, "name": "di" },
+            { "id": 3.0, "name": "cy" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a disabled server kind is transparent too",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "chunkbytokencount",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": false,
+          "config": { "field": "name" }
+        },
+        {
+          "id": "s2",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 2 }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ],
+          "s2": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "disabled",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a disabled step whose parent failed has no frame and is blocked",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "datebucket",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "field": "name", "granularity": "decade" }
+        },
+        {
+          "id": "s2",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": false,
+          "config": { "count": 1 }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        }
+      ],
+      "scala": { "failsAt": "s1", "framesWithout": {} },
+      "client": {
+        "s1": { "status": "error" },
+        "s2": { "status": "blocked" },
+        "s3": { "status": "blocked" }
+      }
+    },
+    {
+      "name": "a lane reference to a disabled step reads its pass-through frame",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        },
+        { "rootId": "r2", "rows": [{ "id": 1.0, "team": "red" }] }
+      ],
+      "steps": [
+        {
+          "id": "a1",
+          "kind": "lookup",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "secondaryInput": { "kind": "lane", "stepId": "b1" },
+            "sourceKey": "id",
+            "lookupKey": "id",
+            "columns": ["team"]
+          }
+        },
+        {
+          "id": "b1",
+          "kind": "filter",
+          "parentStepId": null,
+          "rootId": "r2",
+          "position": 0,
+          "enabled": false,
+          "config": {
+            "combinator": "AND",
+            "conditions": [{ "field": "id", "operator": "=", "value": "99" }]
+          }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "a1": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "team": "red" },
+            { "age": 25.0, "id": 2.0, "name": "bob", "team": null },
+            { "age": 40.0, "id": 3.0, "name": "cy", "team": null },
+            { "age": null, "id": 4.0, "name": "di", "team": null }
+          ],
+          "b1": [{ "id": 1.0, "team": "red" }]
+        }
+      },
+      "client": {
+        "a1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann", "team": "red" },
+            { "age": 25.0, "id": 2.0, "name": "bob", "team": null },
+            { "age": 40.0, "id": 3.0, "name": "cy", "team": null },
+            { "age": null, "id": 4.0, "name": "di", "team": null }
+          ]
+        },
+        "b1": { "status": "disabled", "rows": [{ "id": 1.0, "team": "red" }] }
+      }
+    },
+    {
+      "name": "upsertsource passes rows through mid-pipeline",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "s2",
+          "kind": "upsertsource",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "target": { "kind": "newSource", "name": "Out" }, "mode": "append" }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "s2": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "s3": [
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "s3": {
+          "status": "ok",
+          "rows": [
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "lane violation: a step references itself",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "j",
+          "kind": "join",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "secondaryInput": { "kind": "lane", "stepId": "j" }, "joinKey": "id" }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "j",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        },
+        {
+          "id": "t1",
+          "kind": "rename",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        }
+      ],
+      "scala": {
+        "laneError": true,
+        "removed": ["j"],
+        "framesWithout": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "t1": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "j": { "status": "error" },
+        "s3": { "status": "blocked" },
+        "t1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "lane violation: a dangling reference",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "u",
+          "kind": "union",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "secondaryInput": { "kind": "lane", "stepId": "ghost" },
+            "mode": "byPosition"
+          }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "u",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        }
+      ],
+      "scala": {
+        "laneError": true,
+        "removed": ["u"],
+        "framesWithout": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "u": { "status": "error" },
+        "s3": { "status": "blocked" }
+      }
+    },
+    {
+      "name": "lane violation: a reference to an ancestor",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "s2",
+          "kind": "rename",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "renames": { "name": "who" } }
+        },
+        {
+          "id": "l",
+          "kind": "lookup",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "secondaryInput": { "kind": "lane", "stepId": "s1" },
+            "sourceKey": "id",
+            "lookupKey": "id",
+            "columns": ["age"]
+          }
+        },
+        {
+          "id": "s4",
+          "kind": "sort",
+          "parentStepId": "l",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "asc" }] }
+        },
+        {
+          "id": "t1",
+          "kind": "select",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "fields": ["who"] }
+        }
+      ],
+      "scala": {
+        "laneError": true,
+        "removed": ["l"],
+        "framesWithout": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "s2": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ],
+          "t1": [{ "who": "ann" }, { "who": "bob" }, { "who": "cy" }]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "who": "ann" },
+            { "age": 25.0, "id": 2.0, "who": "bob" },
+            { "age": 40.0, "id": 3.0, "who": "cy" }
+          ]
+        },
+        "l": { "status": "error" },
+        "s4": { "status": "blocked" },
+        "t1": { "status": "ok", "rows": [{ "who": "ann" }, { "who": "bob" }, { "who": "cy" }] }
+      }
+    },
+    {
+      "name": "lane violation: a reference to a descendant is a cycle",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "j",
+          "kind": "join",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "secondaryInput": { "kind": "lane", "stepId": "d" }, "joinKey": "id" }
+        },
+        {
+          "id": "d",
+          "kind": "limit",
+          "parentStepId": "j",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 2 }
+        },
+        {
+          "id": "t1",
+          "kind": "select",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "fields": ["id"] }
+        }
+      ],
+      "scala": {
+        "laneError": true,
+        "removed": ["j"],
+        "framesWithout": {
+          "s1": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ],
+          "t1": [{ "id": 1.0 }, { "id": 2.0 }, { "id": 3.0 }]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": 40.0, "id": 3.0, "name": "cy" }
+          ]
+        },
+        "j": { "status": "error" },
+        "d": { "status": "blocked" },
+        "t1": { "status": "ok", "rows": [{ "id": 1.0 }, { "id": 2.0 }, { "id": 3.0 }] }
+      }
+    },
+    {
+      "name": "a tail position ordering: several tails at different positions all read the parent's frame",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "id": 1.0, "name": "ann", "age": 31.0 },
+            { "id": 2.0, "name": "bob", "age": 25.0 },
+            { "id": 3.0, "name": "cy", "age": 40.0 },
+            { "id": 4.0, "name": "di", "age": null }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "sort",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "age", "direction": "desc" }] }
+        },
+        {
+          "id": "a",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 3,
+          "enabled": true,
+          "config": { "count": 1 }
+        },
+        {
+          "id": "b",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "count": 2 }
+        },
+        {
+          "id": "c",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 3 }
+        },
+        {
+          "id": "d",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 2,
+          "enabled": true,
+          "config": { "count": 4 }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ],
+          "a": [{ "age": 40.0, "id": 3.0, "name": "cy" }],
+          "b": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" }
+          ],
+          "c": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" }
+          ],
+          "d": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        },
+        "a": { "status": "ok", "rows": [{ "age": 40.0, "id": 3.0, "name": "cy" }] },
+        "b": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" }
+          ]
+        },
+        "c": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" }
+          ]
+        },
+        "d": {
+          "status": "ok",
+          "rows": [
+            { "age": 40.0, "id": 3.0, "name": "cy" },
+            { "age": 31.0, "id": 1.0, "name": "ann" },
+            { "age": 25.0, "id": 2.0, "name": "bob" },
+            { "age": null, "id": 4.0, "name": "di" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "a parentless step whose root has no frame fails the run; the client marks it an error and blocks its dependents",
+      "rootFrames": [{ "rootId": "r1", "rows": [{ "a": 1.0 }, { "a": 2.0 }] }],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 1 }
+        },
+        {
+          "id": "s2",
+          "kind": "limit",
+          "parentStepId": null,
+          "rootId": "nope",
+          "position": 1,
+          "enabled": true,
+          "config": { "count": 1 }
+        },
+        {
+          "id": "s3",
+          "kind": "sort",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "sortBy": [{ "field": "a", "direction": "asc" }] }
+        }
+      ],
+      "scala": { "laneError": true, "removed": ["s2"], "framesWithout": { "s1": [{ "a": 1.0 }] } },
+      "client": {
+        "s1": { "status": "ok", "rows": [{ "a": 1.0 }] },
+        "s2": { "status": "error" },
+        "s3": { "status": "blocked" }
+      }
+    },
+    {
+      "name": "a frame downstream of groupby is a List: a sum of negative zeros folds from +0.0 there, but reduces on the source Vector",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "k": "a", "n": { "$double": "-0.0" } },
+            { "k": "b", "n": { "$double": "-0.0" } }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "groupby",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": { "groupBy": ["k"], "aggColumn": "n", "aggFunction": "sum" }
+        },
+        {
+          "id": "s2",
+          "kind": "aggregate",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "groupBy": [],
+            "aggregations": [
+              { "alias": "s", "fn": "sum", "field": "sum_n" },
+              { "alias": "a", "fn": "avg", "field": "sum_n" }
+            ]
+          }
+        },
+        {
+          "id": "t1",
+          "kind": "aggregate",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 1,
+          "enabled": true,
+          "config": { "groupBy": [], "aggregations": [{ "alias": "s", "fn": "sum", "field": "n" }] }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "k": "b", "sum_n": { "$double": "-0.0" } },
+            { "k": "a", "sum_n": { "$double": "-0.0" } }
+          ],
+          "s2": [{ "a": 0.0, "s": 0.0 }],
+          "t1": [{ "s": { "$double": "-0.0" } }]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "k": "b", "sum_n": { "$double": "-0.0" } },
+            { "k": "a", "sum_n": { "$double": "-0.0" } }
+          ]
+        },
+        "s2": { "status": "ok", "rows": [{ "a": 0.0, "s": 0.0 }] },
+        "t1": { "status": "ok", "rows": [{ "s": { "$double": "-0.0" } }] }
+      }
+    },
+    {
+      "name": "list-ness survives later steps (filter, sort, limit) and a pivot downstream of an aggregate",
+      "rootFrames": [
+        {
+          "rootId": "r1",
+          "rows": [
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } }
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "id": "s1",
+          "kind": "aggregate",
+          "parentStepId": null,
+          "rootId": "r1",
+          "position": 0,
+          "enabled": true,
+          "config": {
+            "groupBy": [
+              { "name": "k", "type": "string" },
+              { "name": "p", "type": "string" }
+            ],
+            "aggregations": [{ "alias": "v", "fn": "sum", "field": "v" }]
+          }
+        },
+        {
+          "id": "s2",
+          "kind": "limit",
+          "parentStepId": "s1",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "count": 5 }
+        },
+        {
+          "id": "s3",
+          "kind": "fillnull",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 0,
+          "enabled": true,
+          "config": { "columns": ["v"], "strategy": "mean" }
+        },
+        {
+          "id": "s4",
+          "kind": "pivot",
+          "parentStepId": "s2",
+          "rootId": null,
+          "position": 1,
+          "enabled": true,
+          "config": { "index": [], "column": "p", "values": "v", "agg": "sum" }
+        }
+      ],
+      "scala": {
+        "frames": {
+          "s1": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ],
+          "s2": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ],
+          "s3": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ],
+          "s4": [{ "v_x": 0.0 }]
+        }
+      },
+      "client": {
+        "s1": {
+          "status": "ok",
+          "rows": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ]
+        },
+        "s2": {
+          "status": "ok",
+          "rows": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ]
+        },
+        "s3": {
+          "status": "ok",
+          "rows": [
+            { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+            { "k": "a", "p": "x", "v": { "$double": "-0.0" } }
+          ]
+        },
+        "s4": { "status": "ok", "rows": [{ "v_x": 0.0 }] }
+      }
+    }
+  ]
+}

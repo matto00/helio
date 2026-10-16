@@ -1,0 +1,143 @@
+{
+  "kind": "rename",
+  "vectors": [
+    {
+      "name": "renames one column",
+      "config": { "renames": { "a": "b" } },
+      "inputRows": [
+        { "a": 1.0, "c": "x" },
+        { "a": 2.0, "c": "y" }
+      ],
+      "expect": {
+        "rows": [
+          { "b": 1.0, "c": "x" },
+          { "b": 2.0, "c": "y" }
+        ]
+      }
+    },
+    {
+      "name": "a missing source field is ignored",
+      "config": { "renames": { "nope": "b" } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a rename onto an existing column overwrites it",
+      "config": { "renames": { "a": "b" } },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "expect": { "rows": [{ "b": 1.0 }] }
+    },
+    {
+      "name": "chained renames follow map order (two entries)",
+      "config": { "renames": { "a": "b", "b": "c" } },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "expect": { "rows": [{ "c": 1.0 }] }
+    },
+    {
+      "name": "swapped renames follow map order (two entries)",
+      "config": { "renames": { "a": "b", "b": "a" } },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "five chained renames run in Scala hash order",
+      "config": { "renames": { "a": "b", "b": "c", "c": "d", "d": "e", "e": "f" } },
+      "inputRows": [{ "a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0, "e": 5.0 }],
+      "expect": { "rows": [{ "e": 1.0, "f": 5.0 }] }
+    },
+    {
+      "name": "six chained renames with other names run in Scala hash order",
+      "config": {
+        "renames": {
+          "col1": "col2",
+          "col2": "col3",
+          "col3": "col4",
+          "col4": "col5",
+          "col5": "col6",
+          "col6": "col1"
+        }
+      },
+      "inputRows": [
+        { "col1": "a", "col2": "b", "col3": "c", "col4": "d", "col5": "e", "col6": "f" }
+      ],
+      "expect": { "rows": [{ "col2": "f", "col3": "b", "col5": "c", "col6": "e" }] }
+    },
+    {
+      "name": "seven renames in a cycle with a spare column",
+      "config": {
+        "renames": { "id": "x", "x": "y", "y": "z", "z": "w", "w": "v", "v": "u", "u": "id" }
+      },
+      "inputRows": [
+        { "id": 1.0, "x": 2.0, "y": 3.0, "z": 4.0, "w": 5.0, "v": 6.0, "u": 7.0, "keep": "k" }
+      ],
+      "expect": { "rows": [{ "keep": "k", "u": 6.0, "v": 5.0, "w": 2.0, "x": 7.0 }] }
+    },
+    {
+      "name": "empty renames leave rows untouched",
+      "config": { "renames": {} },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a disabled step is transparent",
+      "config": { "renames": { "a": "b" } },
+      "inputRows": [{ "a": 1.0 }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a non-string rename target cannot be decoded",
+      "config": { "renames": { "a": 1 } },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty input stays empty",
+      "config": { "renames": { "a": "b" } },
+      "inputRows": [],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an integer-like source column in an order-dependent rename folds in sorted key order",
+      "config": { "renames": { "b": "c", "2": "b" } },
+      "inputRows": [{ "2": "x", "b": "y" }],
+      "expect": { "rows": [{ "c": "x" }] }
+    },
+    {
+      "name": "two integer-like sources onto one target fold in sorted key order",
+      "config": { "renames": { "1": "z", "2": "z" } },
+      "inputRows": [{ "1": "a", "2": "b" }],
+      "expect": { "rows": [{ "z": "b" }] }
+    },
+    {
+      "name": "integer-like columns whose renames are independent are fine",
+      "config": { "renames": { "2020": "y2020", "2019": "y2019" } },
+      "inputRows": [{ "2019": 1.0, "2020": 2.0 }],
+      "expect": { "rows": [{ "y2019": 1.0, "y2020": 2.0 }] }
+    },
+    {
+      "name": "five integer-like renames chain in hash order, which is exact",
+      "config": { "renames": { "1": "2", "2": "3", "3": "4", "4": "5", "5": "6" } },
+      "inputRows": [{ "1": "a", "2": "b", "3": "c", "4": "d", "5": "e" }],
+      "expect": { "rows": [{ "4": "a", "6": "d" }] }
+    },
+    {
+      "name": "an unsorted chain folds in sorted key order, not text order",
+      "config": { "renames": { "b": "c", "a": "b" } },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "expect": { "rows": [{ "c": 1.0 }] }
+    },
+    {
+      "name": "an unsorted collision folds in sorted key order",
+      "config": { "renames": { "z": "t", "m": "t" } },
+      "inputRows": [{ "z": "zv", "m": "mv" }],
+      "expect": { "rows": [{ "t": "zv" }] }
+    },
+    {
+      "name": "integer-like keys sort as strings: 10 before 9",
+      "config": { "renames": { "9": "x", "10": "x" } },
+      "inputRows": [{ "9": "nine", "10": "n" }],
+      "expect": { "rows": [{ "x": "nine" }] }
+    }
+  ]
+}

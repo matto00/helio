@@ -1,0 +1,1455 @@
+{
+  "kind": "compute",
+  "vectors": [
+    {
+      "name": "precedence: multiplication binds tighter than addition",
+      "config": { "column": "out", "expression": "$a + $b * $c" },
+      "inputRows": [{ "a": 1.0, "b": 2.0, "c": 3.0 }],
+      "expect": { "rows": [{ "a": 1.0, "b": 2.0, "c": 3.0, "out": 7.0 }] }
+    },
+    {
+      "name": "parentheses override precedence",
+      "config": { "column": "out", "expression": "($a + $b) * $c" },
+      "inputRows": [{ "a": 1.0, "b": 2.0, "c": 3.0 }],
+      "expect": { "rows": [{ "a": 1.0, "b": 2.0, "c": 3.0, "out": 9.0 }] }
+    },
+    {
+      "name": "subtraction and division are left-associative",
+      "config": { "column": "out", "expression": "$a - $b - $c" },
+      "inputRows": [{ "a": 10.0, "b": 3.0, "c": 2.0 }],
+      "expect": { "rows": [{ "a": 10.0, "b": 3.0, "c": 2.0, "out": 5.0 }] }
+    },
+    {
+      "name": "division and multiplication chain",
+      "config": { "column": "out", "expression": "$a / $b / $c * $d" },
+      "inputRows": [{ "a": 100.0, "b": 5.0, "c": 4.0, "d": 3.0 }],
+      "expect": { "rows": [{ "a": 100.0, "b": 5.0, "c": 4.0, "d": 3.0, "out": 15.0 }] }
+    },
+    {
+      "name": "unary minus binds tighter than multiplication",
+      "config": { "column": "out", "expression": "-$a * $b" },
+      "inputRows": [{ "a": 2.0, "b": 3.0 }],
+      "expect": { "rows": [{ "a": 2.0, "b": 3.0, "out": -6.0 }] }
+    },
+    {
+      "name": "unary minus is repeatable and never produces negative zero",
+      "config": { "column": "out", "expression": "--$a + (-$z)" },
+      "inputRows": [{ "a": 2.0, "z": 0.0 }],
+      "expect": { "rows": [{ "a": 2.0, "out": 2.0, "z": 0.0 }] }
+    },
+    {
+      "name": "2 - -3",
+      "config": { "column": "out", "expression": "2 - -3" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 5.0 }] }
+    },
+    {
+      "name": "2--3 without spaces",
+      "config": { "column": "out", "expression": "2--3" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 5.0 }] }
+    },
+    {
+      "name": "a computed negative zero is stored as zero",
+      "config": { "column": "out", "expression": "$a * -1" },
+      "inputRows": [{ "a": 0.0 }, { "a": { "$double": "-0.0" } }],
+      "expect": {
+        "rows": [
+          { "a": 0.0, "out": 0.0 },
+          { "a": { "$double": "-0.0" }, "out": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "an integral cell enters as a number and the result is a double",
+      "config": { "column": "out", "expression": "$n" },
+      "inputRows": [{ "n": { "$int": 5 } }, { "n": { "$long": "7" } }, { "n": 2.5 }],
+      "expect": {
+        "rows": [
+          { "n": { "$int": 5 }, "out": 5.0 },
+          { "n": { "$long": "7" }, "out": 7.0 },
+          { "n": 2.5, "out": 2.5 }
+        ]
+      }
+    },
+    {
+      "name": "an integral cell in arithmetic",
+      "config": { "column": "out", "expression": "$n + 1" },
+      "inputRows": [{ "n": { "$int": 5 } }],
+      "expect": { "rows": [{ "n": { "$int": 5 }, "out": 6.0 }] }
+    },
+    {
+      "name": "NaN and Infinity cells read as null inside an expression",
+      "config": { "column": "out", "expression": "$x + 1" },
+      "inputRows": [
+        { "x": { "$double": "NaN" } },
+        { "x": { "$double": "Infinity" } },
+        { "x": { "$double": "-Infinity" } },
+        { "x": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "out": null, "x": { "$double": "NaN" } },
+          { "out": null, "x": { "$double": "Infinity" } },
+          { "out": null, "x": { "$double": "-Infinity" } },
+          { "out": 2.0, "x": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "a NaN or Infinity result is stored as null",
+      "config": { "column": "out", "expression": "$a * $b" },
+      "inputRows": [
+        { "a": 1e200, "b": 1e200 },
+        { "a": -1e200, "b": 1e200 },
+        { "a": 2.0, "b": 3.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1e200, "b": 1e200, "out": null },
+          { "a": -1e200, "b": 1e200, "out": null },
+          { "a": 2.0, "b": 3.0, "out": 6.0 }
+        ]
+      }
+    },
+    {
+      "name": "Infinity minus Infinity through overflow",
+      "config": { "column": "out", "expression": "($a * $a) - ($a * $a)" },
+      "inputRows": [{ "a": 1e200 }],
+      "expect": { "rows": [{ "a": 1e200, "out": null }] }
+    },
+    {
+      "name": "division by zero is null for the row",
+      "config": { "column": "out", "expression": "$a / $b" },
+      "inputRows": [
+        { "a": 1.0, "b": 0.0 },
+        { "a": 1.0, "b": { "$double": "-0.0" } },
+        { "a": 1.0, "b": 4.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 0.0, "out": null },
+          { "a": 1.0, "b": { "$double": "-0.0" }, "out": null },
+          { "a": 1.0, "b": 4.0, "out": 0.25 }
+        ]
+      }
+    },
+    {
+      "name": "a numeric literal with a leading dot and a trailing dot",
+      "config": { "column": "out", "expression": ".5 + 5." },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 5.5 }] }
+    },
+    {
+      "name": "large and small decimal literals",
+      "config": { "column": "out", "expression": "123456789012 * 0.000001" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 123456.789012 }] }
+    },
+    {
+      "name": "+ concatenates when either side is text; whole numbers print without .0",
+      "config": { "column": "out", "expression": "$a + \" units\"" },
+      "inputRows": [
+        { "a": 3.0 },
+        { "a": 1.5 },
+        { "a": 10000000.0 },
+        { "a": 0.0001 },
+        { "a": -2.0 },
+        { "a": 1e21 },
+        { "a": 123456789.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 3.0, "out": "3 units" },
+          { "a": 1.5, "out": "1.5 units" },
+          { "a": 10000000.0, "out": "10000000 units" },
+          { "a": 0.0001, "out": "1.0E-4 units" },
+          { "a": -2.0, "out": "-2 units" },
+          { "a": 1e21, "out": "9223372036854775807 units" },
+          { "a": 123456789.0, "out": "123456789 units" }
+        ]
+      }
+    },
+    {
+      "name": "compute string concatenation of 1.0E7 and 1.0E-4",
+      "config": { "column": "out", "expression": "\"x\" + $a" },
+      "inputRows": [{ "a": 10000000.0 }, { "a": 0.0001 }, { "a": 0.001 }, { "a": 100.0 }],
+      "expect": {
+        "rows": [
+          { "a": 10000000.0, "out": "x10000000" },
+          { "a": 0.0001, "out": "x1.0E-4" },
+          { "a": 0.001, "out": "x0.001" },
+          { "a": 100.0, "out": "x100" }
+        ]
+      }
+    },
+    {
+      "name": "a huge whole number saturates like toLong",
+      "config": { "column": "out", "expression": "\"n=\" + $a" },
+      "inputRows": [{ "a": 1e19 }, { "a": -1e19 }, { "a": 9.223372036854776e18 }],
+      "expect": {
+        "rows": [
+          { "a": 1e19, "out": "n=9223372036854775807" },
+          { "a": -1e19, "out": "n=-9223372036854775808" },
+          { "a": 9.223372036854776e18, "out": "n=9223372036854775807" }
+        ]
+      }
+    },
+    {
+      "name": "+ with a boolean concatenates its text",
+      "config": { "column": "out", "expression": "$flag + 1" },
+      "inputRows": [{ "flag": true }, { "flag": false }],
+      "expect": {
+        "rows": [
+          { "flag": true, "out": "true1" },
+          { "flag": false, "out": "false1" }
+        ]
+      }
+    },
+    {
+      "name": "+ with null is null",
+      "config": { "column": "out", "expression": "$a + \"x\"" },
+      "inputRows": [{ "a": null }, { "a": "s" }],
+      "expect": {
+        "rows": [
+          { "a": null, "out": null },
+          { "a": "s", "out": "sx" }
+        ]
+      }
+    },
+    {
+      "name": "string literal escapes",
+      "config": { "column": "out", "expression": "\"a\\\"b\\\\c\\nd\\te\\qf\"" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": "a\"b\\c\nd\te\\qf" }] }
+    },
+    {
+      "name": "an unterminated string literal is a step error",
+      "config": { "column": "out", "expression": "\"abc" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "- on text is a per-row type error (null)",
+      "config": { "column": "out", "expression": "$s - 1" },
+      "inputRows": [{ "s": "x" }, { "s": 3.0 }],
+      "expect": {
+        "rows": [
+          { "out": null, "s": "x" },
+          { "out": 2.0, "s": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "* on a boolean is a per-row type error (null)",
+      "config": { "column": "out", "expression": "$b * 2" },
+      "inputRows": [{ "b": true }],
+      "expect": { "rows": [{ "b": true, "out": null }] }
+    },
+    {
+      "name": "a dotted reference names one flattened column",
+      "config": { "column": "out", "expression": "$stats.pts * 2" },
+      "inputRows": [{ "stats.pts": 4.0, "stats": 1.0 }],
+      "expect": { "rows": [{ "out": 8.0, "stats": 1.0, "stats.pts": 4.0 }] }
+    },
+    {
+      "name": "an unknown field is a per-row null",
+      "config": { "column": "out", "expression": "$missing + 1" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0, "out": null }] }
+    },
+    {
+      "name": "a field present with null is null, not unknown",
+      "config": { "column": "out", "expression": "$a" },
+      "inputRows": [{ "a": null }],
+      "expect": { "rows": [{ "a": null, "out": null }] }
+    },
+    {
+      "name": "unicode identifiers and underscores",
+      "config": { "column": "out", "expression": "$caf\u00e9 + $_x + $n1" },
+      "inputRows": [{ "caf\u00e9": 1.0, "_x": 2.0, "n1": 3.0 }],
+      "expect": { "rows": [{ "_x": 2.0, "caf\u00e9": 1.0, "n1": 3.0, "out": 6.0 }] }
+    },
+    {
+      "name": "numeric comparisons produce booleans",
+      "config": { "column": "out", "expression": "$a < $b" },
+      "inputRows": [
+        { "a": 1.0, "b": 2.0 },
+        { "a": 2.0, "b": 1.0 },
+        { "a": 2.0, "b": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 2.0, "out": true },
+          { "a": 2.0, "b": 1.0, "out": false },
+          { "a": 2.0, "b": 2.0, "out": false }
+        ]
+      }
+    },
+    {
+      "name": "all six comparison operators",
+      "config": {
+        "column": "out",
+        "expression": "if($a = $b, \"eq\", if($a != $b, \"ne\", \"?\"))"
+      },
+      "inputRows": [
+        { "a": 1.0, "b": 1.0 },
+        { "a": 1.0, "b": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 1.0, "out": "eq" },
+          { "a": 1.0, "b": 2.0, "out": "ne" }
+        ]
+      }
+    },
+    {
+      "name": "<= and >=",
+      "config": { "column": "out", "expression": "$a <= $b and $a >= $b" },
+      "inputRows": [
+        { "a": 1.0, "b": 1.0 },
+        { "a": 1.0, "b": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 1.0, "out": true },
+          { "a": 1.0, "b": 2.0, "out": false }
+        ]
+      }
+    },
+    {
+      "name": "text compares by UTF-16 code unit",
+      "config": { "column": "out", "expression": "$a < $b" },
+      "inputRows": [
+        { "a": "B", "b": "a" },
+        { "a": "a", "b": "B" },
+        { "a": "\u00e9", "b": "z" },
+        { "a": "", "b": "a" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "B", "b": "a", "out": true },
+          { "a": "a", "b": "B", "out": false },
+          { "a": "\u00e9", "b": "z", "out": false },
+          { "a": "", "b": "a", "out": true }
+        ]
+      }
+    },
+    {
+      "name": "comparing a number with text is a type error (null)",
+      "config": { "column": "out", "expression": "$a = \"1\"" },
+      "inputRows": [{ "a": 1.0 }, { "a": "1" }],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "out": null },
+          { "a": "1", "out": true }
+        ]
+      }
+    },
+    {
+      "name": "comparing booleans: only = and !=",
+      "config": { "column": "out", "expression": "$a = $b" },
+      "inputRows": [
+        { "a": true, "b": true },
+        { "a": true, "b": false }
+      ],
+      "expect": {
+        "rows": [
+          { "a": true, "b": true, "out": true },
+          { "a": true, "b": false, "out": false }
+        ]
+      }
+    },
+    {
+      "name": "ordering booleans is a type error (null)",
+      "config": { "column": "out", "expression": "$a < $b" },
+      "inputRows": [{ "a": true, "b": false }],
+      "expect": { "rows": [{ "a": true, "b": false, "out": null }] }
+    },
+    {
+      "name": "a comparison with null is null",
+      "config": { "column": "out", "expression": "$a = 1" },
+      "inputRows": [{ "a": null }],
+      "expect": { "rows": [{ "a": null, "out": null }] }
+    },
+    {
+      "name": "an overflowing product equals itself",
+      "config": { "column": "out", "expression": "$a * $b = $a * $b" },
+      "inputRows": [{ "a": 1e200, "b": 1e200 }],
+      "expect": { "rows": [{ "a": 1e200, "b": 1e200, "out": true }] }
+    },
+    {
+      "name": "and / or / not with three-valued logic",
+      "config": { "column": "out", "expression": "$a and $b" },
+      "inputRows": [
+        { "a": true, "b": true },
+        { "a": true, "b": false },
+        { "a": true, "b": null },
+        { "a": false, "b": true },
+        { "a": false, "b": false },
+        { "a": false, "b": null },
+        { "a": null, "b": true },
+        { "a": null, "b": false },
+        { "a": null, "b": null }
+      ],
+      "expect": {
+        "rows": [
+          { "a": true, "b": true, "out": true },
+          { "a": true, "b": false, "out": false },
+          { "a": true, "b": null, "out": null },
+          { "a": false, "b": true, "out": false },
+          { "a": false, "b": false, "out": false },
+          { "a": false, "b": null, "out": false },
+          { "a": null, "b": true, "out": null },
+          { "a": null, "b": false, "out": false },
+          { "a": null, "b": null, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "or with three-valued logic",
+      "config": { "column": "out", "expression": "$a or $b" },
+      "inputRows": [
+        { "a": true, "b": true },
+        { "a": true, "b": false },
+        { "a": true, "b": null },
+        { "a": false, "b": true },
+        { "a": false, "b": false },
+        { "a": false, "b": null },
+        { "a": null, "b": true },
+        { "a": null, "b": false },
+        { "a": null, "b": null }
+      ],
+      "expect": {
+        "rows": [
+          { "a": true, "b": true, "out": true },
+          { "a": true, "b": false, "out": true },
+          { "a": true, "b": null, "out": true },
+          { "a": false, "b": true, "out": true },
+          { "a": false, "b": false, "out": false },
+          { "a": false, "b": null, "out": null },
+          { "a": null, "b": true, "out": true },
+          { "a": null, "b": false, "out": null },
+          { "a": null, "b": null, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "not",
+      "config": { "column": "out", "expression": "not $a" },
+      "inputRows": [{ "a": true }, { "a": false }, { "a": null }],
+      "expect": {
+        "rows": [
+          { "a": true, "out": false },
+          { "a": false, "out": true },
+          { "a": null, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "and short-circuits: a false left never evaluates the right",
+      "config": { "column": "out", "expression": "$a and $missing" },
+      "inputRows": [{ "a": false }, { "a": true }, { "a": null }],
+      "expect": {
+        "rows": [
+          { "a": false, "out": false },
+          { "a": true, "out": null },
+          { "a": null, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "or short-circuits: a true left never evaluates the right",
+      "config": { "column": "out", "expression": "$a or $missing" },
+      "inputRows": [{ "a": true }, { "a": false }],
+      "expect": {
+        "rows": [
+          { "a": true, "out": true },
+          { "a": false, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "a non-boolean operand of and is a type error (null)",
+      "config": { "column": "out", "expression": "$a and true" },
+      "inputRows": [{ "a": 1.0 }, { "a": true }],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "out": null },
+          { "a": true, "out": true }
+        ]
+      }
+    },
+    {
+      "name": "precedence: and binds tighter than or, not tighter than and",
+      "config": { "column": "out", "expression": "true or false and false" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": true }] }
+    },
+    {
+      "name": "not binds looser than comparison",
+      "config": { "column": "out", "expression": "not 1 = 2" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": true }] }
+    },
+    {
+      "name": "keywords are case-insensitive",
+      "config": { "column": "out", "expression": "TRUE AND NOT False" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": true }] }
+    },
+    {
+      "name": "if is lazy: only the chosen branch is evaluated",
+      "config": { "column": "out", "expression": "if($a > 0, $a, $missing)" },
+      "inputRows": [{ "a": 1.0 }, { "a": -1.0 }],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "out": 1.0 },
+          { "a": -1.0, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "if with a null condition takes the else branch",
+      "config": { "column": "out", "expression": "if($c, \"yes\", \"no\")" },
+      "inputRows": [{ "c": null }, { "c": true }, { "c": false }],
+      "expect": {
+        "rows": [
+          { "c": null, "out": "no" },
+          { "c": true, "out": "yes" },
+          { "c": false, "out": "no" }
+        ]
+      }
+    },
+    {
+      "name": "if with a non-boolean condition is a type error (null)",
+      "config": { "column": "out", "expression": "if($c, \"yes\", \"no\")" },
+      "inputRows": [{ "c": 1.0 }],
+      "expect": { "rows": [{ "c": 1.0, "out": null }] }
+    },
+    {
+      "name": "coalesce returns the first non-null argument and stops there",
+      "config": { "column": "out", "expression": "coalesce($a, $b, $missing)" },
+      "inputRows": [
+        { "a": null, "b": 2.0 },
+        { "a": 1.0, "b": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": null, "b": 2.0, "out": 2.0 },
+          { "a": 1.0, "b": 2.0, "out": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "coalesce surfaces an error from an earlier argument",
+      "config": { "column": "out", "expression": "coalesce($missing, 5)" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0, "out": null }] }
+    },
+    {
+      "name": "coalesce of all nulls is null",
+      "config": { "column": "out", "expression": "coalesce($a, $b)" },
+      "inputRows": [{ "a": null, "b": null }],
+      "expect": { "rows": [{ "a": null, "b": null, "out": null }] }
+    },
+    {
+      "name": "coalesce does not null-propagate like other functions",
+      "config": { "column": "out", "expression": "coalesce($a, 0)" },
+      "inputRows": [{ "a": null }, { "a": 5.0 }],
+      "expect": {
+        "rows": [
+          { "a": null, "out": 0.0 },
+          { "a": 5.0, "out": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "abs, floor and ceil never produce negative zero",
+      "config": { "column": "out", "expression": "floor($a) + ceil($b) * 0" },
+      "inputRows": [{ "a": -0.5, "b": -0.5 }],
+      "expect": { "rows": [{ "a": -0.5, "b": -0.5, "out": -1.0 }] }
+    },
+    {
+      "name": "floor",
+      "config": { "column": "out", "expression": "floor($a)" },
+      "inputRows": [{ "a": 2.7 }, { "a": -2.7 }, { "a": -0.0 }],
+      "expect": {
+        "rows": [
+          { "a": 2.7, "out": 2.0 },
+          { "a": -2.7, "out": -3.0 },
+          { "a": { "$double": "-0.0" }, "out": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "ceil",
+      "config": { "column": "out", "expression": "ceil($a)" },
+      "inputRows": [{ "a": 2.1 }, { "a": -2.1 }, { "a": -0.5 }],
+      "expect": {
+        "rows": [
+          { "a": 2.1, "out": 3.0 },
+          { "a": -2.1, "out": -2.0 },
+          { "a": -0.5, "out": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "abs",
+      "config": { "column": "out", "expression": "abs($a)" },
+      "inputRows": [{ "a": -3.5 }, { "a": 3.5 }, { "a": { "$double": "-0.0" } }],
+      "expect": {
+        "rows": [
+          { "a": -3.5, "out": 3.5 },
+          { "a": 3.5, "out": 3.5 },
+          { "a": { "$double": "-0.0" }, "out": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "spike trap: round half away from zero (not Math.round)",
+      "config": { "column": "out", "expression": "round($a)" },
+      "inputRows": [
+        { "a": -2.5 },
+        { "a": 2.5 },
+        { "a": 0.5 },
+        { "a": -0.5 },
+        { "a": 1.5 },
+        { "a": -1.5 },
+        { "a": 2.4999 },
+        { "a": -0.4 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": -2.5, "out": -3.0 },
+          { "a": 2.5, "out": 3.0 },
+          { "a": 0.5, "out": 1.0 },
+          { "a": -0.5, "out": -1.0 },
+          { "a": 1.5, "out": 2.0 },
+          { "a": -1.5, "out": -2.0 },
+          { "a": 2.4999, "out": 2.0 },
+          { "a": -0.4, "out": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "spike trap: round on the shortest decimal digits",
+      "config": { "column": "out", "expression": "round($a, 2)" },
+      "inputRows": [
+        { "a": 2.675 },
+        { "a": 1.005 },
+        { "a": -2.675 },
+        { "a": 1.0049999 },
+        { "a": 0.125 },
+        { "a": 3.14159 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 2.675, "out": 2.68 },
+          { "a": 1.005, "out": 1.01 },
+          { "a": -2.675, "out": -2.68 },
+          { "a": 1.0049999, "out": 1.0 },
+          { "a": 0.125, "out": 0.13 },
+          { "a": 3.14159, "out": 3.14 }
+        ]
+      }
+    },
+    {
+      "name": "round with negative digits",
+      "config": { "column": "out", "expression": "round($a, -2)" },
+      "inputRows": [
+        { "a": 1234.0 },
+        { "a": 1250.0 },
+        { "a": -1250.0 },
+        { "a": 49.0 },
+        { "a": 1000000000000000.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1234.0, "out": 1200.0 },
+          { "a": 1250.0, "out": 1300.0 },
+          { "a": -1250.0, "out": -1300.0 },
+          { "a": 49.0, "out": 0.0 },
+          { "a": 1000000000000000.0, "out": 1000000000000000.0 }
+        ]
+      }
+    },
+    {
+      "name": "round with digits beyond the double's precision returns the value",
+      "config": { "column": "out", "expression": "round($a, 30)" },
+      "inputRows": [{ "a": 0.3333333333333333 }, { "a": 123.456 }],
+      "expect": {
+        "rows": [
+          { "a": 0.3333333333333333, "out": 0.3333333333333333 },
+          { "a": 123.456, "out": 123.456 }
+        ]
+      }
+    },
+    {
+      "name": "round with a non-whole digits argument is a type error (null)",
+      "config": { "column": "out", "expression": "round($a, 1.5)" },
+      "inputRows": [{ "a": 1.2345 }],
+      "expect": { "rows": [{ "a": 1.2345, "out": null }] }
+    },
+    {
+      "name": "round of a string is a type error (null)",
+      "config": { "column": "out", "expression": "round($a)" },
+      "inputRows": [{ "a": "1.5" }],
+      "expect": { "rows": [{ "a": "1.5", "out": null }] }
+    },
+    {
+      "name": "round digits clamp at +/-308",
+      "config": { "column": "out", "expression": "round($a, 400) + round($a, -400)" },
+      "inputRows": [{ "a": 12.5 }],
+      "expect": { "rows": [{ "a": 12.5, "out": 12.5 }] }
+    },
+    {
+      "name": "spike trap: mod takes the sign of the divisor",
+      "config": { "column": "out", "expression": "mod($a, $b)" },
+      "inputRows": [
+        { "a": -7.0, "b": 3.0 },
+        { "a": 7.0, "b": -3.0 },
+        { "a": -7.0, "b": -3.0 },
+        { "a": 7.0, "b": 3.0 },
+        { "a": 6.0, "b": 3.0 },
+        { "a": -6.0, "b": 3.0 },
+        { "a": 5.5, "b": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": -7.0, "b": 3.0, "out": 2.0 },
+          { "a": 7.0, "b": -3.0, "out": -2.0 },
+          { "a": -7.0, "b": -3.0, "out": -1.0 },
+          { "a": 7.0, "b": 3.0, "out": 1.0 },
+          { "a": 6.0, "b": 3.0, "out": 0.0 },
+          { "a": -6.0, "b": 3.0, "out": 0.0 },
+          { "a": 5.5, "b": 2.0, "out": 1.5 }
+        ]
+      }
+    },
+    {
+      "name": "mod by zero is null for the row",
+      "config": { "column": "out", "expression": "mod($a, $b)" },
+      "inputRows": [
+        { "a": 5.0, "b": 0.0 },
+        { "a": 5.0, "b": { "$double": "-0.0" } }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 5.0, "b": 0.0, "out": null },
+          { "a": 5.0, "b": { "$double": "-0.0" }, "out": null }
+        ]
+      }
+    },
+    {
+      "name": "mod of text is a type error (null)",
+      "config": { "column": "out", "expression": "mod($a, 2)" },
+      "inputRows": [{ "a": "x" }],
+      "expect": { "rows": [{ "a": "x", "out": null }] }
+    },
+    {
+      "name": "substring clamps out-of-range indexes",
+      "config": { "column": "out", "expression": "substring($s, $i, $j)" },
+      "inputRows": [
+        { "s": "hello", "i": -5.0, "j": 100.0 },
+        { "s": "hello", "i": 1.0, "j": 3.0 },
+        { "s": "hello", "i": 4.0, "j": 2.0 },
+        { "s": "hello", "i": 2.9, "j": 4.9 },
+        { "s": "hello", "i": -1.0, "j": -1.0 },
+        { "s": "hello", "i": 10.0, "j": 12.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": -5.0, "j": 100.0, "out": "hello", "s": "hello" },
+          { "i": 1.0, "j": 3.0, "out": "el", "s": "hello" },
+          { "i": 4.0, "j": 2.0, "out": "", "s": "hello" },
+          { "i": 2.9, "j": 4.9, "out": "ll", "s": "hello" },
+          { "i": -1.0, "j": -1.0, "out": "", "s": "hello" },
+          { "i": 10.0, "j": 12.0, "out": "", "s": "hello" }
+        ]
+      }
+    },
+    {
+      "name": "substring counts UTF-16 code units",
+      "config": { "column": "out", "expression": "substring($s, 0, 2)" },
+      "inputRows": [{ "s": "\ud83d\ude00x" }],
+      "expect": { "rows": [{ "out": "\ud83d\ude00", "s": "\ud83d\ude00x" }] }
+    },
+    {
+      "name": "substring of a boolean reads its text; of a number is a type error",
+      "config": { "column": "out", "expression": "substring($v, 0, 2)" },
+      "inputRows": [{ "v": true }, { "v": 123.0 }],
+      "expect": {
+        "rows": [
+          { "out": "tr", "v": true },
+          { "out": null, "v": 123.0 }
+        ]
+      }
+    },
+    {
+      "name": "substring with a text index is a type error (null)",
+      "config": { "column": "out", "expression": "substring(\"abc\", \"0\", 2)" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": null }] }
+    },
+    {
+      "name": "lower and upper",
+      "config": { "column": "out", "expression": "lower($a) + upper($a)" },
+      "inputRows": [{ "a": "MiXeD \u00df" }],
+      "expect": { "rows": [{ "a": "MiXeD \u00df", "out": "mixed \u00dfMIXED SS" }] }
+    },
+    {
+      "name": "lower of a boolean reads its text; of a number is a type error",
+      "config": { "column": "out", "expression": "lower($v)" },
+      "inputRows": [{ "v": true }, { "v": 5.0 }],
+      "expect": {
+        "rows": [
+          { "out": "true", "v": true },
+          { "out": null, "v": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "length counts UTF-16 code units",
+      "config": { "column": "out", "expression": "length($s)" },
+      "inputRows": [{ "s": "abc" }, { "s": "\ud83d\ude00" }, { "s": "" }, { "s": true }],
+      "expect": {
+        "rows": [
+          { "out": 3.0, "s": "abc" },
+          { "out": 2.0, "s": "\ud83d\ude00" },
+          { "out": 0.0, "s": "" },
+          { "out": 4.0, "s": true }
+        ]
+      }
+    },
+    {
+      "name": "concat renders numbers without .0 and booleans as text",
+      "config": { "column": "out", "expression": "concat($a, $b, $c)" },
+      "inputRows": [
+        { "a": 1.0, "b": true, "c": "x" },
+        { "a": 1.5, "b": false, "c": "" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": true, "c": "x", "out": "1truex" },
+          { "a": 1.5, "b": false, "c": "", "out": "1.5false" }
+        ]
+      }
+    },
+    {
+      "name": "concat with a null argument is null",
+      "config": { "column": "out", "expression": "concat($a, $b)" },
+      "inputRows": [{ "a": "x", "b": null }],
+      "expect": { "rows": [{ "a": "x", "b": null, "out": null }] }
+    },
+    {
+      "name": "seconds_between of two instants",
+      "config": { "column": "out", "expression": "seconds_between($b, $a)" },
+      "inputRows": [
+        { "a": "2026-10-01T00:00:00Z", "b": "2026-10-01T01:00:00Z" },
+        { "a": "2026-10-01T00:00:00Z", "b": "2026-09-30T23:59:59Z" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "2026-10-01T00:00:00Z", "b": "2026-10-01T01:00:00Z", "out": 3600.0 },
+          { "a": "2026-10-01T00:00:00Z", "b": "2026-09-30T23:59:59Z", "out": -1.0 }
+        ]
+      }
+    },
+    {
+      "name": "seconds_between keeps the fraction",
+      "config": { "column": "out", "expression": "seconds_between($b, $a)" },
+      "inputRows": [
+        { "a": "2026-10-01T00:00:00.25Z", "b": "2026-10-01T00:00:01.75Z" },
+        { "a": "2026-10-01T00:00:00.999999999Z", "b": "2026-10-01T00:00:00Z" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "2026-10-01T00:00:00.25Z", "b": "2026-10-01T00:00:01.75Z", "out": 1.5 },
+          {
+            "a": "2026-10-01T00:00:00.999999999Z",
+            "b": "2026-10-01T00:00:00Z",
+            "out": -0.999999999
+          }
+        ]
+      }
+    },
+    {
+      "name": "seconds_between of epoch numbers, mixed with strings",
+      "config": { "column": "out", "expression": "seconds_between($b, $a)" },
+      "inputRows": [
+        { "a": 1700000000.0, "b": 1700000060.0 },
+        { "a": "1700000000", "b": "2023-11-14T22:14:20Z" },
+        { "a": 1700000000000.0, "b": 1700000001000.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1700000000.0, "b": 1700000060.0, "out": 60.0 },
+          { "a": "1700000000", "b": "2023-11-14T22:14:20Z", "out": 60.0 },
+          { "a": 1700000000000.0, "b": 1700000001000.0, "out": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "seconds_between with an unparseable argument is null",
+      "config": { "column": "out", "expression": "seconds_between($b, $a)" },
+      "inputRows": [
+        { "a": "x", "b": "2026-10-01" },
+        { "a": true, "b": "2026-10-01" },
+        { "a": 1.5, "b": "2026-10-01" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "x", "b": "2026-10-01", "out": null },
+          { "a": true, "b": "2026-10-01", "out": null },
+          { "a": 1.5, "b": "2026-10-01", "out": null }
+        ]
+      }
+    },
+    {
+      "name": "the epoch milliseconds threshold: 9999999999 is seconds, 10000000000 is milliseconds",
+      "config": { "column": "out", "expression": "seconds_between($a, 0)" },
+      "inputRows": [{ "a": 9999999999.0 }, { "a": 10000000000.0 }],
+      "expect": {
+        "rows": [
+          { "a": 9999999999.0, "out": 9999999999.0 },
+          { "a": 10000000000.0, "out": 10000000.0 }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc every unit",
+      "config": {
+        "column": "out",
+        "expression": "date_trunc(\"second\", $t) + \"|\" + date_trunc(\"minute\", $t) + \"|\" + date_trunc(\"hour\", $t) + \"|\" + date_trunc(\"day\", $t)"
+      },
+      "inputRows": [{ "t": "2026-10-17T13:45:56.789Z" }],
+      "expect": {
+        "rows": [
+          {
+            "out": "2026-10-17T13:45:56Z|2026-10-17T13:45:00Z|2026-10-17T13:00:00Z|2026-10-17T00:00:00Z",
+            "t": "2026-10-17T13:45:56.789Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc week lands on a Monday",
+      "config": { "column": "out", "expression": "date_trunc(\"week\", $t)" },
+      "inputRows": [
+        { "t": "2026-10-17" },
+        { "t": "2026-10-19" },
+        { "t": "2026-10-18T23:59:59Z" },
+        { "t": "2027-01-01" },
+        { "t": "1970-01-01" }
+      ],
+      "expect": {
+        "rows": [
+          { "out": "2026-10-12T00:00:00Z", "t": "2026-10-17" },
+          { "out": "2026-10-19T00:00:00Z", "t": "2026-10-19" },
+          { "out": "2026-10-12T00:00:00Z", "t": "2026-10-18T23:59:59Z" },
+          { "out": "2026-12-28T00:00:00Z", "t": "2027-01-01" },
+          { "out": "1969-12-29T00:00:00Z", "t": "1970-01-01" }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc month, quarter and year",
+      "config": {
+        "column": "out",
+        "expression": "date_trunc(\"month\", $t) + date_trunc(\"quarter\", $t) + date_trunc(\"year\", $t)"
+      },
+      "inputRows": [{ "t": "2026-08-17T12:00:00Z" }],
+      "expect": {
+        "rows": [
+          {
+            "out": "2026-08-01T00:00:00Z2026-07-01T00:00:00Z2026-01-01T00:00:00Z",
+            "t": "2026-08-17T12:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc of an offset timestamp truncates in UTC",
+      "config": { "column": "out", "expression": "date_trunc(\"day\", $t)" },
+      "inputRows": [{ "t": "2026-10-17T23:30:00-05:00" }, { "t": "2026-10-17T00:30:00+02:00" }],
+      "expect": {
+        "rows": [
+          { "out": "2026-10-18T00:00:00Z", "t": "2026-10-17T23:30:00-05:00" },
+          { "out": "2026-10-16T00:00:00Z", "t": "2026-10-17T00:30:00+02:00" }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc of an epoch number and of garbage",
+      "config": { "column": "out", "expression": "date_trunc(\"hour\", $t)" },
+      "inputRows": [{ "t": 1700000000.0 }, { "t": "garbage" }, { "t": 1.5 }],
+      "expect": {
+        "rows": [
+          { "out": "2023-11-14T22:00:00Z", "t": 1700000000.0 },
+          { "out": null, "t": "garbage" },
+          { "out": null, "t": 1.5 }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc before 1970 floors",
+      "config": { "column": "out", "expression": "date_trunc(\"minute\", $t)" },
+      "inputRows": [{ "t": "1969-12-31T23:59:59Z" }],
+      "expect": { "rows": [{ "out": "1969-12-31T23:59:00Z", "t": "1969-12-31T23:59:59Z" }] }
+    },
+    {
+      "name": "add_days adds whole days",
+      "config": { "column": "out", "expression": "add_days($t, $n)" },
+      "inputRows": [
+        { "t": "2026-10-17", "n": 1.0 },
+        { "t": "2026-10-17T10:00:00Z", "n": -1.0 },
+        { "t": "2026-02-27", "n": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 1.0, "out": "2026-10-18T00:00:00Z", "t": "2026-10-17" },
+          { "n": -1.0, "out": "2026-10-16T10:00:00Z", "t": "2026-10-17T10:00:00Z" },
+          { "n": 2.0, "out": "2026-03-01T00:00:00Z", "t": "2026-02-27" }
+        ]
+      }
+    },
+    {
+      "name": "add_days with a fractional count",
+      "config": { "column": "out", "expression": "add_days($t, $n)" },
+      "inputRows": [
+        { "t": "2026-10-17T00:00:00Z", "n": 0.5 },
+        { "t": "2026-10-17T00:00:00Z", "n": 1.25 },
+        { "t": "2026-10-17T00:00:00Z", "n": 1e-7 },
+        { "t": "2026-10-17T00:00:00Z", "n": 1e-12 },
+        { "t": "2026-10-17T00:00:00Z", "n": -0.5 }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 0.5, "out": "2026-10-17T12:00:00Z", "t": "2026-10-17T00:00:00Z" },
+          { "n": 1.25, "out": "2026-10-18T06:00:00Z", "t": "2026-10-17T00:00:00Z" },
+          { "n": 1e-7, "out": "2026-10-17T00:00:00.008640Z", "t": "2026-10-17T00:00:00Z" },
+          { "n": 1e-12, "out": "2026-10-17T00:00:00.000000086Z", "t": "2026-10-17T00:00:00Z" },
+          { "n": -0.5, "out": "2026-10-16T12:00:00Z", "t": "2026-10-17T00:00:00Z" }
+        ]
+      }
+    },
+    {
+      "name": "add_days keeps and prints sub-second precision in groups of 3",
+      "config": { "column": "out", "expression": "add_days($t, 0)" },
+      "inputRows": [
+        { "t": "2026-10-17T00:00:00.5Z" },
+        { "t": "2026-10-17T00:00:00.123456Z" },
+        { "t": "2026-10-17T00:00:00.123456789Z" },
+        { "t": "2026-10-17T00:00:00.100Z" }
+      ],
+      "expect": {
+        "rows": [
+          { "out": "2026-10-17T00:00:00.500Z", "t": "2026-10-17T00:00:00.5Z" },
+          { "out": "2026-10-17T00:00:00.123456Z", "t": "2026-10-17T00:00:00.123456Z" },
+          { "out": "2026-10-17T00:00:00.123456789Z", "t": "2026-10-17T00:00:00.123456789Z" },
+          { "out": "2026-10-17T00:00:00.100Z", "t": "2026-10-17T00:00:00.100Z" }
+        ]
+      }
+    },
+    {
+      "name": "add_days to a year beyond 9999 prints a signed year",
+      "config": { "column": "out", "expression": "add_days($t, $n)" },
+      "inputRows": [
+        { "t": "9999-12-31", "n": 1.0 },
+        { "t": "2026-01-01", "n": 3000000.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 1.0, "out": "+10000-01-01T00:00:00Z", "t": "9999-12-31" },
+          { "n": 3000000.0, "out": "+10239-09-22T00:00:00Z", "t": "2026-01-01" }
+        ]
+      }
+    },
+    {
+      "name": "add_days with an unparseable timestamp is null; a text day count is a type error",
+      "config": { "column": "out", "expression": "add_days($t, $n)" },
+      "inputRows": [
+        { "t": "x", "n": 1.0 },
+        { "t": "2026-10-17", "n": "1" }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 1.0, "out": null, "t": "x" },
+          { "n": "1", "out": null, "t": "2026-10-17" }
+        ]
+      }
+    },
+    {
+      "name": "add_days beyond the Instant range is null",
+      "config": { "column": "out", "expression": "add_days($t, $n)" },
+      "inputRows": [
+        { "t": "2026-10-17", "n": 1000000000000.0 },
+        { "t": "2026-10-17", "n": -1000000000000.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 1000000000000.0, "out": null, "t": "2026-10-17" },
+          { "n": -1000000000000.0, "out": null, "t": "2026-10-17" }
+        ]
+      }
+    },
+    {
+      "name": "add_days with an overflowing count is null",
+      "config": { "column": "out", "expression": "add_days($t, $n * $n)" },
+      "inputRows": [{ "t": "2026-10-17", "n": 1e200 }],
+      "expect": { "rows": [{ "n": 1e200, "out": null, "t": "2026-10-17" }] }
+    },
+    {
+      "name": "a nesting depth of 101 is a step error",
+      "config": {
+        "column": "out",
+        "expression": "(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))"
+      },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a nesting depth of 99 is accepted",
+      "config": {
+        "column": "out",
+        "expression": "(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((1)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))"
+      },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 1.0 }] }
+    },
+    {
+      "name": "a tree deeper than 200 is a step error",
+      "config": {
+        "column": "out",
+        "expression": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1"
+      },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a flat chain of 150 operators is accepted",
+      "config": {
+        "column": "out",
+        "expression": "1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1+1"
+      },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 150.0 }] }
+    },
+    {
+      "name": "101 nested nots is a step error",
+      "config": {
+        "column": "out",
+        "expression": "not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not not true"
+      },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "101 nested unary minus signs is a step error",
+      "config": {
+        "column": "out",
+        "expression": "-----------------------------------------------------------------------------------------------------1"
+      },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "wrong arity is a step error",
+      "config": { "column": "out", "expression": "abs(1, 2)" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "round with three arguments is a step error",
+      "config": { "column": "out", "expression": "round(1, 2, 3)" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "date_trunc with an unknown unit is a step error",
+      "config": { "column": "out", "expression": "date_trunc(\"fortnight\", $t)" },
+      "inputRows": [{ "t": "2026-10-17" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "date_trunc with a bare word unit is a step error, not a legacy fallback",
+      "config": { "column": "out", "expression": "date_trunc(day, $t)" },
+      "inputRows": [{ "t": "2026-10-17" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "date_trunc with a non-literal unit is a step error",
+      "config": { "column": "out", "expression": "date_trunc($u, $t)" },
+      "inputRows": [{ "t": "2026-10-17", "u": "day" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an incomplete expression is a step error",
+      "config": { "column": "out", "expression": "$a +" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a lone dollar sign is a step error",
+      "config": { "column": "out", "expression": "$" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "== is a step error",
+      "config": { "column": "out", "expression": "$a == 1" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "<> is a step error",
+      "config": { "column": "out", "expression": "$a <> 1" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "chained comparisons are a step error",
+      "config": { "column": "out", "expression": "1 < $a < 3" },
+      "inputRows": [{ "a": 2.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "unary plus is a step error",
+      "config": { "column": "out", "expression": "+5" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a malformed number literal is a step error",
+      "config": { "column": "out", "expression": "1.2.3" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an exponent literal is not part of the grammar",
+      "config": { "column": "out", "expression": "1e3" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an incomplete dotted reference is a step error",
+      "config": { "column": "out", "expression": "$stats. + 1" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a bare reserved word is a step error, not a legacy fallback",
+      "config": { "column": "out", "expression": "not" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a reserved word used as a value is a step error",
+      "config": { "column": "out", "expression": "$a = and" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "trailing tokens are a step error",
+      "config": { "column": "out", "expression": "1 2" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unexpected character is a step error",
+      "config": { "column": "out", "expression": "1 # 2" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a parenthesised bare identifier reports the bracket error and does not fall back to legacy",
+      "config": { "column": "out", "expression": "(price) * 2" },
+      "inputRows": [{ "price": 2.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank expression is a step error",
+      "config": { "column": "out", "expression": "   " },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank column is a step error",
+      "config": { "column": "", "expression": "1" },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a disabled compute is transparent",
+      "config": { "column": "out", "expression": "$a + 1" },
+      "inputRows": [{ "a": 1.0 }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "the column may overwrite an existing one",
+      "config": { "column": "a", "expression": "$a + 1" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 2.0 }] }
+    },
+    {
+      "name": "a non-string type cannot be decoded",
+      "config": { "column": "out", "expression": "1", "type": 5 },
+      "inputRows": [{}],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a string type is ignored",
+      "config": { "column": "out", "expression": "1 + 1", "type": "float" },
+      "inputRows": [{}],
+      "expect": { "rows": [{ "out": 2.0 }] }
+    },
+    {
+      "name": "a legacy bare-identifier expression declines",
+      "config": { "column": "out", "expression": "price * qty" },
+      "inputRows": [{ "price": 2.0, "qty": 3.0 }],
+      "expect": {
+        "clientDeclines": "legacyExpression",
+        "scalaRows": [{ "out": 6.0, "price": 2.0, "qty": 3.0 }]
+      }
+    },
+    {
+      "name": "a legacy bare identifier inside a function call declines",
+      "config": { "column": "out", "expression": "floor(price)" },
+      "inputRows": [{ "price": 2.5 }],
+      "expect": { "clientDeclines": "legacyExpression", "scalaError": true }
+    },
+    {
+      "name": "a legacy bare identifier as the second operand declines",
+      "config": { "column": "out", "expression": "$a + qty" },
+      "inputRows": [{ "a": 2.0, "qty": 3.0 }],
+      "expect": { "clientDeclines": "legacyExpression", "scalaError": true }
+    },
+    {
+      "name": "an unknown function declines",
+      "config": { "column": "out", "expression": "foo(1)" },
+      "inputRows": [{}],
+      "expect": { "clientDeclines": "unknownFunction", "scalaError": true }
+    },
+    {
+      "name": "an unknown function with the right arity of another declines",
+      "config": { "column": "out", "expression": "power($a, 2)" },
+      "inputRows": [{ "a": 3.0 }],
+      "expect": { "clientDeclines": "unknownFunction", "scalaError": true }
+    },
+    {
+      "name": "an unknown function inside a known call declines",
+      "config": { "column": "out", "expression": "abs(trunc($a))" },
+      "inputRows": [{ "a": 3.5 }],
+      "expect": { "clientDeclines": "unknownFunction", "scalaError": true }
+    },
+    {
+      "name": "add_days over Unicode-digit epoch strings",
+      "config": { "column": "out", "expression": "add_days($t, 1)" },
+      "inputRows": [
+        { "t": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+        { "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+        { "t": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" },
+        { "t": "\u0663" },
+        { "t": "\uff11.\uff10" },
+        { "t": "\uff11e\uff13" },
+        { "t": "\uff11.\uff15" },
+        { "t": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 " },
+        { "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0" },
+        { "t": "\uff11\u2009" },
+        { "t": "\u0967\u0968" },
+        { "t": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "out": "2023-11-15T22:13:20Z",
+            "t": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660"
+          },
+          {
+            "out": "2023-11-15T22:13:20Z",
+            "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+          },
+          {
+            "out": "2023-11-15T22:13:20Z",
+            "t": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966"
+          },
+          { "out": "1970-01-02T00:00:03Z", "t": "\u0663" },
+          { "out": "1970-01-02T00:00:01Z", "t": "\uff11.\uff10" },
+          { "out": "1970-01-02T00:16:40Z", "t": "\uff11e\uff13" },
+          { "out": null, "t": "\uff11.\uff15" },
+          {
+            "out": "2023-11-15T22:13:20Z",
+            "t": " \uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10 "
+          },
+          {
+            "out": null,
+            "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\u00a0"
+          },
+          { "out": null, "t": "\uff11\u2009" },
+          { "out": "1970-01-02T00:00:12Z", "t": "\u0967\u0968" },
+          {
+            "out": "2001-09-10T01:46:40Z",
+            "t": "\uff11\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+          }
+        ]
+      }
+    },
+    {
+      "name": "seconds_between over Unicode-digit epoch strings",
+      "config": { "column": "out", "expression": "seconds_between($b, $a)" },
+      "inputRows": [
+        {
+          "a": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+          "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+        },
+        {
+          "a": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966",
+          "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff11"
+        },
+        { "a": "\uff11e\uff13", "b": "\uff11.\uff10" }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "a": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+            "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+            "out": 0.0
+          },
+          {
+            "a": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966",
+            "b": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff11",
+            "out": 1.0
+          },
+          { "a": "\uff11e\uff13", "b": "\uff11.\uff10", "out": -999.0 }
+        ]
+      }
+    },
+    {
+      "name": "date_trunc over Unicode-digit epoch strings",
+      "config": { "column": "out", "expression": "date_trunc(\"hour\", $t)" },
+      "inputRows": [
+        { "t": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660" },
+        { "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10" },
+        { "t": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966" }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "out": "2023-11-14T22:00:00Z",
+            "t": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660"
+          },
+          {
+            "out": "2023-11-14T22:00:00Z",
+            "t": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+          },
+          {
+            "out": "2023-11-14T22:00:00Z",
+            "t": "\u0967\u096d\u0966\u0966\u0966\u0966\u0966\u0966\u0966\u0966"
+          }
+        ]
+      }
+    }
+  ]
+}

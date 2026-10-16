@@ -1,0 +1,201 @@
+{
+  "kind": "union",
+  "vectors": [
+    {
+      "name": "byPosition appends the second frame as it is",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "b": "x" }, { "a": 3.0 }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }, { "b": "x" }, { "a": 3.0 }] }
+    },
+    {
+      "name": "byPosition with unequal widths",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "a": 3.0 }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0, "b": 2.0 }, { "a": 3.0 }] }
+    },
+    {
+      "name": "byName backfills missing columns with null",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "b": 3.0, "c": 4.0 }], "complete": true },
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 2.0, "c": null },
+          { "a": null, "b": 3.0, "c": 4.0 }
+        ]
+      }
+    },
+    {
+      "name": "byName: only the first row of each side decides the key set",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0, "extra": "e" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [{ "b": 3.0 }, { "b": 4.0, "other": "o" }],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": null },
+          { "a": 2.0, "b": null, "extra": "e" },
+          { "a": null, "b": 3.0 },
+          { "a": null, "b": 4.0, "other": "o" }
+        ]
+      }
+    },
+    {
+      "name": "byName overwrites a later row's value for a key the first row lacks with null",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0, "b": "kept?" }],
+      "secondary": { "kind": "lane", "rows": [{ "b": 3.0 }], "complete": true },
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": null },
+          { "a": 2.0, "b": null },
+          { "a": null, "b": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "byName with an empty first side",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [],
+      "secondary": { "kind": "lane", "rows": [{ "a": 1.0 }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "byName with an empty second side",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "byName with both sides empty",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "byName" },
+      "inputRows": [],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "byPosition with empty sides",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "mode": "byPosition"
+      },
+      "inputRows": [],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "the mode is case-sensitive: an unknown mode is a step error",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" }, "mode": "ByName" },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "a": 2.0 }], "complete": true },
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unknown mode is a step error",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "mode": "interleave"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "a": 2.0 }], "complete": true },
+      "expect": { "error": true }
+    },
+    {
+      "name": "a source secondary cached completely",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "mode": "byName"
+      },
+      "inputRows": [{ "a": 1.0, "b": 2.0 }],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [{ "b": 5.0, "c": "z" }],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": 2.0, "c": null },
+          { "a": null, "b": 5.0, "c": "z" }
+        ]
+      }
+    },
+    {
+      "name": "a source secondary with byPosition",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "source", "id": "ds-2", "rows": [{ "a": null }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }, { "a": null }] }
+    },
+    {
+      "name": "the default mode is byPosition",
+      "config": { "secondaryInput": { "kind": "lane", "stepId": "lane-step" } },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "lane", "rows": [{ "a": 2.0 }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }] }
+    },
+    {
+      "name": "an empty dataSourceId secondary: the data source is not found",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "the legacy otherDataSourceId field cannot be decoded",
+      "config": { "otherDataSourceId": "ds-2" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a configured source secondary that is not cached declines",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-9" },
+        "mode": "byName"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "clientDeclines": "secondaryNotCached", "scalaError": true }
+    },
+    {
+      "name": "a truncated source secondary declines",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "secondary": { "kind": "source", "id": "ds-2", "rows": [{ "a": 2.0 }], "complete": false },
+      "expect": {
+        "clientDeclines": "secondaryNotCached",
+        "scalaRows": [{ "a": 1.0 }, { "a": 2.0 }]
+      }
+    },
+    {
+      "name": "a disabled union is transparent",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "mode": "byPosition"
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "enabled": false,
+      "secondary": { "kind": "lane", "rows": [{ "a": 2.0 }], "complete": true },
+      "expect": { "rows": [{ "a": 1.0 }] }
+    }
+  ]
+}
