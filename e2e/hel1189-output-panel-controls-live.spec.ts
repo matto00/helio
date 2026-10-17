@@ -110,7 +110,7 @@ test.describe("HEL-1189 output panel controls — live verification", () => {
       await registerAndLogin(page, request, { ...AUTH, label: `${theme}` });
       await seedOrdersOutput(page, request);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       const sheet = await placeOrdersPanel(page);
 
       await expect(sheet.getByRole("heading", { name: "Controls" })).toBeVisible();

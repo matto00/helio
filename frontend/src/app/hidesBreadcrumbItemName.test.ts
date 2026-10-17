@@ -12,7 +12,9 @@ describe("hidesBreadcrumbItemName", () => {
 
   it("hides the dashboard name on the rail shell's dashboard view, where the tab bar shows it", () => {
     expect(hidesBreadcrumbItemName("/dashboards/dash-1", false)).toBe(true);
-    expect(hidesBreadcrumbItemName("/home", false)).toBe(true);
+    expect(hidesBreadcrumbItemName("/dashboards", false)).toBe(true);
+    // Home is not the dashboard view: its breadcrumb keeps the "Home" label and has no item name to hide.
+    expect(hidesBreadcrumbItemName("/home", false)).toBe(false);
   });
 
   it("keeps the dashboard name on the phone shell", () => {

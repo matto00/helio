@@ -77,7 +77,7 @@ test.describe("HEL-516 palette quick-create — reach", () => {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
     });
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
     await page.goto("/pipelines");
 
@@ -144,7 +144,7 @@ test.describe("HEL-516 palette quick-create — never presented twice", () => {
       data: { name: "HEL-516 fixture dashboard" },
       headers: { [CSRF_HEADER]: "1" },
     });
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await runPaletteAction(page, "Add panel");
@@ -325,7 +325,7 @@ test.describe("HEL-516 design.md D3b — OutputPicker parity between / and off-r
 
     // Select the dashboard (most-recently-updated auto-select already lands here, since it's
     // the only one, but navigate explicitly for clarity/robustness).
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     // Place the Output via the `/home` flow's own "Add panel" trigger.

@@ -290,7 +290,7 @@ for (const { theme, width } of CASES) {
         200,
       );
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1305 ${label}`).first().click();
       if (width === 375) {
@@ -512,7 +512,7 @@ for (const theme of ["light", "dark"] as const) {
       );
       for (const p of batch.panels) recordId("panel", p.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1305 labels ${theme}`).first().click();
       await page.setViewportSize({ width: 375, height: 900 });

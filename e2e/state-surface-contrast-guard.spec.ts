@@ -19,7 +19,8 @@ import { forceFocusVisible } from "./support/forceFocusVisible";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
 import { settleTransitions } from "./support/settleTransitions";
 import { isolateLivePage } from "./support/isolateLivePage";
-import { registerUser } from "./support/auth";
+import { currentUserId, registerUser } from "./support/auth";
+import { seedPipelineRuns } from "./support/homeSeed";
 import { assertTypeStyleActive, seedTypeStyle, typeStyleUnderTest } from "./support/typeStyle";
 
 // HEL-866 — the mechanical, RENDERED state-surface contrast guard (AC5,
@@ -511,6 +512,7 @@ const SOURCE_NAME = "HEL-866 Guard Source";
 // view names use the static label.
 type RouteKey =
   | "/home"
+  | "/dashboards"
   | "/sources"
   | "/pipelines"
   | "pipeline-detail"
@@ -524,6 +526,7 @@ const ROUTE_KEYS_HEAVIEST_FIRST: RouteKey[] = [
   "/sources",
   "/pipelines",
   "/home",
+  "/dashboards",
   "/chat",
   "/connectors",
 ];
@@ -542,7 +545,12 @@ type Counts = {
 // is chrome (probed with the command bar); the context list has its own per-route view.
 const CHROME_EXCLUDE = "main, .context-list";
 
-async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
+async function newCell(
+  page: Page,
+  request: APIRequestContext,
+  theme: Theme,
+  options: { seedHomeActivity?: boolean } = {},
+) {
   // HEL-1330: idle the page on about:blank before any API seeding. A fresh page already is, and the
   // seed below runs before this cell's first app `goto`; stating it keeps a future earlier `goto`
   // from reintroducing the seed-while-`/home`-is-live race (HEL-1289). The theme stays an
@@ -597,6 +605,21 @@ async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   });
   expect(stepRes.status()).toBe(201);
 
+  // HEL-1578: the Home page only renders Open / Retry, timeline marks and Up next links when a pipeline has an
+  // unresolved failed run and a schedule. Seeded for the `/home` cell ONLY, so every other view's population is
+  // unchanged (a run history on `/pipelines/:id` would change it).
+  if (options.seedHomeActivity === true) {
+    seedPipelineRuns(pipeline.id, await currentUserId(request), [
+      { status: "succeeded", hoursAgo: 8 },
+      { status: "failed", hoursAgo: 3, errorLog: "source returned 0 rows" },
+    ]);
+    const scheduleRes = await request.put(`/api/pipelines/${pipeline.id}/schedule`, {
+      data: { kind: "interval", expression: "3h", timezone: "UTC", enabled: true },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(scheduleRes.status()).toBe(200);
+  }
+
   // HEL-1288: store the theme; every cell's first `goto` applies it (no separate reload), and
   // each cell asserts `data-theme` after that load.
   // Root cause of the earlier `/settings` 24-vs-25 (probe, HEL-1288 cycle 5): the audit-log table on
@@ -616,7 +639,7 @@ async function newCell(page: Page, request: APIRequestContext, theme: Theme) {
   await seedTypeStyle(request, typeStyleUnderTest());
   await page.context().addCookies((await request.storageState()).cookies);
   await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
-  await page.goto("/home");
+  await page.goto("/dashboards");
   await assertTypeStyleActive(page, typeStyleUnderTest());
   await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
   return { client, pipelineId: pipeline.id as string };
@@ -776,7 +799,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       // `helio.recentVisits`). Replay EXACTLY that sequence (never `/sources/<id>`, which the
       // unsplit walk never visits) so the palette population is the same SET, gating each step on
       // a readiness signal instead of a bare `goto` chain.
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
       await page.goto("/sources");
@@ -794,7 +817,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       await expect(page.locator("main")).toBeVisible();
       await page.goto("/settings");
       await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
 
       // Overlay: command palette (this ticket's canonical defect surface).
@@ -830,7 +853,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       // Overlay: ActionsMenu (dashboard row). evaluation-2.md CR8 — navigate to `/home`, where the
       // dashboard row genuinely renders, and assert the trigger exists rather than conditionally
       // skipping — a missing overlay fails loudly.
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.getByRole("button", { name: DASH_NAME, exact: true })).toBeVisible();
       const row = page.locator(".dashboard-list__item-row", { hasText: DASH_NAME });
       await expect(row).toHaveCount(1);
@@ -859,7 +882,9 @@ test.describe("HEL-866 state-surface contrast guard", () => {
         page,
         request,
       }) => {
-        const { client, pipelineId } = await newCell(page, request, theme);
+        const { client, pipelineId } = await newCell(page, request, theme, {
+          seedHomeActivity: routeKey === "/home",
+        });
         const results: ElementResult[] = [];
         const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
         const route = routeKey === "pipeline-detail" ? `/pipelines/${pipelineId}` : routeKey;
@@ -879,6 +904,13 @@ test.describe("HEL-866 state-surface contrast guard", () => {
         const seeded = (scope: Locator, text: string) =>
           expect(scope.getByText(text, { exact: true }).first()).toBeVisible();
         if (routeKey === "/home") {
+          // The unresolved failed item names the seeded pipeline; its Retry and the timeline marks render with it.
+          await seeded(page.locator("main"), PIPELINE_NAME);
+          await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+          await expect(
+            page.getByRole("group", { name: "Pipeline runs, last 24 hours" }),
+          ).toBeVisible();
+        } else if (routeKey === "/dashboards") {
           await seeded(sidebar, DASH_NAME);
         } else if (routeKey === "/sources") {
           // HEL-1574: the sources / pipelines context lists are compact Recent + Scheduled groups, not a
@@ -950,7 +982,7 @@ test.describe("HEL-866 state-surface contrast guard", () => {
       const { client } = await newCell(page, request, theme);
       const results: ElementResult[] = [];
       const counts: Counts = { resolved: 0, unresolved: 0, pass: 0, fail: 0, advisory: 0 };
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.locator(".app-command-bar")).toBeVisible();
       await page.waitForTimeout(200);

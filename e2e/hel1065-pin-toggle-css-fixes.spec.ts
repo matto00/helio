@@ -122,7 +122,7 @@ async function seedPinnableTablePanel(
   // The panel was seeded via the API after the caller's initial `/home`
   // navigation (registerAndLogin) already fetched an empty panel list —
   // reload so the grid actually reflects it.
-  await page.goto("/home");
+  await page.goto("/dashboards");
   await expect(page.getByRole("heading", { name: new RegExp(dashboardName) })).toBeVisible();
   await expect(page.locator(".react-grid-item")).toHaveCount(1);
 

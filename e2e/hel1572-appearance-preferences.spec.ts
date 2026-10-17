@@ -159,7 +159,7 @@ test.describe("HEL-1572 type style", () => {
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "flash" });
     await setPref(page.request, { typeStyle: "serif" });
-    await page.goto("/home"); // populates the cache via ThemeProvider
+    await page.goto("/dashboards"); // populates the cache via ThemeProvider
     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
 
     await page.addInitScript(PROBE);
@@ -185,7 +185,12 @@ test.describe("HEL-1572 type style", () => {
     const other = await ctx.newPage();
     await other.addInitScript(PROBE);
     // The signed-out login page has default-face headings by design; only the AUTHENTICATED headings are the claim.
-    await other.goto("/login");
+    // HEL-1578: sign-in now lands on Home, whose first h1/h2 is the visually hidden shell heading (body face) and
+    // eyebrow labels (mono), not a heading-face element. The claim is about the first authenticated heading of the
+    // page the user lands on, so this device deep-links to the dashboard view (signed out, it is sent to /login and
+    // back); Home's own heading-face text is covered by the next test.
+    await other.goto("/dashboards");
+    await other.waitForURL(/\/login/);
     await other.fill("#email", creds.email);
     await other.fill("#password", TEST_PASSWORD);
     await other.evaluate(() => {
@@ -194,12 +199,31 @@ test.describe("HEL-1572 type style", () => {
       ).__probe.firstHeadingFont = null;
     });
     await other.click("button[type=submit]");
-    await other.waitForURL("/home");
+    await other.waitForURL("/dashboards");
     await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
     await expect(other.locator("h1, h2").first()).toBeVisible();
     const result = await probe(other);
     // The probe resets per document; assert on the post-login document's first authenticated heading.
     expect(result.firstHeadingFont).toMatch(/^Fraunces/);
+    await ctx.close();
+  });
+
+  test("no flash: Home's opening sentence is serif on a new device (no cache) after sign-in (HEL-1578)", async ({
+    page,
+    request,
+    browser,
+  }) => {
+    const creds = await registerAndLogin(page, request, { ...AUTH, label: "flash-home" });
+    await setPref(page.request, { typeStyle: "serif" });
+    const ctx = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+    const other = await ctx.newPage();
+    await other.goto("/login");
+    await other.fill("#email", creds.email);
+    await other.fill("#password", TEST_PASSWORD);
+    await other.click("button[type=submit]");
+    await other.waitForURL("/home");
+    await expect(other.locator("html")).toHaveAttribute("data-type-style", "serif");
+    expect(await fontFamily(other, ".home-opening__sentence")).toMatch(/^Fraunces/);
     await ctx.close();
   });
 
@@ -217,7 +241,7 @@ test.describe("HEL-1572 type style", () => {
       await route.fulfill({ response, json: body });
     });
     await page.addInitScript(PROBE);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator("h1, h2").first()).toBeVisible();
     const result = await probe(page);
     expect(result.firstHeadingFont).not.toMatch(/^Fraunces/);
@@ -229,7 +253,7 @@ test.describe("HEL-1572 type style", () => {
   }) => {
     await registerAndLogin(page, request, { ...AUTH, label: "neg-prepaint" });
     await setPref(page.request, { typeStyle: "serif" });
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif"); // cache primed
     await page.route("**/*", async (route) => {
       const request = route.request();
@@ -245,7 +269,7 @@ test.describe("HEL-1572 type style", () => {
       await route.fulfill({ response, body: html });
     });
     await page.addInitScript(PROBE);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator("html")).toHaveAttribute("data-type-style", "serif");
     const result = await probe(page);
     expect(result.typeStyleSetWithRootEmpty).toBe(false);
@@ -312,7 +336,7 @@ test.describe("HEL-1572 density", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "density", isolate: true });
     await seedDashboard(page.request);
     await page.setViewportSize({ width: 1600, height: 1000 });
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator(".react-grid-item")).toHaveCount(3);
     await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
     // Resolve the token to px through a real box (the computed custom property may still read "0.5rem").
@@ -337,7 +361,7 @@ test.describe("HEL-1572 density", () => {
     await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
     const compactGap = await gapToken();
     expect(compactGap).toBeLessThan(comfortableGap);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator(".react-grid-item")).toHaveCount(3);
     await expect.poll(async () => (await gridBoxes(page))[0]?.height).toBeGreaterThan(100);
     const after = await gridBoxes(page);

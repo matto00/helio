@@ -105,7 +105,7 @@ function renderPage(routeState?: { proposal: CombinedProposal }) {
       >
         <Routes>
           <Route path="/combined-proposals/review" element={<CombinedProposalReviewPage />} />
-          <Route path="/home" element={<RouteProbe />} />
+          <Route path="/dashboards" element={<RouteProbe />} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -140,7 +140,7 @@ describe("CombinedProposalReviewPage", () => {
     expect(screen.getByText(/Dashboard — Sales overview/)).toBeInTheDocument();
   });
 
-  it("Accept dispatches applyCombinedProposal and navigates to /home with the new dashboard selected", async () => {
+  it("Accept dispatches applyCombinedProposal and navigates to /dashboards with the new dashboard selected", async () => {
     mockedApplyCombinedProposal.mockResolvedValueOnce(appliedResponse);
 
     const { store } = renderPage({ proposal });

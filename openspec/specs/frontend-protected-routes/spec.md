@@ -19,10 +19,12 @@ The frontend SHALL provide a `ProtectedRoute` component that wraps React Router 
 - **THEN** a loading indicator is shown and no redirect occurs until the status resolves
 
 ### Requirement: App routes wrapped with ProtectedRoute
-All existing application routes (`/home`, `/sources`, `/pipelines`, and `/pipelines/:id`) SHALL be nested inside `ProtectedRoute`. The `/login` and `/register` routes SHALL remain outside `ProtectedRoute` (public).
+All existing application routes (`/home`, `/dashboards`, `/dashboards/:id`, `/sources`, `/pipelines`, and
+`/pipelines/:id`) SHALL be nested inside `ProtectedRoute`. The `/login` and `/register` routes SHALL remain outside
+`ProtectedRoute` (public).
 
 #### Scenario: Dashboard route is protected
-- **WHEN** an unauthenticated user navigates to `/home`
+- **WHEN** an unauthenticated user navigates to `/home` or `/dashboards`
 - **THEN** they are redirected to `/login`
 
 #### Scenario: Sources route is protected

@@ -9,6 +9,7 @@ import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
 import com.helio.api.protocols.firstrun._
+import com.helio.api.protocols.home._
 import com.helio.api.protocols.hooks._
 import com.helio.api.protocols.panels._
 import com.helio.api.protocols.patchsets._
@@ -55,6 +56,7 @@ import com.helio.api.protocols.workspace._
  *  - `AlertEventProtocol` has no cross-domain dependency (value is a raw JsValue)
  *  - `MetricProtocol` has no cross-domain dependency
  *  - `PipelineScheduleProtocol` has no cross-domain dependency
+ *  - `HomeSummaryProtocol` has no cross-domain dependency (HEL-1578)
  *  - `ConnectorProtocol` has no cross-domain dependency
  *  - `PipelineShapeProtocol` has no cross-domain dependency
  *  - `PipelineStepCatalogProtocol` has no cross-domain dependency (HEL-1136)
@@ -100,6 +102,7 @@ trait JsonProtocols
     with PipelineProposalProtocol
     with CombinedProposalProtocol
     with FirstRunProtocol
+    with HomeSummaryProtocol
     with AdminUsageProtocol
     with PipelineAnalyzeProposalProtocol
     with PatchSetProtocol

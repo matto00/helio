@@ -140,7 +140,7 @@ export function PatchSetReviewPage() {
         });
       }
       // HEL-1458: replace, so Back cannot restore this review (and its still-enabled Apply) after a successful apply.
-      navigate("/home", { replace: true });
+      navigate("/dashboards", { replace: true });
     } catch (err) {
       if (isPatchSetAlreadyApplied(err)) setAlreadyApplied(true);
       else if (isPatchSetStale(err)) setConflict(err);
@@ -149,7 +149,7 @@ export function PatchSetReviewPage() {
     }
   };
 
-  const handleReject = () => navigate("/home");
+  const handleReject = () => navigate("/dashboards");
 
   // F-002: no patch set handed off via navigation state, and not a DEV build
   // — there is nothing to review and, unlike the DEV fixture path, no
@@ -161,7 +161,7 @@ export function PatchSetReviewPage() {
           icon={<Columns3 />}
           title="Nothing to review"
           description="This page reviews a patch set handed off from another flow. Start from the dashboards list instead."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );
@@ -174,7 +174,7 @@ export function PatchSetReviewPage() {
           icon={<Columns3 />}
           title="This proposal was already applied"
           description="Ask for a new proposal to change anything else."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );
@@ -187,7 +187,7 @@ export function PatchSetReviewPage() {
           status="failed"
           title="Couldn't build a patch set"
           message={loadError}
-          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );
@@ -200,7 +200,7 @@ export function PatchSetReviewPage() {
           status="failed"
           title="Couldn't preview this patch set"
           message={previewError}
-          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          secondaryCta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );
@@ -221,7 +221,7 @@ export function PatchSetReviewPage() {
           icon={<Columns3 />}
           title="No patch set to review"
           description="Create a dashboard with at least one panel so a patch set can be built over it, then try again."
-          cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+          cta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
         />
       </PageShell>
     );

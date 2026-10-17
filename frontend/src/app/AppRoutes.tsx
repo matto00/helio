@@ -18,6 +18,7 @@ import { SourcesPage } from "../features/sources/ui/SourcesPage";
 import { PatchSetReviewPage } from "../features/patchSets/ui/PatchSetReviewPage";
 import { DashboardRoute } from "../features/dashboards/ui/DashboardRoute";
 import { PublicDashboardViewerPage } from "../features/dashboards/ui/PublicDashboardViewerPage";
+import { HomePage } from "../features/home/ui/HomePage";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
 import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
@@ -68,7 +69,7 @@ function NotFoundPage() {
         icon={<Compass />}
         title="Page not found"
         description="That page doesn't exist or may have moved."
-        cta={{ label: "Back to dashboards", onClick: () => navigate("/home") }}
+        cta={{ label: "Back to dashboards", onClick: () => navigate("/dashboards") }}
       />
     </div>
   );
@@ -109,7 +110,9 @@ export function AppRoutes() {
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path="/home" element={<PanelList />} />
+          <Route path="/home" element={<HomePage />} />
+          {/* HEL-1578: the dashboard view (the selected dashboard) moved here from `/home`. */}
+          <Route path="/dashboards" element={<PanelList />} />
           {/* HEL-1209: the first-run landing URL; the public viewer is the longer
               `/dashboards/:id/panels`, registered above outside ProtectedRoute. */}
           <Route path="/dashboards/:id" element={<DashboardRoute />} />

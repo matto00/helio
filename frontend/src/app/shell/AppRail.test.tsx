@@ -54,8 +54,20 @@ describe("AppRail", () => {
     );
   });
 
-  it("marks exactly one rail item current on a dashboard route, and it is Dashboards, never Home", () => {
+  it("marks exactly one rail item current on '/home', and it is Home (HEL-1578)", () => {
     renderRail("/home");
+    const current = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(current.map((l) => l.getAttribute("aria-label"))).toEqual(["Home"]);
+    expect(screen.getByRole("link", { name: "Home" })).toHaveClass("app-rail__item--active");
+    expect(screen.getByRole("link", { name: "Dashboards" })).not.toHaveClass(
+      "app-rail__item--active",
+    );
+  });
+
+  it("marks exactly one rail item current on '/dashboards', and it is Dashboards, never Home", () => {
+    renderRail("/dashboards");
     const current = screen
       .getAllByRole("link")
       .filter((link) => link.getAttribute("aria-current") === "page");
@@ -119,6 +131,12 @@ describe("AppRail", () => {
     const marked = container.querySelectorAll("[data-indicator-active]");
     expect(marked).toHaveLength(1);
     expect(marked[0]).toBe(screen.getByRole("link", { name: "Data Pipelines" }));
+  });
+
+  it("marks Home for the indicator on the home route, and only Home (HEL-1573, HEL-1578)", () => {
+    const { container } = renderRail("/home");
+    expect(container.querySelectorAll("[data-indicator-active]")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("data-indicator-active");
   });
 
   it("marks Settings for the indicator on the settings route (HEL-1573)", () => {

@@ -292,11 +292,24 @@ class PipelineRunEditorPersistenceSpec extends AnyWordSpec with Matchers with Be
       }
     }
 
-    "keep exactly 10 run rows after 11 editor runs (retention applies to editors)" in {
+    "prune runs older than 24h to the newest 10 after an editor run, and keep the editor's own (retention applies to editors)" in {
+      import PostgresProfile.api._
+      val p = seedPipelineId(); val ed = seedEditor(p)
+      // HEL-1578 (keep-24h): runs inside the last 24h are spared, so the pruning is proven on 12 runs from 3 days ago.
+      (1 to 12).foreach { i =>
+        priv(sqlu"""INSERT INTO pipeline_runs (id, pipeline_id, status, started_at, completed_at, row_count)
+                    VALUES (${UUID.randomUUID().toString}, ${p.value}, 'succeeded', now() - interval '3 days' + ${i} * interval '1 minute',
+                            now() - interval '3 days' + ${i} * interval '1 minute', 1)""")
+      }
+      await(service(roomy).submit(p, isDry = false, ed)).isRight shouldBe true
+      runs(p).map(_.status) shouldBe Vector.fill(10)("succeeded")
+    }
+
+    "keep every editor run inside the last 24h (keep-24h)" in {
       val p = seedPipelineId(); val ed = seedEditor(p)
       val svc = service(roomy)
       (1 to 11).foreach(_ => await(svc.submit(p, isDry = false, ed)).isRight shouldBe true)
-      runs(p).map(_.status) shouldBe Vector.fill(10)("succeeded")
+      runs(p).map(_.status) shouldBe Vector.fill(11)("succeeded")
     }
   }
 

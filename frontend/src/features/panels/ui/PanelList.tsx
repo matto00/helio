@@ -2,11 +2,13 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useContainerWidth } from "react-grid-layout";
 import { LayoutDashboard, LayoutGrid, TriangleAlert } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 import "./PanelList.css";
 import { defaultDashboardLayout } from "../../dashboards/state/dashboardLayout";
 import { updateUserPreferences } from "../../auth/state/authSlice";
 import { useCreateDashboardAction } from "../../dashboards/hooks/useCreateDashboardAction";
+import { useDashboardViewStamp } from "../../dashboards/hooks/useDashboardViewStamp";
 import { useOnboardingHost } from "../../onboarding/hooks/useOnboardingHost";
 import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import { FirstRunDropZone } from "../../onboarding/ui/FirstRunDropZone";
@@ -54,7 +56,13 @@ export function PanelList() {
   const { visible: onboardingVisible } = useOnboardingHost();
   // HEL-1209 — "Set up step by step" opts out of the first-run drop zone for the rest of this
   // mount; the checklist then shows exactly as before.
-  const [stepByStep, setStepByStep] = useState(false);
+  // HEL-1578: Home's "Set up step by step" opens `/dashboards` with `state.stepByStep` so the checklist shows.
+  const location = useLocation();
+  const [stepByStep, setStepByStep] = useState(
+    () => (location.state as { stepByStep?: boolean } | null)?.stepByStep === true,
+  );
+  // HEL-1578 D5: stamps the dashboard this view actually displays, for the Home page's changed dot.
+  useDashboardViewStamp();
   // HEL-539 — local in-flight flag for the panels-list Retry action (status
   // itself flips straight to "loading" on retry, which swaps StatusMessage
   // out of its "failed" branch entirely; this only matters for the brief

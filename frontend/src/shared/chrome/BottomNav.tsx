@@ -1,7 +1,7 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import "./BottomNav.css";
-import { homeAlias } from "./navDestinations";
+import { homeAlias, isDestinationActive } from "./navDestinations";
 import { useNavDestinations } from "./useNavDestinations";
 import { ICON_SIZE } from "../ui/iconSize";
 
@@ -17,27 +17,33 @@ import { ICON_SIZE } from "../ui/iconSize";
  */
 export function BottomNav() {
   const navDestinations = useNavDestinations();
+  const { pathname } = useLocation();
   const HomeIcon = homeAlias.icon;
+  const homeActive = isDestinationActive(homeAlias, pathname);
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {/* HEL-1574: Home leads (owner ruling 2026-10-13: the phone has no rail). A plain Link, never a NavLink, so it
-          is never marked current while it aliases `/home`; the Dashboards tab carries the active state. */}
-      <Link to={homeAlias.to} aria-label={homeAlias.label} className="bottom-nav__tab">
+      {/* HEL-1574: Home leads (owner ruling 2026-10-13: the phone has no rail). HEL-1578: it opens the Home page and
+          is current there; `isDestinationActive` keeps exactly one tab current on `/home` and on the dashboard view. */}
+      <Link
+        to={homeAlias.to}
+        aria-label={homeAlias.label}
+        aria-current={homeActive ? "page" : undefined}
+        className={homeActive ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"}
+      >
         <span className="bottom-nav__lozenge">
           <HomeIcon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
         </span>
       </Link>
       {navDestinations.map((destination) => {
         const Icon = destination.icon;
+        const active = isDestinationActive(destination, pathname);
         return (
-          <NavLink
+          <Link
             key={destination.to}
             to={destination.to}
-            end={destination.end}
             aria-label={destination.label}
-            className={({ isActive }) =>
-              isActive ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"
-            }
+            aria-current={active ? "page" : undefined}
+            className={active ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"}
           >
             {/* Dedicated carrier for the active-state lozenge (D6) — never
                 style the <svg> directly. Lucide emits width="22"/height="22"
@@ -48,7 +54,7 @@ export function BottomNav() {
             <span className="bottom-nav__lozenge">
               <Icon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
             </span>
-          </NavLink>
+          </Link>
         );
       })}
     </nav>

@@ -137,7 +137,7 @@ function renderApp() {
   });
 
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter initialEntries={["/dashboards"]}>
       <ThemeProvider>
         <Provider store={store}>
           <OverlayProvider>

@@ -125,13 +125,13 @@ export function UserMenu({
   // HEL-554 D2/D7/D9 — DISPATCHES rather than writing `localStorage` itself
   // (the persisted dismissal has exactly one owner: `useOnboardingHost`'s
   // effect). `reopenOnboarding` clears the stored dismissal and sets the
-  // sticky `active` flag; navigating to `/` afterward is what actually
+  // sticky `active` flag; navigating to `/dashboards` afterward is what actually
   // presents the checklist, since `PanelList` is the only surface that
   // renders it.
   function handleGettingStarted() {
     close();
     dispatch(reopenOnboarding());
-    navigate("/home");
+    navigate("/dashboards");
   }
 
   function handleToggle() {

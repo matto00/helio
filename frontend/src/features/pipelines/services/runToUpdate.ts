@@ -21,14 +21,23 @@ import { runPipeline } from "./pipelineService";
 export interface RunToUpdateResult {
   ok: boolean;
   message: string;
+  /** Set only for a guard rejection (HTTP 429) that carried a parseable `Retry-After` (HEL-1578: Home words it). */
+  retryAfterSeconds?: number;
+  /** True for a guard rejection (HTTP 429): the run was not started. */
+  rejected?: boolean;
 }
 
 /** Reads the `Retry-After` response header (axios normalizes header names to lowercase) and
  *  renders the guard-rejection message with it when present/parseable — falls back to a message
  *  with no specific wait time otherwise, never throwing on a malformed/missing header. */
-function guardRejectionMessage(retryAfterRaw: unknown): string {
+function retryAfterSeconds(retryAfterRaw: unknown): number | undefined {
   const seconds = typeof retryAfterRaw === "string" ? Number(retryAfterRaw) : NaN;
-  if (Number.isFinite(seconds) && seconds > 0) {
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+}
+
+function guardRejectionMessage(retryAfterRaw: unknown): string {
+  const seconds = retryAfterSeconds(retryAfterRaw);
+  if (seconds !== undefined) {
     return `Too many runs right now — try again in ${seconds}s.`;
   }
   return "Too many runs right now — try again shortly.";
@@ -41,7 +50,15 @@ export async function runToUpdate(pipelineId: string): Promise<RunToUpdateResult
     return { ok: true, message: "Run started." };
   } catch (err) {
     if (isAxiosError(err) && err.response?.status === 429) {
-      return { ok: false, message: guardRejectionMessage(err.response.headers?.["retry-after"]) };
+      const retryAfter = err.response.headers?.["retry-after"];
+      return {
+        ok: false,
+        message: guardRejectionMessage(retryAfter),
+        rejected: true,
+        ...(retryAfterSeconds(retryAfter) !== undefined
+          ? { retryAfterSeconds: retryAfterSeconds(retryAfter) }
+          : {}),
+      };
     }
     return {
       ok: false,

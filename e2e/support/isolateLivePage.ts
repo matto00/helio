@@ -17,7 +17,7 @@ import type { Page } from "@playwright/test";
 //
 // HAZARD: `about:blank` has no app origin. Never follow it with `page.reload()` (it reloads a blank
 // page), `page.evaluate`, or a localStorage step before the next app-origin `page.goto`. Where a spec
-// wanted "a fresh document on `/home`" from a `page.reload()`, use `page.goto("/home")` instead.
+// wanted "a fresh document on `/home`" from a `page.reload()`, use `page.goto("/dashboards")` instead.
 export async function isolateLivePage(page: Page): Promise<void> {
   await page.goto("about:blank");
 }
