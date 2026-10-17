@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/sources/source-sample-response.schema.json",
+  "title": "SourceSampleResponse",
+  "description": "Response body for GET /api/data-sources/:id/sample (HEL-1628) -- the engine-loaded head (at most 1,000 rows, in engine order) of one data source, loaded exactly as a pipeline run loads it (REST/SQL flattening and row typing included), for the client draft-preview evaluator. `capturedAt` is the server time of the read. `sourceRowCount` is the total rows the source holds when known; it is always present and is null only for a truncated live read whose driver did not observe a total. `truncated` is true when the source holds more rows than were returned. `live` is true for a source that re-reads a live system (rest_api, sql, or a file kind with a source URL). Cells are value-encoded losslessly: a JVM Int is {\"$int\": n}, a Long is {\"$long\": \"n\"}, NaN/Infinity/-Infinity/negative zero are {\"$double\": \"...\"}, and every other JSON number is a double.",
+  "type": "object",
+  "required": ["rows", "capturedAt", "sourceRowCount", "truncated", "live"],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "type": "object", "additionalProperties": { "$ref": "#/$defs/cell" } }
+    },
+    "capturedAt": { "type": "string", "format": "date-time" },
+    "sourceRowCount": { "type": ["integer", "null"], "minimum": 0 },
+    "truncated": { "type": "boolean" },
+    "live": { "type": "boolean" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "cell": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        { "type": "number" },
+        {
+          "type": "object",
+          "required": ["$int"],
+          "properties": { "$int": { "type": "integer" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["$long"],
+          "properties": { "$long": { "type": "string", "pattern": "^-?[0-9]+$" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["$double"],
+          "properties": { "$double": { "enum": ["NaN", "Infinity", "-Infinity", "-0.0"] } },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-10-16T12:00:00Z",
+  "live": true,
+  "rows": [
+    {
+      "s": "alpha",
+      "big": {
+        "$long": "9007199254740993"
+      },
+      "i": {
+        "$int": 7
+      },
+      "nan": {
+        "$double": "NaN"
+      },
+      "b": true,
+      "z": null,
+      "d": 1.5
+    },
+    {
+      "s": "",
+      "big": {
+        "$long": "-1"
+      },
+      "i": {
+        "$int": -3
+      },
+      "nan": {
+        "$double": "-Infinity"
+      },
+      "b": false,
+      "z": null,
+      "d": {
+        "$double": "-0.0"
+      }
+    }
+  ],
+  "sourceRowCount": null,
+  "truncated": true
+}

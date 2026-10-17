@@ -118,11 +118,20 @@
  * no visible size change from the old plain text at that count. ── */
 .pipeline-detail-header__source-chips {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: nowrap;
   gap: var(--space-1);
   min-width: 0;
   overflow: hidden;
+}
+
+/* HEL-1628: a chip and its sample label (text + refresh) stacked; the group, not the pill, is the flex item. */
+.pipeline-detail-header__source-chip-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 /* HEL-1022 follow-up: `max-width: 10rem` here was an UNCONDITIONAL cap, so a
@@ -391,6 +400,12 @@
    defect. `--app-surface-raised` clears 1.10 against THIS backdrop in
    both themes (1.179 light / 1.122 dark), no theme split needed. */
 .pipeline-detail-header__actions .actions-menu__trigger:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+}
+
+/* HEL-1628: the source chip's sample-refresh button sits on this same `--app-surface-soft` header, so the
+   shared ghost hover (`--app-surface-soft`) measured 1.000 against it; it takes the actions trigger's rung. */
+.pipeline-detail-header .source-sample-label .ui-icon-btn:hover:not(:disabled) {
   background: var(--app-surface-raised);
 }
 

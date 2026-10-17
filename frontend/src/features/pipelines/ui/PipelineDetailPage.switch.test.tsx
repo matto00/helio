@@ -10,6 +10,7 @@ import { configureStore } from "@reduxjs/toolkit";
 
 import { ThemeProvider } from "../../../theme/ThemeProvider";
 import { sourcesReducer } from "../../sources/state/sourcesSlice";
+import { sourceSamplesReducer } from "../../sources/state/sourceSamplesSlice";
 import { authReducer } from "../../auth/state/authSlice";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../layout/state/layoutHistorySlice";
@@ -141,6 +142,7 @@ function makeStore() {
       layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
       sources: sourcesReducer,
+      sourceSamples: sourceSamplesReducer,
       pipelines: pipelinesReducer,
       outputs: outputsReducer,
       toasts: toastsReducer,

@@ -10,7 +10,7 @@ import com.helio.domain.model.{AuthenticatedUser, OutputId, PipelineId, Pipeline
 import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, PipelineExecutionBackend}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.util.{Clock, SystemClock}
-import com.helio.services.sources.{ContentSourceSupport, CsvUrlFetch}
+import com.helio.services.sources.{ContentSourceSupport, SourceUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
@@ -113,28 +113,10 @@ final class PipelineRunService(
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  /** HEL-862/HEL-881 (design.md Decision 2/3, task 2.2): the single seam the
-   *  engine calls for EVERY URL-backed source kind — a thin closure that
-   *  dispatches by `kind` to `CsvUrlFetch.fetch` (csv keeps its https-only +
-   *  non-CSV-body gate) or `ContentSourceSupport.fetchUrlWithLimit`
-   *  (text/pdf/image stay http-or-https, per Decision 3), NOT a second
-   *  implementation of either's checks. `system` is read INSIDE the closure
-   *  (call time), never at this val's own construction, so a fixture that
-   *  never runs a URL-backed source never pays for (or NPEs on) a null
-   *  `system`. */
-  private def urlFetchSeam(kind: String, url: String): Future[Either[String, Array[Byte]]] =
-    if (system == null)
-      Future.successful(Left("URL-backed source fetch is not configured"))
-    else
-      kind match {
-        case "csv" =>
-          CsvUrlFetch.fetch(url, CsvUrlFetch.maxFileSizeBytes, resolveHost, isBlocked)(system)
-            .map(_.left.map(_.message))
-        case "text"  => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.textMaxBytes, resolveHost, isBlocked)(system)
-        case "pdf"   => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.pdfMaxBytes, resolveHost, isBlocked)(system)
-        case "image" => ContentSourceSupport.fetchUrlWithLimit(url, ContentSourceSupport.imageMaxBytes, resolveHost, isBlocked)(system)
-        case other   => Future.successful(Left(s"URL-backed fetch is not supported for source kind '$other'"))
-      }
+  /** HEL-862/HEL-881: the URL-backed fetch seam is `SourceUrlFetch.seam` (HEL-1628: shared with the source
+   *  sample service so both apply identical URL checks). `system` is read lazily at call time. */
+  private def urlFetchSeam: (String, String) => Future[Either[String, Array[Byte]]] =
+    SourceUrlFetch.seam(system, resolveHost, isBlocked)
 
   // HEL-952 design.md Decision 4a: reuses the SAME resolveHost/isBlocked this class already
   // takes for URL-backed sources — one override per ApiRoutes construction, not a second,

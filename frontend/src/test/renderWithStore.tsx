@@ -24,6 +24,7 @@ import { shareTokensReducer } from "../features/dashboards/state/shareTokensSlic
 import { scheduledItemsReducer } from "../features/pipelines/state/scheduledItemsSlice";
 import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
+import { sourceSamplesReducer } from "../features/sources/state/sourceSamplesSlice";
 import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
 import { addDashboardTabsListeners } from "../features/dashboards/tabs/dashboardTabsListeners";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
@@ -214,6 +215,7 @@ export function renderWithStore(
     settings: settingsReducer,
     sources: sourcesReducer,
     datasetRows: datasetRowsReducer,
+    sourceSamples: sourceSamplesReducer,
     toasts: toastsReducer,
   };
 

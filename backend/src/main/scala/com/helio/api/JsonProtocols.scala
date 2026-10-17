@@ -110,6 +110,7 @@ trait JsonProtocols
     with PatchSetPreviewProtocol
     with PatchSetUndoProtocol
     with DataSourceProtocol
+    with SourceSampleProtocol
     with PipelineProtocol
     with PermissionProtocol
     with ShareTokenProtocol
