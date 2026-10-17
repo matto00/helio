@@ -1,5 +1,7 @@
 import { type MouseEvent, type ReactNode, useEffect, useRef } from "react";
 
+import { expandFrom } from "../motion/expandFrom";
+import { useMotion } from "../../theme/ThemeProvider";
 import { IconButton } from "./IconButton";
 import "./Modal.css";
 import { X } from "lucide-react";
@@ -39,6 +41,10 @@ interface ModalProps {
   className?: string;
   /** aria-label override. Defaults to the string value of title. */
   ariaLabel?: string;
+  /** HEL-1584: the viewport rectangle the dialog grows out of (the card it was opened from). Under Full, the dialog is
+   *  animated from that rectangle to its own place (`expandFrom`) in place of the ordinary rise; under Subtle and Off, or
+   *  with no rectangle, the ordinary entrance applies. Read when the dialog opens, never afterwards. */
+  expandFrom?: DOMRectReadOnly | null;
 }
 
 // Selector for all keyboard-focusable elements inside the modal — mirrors
@@ -72,7 +78,13 @@ export function Modal({
   size = "md",
   className,
   ariaLabel,
+  expandFrom: expandOrigin = null,
 }: ModalProps) {
+  const motion = useMotion();
+  // The class is present from the first render, before `[open]` is applied, so `ui-modal-in` never starts on a dialog that
+  // is about to be expanded (a CSS transform animation and the Web Animation's would otherwise stack).
+  const expanding = expandOrigin !== null && motion === "full";
+  const expandOriginRef = useRef<DOMRectReadOnly | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   // HEL-590 (evaluation-1.md CR9) -- the control that invoked the modal, captured the instant it
@@ -98,6 +110,12 @@ export function Modal({
     titleRef.current?.focus();
   }, [titleKey]);
 
+  // The origin the open effect below reads. Declared before it, so within one commit this runs first and the effect sees
+  // the rectangle that belongs to the render that opened the dialog.
+  useEffect(() => {
+    expandOriginRef.current = expanding ? expandOrigin : null;
+  });
+
   // Sync open prop → native dialog open/close. This is the sole imperative
   // showModal()/close() call site.
   useEffect(() => {
@@ -112,7 +130,13 @@ export function Modal({
         previouslyFocusedRef.current =
           document.activeElement instanceof HTMLElement ? document.activeElement : null;
       }
-      if (!dialog.open) dialog.showModal();
+      if (!dialog.open) {
+        dialog.showModal();
+        // The dialog has a box only now (a native <dialog> is `display: none` until it is shown), so this is the first
+        // moment it can be measured. Under dev StrictMode the simulated unmount closes the dialog, this re-runs and
+        // expands again; the second animation replaces the first.
+        expandFrom(dialog, expandOriginRef.current);
+      }
     } else {
       if (dialog.open) dialog.close();
       // Restore focus to the invoking control (CR9) -- guarded so an already-gone element (e.g.
@@ -203,7 +227,12 @@ export function Modal({
 
   const label = ariaLabel ?? (typeof title === "string" ? title : undefined);
 
-  const dialogClass = ["ui-modal", `ui-modal--${size}`, className ?? null]
+  const dialogClass = [
+    "ui-modal",
+    `ui-modal--${size}`,
+    expanding ? "ui-modal--expanding" : null,
+    className ?? null,
+  ]
     .filter(Boolean)
     .join(" ");
 

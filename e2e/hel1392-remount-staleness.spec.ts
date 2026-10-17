@@ -54,7 +54,8 @@ async function spaNavigate(page: Page, path: string) {
 
 async function setViewport(page: Page, size: typeof DESKTOP) {
   await page.setViewportSize(size);
-  if (size === PHONE) await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+  if (size === PHONE)
+    await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
   else await expect(page.locator(".react-grid-item")).toHaveCount(2, { timeout: 15_000 });
 }
 
@@ -172,7 +173,7 @@ test.describe("HEL-1392 staleness in the running app", () => {
         await page.waitForTimeout(1_000);
         from = mark();
         await spaNavigate(page, `/dashboards/${dash.id}`);
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
         await expect.poll(() => seriesTypes(chartCard())).toEqual(["line"]);
         expect(since(from, META), "metadata refetched after the edit").toBeGreaterThan(0);
 
@@ -189,7 +190,7 @@ test.describe("HEL-1392 staleness in the running app", () => {
         await page.waitForTimeout(1_500);
         from = mark();
         await spaNavigate(page, `/dashboards/${dash.id}`);
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
         await expect(tableCard().getByRole("cell", { name: "North", exact: true })).toBeVisible();
         const fresh = { rows: since(from, ROWS), meta: since(from, META) };
         expect(fresh.rows, "rows refetched after the re-run").toBeGreaterThan(0);

@@ -90,8 +90,11 @@ describe("motion tokens (D5)", () => {
     "--motion-duration-emphasized": "0.01ms",
     "--motion-duration-highlight": "0.01ms",
     "--motion-stagger": "0ms",
+    "--motion-stagger-tight": "0ms",
     "--motion-duration-move": "0.01ms",
     "--motion-rise-distance": "0px",
+    "--motion-lift-scale": "1",
+    "--motion-nudge-distance": "0px",
     "--app-transition": "0.01ms ease",
     "--transition-slow": "0.01ms cubic-bezier(0.3, 0.9, 0.4, 1)",
   };
@@ -116,6 +119,8 @@ describe("motion tokens (D5)", () => {
     expect(decl(body, "--motion-ease-overshoot")).toBe("var(--motion-ease-out)");
     expect(decl(body, "--motion-duration-move")).toBe("0.01ms");
     expect(decl(body, "--motion-rise-distance")).toBe("0px");
+    expect(decl(body, "--motion-lift-scale")).toBe("1");
+    expect(decl(body, "--motion-nudge-distance")).toBe("0px");
     expect(body).not.toMatch(/--motion-duration-(quick|standard|emphasized)/);
   });
 
@@ -123,6 +128,18 @@ describe("motion tokens (D5)", () => {
     const root = rule(":root");
     expect(decl(root, "--motion-duration-move")).toBe("var(--motion-duration-standard)");
     expect(decl(root, "--motion-rise-distance")).toBe("6px");
+  });
+
+  it("Full declares the tight stagger step (30ms), beside --motion-stagger (HEL-1584)", () => {
+    const root = rule(":root");
+    expect(decl(root, "--motion-stagger")).toBe("40ms");
+    expect(decl(root, "--motion-stagger-tight")).toBe("30ms");
+  });
+
+  it("Full declares the lift scale (1.01) and the nudge distance (2px) (HEL-1584 D1)", () => {
+    const root = rule(":root");
+    expect(decl(root, "--motion-lift-scale")).toBe("1.01");
+    expect(decl(root, "--motion-nudge-distance")).toBe("2px");
   });
 
   it("the global reduced-motion rule is scoped to no-saved-choice and has an Off twin", () => {

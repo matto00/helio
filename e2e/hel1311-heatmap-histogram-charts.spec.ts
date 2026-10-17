@@ -243,7 +243,8 @@ for (const { theme, width, accent } of CASES) {
       await page.getByText(`HEL-1311 ${label}`).first().click();
       if (width === 375) {
         await page.setViewportSize({ width: 375, height: 900 });
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        // The skeleton stack fades out under the real one for a moment (HEL-1584); the real one is in the live layer.
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
       }
       const card = (title: string) =>
         page

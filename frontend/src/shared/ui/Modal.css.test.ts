@@ -142,3 +142,36 @@ describe("Modal.css — .ui-modal__inner is a bounded flex item, not a height:10
     expect(body).not.toMatch(/height:\s*100%\s*;/);
   });
 });
+
+// HEL-1584 (closes HEL-1035): the backdrop fades in with the dialog, the rise is the token, and Subtle fades in place.
+describe("Modal.css — one entrance gesture (HEL-1584)", () => {
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("fades the backdrop in over the quick duration, backwards-filled", () => {
+    const body = findRuleBodyInSource(code, ".ui-modal[open]::backdrop");
+    expect(body).toMatch(
+      /animation:\s*ui-modal-backdrop-in var\(--motion-duration-quick\) var\(--motion-ease-standard\) backwards/,
+    );
+    expect(findRuleBodyInSource(code, "@keyframes ui-modal-backdrop-in")).toMatch(/opacity:\s*0/);
+  });
+
+  it("keeps the ui-modal-in name and timing, and rises by the rise-distance token", () => {
+    expect(findRuleBodyInSource(code, ".ui-modal[open] {")).toMatch(
+      /animation:\s*ui-modal-in var\(--transition-slow\) backwards/,
+    );
+    const from = findRuleBodyInSource(
+      findRuleBodyInSource(code, "@keyframes ui-modal-in"),
+      "from {",
+    );
+    expect(from).toMatch(/translateY\(var\(--motion-rise-distance\)\)/);
+    expect(from).not.toMatch(/translateY\(\d/);
+  });
+
+  it("Subtle and an expanding dialog take the opacity-only keyframes", () => {
+    expect(code).toMatch(
+      /:root\[data-motion="subtle"\] \.ui-modal\[open\],\s*\.ui-modal\.ui-modal--expanding\[open\]\s*\{\s*animation-name:\s*ui-modal-fade-in;/,
+    );
+    const fade = findRuleBodyInSource(code, "@keyframes ui-modal-fade-in");
+    expect(fade).not.toMatch(/transform/);
+  });
+});

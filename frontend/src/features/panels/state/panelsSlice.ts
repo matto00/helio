@@ -80,6 +80,16 @@ interface PanelsState {
   /** HEL-1575 task 4.5(6) -- the dashboard whose warm copy is being read from the browser store (a lazy
    *  restore waits at most 500 ms). `PanelList` shows the grid skeleton for it instead of a blank frame. */
   restoringDashboardId?: string | null;
+  /** HEL-1584 D4 -- where `items` last came from: `network` for a server response (`fetchPanels`, a duplicated or
+   *  imported dashboard), `restored` for the warm copy (`panelsRestored`). The grid's cold-load entrance plays only for
+   *  `network`; a warm restore is instant. */
+  itemsOrigin?: "network" | "restored";
+  /** HEL-1584 D4 -- incremented by every network replacement of `items`; never reset or reused, so `dashboardId:loadId`
+   *  names one load of one dashboard's panels. `panelsRestored` leaves it alone. Both fields are optional so a state
+   *  literal built before them (a test fixture) still type-checks; readers default to `network` and 0. */
+  loadId?: number;
+  /** HEL-1584 D11a -- incremented by every successful `updatePanelsBatch`; see `dashboardsSlice.layoutSaveSeq`. */
+  panelSaveSeq?: number;
 }
 
 const initialState: PanelsState = {
@@ -96,6 +106,9 @@ const initialState: PanelsState = {
   panelCreationModalOpen: false,
   latestFetchRequestId: {},
   restoringDashboardId: null,
+  itemsOrigin: "network",
+  loadId: 0,
+  panelSaveSeq: 0,
 };
 
 const panelsSlice = createSlice({
@@ -150,6 +163,7 @@ const panelsSlice = createSlice({
       state.interactionState = {};
       state.crossFilter = null;
       state.restoringDashboardId = null;
+      state.itemsOrigin = "restored";
     },
     /** HEL-1575 D5 -- hydrates restored row windows. NEVER clobbers: a panel that already has a window
      *  (settled or in flight) is skipped, and `latestFetchRequestId` is never touched. */
@@ -245,6 +259,8 @@ const panelsSlice = createSlice({
         state.items = action.payload;
         state.status = "succeeded";
         state.error = null;
+        state.itemsOrigin = "network";
+        state.loadId = (state.loadId ?? 0) + 1;
       })
       .addCase(fetchPanels.rejected, (state, action) => {
         state.items = [];
@@ -314,18 +330,23 @@ const panelsSlice = createSlice({
         const updatedById = new Map(action.payload.panels.map((p) => [p.id, p]));
         state.items = state.items.map((panel) => updatedById.get(panel.id) ?? panel);
         state.lastSavedAt = Date.now();
+        state.panelSaveSeq = (state.panelSaveSeq ?? 0) + 1;
       })
       .addCase(duplicateDashboard.fulfilled, (state, action) => {
         state.items = action.payload.panels;
         state.loadedDashboardId = action.payload.dashboard.id;
         state.status = "succeeded";
         state.error = null;
+        state.itemsOrigin = "network";
+        state.loadId = (state.loadId ?? 0) + 1;
       })
       .addCase(importDashboard.fulfilled, (state, action) => {
         state.items = action.payload.panels;
         state.loadedDashboardId = action.payload.dashboard.id;
         state.status = "succeeded";
         state.error = null;
+        state.itemsOrigin = "network";
+        state.loadId = (state.loadId ?? 0) + 1;
       })
       .addCase(fetchPanelPage.pending, (state, action) => {
         const { panelId, outputId, page, sort, filter, crossFilterEq } = action.meta.arg;

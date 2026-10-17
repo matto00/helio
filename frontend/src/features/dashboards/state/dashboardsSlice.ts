@@ -38,6 +38,10 @@ interface DashboardsState {
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
   hasPendingLayout: boolean;
+  /** HEL-1584 D11a -- incremented by every successful `updateDashboardLayout`; the save-state check watches it (with
+   *  `panelsSlice.panelSaveSeq`) so it appears for a real save and not for an undo back to the saved layout. Optional so a
+   *  state literal built before it still type-checks; readers default to 0. */
+  layoutSaveSeq?: number;
 }
 
 const initialState: DashboardsState = {
@@ -46,6 +50,7 @@ const initialState: DashboardsState = {
   status: "idle",
   error: null,
   hasPendingLayout: false,
+  layoutSaveSeq: 0,
 };
 
 // The backend guarantees dashboards are returned sorted by lastUpdated desc,
@@ -459,6 +464,7 @@ const dashboardsSlice = createSlice({
         // not re-run on it), update every other field, and leave `hasPendingLayout` for `useLayoutSave`
         // to recompute against the server baseline: the newer edit stays pending for the next flush.
         const { sentLayout } = action.meta.arg;
+        state.layoutSaveSeq = (state.layoutSaveSeq ?? 0) + 1;
         state.items = state.items.map((dashboard) => {
           if (dashboard.id !== action.payload.id) return dashboard;
           if (areDashboardLayoutsEqual(dashboard.layout, sentLayout)) {

@@ -86,6 +86,11 @@ function ComparisonLine({
   format?: MetricFormat | null;
 }) {
   const noteId = useId();
+  // HEL-1584 D10: the delta's magnitude counts alongside the headline value (same hook, same token duration). Called before
+  // the early returns, as hooks must be; only a delta has a number to tween.
+  const magnitudeTarget =
+    comparison.kind === "delta" ? (comparison.pct ?? comparison.absDelta) : null;
+  const tweenedMagnitude = useValueTween(magnitudeTarget);
   if (comparison.kind === "filtered") {
     return (
       <span
@@ -109,10 +114,13 @@ function ComparisonLine({
       </span>
     );
   }
-  const magnitude =
+  const magnitudeText = (value: number) =>
     comparison.pct !== null
-      ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(comparison.pct)}%`
-      : (formatMetricValue(String(comparison.absDelta), format) ?? String(comparison.absDelta));
+      ? `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)}%`
+      : (formatMetricValue(String(value), format) ?? String(value));
+  // Assistive technology only ever gets the final magnitude (the `aria-label` below), never the counting text.
+  const magnitude = magnitudeText(comparison.pct ?? comparison.absDelta);
+  const shownMagnitude = magnitudeText(tweenedMagnitude ?? comparison.pct ?? comparison.absDelta);
   const spokenDirection = comparison.direction === "flat" ? "unchanged" : comparison.direction;
   return (
     <span
@@ -120,7 +128,7 @@ function ComparisonLine({
       role="img"
       aria-label={`${spokenDirection} ${magnitude} ${comparison.words}`}
     >
-      {GLYPHS[comparison.direction]} {magnitude} vs {comparison.label}
+      {GLYPHS[comparison.direction]} {shownMagnitude} vs {comparison.label}
     </span>
   );
 }

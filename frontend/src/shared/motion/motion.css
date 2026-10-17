@@ -18,6 +18,18 @@
     calc(min(var(--motion-index, 0), var(--motion-stagger-cap)) * var(--motion-stagger)) backwards;
 }
 
+/* Emphasized rise (DESIGN.md §10: the panel and card rise only): the same stagger on the longer duration. Declared after
+   `.motion-enter`, at the same specificity, so its longhand wins. */
+.motion-enter--emphasized {
+  animation-duration: var(--motion-duration-emphasized);
+}
+
+/* Pop: a single item that appears after its surface was first shown rises once with the overshoot curve and no delay.
+   Subtle zeroes the rise distance and maps the overshoot to ease-out, so it is a fade there. */
+.motion-pop {
+  animation: motion-enter var(--motion-duration-standard) var(--motion-ease-overshoot) backwards;
+}
+
 /* Indicator slide: one absolutely positioned marker translated and sized to the active item by the
    `useIndicatorSlide` custom properties. It never transitions on its first placement (data-indicator="snap"). */
 .motion-indicator {

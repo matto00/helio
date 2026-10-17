@@ -278,7 +278,7 @@ for (const { theme, width } of [
       await page.getByText(`HEL-1512 ${label}`).first().click();
       if (width === 375) {
         await page.setViewportSize({ width: 375, height: 900 });
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
       }
       const card = (title: string) =>
         page

@@ -1129,7 +1129,8 @@ Motion explains change: where something came from, where it went, what
 just updated. It has a little give, and it is never decoration. The tokens
 below are the source of truth; their declarations live in `theme.css`.
 The Motion setting (HEL-1572) and the shared primitives (HEL-1573) implement
-this section; the primitive APIs below are what HEL-1584 builds on.
+this section; HEL-1584 applied them to the product surfaces listed under
+"Where it is applied" below.
 **[judgment]**
 
 ### Tokens
@@ -1141,11 +1142,14 @@ this section; the primitive APIs below are what HEL-1584 builds on.
 | `--motion-duration-emphasized` | 420ms                              | panel/card rise only                                                                                                     |
 | `--motion-duration-highlight`  | 1200ms                             | the changed-row flash (§11)                                                                                              |
 | `--motion-stagger`             | 40ms                               | per-item entrance step (the boards use 30–50ms)                                                                          |
+| `--motion-stagger-tight`       | 30ms                               | per-item step for dense lists (the command palette results; its cap is 7, so the last row starts by about 210ms)         |
 | `--motion-ease-standard`       | `ease`                             | colour and opacity                                                                                                       |
 | `--motion-ease-out`            | `cubic-bezier(0.3, 0.9, 0.4, 1)`   | the single deceleration curve (equals `--transition-slow`'s)                                                             |
 | `--motion-ease-overshoot`      | `cubic-bezier(0.2, 0.9, 0.3, 1.1)` | "a little give" (a pop); never under Subtle                                                                              |
 | `--motion-duration-move`       | `var(--motion-duration-standard)`  | role: anything that translates or repositions (layout slide, indicator slide, grid items); `0.01ms` under Subtle and Off |
 | `--motion-rise-distance`       | `6px`                              | role: the entrance rise (the 4-8px band; no scale); `0px` under Subtle and Off                                           |
+| `--motion-lift-scale`          | `1.01`                             | role: the drag lift of a panel card; `1` under Subtle and Off                                                            |
+| `--motion-nudge-distance`      | `2px`                              | role: the one-shot side-to-side nudge of a failed run mark; `0px` under Subtle and Off                                   |
 
 `--motion-duration-move` is declared at `:root` as an alias that resolves there, so
 overriding `--motion-duration-standard` lower in the tree does not retime it.
@@ -1184,10 +1188,41 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   `--motion-duration-standard`, delayed by `min(index, 10)` x `--motion-stagger`
   (so the last item starts by about 400ms). Items present in the first non-empty
   render stagger in order; an item added later gets index 0 (one rise, no queue).
-  Re-renders never replay it. `.motion-enter` always runs on
-  `--motion-duration-standard`; it has no hook for another duration, so a panel
-  or card rise on `--motion-duration-emphasized` is future work (HEL-1584), not
-  something this primitive provides. Consumer: `DashboardList` rows.
+  Re-renders never replay it. `.motion-enter` runs on
+  `--motion-duration-standard`; `.motion-enter--emphasized` (added to it) lengthens
+  it to `--motion-duration-emphasized`, which is reserved for a panel or card rise.
+  Consumer: `DashboardList` rows.
+- **Keyed entrance.** `useKeyedEntrance(keys, {playInitial, later})` returns
+  `entranceOf(key): {phase: "enter" | "pop" | null, index}`: the phase and the
+  stagger index, never a className. The keys present on the first non-empty
+  render stagger in the order given (`playInitial`); a key that first appears
+  later pops once (`later: "pop"`, index 0) or stays still (`"none"`); a key
+  that leaves and returns counts as later. Re-renders never replay it, and the
+  latch (React's render-time state adjustment) adds no commit. A flow list maps
+  an entry with `entranceClassProps(entry, {emphasized?})` to `motion-enter`
+  (`--emphasized` on request) / `motion-pop` plus `--motion-index`; an item
+  positioned by a transform it does not own (react-grid-layout) takes the phase
+  as a `data-entrance` attribute and puts the animation on an inner element.
+  `.motion-pop` is the rise keyframe on `--motion-ease-overshoot` with no delay.
+  Consumers: the panel grid, the phone panel stack, the command palette results.
+- **First mount per token.** `useFirstMountForToken(scope, token)` is true only
+  for the first mount of a token within a scope, across unmounts, so an entrance
+  tied to one data load plays at most once per load. It is decided at mount and
+  latched; every token the component sees while mounted is recorded as seen. The
+  registry is module-level (`resetFirstMountRegistryForTests` for tests).
+- **Expand from.** `expandFrom(element, originRect)` grows an open `<dialog>`
+  out of a rectangle: one Web Animation from `translate(dx, dy) scale(s)` (the
+  origin's centre and a uniform scale clamped to 0.2-1) to no transform, on
+  `--motion-duration-standard` and `--motion-ease-out`, `fill: "none"`. It is a
+  function called after `showModal()` (a closed dialog has no box); a repeat call (React
+  StrictMode runs the opening effect twice in dev) cancels the previous expansion before it
+  measures, so it never measures an already-transformed dialog. It does
+  nothing with no origin, a closed element, or an instant duration; the caller
+  gates on Full (`Modal`'s `expandFrom` prop).
+- **One-shot change cue.** `useOneShotOnChange(value, isTarget)` returns
+  `{active, done}`: `active` turns on in the render a value changes into a target
+  state while mounted (never on mount) and ends at `done()` (wire it to
+  `onAnimationEnd`) or the next change. How it looks is the consumer's CSS.
 - **Layout slide.** `useLayoutSlide<T>()` returns a ref for the list container;
   keyed children carry `data-motion-key`. After each commit a moved child
   animates (Web Animations FLIP) from its old offset over
@@ -1204,7 +1239,7 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   under Subtle). Tabular numerals (§3) keep it from jittering; in flight the
   counting text is `aria-hidden` and the final value is the screen-reader text.
   Consumer: `MetricRenderer`.
-- **Crossfade.** `<Crossfade loading skeleton>{content}</Crossfade>` stacks both
+- **Crossfade.** `<Crossfade loading skeleton [contentFade] [block] [keepContentMounted]>{content}</Crossfade>` stacks both
   layers in one grid cell, so the container does not collapse. `children` are
   **not rendered while `loading`** (a Suspense fallback cannot render them
   either); when loading ends they mount with a keyframe fade-in (a freshly
@@ -1212,7 +1247,14 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   transition. The skeleton is `aria-hidden` and `inert` the moment loading
   ends and unmounts on `transitionend`, `transitioncancel`, or, checked on the
   next frame, no running animation (loading ended before it painted, or Off).
-  Opacity only, so it runs under Subtle. Consumer: `PanelContent`.
+  Opacity only, so it runs under Subtle. Options (HEL-1584): `contentFade={false}`
+  gives the content layer no fade (the content brings its own entrance; only the
+  skeleton fades out); `block` makes the layers blocks instead of a flex row, so
+  content with no width of its own keeps its container's width; `keepContentMounted`
+  renders the content while loading, invisible and `inert` (so a Suspense boundary
+  inside can resolve), and then fades run only if the skeleton painted a frame (a
+  load that ends first swaps with no fade). Consumers: `PanelContent`, the dashboard
+  panel grid, the route Suspense boundaries (`RouteSuspense`).
 - **Indicator slide.** `useIndicatorSlide<T>()` returns a ref for a positioned
   container holding a `.motion-indicator` element; the active item carries
   `data-indicator-active`. The hook writes `--indicator-x/-y/-w/-h`; the
@@ -1229,16 +1271,51 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   placeholder and the container height (`PanelGrid.css`; each override beats
   the vendor selector by specificity, never by import order; an item being
   dragged or resized, and the placeholder while resizing, keep the vendor's
-  `transition: none`). No FLIP runs inside the grid.
+  `transition: none`). No FLIP runs inside the grid. A dragged card lifts on the
+  inner `.panel-grid-card` (the item carries the inline transform): scale
+  `--motion-lift-scale` and `--app-shadow-soft`, settling back on
+  `--motion-ease-overshoot` when dropped; a resizing card raises its shadow only.
 - **Chart entrance.** Charts enter over `--motion-duration-standard`
   (`animationEasing: cubicOut`, the closest ECharts curve to ease-out) once per
   mount; later option changes do not replay it, but `animationDurationUpdate`
   keeps the token so legend toggles and dataZoom still animate. Subtle renders
   with no entrance but keeps hover-emphasis colour fades; Off renders with no
   animation (`utils/chartAppearance.ts` `applyChartMotion`,
-  `features/panels/ui/useChartEntranceMotion.ts`). The charts keep
-  `notMerge={true}` (its stale-series rationale holds): a future morph-on-refresh
-  (HEL-1584) must revisit it.
+  `features/panels/ui/useChartEntranceMotion.ts`).
+- **Chart refresh morph.** `ChartPanel` computes a shape signature of the built
+  option (`chartShapeSignature`: the whole option, deterministically serialised,
+  with only data payloads stripped: series `data`, a category axis' `data`,
+  `dataset.source`, a `visualMap`'s `min`/`max`; a function by its source text).
+  The first render, and any render whose signature differs from what was last
+  committed, keeps `notMerge={true}` (the stale-series rationale: a chart-type
+  switch between cartesian and pie, or a removed axis name or bound, must not
+  leave stale nested options). A render that changes only data merges with
+  `replaceMerge={["series"]}`; every series carries a stable `id`
+  (`<type>:<name>`, `chartDataOptions.withSeriesIds`), so ECharts updates the
+  series in place and animates it on `animationDurationUpdate`.
+
+### Where it is applied (HEL-1584)
+
+| surface                 | Full                                                                                                                             | Subtle                   | Off / OS reduce |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------------- |
+| Panel grid, cold load   | cards rise in reading order on `--motion-duration-emphasized`, staggered (cap 10)                                                | fade, same stagger       | instant         |
+| Panel grid, added panel | one pop on `--motion-ease-overshoot`                                                                                             | fade                     | instant         |
+| Panel drag              | lift (scale + shadow), overshoot settle                                                                                          | shadow only              | instant         |
+| Dashboard loading       | skeleton grid fades out in place under the grid (`Crossfade`, `contentFade={false}`)                                             | same                     | instant swap    |
+| Route loading           | `RouteSuspense`: fallback fades out as the route fades in; a cached chunk shows no fade                                          | same                     | instant swap    |
+| Chart refresh           | series morph in place on a same-shape refresh                                                                                    | no animation             | no animation    |
+| Metric delta            | counts alongside the headline value                                                                                              | swaps                    | swaps           |
+| Modal                   | backdrop fades (`--motion-duration-quick`) with the dialog; dialog rises                                                         | dialog and backdrop fade | instant         |
+| Panel detail modal      | grows out of the clicked card (`expandFrom`)                                                                                     | fades in place           | instant         |
+| Command palette         | drops 6px with the overshoot; results (and their group labels) rise staggered on each open, 30ms step, cap 7 (not per keystroke) | fade                     | instant         |
+| Save state              | a check pops in beside the state when a layout or panel save succeeds                                                            | fades                    | static          |
+| Home run mark           | a mark that turns failed nudges once                                                                                             | no movement              | no movement     |
+
+A warm tab restore (`panelsRestored`), a return to a dashboard already loaded
+(Home and back, or after an edit refetch), and a width crossing of the `sm`
+breakpoint play no grid entrance: it plays at most once per network load of a
+dashboard's panels (`panelsSlice` `itemsOrigin` / `loadId`). Close animations
+(modal, panel removal, palette) are not part of this pass.
 
 ### Motion setting (Full / Subtle / Off)
 

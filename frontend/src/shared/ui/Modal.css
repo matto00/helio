@@ -27,11 +27,44 @@
 @keyframes ui-modal-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.985);
+    transform: translateY(var(--motion-rise-distance)) scale(0.985);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* HEL-1584: opacity only. Subtle takes this in place of `ui-modal-in` (no rise, no scale), and a dialog that grows out of
+   its card (`.ui-modal--expanding`) takes it so the Web Animation `expandFrom` runs on the transform alone. */
+@keyframes ui-modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+:root[data-motion="subtle"] .ui-modal[open],
+.ui-modal.ui-modal--expanding[open] {
+  animation-name: ui-modal-fade-in;
+}
+
+/* HEL-1584 (closes HEL-1035): the scrim fades in with the dialog over the quick duration instead of appearing at full
+   strength on frame 1 under a rising dialog, so the two read as one entrance (HEL-441 D7). `backwards` for the same
+   reason as the dialog. The scrim's blur is not animated. Off and OS reduce collapse the duration to 0.01ms through the
+   token (the global reduced-motion rule does not reach `::backdrop`). */
+.ui-modal[open]::backdrop {
+  animation: ui-modal-backdrop-in var(--motion-duration-quick) var(--motion-ease-standard) backwards;
+}
+
+@keyframes ui-modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

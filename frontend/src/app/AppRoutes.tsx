@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 import { ChatPage } from "../features/assistant/ui/ChatPage";
@@ -21,7 +21,7 @@ import { PublicDashboardViewerPage } from "../features/dashboards/ui/PublicDashb
 import { HomePage } from "../features/home/ui/HomePage";
 import { PanelList } from "../features/panels/ui/PanelList";
 import { EmptyState } from "../shared/ui/EmptyState";
-import { PageSuspenseFallback } from "../shared/ui/SuspenseFallback";
+import { RouteSuspense } from "../shared/ui/SuspenseFallback";
 import { OwnerOnly } from "../features/adminUsage/ui/OwnerOnly";
 import { AppShell } from "./App";
 import { Compass } from "lucide-react";
@@ -128,35 +128,35 @@ export function AppRoutes() {
             path="/admin/usage"
             element={
               <OwnerOnly fallback={<NotFoundPage />}>
-                <Suspense fallback={<PageSuspenseFallback />}>
+                <RouteSuspense key="AdminUsagePage">
                   <AdminUsagePage />
-                </Suspense>
+                </RouteSuspense>
               </OwnerOnly>
             }
           />
           <Route
             path="/proposals/review"
             element={
-              <Suspense fallback={<PageSuspenseFallback />}>
+              <RouteSuspense key="ProposalReviewPage">
                 <ProposalReviewPage />
-              </Suspense>
+              </RouteSuspense>
             }
           />
           <Route path="/patch-sets/review" element={<PatchSetReviewPage />} />
           <Route
             path="/pipeline-proposals/review"
             element={
-              <Suspense fallback={<PageSuspenseFallback />}>
+              <RouteSuspense key="PipelineProposalReviewPage">
                 <PipelineProposalReviewPage />
-              </Suspense>
+              </RouteSuspense>
             }
           />
           <Route
             path="/combined-proposals/review"
             element={
-              <Suspense fallback={<PageSuspenseFallback />}>
+              <RouteSuspense key="CombinedProposalReviewPage">
                 <CombinedProposalReviewPage />
-              </Suspense>
+              </RouteSuspense>
             }
           />
         </Route>

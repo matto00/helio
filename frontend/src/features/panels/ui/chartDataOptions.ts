@@ -41,6 +41,32 @@ export function withPointerCursor(
   return { ...dataOption, series: series.map((s) => ({ ...(s as object), cursor })) };
 }
 
+/** HEL-1584 D10 — gives every series a stable `id` (`<type>:<name>`, `#n`-suffixed when the same type and name repeat), so
+ *  a same-shape data refresh can update the existing series in place under ECharts' `replaceMerge: ["series"]` (and morph on
+ *  `animationDurationUpdate`) instead of replacing the chart. An id a builder already set is kept. Applied here, as a
+ *  post-process over the whole data option (like `withPointerCursor`), so no builder branch can forget it. */
+export function withSeriesIds(
+  dataOption: Partial<EChartsOption>,
+  chartType: ChartType,
+): Partial<EChartsOption> {
+  const series = dataOption.series;
+  if (!Array.isArray(series) || series.length === 0) return dataOption;
+  const seen = new Map<string, number>();
+  return {
+    ...dataOption,
+    series: series.map((s) => {
+      const entry = s as { id?: unknown; name?: unknown; type?: unknown };
+      if (entry.id !== undefined) return s;
+      const base = `${typeof entry.type === "string" ? entry.type : chartType}:${
+        typeof entry.name === "string" ? entry.name : ""
+      }`;
+      const count = seen.get(base) ?? 0;
+      seen.set(base, count + 1);
+      return { ...(s as object), id: count === 0 ? base : `${base}#${count}` };
+    }),
+  } as Partial<EChartsOption>;
+}
+
 export function buildDataOption(
   rawRows: string[][],
   headers: string[],
@@ -51,16 +77,19 @@ export function buildDataOption(
   timeCtx?: TimeAxisContext,
   timePlan?: TimeAxisPlan,
 ): Partial<EChartsOption> {
-  return withPointerCursor(
-    buildDataOptionCore(
-      rawRows,
-      headers,
-      fieldMapping,
+  return withSeriesIds(
+    withPointerCursor(
+      buildDataOptionCore(
+        rawRows,
+        headers,
+        fieldMapping,
+        chartType,
+        scatterOptions,
+        histogramOptions,
+        timeCtx,
+        timePlan,
+      ),
       chartType,
-      scatterOptions,
-      histogramOptions,
-      timeCtx,
-      timePlan,
     ),
     chartType,
   );
@@ -234,6 +263,18 @@ export function buildDataOptionCore(
  *  instead of grouping `rawRows`. `ChartPanel` never re-derives grouping from
  *  stringified data — see design.md Decision 4. */
 export function buildAggregateDataOption(
+  aggregate: GroupedAggregate,
+  chartType: ChartType,
+  timeCtx?: TimeAxisContext,
+  timePlan?: AggregateTimePlan,
+): Partial<EChartsOption> {
+  return withSeriesIds(
+    buildAggregateDataOptionCore(aggregate, chartType, timeCtx, timePlan),
+    chartType,
+  );
+}
+
+function buildAggregateDataOptionCore(
   aggregate: GroupedAggregate,
   chartType: ChartType,
   timeCtx?: TimeAxisContext,

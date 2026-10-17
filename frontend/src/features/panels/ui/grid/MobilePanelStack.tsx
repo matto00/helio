@@ -20,6 +20,7 @@ import { useCallback, useMemo, useRef, useState, type CSSProperties, type MouseE
 
 import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { useTheme } from "../../../../theme/ThemeProvider";
+import { entranceClassProps, useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
 import { getOutputId } from "../../state/panelNarrowing";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputRetention } from "../../hooks/useOutputRetention";
@@ -93,11 +94,20 @@ interface MobilePanelStackProps {
    *  component's mount — reused so every stack item shares one width read
    *  instead of each re-measuring independently. */
   containerWidth: number;
+  /** HEL-1584 D4: stagger the panels in on this mount (a cold network load). Panels added later pop in once either way. */
+  playEntrance?: boolean;
 }
 
-export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanelStackProps) {
+export function MobilePanelStack({
+  panels,
+  layout,
+  containerWidth,
+  playEntrance = false,
+}: MobilePanelStackProps) {
   const { theme } = useTheme();
   const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
+  // HEL-1584 D8: the tapped card's rectangle, which the detail modal grows out of under Full.
+  const [detailOrigin, setDetailOrigin] = useState<DOMRectReadOnly | null>(null);
 
   const resolvedLayout = useMemo(() => resolveDashboardLayout(panels, layout), [layout, panels]);
   const orderedPanels = useMemo(
@@ -105,6 +115,10 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
     [panels, resolvedLayout],
   );
   const contentWidth = useMemo(() => resolveStackContentWidth(containerWidth), [containerWidth]);
+  // HEL-1584 D4: the stack is a flow list with no inline transform of its own, so the entrance classes go straight on each
+  // item (the grid's wrapper attributes are for react-grid-layout only). Reading order is the stack order.
+  const orderedIds = useMemo(() => orderedPanels.map((panel) => panel.id), [orderedPanels]);
+  const { entranceOf } = useKeyedEntrance(orderedIds, { playInitial: playEntrance, later: "pop" });
 
   const heightByPanelId = useMemo(() => {
     const layoutById = new Map(resolvedLayout.xs.map((item) => [item.panelId, item]));
@@ -121,6 +135,7 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
   // etc.) must not also open the detail modal.
   const handleItemClick = useCallback((panelId: string, e: MouseEvent<HTMLElement>) => {
     if ((e.target as Element).closest("button, input, a")) return;
+    setDetailOrigin(e.currentTarget.getBoundingClientRect());
     setDetailPanelId(panelId);
   }, []);
 
@@ -144,10 +159,12 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
             panel.config.orientation === "vertical"
               ? { ...panel, config: { ...panel.config, orientation: "horizontal" } }
               : panel;
+          const dividerEntrance = entranceClassProps(entranceOf(panel.id), { emphasized: true });
           return (
             <div
               key={panel.id}
-              className="mobile-panel-stack__item mobile-panel-stack__item--divider"
+              className={`mobile-panel-stack__item mobile-panel-stack__item--divider${dividerEntrance.className ? ` ${dividerEntrance.className}` : ""}`}
+              style={dividerEntrance.style}
             >
               <MobileStackPanelBody panel={stackPanel} />
             </div>
@@ -155,8 +172,10 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
         }
 
         const heightPolicy = heightByPanelId.get(panel.id);
+        const entrance = entranceClassProps(entranceOf(panel.id), { emphasized: true });
         const style: CSSProperties = {
           ...getPanelCardStyle(panel.appearance, theme),
+          ...entrance.style,
           ...(heightPolicy?.height != null
             ? ({ "--mobile-panel-height": `${heightPolicy.height}px` } as CSSProperties)
             : {}),
@@ -165,7 +184,7 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
         return (
           <article
             key={panel.id}
-            className={`panel-grid-card mobile-panel-stack__item mobile-panel-stack__item--${panel.type}`}
+            className={`panel-grid-card mobile-panel-stack__item mobile-panel-stack__item--${panel.type}${entrance.className ? ` ${entrance.className}` : ""}`}
             style={style}
             onClick={(e) => handleItemClick(panel.id, e)}
           >
@@ -193,6 +212,7 @@ export function MobilePanelStack({ panels, layout, containerWidth }: MobilePanel
           key={detailPanel.id}
           panel={detailPanel}
           onClose={() => setDetailPanelId(null)}
+          expandFrom={detailOrigin}
         />
       ) : null}
     </div>

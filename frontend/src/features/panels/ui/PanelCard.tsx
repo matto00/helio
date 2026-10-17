@@ -187,6 +187,7 @@ export const PanelCard = React.memo(function PanelCard({
   return (
     <article
       className="panel-grid-card"
+      data-panel-id={panel.id}
       style={style}
       onMouseDown={onMouseDown}
       onClick={handleClick}

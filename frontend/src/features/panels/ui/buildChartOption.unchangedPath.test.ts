@@ -25,6 +25,23 @@ function revive(value: unknown): unknown {
   return value;
 }
 
+/** HEL-1584 D10: the built option's series now carry a stable `id` (`chartDataOptions.withSeriesIds`), which main's frozen
+ *  option does not. That added field is the ONLY accepted difference: it is removed from the series before comparing, and
+ *  `chartDataOptions.seriesIds.test.ts` pins the ids themselves. Every other field still has to match main's. */
+function withoutSeriesIds(option: unknown): unknown {
+  const bag = option as { series?: unknown };
+  if (!Array.isArray(bag.series)) return option;
+  return {
+    ...bag,
+    series: bag.series.map((entry: Record<string, unknown>) => {
+      // The reference-marks carrier already had its id on main; only the ids added by `withSeriesIds` come off.
+      if (entry.id === "__helio_reference_marks__") return entry;
+      const { id: _id, ...rest } = entry;
+      return rest;
+    }),
+  };
+}
+
 function expectedFor(name: string, gaps: Array<[number, number]> = []): unknown {
   const expected = JSON.parse(JSON.stringify(frozen[name])) as {
     series: Array<{ data: unknown[] }>;
@@ -48,7 +65,7 @@ describe("GUARD: charts that are not timestamp-x line/scatter/vertical bar build
       ),
     )("fieldTypes %s", (_label, fieldTypes) => {
       const option = build(kase.chartType, { ...kase.args, fieldTypes });
-      expect(option).toEqual(expectedFor(name, kase.gaps));
+      expect(withoutSeriesIds(option)).toEqual(expectedFor(name, kase.gaps));
     });
   });
 });
