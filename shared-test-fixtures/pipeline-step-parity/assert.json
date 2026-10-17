@@ -1,0 +1,66 @@
+{
+  "kind": "assert",
+  "vectors": [
+    {
+      "name": "rows pass through unchanged whatever the rules say",
+      "config": {
+        "rules": [
+          { "kind": "notNull", "field": "a", "severity": "error" },
+          { "kind": "unique", "field": "a" },
+          { "kind": "rowCountMin", "params": { "count": 100 } }
+        ]
+      },
+      "inputRows": [{ "a": null }, { "a": 1.0 }, { "a": 1.0 }],
+      "expect": { "rows": [{ "a": null }, { "a": 1.0 }, { "a": 1.0 }] }
+    },
+    {
+      "name": "no rules",
+      "config": { "rules": [] },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an empty config",
+      "config": {},
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }] }
+    },
+    {
+      "name": "malformed rules (unknown kind, bad severity) produce verdicts server-side but not here",
+      "config": {
+        "rules": [
+          { "kind": "mystery", "severity": "loud" },
+          { "kind": "range", "field": "a", "params": { "min": 5 } },
+          { "kind": "regex", "field": "a", "params": { "pattern": "(" } }
+        ]
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a disabled assert is transparent",
+      "config": { "rules": [{ "kind": "notNull", "field": "a" }] },
+      "inputRows": [{ "a": 1.0 }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "rules that are not an array cannot be decoded",
+      "config": { "rules": "notNull" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a rule that is not an object cannot be decoded",
+      "config": { "rules": [1] },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a rule whose params is not an object cannot be decoded",
+      "config": { "rules": [{ "kind": "range", "params": 5 }] },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    }
+  ]
+}

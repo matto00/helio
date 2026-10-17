@@ -1,0 +1,215 @@
+{
+  "kind": "fillnull",
+  "vectors": [
+    {
+      "name": "constant fills null and absent cells with the text value",
+      "config": { "columns": ["a", "b"], "strategy": "constant", "value": "0" },
+      "inputRows": [{ "a": null, "b": 1.0 }, { "b": null }, { "a": "x", "b": 2.0 }],
+      "expect": {
+        "rows": [
+          { "a": "0", "b": 1.0 },
+          { "a": "0", "b": "0" },
+          { "a": "x", "b": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "constant writes a String even into a numeric column",
+      "config": { "columns": ["n"], "strategy": "constant", "value": "N/A" },
+      "inputRows": [{ "n": null }, { "n": 5.0 }],
+      "expect": { "rows": [{ "n": "N/A" }, { "n": 5.0 }] }
+    },
+    {
+      "name": "constant without a value is a step error",
+      "config": { "columns": ["a"], "strategy": "constant" },
+      "inputRows": [{ "a": null }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "constant with an empty value fills empty strings",
+      "config": { "columns": ["a"], "strategy": "constant", "value": "" },
+      "inputRows": [{ "a": null }],
+      "expect": { "rows": [{ "a": "" }] }
+    },
+    {
+      "name": "forwardFill carries the last non-null value; leading nulls stay",
+      "config": { "columns": ["a"], "strategy": "forwardFill" },
+      "inputRows": [
+        { "a": null },
+        { "a": 1.0 },
+        { "a": null },
+        { "a": null },
+        { "a": "x" },
+        { "a": null }
+      ],
+      "expect": {
+        "rows": [
+          { "a": null },
+          { "a": 1.0 },
+          { "a": 1.0 },
+          { "a": 1.0 },
+          { "a": "x" },
+          { "a": "x" }
+        ]
+      }
+    },
+    {
+      "name": "forwardFill tracks columns independently and fills absent keys",
+      "config": { "columns": ["a", "b"], "strategy": "forwardFill" },
+      "inputRows": [{ "a": 1.0 }, { "b": 2.0 }, {}, { "a": 3.0 }, { "b": null }],
+      "expect": {
+        "rows": [
+          { "a": 1.0 },
+          { "a": 1.0, "b": 2.0 },
+          { "a": 1.0, "b": 2.0 },
+          { "a": 3.0, "b": 2.0 },
+          { "a": 3.0, "b": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "mean fills with the mean of the numeric cells including numeric strings",
+      "config": { "columns": ["n"], "strategy": "mean" },
+      "inputRows": [
+        { "n": 1.0 },
+        { "n": "3" },
+        { "n": null },
+        { "n": "x" },
+        { "n": 5.0 },
+        { "n": { "$int": 3 } }
+      ],
+      "expect": {
+        "rows": [
+          { "n": 1.0 },
+          { "n": "3" },
+          { "n": 3.0 },
+          { "n": "x" },
+          { "n": 5.0 },
+          { "n": { "$int": 3 } }
+        ]
+      }
+    },
+    {
+      "name": "mean of a column with no numbers leaves nulls",
+      "config": { "columns": ["n"], "strategy": "mean" },
+      "inputRows": [{ "n": null }, { "n": "x" }],
+      "expect": { "rows": [{ "n": null }, { "n": "x" }] }
+    },
+    {
+      "name": "median of an odd count",
+      "config": { "columns": ["n"], "strategy": "median" },
+      "inputRows": [{ "n": 5.0 }, { "n": 1.0 }, { "n": 3.0 }, { "n": null }],
+      "expect": { "rows": [{ "n": 5.0 }, { "n": 1.0 }, { "n": 3.0 }, { "n": 3.0 }] }
+    },
+    {
+      "name": "median of an even count averages the middle pair",
+      "config": { "columns": ["n"], "strategy": "median" },
+      "inputRows": [{ "n": 4.0 }, { "n": 1.0 }, { "n": 3.0 }, { "n": 2.0 }, { "n": null }],
+      "expect": { "rows": [{ "n": 4.0 }, { "n": 1.0 }, { "n": 3.0 }, { "n": 2.0 }, { "n": 2.5 }] }
+    },
+    {
+      "name": "median with NaN sorts NaN last",
+      "config": { "columns": ["n"], "strategy": "median" },
+      "inputRows": [{ "n": "NaN" }, { "n": 1.0 }, { "n": 3.0 }, { "n": null }],
+      "expect": { "rows": [{ "n": "NaN" }, { "n": 1.0 }, { "n": 3.0 }, { "n": 3.0 }] }
+    },
+    {
+      "name": "mode picks the most frequent value",
+      "config": { "columns": ["c"], "strategy": "mode" },
+      "inputRows": [
+        { "c": "a" },
+        { "c": "b" },
+        { "c": "b" },
+        { "c": null },
+        { "c": "a" },
+        { "c": "b" }
+      ],
+      "expect": {
+        "rows": [{ "c": "a" }, { "c": "b" }, { "c": "b" }, { "c": "b" }, { "c": "a" }, { "c": "b" }]
+      }
+    },
+    {
+      "name": "mode breaks a tie in favour of the value seen first",
+      "config": { "columns": ["c"], "strategy": "mode" },
+      "inputRows": [{ "c": "z" }, { "c": "a" }, { "c": "a" }, { "c": "z" }, { "c": null }],
+      "expect": { "rows": [{ "c": "z" }, { "c": "a" }, { "c": "a" }, { "c": "z" }, { "c": "z" }] }
+    },
+    {
+      "name": "mode treats 1, 1.0 and 1L as one value and fills with the first spelling",
+      "config": { "columns": ["c"], "strategy": "mode" },
+      "inputRows": [
+        { "c": { "$int": 1 } },
+        { "c": 1.0 },
+        { "c": "1" },
+        { "c": { "$long": "1" } },
+        { "c": null }
+      ],
+      "expect": {
+        "rows": [
+          { "c": { "$int": 1 } },
+          { "c": 1.0 },
+          { "c": "1" },
+          { "c": { "$long": "1" } },
+          { "c": { "$int": 1 } }
+        ]
+      }
+    },
+    {
+      "name": "mode over numbers and booleans",
+      "config": { "columns": ["c"], "strategy": "mode" },
+      "inputRows": [{ "c": true }, { "c": false }, { "c": false }, { "c": null }],
+      "expect": { "rows": [{ "c": true }, { "c": false }, { "c": false }, { "c": false }] }
+    },
+    {
+      "name": "mode of a column with no values leaves nulls",
+      "config": { "columns": ["c"], "strategy": "mode" },
+      "inputRows": [{ "c": null }, {}],
+      "expect": { "rows": [{ "c": null }, {}] }
+    },
+    {
+      "name": "a column missing from every row is filled by constant and left by the statistics",
+      "config": { "columns": ["gone"], "strategy": "mean" },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an empty column list changes nothing",
+      "config": { "columns": [], "strategy": "mean" },
+      "inputRows": [{ "a": null }],
+      "expect": { "rows": [{ "a": null }] }
+    },
+    {
+      "name": "an unknown strategy is a step error",
+      "config": { "columns": ["a"], "strategy": "average" },
+      "inputRows": [{ "a": null }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty strategy is a step error even with no rows",
+      "config": { "columns": ["a"], "strategy": "" },
+      "inputRows": [],
+      "expect": { "error": true }
+    },
+    {
+      "name": "the strategy is case-sensitive",
+      "config": { "columns": ["a"], "strategy": "Mean" },
+      "inputRows": [{ "a": null }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a disabled fillnull is transparent",
+      "config": { "columns": ["a"], "strategy": "constant", "value": "0" },
+      "inputRows": [{ "a": null }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": null }] }
+    },
+    {
+      "name": "mean of negative zeros is negative zero on a Vector frame",
+      "config": { "columns": ["n"], "strategy": "mean" },
+      "inputRows": [{ "n": { "$double": "-0.0" } }, { "n": "-0.0" }, { "n": null }],
+      "expect": {
+        "rows": [{ "n": { "$double": "-0.0" } }, { "n": "-0.0" }, { "n": { "$double": "-0.0" } }]
+      }
+    }
+  ]
+}
