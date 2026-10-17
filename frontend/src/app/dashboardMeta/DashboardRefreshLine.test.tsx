@@ -5,6 +5,7 @@ import { screen } from "@testing-library/react";
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import type { DashboardMeta } from "../../features/panels/state/dashboardMeta";
 import { resetUseNowForTests } from "../../hooks/useNow";
+import { makeMarkdownPanel, makeOutputPanel } from "../../test/panelFixtures";
 import { renderWithStore } from "../../test/renderWithStore";
 import { DashboardMetaFacts } from "./DashboardMetaFacts";
 import { DashboardRefreshLine } from "./DashboardRefreshLine";
@@ -125,5 +126,64 @@ describe("DashboardRefreshLine (HEL-1583 D11)", () => {
     const rule = /\.dashboard-refresh-line\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
     expect(rule).toMatch(/font-family:\s*var\(--font-mono\)\s*;/);
     expect(rule).not.toMatch(/--font-sans/);
+  });
+
+  describe("reserved slot (owner answer reserve-line-space)", () => {
+    function renderWith(panels: unknown[]) {
+      return renderWithStore(
+        <DashboardRefreshLine />,
+        {
+          dashboards: { items: [{ id: "d1", name: "Ops" }], selectedDashboardId: "d1" },
+          panels: { items: panels, loadedDashboardId: "d1", status: "succeeded" },
+        } as never,
+        "/dashboards",
+      );
+    }
+    const fed = [makeOutputPanel({ id: "p1", dashboardId: "d1", config: { outputId: "o1" } })];
+
+    it("reserves an empty aria-hidden slot, with no text, while the facts are loading and panels are pipeline-fed", () => {
+      const { container } = renderWith(fed);
+      const slot = container.querySelector(".dashboard-refresh-line");
+      expect(slot).not.toBeNull();
+      expect(slot).toHaveAttribute("aria-hidden", "true");
+      expect(slot).toHaveAttribute("data-reserved", "true");
+      expect(slot?.textContent).toBe("");
+    });
+
+    it("keeps the empty reserved slot when the refresh state resolves to unknown (no second shift)", () => {
+      metaMock.mockReturnValue({ ...baseMeta, refreshState: "unknown" });
+      const { container } = renderWith(fed);
+      expect(container.querySelector(".dashboard-refresh-line[data-reserved]")).not.toBeNull();
+    });
+
+    it("fills the same slot, no longer reserved or hidden, once the facts resolve", () => {
+      metaMock.mockReturnValue({ ...baseMeta, refreshState: "never" });
+      const { container } = renderWith(fed);
+      const slots = container.querySelectorAll(".dashboard-refresh-line");
+      expect(slots).toHaveLength(1);
+      expect(slots[0]).not.toHaveAttribute("aria-hidden");
+      expect(slots[0]).not.toHaveAttribute("data-reserved");
+      expect(slots[0]).toHaveTextContent("not refreshed yet");
+    });
+
+    it("reserves nothing when no panel is pipeline-fed (markdown only, or an unbound output)", () => {
+      expect(
+        renderWith([makeMarkdownPanel({ id: "m1", dashboardId: "d1" })]).container.querySelector(
+          ".dashboard-refresh-line",
+        ),
+      ).toBeNull();
+      const unbound = [makeOutputPanel({ id: "p2", dashboardId: "d1", config: { outputId: "" } })];
+      expect(renderWith(unbound).container.querySelector(".dashboard-refresh-line")).toBeNull();
+    });
+
+    it("CSS pin: the slot has one fixed, token-derived height in every state (no literal pixels)", () => {
+      const css = fs
+        .readFileSync(path.join(__dirname, "DashboardMetaRow.css"), "utf-8")
+        .replace(/\/\*[\s\S]*?\*\//g, "");
+      const rule = /\.dashboard-refresh-line\s*\{([^}]*)\}/.exec(css)?.[1] ?? "";
+      expect(rule).toMatch(/(?<![-\w])height:\s*calc\(var\(--text-xs\)\s*\*\s*1\.6\)\s*;/);
+      expect(rule).toMatch(/margin:\s*0 0 var\(--space-2\)\s*;/);
+      expect(rule).not.toMatch(/\d+px/);
+    });
   });
 });

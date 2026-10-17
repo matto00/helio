@@ -46,7 +46,15 @@ const state = {
     status: "succeeded" as const,
   },
   panels: {
-    items: [{ id: "p1", dashboardId: "d1", title: "Revenue", type: "output" as const }],
+    items: [
+      {
+        id: "p1",
+        dashboardId: "d1",
+        title: "Revenue",
+        type: "output" as const,
+        config: { outputId: "" },
+      },
+    ],
     loadedDashboardId: "d1",
     status: "succeeded" as const,
   },

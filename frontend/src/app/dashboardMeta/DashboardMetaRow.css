@@ -90,9 +90,15 @@
 /* HEL-1583 D11: the phone "refreshed" caption, the first child of `.panel-list` above the dashboard chip row. In normal
  * flow, so the 56px command bar is untouched; `.panel-list` owns the 12px edge inset. Mono, like the desktop meta row's facts (HANDOFF: "slim mono meta row"). */
 .dashboard-refresh-line {
+  /* A fixed-height slot (token-derived: 1.6 x --text-xs), identical empty, reserved and filled, so the line resolving
+   * never moves the cards below it. The content is centred with line-height 1, so nothing is clipped. */
+  display: flex;
+  align-items: center;
+  height: calc(var(--text-xs) * 1.6);
   margin: 0 0 var(--space-2);
+  overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  line-height: 1.5;
+  line-height: 1;
   color: var(--app-text-muted);
 }

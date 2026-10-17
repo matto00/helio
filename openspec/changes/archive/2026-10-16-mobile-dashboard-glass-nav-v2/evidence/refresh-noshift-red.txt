@@ -1,0 +1,15 @@
+## RED on 51c5ba557 (no reserved slot)
+HEL1583-NOGAP light {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+HEL1583-NOSHIFT light {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":155,"chips":103,"scrollHeight":659}}
+HEL1583-NOSHIFT dark {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":155,"chips":103,"scrollHeight":659}}
+HEL1583-NOGAP dark {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+    Error: first card top moved
+    Expected: <= [32m0.5[39m
+    Received:    [31m27[39m
+      89 |     console.log(`HEL1583-NOSHIFT ${theme} ${JSON.stringify({ before, after })}`);
+    Error: first card top moved
+    Expected: <= [32m0.5[39m
+    Received:    [31m27[39m
+      89 |     console.log(`HEL1583-NOSHIFT ${theme} ${JSON.stringify({ before, after })}`);
+  2 failed
+  2 passed (17.4s)

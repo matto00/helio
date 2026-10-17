@@ -1,0 +1,7 @@
+## GREEN on the fix
+HEL1583-NOGAP light {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+HEL1583-NOSHIFT light {"before":{"card":155.1875,"chips":103.1875,"scrollHeight":659},"after":{"card":155.1875,"chips":103.1875,"scrollHeight":659}}
+HEL1583-NOGAP dark {"before":{"card":128,"chips":76,"scrollHeight":632},"after":{"card":128,"chips":76,"scrollHeight":632}}
+HEL1583-NOSHIFT dark {"before":{"card":155.1875,"chips":103.1875,"scrollHeight":659},"after":{"card":155.1875,"chips":103.1875,"scrollHeight":659}}
+[HEL-1301 e2e] deleted 81 recorded throwaway user(s)
+  81 passed (3.1m)
