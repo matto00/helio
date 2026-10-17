@@ -1,3 +1,0 @@
-- `backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala` — park signal fires when the hook DBIO executes (not when built), parked confirmed from Postgres (idle in transaction + held locks traced), every verdict-deciding wait is a condition wait under a 60 s hang guard whose expiry fails as a harness fault, all writer backends considered, WriterFirst commit order read from the observed lock wait instead of Future completion order, trace names the park site
-- `docs/live-draft-preview.md` — §8.3.1 note on the harness correction and where its evidence lives
-- `openspec/changes/draft-race-park-oracle/` — proposal/design/tasks, root-cause.md and the evidence/ directory (probe, repro, 50/50, siblings, mutations, release exposure)
