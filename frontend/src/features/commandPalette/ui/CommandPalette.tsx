@@ -1,11 +1,16 @@
 import { Search, SearchX } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import "./CommandPalette.css";
 import { Modal } from "../../../shared/ui/Modal";
 import { TextField } from "../../../shared/ui/TextField";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { KeyCap } from "../../../shared/ui/KeyCap";
+import {
+  entranceClassProps,
+  useKeyedEntrance,
+  type Entrance,
+} from "../../../shared/motion/useKeyedEntrance";
 import { useOverlay } from "../../../shared/chrome/OverlayProvider";
 import { formatCombo, isMacPlatform } from "../../../shared/chrome/shortcuts";
 import { useCommandPalette, useCommandRegistryActions, useSetCommandQuery } from "../hooks";
@@ -58,6 +63,28 @@ function groupBySection(actions: CommandAction[]): ResultGroup[] {
   return sortedOrder.map((section) => ({ section, actions: bySection.get(section)! }));
 }
 
+/** The className and style of a result row's entrance (nothing for a row with no phase). `base` is a class the element
+ *  always carries (a group label), kept ahead of the entrance class. */
+function rowEntrance(entranceOf: (id: string) => Entrance, id: string, base?: string) {
+  const { className, style } = entranceClassProps(entranceOf(id));
+  const joined = [base, className].filter(Boolean).join(" ");
+  return joined === "" ? {} : { className: joined, style };
+}
+
+/** HEL-1584 D9: the results stagger in on each open. The component is keyed by an open counter, so every open is a fresh
+ *  mount whose first population is the list shown on open; rows that appear while typing are later keys (`later: "none"`),
+ *  so per-keystroke results appear without a rise. */
+function StaggeredResults({
+  ids,
+  children,
+}: {
+  ids: string[];
+  children: (entranceOf: (id: string) => Entrance) => ReactNode;
+}) {
+  const { entranceOf } = useKeyedEntrance(ids, { playInitial: true, later: "none" });
+  return <>{children(entranceOf)}</>;
+}
+
 /**
  * The command palette overlay (`command-palette-shell` spec). Renders on the shared `Modal`
  * primitive (design.md D1) — Tab/Shift+Tab trap, Escape, backdrop close, and focus restore are
@@ -72,6 +99,18 @@ export function CommandPalette() {
   const setQuery = useSetCommandQuery();
   const [query, setLocalQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  // HEL-1584 D9: counts opens. Set in the render that sees `isOpen` turn true (React's "adjust state while rendering"), which
+  // also clears the previous query, so the first render of an open already shows the default list the stagger plays on.
+  const [openCount, setOpenCount] = useState(0);
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setOpenCount((count) => count + 1);
+      setLocalQuery("");
+      setActiveIndex(0);
+    }
+  }
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -197,8 +236,10 @@ export function CommandPalette() {
   }, [activeIndex]);
 
   // Flattened index → DOM id, so ArrowDown/Up crosses group boundaries and aria-activedescendant
-  // always names the right element (`command-palette-shell` spec).
-  let flatIndex = 0;
+  // always names the right element (`command-palette-shell` spec). Precomputed (not a counter incremented while rendering
+  // the rows): the staggered results subtree can render more than once per pass.
+  const displayIds = groups.flatMap((group) => group.actions.map((action) => action.id));
+  const flatIndexById = new Map(displayIds.map((id, index) => [id, index]));
   const activeActionId = results[activeIndex]?.id;
   const mac = isMacPlatform();
 
@@ -254,38 +295,48 @@ export function CommandPalette() {
           />
         )
       ) : (
-        <div className="command-palette__results" id="command-palette-results" ref={listRef}>
-          {groups.map((group) => (
-            <div className="command-palette__group" key={group.section || "__unsectioned__"}>
-              {group.section && (
-                <div className="eyebrow command-palette__group-label">{group.section}</div>
-              )}
-              <ul className="command-palette__list" role="listbox">
-                {group.actions.map((action) => {
-                  const index = flatIndex++;
-                  const isActive = index === activeIndex;
-                  return (
-                    <li key={action.id}>
-                      <button
-                        type="button"
-                        id={`command-palette-option-${action.id}`}
-                        role="option"
-                        aria-selected={isActive}
-                        data-active={isActive ? "true" : undefined}
-                        className="command-palette__item"
-                        onMouseEnter={() => setActiveIndex(index)}
-                        onClick={() => {
-                          action.run();
-                          close();
-                        }}
-                      >
-                        {action.icon && (
-                          <span className="command-palette__item-icon">{action.icon}</span>
-                        )}
-                        <span className="command-palette__item-text">
-                          <span className="command-palette__item-title">
-                            {action.title}
-                            {/* HEL-516 design.md Decision 5 — INLINE after the title, never
+        <StaggeredResults key={openCount} ids={displayIds}>
+          {(entranceOf) => (
+            <div className="command-palette__results" id="command-palette-results" ref={listRef}>
+              {groups.map((group) => (
+                <div className="command-palette__group" key={group.section || "__unsectioned__"}>
+                  {group.section && (
+                    <div
+                      {...rowEntrance(
+                        entranceOf,
+                        group.actions[0].id,
+                        "eyebrow command-palette__group-label",
+                      )}
+                    >
+                      {group.section}
+                    </div>
+                  )}
+                  <ul className="command-palette__list" role="listbox">
+                    {group.actions.map((action) => {
+                      const index = flatIndexById.get(action.id) ?? 0;
+                      const isActive = index === activeIndex;
+                      return (
+                        <li key={action.id} {...rowEntrance(entranceOf, action.id)}>
+                          <button
+                            type="button"
+                            id={`command-palette-option-${action.id}`}
+                            role="option"
+                            aria-selected={isActive}
+                            data-active={isActive ? "true" : undefined}
+                            className="command-palette__item"
+                            onMouseEnter={() => setActiveIndex(index)}
+                            onClick={() => {
+                              action.run();
+                              close();
+                            }}
+                          >
+                            {action.icon && (
+                              <span className="command-palette__item-icon">{action.icon}</span>
+                            )}
+                            <span className="command-palette__item-text">
+                              <span className="command-palette__item-title">
+                                {action.title}
+                                {/* HEL-516 design.md Decision 5 — INLINE after the title, never
                               right-aligned: the palette has no right-hand column and only one
                               action carries a cap today, so a right-aligned cap would strand in
                               dead space. Same `KeyCap` atom/typography/border/radius the help
@@ -296,26 +347,28 @@ export function CommandPalette() {
                               (doubling the help overlay's 4px intra-combo spacing, which lives
                               solely in `KeyCap.css`'s `.ui-keycap + .ui-keycap` rule and is left
                               untouched here). */}
-                            {action.shortcut && (
-                              <span className="command-palette__item-combo">
-                                {formatCombo(action.shortcut, { mac }).map((token, tokenIndex) => (
-                                  <KeyCap key={tokenIndex}>{token}</KeyCap>
-                                ))}
+                                {action.shortcut && (
+                                  <span className="command-palette__item-combo">
+                                    {formatCombo(action.shortcut, { mac }).map(
+                                      (token, tokenIndex) => (
+                                        <KeyCap key={tokenIndex}>{token}</KeyCap>
+                                      ),
+                                    )}
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </span>
-                          {action.subtitle && (
-                            <span className="command-palette__item-subtitle">
-                              {action.subtitle}
+                              {action.subtitle && (
+                                <span className="command-palette__item-subtitle">
+                                  {action.subtitle}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {/* Skeptic-final-1 CR2 (final gate, round 1) — deliberately OUTSIDE the
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {/* Skeptic-final-1 CR2 (final gate, round 1) — deliberately OUTSIDE the
                 `role="listbox"` `<ul>` above and NOT a `<button>`/`role="option"`: an
                 informational count of how many more matches exist is not a selectable action.
                 It must never enter keyboard `ArrowDown`/`ArrowUp` traversal (which only walks
@@ -324,19 +377,21 @@ export function CommandPalette() {
                 is an EMPTY spacer sized to match `.command-palette__item-icon`'s width
                 (`var(--text-lg)`), so this is the only iconless row that still lines its text up
                 with every other row's text column instead of hanging into the icon gutter. */}
-              {group.section === SEARCH_SECTION && overflowNotices.length > 0 && (
-                <div className="command-palette__notices">
-                  {overflowNotices.map((notice) => (
-                    <div className="command-palette__notice" key={notice}>
-                      <span className="command-palette__notice-icon" aria-hidden="true" />
-                      <span className="command-palette__item-subtitle">{notice}</span>
+                  {group.section === SEARCH_SECTION && overflowNotices.length > 0 && (
+                    <div className="command-palette__notices">
+                      {overflowNotices.map((notice) => (
+                        <div className="command-palette__notice" key={notice}>
+                          <span className="command-palette__notice-icon" aria-hidden="true" />
+                          <span className="command-palette__item-subtitle">{notice}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </StaggeredResults>
       )}
     </Modal>
   );

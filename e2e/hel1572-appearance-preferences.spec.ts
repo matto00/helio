@@ -334,9 +334,13 @@ test.describe("HEL-1572 density", () => {
     expect(patch.status(), await patch.text()).toBe(200);
   }
 
+  /** The real grid's items. The skeleton grid fades out under it for a moment after the panels load (HEL-1584) and has
+   *  `.react-grid-item`s of its own, so the items are taken from the live crossfade layer only. */
+  const GRID_ITEMS = ".crossfade__layer:not(.crossfade__skeleton) .react-grid-item";
+
   /** Grid items in visual order (top, then left): DOM order follows the panel list, not the layout. */
   async function gridBoxes(page: Page) {
-    const boxes = await page.locator(".react-grid-item").evaluateAll((els) =>
+    const boxes = await page.locator(GRID_ITEMS).evaluateAll((els) =>
       els.map((el) => {
         const r = (el as HTMLElement).getBoundingClientRect();
         return { top: r.top, left: r.left, width: r.width, height: r.height };
@@ -353,7 +357,7 @@ test.describe("HEL-1572 density", () => {
     await seedDashboard(page.request);
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.goto("/dashboards");
-    await expect(page.locator(".react-grid-item")).toHaveCount(3);
+    await expect(page.locator(GRID_ITEMS)).toHaveCount(3);
     await expect(page.locator("html")).toHaveAttribute("data-density", "comfortable");
     // Resolve the token to px through a real box (the computed custom property may still read "0.5rem").
     const gapToken = () =>
@@ -378,7 +382,7 @@ test.describe("HEL-1572 density", () => {
     const compactGap = await gapToken();
     expect(compactGap).toBeLessThan(comfortableGap);
     await page.goto("/dashboards");
-    await expect(page.locator(".react-grid-item")).toHaveCount(3);
+    await expect(page.locator(GRID_ITEMS)).toHaveCount(3);
     await expect.poll(async () => (await gridBoxes(page))[0]?.height).toBeGreaterThan(100);
     const after = await gridBoxes(page);
 

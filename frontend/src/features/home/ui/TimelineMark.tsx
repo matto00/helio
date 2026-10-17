@@ -1,3 +1,4 @@
+import { useOneShotOnChange } from "../../../shared/motion/useOneShot";
 import type { HomeRun } from "../types/homeSummary";
 import {
   firstLine,
@@ -11,10 +12,14 @@ import { formatClock } from "../utils/timelineScale";
 /** The shape that distinguishes a status by more than hue (DESIGN.md §8): succeeded a filled circle, failed a
  *  filled diamond, queued/running a ring with a centre dot, scheduled a hollow ring. */
 export function MarkShape({ status }: { status: MarkStatus }) {
+  // HEL-1584 D11b: a mark that turns failed while it is on screen nudges once; one that is mounted already failed never does.
+  // Subtle and Off resolve the nudge distance to 0px, so there is nothing to see there.
+  const { active: nudge, done } = useOneShotOnChange(status, (next) => next === "failed");
   return (
     <span
-      className={`tl-shape tl-shape--${status === "queued" ? "running" : status}`}
+      className={`tl-shape tl-shape--${status === "queued" ? "running" : status}${nudge ? " tl-shape--nudge" : ""}`}
       aria-hidden="true"
+      onAnimationEnd={done}
     />
   );
 }

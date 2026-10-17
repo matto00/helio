@@ -26,7 +26,7 @@
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type CSSProperties } from "react";
 import { Responsive } from "react-grid-layout";
 
 import { createScaledStrategy, getBreakpointFromWidth, noCompactor } from "react-grid-layout/core";
@@ -48,6 +48,7 @@ import type { LayoutFlush } from "../../hooks/usePanelUpdatesFlush";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PanelCard } from "../PanelCard";
 import { useDensity } from "../../../../theme/ThemeProvider";
+import { useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
 import { createLayouts, gridMetrics, panelGridConfig, rglBreakpoints } from "./panelGridConfig";
 import "./PanelGrid.css";
 import { useCommitFlag } from "./useCommitFlag";
@@ -68,6 +69,8 @@ interface DesktopPanelGridProps {
   /** Registers this grid's layout-flush into the parent's width-independent
    *  flush slot (`usePanelUpdatesFlush`). Cleared automatically on unmount. */
   registerLayoutFlush: (fn: LayoutFlush) => void;
+  /** HEL-1584 D4: stagger the panels in on this mount (a cold network load). Panels added later pop in once either way. */
+  playEntrance?: boolean;
 }
 
 export function DesktopPanelGrid({
@@ -78,6 +81,7 @@ export function DesktopPanelGrid({
   zoomLevel,
   width,
   registerLayoutFlush,
+  playEntrance = false,
 }: DesktopPanelGridProps) {
   // HEL-651: gate the auto-close effect (in `usePanelDetailState`) on the panels-list load state,
   // not just `panels` itself — `fetchPanels.rejected` empties `items` on a
@@ -135,6 +139,22 @@ export function DesktopPanelGrid({
     );
   }, [resolvedLayout, width]);
 
+  // HEL-1584 D4: panel ids in reading order (y, then x) at the active breakpoint. The keyed entrance staggers the first
+  // population in that order and pops any panel added later. It yields attributes for the item wrapper below, never a
+  // className: react-grid-layout forwards a child's className onto the positioned item, and an animated transform there
+  // would override the item's inline translate.
+  const entranceOrder = useMemo(() => {
+    const bp = getBreakpointFromWidth(rglBreakpoints, width) as keyof DashboardLayout;
+    const placed = [...resolvedLayout[bp]].sort((a, b) => a.y - b.y || a.x - b.x);
+    const ids = placed.map((item) => item.panelId);
+    const known = new Set(ids);
+    return [...ids, ...panels.filter((panel) => !known.has(panel.id)).map((panel) => panel.id)];
+  }, [resolvedLayout, width, panels]);
+  const { entranceOf } = useKeyedEntrance(entranceOrder, {
+    playInitial: playEntrance,
+    later: "pop",
+  });
+
   const { commitOnNextLayoutChangeRef, clearCommitFlag, armCommitFlag } = useCommitFlag();
   const { latestLayoutRef, markLayoutChanged, commitInteractionLayout } = useLayoutSave({
     dashboardId,
@@ -186,8 +206,18 @@ export function DesktopPanelGrid({
         {panels.map((panel) => {
           const isEditingTitle = title.editingTitleId === panel.id;
           const isConfirmingDelete = detail.confirmDeletePanelId === panel.id;
+          const entrance = entranceOf(panel.id);
           return (
-            <div key={panel.id} data-short-card={shortCardIds.has(panel.id) ? "" : undefined}>
+            <div
+              key={panel.id}
+              data-short-card={shortCardIds.has(panel.id) ? "" : undefined}
+              data-entrance={entrance.phase ?? undefined}
+              style={
+                entrance.phase === "enter"
+                  ? ({ "--motion-index": entrance.index } as CSSProperties)
+                  : undefined
+              }
+            >
               <PanelCard
                 panel={panel}
                 theme={theme}
@@ -221,6 +251,7 @@ export function DesktopPanelGrid({
           panel={detail.detailPanel}
           onClose={detail.closeDetail}
           initialMode={detail.detailPanelMode}
+          expandFrom={detail.detailOrigin}
         />
       ) : null}
     </>

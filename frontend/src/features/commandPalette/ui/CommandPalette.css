@@ -1,6 +1,26 @@
-/* HEL-496 — tokens only, no hardcoded color/spacing/type (DESIGN.md §6/§7). The entrance
-   animation and overlay backdrop are inherited from `Modal.css`'s `.ui-modal` — this file adds
-   no second animation. */
+/* HEL-496 — tokens only, no hardcoded color/spacing/type (DESIGN.md §6/§7). The overlay backdrop
+   is inherited from `Modal.css`'s `.ui-modal`; the panel's own entrance is the one rule below
+   (HEL-1584). */
+
+/* HEL-1584 D9: the panel drops in from slightly above with the overshoot curve while the shared backdrop fades (Modal.css).
+   Beats `.ui-modal[open]` by specificity. Subtle zeroes the rise and maps the overshoot to ease-out, and Modal.css's Subtle
+   rule swaps in the opacity-only keyframes, so it is a fade there; Off and OS reduce collapse the duration. The board's 0.97
+   scale is not used, as the rises drop scale (HEL-1573 D2). */
+.command-palette.ui-modal[open] {
+  animation: command-palette-in var(--motion-duration-standard) var(--motion-ease-overshoot)
+    backwards;
+}
+
+@keyframes command-palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--motion-rise-distance)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 .command-palette .ui-modal__body {
   display: flex;
@@ -157,4 +177,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* HEL-1584: the results stagger on the tight step (--motion-stagger-tight, 30ms) with a palette-scoped cap, so the last row
+   starts by about 210ms. The cap is declared in this rule (an undefined variable inside min() would invalidate the delay).
+   Group labels carry their group's first row's class and index, so a heading never shows over rows that have not started. */
+.command-palette__results .motion-enter {
+  --motion-stagger-cap: 7;
+  animation-delay: calc(
+    min(var(--motion-index, 0), var(--motion-stagger-cap)) * var(--motion-stagger-tight)
+  );
 }

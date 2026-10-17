@@ -409,7 +409,7 @@ for (const theme of ["light", "dark"] as const) {
 
         // Phone stack: report-only (HEL-1438 owns the stack card height).
         await page.setViewportSize(PHONE);
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
         const stackCard = page.locator(".mobile-panel-stack__item", { hasText: "HEL-1398 narrow" });
         await expect(stackCard.locator(".chart-panel__truncation-note")).toBeVisible({
           timeout: 20_000,

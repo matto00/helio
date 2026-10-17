@@ -282,3 +282,83 @@ describe("MetricRenderer — value tween (HEL-1573)", () => {
     for (const text of seen) expect(text).toMatch(/^\d+$/);
   });
 });
+
+describe("MetricRenderer — comparison delta tween (HEL-1584 D10)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(motionTokens, "readMotionDuration").mockReturnValue(280);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  const delta = (pct: number | null, absDelta = 0) =>
+    ({
+      kind: "delta",
+      direction: "up",
+      pct,
+      absDelta,
+      label: "7d",
+      words: "7 days earlier",
+      baselineAt: "2026-10-09T00:00:00Z",
+      baselineValue: 100,
+    }) as const;
+  const trend = (container: HTMLElement) =>
+    container.querySelector(".panel-content__metric-trend") as HTMLElement;
+
+  it("counts a changed percentage through intermediates and settles on its exact text", () => {
+    const { rerender, container } = render(
+      <MetricRenderer data={{ value: "10" }} comparison={delta(10)} />,
+    );
+    expect(trend(container)).toHaveTextContent("10% vs 7d");
+    rerender(<MetricRenderer data={{ value: "10" }} comparison={delta(20)} />);
+    act(() => {
+      jest.advanceTimersByTime(140);
+    });
+    const mid = Number(/([\d.]+)%/.exec(trend(container).textContent ?? "")?.[1]);
+    expect(mid).toBeGreaterThan(10);
+    expect(mid).toBeLessThan(20);
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(trend(container)).toHaveTextContent("20% vs 7d");
+  });
+
+  it("the spoken label only ever carries the final value, never an intermediate", () => {
+    const { rerender, container } = render(
+      <MetricRenderer data={{ value: "10" }} comparison={delta(10)} />,
+    );
+    rerender(<MetricRenderer data={{ value: "10" }} comparison={delta(20)} />);
+    const labels = new Set<string | null>();
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        jest.advanceTimersByTime(30);
+      });
+      labels.add(trend(container).getAttribute("aria-label"));
+    }
+    expect([...labels]).toEqual(["up 20% 7 days earlier"]);
+  });
+
+  it("tweens an absolute delta in the headline's format when the server gave no percentage", () => {
+    const { rerender, container } = render(
+      <MetricRenderer data={{ value: "10" }} format="integer" comparison={delta(null, 100)} />,
+    );
+    rerender(
+      <MetricRenderer data={{ value: "10" }} format="integer" comparison={delta(null, 300)} />,
+    );
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(trend(container)).toHaveTextContent("300 vs 7d");
+  });
+
+  it("shows the first delta at once (no count-up on mount) and a non-delta comparison renders as before", () => {
+    const { container, rerender } = render(
+      <MetricRenderer data={{ value: "10" }} comparison={delta(33)} />,
+    );
+    expect(trend(container)).toHaveTextContent("33% vs 7d");
+    rerender(<MetricRenderer data={{ value: "10" }} comparison={{ kind: "filtered" }} />);
+    expect(container.querySelector(".panel-content__metric-note")).toBeInTheDocument();
+  });
+});

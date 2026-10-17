@@ -102,6 +102,51 @@ describe("PanelGrid.css reconciles the vendor grid timing (HEL-1032)", () => {
     }
   });
 
+  it("lifts a dragged card by the lift token, with a shadow, on the inner card (HEL-1584 D2)", () => {
+    const lift = rule(
+      css,
+      ".panel-grid > .react-grid-item.react-draggable-dragging > .panel-grid-card",
+    );
+    expect(lift).toMatch(/transform:\s*scale\(var\(--motion-lift-scale\)\)/);
+    expect(lift).toMatch(/box-shadow:\s*var\(--app-shadow-soft\)/);
+    // The item itself keeps the vendor no-transition rule; the lift is never on the item.
+    expect(
+      rule(
+        css,
+        ".panel-grid > .react-grid-item.react-draggable-dragging, .panel-grid > .react-grid-item.resizing",
+      ),
+    ).toMatch(/transition:\s*none/);
+  });
+
+  it("settles the card back on the overshoot curve and the move token (HEL-1584 D2)", () => {
+    expect(rule(css, ".panel-grid-card")).toContain(
+      "transform var(--motion-duration-move) var(--motion-ease-overshoot)",
+    );
+  });
+
+  it("resizing raises the shadow only: no scale", () => {
+    const resizing = rule(css, ".panel-grid > .react-grid-item.resizing > .panel-grid-card");
+    expect(resizing).toMatch(/box-shadow:\s*var\(--app-shadow-soft\)/);
+    expect(resizing).not.toMatch(/transform/);
+  });
+
+  it("brings cards in with the entrance keyframe on the CARD, token-timed, with its own stagger cap (HEL-1584 D4)", () => {
+    const enter = rule(
+      css,
+      '.panel-grid > .react-grid-item[data-entrance="enter"] > .panel-grid-card',
+    );
+    expect(enter).toMatch(/--motion-stagger-cap:\s*10/);
+    expect(enter).toMatch(
+      /animation:\s*motion-enter var\(--motion-duration-emphasized\) var\(--motion-ease-out\)\s+calc\(min\(var\(--motion-index, 0\), var\(--motion-stagger-cap\)\) \* var\(--motion-stagger\)\) backwards/,
+    );
+    const pop = rule(css, '.panel-grid > .react-grid-item[data-entrance="pop"] > .panel-grid-card');
+    expect(pop).toMatch(
+      /animation:\s*motion-enter var\(--motion-duration-standard\) var\(--motion-ease-overshoot\) backwards/,
+    );
+    // Neither rule may animate the positioned item (it carries react-grid-layout's inline translate).
+    expect(css).not.toMatch(/\[data-entrance[^\]]*\]\s*\{[^}]*animation/);
+  });
+
   it("carries no literal duration", () => {
     expect(css).not.toMatch(/\b\d*\.?\d+m?s\b/);
   });

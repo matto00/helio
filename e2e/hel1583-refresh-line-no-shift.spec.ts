@@ -23,6 +23,16 @@ async function post<T>(request: APIRequestContext, url: string, data: unknown): 
 async function realCardsReady(page: Page) {
   await expect(page.locator('.mobile-panel-stack__item[aria-hidden="true"]')).toHaveCount(0);
   await expect(page.locator("article.mobile-panel-stack__item").first()).toBeVisible();
+  // HEL-1584: the cards rise in on a cold load, and a bounding box includes that transform. This spec measures layout
+  // shift, so let the entrance finish first (only the entrance: the skeleton shimmer never ends).
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => (a as CSSAnimation).animationName === "motion-enter")
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
 }
 
 async function layoutTops(page: Page) {

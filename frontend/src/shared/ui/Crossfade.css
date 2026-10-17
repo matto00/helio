@@ -18,6 +18,11 @@
 
 /* The body is a row-axis flex item of the layer. Without min-width: 0 its automatic minimum (its min-content, e.g. a stale
    chart canvas) keeps it from shrinking with the card, so a chart never narrows and a wide table overflows instead of scrolling. */
+/* HEL-1584 `block`: layers as blocks, so content with no width of its own keeps the container's full width. */
+.crossfade--block > .crossfade__layer {
+  display: block;
+}
+
 .crossfade__layer > * {
   min-width: 0;
 }
@@ -40,4 +45,11 @@
 
 .crossfade__content--entering {
   animation: crossfade-in var(--motion-duration-standard) var(--motion-ease-standard) backwards;
+}
+
+/* HEL-1584 `keepContentMounted`: the content is mounted while loading (so a Suspense boundary inside it can resolve) but
+   invisible and, via `inert`, not interactive. */
+.crossfade__content--pending {
+  opacity: 0;
+  pointer-events: none;
 }

@@ -37,6 +37,10 @@ const PRIMITIVE_TARGET =
   /dashboard-list__item|motion-indicator|react-grid-item|react-grid-layout|panel-grid|crossfade/;
 const isPrimitive = (r: MotionRecord) => PRIMITIVE_TARGET.test(r.target);
 const byName = (records: MotionRecord[], name: string) => records.filter((r) => r.name === name);
+/** The dashboard list rows' stagger (this spec's subject). The panel cards enter on the emphasized token since HEL-1584 (their
+ *  own spec, hel1584-motion-surfaces.spec.ts), which is a different `motion-enter` record on a different target. */
+const rowEnters = (records: MotionRecord[]) =>
+  byName(records, "motion-enter").filter((r) => r.target.includes("dashboard-list__item"));
 
 function save(page: Page, mode: Mode, theme: Theme, shot: string) {
   return page.screenshot({ path: evidencePath(TICKET, `${mode}-${theme}-${shot}.png`) });
@@ -181,7 +185,7 @@ async function runMode(
 
     if (mode === "full") {
       // Stagger: rows rise and fade in (moves, token duration), index-delayed.
-      const enter = byName(r.load, "motion-enter");
+      const enter = rowEnters(r.load);
       expect(enter.length, "stagger entrances recorded").toBeGreaterThanOrEqual(5);
       expect(
         enter.some((e) => !e.inferred),
@@ -227,7 +231,7 @@ async function runMode(
     } else if (mode === "subtle") {
       for (const key of Object.keys(r)) expectInstantOrStill(r[key], `${mode}/${theme}/${key}`);
       // Fades survive: the stagger still fades over the standard token (no displacement), and the crossfade runs.
-      const enter = byName(r.load, "motion-enter");
+      const enter = rowEnters(r.load);
       expect(enter.length).toBeGreaterThanOrEqual(5);
       expect(
         enter.some((e) => !e.inferred),

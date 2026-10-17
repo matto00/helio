@@ -6,6 +6,13 @@ import type React from "react";
 
 import type { Panel } from "../../types/panel";
 
+/** HEL-1584 D8: the viewport rectangle of a panel's card, found by the `data-panel-id` its `<article>` carries, for the
+ *  paths that open the detail modal without a click event on the card (the card menu's Customize). */
+export function panelCardRect(panelId: string): DOMRectReadOnly | null {
+  if (!/^[\w-]+$/.test(panelId)) return null;
+  return document.querySelector(`[data-panel-id="${panelId}"]`)?.getBoundingClientRect() ?? null;
+}
+
 export function usePanelDetailState(
   panels: Panel[],
   panelsStatus: string,
@@ -18,6 +25,8 @@ export function usePanelDetailState(
   // still opens the read-only view. Both previously funneled into the same
   // `setDetailPanelId` call with no way to tell them apart.
   const [detailPanelMode, setDetailPanelMode] = useState<"view" | "edit">("view");
+  // HEL-1584 D8: where the modal grows out of -- the clicked card's rectangle at the moment it opened.
+  const [detailOrigin, setDetailOrigin] = useState<DOMRectReadOnly | null>(null);
   const mousedownPos = useRef<{ x: number; y: number } | null>(null);
 
   // HEL-651: `detailPanel` is genuinely `Panel | undefined` — the render
@@ -69,6 +78,7 @@ export function usePanelDetailState(
     if (pos !== null && Math.abs(e.clientX - pos.x) + Math.abs(e.clientY - pos.y) > 5) return;
     if ((e.target as Element).closest("button, input, a, .react-resizable-handle")) return;
     setDetailPanelMode("view");
+    setDetailOrigin(e.currentTarget.getBoundingClientRect());
     setDetailPanelId(panelId);
   }, []);
 
@@ -84,6 +94,7 @@ export function usePanelDetailState(
     // F-123 — "Customize" in the panel actions menu should open the editor
     // directly, not the same read-only view a plain card click lands on.
     setDetailPanelMode("edit");
+    setDetailOrigin(panelCardRect(panelId));
     setDetailPanelId(panelId);
   }, []);
 
@@ -94,6 +105,7 @@ export function usePanelDetailState(
     detailPanelId,
     detailPanel,
     detailPanelMode,
+    detailOrigin,
     closeDetail,
     handleStartEdit,
     handleMouseDown,

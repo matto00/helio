@@ -25,6 +25,7 @@ import { useCreatePanelAction } from "../hooks/useCreatePanelAction";
 import { fetchPanels, panelsMatchDashboard, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
+import { Crossfade } from "../../../shared/ui/Crossfade";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { resolveDashboardGridBackground } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
@@ -426,25 +427,37 @@ export function PanelList() {
         className="panel-list__zoom-container"
         style={zoomContainerStyle}
       >
-        {showPanelGridSkeleton || showBootstrapSkeleton ? (
-          <PanelGridSkeleton
-            dashboardId={selectedDashboardId}
-            layout={selectedDashboard?.layout ?? defaultDashboardLayout}
-            width={gridContainerWidth}
-          />
-        ) : items.length > 0 &&
+        {/* HEL-1584 D5: the skeleton grid fades out in place as the real grid appears. The cards bring their own
+            entrance (`contentFade={false}`, no layer fade on top), and `block` keeps the grid root and the phone stack
+            at the zoom container's full width (neither has a width of its own). Both react-grid-layout instances keep
+            their dashboard-id keys and share `gridContainerWidth`; the keyed `PanelGrid` still unmounts while loading,
+            exactly as the ternary this replaced did. */}
+        <Crossfade
+          loading={showPanelGridSkeleton || showBootstrapSkeleton}
+          skeleton={
+            <PanelGridSkeleton
+              dashboardId={selectedDashboardId}
+              layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+              width={gridContainerWidth}
+            />
+          }
+          contentFade={false}
+          block
+        >
+          {items.length > 0 &&
           selectedDashboardId !== null &&
           items[0].dashboardId === selectedDashboardId ? (
-          <PanelGrid
-            key={selectedDashboardId}
-            dashboardId={selectedDashboardId}
-            layout={selectedDashboard?.layout ?? defaultDashboardLayout}
-            layoutVersion={selectedDashboard?.layoutVersion}
-            panels={items}
-            zoomLevel={zoomLevel}
-            width={gridContainerWidth}
-          />
-        ) : null}
+            <PanelGrid
+              key={selectedDashboardId}
+              dashboardId={selectedDashboardId}
+              layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+              layoutVersion={selectedDashboard?.layoutVersion}
+              panels={items}
+              zoomLevel={zoomLevel}
+              width={gridContainerWidth}
+            />
+          ) : null}
+        </Crossfade>
       </div>
       {contentGateOpen ? (
         <>

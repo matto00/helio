@@ -36,9 +36,17 @@ interface PanelDetailModalProps {
    *  modal straight into the settings form instead of the read-only view a
    *  plain card click lands on. Defaults to "view" (unchanged behavior). */
   initialMode?: "view" | "edit";
+  /** HEL-1584: the rectangle of the card this modal was opened from; the dialog grows out of it under Full. Passed
+   *  straight through to `Modal`. */
+  expandFrom?: DOMRectReadOnly | null;
 }
 
-export function PanelDetailModal({ panel, onClose, initialMode = "view" }: PanelDetailModalProps) {
+export function PanelDetailModal({
+  panel,
+  onClose,
+  initialMode = "view",
+  expandFrom,
+}: PanelDetailModalProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const {
@@ -161,6 +169,7 @@ export function PanelDetailModal({ panel, onClose, initialMode = "view" }: Panel
   return (
     <Modal
       open
+      expandFrom={expandFrom}
       size={modalMode === "view" ? "full" : "md"}
       title={panel.title}
       ariaLabel={`${panel.title} settings`}

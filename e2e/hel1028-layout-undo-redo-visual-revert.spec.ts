@@ -197,8 +197,10 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
             // `boundingBox()` does not wait for visibility (it returns null while the grid
             // container is still hidden/unlaid-out) — wait for it first, web-first (HEL-1288: a CI
             // run saw `null` here once the file was scheduled across workers).
-            await expect(page.locator(".panel-grid")).toBeVisible();
-            const container = (await page.locator(".panel-grid").boundingBox())!;
+            await expect(page.locator(".panel-grid:not([aria-hidden='true'] *)")).toBeVisible();
+            const container = (await page
+              .locator(".panel-grid:not([aria-hidden='true'] *)")
+              .boundingBox())!;
             expect(container.width).toBeGreaterThanOrEqual(vp.containerMin);
             expect(container.width).toBeLessThan(vp.containerMax);
 

@@ -610,3 +610,81 @@ describe("CommandPalette — search-result overflow row is non-interactive (skep
     expect(selected).toHaveLength(1);
   });
 });
+
+// HEL-1584 D9: the results rise in staggered on each open; rows that change while typing appear without a rise.
+describe("CommandPalette results entrance (HEL-1584)", () => {
+  const actions = [
+    makeAction("a1", "Alpha one"),
+    makeAction("a2", "Alpha two"),
+    makeAction("b1", "Beta one"),
+  ];
+  const rows = () =>
+    screen
+      .getAllByRole("option")
+      .map((option) => option.closest("li") as HTMLLIElement)
+      .filter((li) =>
+        ["Alpha one", "Alpha two", "Beta one"].some((t) => li.textContent?.includes(t)),
+      );
+
+  it("staggers the rows present on open, in display order, with the shared entrance class", async () => {
+    renderPalette(actions);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+    const shown = rows();
+    expect(shown.length).toBe(3);
+    shown.forEach((li) => expect(li).toHaveClass("motion-enter"));
+    const indexes = shown.map((li) => Number(li.style.getPropertyValue("--motion-index")));
+    expect([...indexes].sort((x, y) => x - y)).toEqual(indexes);
+  });
+
+  it("each group label takes its group's first row's entrance class and index (a heading never shows over rows that have not started)", async () => {
+    renderPalette([
+      { ...makeAction("g1", "First grouped"), section: "Alpha group" },
+      { ...makeAction("g2", "Second grouped"), section: "Alpha group" },
+      { ...makeAction("h1", "Other grouped"), section: "Beta group" },
+    ]);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await screen.findByLabelText("Search commands");
+    for (const [label, firstRow] of [
+      ["Alpha group", "First grouped"],
+      ["Beta group", "Other grouped"],
+    ]) {
+      const heading = screen.getByText(label);
+      const row = screen.getByText(firstRow).closest("li") as HTMLLIElement;
+      expect(heading).toHaveClass("motion-enter");
+      expect(heading.style.getPropertyValue("--motion-index")).toBe(
+        row.style.getPropertyValue("--motion-index"),
+      );
+    }
+  });
+
+  it("rows that change while typing appear with no entrance", async () => {
+    renderPalette(actions);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await waitFor(() => expect(screen.queryByText("Beta one")).toBeNull());
+    // The Alpha rows were part of the first population (they stay animated, not replayed), and typing adds no new class:
+    // narrowing the list then widening it again gives the returning rows no entrance.
+    fireEvent.change(input, { target: { value: "" } });
+    await waitFor(() => expect(screen.getByText("Beta one")).toBeInTheDocument());
+    const beta = screen.getByText("Beta one").closest("li") as HTMLLIElement;
+    expect(beta).not.toHaveClass("motion-enter");
+    expect(beta).not.toHaveClass("motion-pop");
+  });
+
+  it("staggers again on the next open", async () => {
+    renderPalette(actions);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    const input = await screen.findByLabelText("Search commands");
+    fireEvent.change(input, { target: { value: "alpha" } });
+    await waitFor(() => expect(screen.queryByText("Beta one")).toBeNull());
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(getDialog()).not.toHaveAttribute("open"));
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    await waitFor(() => expect(getDialog()).toHaveAttribute("open"));
+    // The reopened palette shows the default list again, and every row in it is part of the new open's population.
+    await waitFor(() => expect(screen.getByText("Beta one")).toBeInTheDocument());
+    rows().forEach((li) => expect(li).toHaveClass("motion-enter"));
+  });
+});

@@ -5,6 +5,7 @@ import {
   fetchPanels as fetchPanelsRequest,
 } from "../services/panelService";
 import { createDashboard as createDashboardRequest } from "../../dashboards/services/dashboardService";
+import { fetchPanels as fetchPanelsThunk } from "../state/panelsSlice";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelList } from "./PanelList";
@@ -560,6 +561,57 @@ describe("PanelList", () => {
       });
 
       expect(container.querySelector(".ui-skeleton")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
+    });
+  });
+
+  // ── HEL-1584 D5 — the skeleton grid crossfades into the real grid, inside the always-mounted zoom container ──
+  describe("grid crossfade (HEL-1584)", () => {
+    const loadedPanel = {
+      id: "panel-1",
+      dashboardId: "dashboard-1",
+      title: "Revenue Pulse",
+      type: "output" as const,
+      meta: defaultMeta,
+      appearance: defaultPanelAppearance,
+    };
+
+    it("when the panels arrive the skeleton leaves in place (hidden from assistive technology) and the grid gets no layer fade", () => {
+      const { container, store } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: { items: [], loadedDashboardId: null, status: "loading" },
+      });
+      const zoomContainer = container.querySelector(".panel-list__zoom-container");
+      const skeletonLayer = () => container.querySelector(".crossfade__skeleton");
+      expect(skeletonLayer()).not.toHaveAttribute("aria-hidden");
+
+      act(() => {
+        store.dispatch(fetchPanelsThunk.fulfilled([loadedPanel as never], "req", "dashboard-1"));
+      });
+
+      expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
+      expect(skeletonLayer()).toHaveAttribute("aria-hidden", "true");
+      expect(skeletonLayer()).toHaveAttribute("inert");
+      expect(skeletonLayer()).toHaveClass("crossfade__skeleton--leaving");
+      // The cards bring their own entrance: no layer fade on top of it.
+      expect(container.querySelector(".crossfade__content--entering")).toBeNull();
+      // Block layers, so the grid root keeps the zoom container's full width.
+      expect(container.querySelector(".crossfade")).toHaveClass("crossfade--block");
+      // The single always-mounted wrapper is the same node before and after (the width observer's target).
+      expect(container.querySelector(".panel-list__zoom-container")).toBe(zoomContainer);
+      expect(zoomContainer?.querySelectorAll(".panel-list__zoom-container")).toHaveLength(0);
+    });
+
+    it("renders the grid alone, with no skeleton layer, when the panels were already loaded", () => {
+      const { container } = renderWithStore(<PanelList />, {
+        dashboards: baseDashboardsState,
+        panels: {
+          items: [loadedPanel as never],
+          loadedDashboardId: "dashboard-1",
+          status: "succeeded",
+        },
+      });
+      expect(container.querySelector(".crossfade__skeleton")).toBeNull();
       expect(screen.getByRole("heading", { name: "Revenue Pulse" })).toBeInTheDocument();
     });
   });

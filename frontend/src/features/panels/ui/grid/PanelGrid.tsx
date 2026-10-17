@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
@@ -9,6 +9,8 @@ import {
   type PanelUpdatesFlushHandle,
 } from "../../hooks/usePanelUpdatesFlush";
 import { useStoredLayoutRepair } from "../../hooks/useStoredLayoutRepair";
+import { useAppSelector } from "../../../../hooks/reduxHooks";
+import { useFirstMountForToken } from "../../../../shared/motion/useFirstMountForToken";
 import { panelGridConfig } from "./panelGridConfig";
 import "./PanelGrid.css";
 
@@ -70,10 +72,29 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
 
   const isPhone = width < panelGridConfig.breakpoints.sm;
 
+  // HEL-1584 D4: the cold-load entrance plays only for panels that arrived from a network fetch, and at most once per load
+  // of this dashboard's panels (`useFirstMountForToken` survives the unmount a Home round trip causes). Latched for this
+  // mount (PanelList keys the grid by dashboard id), and cleared when a width crossing of `sm` swaps the shell, so the newly
+  // mounted shell does not stagger panels the user is already looking at. Both adjustments are render-time state, no commit.
+  const itemsOrigin = useAppSelector((state) => state.panels.itemsOrigin ?? "network");
+  const loadId = useAppSelector((state) => state.panels.loadId ?? 0);
+  const firstMount = useFirstMountForToken("panel-grid-entrance", `${dashboardId}:${loadId}`);
+  const [playEntrance, setPlayEntrance] = useState(itemsOrigin === "network" && firstMount);
+  const [shellIsPhone, setShellIsPhone] = useState(isPhone);
+  if (shellIsPhone !== isPhone) {
+    setShellIsPhone(isPhone);
+    setPlayEntrance(false);
+  }
+
   return (
     <div className="panel-grid-shell">
       {isPhone ? (
-        <MobilePanelStack panels={panels} layout={layout} containerWidth={width} />
+        <MobilePanelStack
+          panels={panels}
+          layout={layout}
+          containerWidth={width}
+          playEntrance={playEntrance}
+        />
       ) : (
         <DesktopPanelGrid
           dashboardId={dashboardId}
@@ -83,6 +104,7 @@ export const PanelGrid = React.forwardRef<PanelGridHandle, PanelGridProps>(funct
           zoomLevel={zoomLevel}
           width={width}
           registerLayoutFlush={registerLayoutFlush}
+          playEntrance={playEntrance}
         />
       )}
     </div>

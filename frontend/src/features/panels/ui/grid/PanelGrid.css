@@ -72,12 +72,46 @@
     background-color var(--app-transition),
     color var(--app-transition),
     border-color var(--app-transition),
-    box-shadow var(--app-transition);
+    box-shadow var(--app-transition),
+    transform var(--motion-duration-move) var(--motion-ease-overshoot);
 }
 
 .panel-grid-card:hover {
   border-color: var(--app-border-strong);
   box-shadow: var(--app-shadow-soft);
+}
+
+/* HEL-1584 drag lift and settle. The lift lives on the inner card because the item carries react-grid-layout's inline
+   transform (and the vendor `transition: none` while dragging), and the card is a direct child of the item so the item is
+   what react-grid-layout measures: the scale cannot affect drag math. Picking a card up scales it by the lift token and
+   raises its shadow; dropping it removes the class, so the card scales back on the card's overshoot transform transition
+   (the settle, "a little give") while the item glides to its snapped cell on the item's own transition. Resizing raises
+   the shadow only: scaling a card under its resize handle would misplace the handle. Subtle and Off resolve the scale
+   token to 1 and the move duration to 0.01ms, so only the shadow changes (on the quick transition) there. */
+.panel-grid > .react-grid-item.react-draggable-dragging > .panel-grid-card {
+  transform: scale(var(--motion-lift-scale));
+  box-shadow: var(--app-shadow-soft);
+}
+
+.panel-grid > .react-grid-item.resizing > .panel-grid-card {
+  box-shadow: var(--app-shadow-soft);
+}
+
+/* HEL-1584 entrance. `DesktopPanelGrid` sets `data-entrance` and `--motion-index` on the grid item wrapper and never a
+   class: react-grid-layout forwards a child's className onto the positioned item, and an animation on the item itself
+   would override its inline translate. The animation runs on the card instead. `enter` is the staggered rise of the
+   cards a cold load brings in (reading order, the delay capped at ten steps; the cap is declared here because it is
+   otherwise only declared inside `.motion-enter`, and an undefined variable inside `min()` would invalidate the whole
+   animation); `pop` is the single rise of a panel added while the grid is on screen. `backwards` fill so a settled card
+   keeps no transform. The keyframes are `motion-enter` from `shared/motion/motion.css`. */
+.panel-grid > .react-grid-item[data-entrance="enter"] > .panel-grid-card {
+  --motion-stagger-cap: 10;
+  animation: motion-enter var(--motion-duration-emphasized) var(--motion-ease-out)
+    calc(min(var(--motion-index, 0), var(--motion-stagger-cap)) * var(--motion-stagger)) backwards;
+}
+
+.panel-grid > .react-grid-item[data-entrance="pop"] > .panel-grid-card {
+  animation: motion-enter var(--motion-duration-standard) var(--motion-ease-overshoot) backwards;
 }
 
 .panel-grid-card__top {

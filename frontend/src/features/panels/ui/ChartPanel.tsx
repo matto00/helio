@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // F-022 — `/core` entry point + our own selectively-registered `echarts`
 // instance (`echartsCore.ts`), instead of the default `echarts-for-react`
 // export, which hard-imports the full, non-tree-shakeable `echarts` package
@@ -23,6 +23,7 @@ import { useChartOption } from "./useChartOption";
 import { useChartClickHandler } from "./useChartClickHandler";
 import { useHeatmapDefaultCursor } from "./useHeatmapDefaultCursor";
 import { useChartEntranceMotion } from "./useChartEntranceMotion";
+import { chartShapeSignature, ShapeMemory } from "./chartShapeSignature";
 import { resolveChartType } from "../../../utils/chartAppearance";
 import echarts from "./echartsCore";
 
@@ -126,6 +127,17 @@ export function ChartPanel({
     [onHeatmapReady, onEntranceReady],
   );
 
+  // HEL-1584 D10 -- a refresh that changes only the data (same signature as what was last committed) updates the existing
+  // series in place, so ECharts animates the change; any other change replaces the chart outright. The first render has
+  // nothing committed, so it always replaces. The signature is of the option BEFORE the entrance's animation settings, which
+  // change once the entrance window closes and are not a shape change.
+  const signature = useMemo(() => chartShapeSignature(builtOption), [builtOption]);
+  const [memory] = useState(() => new ShapeMemory());
+  const sameShape = memory.matches(signature);
+  useEffect(() => {
+    memory.commit(signature);
+  }, [memory, signature]);
+
   return (
     <div ref={wrapperRef} style={{ height: "100%", width: "100%" }}>
       <ReactECharts
@@ -133,14 +145,14 @@ export function ChartPanel({
         echarts={echarts}
         option={option}
         onEvents={chartOnEvents}
-        // Kept `true`: switching `chartType` between cartesian (bar/line/
-        // scatter) and pie needs ECharts to fully replace its internal
-        // series/axis state, not merge onto it — a stale `xAxis` or `series`
-        // shape left over from the previous chart type is exactly the kind
-        // of invalid-option crash F-027 fixes elsewhere. The real fix for
-        // F-231's other complaint (rebuilding the option object itself) is
-        // the `useMemo` inside `useChartOption`.
-        notMerge={true}
+        // Replaces unless only the data changed (see `sameShape` above). Switching `chartType` between cartesian
+        // (bar/line/scatter) and pie, or removing any option, needs ECharts to fully replace its internal series/axis
+        // state, not merge onto it -- a stale `xAxis` or `series` shape left over from the previous chart type is
+        // exactly the kind of invalid-option crash F-027 fixes elsewhere. A same-shape refresh merges, with the series
+        // replaced by id, so it morphs instead of redrawing. The real fix for F-231's other complaint (rebuilding the
+        // option object itself) is the `useMemo` inside `useChartOption`.
+        notMerge={!sameShape}
+        replaceMerge={sameShape ? ["series"] : undefined}
         autoResize={true}
         style={{ height: "100%", width: "100%" }}
       />

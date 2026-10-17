@@ -10,6 +10,14 @@
   white-space: nowrap;
 }
 
+/* HEL-1584: the saved check. Colour only; the pop is the shared `.motion-pop` (overshoot rise under Full, a fade under
+   Subtle, instant under Off). */
+.save-state-indicator__check {
+  display: inline-flex;
+  align-items: center;
+  color: var(--app-success);
+}
+
 /* F-054/F-077: "Save now" is only mounted when dirty (SaveStateIndicator.tsx)
  * now, so it no longer needs an opacity/hover reveal — `.cmd-btn` (App.css)
  * supplies the full visible recipe. */

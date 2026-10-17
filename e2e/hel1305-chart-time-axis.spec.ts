@@ -295,7 +295,7 @@ for (const { theme, width } of CASES) {
       await page.getByText(`HEL-1305 ${label}`).first().click();
       if (width === 375) {
         await page.setViewportSize({ width: 375, height: 900 });
-        await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+        await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
       }
       const card = (title: string) =>
         page
@@ -516,7 +516,7 @@ for (const theme of ["light", "dark"] as const) {
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1305 labels ${theme}`).first().click();
       await page.setViewportSize({ width: 375, height: 900 });
-      await expect(page.locator(".mobile-panel-stack")).toBeVisible();
+      await expect(page.locator(".mobile-panel-stack:not([aria-hidden='true'] *)")).toBeVisible();
       for (const name of ["Hourly", "Monthly"]) {
         const card = page
           .locator(".mobile-panel-stack__item", { hasText: `HEL-1305 P${name}` })

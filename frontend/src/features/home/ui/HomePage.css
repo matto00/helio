@@ -388,6 +388,29 @@ a.home-card:hover {
   transform: rotate(45deg);
 }
 
+/* HEL-1584: the one-shot nudge of a mark that has just turned failed: a short side to side shake on the standard duration
+   and the ease-out curve. The diamond's own `rotate(45deg)` is repeated in every frame (a transform animation replaces the
+   element's transform), with the translate first so the shake runs along the screen's x axis, not the diamond's rotated
+   one. `--motion-nudge-distance` is 0px under Subtle, Off and OS reduce. */
+@keyframes tl-nudge {
+  0% {
+    transform: translateX(0) rotate(45deg);
+  }
+  33% {
+    transform: translateX(var(--motion-nudge-distance)) rotate(45deg);
+  }
+  66% {
+    transform: translateX(calc(-1 * var(--motion-nudge-distance))) rotate(45deg);
+  }
+  100% {
+    transform: translateX(0) rotate(45deg);
+  }
+}
+
+.tl-shape--failed.tl-shape--nudge {
+  animation: tl-nudge var(--motion-duration-standard) var(--motion-ease-out);
+}
+
 .tl-shape--running {
   position: relative;
   border: 2px solid var(--app-text);
