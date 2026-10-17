@@ -20,6 +20,7 @@ import { SortableTable, type SortableTableColumn } from "../../../shared/ui/Sort
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
+import { DataSectionTabs } from "../../../shared/chrome/DataSectionTabs";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { formatRelativeTime } from "../../../utils/formatRelativeTime";
 import { TestConnectionAffordance } from "../../sources/ui/TestConnectionAffordance";
@@ -165,6 +166,7 @@ export function ConnectorsPage() {
 
   return (
     <PageShell className="connectors-page">
+      <DataSectionTabs />
       <PageHeader title="Connectors" />
 
       {showConnectorsSkeleton && (

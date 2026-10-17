@@ -246,6 +246,10 @@ test.describe("HEL-1065 pin-toggle CSS fixes (rendered geometry)", () => {
       const restore = await forceFocusVisible(client, pinButton);
       try {
         const snapshot = await readIndicatorSnapshot(pinButton);
+        // Re-read the <th> box immediately after the ring snapshot, in the same breath: late content (for example the
+        // phone refreshed line resolving) can shift the page between the early box read and this snapshot (HEL-1583).
+        const thRing = await th.first().boundingBox();
+        expect(thRing).not.toBeNull();
         const ringLeft =
           snapshot.rect.left - snapshot.raw.outlineWidth - snapshot.raw.outlineOffset;
         const ringTop = snapshot.rect.top - snapshot.raw.outlineWidth - snapshot.raw.outlineOffset;
@@ -254,15 +258,15 @@ test.describe("HEL-1065 pin-toggle CSS fixes (rendered geometry)", () => {
         const ringBottom =
           snapshot.rect.bottom + snapshot.raw.outlineWidth + snapshot.raw.outlineOffset;
 
-        expect(ringTop, "focus ring top must be inside the <th>").toBeGreaterThanOrEqual(thBox!.y);
+        expect(ringTop, "focus ring top must be inside the <th>").toBeGreaterThanOrEqual(thRing!.y);
         expect(ringBottom, "focus ring bottom must be inside the <th>").toBeLessThanOrEqual(
-          thBox!.y + thBox!.height,
+          thRing!.y + thRing!.height,
         );
         expect(ringLeft, "focus ring left must be inside the <th>").toBeGreaterThanOrEqual(
-          thBox!.x,
+          thRing!.x,
         );
         expect(ringRight, "focus ring right must be inside the <th>").toBeLessThanOrEqual(
-          thBox!.x + thBox!.width,
+          thRing!.x + thRing!.width,
         );
       } finally {
         await restore();

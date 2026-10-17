@@ -1,0 +1,8 @@
+## RED on 55ff0e85d: refreshed line font (sans) vs --font-mono
+    Error: refreshed line uses the --font-mono stack
+    Expected: [32m"\"[7mJetBrains Mono\", ui-monospace, \"Cascadia Code\", \"Fira Code\", monospace[27m"[39m
+    Received: [31m"\"[7mSchibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif[27m"[39m
+    Error: refreshed line uses the --font-mono stack
+    Expected: [32m"\"[7mJetBrains Mono\", ui-monospace, \"Cascadia Code\", \"Fira Code\", monospace[27m"[39m
+    Received: [31m"\"[7mSchibsted Grotesk\", system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif[27m"[39m
+  2 failed

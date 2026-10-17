@@ -95,3 +95,29 @@ describe("MobilePanelStack.css — intrinsic-height items vs. container-type: si
     expect(body).not.toMatch(/container-type/);
   });
 });
+
+describe("MobilePanelStack.css — HEL-1583 phone gutters", () => {
+  const phoneBlock = css.slice(css.indexOf("@media (max-width: 768px)"));
+
+  it("scopes the gutter rules to the phone shell query", () => {
+    expect(css.indexOf("@media (max-width: 768px)")).toBeGreaterThan(0);
+    expect(phoneBlock).toMatch(/\.mobile-panel-stack\s*\{/);
+  });
+
+  it("the stack adds no inline padding (.panel-list owns the 12px edge) and gaps cards by 10px", () => {
+    const body = findRuleBody(phoneBlock, ".mobile-panel-stack {");
+    expect(body).toMatch(/padding:\s*0\s*;/);
+    expect(body).toMatch(/gap:\s*calc\(var\(--space-3\)\s*-\s*2px\)\s*;/);
+  });
+
+  it("pads each stacked card by 14px (--space-3 + 2px)", () => {
+    const body = findRuleBody(phoneBlock, ".mobile-panel-stack__item.panel-grid-card");
+    expect(body).toMatch(/padding:\s*calc\(var\(--space-3\)\s*\+\s*2px\)\s*;/);
+  });
+
+  it("drops the nested horizontal inset of markdown and plain-text bodies", () => {
+    const body = findRuleBody(phoneBlock, ".mobile-panel-stack__item--markdown .markdown-panel");
+    expect(body).toMatch(/padding-inline:\s*0\s*;/);
+    expect(phoneBlock).toMatch(/\.mobile-panel-stack__item--text \.panel-content--text/);
+  });
+});

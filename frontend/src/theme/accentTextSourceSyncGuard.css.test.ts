@@ -20,8 +20,14 @@ import { ACCENT_PRESETS, DefaultAccentColorByTheme } from "./theme";
 // test.
 
 const THEME_CSS_PATH = path.join(__dirname, "theme.css");
-const BOTTOM_NAV_CSS_PATH = path.join(__dirname, "../shared/chrome/BottomNav.css");
-const ADD_SOURCE_MODAL_CSS_PATH = path.join(__dirname, "../features/sources/ui/AddSourceModal.css");
+const SRC_ROOT = path.join(__dirname, "..");
+
+/** Inline accent tints that stay in `ACCENT_TEXT_INLINE_TINT_STRENGTHS` although no stylesheet paints them any more
+ *  (HEL-1583, owner answer `keep-022-superset`). 0.22 was the bottom nav's active lozenge wash; the lozenge became an
+ *  opaque `--app-surface-strong` pill, so nothing paints 22% today. Keeping it scored keeps `--app-accent-text`
+ *  byte-identical app-wide (including theme.css's pinned `#fa8737` fallback): a more conservative superset, never a
+ *  looser set. A strength with no CSS user may stay scored only if it is named here. */
+const RETAINED_UNPAINTED_INLINE_TINTS: readonly number[] = [0.22];
 
 function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
@@ -63,25 +69,39 @@ function parseTokenTintStrengths(blockText: string): number[] {
   return [Number(surfaceM[1]) / 100, Number(dimM[1]) / 100];
 }
 
-/** Parses the FIRST `color-mix(in srgb, var(--app-accent) N%, ...)` used as
- * a `background` declaration out of an arbitrary stylesheet. */
-function parseFirstAccentBackgroundTint(css: string): number {
-  const m = /background(?:-color)?\s*:\s*color-mix\(in srgb, var\(--app-accent\) (\d+)%/.exec(
-    stripComments(css),
-  );
-  if (m === null) {
-    throw new Error("could not parse an accent background tint from the given stylesheet");
+/** Every stylesheet under `frontend/src` except `theme.css` (whose tints are the token tints, parsed separately). */
+function listInlineTintStylesheets(dir: string = SRC_ROOT): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...listInlineTintStylesheets(full));
+    else if (entry.name.endsWith(".css") && full !== THEME_CSS_PATH) found.push(full);
   }
-  return Number(m[1]) / 100;
+  return found;
+}
+
+/** The strengths (as fractions) of every `background(-color): color-mix(in srgb, var(--app-accent) N%, ...)` any
+ *  stylesheet paints — text can sit on these, so each must be scored. Borders are not backgrounds and are skipped. */
+function parsePaintedInlineTints(cssTexts: readonly string[] = readStylesheets()): number[] {
+  const re =
+    /background(?:-color)?\s*:\s*color-mix\(in srgb,\s*var\(--app-accent\)\s+(\d+(?:\.\d+)?)%/g;
+  const strengths = new Set<number>();
+  for (const css of cssTexts) {
+    const text = stripComments(css);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) strengths.add(Number(m[1]) / 100);
+  }
+  return [...strengths].sort((a, b) => a - b);
+}
+
+function readStylesheets(): string[] {
+  return listInlineTintStylesheets().map((file) => fs.readFileSync(file, "utf-8"));
 }
 
 function readParsed() {
   const themeCss = stripComments(fs.readFileSync(THEME_CSS_PATH, "utf-8"));
   const darkBlock = extractThemeBlock(themeCss, "dark");
   const lightBlock = extractThemeBlock(themeCss, "light");
-
-  const bottomNavCss = fs.readFileSync(BOTTOM_NAV_CSS_PATH, "utf-8");
-  const addSourceModalCss = fs.readFileSync(ADD_SOURCE_MODAL_CSS_PATH, "utf-8");
 
   return {
     neutralSurfaces: {
@@ -92,12 +112,11 @@ function readParsed() {
       dark: parseTokenTintStrengths(darkBlock),
       light: parseTokenTintStrengths(lightBlock),
     },
-    // Order matches ACCENT_TEXT_INLINE_TINT_STRENGTHS: BottomNav's lozenge
-    // (heavier, 22%) first, then AddSourceModal's selected-pill fill (20%).
+    // Every inline tint a stylesheet paints, plus the named retained strengths: the set the contrast scan must cover.
+    paintedInlineTints: parsePaintedInlineTints(),
     inlineTintStrengths: [
-      parseFirstAccentBackgroundTint(bottomNavCss),
-      parseFirstAccentBackgroundTint(addSourceModalCss),
-    ],
+      ...new Set([...parsePaintedInlineTints(), ...RETAINED_UNPAINTED_INLINE_TINTS]),
+    ].sort((a, b) => b - a),
   };
 }
 
@@ -165,7 +184,7 @@ describe("accent-text source sync guard (HEL-1048 CR-2)", () => {
     expect(parsed.neutralSurfaces.dark.length).toBeGreaterThanOrEqual(5);
     expect(parsed.neutralSurfaces.light.length).toBeGreaterThanOrEqual(5);
     expect(parsed.tokenTintStrengths.dark).toHaveLength(2);
-    expect(parsed.inlineTintStrengths).toHaveLength(2);
+    expect(parsed.inlineTintStrengths.length).toBeGreaterThanOrEqual(2);
   });
 
   it("appearance.ts's D2 constants match what is actually declared in source (drift detection)", () => {
@@ -176,7 +195,43 @@ describe("accent-text source sync guard (HEL-1048 CR-2)", () => {
     ]);
     expect(parsed.tokenTintStrengths.dark).toEqual([...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.dark]);
     expect(parsed.tokenTintStrengths.light).toEqual([...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.light]);
-    expect(parsed.inlineTintStrengths).toEqual([...ACCENT_TEXT_INLINE_TINT_STRENGTHS]);
+  });
+
+  // HEL-1583 (owner answer `keep-022-superset`): the direction is "every CSS inline tint is scored", not "every
+  // scored tint is painted". 0.22 stays scored although the bottom nav no longer paints it.
+  it("every inline accent tint a stylesheet paints is scored (token tints or ACCENT_TEXT_INLINE_TINT_STRENGTHS)", () => {
+    const scored = new Set<number>([
+      ...ACCENT_TEXT_INLINE_TINT_STRENGTHS,
+      ...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.dark,
+      ...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.light,
+    ]);
+    const unscored = readParsed().paintedInlineTints.filter((strength) => !scored.has(strength));
+    expect(unscored).toEqual([]);
+  });
+
+  it("a scored inline tint no stylesheet paints is allowed only when named as retained (0.22)", () => {
+    const painted = new Set(readParsed().paintedInlineTints);
+    const unpaintedScored = ACCENT_TEXT_INLINE_TINT_STRENGTHS.filter((s) => !painted.has(s));
+    expect(unpaintedScored.filter((s) => !RETAINED_UNPAINTED_INLINE_TINTS.includes(s))).toEqual([]);
+    for (const retained of RETAINED_UNPAINTED_INLINE_TINTS) {
+      expect(ACCENT_TEXT_INLINE_TINT_STRENGTHS).toContain(retained);
+    }
+    expect(RETAINED_UNPAINTED_INLINE_TINTS).toContain(0.22);
+  });
+
+  it("the guard's tint scan is not vacuous: it fails on an unscored background tint (self-test on a copy)", () => {
+    const mutated = [
+      ...readStylesheets(),
+      ".zz { background: color-mix(in srgb, var(--app-accent) 31%, transparent); }",
+    ];
+    const painted = parsePaintedInlineTints(mutated);
+    expect(painted).toContain(0.31);
+    const scored = new Set<number>([
+      ...ACCENT_TEXT_INLINE_TINT_STRENGTHS,
+      ...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.dark,
+      ...ACCENT_TEXT_TOKEN_TINT_STRENGTHS.light,
+    ]);
+    expect(painted.filter((strength) => !scored.has(strength))).toEqual([0.31]);
   });
 
   it("clears 4.5:1 against the SOURCE-PARSED D2 set (not a hardcoded copy), all 8 presets x 2 themes", () => {

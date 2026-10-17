@@ -13,6 +13,9 @@ import { useOnboardingHost } from "../../onboarding/hooks/useOnboardingHost";
 import { reopenOnboarding } from "../../onboarding/state/onboardingSlice";
 import { FirstRunDropZone } from "../../onboarding/ui/FirstRunDropZone";
 import { OnboardingChecklist } from "../../onboarding/ui/OnboardingChecklist";
+import { DashboardChipRow } from "../../dashboards/ui/DashboardChipRow";
+import { DashboardRefreshLine } from "../../../app/dashboardMeta/DashboardRefreshLine";
+import { useIsPhoneShell } from "../../../app/shell/useIsPhoneShell";
 import { CrossFilterIndicator } from "./CrossFilterIndicator";
 import { PanelGrid } from "./grid/PanelGrid";
 import { PanelGridSkeleton } from "./grid/PanelGridSkeleton";
@@ -176,8 +179,12 @@ export function PanelList() {
   const onboardingSupersedesEmptyState =
     onboardingVisible && (wouldShowZeroDashboardEmptyState || wouldShowZeroPanelEmptyState);
 
+  // HEL-1583 D2 — zoom is desktop chrome: the phone shell renders no widget, ignores a saved level (effective 1.0,
+  // the saved value is neither written nor cleared) and ignores the ctrl/meta-wheel gesture.
+  const isPhoneShell = useIsPhoneShell();
+
   const savedZoomLevel =
-    selectedDashboardId && currentUser?.preferences?.zoomLevels
+    !isPhoneShell && selectedDashboardId && currentUser?.preferences?.zoomLevels
       ? (currentUser.preferences.zoomLevels[selectedDashboardId] ?? 1.0)
       : 1.0;
 
@@ -186,8 +193,9 @@ export function PanelList() {
     value: number;
   } | null>(null);
 
-  const zoomLevel =
-    localZoomOverride?.dashboardId === selectedDashboardId
+  const zoomLevel = isPhoneShell
+    ? 1.0
+    : localZoomOverride?.dashboardId === selectedDashboardId
       ? localZoomOverride.value
       : savedZoomLevel;
 
@@ -205,7 +213,7 @@ export function PanelList() {
 
   const handleZoomChange = useCallback(
     (delta: number) => {
-      if (!selectedDashboardId) {
+      if (!selectedDashboardId || isPhoneShell) {
         return;
       }
       const newZoom = Math.min(2.0, Math.max(0.5, zoomLevel + delta));
@@ -217,7 +225,7 @@ export function PanelList() {
         }),
       );
     },
-    [selectedDashboardId, zoomLevel, dispatch],
+    [selectedDashboardId, zoomLevel, dispatch, isPhoneShell],
   );
 
   function handleZoomReset() {
@@ -299,7 +307,13 @@ export function PanelList() {
           : undefined
       }
     >
-      {selectedDashboardId ? (
+      {isPhoneShell ? (
+        <>
+          {selectedDashboardId ? <DashboardRefreshLine /> : null}
+          <DashboardChipRow />
+        </>
+      ) : null}
+      {selectedDashboardId && !isPhoneShell ? (
         <div role="group" aria-label="Zoom controls" className="panel-list__zoom-widget">
           <button
             type="button"

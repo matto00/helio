@@ -1,0 +1,6 @@
+## GREEN on 29d1e09d7 product code, repeat-each=6
+[HEL-1301 e2e] deleted 24 recorded throwaway user(s)
+  24 passed (1.5m)
+## hel1065 + glass-nav once
+[HEL-1301 e2e] deleted 35 recorded throwaway user(s)
+  35 passed (1.4m)

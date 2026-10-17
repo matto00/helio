@@ -10,7 +10,8 @@
   .bottom-nav {
     display: flex;
     align-items: stretch;
-    justify-content: space-around;
+    /* HEL-1583: inactive tabs are content-sized, so the bar spreads them (and the wider active tab) with equal gaps. */
+    justify-content: space-evenly;
     position: fixed;
     /* Inset floating capsule (HEL-774) — clear of all three edges, never a
        flush full-width strip. */
@@ -61,7 +62,9 @@
 }
 
 .bottom-nav__tab {
-  flex: 1;
+  /* HEL-1583: widths are driven by content only. No tab changes `flex-basis`/`flex-grow` on activation; only the
+     label's `max-width` and the lozenge's inline padding move, so the expansion is one continuous interpolation. */
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -79,6 +82,11 @@
      carve-out's contrast floor forces full-contrast ink. */
   text-decoration: none;
   transition: color var(--app-transition);
+  /* The Me tab is a <button>: strip the native chrome so it matches the <a> tabs. */
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   /* Pill radius so :focus-visible's outline (below) can follow the same
      curve instead of overhanging it as a rectangle — see that rule's own
      comment for the full rationale and the DESIGN.md carve-out it points at. */
@@ -89,41 +97,66 @@
   flex-shrink: 0;
 }
 
-/* The active item's material lozenge (HEL-774) — nested inside the capsule,
- * behind the icon only, not the whole tab. This carrier element is REQUIRED:
- * Lucide's <svg> emits width="22"/height="22" as presentation attributes,
- * and theme.css's global `* { box-sizing: border-box }` then resolves
- * padding+border inward from that 22px — styling the <svg> directly would
- * clamp its content box to 0px and render an empty ring with no glyph.
- * Present on every tab with identical geometry, so the icon's box never
- * shifts when the active tab changes; only `background` changes. */
+/* The tab's material lozenge (HEL-774) — nested inside the capsule, behind the icon and (when active) its label,
+ * not the whole tab. This carrier element is REQUIRED: Lucide's <svg> emits width="22"/height="22" as presentation
+ * attributes, and theme.css's global `* { box-sizing: border-box }` then resolves padding+border inward from that
+ * 22px — styling the <svg> directly would clamp its content box to 0px and render an empty ring with no glyph.
+ * HEL-1583: present on every tab with identical block padding and radius in every state, so the icon's box and
+ * vertical position never move on activation. Growth is along the inline axis only, via the label.
+ * `min-width: 0; max-width: 100%` bound the lozenge to its own tab: without them the tab's column flexbox would keep
+ * the pill at its full content width and spill it into the neighbours at 320px. */
 .bottom-nav__lozenge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-1) var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--app-radius-pill);
-  /* The lozenge never travels between tabs (it's per-tab, not a shared
-     indicator) — at most it fades in on activation. Gated below under
-     `prefers-reduced-motion: reduce` (D8). */
-  transition: background var(--app-transition);
+  /* Padding grows with the label on the same timing, so the pill widens as one continuous interpolation. */
+  transition: padding-inline var(--motion-duration-move) var(--motion-ease-out);
 }
 
-/* Accent is sanctioned here as the active-tab indicator (DESIGN.md §0.3) —
- * nowhere else in the bar. The lozenge's tinted fill carries the selection
- * affordance; the accent icon colour is a secondary cue, never the sole one. */
+/* The label is in the DOM on every tab but collapsed on inactive ones (`aria-hidden` in the markup; the tab's
+ * `aria-label` is its accessible name). `max-width` and `opacity` are the only properties it transitions. The gap
+ * to the icon lives in `text-indent` so a collapsed label adds no width. Normal-size text: 4.5:1 floor, full ink. */
+.bottom-nav__label {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-indent: var(--space-1);
+  opacity: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  color: var(--app-text);
+  transition:
+    max-width var(--motion-duration-move) var(--motion-ease-out),
+    opacity var(--motion-duration-move) var(--motion-ease-out);
+}
+
+/* Accent is sanctioned here as the active-tab indicator (DESIGN.md §0.3) — on the active ICON alone, nowhere else in
+ * the bar. The pill's opaque fill and ring carry the selection affordance; the accent icon is a secondary cue. */
 .bottom-nav__tab--active {
   color: var(--app-accent-text);
 }
 
+/* The active pill (HEL-1583 D10, owner answer `opaque-pill-text-ring`): an OPAQUE `--app-surface-strong` fill with a
+ * 1px full-strength `--app-text` ring, on the active lozenge only. The capsule itself stays translucent glass. The
+ * ring is an inset shadow, so it adds no geometry and the pill's box never shifts on activation. Inactive lozenges
+ * have neither fill nor ring. */
 .bottom-nav__tab--active .bottom-nav__lozenge {
-  /* Accent-tinted highlight fill, no border (the previous full-strength
-     --app-text border read as an outlined box rather than a selection). The
-     tint is the whole affordance now, so it is mixed against --app-accent
-     (not the neutral ramp) — an accent wash separates from the capsule
-     composite in both themes where a neutral fill converges to invisible,
-     which is exactly why the border was carrying the contrast before. */
-  background: color-mix(in srgb, var(--app-accent) 22%, transparent);
+  padding-inline: var(--space-3);
+  background: var(--app-surface-strong);
+  box-shadow: inset 0 0 0 1px var(--app-text);
+}
+
+.bottom-nav__tab--active .bottom-nav__label {
+  max-width: calc(var(--space-6) * 4);
+  opacity: 1;
 }
 
 .bottom-nav__tab:focus-visible {
@@ -143,7 +176,7 @@
   outline-offset: -3px;
 }
 
-/* `transition: none` (not `-duration`), placed AFTER the rule it overrides
+/* `transition: none` (not `-duration`), placed AFTER the rules it overrides
      so it wins at equal specificity — theme.css's global reduced-motion rule
      already forces `transition-duration: 0.01ms !important`, which a
      longhand duration override here would be silently overridden by. Only
@@ -151,11 +184,13 @@
      does not touch) actually removes the transition rather than merely
      shortening it. Same mechanism `Skeleton.css` uses for its shimmer. */
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-motion]) .bottom-nav__lozenge {
+  :root:not([data-motion]) .bottom-nav__lozenge,
+  :root:not([data-motion]) .bottom-nav__label {
     transition: none;
   }
 }
 /* HEL-1572: an explicit saved "Off" gets the same treatment regardless of the OS setting. */
-:root[data-motion="off"] .bottom-nav__lozenge {
+:root[data-motion="off"] .bottom-nav__lozenge,
+:root[data-motion="off"] .bottom-nav__label {
   transition: none;
 }

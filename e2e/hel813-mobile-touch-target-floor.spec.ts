@@ -105,15 +105,19 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
           await assertTypeStyleActive(page, style);
 
           // ::after-expander bisection — command bar "Open assistant" icon
-          // button and the user-menu avatar trigger (DESIGN.md Control-
-          // metrics / HEL-772/777).
+          // button (DESIGN.md Control-metrics / HEL-772/777), and the
+          // bottom nav's Me tab, which replaced the phone header's avatar
+          // trigger (HEL-1583) and keeps a real 44px tab box.
           const assistantBtn = page.getByRole("button", { name: "Open assistant" });
           await bisectHitExtent(page, assistantBtn, "x", 0.25);
           await bisectHitExtent(page, assistantBtn, "y", 0.25);
 
-          const avatarTrigger = page.locator(".user-menu__trigger");
-          await bisectHitExtent(page, avatarTrigger, "x", 0.25);
-          await bisectHitExtent(page, avatarTrigger, "y", 0.25);
+          await expect(page.locator(".user-menu__trigger")).toHaveCount(0);
+          const meTab = page.getByRole("navigation", { name: "Primary" }).getByRole("button", {
+            name: "Me",
+          });
+          await bisectHitExtent(page, meTab, "x", 0.25);
+          await bisectHitExtent(page, meTab, "y", 0.25);
 
           // Sheet rows — real, non-zero visible-floored match for the surface.
           const dialog = await openSheet(page, /Switch dashboards/i);
@@ -301,15 +305,8 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
           await assertTypeStyleActive(page, style);
           await expect(page.getByRole("heading", { name: /HEL-813 PanelList/ })).toBeVisible();
 
-          if (width === 430) {
-            await assertHiddenAtWidth(page.locator(".panel-list__zoom-widget"));
-          } else {
-            // These two DO grow their box: they sit 2px apart inside a pill, so
-            // overlapping 44px expanders would fight over the same taps.
-            await sweepSurface(page, {
-              selectors: [".panel-list__zoom-button", ".panel-list__zoom-reset"],
-            });
-          }
+          // HEL-1583 D2: the zoom widget is not rendered on the whole phone shell.
+          await assertHiddenAtWidth(page.locator(".panel-list__zoom-widget"));
 
           await assertExpanderFloor(page, page.locator(".app-command-bar .actions-menu__trigger"));
         });

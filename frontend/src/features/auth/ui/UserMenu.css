@@ -176,3 +176,9 @@
     border-color: transparent;
   }
 }
+
+/* HEL-1583: the phone BottomNav's Me tab trigger is laid out by its own flex parent, so the
+   wrapper must not become a layout box between them. The popover is portalled, so nothing else lives in here. */
+.user-menu--tab {
+  display: contents;
+}

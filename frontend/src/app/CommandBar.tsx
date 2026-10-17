@@ -1,8 +1,6 @@
 import { ChevronDown, MessagesSquare, Plus } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
-import { UserMenu } from "../features/auth/ui/UserMenu";
-import { logout } from "../features/auth/state/authSlice";
 import { startNewConversation } from "../features/assistant/state/assistantConversationsSlice";
 import { DashboardAppearanceEditor } from "../features/dashboards/ui/DashboardAppearanceEditor";
 import type { DashboardAppearance } from "../features/dashboards/types/dashboard";
@@ -44,7 +42,6 @@ export function CommandBar({
   setDraftAppearance,
 }: CommandBarProps) {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const location = useLocation();
   const { flush } = useSaveState();
   // HEL-1574: above the phone breakpoint the icon rail owns the logo mark and the avatar menu, so exactly one of each
@@ -52,7 +49,6 @@ export function CommandBar({
   const isPhoneShell = useIsPhoneShell();
 
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
-  const authStatus = useAppSelector((state) => state.auth.status);
 
   // HEL-516 design.md Decision 5/task 6.4b — derived BY ID from `shortcuts.ts`'s single
   // declaration (`quick-launcher`: Cmd/Ctrl+J) rather than the previous hand-typed, WRONG
@@ -64,7 +60,6 @@ export function CommandBar({
   const quickLauncherShortcutLabel = quickLauncherCombo
     ? formatCombo(quickLauncherCombo, { mac: isMacPlatform() }).join("+")
     : "";
-  const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   const onDashboardView = isDashboardViewPath(location.pathname);
   const selectedDashboard = items.find((dashboard) => dashboard.id === selectedDashboardId) ?? null;
@@ -107,11 +102,6 @@ export function CommandBar({
   // The layout undo/redo shortcuts. The dashboard meta row owns them on the rail-shell dashboard view
   // (HEL-1576); this bar mounts everywhere else, so they stay registered for the phone shell's dashboard view.
   useLayoutUndoRedo(selectedDashboardId);
-
-  async function handleLogout() {
-    await dispatch(logout());
-    void navigate("/login");
-  }
 
   return (
     <header className="app-command-bar">
@@ -256,13 +246,7 @@ export function CommandBar({
         {onDashboardView && selectedDashboard !== null && (
           <ActionsMenu label="Dashboard actions" items={dashboardActionItems} />
         )}
-        {isPhoneShell && authStatus === "authenticated" && currentUser !== null && (
-          <UserMenu
-            currentUser={currentUser}
-            onNavigateToSettings={() => navigate("/settings")}
-            onLogout={() => void handleLogout()}
-          />
-        )}
+        {/* HEL-1583: the phone header no longer carries the avatar menu -- the BottomNav's Me tab replaces it. */}
       </div>
     </header>
   );

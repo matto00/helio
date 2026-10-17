@@ -1,0 +1,5 @@
+## Mutation B: lozenge unbounded (min-width: max-content) -- the 320px fit spec must go RED
+    Error: Dashboards: Dashboards lozenge inside its own tab (left)
+    Expected: >= [32m64.5[39m
+    Received:    [31m58[39m
+  1 failed

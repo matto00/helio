@@ -32,6 +32,12 @@ describe("mobilePanelHeights — markdown, text, image, divider, form", () => {
 });
 
 describe("resolveStackContentWidth", () => {
+  // HEL-1583 D1: the stack adds no inline padding; each card has a 1px border and 14px padding per side.
+  it("subtracts exactly the 30px card chrome (2 x (1px border + 14px padding)) and no stack padding", () => {
+    expect(resolveStackContentWidth(351)).toBe(321);
+    expect(resolveStackContentWidth(375 - 24)).toBe(375 - 24 - 30);
+  });
+
   it("subtracts stack/card chrome from the measured container width", () => {
     const contentWidth = resolveStackContentWidth(390);
     expect(contentWidth).toBeLessThan(390);

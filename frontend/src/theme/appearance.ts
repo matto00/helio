@@ -493,11 +493,14 @@ export const ACCENT_TEXT_TOKEN_TINT_STRENGTHS: Record<Theme, readonly number[]> 
 };
 
 // Hand-rolled inline tints heavier than the token tints above (design.md
-// D6): `BottomNav.css`'s 22% lozenge and `AddSourceModal.css`'s 20% panel
-// tint. Same strength in both themes at these two sites. Same drift-
-// detection contract — see `accentTextSourceSyncGuard.css.test.ts`, which
-// parses these two values out of `BottomNav.css`/`AddSourceModal.css`
-// themselves (they are not in `theme.css`).
+// D6): `AddSourceModal.css`'s 20% panel tint, plus 22%, which is RETAINED
+// although nothing paints it any more (HEL-1583: the bottom nav's active
+// lozenge was a 22% accent wash until it became an opaque
+// `--app-surface-strong` pill; keeping 22% scored keeps `--app-accent-text`
+// unchanged app-wide). Same drift-detection contract -- see
+// `accentTextSourceSyncGuard.css.test.ts`, which asserts that EVERY inline
+// accent background tint any stylesheet paints is scored here (or is a token
+// tint), and that a scored strength nothing paints is named as retained.
 export const ACCENT_TEXT_INLINE_TINT_STRENGTHS: readonly number[] = [0.22, 0.2];
 
 const ACCENT_TEXT_CONTRAST_TARGET = 4.5;

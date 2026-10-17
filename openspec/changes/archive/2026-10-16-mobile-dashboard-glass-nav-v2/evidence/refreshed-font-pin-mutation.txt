@@ -1,0 +1,2 @@
+## Pin mutation: .dashboard-refresh-line set to --font-sans must FAIL
+Tests:       1 failed, 7 passed, 8 total

@@ -2,45 +2,147 @@
 
 ## Purpose
 Provides a breakpoint-gated, promotable bottom tab bar for section navigation on phone-width
-viewports (<768px), replacing the broken collapsed-sidebar stub and keeping phone and desktop
+viewports (the phone layout, `max-width: 768px`), replacing the broken collapsed-sidebar stub and keeping phone and desktop
 navigation from drifting via a single shared destination list.
 
 ## Requirements
 
 ### Requirement: Bottom tab bar provides section navigation on phone
-The frontend SHALL render a bottom tab bar (`shared/chrome/BottomNav`) in the phone layout with Home (`/home`, the Home
-page) first, followed by the five registry destinations of the desktop rail (`/dashboards`, `/sources`, `/pipelines`,
-`/connectors`, `/chat`) and, for owners only, Usage, sourced from a single shared destination definition so desktop and
-phone navigation cannot drift. Each destination SHALL show a Lucide icon and no visible text label; each SHALL
-therefore carry an accessible name equal to its full destination label, exposed in the computed accessibility tree,
-since with no visible label that name is the only thing identifying the destination to assistive technology.
+The frontend SHALL render a bottom tab bar (`shared/chrome/BottomNav`) in the phone layout with exactly five tabs, in order: Home (`/home`), Dashboards (`/dashboards`), Data (`/sources`),
+Pipelines (`/pipelines`) and Me (a menu, not a route). The phone tab list SHALL be derived in
+`shared/chrome/navDestinations.ts` from the same shared destination definitions the desktop rail
+uses, so route paths and active-state logic cannot drift; the desktop rail's own destinations are
+unchanged. Each tab SHALL carry an accessible name equal to its label in the computed
+accessibility tree. The active tab SHALL show its label visibly beside its icon, in full-strength
+`--app-text` ink, sized to its content rather than filling the bar; inactive tabs SHALL show the icon
+only and are evenly spaced across the remaining width. Me SHALL be a menu button whose active state is exposed as
+`aria-current="true"`. Exactly one tab SHALL be current on any route that belongs to a tab:
+Home on `/home`; Dashboards on the dashboard view; Data on `/sources` and `/connectors` and their
+sub-routes; Pipelines on `/pipelines` and its sub-routes; Me on `/settings` and `/admin/usage`. No
+tab is current on routes that belong to none of them (for example `/chat`).
 
 #### Scenario: Tab bar visible on phone
-- **WHEN** the app shell renders in the phone layout on any protected route for a non-owner
-- **THEN** the bottom tab bar is visible with six icon-only tabs for Home, Dashboards, Data Sources, Data Pipelines,
-  Connectors, and Assistant
+- **WHEN** the app shell renders in the phone layout on any protected route
+- **THEN** the bottom tab bar is visible with exactly five tabs: Home, Dashboards, Data, Pipelines, Me
 
 #### Scenario: Every tab exposes its full accessible name
 - **WHEN** the computed accessibility tree is inspected for the tab bar at phone width
-- **THEN** each link exposes its full destination label as its accessible name, verified from the computed tree
-  rather than from markup
+- **THEN** each tab exposes its label as its accessible name, verified from the computed tree, and a
+  collapsed (inactive) label adds nothing to that name
 
 #### Scenario: Tab navigates and reflects active section
-- **WHEN** the user taps a tab
-- **THEN** the router navigates to that section and only that tab renders in the active state
+- **WHEN** the user taps a route tab
+- **THEN** the router navigates to that section and only that tab renders in the active state, with
+  its label visible
+
+#### Scenario: Data is current on Connectors
+- **WHEN** the user is on `/connectors` at phone width
+- **THEN** the Data tab is the only current tab
 
 #### Scenario: Hidden at desktop widths
 - **WHEN** the viewport is above the phone layout
 - **THEN** the bottom tab bar is not visible and the desktop rail behaves exactly as before
 
-### Requirement: Tab bar visual and ergonomic constraints
+### Requirement: BottomNav is promotable to desktop without a rewrite
+`BottomNav` SHALL be a self-contained shared component whose phone-only visibility is enforced by
+a breakpoint rule in its own stylesheet, such that showing it at desktop widths is a
+media-query/flag change with no component rewrite.
+
+#### Scenario: Breakpoint-only gating
+- **WHEN** the breakpoint rule in `BottomNav.css` is relaxed
+- **THEN** the component renders and functions at desktop widths without code changes
+
+### Requirement: MobileNavSheet's section-picker stays in parity with the desktop sidebar for chat
+The phone item-picker (`MobileNavSheet`, driven by `App.tsx`'s per-section switch statements) SHALL
+have a `"chat"` arm covering conversation listing/selection, so a phone user's item-picker and a
+desktop user's sidebar list always reflect the same conversations and the same selection action —
+matching every other existing section's parity (sources/pipelines/registry/metrics).
+
+#### Scenario: Selecting a conversation via MobileNavSheet matches desktop sidebar selection
+- **WHEN** a phone-width user selects a conversation via `MobileNavSheet`
+- **THEN** the same `selectedConversationId` Redux action fires as the desktop sidebar's
+  `onSelect` would dispatch for the identical conversation
+
+#### Scenario: The chat section's empty-picker message is present
+- **WHEN** `MobileNavSheet` opens for the chat section with no conversations
+- **THEN** a section-specific empty message is shown, not a blank sheet
+
+### Requirement: Command bar exposes a reachable "New chat" control on phone
+Below the 768px breakpoint, on `/chat*` routes, the command bar SHALL render a "New chat" control
+(an icon button labeled/accessible as "New chat", mirroring the desktop sidebar's "+" trigger)
+that dispatches the same `startNewConversation()` action the desktop trigger dispatches, without
+requiring the user to open `MobileNavSheet` first. At 768px and wider this control SHALL NOT
+render (the desktop sidebar's own "+" trigger remains the only "New chat" entry point there).
+
+#### Scenario: New chat control visible and functional on phone
+- **WHEN** the viewport is narrower than 768px and the user is on a `/chat*` route
+- **THEN** a "New chat" control is visible in the command bar, and activating it dispatches
+  `startNewConversation()`, landing the user on the empty "new conversation" composer state
+
+#### Scenario: Hidden at desktop widths
+- **WHEN** the viewport is 768px or wider
+- **THEN** the command bar's "New chat" control is not rendered (the desktop sidebar's own "+"
+  trigger is the sole entry point)
+
+#### Scenario: Hidden off the chat section
+- **WHEN** the viewport is narrower than 768px and the user is on any route other than `/chat*`
+- **THEN** the command bar's "New chat" control is not rendered
+
+### Requirement: Added bottom-nav motion respects reduced-motion preference
+Any motion introduced by the floating tab bar SHALL be disabled outright when reduced motion is in effect, not merely
+shortened, and SHALL be disabled by a declaration that clears the transition property rather than only its duration.
+"Reduced motion in effect" means the user saved Motion = Off, or saved no motion choice while the OS reports `prefers-reduced-motion: reduce` (appearance-preferences). A saved Full or Subtle choice is not reduced motion, whatever the OS reports. This requirement constrains added motion; it does not mandate that motion exist — a per-tab lozenge does not
+travel between tabs, so it may be satisfied vacuously. The active tab SHALL still be correctly indicated either way.
+
+#### Scenario: Reduced motion disables any added transition
+- **WHEN** reduced motion is in effect (OS reduce with no saved choice, or a saved Off) and the user switches tabs
+- **THEN** no added transition runs on the active tab's lozenge — either because none was declared, or because the
+  declared one is removed rather than shortened — and the correct tab is indicated
+
+### Requirement: Every one of the five current routes is escapable via the tab bar
+The phone shell SHALL leave no route trapped. Connectors SHALL be reachable through the Data tab,
+whose `/sources` and `/connectors` pages show a "Sources | Connectors" link row on the phone shell.
+Usage (owners only), Settings, Getting started and Sign out SHALL be reachable through the Me tab's
+menu, which replaces the phone header's avatar menu. The Assistant SHALL be reachable through the
+header's "Open assistant" button; for non-free tiers the overlay's "Browse all conversations" link
+reaches `/chat`, and for the free tier the overlay itself shows the same request-access state
+`/chat` would. Content continues to scroll clear of the
+floating bar and clearance stays in sync with bar geometry.
+
+#### Scenario: Five tabs, no retired destinations
+- **WHEN** the bottom tab bar renders on phone
+- **THEN** exactly five tabs are shown, and none is Connectors, Assistant or Usage
+
+#### Scenario: Connectors reachable via Data
+- **WHEN** the user taps Data and then the "Connectors" link on the phone shell
+- **THEN** the Connectors page opens and the Data tab stays current
+
+#### Scenario: Usage reachable via Me for an owner only
+- **WHEN** an owner opens the Me menu
+- **THEN** it lists Settings, Usage, Getting started and Sign out; for a non-owner it lists the same
+  without Usage
+
+#### Scenario: No trapped route
+- **WHEN** the user is on any authenticated route at phone width
+- **THEN** every other top-level destination whose content the user's tier can use is reachable within two taps
+
+#### Scenario: Assistant reachable on every tier
+- **WHEN** a free-tier user taps "Open assistant"
+- **THEN** the assistant overlay opens with its request-access state; and when a beta user does the same, the
+  overlay's "Browse all conversations" link opens `/chat`
+
+#### Scenario: Content scrolls clear of the floating bar
+- **WHEN** a page's content is taller than the viewport
+- **THEN** scrolling content never renders underneath the floating tab bar
+
+### Requirement: Five-tab glass bar visual and ergonomic constraints
 The tab bar SHALL render as a floating capsule inset from the left, right, and bottom edges of the
 viewport, with fully rounded (semicircular) ends, a translucent `backdrop-filter` material, and a
 tint layer composited between the blur and the glyphs. Inactive icons SHALL use full-contrast
 `--app-text` (not `--app-text-muted`, which cannot clear the contrast floor over a translucent
 surface at any usable tint alpha, under either a 3:1 or a 4.5:1 floor), and `--app-accent` SHALL
 apply to the active tab's icon alone and to nothing else in the bar. The
-active tab SHALL be indicated by a material lozenge behind its icon whose boundary reaches at least
+active tab SHALL be indicated by a material lozenge behind its icon and visible label whose boundary reaches at least
 3:1 against the adjacent capsule material, so that accent colour is never the sole indicator of
 which tab is active. The bar's geometry SHALL derive from the shared `--bottom-nav-height` token
 family plus `env(safe-area-inset-bottom)`, and every tab SHALL keep a tap target of at least
@@ -111,78 +213,31 @@ sole carve-out from `DESIGN.md`'s opacity invariant; all other chrome remains op
 - **THEN** each tab's hit area measures at least 44x44 CSS px as reported by `getComputedStyle` on
   the rendered element, not as declared in the stylesheet
 
-#### Scenario: Six destinations fit at the narrowest supported width
-- **WHEN** the tab bar renders at 375px viewport width
-- **THEN** all six icon-only destinations render within the capsule, each retaining a tap target of
-  at least 44x44 CSS px
+#### Scenario: Five tabs with the expanded label fit at the narrowest supported width
+- **WHEN** the tab bar renders at 320px and 375px viewport widths, with any tab active (including Dashboards and
+  Pipelines, the longest labels)
+- **THEN** all five tabs render within the capsule, each retaining a hit area of at least 44x44 CSS
+  px with no two hit areas overlapping, and the active label either fits or truncates with an
+  ellipsis, never wrapping or overflowing the capsule
 
-### Requirement: BottomNav is promotable to desktop without a rewrite
-`BottomNav` SHALL be a self-contained shared component whose phone-only visibility is enforced by
-a breakpoint rule in its own stylesheet, such that showing it at desktop widths is a
-media-query/flag change with no component rewrite.
+#### Scenario: The active pill is content-sized
+- **WHEN** the tab bar renders at 430px and 768px viewport widths
+- **THEN** the active tab's width is its icon, gap and label (up to the label cap), not the bar's leftover width,
+  and the inactive tabs are evenly spaced across the remaining width
 
-#### Scenario: Breakpoint-only gating
-- **WHEN** the breakpoint rule in `BottomNav.css` is relaxed
-- **THEN** the component renders and functions at desktop widths without code changes
+#### Scenario: The active pill is opaque inside a translucent capsule
+- **WHEN** a tab is active, over any backdrop, in either theme
+- **THEN** its lozenge is an opaque `--app-surface-strong` fill with a 1px `--app-text` ring, inactive lozenges
+  have neither, and the capsule keeps its translucent tint and `backdrop-filter` unchanged
 
-### Requirement: MobileNavSheet's section-picker stays in parity with the desktop sidebar for chat
-The phone item-picker (`MobileNavSheet`, driven by `App.tsx`'s per-section switch statements) SHALL
-have a `"chat"` arm covering conversation listing/selection, so a phone user's item-picker and a
-desktop user's sidebar list always reflect the same conversations and the same selection action —
-matching every other existing section's parity (sources/pipelines/registry/metrics).
+#### Scenario: The active pill's edge is visible against the capsule
+- **WHEN** the active pill renders over a theme-matched backdrop, a theme-mismatched extreme, or an accent-coloured
+  backdrop, in either theme
+- **THEN** its ring measures at least 3:1 against the adjacent capsule material, sampled from rendered pixels on a
+  straight segment
 
-#### Scenario: Selecting a conversation via MobileNavSheet matches desktop sidebar selection
-- **WHEN** a phone-width user selects a conversation via `MobileNavSheet`
-- **THEN** the same `selectedConversationId` Redux action fires as the desktop sidebar's
-  `onSelect` would dispatch for the identical conversation
-
-#### Scenario: The chat section's empty-picker message is present
-- **WHEN** `MobileNavSheet` opens for the chat section with no conversations
-- **THEN** a section-specific empty message is shown, not a blank sheet
-
-### Requirement: Command bar exposes a reachable "New chat" control on phone
-Below the 768px breakpoint, on `/chat*` routes, the command bar SHALL render a "New chat" control
-(an icon button labeled/accessible as "New chat", mirroring the desktop sidebar's "+" trigger)
-that dispatches the same `startNewConversation()` action the desktop trigger dispatches, without
-requiring the user to open `MobileNavSheet` first. At 768px and wider this control SHALL NOT
-render (the desktop sidebar's own "+" trigger remains the only "New chat" entry point there).
-
-#### Scenario: New chat control visible and functional on phone
-- **WHEN** the viewport is narrower than 768px and the user is on a `/chat*` route
-- **THEN** a "New chat" control is visible in the command bar, and activating it dispatches
-  `startNewConversation()`, landing the user on the empty "new conversation" composer state
-
-#### Scenario: Hidden at desktop widths
-- **WHEN** the viewport is 768px or wider
-- **THEN** the command bar's "New chat" control is not rendered (the desktop sidebar's own "+"
-  trigger is the sole entry point)
-
-#### Scenario: Hidden off the chat section
-- **WHEN** the viewport is narrower than 768px and the user is on any route other than `/chat*`
-- **THEN** the command bar's "New chat" control is not rendered
-
-### Requirement: Added bottom-nav motion respects reduced-motion preference
-Any motion introduced by the floating tab bar SHALL be disabled outright when reduced motion is in effect, not merely
-shortened, and SHALL be disabled by a declaration that clears the transition property rather than only its duration.
-"Reduced motion in effect" means the user saved Motion = Off, or saved no motion choice while the OS reports `prefers-reduced-motion: reduce` (appearance-preferences). A saved Full or Subtle choice is not reduced motion, whatever the OS reports. This requirement constrains added motion; it does not mandate that motion exist — a per-tab lozenge does not
-travel between tabs, so it may be satisfied vacuously. The active tab SHALL still be correctly indicated either way.
-
-#### Scenario: Reduced motion disables any added transition
-- **WHEN** reduced motion is in effect (OS reduce with no saved choice, or a saved Off) and the user switches tabs
-- **THEN** no added transition runs on the active tab's lozenge — either because none was declared, or because the
-  declared one is removed rather than shortened — and the correct tab is indicated
-
-### Requirement: Every one of the five current routes is escapable via the tab bar
-The bottom tab bar SHALL render exactly the five current nav destinations (Dashboards, Data Sources, Data Pipelines, Connectors, Assistant); no tab exists for the retired Data Types or Metrics routes. Every route remains reachable from the tab bar with no trapped route; content continues to scroll clear of the floating bar and clearance stays in sync with bar geometry, exactly as before this change.
-
-#### Scenario: Five tabs, no retired destinations
-- **WHEN** the bottom tab bar renders on phone
-- **THEN** exactly five tabs are shown, matching the nav-section-registry's five entries
-
-#### Scenario: No trapped route
-- **WHEN** the user is on any of the five routes
-- **THEN** the tab bar offers a path to every other route with no dead end
-
-#### Scenario: Content scrolls clear of the floating bar
-- **WHEN** a page's content is taller than the viewport
-- **THEN** scrolling content never renders underneath the floating tab bar
+#### Scenario: The visible active label is legible
+- **WHEN** the active tab's label renders over any backdrop named in "Legible over hostile user
+  dashboard backgrounds", in either theme
+- **THEN** the label text measures at least 4.5:1 against the composited pixels behind it, sampled
+  from rendered pixels

@@ -2,17 +2,20 @@
 
 ## Purpose
 TBD - created by archiving change rework-dashboard-chrome. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Zoom controls render as a floating bottom-right widget
 The zoom controls (zoom in, zoom out, reset, level label) SHALL be rendered as a floating widget
 anchored to the bottom-right corner of the `.panel-list` container via
 `position: absolute; bottom: 20px; right: 20px` when a dashboard is selected.
 The widget SHALL NOT appear in the dashboard header.
-Below the 430px phone breakpoint (ratified in `DESIGN.md` §4) the widget SHALL be hidden — zoom
-controls are desktop chrome and pinch-zoom is the native gesture on touch devices.
+On the phone shell (viewport at or below 768px, the boundary DESIGN.md §4 and §12 use for the phone layout) the
+widget SHALL be hidden, so nothing but the glass nav floats over panel content — zoom controls are desktop chrome and
+pinch-zoom is the native gesture on touch devices.
 
 #### Scenario: Dashboard selected — widget rendered
-- **WHEN** a dashboard is selected
+- **WHEN** a dashboard is selected and the viewport is wider than 768px
 - **THEN** zoom in, zoom out, and reset zoom buttons are rendered inside
   `.panel-list__zoom-widget` at the bottom-right of the panel area
 
@@ -21,8 +24,8 @@ controls are desktop chrome and pinch-zoom is the native gesture on touch device
 - **THEN** `.panel-list__zoom-widget` is not rendered
 
 #### Scenario: Phone viewport — widget hidden
-- **WHEN** a dashboard is selected and the viewport is below the 430px phone breakpoint
-- **THEN** the zoom widget is not visible
+- **WHEN** a dashboard is selected and the viewport is at or below 768px (including 431px–768px)
+- **THEN** the zoom widget is not visible and nothing other than the glass nav floats over panel content
 
 ### Requirement: Zoom widget is accessible
 The zoom widget container SHALL carry `role="group"` and `aria-label="Zoom controls"` so
@@ -40,4 +43,3 @@ the `.panel-list` scroll boundary and does not overflow into adjacent layout reg
 #### Scenario: Widget is contained in panel area
 - **WHEN** the zoom widget is rendered
 - **THEN** it is positioned relative to `.panel-list`, not the viewport
-

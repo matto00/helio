@@ -1,8 +1,10 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import "./BottomNav.css";
-import { homeAlias, isDestinationActive } from "./navDestinations";
-import { useNavDestinations } from "./useNavDestinations";
+import { logout } from "../../features/auth/state/authSlice";
+import { UserMenu } from "../../features/auth/ui/UserMenu";
+import { useAppDispatch, useAppSelector } from "../../hooks/reduxHooks";
+import { isDestinationActive, phoneNavTabs, type PhoneNavTab } from "./navDestinations";
 import { ICON_SIZE } from "../ui/iconSize";
 
 /**
@@ -11,52 +13,88 @@ import { ICON_SIZE } from "../ui/iconSize";
  * component rather than a phone-only hack — promoting it to desktop later is
  * a stylesheet change, not a rewrite. See `notes/mobile-pwa-handoff.md` §W3.1.
  *
- * HEL-774: icon-only, matching the Instagram Liquid Glass reference — no
- * visible label. Each tab's `aria-label` is now its entire accessible name,
- * not belt-and-braces alongside a visible short label (former F-080).
+ * HEL-1583: five tabs (`phoneNavTabs`: Home, Dashboards, Data, Pipelines, Me). The ACTIVE tab shows its label beside
+ * its icon; inactive tabs are icon-only. Every tab's `aria-label` is its entire accessible name — the label span is
+ * `aria-hidden` and collapsed on inactive tabs, so it never adds to the name.
  */
 export function BottomNav() {
-  const navDestinations = useNavDestinations();
   const { pathname } = useLocation();
-  const HomeIcon = homeAlias.icon;
-  const homeActive = isDestinationActive(homeAlias, pathname);
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {/* HEL-1574: Home leads (owner ruling 2026-10-13: the phone has no rail). HEL-1578: it opens the Home page and
-          is current there; `isDestinationActive` keeps exactly one tab current on `/home` and on the dashboard view. */}
-      <Link
-        to={homeAlias.to}
-        aria-label={homeAlias.label}
-        aria-current={homeActive ? "page" : undefined}
-        className={homeActive ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"}
-      >
-        <span className="bottom-nav__lozenge">
-          <HomeIcon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
-        </span>
-      </Link>
-      {navDestinations.map((destination) => {
-        const Icon = destination.icon;
-        const active = isDestinationActive(destination, pathname);
-        return (
-          <Link
-            key={destination.to}
-            to={destination.to}
-            aria-label={destination.label}
-            aria-current={active ? "page" : undefined}
-            className={active ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab"}
-          >
-            {/* Dedicated carrier for the active-state lozenge (D6) — never
-                style the <svg> directly. Lucide emits width="22"/height="22"
-                as presentation attributes, and the global
-                `* { box-sizing: border-box }` then resolves padding+border
-                inward from that 22px, clamping the icon's content box to 0px
-                if the lozenge styling lands on the <svg> itself. */}
-            <span className="bottom-nav__lozenge">
-              <Icon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
-            </span>
-          </Link>
-        );
-      })}
+      {phoneNavTabs.map((tab) =>
+        tab.kind === "menu" ? (
+          <MeTab key={tab.label} tab={tab} active={isDestinationActive(tab, pathname)} />
+        ) : (
+          <RouteTab key={tab.to} tab={tab} active={isDestinationActive(tab, pathname)} />
+        ),
+      )}
     </nav>
+  );
+}
+
+type RouteTabData = Extract<PhoneNavTab, { kind: "route" }>;
+type MenuTabData = Extract<PhoneNavTab, { kind: "menu" }>;
+
+function tabClassName(active: boolean): string {
+  return active ? "bottom-nav__tab bottom-nav__tab--active" : "bottom-nav__tab";
+}
+
+/** Dedicated carrier for the active-state lozenge (D6) — never style the <svg> directly. Lucide emits
+ *  width="22"/height="22" as presentation attributes, and the global `* { box-sizing: border-box }` then resolves
+ *  padding+border inward from that 22px, clamping the icon's content box to 0px if the lozenge styling lands on the
+ *  <svg> itself. */
+function TabFace({ tab, active }: { tab: PhoneNavTab; active: boolean }) {
+  const Icon = tab.icon;
+  return (
+    <span className="bottom-nav__lozenge">
+      <Icon className="bottom-nav__icon" size={ICON_SIZE.lg} aria-hidden="true" />
+      <span
+        className="bottom-nav__label"
+        aria-hidden="true"
+        data-active={active ? "true" : "false"}
+      >
+        {tab.label}
+      </span>
+    </span>
+  );
+}
+
+function RouteTab({ tab, active }: { tab: RouteTabData; active: boolean }) {
+  return (
+    <Link
+      to={tab.to}
+      aria-label={tab.label}
+      aria-current={active ? "page" : undefined}
+      className={tabClassName(active)}
+    >
+      <TabFace tab={tab} active={active} />
+    </Link>
+  );
+}
+
+/** The Me tab: a menu button (not a route), so its current state is `aria-current="true"`, never `"page"`. It reuses
+ *  `UserMenu` through its trigger slot so the menu items, keyboard handling and owner gating stay in one component. */
+function MeTab({ tab, active }: { tab: MenuTabData; active: boolean }) {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const currentUser = useAppSelector((state) => state.auth.currentUser);
+  if (currentUser === null) return null;
+  async function handleLogout() {
+    await dispatch(logout());
+    void navigate("/login");
+  }
+  return (
+    <UserMenu
+      currentUser={currentUser}
+      onNavigateToSettings={() => navigate("/settings")}
+      onLogout={() => void handleLogout()}
+      placement="nav"
+      tabTrigger={{
+        className: tabClassName(active),
+        label: tab.label,
+        active,
+        children: <TabFace tab={tab} active={active} />,
+      }}
+    />
   );
 }

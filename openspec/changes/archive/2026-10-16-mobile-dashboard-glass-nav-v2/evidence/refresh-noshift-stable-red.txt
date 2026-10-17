@@ -1,0 +1,13 @@
+## RED on 51c5ba557 product code, repeat-each=5, fixed sampling
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+    Received:    [31m27[39m
+  10 failed
+  10 passed (1.3m)

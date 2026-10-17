@@ -205,9 +205,10 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
   - **Material.** A small-radius `backdrop-filter: blur(10–16px)` (with the
     `-webkit-` prefix) over a distinct tint layer of `--app-surface` at
     alpha 0.55, composited between the blur and the glyphs — never a
-    translucent `background` on the bar itself. The bar carries no visible
-    text (icon-only, D4 of the HEL-774 design), which is what permits a 3:1
-    rather than a 4.5:1 floor below.
+    translucent `background` on the bar itself. HEL-1583: the capsule's glass
+    is unchanged, but the ACTIVE tab now also carries a visible label (below),
+    so the bar is no longer icon-only: glyphs keep the 3:1 floor, the label
+    has the 4.5:1 normal-text floor.
   - **Glyph floor: >=3:1** (WCAG 1.4.11, non-text contrast) for every icon
     rendered against the translucent material, measured from rendered
     pixels — not computed from source — against a photo backdrop, pure
@@ -215,21 +216,34 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
     inactive tabs use full-strength `--app-text` rather than
     `--app-text-muted`: measured worst case, the muted token cannot clear
     even 3:1 over this material at any usable alpha.
-  - **Active-lozenge floor: >=3:1.** The active tab is a bordered material
-    lozenge nested inside the capsule, not an accent block or an underline.
-    Its boundary must reach >=3:1 against the adjacent capsule material,
-    measured the same way. The lozenge's hairline uses full-strength
-    `var(--app-text)` as its border colour — outside this document's usual
-    two-token border vocabulary (`--app-border-subtle`/`-strong`) — because
-    it is the only thing that actually carries the lozenge's visibility: a
-    `color-mix`-weakened border falls below the floor, and any fill drawn
-    from the neutral surface ramp converges to near-invisible against the
-    capsule once composited. `--app-accent` still marks the active icon, but
-    it is never the sole indicator — the lozenge boundary is.
-  - **Accent-on-surface.** The lozenge reuses `--app-surface`, so the active
-    icon's accent-on-surface contrast is not guaranteed by this carve-out; the
-    lozenge boundary, not the accent icon, carries the guarantee. The shortfall
-    is a pre-existing app-wide gap tracked as HEL-1061 (figures: Appendix A.3).
+  - **Active-lozenge floor: >=3:1.** The active tab is an OPAQUE material
+    pill nested inside the capsule (HEL-1583, owner answer
+    `opaque-pill-text-ring`): an `--app-surface-strong` fill with a 1px
+    `var(--app-text)` ring (an inset shadow, so the pill's box never shifts on
+    activation), on the active lozenge only. Inactive lozenges have neither
+    fill nor ring. The ring's boundary must reach >=3:1 against the adjacent
+    capsule material, measured from rendered pixels on a straight segment over a
+    theme-matched backdrop, a theme-mismatched extreme and an accent backdrop.
+    The full-strength `var(--app-text)` ring is outside this document's usual
+    two-token border vocabulary (`--app-border-subtle`/`-strong`) because it is
+    the only thing that actually carries the pill's visibility: the opaque fill
+    alone measures about 1.04:1 against the capsule, a `color-mix`-weakened
+    border falls below the floor, and a fill drawn from the neutral surface
+    ramp converges to near-invisible once composited. `--app-accent` still marks
+    the active ICON (and nothing else in the bar), but it is never the sole
+    indicator — the pill boundary is. The previous 22% accent wash was
+    retired with this change.
+  - **Active label: >=4.5:1.** The active tab shows its label beside the icon:
+    `--font-sans`, `--text-xs`, `--weight-semibold`, `var(--app-text)`, on the
+    opaque pill, measured from rendered pixels over the same backdrops. The
+    label expands via its `max-width`/`opacity` (and the pill's inline padding)
+    on `--motion-duration-move`/`--motion-ease-out`, instant under reduced
+    motion and Off, and truncates with an ellipsis inside its own tab when the
+    five tabs cannot all fit (320px).
+  - **Accent-on-surface.** The active icon is accent-coloured on the opaque
+    `--app-surface-strong` pill. The ring, not the accent icon, carries the
+    selection guarantee; the icon's own accent-on-surface contrast keeps the
+    pre-existing app-wide gap tracked as HEL-1061 (figures: Appendix A.3).
 
   - **Focus-ring exception: `outline-offset: -3px`.** §8's default focus rule
     is `[mechanical]` and sanctions `2px`, or `-2px` "only where the ring would
@@ -933,9 +947,12 @@ black|white)`) is not a conforming focus colour** — Yellow measures
     darken-toward-black (light) / lighten-toward-white (dark) that clears 4.5:1
     against the COMPLETE scored background set for that theme — the five
     neutral surface tokens, `--app-accent-surface`/`--app-accent-dim`
-    composited over each, and the two inline tints heavier than those
-    (`BottomNav.css`'s 22% active-tab lozenge, `AddSourceModal.css`'s 20%
-    selected-type-pill fill). Scoring only the neutral surfaces would ship a
+    composited over each, and the inline tints heavier than those
+    (`AddSourceModal.css`'s 20% selected-type-pill fill, plus 22%, which is
+    RETAINED although nothing paints it since the bottom nav's active lozenge
+    became an opaque pill, HEL-1583: keeping it scored leaves `--app-accent-text`
+    unchanged, and the source-sync guard asserts every inline accent background
+    tint any stylesheet paints is scored). Scoring only the neutral surfaces would ship a
     colour that still fails on the app's own accent-tinted surfaces.
   - Re-applies on **theme** change as well as accent change
     (`ThemeProvider.tsx`'s effect is keyed on `[accentColor, theme]`). A static
@@ -1309,23 +1326,34 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   defect this replaces. **[mechanical]**
 - **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
   the desktop context list. **[judgment]**
-- **Home tab (HEL-1574, HEL-1578).** Until glass nav v2 lands, the bottom nav leads with a
-  **Home** tab that opens the real Home page (`/home`) and is current there
-  only (owner ruling 2026-10-13: the phone has no rail), so it shows six tabs, seven for an owner
-  (who keeps Usage there). At 375px each tab is at least 44px wide and none
-  overlap; at 320px the owner's seven tabs (7 x 44 = 308px) exceed the roughly
-  278px usable width and overflow, which is accepted and handed to HEL-1583,
-  which decides the final tab set. **[mechanical]**
-- **Glass nav v2.** Five tabs; the **active tab expands to show its label**
-  (a width transition on `--motion-duration-standard` with
-  `--motion-ease-out`; Off swaps instantly). The HEL-774 carve-out (§3) still
-  binds: translucent material, glyph floor >=3:1 and active-lozenge floor >=3:1
-  measured from rendered pixels, the `-3px` focus-ring offset, and every other
-  surface staying opaque. **[mechanical]** (measured from pixels)
-- **Open obligation on HEL-1583 (not a measured fact).** The expanded label is
-  text over translucent material, so it must clear **4.5:1 measured from
-  rendered pixels**, or HEL-1583 must give the label an opaque lozenge. Until
-  that measurement exists, no claim is made that the label passes.
+- **Home tab (HEL-1574, HEL-1578).** Home leads the phone bottom nav (owner
+  ruling 2026-10-13: the phone has no rail). It opens the real Home page
+  (`/home`) and is current there only. **[mechanical]**
+- **Glass nav v2 (HEL-1583).** Five tabs: **Home, Dashboards, Data,
+  Pipelines, Me** (`phoneNavTabs` in `shared/chrome/navDestinations.ts`; the
+  desktop rail is unchanged). Data covers `/sources` and `/connectors` (a
+  "Sources | Connectors" link row on both pages makes Connectors reachable); Me
+  is a menu button (the user menu: Settings, Usage for owners, Getting started,
+  Sign out; `aria-current="true"` on `/settings` and `/admin/usage`). Assistant
+  leaves the nav: the header's "Open assistant" button opens it, and for
+  non-free tiers the overlay's "Browse all conversations" link reaches `/chat`.
+  Exactly one tab is current on any route that belongs to a tab, none on
+  routes that belong to none. **[mechanical]**
+- **Expanding active tab.** The **active tab shows its label** beside its
+  icon in an opaque pill (§3's carve-out: `--app-surface-strong` fill, 1px
+  `--app-text` ring); inactive tabs are icon-only. Tabs are content-sized
+  (`flex: 0 1 auto`, 44px floor) and spread with `space-evenly`; the label's
+  `max-width`/`opacity` and the pill's inline padding transition on
+  `--motion-duration-move` with `--motion-ease-out`, instant for reduced
+  motion and Off. At 320px the label truncates inside its own tab. The HEL-774
+  carve-out (§3) still binds: translucent capsule, glyph floor >=3:1, pill
+  ring >=3:1 and label >=4.5:1 measured from rendered pixels, the `-3px`
+  focus-ring offset, and every other surface staying opaque. **[mechanical]**
+  (measured from pixels)
+- **Refreshed line.** On the phone dashboard view a caption above the dashboard
+  chips says when the dashboard last refreshed (the desktop meta row's refresh
+  fact, one shared helper), set in `--font-mono` like the desktop meta row.
+  **[judgment]**
 - **Touch.** All tap-target rules in §3 (44px floor, hit expanders and their
   tiling) apply unchanged. **[mechanical]**
 
@@ -1421,7 +1449,10 @@ contrast, so re-run the guards when it changes.
 
 Moved from §3 Surfaces & the opacity invariant.
 
-- **Accent-on-surface, stated honestly.** Because the lozenge's fill reuses
+- **Accent-on-surface, stated honestly.** (HEL-774 figures. Since HEL-1583 the
+  active pill's fill is `--app-surface-strong`, not an accent wash; these
+  numbers describe the earlier `--app-surface` lozenge.) Because the lozenge's
+  fill reuses
   `--app-surface`, the active icon's own accent-on-surface contrast moves
   only slightly from today's opaque bar: dark theme drops by at most 0.49
   across the eight shipped presets, with no preset falling below 4.24:1;
@@ -1630,9 +1661,10 @@ Moved from §8.
     black (light) / lighten-toward-white (dark) that clears 4.5:1 against
     the COMPLETE scored background set for that theme — the five neutral
     surface tokens, `--app-accent-surface`/`--app-accent-dim` composited
-    over each, and the two hand-rolled inline tints heavier than those two
-    (`BottomNav.css`'s 22% active-tab lozenge, `AddSourceModal.css`'s 20%
-    selected-type-pill fill) that no scan over token names can see, since
+    over each, and the hand-rolled inline tints heavier than those two
+    (`AddSourceModal.css`'s 20% selected-type-pill fill, plus the retained
+    22% that the bottom nav's lozenge painted before HEL-1583) that no scan
+    over token names can see, since
     what varies there is the background, not the declaration. Scoring only
     the five neutral surfaces would ship a colour that still fails against
     the app's own accent-tinted surfaces — an omitted background class, not
