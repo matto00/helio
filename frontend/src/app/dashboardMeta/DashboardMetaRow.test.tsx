@@ -75,7 +75,7 @@ function setup(opts: { selected?: boolean; stack?: boolean } = {}) {
         selectedDashboardId: selected ? "d1" : null,
       },
     },
-    "/home",
+    "/dashboards",
   );
   act(() => {
     ctx.store.dispatch(fetchPanels.pending("r", "d1"));

@@ -8,6 +8,7 @@
  */
 import type { RootState } from "../../../store/store";
 import type { AppStartListening } from "../../../store/listenerMiddleware";
+import { dashboardSeenStore, type DashboardSeenStore } from "../model/dashboardSeenStore";
 import { recentHistoryStore, type RecentHistoryStore } from "../model/recentHistoryStore";
 
 /**
@@ -86,8 +87,20 @@ function registerPruneListener<K extends "dashboards" | "sources" | "pipelines">
 export function addRecentVisitsListeners(
   startListening: AppStartListening,
   store: RecentHistoryStore = recentHistoryStore,
+  seenStore: DashboardSeenStore = dashboardSeenStore,
 ) {
   registerDashboardVisitListener(startListening, store);
+  // HEL-1578 D5: the per-dashboard last-seen stamps are dropped on the same rule as the dashboards' recents.
+  startListening({
+    predicate: (_action, currentState: RootState, previousState: RootState) =>
+      currentState.dashboards.status === "succeeded" &&
+      previousState.dashboards.status !== "succeeded",
+    effect: (_action, listenerApi) => {
+      seenStore.pruneMissing(
+        new Set(listenerApi.getState().dashboards.items.map((item) => item.id)),
+      );
+    },
+  });
   registerPruneListener(
     startListening,
     "dashboards",

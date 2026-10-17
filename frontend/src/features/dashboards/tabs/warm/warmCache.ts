@@ -4,6 +4,7 @@
 // reach it without an import cycle, and `clearWarmState` can empty it in one place.
 
 import type { Dispatch, UnknownAction } from "@reduxjs/toolkit";
+import { dashboardSeenStore } from "../../../commandPalette/model/dashboardSeenStore";
 import { invalidateOutput, release, retain } from "../../../panels/state/outputFreshness";
 import type { Panel } from "../../../panels/types/panel";
 import { tabOwnWrite } from "../dashboardTabsSlice";
@@ -88,6 +89,9 @@ export function noteOwnDashboardWrite(
 ): void {
   const at = serverNowMs() + OWN_WRITE_SLACK_MS;
   setOwnWriteAt(dashboardId, at);
+  // HEL-1578 D5: the Home page's per-dashboard stamp rides this one call, so an own write is recorded for every
+  // content-write path, tab or no tab (never a second enumeration of write paths).
+  dashboardSeenStore.recordOwnWrite(dashboardId, at);
   dispatch(tabOwnWrite({ id: dashboardId, at: new Date(at).toISOString() }));
   if (userId === null) return;
   if (listLoaded) {

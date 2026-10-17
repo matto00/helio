@@ -260,7 +260,9 @@ the backend SHALL update that row to the terminal status (`"succeeded"` or `"fai
 error-severity assertion failure (see `pipeline-assert-fail-policy`) SHALL also reach terminal status
 `"failed"`, with `row_count` unset (`null`) and `error_log` set to a descriptive summary naming the
 failing rule(s) — distinct from the generic message used for an unrelated execution exception. The
-backend SHALL then delete all but the 10 most recent `pipeline_runs` rows for the pipeline. These
+backend SHALL then delete the pipeline's non-dry `pipeline_runs` rows that are neither among its 10 most recent
+nor started within the last 24 hours, and SHALL keep at most 300 rows in all (the 300 most recent), so a day of
+history survives for the Home timeline (HEL-1578, owner answer `keep-24h`). Dry-run retention is unchanged. These
 side-effects SHALL be skipped when `pipelineRunRepo` is unavailable (null-safe guard).
 
 In addition, at each status transition the backend SHALL publish a `RunStatusEvent` to
@@ -318,6 +320,18 @@ with a descriptive `error_log` and publish exactly one `failed` event.
 - **WHEN** a non-dry run's `assert` step has an error-severity rule that fails
 - **THEN** a `pipeline_runs` row exists with `status = "failed"`, `row_count` null, and `error_log`
   naming the failing rule's kind and field — not the generic execution-exception message
+
+#### Scenario: A busy pipeline keeps a day of runs
+- **WHEN** a pipeline has 40 real runs started over the last 20 hours and a new run completes
+- **THEN** all 41 runs are kept
+
+#### Scenario: Older runs beyond the newest ten are pruned
+- **WHEN** a pipeline has 15 real runs all started more than 24 hours ago and a new run completes
+- **THEN** only the 10 most recent runs remain
+
+#### Scenario: The cap bounds a very busy pipeline
+- **WHEN** a pipeline has 350 real runs started within the last 24 hours and a new run completes
+- **THEN** only the 300 most recent remain
 
 ### Requirement: POST /api/pipelines/:id/run executes a rest_api or sql base source
 The run endpoint SHALL load rows for every root of the pipeline, whatever source kind each root binds, before the walk begins. A root binding a `rest_api` or `sql` source SHALL be fetched exactly as a single-source pipeline fetches it today.

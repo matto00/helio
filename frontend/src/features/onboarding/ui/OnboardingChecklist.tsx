@@ -38,7 +38,7 @@ function navGlyph(pathname: string) {
 }
 const SOURCE_GLYPH = navGlyph("/sources");
 const PIPELINE_GLYPH = navGlyph("/pipelines");
-const PLACEMENT_GLYPH = navGlyph("/home");
+const PLACEMENT_GLYPH = navGlyph("/dashboards");
 
 interface OnboardingChecklistProps {
   /** The SAME `useCreateDashboardAction()` instance `PanelList` calls for

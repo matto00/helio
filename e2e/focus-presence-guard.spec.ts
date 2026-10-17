@@ -4,7 +4,8 @@ import { FOCUSABLE_SELECTOR } from "./support/stateContrastProbe";
 import { forceFocusVisible } from "./support/forceFocusVisible";
 import { waitForSettingsAuditTable } from "./support/settingsReady";
 import { settleTransitions } from "./support/settleTransitions";
-import { registerUser } from "./support/auth";
+import { currentUserId, registerUser } from "./support/auth";
+import { seedPipelineRuns } from "./support/homeSeed";
 import { isolateLivePage } from "./support/isolateLivePage";
 import {
   readIndicatorSnapshot,
@@ -126,9 +127,16 @@ async function assertRouteFullyCovered(
 // Each cell registers its own fresh user and seeds its own data, so cells share nothing.
 // The run-wide `totalMeasured > 0` vacuity floor became a per-cell `measured > 0` (stricter).
 const THEMES = ["dark", "light"] as const;
-type RouteKey = "/home" | "/sources" | "source-detail" | "pipeline-detail" | "/settings";
+type RouteKey =
+  | "/home"
+  | "/dashboards"
+  | "/sources"
+  | "source-detail"
+  | "pipeline-detail"
+  | "/settings";
 const ROUTE_KEYS: RouteKey[] = [
   "/home",
+  "/dashboards",
   "/sources",
   "source-detail",
   "pipeline-detail",
@@ -149,7 +157,7 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         await client.send("DOM.enable");
         await client.send("CSS.enable");
 
-        // HEL-1330 order: register -> cookie login -> `/home` -> isolate -> seed -> `goto("/home")` -> theme
+        // HEL-1330 order: register -> cookie login -> `/home` -> isolate -> seed -> `goto("/dashboards")` -> theme
         // `evaluate` (on an app origin) -> `goto(route)`. Seeding while the post-login `/home` is live
         // races its mount effects (auto-select, recent-visit recorder, onboarding fetch).
         await registerUser(request, { ...AUTH, label: "focus-presence" });
@@ -157,7 +165,7 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         // page's context and open `/home`, instead of re-doing the same login through the UI form in every
         // cell (the guards never test login, and the sessions are identical: same httpOnly cookie).
         await page.context().addCookies((await request.storageState()).cookies);
-        await page.goto("/home");
+        await page.goto("/dashboards");
         await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
         await isolateLivePage(page);
 
@@ -190,6 +198,19 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         });
         expect(pipelineRes.status()).toBe(201);
         const pipeline = await pipelineRes.json();
+        // HEL-1578: Home renders Open / Retry, timeline marks and Up next links only with an unresolved failed run and
+        // a schedule. Seeded for the `/home` cell ONLY so the other views' measured populations are unchanged.
+        if (routeKey === "/home") {
+          seedPipelineRuns(pipeline.id, await currentUserId(request), [
+            { status: "succeeded", hoursAgo: 8 },
+            { status: "failed", hoursAgo: 3, errorLog: "source returned 0 rows" },
+          ]);
+          const scheduleRes = await request.put(`/api/pipelines/${pipeline.id}/schedule`, {
+            data: { kind: "interval", expression: "3h", timezone: "UTC", enabled: true },
+            headers: { [CSRF_HEADER]: "1" },
+          });
+          expect(scheduleRes.status()).toBe(200);
+        }
 
         // HEL-1080 tasks.md 5.3 (design.md Decision 9): `/sources/:id` for the seeded dataset
         // ("static"-kind) source above, so this guard actually covers `DatasetRowGrid`'s gridMode
@@ -197,6 +218,7 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         // the logged view name use the static label.
         const routePaths: Record<RouteKey, string> = {
           "/home": "/home",
+          "/dashboards": "/dashboards",
           "/sources": "/sources",
           "source-detail": `/sources/${source.id}`,
           "pipeline-detail": `/pipelines/${pipeline.id}`,
@@ -215,7 +237,16 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         const ROUTE_READY_MARKERS: Record<RouteKey, (p: Page) => Promise<unknown>> = {
           // `.first()` on each: the seeded name legitimately appears more than
           // once per route (breadcrumb, command palette, list row, etc.).
-          "/home": (p) =>
+          "/home": async (p) => {
+            await expect(
+              p.getByText("HEL-520 Guard Pipeline", { exact: true }).first(),
+            ).toBeVisible();
+            await expect(p.getByRole("button", { name: "Retry" })).toBeVisible();
+            await expect(
+              p.getByRole("group", { name: "Pipeline runs, last 24 hours" }),
+            ).toBeVisible();
+          },
+          "/dashboards": (p) =>
             expect(p.getByText("HEL-520 Guard Dashboard", { exact: true }).first()).toBeVisible(),
           "/sources": (p) =>
             expect(p.getByText("HEL-520 Guard Source", { exact: true }).first()).toBeVisible(),
@@ -236,8 +267,8 @@ test.describe("HEL-520 focus-presence guard (AC2)", () => {
         // HEL-1330: load `/home` fresh (the seed is complete, nothing was live), wait for the seeded
         // dashboard, and only then write the theme: the `evaluate` runs on an app origin, never
         // on the isolated `about:blank` page.
-        await page.goto("/home");
-        await ROUTE_READY_MARKERS["/home"](page);
+        await page.goto("/dashboards");
+        await ROUTE_READY_MARKERS["/dashboards"](page);
         // HEL-1288: the theme is stored and then applied by the route's own load (a separate
         // reload on `/home` first only re-did that work); the `data-theme` assertion proves it took.
         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);

@@ -4,7 +4,7 @@ Frontend spec for the Sources page: data source listing, type registry browser, 
 ## Requirements
 
 ### Requirement: /sources route renders SourcesPage
-The frontend SHALL register a `/sources` route via React Router that renders `SourcesPage`. The existing `/home` route continues to render the dashboard panel view. Navigation between routes is provided by `NavLink` components in the app sidebar with `aria-label="Main navigation"`. The sidebar SHALL include nav links for Dashboards (`/home`), Data Sources (`/sources`), and Data Pipelines (`/pipelines`).
+The frontend SHALL register a `/sources` route via React Router that renders `SourcesPage`. The `/dashboards` route renders the dashboard panel view and `/home` renders the Home page. Navigation between routes is provided by `NavLink` components in the app sidebar with `aria-label="Main navigation"`. The sidebar SHALL include nav links for Dashboards (`/dashboards`), Data Sources (`/sources`), and Data Pipelines (`/pipelines`).
 
 #### Scenario: Navigating to /sources shows SourcesPage
 - **WHEN** the user navigates to `/sources`

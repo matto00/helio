@@ -105,7 +105,7 @@ proposal and navigate away without any backend write.
 #### Scenario: Accepting a combined proposal
 - **WHEN** the user clicks Accept on the combined proposal review page
 - **THEN** the system calls `POST /api/proposals/apply` with the combined proposal, and on success
-  navigates to `/home` with the created dashboard selected
+  navigates to `/dashboards` with the created dashboard selected
 
 #### Scenario: Accept fails
 - **WHEN** `POST /api/proposals/apply` returns an error

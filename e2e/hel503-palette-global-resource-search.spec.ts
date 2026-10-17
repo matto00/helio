@@ -86,7 +86,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     // Reload lands fresh on `/home` with an EMPTY client-side Redux store — sources/pipelines have
     // never been fetched by anything on this route (design.md D2's load-timing survey).
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -106,7 +106,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const output = await createOutput(request, pipeline.id, "HEL-503 Revenue Output");
 
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -136,7 +136,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const secondDashboard = (await secondRes.json()) as { id: string; name: string };
 
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
     // The auto-selected dashboard is whichever loaded first; select the SECOND one via the
     // sidebar list first so the palette's own selection (of the FIRST) below is a real change.
@@ -166,7 +166,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     const source = await createStaticSource(request, "HEL-503 Navigable Source");
 
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -191,7 +191,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
       await route.continue();
     });
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);
@@ -216,7 +216,7 @@ test.describe("HEL-503 global resource search — the / route, primary acceptanc
     }
 
     // HEL-1300 D2a: a fresh document on `/home` (empty store) via goto, since the page idles on about:blank.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByLabel("Active dashboard")).toBeVisible();
 
     await openPalette(page);

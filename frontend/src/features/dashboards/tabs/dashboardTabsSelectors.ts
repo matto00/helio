@@ -1,5 +1,5 @@
 import type { RootState } from "../../../store/store";
-import { parseInstant } from "./tabTypes";
+import { hasChangedSince } from "./changeRule";
 
 /** D7 dot rule. An INACTIVE tab is marked when the dashboard's content changed after the later of the
  *  user's last view and their own last write (`contentUpdatedAt > max(lastViewedAt, ownWriteAt)`), OR a
@@ -11,14 +11,7 @@ export function selectTabHasChanged(state: RootState, tabId: string): boolean {
   const tab = tabs.find((t) => t.id === tabId);
   const signal = changeSignals[tabId];
   if (!tab || !signal) return false;
-  const viewed = parseInstant(tab.lastViewedAt);
-  if (viewed === null) return false;
-  const own = parseInstant(tab.ownWriteAt);
-  const content = parseInstant(signal.contentUpdatedAt);
-  const data = parseInstant(signal.dataUpdatedAt);
-  const contentChanged = content !== null && content > Math.max(viewed, own ?? -Infinity);
-  const dataChanged = data !== null && data > viewed;
-  return contentChanged || dataChanged;
+  return hasChangedSince(signal, tab.lastViewedAt, tab.ownWriteAt);
 }
 
 /** The accessible-name suffix a changed tab gets (design D7). */

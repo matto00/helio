@@ -54,8 +54,20 @@ describe("AppRail", () => {
     );
   });
 
-  it("marks exactly one rail item current on a dashboard route, and it is Dashboards, never Home", () => {
+  it("marks exactly one rail item current on '/home', and it is Home (HEL-1578)", () => {
     renderRail("/home");
+    const current = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("aria-current") === "page");
+    expect(current.map((l) => l.getAttribute("aria-label"))).toEqual(["Home"]);
+    expect(screen.getByRole("link", { name: "Home" })).toHaveClass("app-rail__item--active");
+    expect(screen.getByRole("link", { name: "Dashboards" })).not.toHaveClass(
+      "app-rail__item--active",
+    );
+  });
+
+  it("marks exactly one rail item current on '/dashboards', and it is Dashboards, never Home", () => {
+    renderRail("/dashboards");
     const current = screen
       .getAllByRole("link")
       .filter((link) => link.getAttribute("aria-current") === "page");

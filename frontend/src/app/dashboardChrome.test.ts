@@ -2,12 +2,20 @@ import { isDashboardViewPath } from "../shared/chrome/sections";
 import { usesDashboardMetaRow, usesDashboardTabBar } from "./dashboardChrome";
 
 describe("usesDashboardMetaRow", () => {
-  it.each(["/home", "/dashboards/d1"])("is true on the rail-shell dashboard view %s", (path) => {
-    expect(usesDashboardMetaRow(path, false)).toBe(true);
+  it.each(["/dashboards", "/dashboards/d1"])(
+    "is true on the rail-shell dashboard view %s",
+    (path) => {
+      expect(usesDashboardMetaRow(path, false)).toBe(true);
+    },
+  );
+
+  it.each(["/dashboards/d1", "/dashboards"])("is false on the phone shell (%s)", (path) => {
+    expect(usesDashboardMetaRow(path, true)).toBe(false);
   });
 
-  it.each(["/dashboards/d1", "/home"])("is false on the phone shell (%s)", (path) => {
-    expect(usesDashboardMetaRow(path, true)).toBe(false);
+  it("is false on Home (HEL-1578): Home is not the dashboard view", () => {
+    expect(usesDashboardMetaRow("/home", false)).toBe(false);
+    expect(usesDashboardTabBar("/home", false)).toBe(false);
   });
 
   it.each(["/sources", "/pipelines", "/pipelines/p1", "/chat", "/settings", "/outputs"])(

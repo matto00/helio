@@ -169,7 +169,7 @@ test.describe("HEL-910 source -> pipeline -> Outputs -> dashboard (live UI proof
     // (no demo data), and `fetchDashboards.fulfilled` auto-selects the most
     // recently created dashboard when none is selected yet -- no explicit
     // "switch dashboard" interaction needed.
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.getByRole("heading", { name: /HEL-910 Flow Dashboard/ })).toBeVisible();
 
     for (let i = 0; i < outputNames.length; i++) {
@@ -238,7 +238,7 @@ test.describe("HEL-910 place an already-existing Output on a dashboard (<= 2 int
     });
     expect(outputRes.status()).toBe(201);
 
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(
       page.getByRole("heading", { name: /HEL-910 Existing Output Dashboard/ }),
     ).toBeVisible();

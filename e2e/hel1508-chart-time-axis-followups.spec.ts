@@ -228,7 +228,7 @@ for (const { theme, width } of CASES) {
         200,
       );
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await page.getByText(`HEL-1508 ${label}`).first().click();
       if (width === 375) {

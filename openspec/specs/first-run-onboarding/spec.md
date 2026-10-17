@@ -216,12 +216,12 @@ The onboarding checklist's Done button SHALL be styled per DESIGN.md, and SHALL 
 When the dashboard collection has settled empty, the empty-workspace surface SHALL present the first-run drop zone (see `first-run-dashboard-build`) instead of the checklist. A "Set up step by step" control SHALL reveal the three-step checklist (source, pipeline, place), which remains the path for users who want to build manually and for the re-open affordance. The checklist model has three steps (source, pipeline, placement); earlier references to four steps or a "type" step are obsolete.
 
 #### Scenario: Empty workspace
-- **WHEN** a user with zero dashboards opens `/home`
+- **WHEN** a user with zero dashboards opens `/home` (inside the Home page's empty shelf) or `/dashboards`
 - **THEN** the drop zone is shown and the checklist is hidden until "Set up step by step" is chosen
 
 #### Scenario: Step-by-step path
 - **WHEN** the user chooses "Set up step by step"
-- **THEN** the existing three-step checklist is shown
+- **THEN** the existing three-step checklist is shown (from Home, on `/dashboards`)
 
 ### Requirement: Persona template chips
 The empty-workspace first-run surface SHALL offer one chip per persona as a "no file? start from a template" choice. Chips SHALL be keyboard-operable with accessible names; progress SHALL be announced via a polite live region and failures via an alert. Choosing a chip SHALL emit `firstrun_template_chosen` with the slug and navigate to the built dashboard.

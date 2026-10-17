@@ -140,7 +140,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
       const panel = await seedAssembledFormPanel(request, dashboard.id, source.id);
       await placeAtDefaultSize(request, dashboard.id, panel.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       const form = page.getByRole("form", { name: "HEL-1090 Assembled Form" });
       await expect(form).toBeVisible();
 
@@ -244,7 +244,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
       const panel = await seedAssembledFormPanel(request, dashboard.id, source.id);
       await placeAtDefaultSize(request, dashboard.id, panel.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       const form = page.getByRole("form", { name: "HEL-1090 Assembled Form" });
       await expect(form).toBeVisible();
 
@@ -319,7 +319,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
       const panel = await seedAssembledFormPanel(request, dashboard.id, source.id);
       await placeAtDefaultSize(request, dashboard.id, panel.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
 
       // C8: query the computed accessibility tree (`browser_snapshot`-equivalent —
       // `getByRole`/`accessibility.snapshot()` both resolve against computed AX state, not a
@@ -364,7 +364,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
       const panel = await seedAssembledFormPanel(request, dashboard.id, source.id);
       await placeAtDefaultSize(request, dashboard.id, panel.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       const form = page.getByRole("form", { name: "HEL-1090 Assembled Form" });
       await expect(form).toBeVisible();
 
@@ -420,7 +420,7 @@ test.describe("HEL-1090 assembled form panel — keyboard + screen-reader audit 
       const panel = await seedAssembledFormPanel(request, dashboard.id, source.id);
       await placeAtDefaultSize(request, dashboard.id, panel.id);
 
-      await page.goto("/home");
+      await page.goto("/dashboards");
       const form = page.getByRole("form", { name: "HEL-1090 Assembled Form" });
       await expect(form).toBeVisible();
 

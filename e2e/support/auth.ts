@@ -28,7 +28,8 @@ export interface RegisterUserOptions {
 }
 
 export interface RegisterAndLoginOptions extends RegisterUserOptions {
-  /** After login, wait for the authenticated shell's "Add dashboard" button (default false). */
+  /** After login, open the dashboard view (`/dashboards`, HEL-1578: sign-in now lands on Home) and wait for the
+   *  authenticated shell's "Add dashboard" button (default false). */
   waitForShell?: boolean;
   /** After login (and after the shell wait), idle the page on about:blank (default false). */
   isolate?: boolean;
@@ -74,7 +75,7 @@ export async function currentUserId(request: APIRequestContext): Promise<string>
 }
 
 /**
- * Register -> UI login -> (`waitForShell`) wait for "Add dashboard" -> (`isolate`) idle on
+ * Register -> UI login -> (`waitForShell`) open `/dashboards`, wait for "Add dashboard" -> (`isolate`) idle on
  * about:blank. The order is fixed: isolate-then-wait is impossible (blank page). Pass `isolate`
  * before any API seeding that must not race the live `/home` (HEL-1289 / HEL-1300).
  */
@@ -87,6 +88,7 @@ export async function registerAndLogin(
   const credentials = await registerUser(request, registerOptions);
   await uiLogin(page, credentials);
   if (waitForShell) {
+    await page.goto("/dashboards");
     await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
   }
   if (isolate) await isolateLivePage(page);

@@ -157,7 +157,9 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "deleteOldRuns retains only the N most recent runs" in {
       val pid = seedPipeline()
-      val base = Instant.now()
+      // HEL-1578: runs started inside the last 24h are kept regardless of N, so this
+      // keep-N scenario seeds runs older than the window.
+      val base = Instant.now().minusSeconds(48L * 3600L)
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)
         await(pipelineRunRepo.insertRun(runId, pid, base.plusSeconds(i.toLong), systemUser))
@@ -174,6 +176,43 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
       // The first element should have the latest startedAt (base + 12s)
       // Compare epoch seconds to avoid nanosecond precision mismatch with DB
       after.head.startedAt.getEpochSecond shouldBe base.plusSeconds(12).getEpochSecond
+    }
+
+    "HEL-1578: a busy pipeline keeps a day of runs (40 runs over 20h, all kept)" in {
+      val pid  = seedPipeline()
+      val now  = Instant.now()
+      // 40 runs spread over the last 20 hours (every 30 minutes).
+      (0 until 40).foreach { i =>
+        val runId = PipelineRunId(UUID.randomUUID().toString)
+        await(pipelineRunRepo.insertRun(runId, pid, now.minusSeconds(i.toLong * 1800L), systemUser))
+      }
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
+      await(pipelineRunRepo.listByPipeline(pid, systemUser)) should have size 40
+    }
+
+    "HEL-1578: 15 runs all older than 24h are pruned to the newest 10" in {
+      val pid  = seedPipeline()
+      val base = Instant.now().minusSeconds(30L * 3600L)
+      (1 to 15).foreach { i =>
+        await(pipelineRunRepo.insertRun(PipelineRunId(UUID.randomUUID().toString), pid, base.plusSeconds(i.toLong), systemUser))
+      }
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      after should have size 10
+      after.head.startedAt.getEpochSecond shouldBe base.plusSeconds(15).getEpochSecond
+    }
+
+    "HEL-1578: the cap bounds a very busy pipeline (350 runs inside 24h keep the newest 300)" in {
+      val pid = seedPipeline()
+      val now = Instant.now()
+      (0 until 350).foreach { i =>
+        await(pipelineRunRepo.insertRun(PipelineRunId(UUID.randomUUID().toString), pid, now.minusSeconds(i.toLong * 60L), systemUser))
+      }
+      await(pipelineRunRepo.deleteOldRuns(pid, systemUser, keepN = 10))
+      val after = await(pipelineRunRepo.listByPipeline(pid, systemUser))
+      after should have size 300
+      after.head.startedAt.getEpochSecond shouldBe now.getEpochSecond
+      after.last.startedAt.getEpochSecond shouldBe now.minusSeconds(299L * 60L).getEpochSecond
     }
 
     "listByPipeline returns runs ordered by startedAt DESC" in {
@@ -309,7 +348,7 @@ class PipelineRunRepositorySpec extends AnyWordSpec with Matchers with BeforeAnd
 
     "deleteOldRuns does not affect dry-run records" in {
       val pid  = seedPipeline()
-      val base = Instant.now()
+      val base = Instant.now().minusSeconds(48L * 3600L)
       // Insert 12 normal runs and 5 dry-run rows
       for (i <- 1 to 12) {
         val runId = PipelineRunId(UUID.randomUUID().toString)

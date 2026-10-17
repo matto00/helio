@@ -107,7 +107,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         });
         expect(layoutRes.status()).toBe(200);
 
-        await page.goto("/home");
+        await page.goto("/dashboards");
         const control = page.getByRole("spinbutton", { name: "Widgets" });
         await expect(control).toBeVisible();
         if (theme === "light") await switchToLightTheme(page);
@@ -167,7 +167,7 @@ test.describe("HEL-1169 network-vs-rejection reconcile ARIA state (real backend)
         });
         expect(layoutRes.status()).toBe(200);
 
-        await page.goto("/home");
+        await page.goto("/dashboards");
         const control = page.getByRole("spinbutton", { name: "Widgets" });
         await expect(control).toBeVisible();
         if (theme === "light") await switchToLightTheme(page);

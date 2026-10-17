@@ -101,7 +101,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
             headers: { [CSRF_HEADER]: "1" },
           });
           expect(dashboardRes.status()).toBe(201);
-          await page.goto("/home");
+          await page.goto("/dashboards");
           await assertTypeStyleActive(page, style);
 
           // ::after-expander bisection — command bar "Open assistant" icon
@@ -297,7 +297,7 @@ test.describe("HEL-813 mobile touch-target floor guard", () => {
             headers: { [CSRF_HEADER]: "1" },
           });
           expect(dashboardRes.status()).toBe(201);
-          await page.goto("/home");
+          await page.goto("/dashboards");
           await assertTypeStyleActive(page, style);
           await expect(page.getByRole("heading", { name: /HEL-813 PanelList/ })).toBeVisible();
 

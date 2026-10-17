@@ -66,7 +66,8 @@ test.describe("HEL-1562 landing page", () => {
 
     await page.goto("/");
     await expect(page).toHaveURL(/\/home$/);
-    await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
+    // HEL-1578: app home is the Home page (the dashboard view moved to /dashboards).
+    await expect(page.getByRole("region", { name: "Home" })).toBeVisible();
 
     await page.getByRole("button", { name: "User menu" }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
