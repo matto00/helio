@@ -1,0 +1,43 @@
+/* Crossfade (HEL-1573): skeleton and content stacked in one grid cell so the container never collapses. Opacity only,
+   timed by the motion tokens (no literal duration). */
+.crossfade {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.crossfade__layer {
+  grid-area: 1 / 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The body is a row-axis flex item of the layer. Without min-width: 0 its automatic minimum (its min-content, e.g. a stale
+   chart canvas) keeps it from shrinking with the card, so a chart never narrows and a wide table overflows instead of scrolling. */
+.crossfade__layer > * {
+  min-width: 0;
+}
+
+.crossfade__skeleton {
+  opacity: 1;
+  transition: opacity var(--motion-duration-standard) var(--motion-ease-standard);
+}
+
+.crossfade__skeleton--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes crossfade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.crossfade__content--entering {
+  animation: crossfade-in var(--motion-duration-standard) var(--motion-ease-standard) backwards;
+}

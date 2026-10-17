@@ -90,6 +90,8 @@ describe("motion tokens (D5)", () => {
     "--motion-duration-emphasized": "0.01ms",
     "--motion-duration-highlight": "0.01ms",
     "--motion-stagger": "0ms",
+    "--motion-duration-move": "0.01ms",
+    "--motion-rise-distance": "0px",
     "--app-transition": "0.01ms ease",
     "--transition-slow": "0.01ms cubic-bezier(0.3, 0.9, 0.4, 1)",
   };
@@ -109,10 +111,18 @@ describe("motion tokens (D5)", () => {
     for (const [token, value] of Object.entries(OFF_TOKENS)) expect(decl(body, token)).toBe(value);
   });
 
-  it("Subtle only drops the overshoot curve", () => {
-    expect(rule(':root[data-motion="subtle"]').trim()).toBe(
-      "--motion-ease-overshoot: var(--motion-ease-out);",
-    );
+  it("Subtle drops the overshoot curve and zeroes the movement role tokens, keeping fade durations", () => {
+    const body = rule(':root[data-motion="subtle"]');
+    expect(decl(body, "--motion-ease-overshoot")).toBe("var(--motion-ease-out)");
+    expect(decl(body, "--motion-duration-move")).toBe("0.01ms");
+    expect(decl(body, "--motion-rise-distance")).toBe("0px");
+    expect(body).not.toMatch(/--motion-duration-(quick|standard|emphasized)/);
+  });
+
+  it("Full declares the role tokens: move follows standard, rise is 6px (HEL-1573 D2)", () => {
+    const root = rule(":root");
+    expect(decl(root, "--motion-duration-move")).toBe("var(--motion-duration-standard)");
+    expect(decl(root, "--motion-rise-distance")).toBe("6px");
   });
 
   it("the global reduced-motion rule is scoped to no-saved-choice and has an Off twin", () => {

@@ -5,6 +5,7 @@ import type { EChartsOption } from "echarts";
 import ReactECharts from "echarts-for-react/esm/core";
 
 import echarts from "../../panels/ui/echartsCore";
+import { useChartEntranceMotion } from "../../panels/ui/useChartEntranceMotion";
 import { defaultChartAppearance, resolveChartTextColor } from "../../../theme/appearance";
 import { useTheme } from "../../../theme/ThemeProvider";
 import { appearanceToEChartsOption, resolveChartTheme } from "../../../utils/chartAppearance";
@@ -44,7 +45,7 @@ export function UsageChart({
     return () => cancelAnimationFrame(raf);
   }, [theme, accentColor, typeStyle, effectiveMotion]);
 
-  const option = useMemo<EChartsOption>(() => {
+  const builtOption = useMemo<EChartsOption>(() => {
     void themeSyncTick;
     // HEL-1572: a live type-style / motion switch changes what resolveChartTheme() reads.
     void typeStyle;
@@ -118,11 +119,15 @@ export function UsageChart({
     } as EChartsOption;
   }, [categories, series, kind, valueFormatter, themeSyncTick, theme, typeStyle, effectiveMotion]);
 
+  // HEL-1034 / HEL-1573 -- the same token-timed, play-once entrance as the dashboard chart.
+  const { option, onChartReady } = useChartEntranceMotion(builtOption);
+
   return (
     <div className="usage-chart" role="img" aria-label={ariaLabel}>
       <ReactECharts
         echarts={echarts}
         option={option}
+        onChartReady={onChartReady}
         notMerge={true}
         autoResize={true}
         style={{ height: "100%", width: "100%" }}

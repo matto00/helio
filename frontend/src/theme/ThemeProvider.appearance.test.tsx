@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 
 import { AppearanceStorageKey, DEFAULT_APPEARANCE, type AppearancePrefs } from "./appearancePrefs";
-import { ThemeProvider, useDensity, useReducedMotion, useTheme } from "./ThemeProvider";
+import { ThemeProvider, useDensity, useMotion, useReducedMotion, useTheme } from "./ThemeProvider";
 import type { PreferredAppearance } from "./useAppearanceState";
 
 const root = document.documentElement;
@@ -162,5 +162,25 @@ describe("ThemeProvider appearance (HEL-1572)", () => {
       </ThemeProvider>,
     );
     expect(screen.getByTestId("r").textContent).toBe("false");
+  });
+
+  it("useMotion reports the saved level over the OS, and the OS alone outside a provider", () => {
+    function Level() {
+      return <span data-testid="m">{useMotion()}</span>;
+    }
+    window.matchMedia = jest.fn().mockReturnValue({
+      matches: true,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }) as unknown as typeof window.matchMedia;
+    const saved = render(
+      <ThemeProvider preferredAppearance={{ ...DEFAULT_APPEARANCE, motion: "subtle" }}>
+        <Level />
+      </ThemeProvider>,
+    );
+    expect(screen.getByTestId("m").textContent).toBe("subtle");
+    saved.unmount();
+    render(<Level />);
+    expect(screen.getByTestId("m").textContent).toBe("off");
   });
 });

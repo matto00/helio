@@ -1,5 +1,6 @@
 import type { EChartsOption } from "echarts";
 
+import type { Motion } from "../theme/appearancePrefs";
 import type { ChartAppearance } from "../features/panels/types/panel";
 import { prefersReducedMotion } from "./prefersReducedMotion";
 // HEL-1311 — the chart-type set lives in its own tiny module so the eagerly-bundled code (overlay,
@@ -306,4 +307,38 @@ export function applyHoverEmphasis(
       ...(reducedMotion ? { animation: false } : {}),
     })),
   } as EChartsOption;
+}
+
+export interface ChartMotionParams {
+  /** The effective Motion level (`useMotion()`). */
+  motion: Motion;
+  /** True until the chart's entrance has played (see `useChartEntranceMotion`). */
+  entrance: boolean;
+  /** `--motion-duration-standard` in ms, read from the cascade by the caller. */
+  durationMs: number;
+}
+
+/** HEL-1034 / HEL-1573 -- the chart's animation timing, from the motion tokens rather than ECharts' 1000ms default.
+ *
+ *  - Full, entrance open: entrance and update animations run over `durationMs` on the library's closest curve to the
+ *    token ease-out (`cubicOut`).
+ *  - Full, after the entrance: `animationDuration: 0` so a rebuilt option (`notMerge`) does not replay the entrance;
+ *    `animationDurationUpdate` keeps the token so in-chart interaction (legend toggle, dataZoom) still animates.
+ *  - Subtle: no entrance or update animation, but `animation` stays on so the hover-emphasis colour fade survives.
+ *  - Off: `animation: false` (hover emphasis is already instant through `applyHoverEmphasis`). */
+export function applyChartMotion(
+  option: EChartsOption,
+  { motion, entrance, durationMs }: ChartMotionParams,
+): EChartsOption {
+  if (motion === "off") return { ...option, animation: false };
+  if (motion === "subtle") {
+    return { ...option, animationDuration: 0, animationDurationUpdate: 0 };
+  }
+  return {
+    ...option,
+    animationDuration: entrance ? durationMs : 0,
+    animationDurationUpdate: durationMs,
+    animationEasing: "cubicOut",
+    animationEasingUpdate: "cubicOut",
+  };
 }

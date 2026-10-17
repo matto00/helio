@@ -42,6 +42,8 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import { TextField } from "../../../shared/ui/TextField";
+import { useLayoutSlide } from "../../../shared/motion/useLayoutSlide";
+import { useStaggeredEntrance } from "../../../shared/motion/useStaggeredEntrance";
 import { useShareDialog } from "../state/shareDialogContext";
 
 /** Escapes `"` and `\` for safe embedding inside a double-quoted CSS attribute-selector value
@@ -259,6 +261,12 @@ export function DashboardList() {
   })();
 
   // HEL-1574: folders are per-user and server-side. A filing whose folder no longer exists counts as unfiled.
+  // HEL-1573: rows stagger in once when the list first shows them, and slide to their new place when a sibling is
+  // added, removed or moves between folders.
+  const stagger = useStaggeredEntrance(visibleItems.length);
+  const listRef = useLayoutSlide<HTMLElement>();
+  let rowIndex = 0;
+
   const folderIds = new Set(folders.map((folder) => folder.id));
   const folderOf = (dashboardId: string): string | null => {
     const folderId = assignments[dashboardId];
@@ -297,8 +305,14 @@ export function DashboardList() {
       : "dashboard-list__item";
 
     const isConfirmingDelete = confirmDeleteId === dashboard.id;
+    const entrance = stagger.itemProps(rowIndex++);
     return (
-      <li key={dashboard.id} className={`${itemClassName} dashboard-list__item--row`}>
+      <li
+        key={dashboard.id}
+        className={`${itemClassName} dashboard-list__item--row ${entrance.className}`}
+        style={entrance.style}
+        data-motion-key={dashboard.id}
+      >
         <div className="dashboard-list__item-row">
           {editingId === dashboard.id ? (
             <div className="dashboard-list__rename">
@@ -447,7 +461,7 @@ export function DashboardList() {
   }
 
   return (
-    <section className="dashboard-list" aria-label="dashboards">
+    <section className="dashboard-list" aria-label="dashboards" ref={listRef}>
       <header className="dashboard-list__header">
         <span />
         <div className="dashboard-list__header-actions">
