@@ -6,6 +6,7 @@
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { DataSource } from "../../../sources/types/dataSource";
+import { SourceSampleLabel } from "../../../sources/ui/SourceSampleLabel";
 import type { PipelineRoot } from "../../types/pipelineStep";
 
 interface SpineSourceCardProps {
@@ -52,6 +53,11 @@ export function SpineSourceCard({
           {root.dataSourceName}
         </span>
         {source && <span className="spine-card__meta">{labelForKind(source.type)}</span>}
+        <SourceSampleLabel
+          sourceId={root.dataSourceId}
+          sourceName={root.dataSourceName}
+          resolvable={source !== undefined}
+        />
       </div>
       <div className="spine-card__menu">
         <ActionsMenu label={`Source actions for ${root.dataSourceName}`} items={items} />

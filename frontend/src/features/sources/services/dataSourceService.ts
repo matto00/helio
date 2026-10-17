@@ -8,6 +8,7 @@ import type {
   RowResponse,
   RowWriteResponse,
   SourceReferenceSummary,
+  SourceSample,
   SqlSourceConfig,
   StaticColumn,
   UpdateDatasetSchemaRequest,
@@ -321,6 +322,19 @@ export async function fetchCsvPreview(
 
 export async function fetchRestPreview(sourceId: string): Promise<RestPreviewResponse> {
   const response = await httpClient.get<RestPreviewResponse>(`/api/sources/${sourceId}/preview`);
+  return response.data;
+}
+
+/** HEL-1628: the 1,000-row engine-loaded sample. Counts against the source-fetch limiter (30/min per user), so
+ *  callers go through the sample store, which captures once and refreshes only on demand. */
+export async function fetchSourceSample(sourceId: string): Promise<SourceSample> {
+  const response = await httpClient.get<SourceSample>(`/api/data-sources/${sourceId}/sample`);
+  const body = response.data as Partial<SourceSample> | undefined;
+  // The label and the evaluator both index `rows` and format `capturedAt`; refuse a body that is not a sample
+  // (a proxy error page, a stale server) here rather than crash a render later.
+  if (!body || !Array.isArray(body.rows) || typeof body.capturedAt !== "string") {
+    throw new Error("Unexpected sample response.");
+  }
   return response.data;
 }
 

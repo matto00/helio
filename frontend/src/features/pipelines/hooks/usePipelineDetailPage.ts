@@ -23,6 +23,7 @@ import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
 import { usePipelineRunStream } from "./usePipelineRunStream";
 import { usePipelineSourceScheduleActions } from "./usePipelineSourceScheduleActions";
 import { useToast } from "../../toasts/hooks/useToast";
+import { useSourceSamples } from "../../sources/hooks/useSourceSamples";
 import type { PipelineRoot } from "../types/pipelineStep";
 
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
@@ -178,6 +179,10 @@ export function usePipelineDetailPage() {
   // render as an empty lane, which `steps` alone could never reveal.
   const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
   const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
+  // HEL-1628: one sample capture per root source when the page opens with nothing cached (both layouts); the
+  // label's refresh button is the only other fetch. Never from a step editor, so edits do not re-fetch.
+  const rootSourceIds = useMemo(() => roots.map((r) => r.dataSourceId), [roots]);
+  useSourceSamples(rootSourceIds);
   const { clearDeferWatchdog, forceDeferredAnalyze } = usePipelineAnalyzeDeferWatchdog({
     id,
     dispatch,

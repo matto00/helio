@@ -118,11 +118,20 @@
  * no visible size change from the old plain text at that count. ── */
 .pipeline-detail-header__source-chips {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: nowrap;
   gap: var(--space-1);
   min-width: 0;
   overflow: hidden;
+}
+
+/* HEL-1628: a chip and its sample label (text + refresh) stacked; the group, not the pill, is the flex item. */
+.pipeline-detail-header__source-chip-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 /* HEL-1022 follow-up: `max-width: 10rem` here was an UNCONDITIONAL cap, so a

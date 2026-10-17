@@ -45,6 +45,7 @@ import { Toggle } from "../../../shared/ui/Toggle";
 import { StatusChip } from "../../../shared/ui/StatusChip";
 import { ActionsMenu, type ActionsMenuItem } from "../../../shared/chrome/ActionsMenu";
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
+import { SourceSampleLabel } from "../../sources/ui/SourceSampleLabel";
 import { AddRootModal } from "./AddRootModal";
 
 import "../../../shared/chrome/Popover.css";
@@ -208,31 +209,38 @@ export function PipelineDetailHeader({
   function renderSourceChip(root: PipelineRoot) {
     const source = sourceByRootId[root.id];
     return (
-      <span key={root.id} className="pipeline-detail-header__source-chip">
-        {source ? (
+      <span key={root.id} className="pipeline-detail-header__source-chip-group">
+        <span className="pipeline-detail-header__source-chip">
+          {source ? (
+            <button
+              type="button"
+              className="pipeline-detail-header__source-chip-name pipeline-detail-header__source-chip-name--link"
+              aria-label={`Edit source ${root.dataSourceName}`}
+              onClick={() => onEditSource(source.id)}
+            >
+              {root.dataSourceName}
+            </button>
+          ) : (
+            <span className="pipeline-detail-header__source-chip-name">{root.dataSourceName}</span>
+          )}
+          {showKindBadge && source && (
+            <span className="pipeline-detail-header__source-kind">{labelForKind(source.type)}</span>
+          )}
           <button
             type="button"
-            className="pipeline-detail-header__source-chip-name pipeline-detail-header__source-chip-name--link"
-            aria-label={`Edit source ${root.dataSourceName}`}
-            onClick={() => onEditSource(source.id)}
+            className="pipeline-detail-header__source-chip-remove"
+            aria-label={`Remove source ${root.dataSourceName}`}
+            disabled={!canRemoveRoot}
+            onClick={() => onRemoveRoot(root.id)}
           >
-            {root.dataSourceName}
+            ×
           </button>
-        ) : (
-          <span className="pipeline-detail-header__source-chip-name">{root.dataSourceName}</span>
-        )}
-        {showKindBadge && source && (
-          <span className="pipeline-detail-header__source-kind">{labelForKind(source.type)}</span>
-        )}
-        <button
-          type="button"
-          className="pipeline-detail-header__source-chip-remove"
-          aria-label={`Remove source ${root.dataSourceName}`}
-          disabled={!canRemoveRoot}
-          onClick={() => onRemoveRoot(root.id)}
-        >
-          ×
-        </button>
+        </span>
+        <SourceSampleLabel
+          sourceId={root.dataSourceId}
+          sourceName={root.dataSourceName}
+          resolvable={source !== undefined}
+        />
       </span>
     );
   }

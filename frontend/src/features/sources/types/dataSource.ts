@@ -352,3 +352,17 @@ export interface SourceReferenceSummary {
   hiddenPipelineCount: number;
   hiddenPanelCount: number;
 }
+
+/** HEL-1628: `GET /api/data-sources/:id/sample` -- the engine-loaded head (at most 1,000 rows) of a source. `rows`
+ *  stay in their wire encoding (`{"$int": n}`, `{"$long": "n"}`, `{"$double": "..."}`, see `evaluator/wire.ts`) so
+ *  the Redux state is serializable; the store's selectors decode them for the evaluator. `sourceRowCount` is
+ *  `null` only for a truncated live read whose total the driver did not observe. `live` is true for a source that
+ *  re-reads a live system (REST, SQL, a file kind with a source URL). Contract:
+ *  schemas/sources/source-sample-response.schema.json. */
+export interface SourceSample {
+  rows: Array<Record<string, unknown>>;
+  capturedAt: string;
+  sourceRowCount: number | null;
+  truncated: boolean;
+  live: boolean;
+}

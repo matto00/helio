@@ -11,13 +11,13 @@ import org.apache.pekko.stream.scaladsl.Sink
 import com.helio.api._
 import com.helio.api.protocols.IdParsing.DataSourceIdSegment
 import com.helio.domain.model._
-import com.helio.services.sources.{CsvLimits, DataSourceService}
+import com.helio.services.sources.{CsvLimits, DataSourceService, SourceSampleService}
 import com.helio.services.ServiceError
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.DurationInt
 
-/** Thin HTTP shell for `/api/data-sources/:id/refresh|preview` and
+/** Thin HTTP shell for `/api/data-sources/:id/refresh|preview|sample` and
  *  `/api/data-sources/infer`. All logic lives in [[DataSourceService]].
  *
  *  `rateLimitDirective`/`rateLimitPerWindow` (HEL-505 design.md Decision 6, both nullable/`0`-
@@ -30,7 +30,9 @@ final class DataSourcePreviewRoutes(
     user: AuthenticatedUser,
     rateLimitDirective: RateLimitDirective = null,
     rateLimitPerWindow: Int = 0,
-    uploadGate: Option[CsvUploadGate] = None
+    uploadGate: Option[CsvUploadGate] = None,
+    // HEL-1628: null in fixtures that predate the sample endpoint; the route is then simply not mounted.
+    sampleService: SourceSampleService = null
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -66,6 +68,15 @@ final class DataSourcePreviewRoutes(
             parameter("limit".as[Int].optional) { limitOpt =>
               ServiceResponse.run(dataSourceService.preview(sourceId, limitOpt.getOrElse(10), user))(identity)
             }
+          }
+        },
+        // HEL-1628: inside this class's `rateLimited` scope, so a sample is charged to the same per-user
+        // source-fetch bucket as `/preview`. It goes through SourceSampleService, never PipelineRunService, so
+        // the pipeline-run guard is not reachable from here.
+        path(DataSourceIdSegment / "sample") { sourceId =>
+          get {
+            if (sampleService == null) reject
+            else ServiceResponse.run(sampleService.sample(sourceId, user))(identity)
           }
         },
         path("infer") {

@@ -38,7 +38,7 @@ import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, Pa
 import com.helio.services.firstrun.FirstRunDashboardService
 import com.helio.services.home.HomeSummaryService
 import com.helio.services.proposals.{CombinedProposalService, DashboardAuthoringService, DashboardProposalService}
-import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceService}
+import com.helio.services.sources.{ConnectorCompletionService, ConnectorEntityService, ContentSourceSupport, DataSourceService, ImageUploadService, SourceSampleService, SourceService}
 import com.helio.infrastructure.persistence.sources.ConnectorCompletionTokenRepository
 import com.helio.services.auth.{EncryptedSecretBackend, EnvMasterKeyProvider}
 import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
@@ -398,6 +398,8 @@ final class ApiRoutes(
   // the other dashboard/panel services use; PanelPacker (the pure geometry)
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
+  // HEL-1628: owns its own engine; shares the run's URL-fetch seam and host guards but never PipelineRunService.
+  private val sourceSampleService = new SourceSampleService(dataSourceRepo, fileSystem, connector, system, sqlUrlResolveHost, sqlUrlIsBlocked)
   private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepo, sqlUrlResolveHost, sqlUrlIsBlocked)
   // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
   // DataTypes no longer exist.
@@ -929,7 +931,7 @@ final class ApiRoutes(
                   // run before the inner route's own match/reject is known. Found via this
                   // ticket's own route-level test (`ApiRoutesPipelineRunGuardSpec`): an external
                   // wrap here made `analyze` -- never intentionally wrapped -- start 429ing too.
-                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow, Some(csvUploadGate)).routes,
+                  new DataSourcePreviewRoutes(dataSourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow, Some(csvUploadGate), sourceSampleService).routes,
                   new SourceRoutes(sourceService, authenticatedUser).routes,
                   new SourcePreviewRoutes(sourceService, authenticatedUser, sourceFetchRateLimitDirective, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow).routes,
                   new ConnectorRoutes(authenticatedUser).routes,
