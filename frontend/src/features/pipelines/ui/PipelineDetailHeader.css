@@ -403,6 +403,12 @@
   background: var(--app-surface-raised);
 }
 
+/* HEL-1628: the source chip's sample-refresh button sits on this same `--app-surface-soft` header, so the
+   shared ghost hover (`--app-surface-soft`) measured 1.000 against it; it takes the actions trigger's rung. */
+.pipeline-detail-header .source-sample-label .ui-icon-btn:hover:not(:disabled) {
+  background: var(--app-surface-raised);
+}
+
 /* ── Tablet and below — stack the three field groups instead of crowding
  * them into one row (design.md Risks: "combining three field groups into one
  * header risks visual crowding at 1100/768px"; evaluation-1.md change
