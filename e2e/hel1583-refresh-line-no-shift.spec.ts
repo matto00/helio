@@ -17,11 +17,19 @@ async function post<T>(request: APIRequestContext, url: string, data: unknown): 
   return (await res.json()) as T;
 }
 
+/** The skeleton's placeholders share the real cards' `.mobile-panel-stack__item` class but sit at a different height
+ *  (they are `div[aria-hidden]`, the real cards are `article`s). Sample only once the skeleton is gone and a real card
+ *  is visible, or the "before" read can be a placeholder. */
+async function realCardsReady(page: Page) {
+  await expect(page.locator('.mobile-panel-stack__item[aria-hidden="true"]')).toHaveCount(0);
+  await expect(page.locator("article.mobile-panel-stack__item").first()).toBeVisible();
+}
+
 async function layoutTops(page: Page) {
   return page.evaluate(() => {
     const top = (sel: string) => document.querySelector(sel)?.getBoundingClientRect().top ?? null;
     return {
-      card: top(".mobile-panel-stack__item"),
+      card: top("article.mobile-panel-stack__item"),
       chips: top(".dashboard-chip-row"),
       scrollHeight: document.querySelector<HTMLElement>(".panel-list")?.scrollHeight ?? null,
     };
@@ -73,7 +81,7 @@ for (const theme of ["light", "dark"] as const) {
       await route.continue();
     });
     await page.goto(`/dashboards/${dash.id}`);
-    await expect(page.locator(".mobile-panel-stack__item").first()).toBeVisible();
+    await realCardsReady(page);
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
     const before = await layoutTops(page);
     expect(
@@ -111,7 +119,7 @@ for (const theme of ["light", "dark"] as const) {
       config: { content: "note" },
     });
     await page.goto(`/dashboards/${dash.id}`);
-    await expect(page.locator(".mobile-panel-stack__item").first()).toBeVisible();
+    await realCardsReady(page);
     await page.evaluate(() => document.fonts.ready.then(() => undefined));
     const before = await layoutTops(page);
     await page.waitForTimeout(1500);
