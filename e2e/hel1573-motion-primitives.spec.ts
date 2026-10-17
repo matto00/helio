@@ -51,7 +51,7 @@ async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string
   };
 
   // Stagger + crossfade + grid: load the app home (the primary dashboard is selected and its panels load).
-  await page.goto("/home");
+  await page.goto("/dashboards");
   await expect(page.locator("li.dashboard-list__item")).toHaveCount(5);
   await page.waitForTimeout(120);
   await save(page, mode, theme, "1-stagger-midflight");
@@ -106,7 +106,7 @@ async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string
   await density.getByRole("radio", { name: /comfortable/i }).click();
 
   // Layout slide: delete a dashboard near the top (the list is newest first); the rows below move up.
-  await page.goto("/home");
+  await page.goto("/dashboards");
   await expect(page.locator("li.dashboard-list__item")).toHaveCount(5);
   await page.waitForTimeout(1200);
   await clearLog(page);

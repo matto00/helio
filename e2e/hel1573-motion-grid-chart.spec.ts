@@ -27,7 +27,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await registerAndLogin(page, request, { ...AUTH, label: "c2", isolate: true });
     await setMotion(request, "full");
     await seedWorld(request, "M-c2");
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator(".panel-grid-card")).toHaveCount(3);
     await page.waitForTimeout(800);
 
@@ -110,7 +110,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await setMotion(request, "full");
     const world = await seedWorld(request, "M-chart");
     await page.mouse.move(5, 5);
-    await page.goto("/home");
+    await page.goto("/dashboards");
     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
     await page.waitForTimeout(2500);
 
