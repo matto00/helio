@@ -1,0 +1,470 @@
+{
+  "kind": "filter",
+  "vectors": [
+    {
+      "name": "= compares a numeric cell numerically against a numeric value",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "=", "value": "5" }]
+      },
+      "inputRows": [
+        { "n": 5.0 },
+        { "n": 5.5 },
+        { "n": { "$int": 5 } },
+        { "n": "5" },
+        { "n": "5.0" },
+        { "n": null }
+      ],
+      "expect": { "rows": [{ "n": 5.0 }, { "n": { "$int": 5 } }, { "n": "5" }] }
+    },
+    {
+      "name": "= keeps exact string equality for a numeric-looking String cell",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "id", "operator": "=", "value": "7" }]
+      },
+      "inputRows": [{ "id": "007" }, { "id": "7" }, { "id": "7.0" }, { "id": 7.0 }],
+      "expect": { "rows": [{ "id": "7" }, { "id": 7.0 }] }
+    },
+    {
+      "name": "!= is the complement of = for every cell kind",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "!=", "value": "5" }]
+      },
+      "inputRows": [{ "n": 5.0 }, { "n": 6.0 }, { "n": "5" }, { "n": null }, { "n": true }],
+      "expect": { "rows": [{ "n": 6.0 }, { "n": null }, { "n": true }] }
+    },
+    {
+      "name": "= with a double cell and a value with a decimal point",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "=", "value": "7.0" }]
+      },
+      "inputRows": [{ "n": 7.0 }, { "n": "7.0" }, { "n": "7" }],
+      "expect": { "rows": [{ "n": 7.0 }, { "n": "7.0" }] }
+    },
+    {
+      "name": "= with a double cell and a non-numeric value compares as text",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "=", "value": "3.0" }]
+      },
+      "inputRows": [{ "n": 3.0 }, { "n": 3.5 }],
+      "expect": { "rows": [{ "n": 3.0 }] }
+    },
+    {
+      "name": "= against an empty value matches a null cell",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "=", "value": "" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "" }, { "s": "x" }, {}],
+      "expect": { "rows": [{ "s": null }, { "s": "" }, {}] }
+    },
+    {
+      "name": "!= against an empty value excludes a null cell",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "!=", "value": "" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "" }, { "s": "x" }, {}],
+      "expect": { "rows": [{ "s": "x" }] }
+    },
+    {
+      "name": "= against a non-empty value never matches null",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "=", "value": "x" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "x" }],
+      "expect": { "rows": [{ "s": "x" }] }
+    },
+    {
+      "name": "= treats NaN as unequal to itself",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "=", "value": "NaN" }]
+      },
+      "inputRows": [{ "n": { "$double": "NaN" } }, { "n": 1.0 }, { "n": "NaN" }],
+      "expect": { "rows": [{ "n": "NaN" }] }
+    },
+    {
+      "name": "numeric-parse traps through > : the cell is stringified and parsed the Java way",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "v", "operator": ">", "value": "0" }]
+      },
+      "inputRows": [
+        { "v": "1d", "i": 0.0 },
+        { "v": "1f", "i": 1.0 },
+        { "v": " 1 ", "i": 2.0 },
+        { "v": " 1", "i": 3.0 },
+        { "v": "0x1p3", "i": 4.0 },
+        { "v": "0x10", "i": 5.0 },
+        { "v": "NaN", "i": 6.0 },
+        { "v": "Infinity", "i": 7.0 },
+        { "v": "+1", "i": 8.0 },
+        { "v": "1", "i": 9.0 },
+        { "v": "abc", "i": 10.0 },
+        { "v": "", "i": 11.0 },
+        { "v": "1e2", "i": 12.0 },
+        { "v": ".5", "i": 13.0 },
+        { "v": "5.", "i": 14.0 },
+        { "v": "1_0", "i": 15.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "v": "1d" },
+          { "i": 1.0, "v": "1f" },
+          { "i": 2.0, "v": " 1 " },
+          { "i": 3.0, "v": " 1" },
+          { "i": 4.0, "v": "0x1p3" },
+          { "i": 7.0, "v": "Infinity" },
+          { "i": 8.0, "v": "+1" },
+          { "i": 9.0, "v": "1" },
+          { "i": 12.0, "v": "1e2" },
+          { "i": 13.0, "v": ".5" },
+          { "i": 14.0, "v": "5." }
+        ]
+      }
+    },
+    {
+      "name": "numeric-parse traps through <= against a decimal",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "v", "operator": "<=", "value": "1.5" }]
+      },
+      "inputRows": [
+        { "v": "1d", "i": 0.0 },
+        { "v": "1f", "i": 1.0 },
+        { "v": " 1 ", "i": 2.0 },
+        { "v": " 1", "i": 3.0 },
+        { "v": "0x1p3", "i": 4.0 },
+        { "v": "0x10", "i": 5.0 },
+        { "v": "NaN", "i": 6.0 },
+        { "v": "Infinity", "i": 7.0 },
+        { "v": "+1", "i": 8.0 },
+        { "v": "1", "i": 9.0 },
+        { "v": "abc", "i": 10.0 },
+        { "v": "", "i": 11.0 },
+        { "v": "1e2", "i": 12.0 },
+        { "v": ".5", "i": 13.0 },
+        { "v": "5.", "i": 14.0 },
+        { "v": "1_0", "i": 15.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "v": "1d" },
+          { "i": 1.0, "v": "1f" },
+          { "i": 2.0, "v": " 1 " },
+          { "i": 3.0, "v": " 1" },
+          { "i": 8.0, "v": "+1" },
+          { "i": 9.0, "v": "1" },
+          { "i": 13.0, "v": ".5" }
+        ]
+      }
+    },
+    {
+      "name": "numeric-parse traps through =",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "v", "operator": "=", "value": "1" }]
+      },
+      "inputRows": [
+        { "v": "1d", "i": 0.0 },
+        { "v": "1f", "i": 1.0 },
+        { "v": " 1 ", "i": 2.0 },
+        { "v": " 1", "i": 3.0 },
+        { "v": "0x1p3", "i": 4.0 },
+        { "v": "0x10", "i": 5.0 },
+        { "v": "NaN", "i": 6.0 },
+        { "v": "Infinity", "i": 7.0 },
+        { "v": "+1", "i": 8.0 },
+        { "v": "1", "i": 9.0 },
+        { "v": "abc", "i": 10.0 },
+        { "v": "", "i": 11.0 },
+        { "v": "1e2", "i": 12.0 },
+        { "v": ".5", "i": 13.0 },
+        { "v": "5.", "i": 14.0 },
+        { "v": "1_0", "i": 15.0 }
+      ],
+      "expect": { "rows": [{ "i": 9.0, "v": "1" }] }
+    },
+    {
+      "name": ">= and < on a mix of cell kinds",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": ">=", "value": "2" }]
+      },
+      "inputRows": [
+        { "n": 1.0 },
+        { "n": 2.0 },
+        { "n": { "$int": 3 } },
+        { "n": "2" },
+        { "n": "x" },
+        { "n": null },
+        { "n": true }
+      ],
+      "expect": { "rows": [{ "n": 2.0 }, { "n": { "$int": 3 } }, { "n": "2" }] }
+    },
+    {
+      "name": "an ordered operator with a non-numeric value matches nothing",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": ">", "value": "abc" }]
+      },
+      "inputRows": [{ "n": 1.0 }, { "n": 100.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an ordered operator with an empty value matches nothing",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "<", "value": "" }]
+      },
+      "inputRows": [{ "n": 1.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an ordered operator with no value matches nothing",
+      "config": { "combinator": "AND", "conditions": [{ "field": "n", "operator": ">" }] },
+      "inputRows": [{ "n": 1.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an ordered operator against Infinity",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "<", "value": "Infinity" }]
+      },
+      "inputRows": [
+        { "n": 1.0 },
+        { "n": { "$double": "Infinity" } },
+        { "n": "Infinity" },
+        { "n": { "$double": "NaN" } }
+      ],
+      "expect": { "rows": [{ "n": 1.0 }] }
+    },
+    {
+      "name": "an ordered operator never matches NaN",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": ">=", "value": "0" }]
+      },
+      "inputRows": [{ "n": { "$double": "NaN" } }, { "n": "NaN" }, { "n": 1.0 }],
+      "expect": { "rows": [{ "n": 1.0 }] }
+    },
+    {
+      "name": "contains is a substring test on the stringified cell",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "contains", "value": "ab" }]
+      },
+      "inputRows": [{ "s": "xaby" }, { "s": "AB" }, { "s": null }, { "s": 1.0 }],
+      "expect": { "rows": [{ "s": "xaby" }] }
+    },
+    {
+      "name": "contains sees a double the Java way",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "contains", "value": "0.0" }]
+      },
+      "inputRows": [{ "n": 10.0 }, { "n": 100.0 }, { "n": 0.001 }, { "n": 1.0 }],
+      "expect": { "rows": [{ "n": 10.0 }, { "n": 100.0 }, { "n": 0.001 }] }
+    },
+    {
+      "name": "contains with an empty needle matches null",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "contains", "value": "" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "a" }],
+      "expect": { "rows": [{ "s": null }, { "s": "a" }] }
+    },
+    {
+      "name": "contains with a non-empty needle does not match null",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "contains", "value": "a" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "a" }],
+      "expect": { "rows": [{ "s": "a" }] }
+    },
+    {
+      "name": "contains sees 1.0E7 for a large double",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": "contains", "value": "E7" }]
+      },
+      "inputRows": [{ "n": 10000000.0 }, { "n": 9999999.0 }],
+      "expect": { "rows": [{ "n": 10000000.0 }] }
+    },
+    {
+      "name": "is null and is not null",
+      "config": { "combinator": "AND", "conditions": [{ "field": "s", "operator": "is null" }] },
+      "inputRows": [{ "s": null }, { "s": "" }, {}, { "s": 0.0 }],
+      "expect": { "rows": [{ "s": null }, {}] }
+    },
+    {
+      "name": "is not null",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "s", "operator": "is not null" }]
+      },
+      "inputRows": [{ "s": null }, { "s": "" }, {}, { "s": 0.0 }],
+      "expect": { "rows": [{ "s": "" }, { "s": 0.0 }] }
+    },
+    {
+      "name": "AND requires every condition",
+      "config": {
+        "combinator": "AND",
+        "conditions": [
+          { "field": "a", "operator": ">", "value": "1" },
+          { "field": "b", "operator": "=", "value": "x" }
+        ]
+      },
+      "inputRows": [
+        { "a": 2.0, "b": "x" },
+        { "a": 2.0, "b": "y" },
+        { "a": 0.0, "b": "x" }
+      ],
+      "expect": { "rows": [{ "a": 2.0, "b": "x" }] }
+    },
+    {
+      "name": "OR requires any condition",
+      "config": {
+        "combinator": "OR",
+        "conditions": [
+          { "field": "a", "operator": ">", "value": "1" },
+          { "field": "b", "operator": "=", "value": "x" }
+        ]
+      },
+      "inputRows": [
+        { "a": 2.0, "b": "y" },
+        { "a": 0.0, "b": "x" },
+        { "a": 0.0, "b": "y" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 2.0, "b": "y" },
+          { "a": 0.0, "b": "x" }
+        ]
+      }
+    },
+    {
+      "name": "the combinator is matched case-insensitively",
+      "config": {
+        "combinator": "or",
+        "conditions": [
+          { "field": "a", "operator": ">", "value": "1" },
+          { "field": "b", "operator": "=", "value": "x" }
+        ]
+      },
+      "inputRows": [
+        { "a": 2.0, "b": "y" },
+        { "a": 0.0, "b": "x" }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 2.0, "b": "y" },
+          { "a": 0.0, "b": "x" }
+        ]
+      }
+    },
+    {
+      "name": "an unknown combinator is a step error",
+      "config": {
+        "combinator": "XOR",
+        "conditions": [{ "field": "a", "operator": ">", "value": "1" }]
+      },
+      "inputRows": [{ "a": 2.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "no conditions keeps every row",
+      "config": { "combinator": "AND", "conditions": [] },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }] }
+    },
+    {
+      "name": "a condition with an empty field is skipped; all skipped keeps every row",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "", "operator": "=", "value": "x" }]
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a skipped condition does not affect the others",
+      "config": {
+        "combinator": "AND",
+        "conditions": [
+          { "field": "", "operator": "=", "value": "x" },
+          { "field": "a", "operator": "=", "value": "1" }
+        ]
+      },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "an unknown operator matches nothing",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "a", "operator": "~=", "value": "1" }]
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "an integral cell compares numerically",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "n", "operator": ">", "value": "1" }]
+      },
+      "inputRows": [{ "n": { "$int": 1 } }, { "n": { "$int": 2 } }, { "n": { "$long": "3" } }],
+      "expect": { "rows": [{ "n": { "$int": 2 } }, { "n": { "$long": "3" } }] }
+    },
+    {
+      "name": "a field missing from the row reads as null",
+      "config": { "combinator": "AND", "conditions": [{ "field": "gone", "operator": "is null" }] },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "rows": [{ "a": 1.0 }] }
+    },
+    {
+      "name": "a condition value that is not a string cannot be decoded",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "a", "operator": "=", "value": 1 }]
+      },
+      "inputRows": [{ "a": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a disabled filter is transparent",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "a", "operator": "=", "value": "1" }]
+      },
+      "inputRows": [{ "a": 1.0 }, { "a": 2.0 }],
+      "enabled": false,
+      "expect": { "rows": [{ "a": 1.0 }, { "a": 2.0 }] }
+    },
+    {
+      "name": "Unicode-digit strings are not numbers to the ordered operators (Java Double.parseDouble is ASCII)",
+      "config": {
+        "combinator": "AND",
+        "conditions": [{ "field": "v", "operator": ">", "value": "0" }]
+      },
+      "inputRows": [
+        { "v": "\u0663" },
+        { "v": "\uff12" },
+        { "v": "\u0967\u0968" },
+        { "v": "\uff11\uff10" },
+        { "v": "\u0661.\u0665" }
+      ],
+      "expect": { "rows": [] }
+    }
+  ]
+}

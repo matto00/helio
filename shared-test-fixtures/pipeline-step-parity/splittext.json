@@ -1,0 +1,149 @@
+{
+  "kind": "splittext",
+  "vectors": [
+    {
+      "name": "paragraph mode splits on blank lines and trims",
+      "config": { "field": "t", "mode": "paragraph" },
+      "inputRows": [{ "id": 1.0, "t": "first\npara\n\n\nsecond  \n \nthird\n" }],
+      "expect": {
+        "rows": [
+          { "id": 1.0, "segmentIndex": { "$int": 0 }, "t": "first\npara" },
+          { "id": 1.0, "segmentIndex": { "$int": 1 }, "t": "second" },
+          { "id": 1.0, "segmentIndex": { "$int": 2 }, "t": "third" }
+        ]
+      }
+    },
+    {
+      "name": "paragraph mode normalises CRLF",
+      "config": { "field": "t" },
+      "inputRows": [{ "t": "a\r\n\r\nb\r\n \r\nc" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "a" },
+          { "segmentIndex": { "$int": 1 }, "t": "b" },
+          { "segmentIndex": { "$int": 2 }, "t": "c" }
+        ]
+      }
+    },
+    {
+      "name": "paragraph mode drops empty segments and keeps NBSP",
+      "config": { "field": "t" },
+      "inputRows": [{ "t": "\n\n\u00a0\n\nx\n\n" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "\u00a0" },
+          { "segmentIndex": { "$int": 1 }, "t": "x" }
+        ]
+      }
+    },
+    {
+      "name": "a row with a null or missing text field produces no rows",
+      "config": { "field": "t" },
+      "inputRows": [{ "t": null }, { "id": 1.0 }, { "t": "kept" }],
+      "expect": { "rows": [{ "segmentIndex": { "$int": 0 }, "t": "kept" }] }
+    },
+    {
+      "name": "heading mode splits at headings of the configured level",
+      "config": { "field": "t", "mode": "heading", "headingLevel": 2 },
+      "inputRows": [{ "t": "intro\n## A\nbody a\n### sub\n## B\nbody b" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "## A\nbody a\n### sub" },
+          { "segmentIndex": { "$int": 1 }, "t": "## B\nbody b" }
+        ]
+      }
+    },
+    {
+      "name": "heading mode with the default level 1",
+      "config": { "field": "t", "mode": "heading" },
+      "inputRows": [{ "t": "# One\ntext\n# Two\n\n## not top" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "# One\ntext" },
+          { "segmentIndex": { "$int": 1 }, "t": "# Two\n\n## not top" }
+        ]
+      }
+    },
+    {
+      "name": "heading mode produces no rows when there is no heading",
+      "config": { "field": "t", "mode": "heading" },
+      "inputRows": [{ "t": "plain text" }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "heading mode level 0 matches any line starting with whitespace",
+      "config": { "field": "t", "mode": "heading", "headingLevel": 0 },
+      "inputRows": [{ "t": "a\n  b\n c\nd" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "  b" },
+          { "segmentIndex": { "$int": 1 }, "t": " c\nd" }
+        ]
+      }
+    },
+    {
+      "name": "heading mode with a negative level is a step error",
+      "config": { "field": "t", "mode": "heading", "headingLevel": -1 },
+      "inputRows": [{ "t": "# a" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a negative heading level does not fail when no row reaches the splitter",
+      "config": { "field": "t", "mode": "heading", "headingLevel": -1 },
+      "inputRows": [{ "t": null }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "custom index field name; the index is an Int",
+      "config": { "field": "t", "indexField": "pos" },
+      "inputRows": [{ "t": "a\n\nb" }],
+      "expect": {
+        "rows": [
+          { "pos": { "$int": 0 }, "t": "a" },
+          { "pos": { "$int": 1 }, "t": "b" }
+        ]
+      }
+    },
+    {
+      "name": "the mode is matched case-insensitively",
+      "config": { "field": "t", "mode": "HEADING" },
+      "inputRows": [{ "t": "# a\nb" }],
+      "expect": { "rows": [{ "segmentIndex": { "$int": 0 }, "t": "# a\nb" }] }
+    },
+    {
+      "name": "an unknown mode is a step error",
+      "config": { "field": "t", "mode": "sentences" },
+      "inputRows": [{ "t": "a" }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a double cell is stringified before splitting",
+      "config": { "field": "t" },
+      "inputRows": [{ "t": 3.0 }],
+      "expect": { "rows": [{ "segmentIndex": { "$int": 0 }, "t": "3.0" }] }
+    },
+    {
+      "name": "the segment replaces the text field and the other columns are repeated",
+      "config": { "field": "t" },
+      "inputRows": [{ "keep": "k", "n": 1.0, "t": "a\n\nb" }],
+      "expect": {
+        "rows": [
+          { "keep": "k", "n": 1.0, "segmentIndex": { "$int": 0 }, "t": "a" },
+          { "keep": "k", "n": 1.0, "segmentIndex": { "$int": 1 }, "t": "b" }
+        ]
+      }
+    },
+    {
+      "name": "paragraph breaks use Java's \\s: vertical tab and form feed count, NBSP does not",
+      "config": { "field": "t" },
+      "inputRows": [{ "t": "a\n\u000b\n\u000cb\n\u00a0\nc\n\r\nd" }],
+      "expect": {
+        "rows": [
+          { "segmentIndex": { "$int": 0 }, "t": "a" },
+          { "segmentIndex": { "$int": 1 }, "t": "b\n\u00a0\nc" },
+          { "segmentIndex": { "$int": 2 }, "t": "d" }
+        ]
+      }
+    }
+  ]
+}

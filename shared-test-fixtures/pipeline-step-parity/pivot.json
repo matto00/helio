@@ -1,0 +1,378 @@
+{
+  "kind": "pivot",
+  "vectors": [
+    {
+      "name": "sum per pivot value, groups in hash order",
+      "config": { "index": ["region"], "column": "q", "values": "amt", "agg": "sum" },
+      "inputRows": [
+        { "region": "east", "q": "q1", "amt": 1.0 },
+        { "region": "east", "q": "q2", "amt": 2.0 },
+        { "region": "west", "q": "q1", "amt": 3.0 },
+        { "region": "west", "q": "q2", "amt": 4.0 },
+        { "region": "east", "q": "q1", "amt": 5.0 },
+        { "region": "north", "q": "q3", "amt": 6.0 },
+        { "region": "south", "q": "q1", "amt": 7.0 },
+        { "region": "south", "q": "q4", "amt": 8.0 },
+        { "region": "central", "q": "q2", "amt": 9.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "amt_q3": 6.0, "region": "north" },
+          { "amt_q1": 3.0, "amt_q2": 4.0, "region": "west" },
+          { "amt_q1": 7.0, "amt_q4": 8.0, "region": "south" },
+          { "amt_q2": 9.0, "region": "central" },
+          { "amt_q1": 6.0, "amt_q2": 2.0, "region": "east" }
+        ]
+      }
+    },
+    {
+      "name": "count is a Long; avg, min and max skip non-numeric cells",
+      "config": { "index": ["region"], "column": "q", "values": "amt", "agg": "count" },
+      "inputRows": [
+        { "region": "east", "q": "q1", "amt": 1.0 },
+        { "region": "east", "q": "q2", "amt": 2.0 },
+        { "region": "west", "q": "q1", "amt": 3.0 },
+        { "region": "west", "q": "q2", "amt": 4.0 },
+        { "region": "east", "q": "q1", "amt": 5.0 },
+        { "region": "north", "q": "q3", "amt": 6.0 },
+        { "region": "south", "q": "q1", "amt": 7.0 },
+        { "region": "south", "q": "q4", "amt": 8.0 },
+        { "region": "central", "q": "q2", "amt": 9.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "amt_q3": { "$long": "1" }, "region": "north" },
+          { "amt_q1": { "$long": "1" }, "amt_q2": { "$long": "1" }, "region": "west" },
+          { "amt_q1": { "$long": "1" }, "amt_q4": { "$long": "1" }, "region": "south" },
+          { "amt_q2": { "$long": "1" }, "region": "central" },
+          { "amt_q1": { "$long": "2" }, "amt_q2": { "$long": "1" }, "region": "east" }
+        ]
+      }
+    },
+    {
+      "name": "avg",
+      "config": { "index": ["region"], "column": "q", "values": "amt", "agg": "avg" },
+      "inputRows": [
+        { "region": "east", "q": "q1", "amt": 1.0 },
+        { "region": "east", "q": "q2", "amt": 2.0 },
+        { "region": "west", "q": "q1", "amt": 3.0 },
+        { "region": "west", "q": "q2", "amt": 4.0 },
+        { "region": "east", "q": "q1", "amt": 5.0 },
+        { "region": "north", "q": "q3", "amt": 6.0 },
+        { "region": "south", "q": "q1", "amt": 7.0 },
+        { "region": "south", "q": "q4", "amt": 8.0 },
+        { "region": "central", "q": "q2", "amt": 9.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "amt_q3": 6.0, "region": "north" },
+          { "amt_q1": 3.0, "amt_q2": 4.0, "region": "west" },
+          { "amt_q1": 7.0, "amt_q4": 8.0, "region": "south" },
+          { "amt_q2": 9.0, "region": "central" },
+          { "amt_q1": 3.0, "amt_q2": 2.0, "region": "east" }
+        ]
+      }
+    },
+    {
+      "name": "min",
+      "config": { "index": ["region"], "column": "q", "values": "amt", "agg": "min" },
+      "inputRows": [
+        { "region": "east", "q": "q1", "amt": 1.0 },
+        { "region": "east", "q": "q2", "amt": 2.0 },
+        { "region": "west", "q": "q1", "amt": 3.0 },
+        { "region": "west", "q": "q2", "amt": 4.0 },
+        { "region": "east", "q": "q1", "amt": 5.0 },
+        { "region": "north", "q": "q3", "amt": 6.0 },
+        { "region": "south", "q": "q1", "amt": 7.0 },
+        { "region": "south", "q": "q4", "amt": 8.0 },
+        { "region": "central", "q": "q2", "amt": 9.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "amt_q3": 6.0, "region": "north" },
+          { "amt_q1": 3.0, "amt_q2": 4.0, "region": "west" },
+          { "amt_q1": 7.0, "amt_q4": 8.0, "region": "south" },
+          { "amt_q2": 9.0, "region": "central" },
+          { "amt_q1": 1.0, "amt_q2": 2.0, "region": "east" }
+        ]
+      }
+    },
+    {
+      "name": "max",
+      "config": { "index": ["region"], "column": "q", "values": "amt", "agg": "max" },
+      "inputRows": [
+        { "region": "east", "q": "q1", "amt": 1.0 },
+        { "region": "east", "q": "q2", "amt": 2.0 },
+        { "region": "west", "q": "q1", "amt": 3.0 },
+        { "region": "west", "q": "q2", "amt": 4.0 },
+        { "region": "east", "q": "q1", "amt": 5.0 },
+        { "region": "north", "q": "q3", "amt": 6.0 },
+        { "region": "south", "q": "q1", "amt": 7.0 },
+        { "region": "south", "q": "q4", "amt": 8.0 },
+        { "region": "central", "q": "q2", "amt": 9.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "amt_q3": 6.0, "region": "north" },
+          { "amt_q1": 3.0, "amt_q2": 4.0, "region": "west" },
+          { "amt_q1": 7.0, "amt_q4": 8.0, "region": "south" },
+          { "amt_q2": 9.0, "region": "central" },
+          { "amt_q1": 5.0, "amt_q2": 2.0, "region": "east" }
+        ]
+      }
+    },
+    {
+      "name": "first takes the first row of each cell, whatever its kind",
+      "config": { "index": ["region"], "column": "q", "values": "v", "agg": "first" },
+      "inputRows": [
+        { "region": "e", "q": "a", "v": "x" },
+        { "region": "e", "q": "a", "v": "y" },
+        { "region": "e", "q": "b", "v": null },
+        { "region": "w", "q": "a", "v": { "$int": 3 } }
+      ],
+      "expect": {
+        "rows": [
+          { "region": "e", "v_a": "x", "v_b": null },
+          { "region": "w", "v_a": { "$int": 3 } }
+        ]
+      }
+    },
+    {
+      "name": "a numeric pivot value names the column from the JVM stringification",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": 1.0, "v": 1.0 },
+        { "k": "a", "p": { "$int": 2 }, "v": 2.0 },
+        { "k": "a", "p": 0.5, "v": 4.0 },
+        { "k": "a", "p": 10000000.0, "v": 8.0 },
+        { "k": "a", "p": true, "v": 16.0 },
+        { "k": "a", "p": { "$long": "7" }, "v": 32.0 }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "k": "a",
+            "v_0.5": 4.0,
+            "v_1.0": 1.0,
+            "v_1.0E7": 8.0,
+            "v_2": 2.0,
+            "v_7": 32.0,
+            "v_true": 16.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "pivot values 1 and 1.0 are one column",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": { "$int": 1 }, "v": 1.0 },
+        { "k": "a", "p": 1.0, "v": 2.0 }
+      ],
+      "expect": { "rows": [{ "k": "a", "v_1": 3.0 }] }
+    },
+    {
+      "name": "a null pivot value is ignored; a group with none has only its index",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": null, "v": 1.0 },
+        { "k": "b", "p": "x", "v": 2.0 }
+      ],
+      "expect": { "rows": [{ "k": "b", "v_x": 2.0 }, { "k": "a" }] }
+    },
+    {
+      "name": "colliding generated names: the later pivot group wins",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": 1.0, "v": 1.0 },
+        { "k": "a", "p": "1.0", "v": 2.0 }
+      ],
+      "expect": { "rows": [{ "k": "a", "v_1.0": 2.0 }] }
+    },
+    {
+      "name": "empty index pivots everything into one row",
+      "config": { "index": [], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "p": "x", "v": 1.0 },
+        { "p": "y", "v": 2.0 },
+        { "p": "x", "v": 3.0 }
+      ],
+      "expect": { "rows": [{ "v_x": 4.0, "v_y": 2.0 }] }
+    },
+    {
+      "name": "two index columns",
+      "config": { "index": ["a", "b"], "column": "p", "values": "v", "agg": "count" },
+      "inputRows": [
+        { "a": 1.0, "b": "x", "p": "q", "v": 1.0 },
+        { "a": 1.0, "b": "y", "p": "q", "v": null },
+        { "a": 1.0, "b": "x", "p": "r", "v": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 1.0, "b": "x", "v_q": { "$long": "1" }, "v_r": { "$long": "1" } },
+          { "a": 1.0, "b": "y", "v_q": { "$long": "0" } }
+        ]
+      }
+    },
+    {
+      "name": "sum coerces numeric strings",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": "x", "v": "1d" },
+        { "k": "a", "p": "x", "v": " 2 " },
+        { "k": "a", "p": "x", "v": "nope" }
+      ],
+      "expect": { "rows": [{ "k": "a", "v_x": 3.0 }] }
+    },
+    {
+      "name": "an unsupported aggregation is a step error",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "median" },
+      "inputRows": [{ "k": "a", "p": "x", "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty aggregation is a step error",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "" },
+      "inputRows": [{ "k": "a", "p": "x", "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a missing column or values name is a step error",
+      "config": { "index": ["k"], "column": "", "values": "v", "agg": "sum" },
+      "inputRows": [{ "k": "a", "p": "x", "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank values name is a step error",
+      "config": { "index": ["k"], "column": "p", "values": "  ", "agg": "sum" },
+      "inputRows": [{ "k": "a", "p": "x", "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "no rows pivot to no rows",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "eleven index groups come out in Scala hash order",
+      "config": { "index": ["id"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "id": 0.0, "p": "x", "v": 1.0 },
+        { "id": 1.0, "p": "x", "v": 1.0 },
+        { "id": 2.0, "p": "x", "v": 1.0 },
+        { "id": 3.0, "p": "x", "v": 1.0 },
+        { "id": 4.0, "p": "x", "v": 1.0 },
+        { "id": 5.0, "p": "x", "v": 1.0 },
+        { "id": 6.0, "p": "x", "v": 1.0 },
+        { "id": 7.0, "p": "x", "v": 1.0 },
+        { "id": 8.0, "p": "x", "v": 1.0 },
+        { "id": 9.0, "p": "x", "v": 1.0 },
+        { "id": 10.0, "p": "x", "v": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "id": 1.0, "v_x": 1.0 },
+          { "id": 8.0, "v_x": 1.0 },
+          { "id": 9.0, "v_x": 1.0 },
+          { "id": 7.0, "v_x": 1.0 },
+          { "id": 3.0, "v_x": 1.0 },
+          { "id": 10.0, "v_x": 1.0 },
+          { "id": 0.0, "v_x": 1.0 },
+          { "id": 4.0, "v_x": 1.0 },
+          { "id": 2.0, "v_x": 1.0 },
+          { "id": 5.0, "v_x": 1.0 },
+          { "id": 6.0, "v_x": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "two numeric index columns in hash order",
+      "config": { "index": ["a", "b"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "a": 0.0, "b": 0.0, "p": "y", "v": 0.0 },
+        { "a": 1.0, "b": 1.0, "p": "x", "v": 1.0 },
+        { "a": 2.0, "b": 0.0, "p": "y", "v": 2.0 },
+        { "a": 0.0, "b": 1.0, "p": "x", "v": 3.0 },
+        { "a": 1.0, "b": 0.0, "p": "y", "v": 4.0 },
+        { "a": 2.0, "b": 1.0, "p": "x", "v": 5.0 },
+        { "a": 0.0, "b": 0.0, "p": "y", "v": 6.0 },
+        { "a": 1.0, "b": 1.0, "p": "x", "v": 7.0 },
+        { "a": 2.0, "b": 0.0, "p": "y", "v": 8.0 },
+        { "a": 0.0, "b": 1.0, "p": "x", "v": 9.0 },
+        { "a": 1.0, "b": 0.0, "p": "y", "v": 10.0 },
+        { "a": 2.0, "b": 1.0, "p": "x", "v": 11.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 2.0, "b": 0.0, "v_y": 10.0 },
+          { "a": 1.0, "b": 0.0, "v_y": 14.0 },
+          { "a": 2.0, "b": 1.0, "v_x": 16.0 },
+          { "a": 0.0, "b": 0.0, "v_y": 6.0 },
+          { "a": 0.0, "b": 1.0, "v_x": 12.0 },
+          { "a": 1.0, "b": 1.0, "v_x": 8.0 }
+        ]
+      }
+    },
+    {
+      "name": "pivot values of several kinds produce columns in hash order",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "count" },
+      "inputRows": [
+        { "k": "a", "p": "x", "v": 1.0 },
+        { "k": "a", "p": "y", "v": 1.0 },
+        { "k": "a", "p": "z", "v": 1.0 },
+        { "k": "a", "p": 1.0, "v": 1.0 },
+        { "k": "a", "p": 2.5, "v": 1.0 },
+        { "k": "a", "p": true, "v": 1.0 },
+        { "k": "a", "p": { "$int": 7 }, "v": 1.0 },
+        { "k": "a", "p": "w", "v": 1.0 },
+        { "k": "a", "p": "v", "v": 1.0 },
+        { "k": "a", "p": "u", "v": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "k": "a",
+            "v_1.0": { "$long": "1" },
+            "v_2.5": { "$long": "1" },
+            "v_7": { "$long": "1" },
+            "v_true": { "$long": "1" },
+            "v_u": { "$long": "1" },
+            "v_v": { "$long": "1" },
+            "v_w": { "$long": "1" },
+            "v_x": { "$long": "1" },
+            "v_y": { "$long": "1" },
+            "v_z": { "$long": "1" }
+          }
+        ]
+      }
+    },
+    {
+      "name": "sum and avg of negative zeros",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "sum" },
+      "inputRows": [
+        { "k": "a", "p": "x", "v": { "$double": "-0.0" } },
+        { "k": "a", "p": "y", "v": "-0.0" },
+        { "k": "b", "p": "x", "v": { "$double": "-0.0" } },
+        { "k": "b", "p": "x", "v": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "k": "b", "v_x": 1.0 },
+          { "k": "a", "v_x": { "$double": "-0.0" }, "v_y": { "$double": "-0.0" } }
+        ]
+      }
+    },
+    {
+      "name": "avg of negative zeros",
+      "config": { "index": ["k"], "column": "p", "values": "v", "agg": "avg" },
+      "inputRows": [
+        { "k": "a", "p": "x", "v": { "$double": "-0.0" } },
+        { "k": "a", "p": "y", "v": "-0.0" }
+      ],
+      "expect": {
+        "rows": [{ "k": "a", "v_x": { "$double": "-0.0" }, "v_y": { "$double": "-0.0" } }]
+      }
+    }
+  ]
+}

@@ -1,0 +1,359 @@
+{
+  "kind": "lookup",
+  "vectors": [
+    {
+      "name": "adds the requested columns from the first matching reference row",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label", "n"]
+      },
+      "inputRows": [{ "k": "a" }, { "k": "b" }, { "k": "zz" }, { "k": null }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": "a", "label": "Alpha", "n": 1.0 },
+          { "k": "b", "label": "Beta", "n": 2.0 },
+          { "k": "zz", "label": null, "n": null },
+          { "k": null, "label": null, "n": null }
+        ]
+      }
+    },
+    {
+      "name": "a reference column that collides with a left column is renamed right_",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a", "label": "mine" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [{ "k": "a", "label": "mine", "right_label": "Alpha" }] }
+    },
+    {
+      "name": "sourceKey equal to lookupKey drops the key column from the outputs",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "code",
+        "lookupKey": "code",
+        "columns": ["code", "label"]
+      },
+      "inputRows": [{ "code": "a" }, { "code": "q" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "code": "a", "label": "Alpha" },
+          { "code": "q", "label": null }
+        ]
+      }
+    },
+    {
+      "name": "a column missing from the reference row is null",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label", "absent"]
+      },
+      "inputRows": [{ "k": "b" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [{ "absent": null, "k": "b", "label": "Beta" }] }
+    },
+    {
+      "name": "repeated and duplicate column names are looked up once",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label", "label", "n"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [{ "k": "a", "label": "Alpha", "n": 1.0 }] }
+    },
+    {
+      "name": "keys match by value regardless of class",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "id",
+        "columns": ["v"]
+      },
+      "inputRows": [{ "k": { "$int": 1 } }, { "k": 1.0 }, { "k": "1" }, { "k": { "$long": "1" } }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": 1.0, "v": "one" },
+          { "id": "1", "v": "str" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": { "$int": 1 }, "v": "one" },
+          { "k": 1.0, "v": "one" },
+          { "k": "1", "v": "str" },
+          { "k": { "$long": "1" }, "v": "one" }
+        ]
+      }
+    },
+    {
+      "name": "null keys and NaN keys",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "id",
+        "columns": ["v"]
+      },
+      "inputRows": [{ "k": null }, { "k": { "$double": "NaN" } }, {}],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "id": null, "v": "null-row" },
+          { "id": { "$double": "NaN" }, "v": "nan-row" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": null, "v": "null-row" },
+          { "k": { "$double": "NaN" }, "v": null },
+          { "v": "null-row" }
+        ]
+      }
+    },
+    {
+      "name": "an empty reference leaves every row with nulls",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": { "kind": "lane", "rows": [], "complete": true },
+      "expect": { "rows": [{ "k": "a", "label": null }] }
+    },
+    {
+      "name": "no columns requested changes nothing",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": []
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [{ "k": "a" }] }
+    },
+    {
+      "name": "an empty left side",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "a source secondary cached completely",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }, { "k": "c" }],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [
+          { "code": "a", "label": "Alpha" },
+          { "code": "c", "label": "Gamma" }
+        ],
+        "complete": true
+      },
+      "expect": {
+        "rows": [
+          { "k": "a", "label": "Alpha" },
+          { "k": "c", "label": "Gamma" }
+        ]
+      }
+    },
+    {
+      "name": "a blank sourceKey is a step error",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank lookupKey is a step error",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": " ",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty dataSourceId secondary: the data source is not found",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "" },
+        "sourceKey": "k",
+        "lookupKey": "id",
+        "columns": ["v"]
+      },
+      "inputRows": [{ "k": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "the legacy referenceDataSourceId field cannot be decoded",
+      "config": {
+        "referenceDataSourceId": "ds-2",
+        "sourceKey": "k",
+        "lookupKey": "id",
+        "columns": ["v"]
+      },
+      "inputRows": [{ "k": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a configured source secondary that is not cached declines",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-9" },
+        "sourceKey": "k",
+        "lookupKey": "id",
+        "columns": ["v"]
+      },
+      "inputRows": [{ "k": 1.0 }],
+      "expect": { "clientDeclines": "secondaryNotCached", "scalaError": true }
+    },
+    {
+      "name": "a truncated source secondary declines",
+      "config": {
+        "secondaryInput": { "kind": "source", "dataSourceId": "ds-2" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "secondary": {
+        "kind": "source",
+        "id": "ds-2",
+        "rows": [{ "code": "a", "label": "Alpha" }],
+        "complete": false
+      },
+      "expect": {
+        "clientDeclines": "secondaryNotCached",
+        "scalaRows": [{ "k": "a", "label": "Alpha" }]
+      }
+    },
+    {
+      "name": "a disabled lookup is transparent",
+      "config": {
+        "secondaryInput": { "kind": "lane", "stepId": "lane-step" },
+        "sourceKey": "k",
+        "lookupKey": "code",
+        "columns": ["label"]
+      },
+      "inputRows": [{ "k": "a" }],
+      "enabled": false,
+      "secondary": {
+        "kind": "lane",
+        "rows": [
+          { "code": "a", "label": "Alpha", "n": 1.0 },
+          { "code": "b", "label": "Beta", "n": 2.0 },
+          { "code": "a", "label": "Alpha again", "n": 3.0 }
+        ],
+        "complete": true
+      },
+      "expect": { "rows": [{ "k": "a" }] }
+    }
+  ]
+}

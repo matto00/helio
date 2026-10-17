@@ -1,0 +1,59 @@
+{
+  "kind": "limit",
+  "vectors": [
+    {
+      "name": "keeps the first N rows",
+      "config": { "count": 2 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }, { "n": 3.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    },
+    {
+      "name": "count zero is unlimited",
+      "config": { "count": 0 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    },
+    {
+      "name": "a negative count is unlimited",
+      "config": { "count": -3 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    },
+    {
+      "name": "a count above the row count keeps all rows",
+      "config": { "count": 10 },
+      "inputRows": [{ "n": 1.0 }],
+      "expect": { "rows": [{ "n": 1.0 }] }
+    },
+    {
+      "name": "a whole-number double count is read as an Int",
+      "config": { "count": 1.0 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }] }
+    },
+    {
+      "name": "a fractional count is not an Int and falls back to unlimited",
+      "config": { "count": 1.5 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    },
+    {
+      "name": "a count beyond Int range falls back to unlimited",
+      "config": { "count": 3000000000 },
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    },
+    {
+      "name": "a string count cannot be decoded",
+      "config": { "count": "2" },
+      "inputRows": [{ "n": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a missing count is unlimited",
+      "config": {},
+      "inputRows": [{ "n": 1.0 }, { "n": 2.0 }],
+      "expect": { "rows": [{ "n": 1.0 }, { "n": 2.0 }] }
+    }
+  ]
+}

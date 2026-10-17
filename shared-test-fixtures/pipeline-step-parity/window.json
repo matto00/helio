@@ -1,0 +1,1976 @@
+{
+  "kind": "window",
+  "vectors": [
+    {
+      "name": "seed: rolling_sum over a 3-day frame, gappy dates, an unparseable date and a null value (window-rolling-seam.json)",
+      "config": {
+        "partitionBy": ["team"],
+        "orderBy": [{ "field": "date", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "rolling_v",
+        "field": "v",
+        "frameSize": 3,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "team": "a", "date": "2026-01-01", "v": 1.0 },
+        { "team": "a", "date": "2026-01-02", "v": 2.0 },
+        { "team": "b", "date": "2026-01-02", "v": 10.0 },
+        { "team": "a", "date": "2026-01-02", "v": 3.0 },
+        { "team": "a", "date": "2026-01-05", "v": 4.0 },
+        { "team": "a", "date": "2026-01-06", "v": 5.0 },
+        { "team": "b", "date": "2026-01-03", "v": 20.0 },
+        { "team": "a", "date": "nope", "v": 100.0 },
+        { "team": "a", "date": "2026-01-07", "v": null }
+      ],
+      "expect": {
+        "rows": [
+          { "date": "2026-01-01", "rolling_v": 1.0, "team": "a", "v": 1.0 },
+          { "date": "2026-01-02", "rolling_v": 6.0, "team": "a", "v": 2.0 },
+          { "date": "2026-01-02", "rolling_v": 10.0, "team": "b", "v": 10.0 },
+          { "date": "2026-01-02", "rolling_v": 6.0, "team": "a", "v": 3.0 },
+          { "date": "2026-01-05", "rolling_v": 4.0, "team": "a", "v": 4.0 },
+          { "date": "2026-01-06", "rolling_v": 9.0, "team": "a", "v": 5.0 },
+          { "date": "2026-01-03", "rolling_v": 30.0, "team": "b", "v": 20.0 },
+          { "date": "nope", "rolling_v": null, "team": "a", "v": 100.0 },
+          { "date": "2026-01-07", "rolling_v": 9.0, "team": "a", "v": null }
+        ]
+      }
+    },
+    {
+      "name": "row_number numbers the sorted partition 1..n (an Int)",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "s", "direction": "desc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 5 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 3 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 2 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 1 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 3 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 1 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 4 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "row_number with no orderBy follows input order",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 1 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 3 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 4 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 2 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 3 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 5 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "rank leaves gaps after ties",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "s", "direction": "asc" }],
+        "function": "rank",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 1 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 5 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 3 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 2 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "dense_rank does not leave gaps",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "s", "direction": "asc" }],
+        "function": "dense_rank",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 1 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 3 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 2 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 2 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "rank over a descending order and no partition",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "s", "direction": "desc" }],
+        "function": "rank",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 5 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 2 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 7 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 1 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 7 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 6 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 2 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "rank without orderBy ranks everything 1",
+      "config": { "partitionBy": ["g"], "orderBy": [], "function": "rank", "outputColumn": "o" },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": { "$int": 1 }, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": { "$int": 1 }, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": { "$int": 1 }, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": { "$int": 1 }, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": { "$int": 1 }, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": { "$int": 1 }, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": { "$int": 1 }, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "running_sum accumulates in order and treats non-numbers as 0",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "running_sum",
+        "outputColumn": "o",
+        "field": "v"
+      },
+      "inputRows": [
+        { "g": "a", "i": 0.0, "v": 1.0 },
+        { "g": "a", "i": 1.0, "v": "2" },
+        { "g": "a", "i": 2.0, "v": null },
+        { "g": "a", "i": 3.0, "v": "x" },
+        { "g": "a", "i": 4.0, "v": 4.5 },
+        { "g": "a", "i": 5.0, "v": "1d" }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": 1.0, "v": 1.0 },
+          { "g": "a", "i": 1.0, "o": 3.0, "v": "2" },
+          { "g": "a", "i": 2.0, "o": 3.0, "v": null },
+          { "g": "a", "i": 3.0, "o": 3.0, "v": "x" },
+          { "g": "a", "i": 4.0, "o": 7.5, "v": 4.5 },
+          { "g": "a", "i": 5.0, "o": 8.5, "v": "1d" }
+        ]
+      }
+    },
+    {
+      "name": "lag reads the previous row; past the start of a partition it is null",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lag",
+        "outputColumn": "o",
+        "field": "s",
+        "offset": 1
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": null, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": 10.0, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": 20.0, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": null, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": 20.0, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": 5.0, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": 5.0, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": 30.0, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "lag with a larger offset",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lag",
+        "outputColumn": "o",
+        "field": "s",
+        "offset": 2
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": null, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": null, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": 10.0, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": null, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": 20.0, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": null, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": 5.0, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": 20.0, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "lead reads the next row; past the end it is null",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lead",
+        "outputColumn": "o",
+        "field": "s"
+      },
+      "inputRows": [
+        { "g": "a", "s": 10, "i": 0.0 },
+        { "g": "a", "s": 20, "i": 1.0 },
+        { "g": "a", "s": 20, "i": 2.0 },
+        { "g": "b", "s": 5, "i": 3.0 },
+        { "g": "a", "s": 30, "i": 4.0 },
+        { "g": "b", "s": 5, "i": 5.0 },
+        { "g": "b", "s": 7, "i": 6.0 },
+        { "g": "a", "s": 20, "i": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": 20.0, "s": 10.0 },
+          { "g": "a", "i": 1.0, "o": 20.0, "s": 20.0 },
+          { "g": "a", "i": 2.0, "o": 30.0, "s": 20.0 },
+          { "g": "b", "i": 3.0, "o": 5.0, "s": 5.0 },
+          { "g": "a", "i": 4.0, "o": 20.0, "s": 30.0 },
+          { "g": "b", "i": 5.0, "o": 7.0, "s": 5.0 },
+          { "g": "b", "i": 6.0, "o": null, "s": 7.0 },
+          { "g": "a", "i": 7.0, "o": null, "s": 20.0 }
+        ]
+      }
+    },
+    {
+      "name": "lead keeps the cell as it is (kind and all)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lead",
+        "outputColumn": "o",
+        "field": "v"
+      },
+      "inputRows": [
+        { "i": 1.0, "v": "t" },
+        { "i": 2.0, "v": { "$int": 5 } },
+        { "i": 3.0, "v": null }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 1.0, "o": { "$int": 5 }, "v": "t" },
+          { "i": 2.0, "o": null, "v": { "$int": 5 } },
+          { "i": 3.0, "o": null, "v": null }
+        ]
+      }
+    },
+    {
+      "name": "orderBy compares numerically when both cells parse and as text otherwise",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": 10.0 },
+        { "v": "9" },
+        { "v": "abc" },
+        { "v": null },
+        { "v": "2" },
+        { "v": 3.5 },
+        { "v": "Abc" },
+        { "v": "10" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": { "$int": 4 }, "v": 10.0 },
+          { "o": { "$int": 3 }, "v": "9" },
+          { "o": { "$int": 7 }, "v": "abc" },
+          { "o": { "$int": 8 }, "v": null },
+          { "o": { "$int": 1 }, "v": "2" },
+          { "o": { "$int": 2 }, "v": 3.5 },
+          { "o": { "$int": 6 }, "v": "Abc" },
+          { "o": { "$int": 5 }, "v": "10" }
+        ]
+      }
+    },
+    {
+      "name": "orderBy descending keeps nulls last",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "desc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [{ "v": 1.0 }, { "v": null }, { "v": 3.0 }, { "v": 2.0 }],
+      "expect": {
+        "rows": [
+          { "o": { "$int": 3 }, "v": 1.0 },
+          { "o": { "$int": 4 }, "v": null },
+          { "o": { "$int": 1 }, "v": 3.0 },
+          { "o": { "$int": 2 }, "v": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "orderBy over NaN and Infinity strings",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "NaN" },
+        { "v": "Infinity" },
+        { "v": "-Infinity" },
+        { "v": "5" },
+        { "v": "x" }
+      ],
+      "expect": {
+        "rows": [
+          { "o": { "$int": 4 }, "v": "NaN" },
+          { "o": { "$int": 3 }, "v": "Infinity" },
+          { "o": { "$int": 1 }, "v": "-Infinity" },
+          { "o": { "$int": 2 }, "v": "5" },
+          { "o": { "$int": 5 }, "v": "x" }
+        ]
+      }
+    },
+    {
+      "name": "two order keys",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [
+          { "field": "a", "direction": "asc" },
+          { "field": "b", "direction": "desc" }
+        ],
+        "function": "dense_rank",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "a": "x", "b": 2.0 },
+        { "a": "x", "b": 1.0 },
+        { "a": "y", "b": 1.0 },
+        { "a": "x", "b": 2.0 },
+        { "a": "y", "b": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": "x", "b": 2.0, "o": { "$int": 1 } },
+          { "a": "x", "b": 1.0, "o": { "$int": 2 } },
+          { "a": "y", "b": 1.0, "o": { "$int": 3 } },
+          { "a": "x", "b": 2.0, "o": { "$int": 1 } },
+          { "a": "y", "b": 1.0, "o": { "$int": 3 } }
+        ]
+      }
+    },
+    {
+      "name": "rolling_sum over a row frame is exact before the single rounding",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "d": "2026-01-01", "v": 0.1 },
+        { "d": "2026-01-02", "v": 0.2 },
+        { "d": "2026-01-03", "v": 0.3 },
+        { "d": "2026-01-04", "v": 1e16 },
+        { "d": "2026-01-05", "v": 1.0 },
+        { "d": "2026-01-06", "v": -1e16 },
+        { "d": "2026-01-07", "v": 2.5 }
+      ],
+      "expect": {
+        "rows": [
+          { "d": "2026-01-01", "o": 0.1, "v": 0.1 },
+          { "d": "2026-01-02", "o": 0.30000000000000004, "v": 0.2 },
+          { "d": "2026-01-03", "o": 0.6, "v": 0.3 },
+          { "d": "2026-01-04", "o": 1e16, "v": 1e16 },
+          { "d": "2026-01-05", "o": 1.0000000000000002e16, "v": 1.0 },
+          { "d": "2026-01-06", "o": 1.0, "v": -1e16 },
+          { "d": "2026-01-07", "o": -9999999999999996.0, "v": 2.5 }
+        ]
+      }
+    },
+    {
+      "name": "rolling_avg over a row frame",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_avg",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 1.0 },
+        { "i": 1.0, "v": 2.0 },
+        { "i": 2.0, "v": 4.0 },
+        { "i": 3.0, "v": null },
+        { "i": 4.0, "v": 8.0 },
+        { "i": 5.0, "v": "16" }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 1.0, "v": 1.0 },
+          { "i": 1.0, "o": 1.5, "v": 2.0 },
+          { "i": 2.0, "o": 3.0, "v": 4.0 },
+          { "i": 3.0, "o": 4.0, "v": null },
+          { "i": 4.0, "o": 8.0, "v": 8.0 },
+          { "i": 5.0, "o": 12.0, "v": "16" }
+        ]
+      }
+    },
+    {
+      "name": "rolling_min and rolling_max keep the extreme within the frame",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_min",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 5.0 },
+        { "i": 1.0, "v": 3.0 },
+        { "i": 2.0, "v": 8.0 },
+        { "i": 3.0, "v": 1.0 },
+        { "i": 4.0, "v": 9.0 },
+        { "i": 5.0, "v": 7.0 },
+        { "i": 6.0, "v": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 5.0, "v": 5.0 },
+          { "i": 1.0, "o": 3.0, "v": 3.0 },
+          { "i": 2.0, "o": 3.0, "v": 8.0 },
+          { "i": 3.0, "o": 1.0, "v": 1.0 },
+          { "i": 4.0, "o": 1.0, "v": 9.0 },
+          { "i": 5.0, "o": 1.0, "v": 7.0 },
+          { "i": 6.0, "o": 2.0, "v": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling_max",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_max",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 5.0 },
+        { "i": 1.0, "v": 3.0 },
+        { "i": 2.0, "v": 8.0 },
+        { "i": 3.0, "v": 1.0 },
+        { "i": 4.0, "v": 9.0 },
+        { "i": 5.0, "v": 7.0 },
+        { "i": 6.0, "v": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 5.0, "v": 5.0 },
+          { "i": 1.0, "o": 5.0, "v": 3.0 },
+          { "i": 2.0, "o": 8.0, "v": 8.0 },
+          { "i": 3.0, "o": 8.0, "v": 1.0 },
+          { "i": 4.0, "o": 9.0, "v": 9.0 },
+          { "i": 5.0, "o": 9.0, "v": 7.0 },
+          { "i": 6.0, "o": 9.0, "v": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling_count counts the numeric cells in the frame (an Int)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_count",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 1.0 },
+        { "i": 1.0, "v": null },
+        { "i": 2.0, "v": "x" },
+        { "i": 3.0, "v": 4.0 },
+        { "i": 4.0, "v": "NaN" },
+        { "i": 5.0, "v": "Infinity" },
+        { "i": 6.0, "v": 7.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": { "$int": 1 }, "v": 1.0 },
+          { "i": 1.0, "o": { "$int": 1 }, "v": null },
+          { "i": 2.0, "o": { "$int": 1 }, "v": "x" },
+          { "i": 3.0, "o": { "$int": 1 }, "v": 4.0 },
+          { "i": 4.0, "o": { "$int": 1 }, "v": "NaN" },
+          { "i": 5.0, "o": { "$int": 1 }, "v": "Infinity" },
+          { "i": 6.0, "o": { "$int": 1 }, "v": 7.0 }
+        ]
+      }
+    },
+    {
+      "name": "a frame larger than the partition covers it",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 1000
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 0.0 },
+        { "i": 1.0, "v": 1.0 },
+        { "i": 2.0, "v": 2.0 },
+        { "i": 3.0, "v": 3.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 0.0, "v": 0.0 },
+          { "i": 1.0, "o": 1.0, "v": 1.0 },
+          { "i": 2.0, "o": 3.0, "v": 2.0 },
+          { "i": 3.0, "o": 6.0, "v": 3.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling over a partition",
+      "config": {
+        "partitionBy": ["g"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2
+      },
+      "inputRows": [
+        { "g": "a", "i": 0.0, "v": 1.0 },
+        { "g": "a", "i": 1.0, "v": 1.0 },
+        { "g": "b", "i": 2.0, "v": 1.0 },
+        { "g": "a", "i": 3.0, "v": 1.0 },
+        { "g": "b", "i": 4.0, "v": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "g": "a", "i": 0.0, "o": 1.0, "v": 1.0 },
+          { "g": "a", "i": 1.0, "o": 2.0, "v": 1.0 },
+          { "g": "b", "i": 2.0, "o": 1.0, "v": 1.0 },
+          { "g": "a", "i": 3.0, "o": 2.0, "v": 1.0 },
+          { "g": "b", "i": 4.0, "o": 2.0, "v": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "days frame: peers on the same date share a frame end",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "d": "2026-03-01", "v": 1.0 },
+        { "d": "2026-03-01", "v": 2.0 },
+        { "d": "2026-03-02", "v": 4.0 },
+        { "d": "2026-03-04", "v": 8.0 },
+        { "d": "2026-03-04", "v": 16.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "d": "2026-03-01", "o": 3.0, "v": 1.0 },
+          { "d": "2026-03-01", "o": 3.0, "v": 2.0 },
+          { "d": "2026-03-02", "o": 7.0, "v": 4.0 },
+          { "d": "2026-03-04", "o": 24.0, "v": 8.0 },
+          { "d": "2026-03-04", "o": 24.0, "v": 16.0 }
+        ]
+      }
+    },
+    {
+      "name": "days frame over epoch numbers and mixed date shapes",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_avg",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "d": 1700000000.0, "v": 1.0 },
+        { "d": "2023-11-15T08:00:00Z", "v": 2.0 },
+        { "d": "11/16/2023", "v": 4.0 },
+        { "d": "2023-11-19", "v": 8.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "d": 1700000000.0, "o": 1.0, "v": 1.0 },
+          { "d": "2023-11-15T08:00:00Z", "o": 1.5, "v": 2.0 },
+          { "d": "11/16/2023", "o": 2.3333333333333335, "v": 4.0 },
+          { "d": "2023-11-19", "o": 8.0, "v": 8.0 }
+        ]
+      }
+    },
+    {
+      "name": "days frame with only unparseable dates yields nulls",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 3,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "d": "x", "v": 1.0 },
+        { "d": null, "v": 2.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "d": "x", "o": null, "v": 1.0 },
+          { "d": null, "o": null, "v": 2.0 }
+        ]
+      }
+    },
+    {
+      "name": "days frame count and min",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_count",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "d": "2026-02-01", "v": 1.0 },
+        { "d": "2026-02-02", "v": 2.0 },
+        { "d": "2026-02-04", "v": 4.0 },
+        { "d": "2026-02-05", "v": 5.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "d": "2026-02-01", "o": { "$int": 1 }, "v": 1.0 },
+          { "d": "2026-02-02", "o": { "$int": 2 }, "v": 2.0 },
+          { "d": "2026-02-04", "o": { "$int": 1 }, "v": 4.0 },
+          { "d": "2026-02-05", "o": { "$int": 2 }, "v": 5.0 }
+        ]
+      }
+    },
+    {
+      "name": "a descending order with a days frame is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "desc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2,
+        "frameUnit": "days"
+      },
+      "inputRows": [{ "d": "2026-01-01", "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "rolling without frameSize is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v"
+      },
+      "inputRows": [{ "d": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "rolling with frameSize 0 is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 0
+      },
+      "inputRows": [{ "d": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "rolling with frameSize 1001 is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 1001
+      },
+      "inputRows": [{ "d": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "rolling without an orderBy is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2
+      },
+      "inputRows": [{ "d": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unknown frameUnit is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "v",
+        "frameSize": 2,
+        "frameUnit": "weeks"
+      },
+      "inputRows": [{ "d": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "lag needs a positive offset",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lag",
+        "outputColumn": "o",
+        "field": "v",
+        "offset": 0
+      },
+      "inputRows": [{ "i": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "lag without a field is a step error",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lag",
+        "outputColumn": "o"
+      },
+      "inputRows": [{ "i": 1.0, "v": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an unsupported function is a step error even with no rows",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "ntile",
+        "outputColumn": "o"
+      },
+      "inputRows": [],
+      "expect": { "error": true }
+    },
+    {
+      "name": "an empty function is a step error",
+      "config": { "partitionBy": [], "orderBy": [], "function": "", "outputColumn": "o" },
+      "inputRows": [{ "i": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a blank output column is a step error",
+      "config": { "partitionBy": [], "orderBy": [], "function": "row_number", "outputColumn": "" },
+      "inputRows": [{ "i": 1.0 }],
+      "expect": { "error": true }
+    },
+    {
+      "name": "the output column overwrites an existing one",
+      "config": { "partitionBy": [], "orderBy": [], "function": "row_number", "outputColumn": "o" },
+      "inputRows": [{ "o": "old", "i": 1.0 }],
+      "expect": { "rows": [{ "i": 1.0, "o": { "$int": 1 } }] }
+    },
+    {
+      "name": "a non-integer offset is dropped and lag uses 1",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "lag",
+        "outputColumn": "o",
+        "field": "v",
+        "offset": 1.5
+      },
+      "inputRows": [
+        { "i": 1.0, "v": "a" },
+        { "i": 2.0, "v": "b" }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 1.0, "o": null, "v": "a" },
+          { "i": 2.0, "o": "a", "v": "b" }
+        ]
+      }
+    },
+    {
+      "name": "rolling_min and rolling_max with equal values keep the earliest extreme correct",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_min",
+        "field": "v",
+        "outputColumn": "o",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 3.0 },
+        { "i": 1.0, "v": 3.0 },
+        { "i": 2.0, "v": 3.0 },
+        { "i": 3.0, "v": 2.0 },
+        { "i": 4.0, "v": 2.0 },
+        { "i": 5.0, "v": 5.0 },
+        { "i": 6.0, "v": 5.0 },
+        { "i": 7.0, "v": 1.0 },
+        { "i": 8.0, "v": null },
+        { "i": 9.0, "v": 4.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 3.0, "v": 3.0 },
+          { "i": 1.0, "o": 3.0, "v": 3.0 },
+          { "i": 2.0, "o": 3.0, "v": 3.0 },
+          { "i": 3.0, "o": 2.0, "v": 2.0 },
+          { "i": 4.0, "o": 2.0, "v": 2.0 },
+          { "i": 5.0, "o": 2.0, "v": 5.0 },
+          { "i": 6.0, "o": 2.0, "v": 5.0 },
+          { "i": 7.0, "o": 1.0, "v": 1.0 },
+          { "i": 8.0, "o": 1.0, "v": null },
+          { "i": 9.0, "o": 1.0, "v": 4.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling_max over a falling then rising series",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_max",
+        "field": "v",
+        "outputColumn": "o",
+        "frameSize": 4
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 9.0 },
+        { "i": 1.0, "v": 8.0 },
+        { "i": 2.0, "v": 7.0 },
+        { "i": 3.0, "v": 6.0 },
+        { "i": 4.0, "v": 5.0 },
+        { "i": 5.0, "v": 6.0 },
+        { "i": 6.0, "v": 7.0 },
+        { "i": 7.0, "v": 8.0 },
+        { "i": 8.0, "v": 9.0 },
+        { "i": 9.0, "v": 10.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 9.0, "v": 9.0 },
+          { "i": 1.0, "o": 9.0, "v": 8.0 },
+          { "i": 2.0, "o": 9.0, "v": 7.0 },
+          { "i": 3.0, "o": 9.0, "v": 6.0 },
+          { "i": 4.0, "o": 8.0, "v": 5.0 },
+          { "i": 5.0, "o": 7.0, "v": 6.0 },
+          { "i": 6.0, "o": 7.0, "v": 7.0 },
+          { "i": 7.0, "o": 8.0, "v": 8.0 },
+          { "i": 8.0, "o": 9.0, "v": 9.0 },
+          { "i": 9.0, "o": 10.0, "v": 10.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling_avg and rolling_sum over a partition keyed by two columns",
+      "config": {
+        "partitionBy": ["a", "b"],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_sum",
+        "field": "v",
+        "outputColumn": "o",
+        "frameSize": 2
+      },
+      "inputRows": [
+        { "a": 0, "b": "y", "i": 0.0, "v": 0.1 },
+        { "a": 1, "b": "x", "i": 1.0, "v": 0.2 },
+        { "a": 0, "b": "x", "i": 2.0, "v": 0.30000000000000004 },
+        { "a": 1, "b": "y", "i": 3.0, "v": 0.4 },
+        { "a": 0, "b": "x", "i": 4.0, "v": 0.5 },
+        { "a": 1, "b": "x", "i": 5.0, "v": 0.6000000000000001 },
+        { "a": 0, "b": "y", "i": 6.0, "v": 0.7000000000000001 },
+        { "a": 1, "b": "x", "i": 7.0, "v": 0.8 },
+        { "a": 0, "b": "x", "i": 8.0, "v": 0.9 },
+        { "a": 1, "b": "y", "i": 9.0, "v": 1.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "a": 0.0, "b": "y", "i": 0.0, "o": 0.1, "v": 0.1 },
+          { "a": 1.0, "b": "x", "i": 1.0, "o": 0.2, "v": 0.2 },
+          { "a": 0.0, "b": "x", "i": 2.0, "o": 0.30000000000000004, "v": 0.30000000000000004 },
+          { "a": 1.0, "b": "y", "i": 3.0, "o": 0.4, "v": 0.4 },
+          { "a": 0.0, "b": "x", "i": 4.0, "o": 0.8, "v": 0.5 },
+          { "a": 1.0, "b": "x", "i": 5.0, "o": 0.8, "v": 0.6000000000000001 },
+          { "a": 0.0, "b": "y", "i": 6.0, "o": 0.8, "v": 0.7000000000000001 },
+          { "a": 1.0, "b": "x", "i": 7.0, "o": 1.4000000000000001, "v": 0.8 },
+          { "a": 0.0, "b": "x", "i": 8.0, "o": 1.4, "v": 0.9 },
+          { "a": 1.0, "b": "y", "i": 9.0, "o": 1.4, "v": 1.0 }
+        ]
+      }
+    },
+    {
+      "name": "rolling frames over many tiny and huge doubles are exact before rounding",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "i", "direction": "asc" }],
+        "function": "rolling_avg",
+        "field": "v",
+        "outputColumn": "o",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "i": 0.0, "v": 1e308 },
+        { "i": 1.0, "v": 1e308 },
+        { "i": 2.0, "v": -1e308 },
+        { "i": 3.0, "v": 5e-324 },
+        { "i": 4.0, "v": 1e-300 },
+        { "i": 5.0, "v": 0.1 },
+        { "i": 6.0, "v": 0.2 },
+        { "i": 7.0, "v": 0.3 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 1e308, "v": 1e308 },
+          { "i": 1.0, "o": { "$double": "Infinity" }, "v": 1e308 },
+          { "i": 2.0, "o": 3.333333333333333e307, "v": -1e308 },
+          { "i": 3.0, "o": 0.0, "v": 5e-324 },
+          { "i": 4.0, "o": -3.333333333333333e307, "v": 1e-300 },
+          { "i": 5.0, "o": 0.03333333333333333, "v": 0.1 },
+          { "i": 6.0, "o": 0.10000000000000002, "v": 0.2 },
+          { "i": 7.0, "o": 0.19999999999999998, "v": 0.3 }
+        ]
+      }
+    },
+    {
+      "name": "a non-transitive mixed order (2 < 10 numerically, 10 < 1a as text, 1a < 2 as text) sorts like Java's binary insertion sort",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "10", "i": 0.0 },
+        { "v": "2", "i": 1.0 },
+        { "v": "1a", "i": 2.0 },
+        { "v": "3", "i": 3.0 },
+        { "v": "20b", "i": 4.0 },
+        { "v": "1", "i": 5.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": { "$int": 6 }, "v": "10" },
+          { "i": 1.0, "o": { "$int": 3 }, "v": "2" },
+          { "i": 2.0, "o": { "$int": 2 }, "v": "1a" },
+          { "i": 3.0, "o": { "$int": 5 }, "v": "3" },
+          { "i": 4.0, "o": { "$int": 4 }, "v": "20b" },
+          { "i": 5.0, "o": { "$int": 1 }, "v": "1" }
+        ]
+      }
+    },
+    {
+      "name": "forty mixed numeric and text rows: Java's TimSort merges where a plain sort would not (row_number)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "110", "i": 0.0, "x": 0.0 },
+        { "v": "23 kg", "i": 1.0, "x": 1.0 },
+        { "v": "19 kg", "i": 2.0, "x": 2.0 },
+        { "v": "150", "i": 3.0, "x": 3.0 },
+        { "v": "158", "i": 4.0, "x": 4.0 },
+        { "v": "148", "i": 5.0, "x": 5.0 },
+        { "v": "182", "i": 6.0, "x": 6.0 },
+        { "v": "71", "i": 7.0, "x": 0.0 },
+        { "v": "61", "i": 8.0, "x": 1.0 },
+        { "v": "46", "i": 9.0, "x": 2.0 },
+        { "v": "92", "i": 10.0, "x": 3.0 },
+        { "v": "118", "i": 11.0, "x": 4.0 },
+        { "v": "27a", "i": 12.0, "x": 5.0 },
+        { "v": "3 kg", "i": 13.0, "x": 6.0 },
+        { "v": "39", "i": 14.0, "x": 0.0 },
+        { "v": "78", "i": 15.0, "x": 1.0 },
+        { "v": "127", "i": 16.0, "x": 2.0 },
+        { "v": "0", "i": 17.0, "x": 3.0 },
+        { "v": "150", "i": 18.0, "x": 4.0 },
+        { "v": "97", "i": 19.0, "x": 5.0 },
+        { "v": "4 kg", "i": 20.0, "x": 6.0 },
+        { "v": "37", "i": 21.0, "x": 0.0 },
+        { "v": "143", "i": 22.0, "x": 1.0 },
+        { "v": "1a", "i": 23.0, "x": 2.0 },
+        { "v": "169", "i": 24.0, "x": 3.0 },
+        { "v": "35", "i": 25.0, "x": 4.0 },
+        { "v": "12x", "i": 26.0, "x": 5.0 },
+        { "v": "29", "i": 27.0, "x": 6.0 },
+        { "v": "13x", "i": 28.0, "x": 0.0 },
+        { "v": "97", "i": 29.0, "x": 1.0 },
+        { "v": "29", "i": 30.0, "x": 2.0 },
+        { "v": "12 kg", "i": 31.0, "x": 3.0 },
+        { "v": "52", "i": 32.0, "x": 4.0 },
+        { "v": "69", "i": 33.0, "x": 5.0 },
+        { "v": "27 kg", "i": 34.0, "x": 6.0 },
+        { "v": "147", "i": 35.0, "x": 0.0 },
+        { "v": "9x", "i": 36.0, "x": 1.0 },
+        { "v": "93", "i": 37.0, "x": 2.0 },
+        { "v": "29-5", "i": 38.0, "x": 3.0 },
+        { "v": "5", "i": 39.0, "x": 4.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": { "$int": 18 }, "v": "110", "x": 0.0 },
+          { "i": 1.0, "o": { "$int": 31 }, "v": "23 kg", "x": 1.0 },
+          { "i": 2.0, "o": { "$int": 29 }, "v": "19 kg", "x": 2.0 },
+          { "i": 3.0, "o": { "$int": 24 }, "v": "150", "x": 3.0 },
+          { "i": 4.0, "o": { "$int": 26 }, "v": "158", "x": 4.0 },
+          { "i": 5.0, "o": { "$int": 23 }, "v": "148", "x": 5.0 },
+          { "i": 6.0, "o": { "$int": 28 }, "v": "182", "x": 6.0 },
+          { "i": 7.0, "o": { "$int": 13 }, "v": "71", "x": 0.0 },
+          { "i": 8.0, "o": { "$int": 12 }, "v": "61", "x": 1.0 },
+          { "i": 9.0, "o": { "$int": 11 }, "v": "46", "x": 2.0 },
+          { "i": 10.0, "o": { "$int": 15 }, "v": "92", "x": 3.0 },
+          { "i": 11.0, "o": { "$int": 19 }, "v": "118", "x": 4.0 },
+          { "i": 12.0, "o": { "$int": 33 }, "v": "27a", "x": 5.0 },
+          { "i": 13.0, "o": { "$int": 35 }, "v": "3 kg", "x": 6.0 },
+          { "i": 14.0, "o": { "$int": 10 }, "v": "39", "x": 0.0 },
+          { "i": 15.0, "o": { "$int": 14 }, "v": "78", "x": 1.0 },
+          { "i": 16.0, "o": { "$int": 20 }, "v": "127", "x": 2.0 },
+          { "i": 17.0, "o": { "$int": 1 }, "v": "0", "x": 3.0 },
+          { "i": 18.0, "o": { "$int": 25 }, "v": "150", "x": 4.0 },
+          { "i": 19.0, "o": { "$int": 17 }, "v": "97", "x": 5.0 },
+          { "i": 20.0, "o": { "$int": 36 }, "v": "4 kg", "x": 6.0 },
+          { "i": 21.0, "o": { "$int": 9 }, "v": "37", "x": 0.0 },
+          { "i": 22.0, "o": { "$int": 21 }, "v": "143", "x": 1.0 },
+          { "i": 23.0, "o": { "$int": 30 }, "v": "1a", "x": 2.0 },
+          { "i": 24.0, "o": { "$int": 27 }, "v": "169", "x": 3.0 },
+          { "i": 25.0, "o": { "$int": 8 }, "v": "35", "x": 4.0 },
+          { "i": 26.0, "o": { "$int": 3 }, "v": "12x", "x": 5.0 },
+          { "i": 27.0, "o": { "$int": 6 }, "v": "29", "x": 6.0 },
+          { "i": 28.0, "o": { "$int": 4 }, "v": "13x", "x": 0.0 },
+          { "i": 29.0, "o": { "$int": 39 }, "v": "97", "x": 1.0 },
+          { "i": 30.0, "o": { "$int": 7 }, "v": "29", "x": 2.0 },
+          { "i": 31.0, "o": { "$int": 2 }, "v": "12 kg", "x": 3.0 },
+          { "i": 32.0, "o": { "$int": 37 }, "v": "52", "x": 4.0 },
+          { "i": 33.0, "o": { "$int": 38 }, "v": "69", "x": 5.0 },
+          { "i": 34.0, "o": { "$int": 32 }, "v": "27 kg", "x": 6.0 },
+          { "i": 35.0, "o": { "$int": 22 }, "v": "147", "x": 0.0 },
+          { "i": 36.0, "o": { "$int": 40 }, "v": "9x", "x": 1.0 },
+          { "i": 37.0, "o": { "$int": 16 }, "v": "93", "x": 2.0 },
+          { "i": 38.0, "o": { "$int": 34 }, "v": "29-5", "x": 3.0 },
+          { "i": 39.0, "o": { "$int": 5 }, "v": "5", "x": 4.0 }
+        ]
+      }
+    },
+    {
+      "name": "sixty-four mixed rows (row_number)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "18", "i": 0.0, "x": 0.0 },
+        { "v": "0 kg", "i": 1.0, "x": 1.0 },
+        { "v": "44", "i": 2.0, "x": 2.0 },
+        { "v": "2x", "i": 3.0, "x": 3.0 },
+        { "v": "27 kg", "i": 4.0, "x": 4.0 },
+        { "v": "12", "i": 5.0, "x": 5.0 },
+        { "v": "2 kg", "i": 6.0, "x": 6.0 },
+        { "v": "125", "i": 7.0, "x": 0.0 },
+        { "v": "18 kg", "i": 8.0, "x": 1.0 },
+        { "v": "2x", "i": 9.0, "x": 2.0 },
+        { "v": "103", "i": 10.0, "x": 3.0 },
+        { "v": "20-5", "i": 11.0, "x": 4.0 },
+        { "v": "8", "i": 12.0, "x": 5.0 },
+        { "v": "17a", "i": 13.0, "x": 6.0 },
+        { "v": "114", "i": 14.0, "x": 0.0 },
+        { "v": "176", "i": 15.0, "x": 1.0 },
+        { "v": "2-5", "i": 16.0, "x": 2.0 },
+        { "v": "15x", "i": 17.0, "x": 3.0 },
+        { "v": "21", "i": 18.0, "x": 4.0 },
+        { "v": "21a", "i": 19.0, "x": 5.0 },
+        { "v": "10 kg", "i": 20.0, "x": 6.0 },
+        { "v": "63", "i": 21.0, "x": 0.0 },
+        { "v": "112", "i": 22.0, "x": 1.0 },
+        { "v": "8a", "i": 23.0, "x": 2.0 },
+        { "v": "4a", "i": 24.0, "x": 3.0 },
+        { "v": "39", "i": 25.0, "x": 4.0 },
+        { "v": "25x", "i": 26.0, "x": 5.0 },
+        { "v": "170", "i": 27.0, "x": 6.0 },
+        { "v": "98", "i": 28.0, "x": 0.0 },
+        { "v": "170", "i": 29.0, "x": 1.0 },
+        { "v": "27", "i": 30.0, "x": 2.0 },
+        { "v": "28 kg", "i": 31.0, "x": 3.0 },
+        { "v": "6-5", "i": 32.0, "x": 4.0 },
+        { "v": "107", "i": 33.0, "x": 5.0 },
+        { "v": "6", "i": 34.0, "x": 6.0 },
+        { "v": "126", "i": 35.0, "x": 0.0 },
+        { "v": "99", "i": 36.0, "x": 1.0 },
+        { "v": "3", "i": 37.0, "x": 2.0 },
+        { "v": "23-5", "i": 38.0, "x": 3.0 },
+        { "v": "88", "i": 39.0, "x": 4.0 },
+        { "v": "56", "i": 40.0, "x": 5.0 },
+        { "v": "12 kg", "i": 41.0, "x": 6.0 },
+        { "v": "118", "i": 42.0, "x": 0.0 },
+        { "v": "175", "i": 43.0, "x": 1.0 },
+        { "v": "6", "i": 44.0, "x": 2.0 },
+        { "v": "24x", "i": 45.0, "x": 3.0 },
+        { "v": "95", "i": 46.0, "x": 4.0 },
+        { "v": "6-5", "i": 47.0, "x": 5.0 },
+        { "v": "134", "i": 48.0, "x": 6.0 },
+        { "v": "5 kg", "i": 49.0, "x": 0.0 },
+        { "v": "7", "i": 50.0, "x": 1.0 },
+        { "v": "194", "i": 51.0, "x": 2.0 },
+        { "v": "62", "i": 52.0, "x": 3.0 },
+        { "v": "165", "i": 53.0, "x": 4.0 },
+        { "v": "59", "i": 54.0, "x": 5.0 },
+        { "v": "171", "i": 55.0, "x": 6.0 },
+        { "v": "67", "i": 56.0, "x": 0.0 },
+        { "v": "15", "i": 57.0, "x": 1.0 },
+        { "v": "4a", "i": 58.0, "x": 2.0 },
+        { "v": "12", "i": 59.0, "x": 3.0 },
+        { "v": "21x", "i": 60.0, "x": 4.0 },
+        { "v": "4", "i": 61.0, "x": 5.0 },
+        { "v": "76", "i": 62.0, "x": 6.0 },
+        { "v": "198", "i": 63.0, "x": 0.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": { "$int": 5 }, "v": "18", "x": 0.0 },
+          { "i": 1.0, "o": { "$int": 1 }, "v": "0 kg", "x": 1.0 },
+          { "i": 2.0, "o": { "$int": 34 }, "v": "44", "x": 2.0 },
+          { "i": 3.0, "o": { "$int": 30 }, "v": "2x", "x": 3.0 },
+          { "i": 4.0, "o": { "$int": 28 }, "v": "27 kg", "x": 4.0 },
+          { "i": 5.0, "o": { "$int": 3 }, "v": "12", "x": 5.0 },
+          { "i": 6.0, "o": { "$int": 15 }, "v": "2 kg", "x": 6.0 },
+          { "i": 7.0, "o": { "$int": 8 }, "v": "125", "x": 0.0 },
+          { "i": 8.0, "o": { "$int": 14 }, "v": "18 kg", "x": 1.0 },
+          { "i": 9.0, "o": { "$int": 31 }, "v": "2x", "x": 2.0 },
+          { "i": 10.0, "o": { "$int": 6 }, "v": "103", "x": 3.0 },
+          { "i": 11.0, "o": { "$int": 17 }, "v": "20-5", "x": 4.0 },
+          { "i": 12.0, "o": { "$int": 32 }, "v": "8", "x": 5.0 },
+          { "i": 13.0, "o": { "$int": 13 }, "v": "17a", "x": 6.0 },
+          { "i": 14.0, "o": { "$int": 7 }, "v": "114", "x": 0.0 },
+          { "i": 15.0, "o": { "$int": 12 }, "v": "176", "x": 1.0 },
+          { "i": 16.0, "o": { "$int": 16 }, "v": "2-5", "x": 2.0 },
+          { "i": 17.0, "o": { "$int": 9 }, "v": "15x", "x": 3.0 },
+          { "i": 18.0, "o": { "$int": 18 }, "v": "21", "x": 4.0 },
+          { "i": 19.0, "o": { "$int": 19 }, "v": "21a", "x": 5.0 },
+          { "i": 20.0, "o": { "$int": 2 }, "v": "10 kg", "x": 6.0 },
+          { "i": 21.0, "o": { "$int": 36 }, "v": "63", "x": 0.0 },
+          { "i": 22.0, "o": { "$int": 38 }, "v": "112", "x": 1.0 },
+          { "i": 23.0, "o": { "$int": 64 }, "v": "8a", "x": 2.0 },
+          { "i": 24.0, "o": { "$int": 41 }, "v": "4a", "x": 3.0 },
+          { "i": 25.0, "o": { "$int": 33 }, "v": "39", "x": 4.0 },
+          { "i": 26.0, "o": { "$int": 21 }, "v": "25x", "x": 5.0 },
+          { "i": 27.0, "o": { "$int": 10 }, "v": "170", "x": 6.0 },
+          { "i": 28.0, "o": { "$int": 37 }, "v": "98", "x": 0.0 },
+          { "i": 29.0, "o": { "$int": 11 }, "v": "170", "x": 1.0 },
+          { "i": 30.0, "o": { "$int": 27 }, "v": "27", "x": 2.0 },
+          { "i": 31.0, "o": { "$int": 29 }, "v": "28 kg", "x": 3.0 },
+          { "i": 32.0, "o": { "$int": 63 }, "v": "6-5", "x": 4.0 },
+          { "i": 33.0, "o": { "$int": 54 }, "v": "107", "x": 5.0 },
+          { "i": 34.0, "o": { "$int": 24 }, "v": "6", "x": 6.0 },
+          { "i": 35.0, "o": { "$int": 56 }, "v": "126", "x": 0.0 },
+          { "i": 36.0, "o": { "$int": 53 }, "v": "99", "x": 1.0 },
+          { "i": 37.0, "o": { "$int": 22 }, "v": "3", "x": 2.0 },
+          { "i": 38.0, "o": { "$int": 62 }, "v": "23-5", "x": 3.0 },
+          { "i": 39.0, "o": { "$int": 51 }, "v": "88", "x": 4.0 },
+          { "i": 40.0, "o": { "$int": 35 }, "v": "56", "x": 5.0 },
+          { "i": 41.0, "o": { "$int": 4 }, "v": "12 kg", "x": 6.0 },
+          { "i": 42.0, "o": { "$int": 55 }, "v": "118", "x": 0.0 },
+          { "i": 43.0, "o": { "$int": 59 }, "v": "175", "x": 1.0 },
+          { "i": 44.0, "o": { "$int": 25 }, "v": "6", "x": 2.0 },
+          { "i": 45.0, "o": { "$int": 20 }, "v": "24x", "x": 3.0 },
+          { "i": 46.0, "o": { "$int": 52 }, "v": "95", "x": 4.0 },
+          { "i": 47.0, "o": { "$int": 44 }, "v": "6-5", "x": 5.0 },
+          { "i": 48.0, "o": { "$int": 39 }, "v": "134", "x": 6.0 },
+          { "i": 49.0, "o": { "$int": 43 }, "v": "5 kg", "x": 0.0 },
+          { "i": 50.0, "o": { "$int": 45 }, "v": "7", "x": 1.0 },
+          { "i": 51.0, "o": { "$int": 60 }, "v": "194", "x": 2.0 },
+          { "i": 52.0, "o": { "$int": 48 }, "v": "62", "x": 3.0 },
+          { "i": 53.0, "o": { "$int": 57 }, "v": "165", "x": 4.0 },
+          { "i": 54.0, "o": { "$int": 47 }, "v": "59", "x": 5.0 },
+          { "i": 55.0, "o": { "$int": 58 }, "v": "171", "x": 6.0 },
+          { "i": 56.0, "o": { "$int": 49 }, "v": "67", "x": 0.0 },
+          { "i": 57.0, "o": { "$int": 46 }, "v": "15", "x": 1.0 },
+          { "i": 58.0, "o": { "$int": 42 }, "v": "4a", "x": 2.0 },
+          { "i": 59.0, "o": { "$int": 26 }, "v": "12", "x": 3.0 },
+          { "i": 60.0, "o": { "$int": 40 }, "v": "21x", "x": 4.0 },
+          { "i": 61.0, "o": { "$int": 23 }, "v": "4", "x": 5.0 },
+          { "i": 62.0, "o": { "$int": 50 }, "v": "76", "x": 6.0 },
+          { "i": 63.0, "o": { "$int": 61 }, "v": "198", "x": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "sixty-four mixed rows (rank)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "rank",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "55", "i": 0.0, "x": 0.0 },
+        { "v": "15", "i": 1.0, "x": 1.0 },
+        { "v": "25x", "i": 2.0, "x": 2.0 },
+        { "v": "3x", "i": 3.0, "x": 3.0 },
+        { "v": "8 kg", "i": 4.0, "x": 4.0 },
+        { "v": "103", "i": 5.0, "x": 5.0 },
+        { "v": "78", "i": 6.0, "x": 6.0 },
+        { "v": "133", "i": 7.0, "x": 0.0 },
+        { "v": "25", "i": 8.0, "x": 1.0 },
+        { "v": "23x", "i": 9.0, "x": 2.0 },
+        { "v": "25", "i": 10.0, "x": 3.0 },
+        { "v": "10", "i": 11.0, "x": 4.0 },
+        { "v": "184", "i": 12.0, "x": 5.0 },
+        { "v": "21a", "i": 13.0, "x": 6.0 },
+        { "v": "72", "i": 14.0, "x": 0.0 },
+        { "v": "0x", "i": 15.0, "x": 1.0 },
+        { "v": "5 kg", "i": 16.0, "x": 2.0 },
+        { "v": "22a", "i": 17.0, "x": 3.0 },
+        { "v": "4 kg", "i": 18.0, "x": 4.0 },
+        { "v": "114", "i": 19.0, "x": 5.0 },
+        { "v": "50", "i": 20.0, "x": 6.0 },
+        { "v": "91", "i": 21.0, "x": 0.0 },
+        { "v": "151", "i": 22.0, "x": 1.0 },
+        { "v": "7", "i": 23.0, "x": 2.0 },
+        { "v": "80", "i": 24.0, "x": 3.0 },
+        { "v": "55", "i": 25.0, "x": 4.0 },
+        { "v": "4x", "i": 26.0, "x": 5.0 },
+        { "v": "103", "i": 27.0, "x": 6.0 },
+        { "v": "64", "i": 28.0, "x": 0.0 },
+        { "v": "15x", "i": 29.0, "x": 1.0 },
+        { "v": "39", "i": 30.0, "x": 2.0 },
+        { "v": "76", "i": 31.0, "x": 3.0 },
+        { "v": "13", "i": 32.0, "x": 4.0 },
+        { "v": "196", "i": 33.0, "x": 5.0 },
+        { "v": "51", "i": 34.0, "x": 6.0 },
+        { "v": "159", "i": 35.0, "x": 0.0 },
+        { "v": "63", "i": 36.0, "x": 1.0 },
+        { "v": "16-5", "i": 37.0, "x": 2.0 },
+        { "v": "1-5", "i": 38.0, "x": 3.0 },
+        { "v": "32", "i": 39.0, "x": 4.0 },
+        { "v": "179", "i": 40.0, "x": 5.0 },
+        { "v": "191", "i": 41.0, "x": 6.0 },
+        { "v": "182", "i": 42.0, "x": 0.0 },
+        { "v": "121", "i": 43.0, "x": 1.0 },
+        { "v": "21", "i": 44.0, "x": 2.0 },
+        { "v": "65", "i": 45.0, "x": 3.0 },
+        { "v": "104", "i": 46.0, "x": 4.0 },
+        { "v": "95", "i": 47.0, "x": 5.0 },
+        { "v": "180", "i": 48.0, "x": 6.0 },
+        { "v": "110", "i": 49.0, "x": 0.0 },
+        { "v": "155", "i": 50.0, "x": 1.0 },
+        { "v": "22x", "i": 51.0, "x": 2.0 },
+        { "v": "72", "i": 52.0, "x": 3.0 },
+        { "v": "0", "i": 53.0, "x": 4.0 },
+        { "v": "18", "i": 54.0, "x": 5.0 },
+        { "v": "183", "i": 55.0, "x": 6.0 },
+        { "v": "77", "i": 56.0, "x": 0.0 },
+        { "v": "12a", "i": 57.0, "x": 1.0 },
+        { "v": "12x", "i": 58.0, "x": 2.0 },
+        { "v": "97", "i": 59.0, "x": 3.0 },
+        { "v": "28", "i": 60.0, "x": 4.0 },
+        { "v": "103", "i": 61.0, "x": 5.0 },
+        { "v": "82", "i": 62.0, "x": 6.0 },
+        { "v": "119", "i": 63.0, "x": 0.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": { "$int": 56 }, "v": "55", "x": 0.0 },
+          { "i": 1.0, "o": { "$int": 5 }, "v": "15", "x": 1.0 },
+          { "i": 2.0, "o": { "$int": 48 }, "v": "25x", "x": 2.0 },
+          { "i": 3.0, "o": { "$int": 50 }, "v": "3x", "x": 3.0 },
+          { "i": 4.0, "o": { "$int": 62 }, "v": "8 kg", "x": 4.0 },
+          { "i": 5.0, "o": { "$int": 11 }, "v": "103", "x": 5.0 },
+          { "i": 6.0, "o": { "$int": 61 }, "v": "78", "x": 6.0 },
+          { "i": 7.0, "o": { "$int": 20 }, "v": "133", "x": 0.0 },
+          { "i": 8.0, "o": { "$int": 7 }, "v": "25", "x": 1.0 },
+          { "i": 9.0, "o": { "$int": 47 }, "v": "23x", "x": 2.0 },
+          { "i": 10.0, "o": { "$int": 7 }, "v": "25", "x": 3.0 },
+          { "i": 11.0, "o": { "$int": 4 }, "v": "10", "x": 4.0 },
+          { "i": 12.0, "o": { "$int": 41 }, "v": "184", "x": 5.0 },
+          { "i": 13.0, "o": { "$int": 44 }, "v": "21a", "x": 6.0 },
+          { "i": 14.0, "o": { "$int": 59 }, "v": "72", "x": 0.0 },
+          { "i": 15.0, "o": { "$int": 2 }, "v": "0x", "x": 1.0 },
+          { "i": 16.0, "o": { "$int": 53 }, "v": "5 kg", "x": 2.0 },
+          { "i": 17.0, "o": { "$int": 45 }, "v": "22a", "x": 3.0 },
+          { "i": 18.0, "o": { "$int": 51 }, "v": "4 kg", "x": 4.0 },
+          { "i": 19.0, "o": { "$int": 15 }, "v": "114", "x": 5.0 },
+          { "i": 20.0, "o": { "$int": 55 }, "v": "50", "x": 6.0 },
+          { "i": 21.0, "o": { "$int": 64 }, "v": "91", "x": 0.0 },
+          { "i": 22.0, "o": { "$int": 21 }, "v": "151", "x": 1.0 },
+          { "i": 23.0, "o": { "$int": 54 }, "v": "7", "x": 2.0 },
+          { "i": 24.0, "o": { "$int": 63 }, "v": "80", "x": 3.0 },
+          { "i": 25.0, "o": { "$int": 56 }, "v": "55", "x": 4.0 },
+          { "i": 26.0, "o": { "$int": 52 }, "v": "4x", "x": 5.0 },
+          { "i": 27.0, "o": { "$int": 11 }, "v": "103", "x": 6.0 },
+          { "i": 28.0, "o": { "$int": 58 }, "v": "64", "x": 0.0 },
+          { "i": 29.0, "o": { "$int": 22 }, "v": "15x", "x": 1.0 },
+          { "i": 30.0, "o": { "$int": 49 }, "v": "39", "x": 2.0 },
+          { "i": 31.0, "o": { "$int": 60 }, "v": "76", "x": 3.0 },
+          { "i": 32.0, "o": { "$int": 19 }, "v": "13", "x": 4.0 },
+          { "i": 33.0, "o": { "$int": 43 }, "v": "196", "x": 5.0 },
+          { "i": 34.0, "o": { "$int": 27 }, "v": "51", "x": 6.0 },
+          { "i": 35.0, "o": { "$int": 36 }, "v": "159", "x": 0.0 },
+          { "i": 36.0, "o": { "$int": 28 }, "v": "63", "x": 1.0 },
+          { "i": 37.0, "o": { "$int": 23 }, "v": "16-5", "x": 2.0 },
+          { "i": 38.0, "o": { "$int": 3 }, "v": "1-5", "x": 3.0 },
+          { "i": 39.0, "o": { "$int": 26 }, "v": "32", "x": 4.0 },
+          { "i": 40.0, "o": { "$int": 37 }, "v": "179", "x": 5.0 },
+          { "i": 41.0, "o": { "$int": 42 }, "v": "191", "x": 6.0 },
+          { "i": 42.0, "o": { "$int": 39 }, "v": "182", "x": 0.0 },
+          { "i": 43.0, "o": { "$int": 34 }, "v": "121", "x": 1.0 },
+          { "i": 44.0, "o": { "$int": 24 }, "v": "21", "x": 2.0 },
+          { "i": 45.0, "o": { "$int": 29 }, "v": "65", "x": 3.0 },
+          { "i": 46.0, "o": { "$int": 33 }, "v": "104", "x": 4.0 },
+          { "i": 47.0, "o": { "$int": 31 }, "v": "95", "x": 5.0 },
+          { "i": 48.0, "o": { "$int": 38 }, "v": "180", "x": 6.0 },
+          { "i": 49.0, "o": { "$int": 14 }, "v": "110", "x": 0.0 },
+          { "i": 50.0, "o": { "$int": 35 }, "v": "155", "x": 1.0 },
+          { "i": 51.0, "o": { "$int": 46 }, "v": "22x", "x": 2.0 },
+          { "i": 52.0, "o": { "$int": 9 }, "v": "72", "x": 3.0 },
+          { "i": 53.0, "o": { "$int": 1 }, "v": "0", "x": 4.0 },
+          { "i": 54.0, "o": { "$int": 6 }, "v": "18", "x": 5.0 },
+          { "i": 55.0, "o": { "$int": 40 }, "v": "183", "x": 6.0 },
+          { "i": 56.0, "o": { "$int": 10 }, "v": "77", "x": 0.0 },
+          { "i": 57.0, "o": { "$int": 17 }, "v": "12a", "x": 1.0 },
+          { "i": 58.0, "o": { "$int": 18 }, "v": "12x", "x": 2.0 },
+          { "i": 59.0, "o": { "$int": 32 }, "v": "97", "x": 3.0 },
+          { "i": 60.0, "o": { "$int": 25 }, "v": "28", "x": 4.0 },
+          { "i": 61.0, "o": { "$int": 11 }, "v": "103", "x": 5.0 },
+          { "i": 62.0, "o": { "$int": 30 }, "v": "82", "x": 6.0 },
+          { "i": 63.0, "o": { "$int": 16 }, "v": "119", "x": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "forty mixed rows under a rolling_sum row frame",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "rolling_sum",
+        "outputColumn": "o",
+        "field": "x",
+        "frameSize": 3
+      },
+      "inputRows": [
+        { "v": "146", "i": 0.0, "x": 0.0 },
+        { "v": "170", "i": 1.0, "x": 1.0 },
+        { "v": "10 kg", "i": 2.0, "x": 2.0 },
+        { "v": "10", "i": 3.0, "x": 3.0 },
+        { "v": "1x", "i": 4.0, "x": 4.0 },
+        { "v": "128", "i": 5.0, "x": 5.0 },
+        { "v": "169", "i": 6.0, "x": 6.0 },
+        { "v": "77", "i": 7.0, "x": 0.0 },
+        { "v": "2a", "i": 8.0, "x": 1.0 },
+        { "v": "150", "i": 9.0, "x": 2.0 },
+        { "v": "119", "i": 10.0, "x": 3.0 },
+        { "v": "196", "i": 11.0, "x": 4.0 },
+        { "v": "100", "i": 12.0, "x": 5.0 },
+        { "v": "56", "i": 13.0, "x": 6.0 },
+        { "v": "5 kg", "i": 14.0, "x": 0.0 },
+        { "v": "7a", "i": 15.0, "x": 1.0 },
+        { "v": "93", "i": 16.0, "x": 2.0 },
+        { "v": "177", "i": 17.0, "x": 3.0 },
+        { "v": "78", "i": 18.0, "x": 4.0 },
+        { "v": "20", "i": 19.0, "x": 5.0 },
+        { "v": "16", "i": 20.0, "x": 6.0 },
+        { "v": "156", "i": 21.0, "x": 0.0 },
+        { "v": "19", "i": 22.0, "x": 1.0 },
+        { "v": "30", "i": 23.0, "x": 2.0 },
+        { "v": "0", "i": 24.0, "x": 3.0 },
+        { "v": "48", "i": 25.0, "x": 4.0 },
+        { "v": "113", "i": 26.0, "x": 5.0 },
+        { "v": "11-5", "i": 27.0, "x": 6.0 },
+        { "v": "46", "i": 28.0, "x": 0.0 },
+        { "v": "113", "i": 29.0, "x": 1.0 },
+        { "v": "28x", "i": 30.0, "x": 2.0 },
+        { "v": "30", "i": 31.0, "x": 3.0 },
+        { "v": "16", "i": 32.0, "x": 4.0 },
+        { "v": "158", "i": 33.0, "x": 5.0 },
+        { "v": "8-5", "i": 34.0, "x": 6.0 },
+        { "v": "1-5", "i": 35.0, "x": 0.0 },
+        { "v": "1-5", "i": 36.0, "x": 1.0 },
+        { "v": "9a", "i": 37.0, "x": 2.0 },
+        { "v": "40", "i": 38.0, "x": 3.0 },
+        { "v": "6x", "i": 39.0, "x": 4.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 8.0, "v": "146", "x": 0.0 },
+          { "i": 1.0, "o": 12.0, "v": "170", "x": 1.0 },
+          { "i": 2.0, "o": 6.0, "v": "10 kg", "x": 2.0 },
+          { "i": 3.0, "o": 4.0, "v": "10", "x": 3.0 },
+          { "i": 4.0, "o": 11.0, "v": "1x", "x": 4.0 },
+          { "i": 5.0, "o": 9.0, "v": "128", "x": 5.0 },
+          { "i": 6.0, "o": 11.0, "v": "169", "x": 6.0 },
+          { "i": 7.0, "o": 10.0, "v": "77", "x": 0.0 },
+          { "i": 8.0, "o": 9.0, "v": "2a", "x": 1.0 },
+          { "i": 9.0, "o": 7.0, "v": "150", "x": 2.0 },
+          { "i": 10.0, "o": 9.0, "v": "119", "x": 3.0 },
+          { "i": 11.0, "o": 8.0, "v": "196", "x": 4.0 },
+          { "i": 12.0, "o": 11.0, "v": "100", "x": 5.0 },
+          { "i": 13.0, "o": 10.0, "v": "56", "x": 6.0 },
+          { "i": 14.0, "o": 5.0, "v": "5 kg", "x": 0.0 },
+          { "i": 15.0, "o": 5.0, "v": "7a", "x": 1.0 },
+          { "i": 16.0, "o": 6.0, "v": "93", "x": 2.0 },
+          { "i": 17.0, "o": 10.0, "v": "177", "x": 3.0 },
+          { "i": 18.0, "o": 10.0, "v": "78", "x": 4.0 },
+          { "i": 19.0, "o": 10.0, "v": "20", "x": 5.0 },
+          { "i": 20.0, "o": 14.0, "v": "16", "x": 6.0 },
+          { "i": 21.0, "o": 2.0, "v": "156", "x": 0.0 },
+          { "i": 22.0, "o": 11.0, "v": "19", "x": 1.0 },
+          { "i": 23.0, "o": 9.0, "v": "30", "x": 2.0 },
+          { "i": 24.0, "o": 3.0, "v": "0", "x": 3.0 },
+          { "i": 25.0, "o": 7.0, "v": "48", "x": 4.0 },
+          { "i": 26.0, "o": 12.0, "v": "113", "x": 5.0 },
+          { "i": 27.0, "o": 11.0, "v": "11-5", "x": 6.0 },
+          { "i": 28.0, "o": 6.0, "v": "46", "x": 0.0 },
+          { "i": 29.0, "o": 11.0, "v": "113", "x": 1.0 },
+          { "i": 30.0, "o": 8.0, "v": "28x", "x": 2.0 },
+          { "i": 31.0, "o": 7.0, "v": "30", "x": 3.0 },
+          { "i": 32.0, "o": 16.0, "v": "16", "x": 4.0 },
+          { "i": 33.0, "o": 7.0, "v": "158", "x": 5.0 },
+          { "i": 34.0, "o": 11.0, "v": "8-5", "x": 6.0 },
+          { "i": 35.0, "o": 3.0, "v": "1-5", "x": 0.0 },
+          { "i": 36.0, "o": 4.0, "v": "1-5", "x": 1.0 },
+          { "i": 37.0, "o": 9.0, "v": "9a", "x": 2.0 },
+          { "i": 38.0, "o": 8.0, "v": "40", "x": 3.0 },
+          { "i": 39.0, "o": 5.0, "v": "6x", "x": 4.0 }
+        ]
+      }
+    },
+    {
+      "name": "sixty-four mixed rows under rolling_max",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "rolling_max",
+        "outputColumn": "o",
+        "field": "x",
+        "frameSize": 4
+      },
+      "inputRows": [
+        { "v": "182", "i": 0.0, "x": 0.0 },
+        { "v": "185", "i": 1.0, "x": 1.0 },
+        { "v": "171", "i": 2.0, "x": 2.0 },
+        { "v": "10", "i": 3.0, "x": 3.0 },
+        { "v": "196", "i": 4.0, "x": 4.0 },
+        { "v": "15 kg", "i": 5.0, "x": 5.0 },
+        { "v": "121", "i": 6.0, "x": 6.0 },
+        { "v": "23 kg", "i": 7.0, "x": 0.0 },
+        { "v": "170", "i": 8.0, "x": 1.0 },
+        { "v": "96", "i": 9.0, "x": 2.0 },
+        { "v": "149", "i": 10.0, "x": 3.0 },
+        { "v": "10x", "i": 11.0, "x": 4.0 },
+        { "v": "3 kg", "i": 12.0, "x": 5.0 },
+        { "v": "21", "i": 13.0, "x": 6.0 },
+        { "v": "124", "i": 14.0, "x": 0.0 },
+        { "v": "2-5", "i": 15.0, "x": 1.0 },
+        { "v": "7-5", "i": 16.0, "x": 2.0 },
+        { "v": "62", "i": 17.0, "x": 3.0 },
+        { "v": "142", "i": 18.0, "x": 4.0 },
+        { "v": "31", "i": 19.0, "x": 5.0 },
+        { "v": "18 kg", "i": 20.0, "x": 6.0 },
+        { "v": "14x", "i": 21.0, "x": 0.0 },
+        { "v": "184", "i": 22.0, "x": 1.0 },
+        { "v": "98", "i": 23.0, "x": 2.0 },
+        { "v": "86", "i": 24.0, "x": 3.0 },
+        { "v": "0", "i": 25.0, "x": 4.0 },
+        { "v": "152", "i": 26.0, "x": 5.0 },
+        { "v": "108", "i": 27.0, "x": 6.0 },
+        { "v": "26 kg", "i": 28.0, "x": 0.0 },
+        { "v": "127", "i": 29.0, "x": 1.0 },
+        { "v": "15 kg", "i": 30.0, "x": 2.0 },
+        { "v": "28 kg", "i": 31.0, "x": 3.0 },
+        { "v": "6 kg", "i": 32.0, "x": 4.0 },
+        { "v": "21x", "i": 33.0, "x": 5.0 },
+        { "v": "58", "i": 34.0, "x": 6.0 },
+        { "v": "22x", "i": 35.0, "x": 0.0 },
+        { "v": "151", "i": 36.0, "x": 1.0 },
+        { "v": "65", "i": 37.0, "x": 2.0 },
+        { "v": "41", "i": 38.0, "x": 3.0 },
+        { "v": "6-5", "i": 39.0, "x": 4.0 },
+        { "v": "88", "i": 40.0, "x": 5.0 },
+        { "v": "104", "i": 41.0, "x": 6.0 },
+        { "v": "20", "i": 42.0, "x": 0.0 },
+        { "v": "93", "i": 43.0, "x": 1.0 },
+        { "v": "25a", "i": 44.0, "x": 2.0 },
+        { "v": "137", "i": 45.0, "x": 3.0 },
+        { "v": "15", "i": 46.0, "x": 4.0 },
+        { "v": "24-5", "i": 47.0, "x": 5.0 },
+        { "v": "1-5", "i": 48.0, "x": 6.0 },
+        { "v": "199", "i": 49.0, "x": 0.0 },
+        { "v": "5 kg", "i": 50.0, "x": 1.0 },
+        { "v": "24a", "i": 51.0, "x": 2.0 },
+        { "v": "0a", "i": 52.0, "x": 3.0 },
+        { "v": "196", "i": 53.0, "x": 4.0 },
+        { "v": "184", "i": 54.0, "x": 5.0 },
+        { "v": "19-5", "i": 55.0, "x": 6.0 },
+        { "v": "37", "i": 56.0, "x": 0.0 },
+        { "v": "1", "i": 57.0, "x": 1.0 },
+        { "v": "152", "i": 58.0, "x": 2.0 },
+        { "v": "73", "i": 59.0, "x": 3.0 },
+        { "v": "198", "i": 60.0, "x": 4.0 },
+        { "v": "110", "i": 61.0, "x": 5.0 },
+        { "v": "81", "i": 62.0, "x": 6.0 },
+        { "v": "11", "i": 63.0, "x": 0.0 }
+      ],
+      "expect": {
+        "rows": [
+          { "i": 0.0, "o": 2.0, "v": "182", "x": 0.0 },
+          { "i": 1.0, "o": 2.0, "v": "185", "x": 1.0 },
+          { "i": 2.0, "o": 2.0, "v": "171", "x": 2.0 },
+          { "i": 3.0, "o": 6.0, "v": "10", "x": 3.0 },
+          { "i": 4.0, "o": 4.0, "v": "196", "x": 4.0 },
+          { "i": 5.0, "o": 5.0, "v": "15 kg", "x": 5.0 },
+          { "i": 6.0, "o": 6.0, "v": "121", "x": 6.0 },
+          { "i": 7.0, "o": 4.0, "v": "23 kg", "x": 0.0 },
+          { "i": 8.0, "o": 3.0, "v": "170", "x": 1.0 },
+          { "i": 9.0, "o": 4.0, "v": "96", "x": 2.0 },
+          { "i": 10.0, "o": 4.0, "v": "149", "x": 3.0 },
+          { "i": 11.0, "o": 6.0, "v": "10x", "x": 4.0 },
+          { "i": 12.0, "o": 5.0, "v": "3 kg", "x": 5.0 },
+          { "i": 13.0, "o": 6.0, "v": "21", "x": 6.0 },
+          { "i": 14.0, "o": 6.0, "v": "124", "x": 0.0 },
+          { "i": 15.0, "o": 4.0, "v": "2-5", "x": 1.0 },
+          { "i": 16.0, "o": 5.0, "v": "7-5", "x": 2.0 },
+          { "i": 17.0, "o": 6.0, "v": "62", "x": 3.0 },
+          { "i": 18.0, "o": 4.0, "v": "142", "x": 4.0 },
+          { "i": 19.0, "o": 6.0, "v": "31", "x": 5.0 },
+          { "i": 20.0, "o": 6.0, "v": "18 kg", "x": 6.0 },
+          { "i": 21.0, "o": 4.0, "v": "14x", "x": 0.0 },
+          { "i": 22.0, "o": 2.0, "v": "184", "x": 1.0 },
+          { "i": 23.0, "o": 3.0, "v": "98", "x": 2.0 },
+          { "i": 24.0, "o": 4.0, "v": "86", "x": 3.0 },
+          { "i": 25.0, "o": 4.0, "v": "0", "x": 4.0 },
+          { "i": 26.0, "o": 5.0, "v": "152", "x": 5.0 },
+          { "i": 27.0, "o": 6.0, "v": "108", "x": 6.0 },
+          { "i": 28.0, "o": 5.0, "v": "26 kg", "x": 0.0 },
+          { "i": 29.0, "o": 6.0, "v": "127", "x": 1.0 },
+          { "i": 30.0, "o": 5.0, "v": "15 kg", "x": 2.0 },
+          { "i": 31.0, "o": 3.0, "v": "28 kg", "x": 3.0 },
+          { "i": 32.0, "o": 4.0, "v": "6 kg", "x": 4.0 },
+          { "i": 33.0, "o": 6.0, "v": "21x", "x": 5.0 },
+          { "i": 34.0, "o": 6.0, "v": "58", "x": 6.0 },
+          { "i": 35.0, "o": 6.0, "v": "22x", "x": 0.0 },
+          { "i": 36.0, "o": 5.0, "v": "151", "x": 1.0 },
+          { "i": 37.0, "o": 4.0, "v": "65", "x": 2.0 },
+          { "i": 38.0, "o": 5.0, "v": "41", "x": 3.0 },
+          { "i": 39.0, "o": 4.0, "v": "6-5", "x": 4.0 },
+          { "i": 40.0, "o": 6.0, "v": "88", "x": 5.0 },
+          { "i": 41.0, "o": 6.0, "v": "104", "x": 6.0 },
+          { "i": 42.0, "o": 4.0, "v": "20", "x": 0.0 },
+          { "i": 43.0, "o": 5.0, "v": "93", "x": 1.0 },
+          { "i": 44.0, "o": 5.0, "v": "25a", "x": 2.0 },
+          { "i": 45.0, "o": 6.0, "v": "137", "x": 3.0 },
+          { "i": 46.0, "o": 4.0, "v": "15", "x": 4.0 },
+          { "i": 47.0, "o": 5.0, "v": "24-5", "x": 5.0 },
+          { "i": 48.0, "o": 6.0, "v": "1-5", "x": 6.0 },
+          { "i": 49.0, "o": 6.0, "v": "199", "x": 0.0 },
+          { "i": 50.0, "o": 3.0, "v": "5 kg", "x": 1.0 },
+          { "i": 51.0, "o": 5.0, "v": "24a", "x": 2.0 },
+          { "i": 52.0, "o": 4.0, "v": "0a", "x": 3.0 },
+          { "i": 53.0, "o": 6.0, "v": "196", "x": 4.0 },
+          { "i": 54.0, "o": 6.0, "v": "184", "x": 5.0 },
+          { "i": 55.0, "o": 6.0, "v": "19-5", "x": 6.0 },
+          { "i": 56.0, "o": 5.0, "v": "37", "x": 0.0 },
+          { "i": 57.0, "o": 4.0, "v": "1", "x": 1.0 },
+          { "i": 58.0, "o": 5.0, "v": "152", "x": 2.0 },
+          { "i": 59.0, "o": 6.0, "v": "73", "x": 3.0 },
+          { "i": 60.0, "o": 6.0, "v": "198", "x": 4.0 },
+          { "i": 61.0, "o": 6.0, "v": "110", "x": 5.0 },
+          { "i": 62.0, "o": 6.0, "v": "81", "x": 6.0 },
+          { "i": 63.0, "o": 6.0, "v": "11", "x": 0.0 }
+        ]
+      }
+    },
+    {
+      "name": "a 200-row mixed column makes Java's TimSort throw 'Comparison method violates its general contract' (a step error)",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "v", "direction": "asc" }],
+        "function": "row_number",
+        "outputColumn": "o"
+      },
+      "inputRows": [
+        { "v": "72", "i": 0.0, "x": 0.0 },
+        { "v": "185", "i": 1.0, "x": 1.0 },
+        { "v": "8", "i": 2.0, "x": 2.0 },
+        { "v": "23a", "i": 3.0, "x": 3.0 },
+        { "v": "44", "i": 4.0, "x": 4.0 },
+        { "v": "165", "i": 5.0, "x": 5.0 },
+        { "v": "153", "i": 6.0, "x": 6.0 },
+        { "v": "182", "i": 7.0, "x": 0.0 },
+        { "v": "16a", "i": 8.0, "x": 1.0 },
+        { "v": "135", "i": 9.0, "x": 2.0 },
+        { "v": "137", "i": 10.0, "x": 3.0 },
+        { "v": "57", "i": 11.0, "x": 4.0 },
+        { "v": "138", "i": 12.0, "x": 5.0 },
+        { "v": "3 kg", "i": 13.0, "x": 6.0 },
+        { "v": "24", "i": 14.0, "x": 0.0 },
+        { "v": "15a", "i": 15.0, "x": 1.0 },
+        { "v": "3-5", "i": 16.0, "x": 2.0 },
+        { "v": "26", "i": 17.0, "x": 3.0 },
+        { "v": "124", "i": 18.0, "x": 4.0 },
+        { "v": "18x", "i": 19.0, "x": 5.0 },
+        { "v": "131", "i": 20.0, "x": 6.0 },
+        { "v": "111", "i": 21.0, "x": 0.0 },
+        { "v": "78", "i": 22.0, "x": 1.0 },
+        { "v": "4", "i": 23.0, "x": 2.0 },
+        { "v": "17x", "i": 24.0, "x": 3.0 },
+        { "v": "85", "i": 25.0, "x": 4.0 },
+        { "v": "32", "i": 26.0, "x": 5.0 },
+        { "v": "3-5", "i": 27.0, "x": 6.0 },
+        { "v": "131", "i": 28.0, "x": 0.0 },
+        { "v": "17-5", "i": 29.0, "x": 1.0 },
+        { "v": "21 kg", "i": 30.0, "x": 2.0 },
+        { "v": "184", "i": 31.0, "x": 3.0 },
+        { "v": "33", "i": 32.0, "x": 4.0 },
+        { "v": "11x", "i": 33.0, "x": 5.0 },
+        { "v": "157", "i": 34.0, "x": 6.0 },
+        { "v": "138", "i": 35.0, "x": 0.0 },
+        { "v": "8-5", "i": 36.0, "x": 1.0 },
+        { "v": "129", "i": 37.0, "x": 2.0 },
+        { "v": "17a", "i": 38.0, "x": 3.0 },
+        { "v": "169", "i": 39.0, "x": 4.0 },
+        { "v": "128", "i": 40.0, "x": 5.0 },
+        { "v": "188", "i": 41.0, "x": 6.0 },
+        { "v": "78", "i": 42.0, "x": 0.0 },
+        { "v": "53", "i": 43.0, "x": 1.0 },
+        { "v": "111", "i": 44.0, "x": 2.0 },
+        { "v": "52", "i": 45.0, "x": 3.0 },
+        { "v": "189", "i": 46.0, "x": 4.0 },
+        { "v": "123", "i": 47.0, "x": 5.0 },
+        { "v": "9a", "i": 48.0, "x": 6.0 },
+        { "v": "152", "i": 49.0, "x": 0.0 },
+        { "v": "153", "i": 50.0, "x": 1.0 },
+        { "v": "7x", "i": 51.0, "x": 2.0 },
+        { "v": "168", "i": 52.0, "x": 3.0 },
+        { "v": "147", "i": 53.0, "x": 4.0 },
+        { "v": "20a", "i": 54.0, "x": 5.0 },
+        { "v": "21 kg", "i": 55.0, "x": 6.0 },
+        { "v": "108", "i": 56.0, "x": 0.0 },
+        { "v": "95", "i": 57.0, "x": 1.0 },
+        { "v": "51", "i": 58.0, "x": 2.0 },
+        { "v": "26 kg", "i": 59.0, "x": 3.0 },
+        { "v": "167", "i": 60.0, "x": 4.0 },
+        { "v": "134", "i": 61.0, "x": 5.0 },
+        { "v": "165", "i": 62.0, "x": 6.0 },
+        { "v": "83", "i": 63.0, "x": 0.0 },
+        { "v": "41", "i": 64.0, "x": 1.0 },
+        { "v": "190", "i": 65.0, "x": 2.0 },
+        { "v": "94", "i": 66.0, "x": 3.0 },
+        { "v": "7", "i": 67.0, "x": 4.0 },
+        { "v": "4 kg", "i": 68.0, "x": 5.0 },
+        { "v": "86", "i": 69.0, "x": 6.0 },
+        { "v": "19", "i": 70.0, "x": 0.0 },
+        { "v": "8 kg", "i": 71.0, "x": 1.0 },
+        { "v": "196", "i": 72.0, "x": 2.0 },
+        { "v": "2", "i": 73.0, "x": 3.0 },
+        { "v": "7a", "i": 74.0, "x": 4.0 },
+        { "v": "85", "i": 75.0, "x": 5.0 },
+        { "v": "126", "i": 76.0, "x": 6.0 },
+        { "v": "172", "i": 77.0, "x": 0.0 },
+        { "v": "168", "i": 78.0, "x": 1.0 },
+        { "v": "44", "i": 79.0, "x": 2.0 },
+        { "v": "95", "i": 80.0, "x": 3.0 },
+        { "v": "87", "i": 81.0, "x": 4.0 },
+        { "v": "35", "i": 82.0, "x": 5.0 },
+        { "v": "37", "i": 83.0, "x": 6.0 },
+        { "v": "193", "i": 84.0, "x": 0.0 },
+        { "v": "25a", "i": 85.0, "x": 1.0 },
+        { "v": "177", "i": 86.0, "x": 2.0 },
+        { "v": "108", "i": 87.0, "x": 3.0 },
+        { "v": "9", "i": 88.0, "x": 4.0 },
+        { "v": "20x", "i": 89.0, "x": 5.0 },
+        { "v": "150", "i": 90.0, "x": 6.0 },
+        { "v": "57", "i": 91.0, "x": 0.0 },
+        { "v": "90", "i": 92.0, "x": 1.0 },
+        { "v": "9 kg", "i": 93.0, "x": 2.0 },
+        { "v": "21-5", "i": 94.0, "x": 3.0 },
+        { "v": "146", "i": 95.0, "x": 4.0 },
+        { "v": "116", "i": 96.0, "x": 5.0 },
+        { "v": "168", "i": 97.0, "x": 6.0 },
+        { "v": "20x", "i": 98.0, "x": 0.0 },
+        { "v": "22x", "i": 99.0, "x": 1.0 },
+        { "v": "87", "i": 100.0, "x": 2.0 },
+        { "v": "172", "i": 101.0, "x": 3.0 },
+        { "v": "68", "i": 102.0, "x": 4.0 },
+        { "v": "131", "i": 103.0, "x": 5.0 },
+        { "v": "101", "i": 104.0, "x": 6.0 },
+        { "v": "114", "i": 105.0, "x": 0.0 },
+        { "v": "7 kg", "i": 106.0, "x": 1.0 },
+        { "v": "156", "i": 107.0, "x": 2.0 },
+        { "v": "111", "i": 108.0, "x": 3.0 },
+        { "v": "7x", "i": 109.0, "x": 4.0 },
+        { "v": "45", "i": 110.0, "x": 5.0 },
+        { "v": "20x", "i": 111.0, "x": 6.0 },
+        { "v": "57", "i": 112.0, "x": 0.0 },
+        { "v": "59", "i": 113.0, "x": 1.0 },
+        { "v": "20 kg", "i": 114.0, "x": 2.0 },
+        { "v": "19a", "i": 115.0, "x": 3.0 },
+        { "v": "20 kg", "i": 116.0, "x": 4.0 },
+        { "v": "143", "i": 117.0, "x": 5.0 },
+        { "v": "29", "i": 118.0, "x": 6.0 },
+        { "v": "141", "i": 119.0, "x": 0.0 },
+        { "v": "134", "i": 120.0, "x": 1.0 },
+        { "v": "141", "i": 121.0, "x": 2.0 },
+        { "v": "118", "i": 122.0, "x": 3.0 },
+        { "v": "178", "i": 123.0, "x": 4.0 },
+        { "v": "165", "i": 124.0, "x": 5.0 },
+        { "v": "0a", "i": 125.0, "x": 6.0 },
+        { "v": "38", "i": 126.0, "x": 0.0 },
+        { "v": "166", "i": 127.0, "x": 1.0 },
+        { "v": "28-5", "i": 128.0, "x": 2.0 },
+        { "v": "90", "i": 129.0, "x": 3.0 },
+        { "v": "86", "i": 130.0, "x": 4.0 },
+        { "v": "3x", "i": 131.0, "x": 5.0 },
+        { "v": "89", "i": 132.0, "x": 6.0 },
+        { "v": "111", "i": 133.0, "x": 0.0 },
+        { "v": "156", "i": 134.0, "x": 1.0 },
+        { "v": "14a", "i": 135.0, "x": 2.0 },
+        { "v": "196", "i": 136.0, "x": 3.0 },
+        { "v": "169", "i": 137.0, "x": 4.0 },
+        { "v": "124", "i": 138.0, "x": 5.0 },
+        { "v": "83", "i": 139.0, "x": 6.0 },
+        { "v": "61", "i": 140.0, "x": 0.0 },
+        { "v": "38", "i": 141.0, "x": 1.0 },
+        { "v": "9", "i": 142.0, "x": 2.0 },
+        { "v": "198", "i": 143.0, "x": 3.0 },
+        { "v": "2x", "i": 144.0, "x": 4.0 },
+        { "v": "116", "i": 145.0, "x": 5.0 },
+        { "v": "185", "i": 146.0, "x": 6.0 },
+        { "v": "151", "i": 147.0, "x": 0.0 },
+        { "v": "19 kg", "i": 148.0, "x": 1.0 },
+        { "v": "3a", "i": 149.0, "x": 2.0 },
+        { "v": "170", "i": 150.0, "x": 3.0 },
+        { "v": "13 kg", "i": 151.0, "x": 4.0 },
+        { "v": "74", "i": 152.0, "x": 5.0 },
+        { "v": "13x", "i": 153.0, "x": 6.0 },
+        { "v": "12-5", "i": 154.0, "x": 0.0 },
+        { "v": "42", "i": 155.0, "x": 1.0 },
+        { "v": "5x", "i": 156.0, "x": 2.0 },
+        { "v": "22", "i": 157.0, "x": 3.0 },
+        { "v": "163", "i": 158.0, "x": 4.0 },
+        { "v": "154", "i": 159.0, "x": 5.0 },
+        { "v": "32", "i": 160.0, "x": 6.0 },
+        { "v": "17 kg", "i": 161.0, "x": 0.0 },
+        { "v": "189", "i": 162.0, "x": 1.0 },
+        { "v": "8 kg", "i": 163.0, "x": 2.0 },
+        { "v": "114", "i": 164.0, "x": 3.0 },
+        { "v": "168", "i": 165.0, "x": 4.0 },
+        { "v": "126", "i": 166.0, "x": 5.0 },
+        { "v": "15-5", "i": 167.0, "x": 6.0 },
+        { "v": "10a", "i": 168.0, "x": 0.0 },
+        { "v": "83", "i": 169.0, "x": 1.0 },
+        { "v": "2 kg", "i": 170.0, "x": 2.0 },
+        { "v": "2a", "i": 171.0, "x": 3.0 },
+        { "v": "178", "i": 172.0, "x": 4.0 },
+        { "v": "3-5", "i": 173.0, "x": 5.0 },
+        { "v": "111", "i": 174.0, "x": 6.0 },
+        { "v": "34", "i": 175.0, "x": 0.0 },
+        { "v": "99", "i": 176.0, "x": 1.0 },
+        { "v": "20", "i": 177.0, "x": 2.0 },
+        { "v": "101", "i": 178.0, "x": 3.0 },
+        { "v": "68", "i": 179.0, "x": 4.0 },
+        { "v": "157", "i": 180.0, "x": 5.0 },
+        { "v": "1a", "i": 181.0, "x": 6.0 },
+        { "v": "42", "i": 182.0, "x": 0.0 },
+        { "v": "98", "i": 183.0, "x": 1.0 },
+        { "v": "48", "i": 184.0, "x": 2.0 },
+        { "v": "122", "i": 185.0, "x": 3.0 },
+        { "v": "70", "i": 186.0, "x": 4.0 },
+        { "v": "9-5", "i": 187.0, "x": 5.0 },
+        { "v": "17a", "i": 188.0, "x": 6.0 },
+        { "v": "99", "i": 189.0, "x": 0.0 },
+        { "v": "55", "i": 190.0, "x": 1.0 },
+        { "v": "89", "i": 191.0, "x": 2.0 },
+        { "v": "80", "i": 192.0, "x": 3.0 },
+        { "v": "87", "i": 193.0, "x": 4.0 },
+        { "v": "146", "i": 194.0, "x": 5.0 },
+        { "v": "83", "i": 195.0, "x": 6.0 },
+        { "v": "74", "i": 196.0, "x": 0.0 },
+        { "v": "26-5", "i": 197.0, "x": 1.0 },
+        { "v": "112", "i": 198.0, "x": 2.0 },
+        { "v": "19x", "i": 199.0, "x": 3.0 }
+      ],
+      "expect": { "error": true }
+    },
+    {
+      "name": "a days frame over Unicode-digit epoch strings",
+      "config": {
+        "partitionBy": [],
+        "orderBy": [{ "field": "d", "direction": "asc" }],
+        "function": "rolling_sum",
+        "field": "v",
+        "outputColumn": "o",
+        "frameSize": 3,
+        "frameUnit": "days"
+      },
+      "inputRows": [
+        { "d": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10", "v": 1.0 },
+        { "d": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff11", "v": 2.0 },
+        { "d": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660", "v": 4.0 },
+        { "d": "\u0663", "v": 8.0 }
+      ],
+      "expect": {
+        "rows": [
+          {
+            "d": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10",
+            "o": 7.0,
+            "v": 1.0
+          },
+          {
+            "d": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff11",
+            "o": 7.0,
+            "v": 2.0
+          },
+          {
+            "d": "\u0661\u0667\u0660\u0660\u0660\u0660\u0660\u0660\u0660\u0660",
+            "o": 7.0,
+            "v": 4.0
+          },
+          { "d": "\u0663", "o": 8.0, "v": 8.0 }
+        ]
+      }
+    }
+  ]
+}

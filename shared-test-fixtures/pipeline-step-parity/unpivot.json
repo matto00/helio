@@ -1,0 +1,72 @@
+{
+  "kind": "unpivot",
+  "vectors": [
+    {
+      "name": "collapses value columns into long form",
+      "config": {
+        "idVars": ["id"],
+        "valueVars": ["a", "b"],
+        "varName": "variable",
+        "valueName": "value"
+      },
+      "inputRows": [
+        { "id": 1.0, "a": 10.0, "b": 20.0 },
+        { "id": 2.0, "a": 30.0, "b": null }
+      ],
+      "expect": {
+        "rows": [
+          { "id": 1.0, "value": 10.0, "variable": "a" },
+          { "id": 1.0, "value": 20.0, "variable": "b" },
+          { "id": 2.0, "value": 30.0, "variable": "a" },
+          { "id": 2.0, "value": null, "variable": "b" }
+        ]
+      }
+    },
+    {
+      "name": "default variable and value names",
+      "config": { "idVars": ["id"], "valueVars": ["a"] },
+      "inputRows": [{ "id": 1.0, "a": 5.0 }],
+      "expect": { "rows": [{ "id": 1.0, "value": 5.0, "variable": "a" }] }
+    },
+    {
+      "name": "a missing value column yields null",
+      "config": { "idVars": ["id"], "valueVars": ["a", "gone"] },
+      "inputRows": [{ "id": 1.0, "a": 5.0 }],
+      "expect": {
+        "rows": [
+          { "id": 1.0, "value": 5.0, "variable": "a" },
+          { "id": 1.0, "value": null, "variable": "gone" }
+        ]
+      }
+    },
+    {
+      "name": "empty valueVars drops every row",
+      "config": { "idVars": ["id"], "valueVars": [] },
+      "inputRows": [{ "id": 1.0 }],
+      "expect": { "rows": [] }
+    },
+    {
+      "name": "varName collides with an id column: the later assignment wins",
+      "config": { "idVars": ["id"], "valueVars": ["a"], "varName": "id", "valueName": "v" },
+      "inputRows": [{ "id": 1.0, "a": 5.0 }],
+      "expect": { "rows": [{ "id": "a", "v": 5.0 }] }
+    },
+    {
+      "name": "valueName equal to varName: the value wins",
+      "config": { "idVars": [], "valueVars": ["a"], "varName": "x", "valueName": "x" },
+      "inputRows": [{ "a": 5.0 }],
+      "expect": { "rows": [{ "x": 5.0 }] }
+    },
+    {
+      "name": "integral and text values pass through",
+      "config": { "idVars": ["id"], "valueVars": ["a", "b"] },
+      "inputRows": [{ "id": "k", "a": { "$int": 1 }, "b": "t" }],
+      "expect": {
+        "rows": [
+          { "id": "k", "value": { "$int": 1 }, "variable": "a" },
+          { "id": "k", "value": "t", "variable": "b" }
+        ]
+      }
+    }
+  ]
+}
