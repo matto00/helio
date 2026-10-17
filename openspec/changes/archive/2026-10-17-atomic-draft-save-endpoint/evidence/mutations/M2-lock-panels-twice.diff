@@ -1,0 +1,11 @@
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1629/backup/PipelineDraftWrites.scala	2026-10-17 00:53:58.249284785 -0700
++++ PipelineDraftWrites.scala	2026-10-17 00:53:58.256411521 -0700
+@@ -85,7 +85,7 @@
+    *  order the probes proved deadlocks, so the race and deadlock specs can be shown to fail. */
+   def lockDefinition(pipelineId: String, takeAdvisory: Boolean): DBIO[Boolean] = {
+     val unit: DBIO[Unit] = DBIO.successful(())
+-    val panels   = locks.choose(LockSite.SavePanels, PanelRowLocks.lockForDeletion(pipelines = Seq(pipelineId)), unit)
++    val panels   = locks.choose(LockSite.SavePanels, PanelRowLocks.lockForDeletion(pipelines = Seq(pipelineId)).andThen(PanelRowLocks.lockForDeletion(pipelines = Seq(pipelineId))), unit)
+     val advisory = if (takeAdvisory) locks.choose(LockSite.SaveAdvisory, PipelineCycleGuard.lockAction, unit) else unit
+     val rules    = locks.choose(LockSite.SaveRules, lockRules(pipelineId), unit)
+     val outs     = locks.choose(LockSite.SaveOutputs, lockOutputs(pipelineId, byPosition = locks.active(LockSite.SaveOutputsByPosition)), unit)

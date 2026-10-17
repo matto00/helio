@@ -28,7 +28,8 @@ object PipelineCycleGuard {
    *  converts it to a `ServiceError`. */
   final case class PipelineCycleRejected(message: String) extends RuntimeException(message)
 
-  private def lockAction(implicit ec: ExecutionContext): DBIO[Unit] =
+  /** The tenant-wide cycle advisory lock (lock (2) of the pipeline-definition protocol), re-entrant within a transaction. */
+  def lockAction(implicit ec: ExecutionContext): DBIO[Unit] =
     sql"SELECT pg_advisory_xact_lock(${PipelineCycleValidator.AdvisoryLockKey})::text".as[String].map(_ => ())
 
   /** Resolves each data source id in `ids` to its DISPLAYED name in the rejection message

@@ -9,13 +9,16 @@ import com.helio.api.protocols.IdParsing.PipelineIdSegment
 import com.helio.api.protocols.pipelines.{CreatePipelineRootRequest, PipelineProposal, ValidateExpressionRequest}
 import com.helio.domain.model.{AuthenticatedUser, PipelineRootId, PipelineStepId}
 import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.draft.DraftSaveService
 
 import scala.concurrent.ExecutionContext
 
 /** Thin HTTP shell for `/api/pipelines`. All logic in [[PipelineService]]. */
 class PipelineRoutes(
     pipelineService: PipelineService,
-    user:            AuthenticatedUser
+    user:            AuthenticatedUser,
+    // HEL-1629: serves the single-pipeline GET with its `fingerprint` (and `?definition=true`); None keeps the plain read.
+    draftSave:       Option[DraftSaveService] = None
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -107,7 +110,13 @@ class PipelineRoutes(
         path(PipelineIdSegment) { pipelineId =>
           concat(
             get {
-              ServiceResponse.run(pipelineService.findSummaryById(pipelineId, user))(identity)
+              draftSave match {
+                case Some(svc) =>
+                  parameter("definition".as[Boolean].?) { definition =>
+                    ServiceResponse.run(svc.read(pipelineId, user, definition.contains(true)))(identity)
+                  }
+                case None => ServiceResponse.run(pipelineService.findSummaryById(pipelineId, user))(identity)
+              }
             },
             patch {
               entity(as[UpdatePipelineRequest]) { req =>

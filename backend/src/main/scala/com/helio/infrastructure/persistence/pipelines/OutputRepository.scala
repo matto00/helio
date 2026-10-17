@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.pipelines
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.SqlTextArrays.setTextArray
 import com.helio.infrastructure.persistence.alerts.AlertRuleRepository
 import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.domain.engine.SchemaField
@@ -24,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  Additive-only at this task (1.5): the `outputs` table does not exist yet
  *  (lands in the V94 migration, task 2.3) — this repository is compiling
  *  scaffolding only until then. No caller wires it in yet. */
-class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
   import OutputRepository._
 
@@ -102,9 +103,13 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** ACL-bypassing list of every Output on a pipeline, across all nodes,
    *  in `position` order. */
   def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] =
-    ctx.withSystemContext(
-      table.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result
-    ).map(_.toVector.map(rowToDomain))
+    ctx.withSystemContext(listByPipelineAction(pipelineId))
+
+  /** [[listByPipelineInternal]] as a composable `DBIO` (HEL-1629). Ordered by `position` ONLY: the node-snapshot
+   *  transaction inserts history points, and so key-shares Outputs, in exactly this order, which is why the save's
+   *  Output locks follow `(position, id)` (evidence probe 1.3 (d)). */
+  def listByPipelineAction(pipelineId: PipelineId): DBIO[Vector[Output]] =
+    table.filter(_.pipelineId === pipelineId.value).sortBy(_.position).result.map(_.toVector.map(rowToDomain))
 
   /** Owner-scoped, paged listing of every Output the caller owns, across all
    *  their pipelines — the Output-model replacement for
@@ -158,10 +163,12 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  `findAllByOwner`) already ACL/owner-scope the ids before this runs. */
   def findConfigsByIdsInternal(ids: Vector[String]): Future[Map[String, JsObject]] =
     if (ids.isEmpty) Future.successful(Map.empty)
-    else
-      ctx.withSystemContext(
-        table.filter(_.id.inSet(ids)).map(r => (r.id, r.config)).result
-      ).map(_.toMap)
+    else ctx.withSystemContext(findConfigsByIdsAction(ids))
+
+  /** [[findConfigsByIdsInternal]] as a composable `DBIO` (HEL-1629). */
+  def findConfigsByIdsAction(ids: Vector[String]): DBIO[Map[String, JsObject]] =
+    if (ids.isEmpty) DBIO.successful(Map.empty)
+    else table.filter(_.id.inSet(ids)).map(r => (r.id, r.config)).result.map(_.toMap)
 
   /** The alert rules targeting any of `ids`, as `(id, metric, condition, name, enabled, severity)` per Output, for the
    *  patch-set stale check (HEL-1458): deleting an Output deletes these rules (V94 `ON DELETE CASCADE`). ACL-bypassing,
@@ -169,15 +176,19 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  the owner of. Timestamps are left out. */
   def findAlertRuleDefinitionsInternal(ids: Vector[String]): Future[Map[String, Vector[(String, String, String, String, Boolean, String)]]] =
     if (ids.isEmpty) Future.successful(Map.empty)
+    else ctx.withSystemContext(findAlertRuleDefinitionsAction(ids))
+
+  /** [[findAlertRuleDefinitionsInternal]] as a composable `DBIO` (HEL-1629). */
+  def findAlertRuleDefinitionsAction(ids: Vector[String]): DBIO[Map[String, Vector[(String, String, String, String, Boolean, String)]]] =
+    if (ids.isEmpty) DBIO.successful(Map.empty)
     else
-      ctx.withSystemContext(
-        TableQuery[AlertRuleRepository.AlertRuleTable]
-          .filter(_.targetOutputId.inSet(ids))
-          .sortBy(_.id)
-          .map(r => (r.targetOutputId, r.id, r.metric, r.condition, r.name, r.enabled, r.severity))
-          .result
-      ).map(_.collect { case (Some(outputId), id, metric, condition, name, enabled, severity) => outputId -> (id, metric, condition, name, enabled, severity) }
-        .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).toVector })
+      TableQuery[AlertRuleRepository.AlertRuleTable]
+        .filter(_.targetOutputId.inSet(ids))
+        .sortBy(_.id)
+        .map(r => (r.targetOutputId, r.id, r.metric, r.condition, r.name, r.enabled, r.severity))
+        .result
+        .map(_.collect { case (Some(outputId), id, metric, condition, name, enabled, severity) => outputId -> (id, metric, condition, name, enabled, severity) }
+          .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).toVector })
 
   /** Of `ids`, the alert rules the CALLER can read (user context + owner filter, exactly `AlertRuleRepository.findAll`'s
    *  scoping), by id. Lets the patch-set preview name a rule only if the caller could list it (HEL-1522). */
@@ -228,7 +239,7 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // passes it explicitly once a caller can name a root.
       explicitRootId: Option[PipelineRootId]
   ): Future[Output] =
-    ctx.withSystemContext(insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.OutputCreate, Seq(pipelineId.value)) andThen insertInternalAction(pipelineId, nodeStepId, ownerId, name, kind, config, schema, tag, explicitRootId)).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose this
@@ -317,12 +328,26 @@ class OutputRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *  ownership of the Output has been confirmed by the service layer. */
   def deleteWithPanelsInternal(id: OutputId): Future[Vector[PanelId]] = {
     val action = for {
-      _       <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
-      removed <- sql"DELETE FROM panels WHERE output_id = ${id.value} RETURNING id".as[String]
-      _       <- table.filter(_.id === id.value).delete
-    } yield removed.toVector.map(PanelId(_))
+      pipelineId <- table.filter(_.id === id.value).map(_.pipelineId).result.headOption
+      _          <- PanelRowLocks.lockForDeletion(outputs = Seq(id.value))
+      // HEL-1629 (evidence probe 1.5): lock (3) after (1). A draft save locks an Output's alert rules before the Output
+      // itself, and this delete holds the Output first and then cascades into its rules; only taking the pipeline row
+      // first, as the save does, serializes the two.
+      _          <- locks.lockPipelines(LockSite.OutputDelete, pipelineId.toSeq)
+      removed    <- deleteOutputsCoreAction(Seq(id.value))
+    } yield removed.map(PanelId(_))
     ctx.withSystemContext(action.transactionally)
   }
+
+  /** The lock-free delete core (HEL-1629 task 2.1): deletes the panels bound to `ids` (reporting their ids, `RETURNING id`),
+   *  then the Output rows. The caller holds the locks. */
+  def deleteOutputsCoreAction(ids: Seq[String]): DBIO[Vector[String]] =
+    if (ids.isEmpty) DBIO.successful(Vector.empty)
+    else
+      for {
+        removed <- sql"DELETE FROM panels WHERE output_id = ANY($ids) RETURNING id".as[String]
+        _       <- table.filter(_.id.inSet(ids)).delete
+      } yield removed.toVector
 }
 
 object OutputRepository {

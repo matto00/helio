@@ -52,12 +52,14 @@ class PatchSetApplicationRepository(ctx: DbContext)(implicit ec: ExecutionContex
    *  `PipelineRunRepository.deleteOldRunsInternal`'s existing precedent (never a non-atomic
    *  SELECT-then-DELETE round trip). Runs in `record.ownerId`'s user context so the V79 RLS
    *  policy's `WITH CHECK` (implied by the bare `USING` clause on `INSERT`) is satisfied. */
-  def create(record: PatchSetApplicationRecord, keepN: Int = 20): Future[PatchSetApplicationRecord] = {
-    val ownerUuid     = UUID.fromString(record.ownerId.value)
-    val insertAction  = table += recordToRow(record)
-    val pruneAction   = pruneBeyond(ownerUuid, keepN)
-    ctx.withUserContext(record.ownerId.value)(insertAction andThen pruneAction).map(_ => record)
-  }
+  def create(record: PatchSetApplicationRecord, keepN: Int = 20): Future[PatchSetApplicationRecord] =
+    ctx.withUserContext(record.ownerId.value)(createAction(record, keepN)).map(_ => record)
+
+  /** The insert-then-prune body of [[create]] as a composable `DBIO` (HEL-1629), so the atomic draft save journals in its own
+   *  transaction. The caller picks the pool: the save runs privileged, where the row is owned by the ACTING user all the same
+   *  (the owner id is a column of the record, not the session). */
+  def createAction(record: PatchSetApplicationRecord, keepN: Int = 20): DBIO[Int] =
+    (table += recordToRow(record)) andThen pruneBeyond(UUID.fromString(record.ownerId.value), keepN)
 
   private def pruneBeyond(ownerUuid: UUID, keepN: Int) = {
     val keepIds = table.filter(_.ownerId === ownerUuid).sortBy(_.appliedAt.desc).take(keepN).map(_.id)

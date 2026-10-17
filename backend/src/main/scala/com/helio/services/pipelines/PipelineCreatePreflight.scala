@@ -1,9 +1,11 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineStepConfigCodec}
+import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.{OutputKind, PipelineStep, PipelineStepKind}
 import com.helio.domain.outputs.ConditionalFormats
+import com.helio.domain.steps.SecondaryInput
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
 import spray.json.JsObject
@@ -171,6 +173,22 @@ private[services] object PipelineCreatePreflight {
    *  step (a forward reference -- `validateLane` only requires it exist somewhere in the request). */
   def unresolvedLaneClientId(typedConfig: Any, seen: Set[String]): Option[String] =
     PipelineStepConfigCodec.secondaryLaneStepId(typedConfig).filterNot(seen.contains)
+
+  /** Rewrites a `lane`-kind `secondaryInput.stepId` that carries a REQUEST-scoped clientId to the real step id `resolve`
+   *  gives it; `Left(clientId)` when it cannot be resolved. Every other config comes back unchanged. Shared by the single-call
+   *  create and the draft save, so a lane reference means the same thing in both. */
+  def rewriteLaneClientId(typedConfig: Any, resolve: String => Option[String]): Either[String, Any] = {
+    def rewrite(si: SecondaryInput): Either[String, SecondaryInput] = si match {
+      case SecondaryInput.Lane(clientId) => resolve(clientId).map(SecondaryInput.Lane(_)).toRight(clientId)
+      case source                        => Right(source)
+    }
+    typedConfig match {
+      case c: JoinConfig   => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case c: UnionConfig  => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case c: LookupConfig => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
+      case other           => Right(other)
+    }
+  }
 
   def forwardLaneMessage(clientId: String, unresolvedClientId: String): String =
     s"Step '$clientId' has a lane secondaryInput referencing '$unresolvedClientId', " +

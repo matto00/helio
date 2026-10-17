@@ -1,0 +1,11 @@
+{
+  "code": "CASCADE_CONFIRMATION_REQUIRED",
+  "impact": {
+    "alertRuleIds": ["rule-1"],
+    "hints": ["Removes 1 step(s).", "Removes 1 Output(s)."],
+    "outputIds": ["o2"],
+    "panelIds": ["panel-1"],
+    "stepIds": ["s2"]
+  },
+  "message": "The draft removes more than was confirmed; nothing was saved."
+}

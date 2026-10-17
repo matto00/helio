@@ -4,6 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.{LayoutWritePolicy, PanelService}
 import com.helio.services.pipelines.{LegacyOutputFormat, PipelineService}
+import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveJournal}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.DashboardResponse
 import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequest}
@@ -56,7 +57,9 @@ final class PatchSetUndoService(
     pipelineStepRepo: PipelineStepRepository,
     applicationRepo: PatchSetApplicationRepository,
     // HEL-1256: required, no default; non-null asserted by `PatchSetUndoContext` (HEL-1337).
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    // HEL-1629: restores a `pipelineDefinition` journal row (an atomic draft save); null in fixtures without the save.
+    draftRestore: DraftRestore = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -67,6 +70,12 @@ final class PatchSetUndoService(
   def undo(applicationId: PatchSetApplicationId, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetUndoResponse]] =
     applicationRepo.findById(applicationId, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Patch-set application not found")))
+      // HEL-1629: a draft save is one `pipelineDefinition` edit, restored atomically through the save's own transaction
+      // against the post-save fingerprint, not edit by edit; dispatched before the per-edit conflict check, which has no
+      // arm for it.
+      case Some(record) if record.edits.exists(_.targetKind == DraftSaveJournal.TargetKind) =>
+        if (draftRestore == null) Future.successful(Left(ServiceError.InternalError("Undo of a draft save is unavailable")))
+        else draftRestore.restore(record.edits.find(_.targetKind == DraftSaveJournal.TargetKind).get, user)
       case Some(record) =>
         PatchSetUndoConflictCheck.checkAll(record.edits, user, context).flatMap { blockers =>
           if (blockers.nonEmpty)

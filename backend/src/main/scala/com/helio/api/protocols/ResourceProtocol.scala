@@ -15,7 +15,9 @@ final case class StepConfigErrorResponse(message: String, code: String, stepId: 
 /** HEL-1458: 409 body for a patch-set apply refused because targets changed since the preview.
  *  Titled `PatchSetStaleResponse` in `schemas/shared/`. */
 final case class StaleTargetResponse(index: Int, kind: String, id: String)
-final case class PatchSetStaleResponse(message: String, code: String, staleTargets: Vector[StaleTargetResponse])
+/** HEL-1629: `currentFingerprint` is the fingerprint the pipeline has NOW; only the draft save's 409 (and the undo of a draft
+ *  save) sets it, so a client can offer to reload the saved pipeline. */
+final case class PatchSetStaleResponse(message: String, code: String, staleTargets: Vector[StaleTargetResponse], currentFingerprint: Option[String] = None)
 /** HEL-1522: 409 body for a patch-set apply refused because its `proposalId` was already applied by the caller.
  *  Titled `PatchSetAlreadyAppliedResponse` in `schemas/shared/`. */
 final case class PatchSetAlreadyAppliedResponse(message: String, code: String)
@@ -43,7 +45,7 @@ trait ResourceProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val staleTargetResponseFormat: RootJsonFormat[StaleTargetResponse] =
     jsonFormat3(StaleTargetResponse.apply)
   implicit val patchSetStaleResponseFormat: RootJsonFormat[PatchSetStaleResponse] =
-    jsonFormat3(PatchSetStaleResponse.apply)
+    jsonFormat4(PatchSetStaleResponse.apply)
   implicit val patchSetAlreadyAppliedResponseFormat: RootJsonFormat[PatchSetAlreadyAppliedResponse] =
     jsonFormat2(PatchSetAlreadyAppliedResponse.apply)
   implicit val healthResponseFormat: RootJsonFormat[HealthResponse] = jsonFormat1(HealthResponse.apply)

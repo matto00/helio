@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  `pipeline_schedules` — a 1:1 child of `pipelines` with no `owner_id`
  *  column of its own (indirect-owner RLS, V62 — mirrors
  *  `PipelineRunRepository`'s JOIN-to-`pipelines.owner_id` shape). */
-class PipelineScheduleRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class PipelineScheduleRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
   import PipelineScheduleRepository._
 
@@ -103,14 +103,14 @@ class PipelineScheduleRepository(ctx: DbContext)(implicit ec: ExecutionContext) 
    *  resolves to an `INSERT`. Backstopped by the V62 RLS policy, which
    *  rejects a write against a `pipeline_id` the caller does not own. */
   def upsert(schedule: PipelineSchedule, user: AuthenticatedUser): Future[PipelineSchedule] =
-    ctx.withUserContext(user.id.value)(table.insertOrUpdate(domainToRow(schedule))).map(_ => schedule)
+    ctx.withUserContext(user.id.value)(locks.lockPipelines(LockSite.ScheduleUpsert, Seq(schedule.pipelineId.value)) andThen table.insertOrUpdate(domainToRow(schedule))).map(_ => schedule)
 
   /** Owner-scoped delete keyed by `pipeline_id`. Returns `false` (no-op)
    *  both when no schedule exists and when the caller does not own the
    *  pipeline (RLS excludes non-owned rows from the DELETE's row set). */
   def delete(pipelineId: PipelineId, user: AuthenticatedUser): Future[Boolean] =
     ctx.withUserContext(user.id.value)(
-      table.filter(_.pipelineId === pipelineId.value).delete
+      locks.lockPipelines(LockSite.ScheduleDelete, Seq(pipelineId.value)) andThen table.filter(_.pipelineId === pipelineId.value).delete
     ).map(_ > 0)
 
   /** ACL-bypassing read of every enabled schedule due for a tick — either

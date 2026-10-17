@@ -1,0 +1,32 @@
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[info] DraftSaveSetRaceSpec:
+[info] a source delete racing a root add on the same source and a draft save
+[info] - should never commit inside the save's window, and never deadlock *** FAILED ***
+[info]   RaceOutcome(ThreeSession, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     blocker holds FOR KEY SHARE on 5c889b69-ds3
+[info]     reader STALLED on the source (it has read its set, if it reads one before locking)
+[info]     grower: COMMITTED its root
+[info]     save (backend 1892896) PARKED past its compare (its base includes the grower's root)
+[info]     blocker released
+[info]     reader COMMITTED while the save was parked
+[info]     save: 200 committed; reader: ok; grower: ok true was not equal to false (DraftSaveSetRaceSpec.scala:33)
+[info] - should be a violation when the source delete does not lock the source row first (the set-membership race)
+[info] - should be a violation when the source delete takes no pipeline lock at all
+[info] a workspace teardown racing a root add on a tagged source and a draft save
+[info] - should refuse to delete once the root exists (it re-checks after locking the source) and never commit inside the save's window *** FAILED ***
+[info]   RaceOutcome(ThreeSession, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     blocker holds FOR KEY SHARE on db210605-ds3
+[info]     reader STALLED on the source (it has read its set, if it reads one before locking)
+[info]     grower: COMMITTED its root
+[info]     save (backend 1893208) PARKED past its compare (its base includes the grower's root)
+[info]     blocker released
+[info]     reader COMMITTED while the save was parked
+[info]     save: 200 committed; reader: ok; grower: ok true was not equal to false (DraftSaveSetRaceSpec.scala:60)
+[info] - should be a violation when the teardown locks no source row first (it deletes the new root away)
+[info] [hel1468-guard] ScalaTest summary: failed=2 aborted=0 unreadable=0
+[info] Run completed in 5 seconds, 635 milliseconds.
+[info] Total number of tests run: 5
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***

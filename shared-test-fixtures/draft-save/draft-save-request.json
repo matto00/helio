@@ -1,0 +1,27 @@
+{
+  "baseFingerprint": "v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "steps": [
+    {
+      "id": "s1",
+      "type": "limit",
+      "config": { "count": 10 },
+      "enabled": true,
+      "rootId": "r1",
+      "position": 0
+    },
+    {
+      "clientId": "n1",
+      "type": "limit",
+      "config": { "count": 5 },
+      "enabled": true,
+      "parentStepId": "s1",
+      "position": 0
+    }
+  ],
+  "outputs": [
+    { "id": "o1", "name": "Out", "kind": "table", "nodeStepId": "s1", "config": {} },
+    { "clientId": "nc", "name": "New", "kind": "table", "nodeStepClientId": "n1", "config": {} }
+  ],
+  "runAfterSave": "run",
+  "confirmCascade": { "stepIds": ["s9"], "outputIds": [], "panelIds": [], "alertRuleIds": [] }
+}

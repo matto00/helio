@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/draft-cascade-required-response.schema.json",
+  "title": "DraftCascadeRequiredResponse",
+  "description": "422 body of POST /api/pipelines/:id/draft/save when the draft removes steps, Outputs, bound panels or targeting alert rules that `confirmCascade` does not cover (HEL-1629). The impact is computed under the save's locks, so a panel bound after the client's preview forces a fresh 422 instead of a silent delete. Nothing was written.",
+  "type": "object",
+  "required": ["message", "code", "impact"],
+  "properties": {
+    "message": { "type": "string" },
+    "code": { "const": "CASCADE_CONFIRMATION_REQUIRED" },
+    "impact": {
+      "type": "object",
+      "required": ["stepIds", "outputIds", "panelIds", "alertRuleIds", "hints"],
+      "properties": {
+        "stepIds": { "type": "array", "items": { "type": "string" } },
+        "outputIds": { "type": "array", "items": { "type": "string" } },
+        "panelIds": { "type": "array", "items": { "type": "string" } },
+        "alertRuleIds": { "type": "array", "items": { "type": "string" } },
+        "hints": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -528,6 +528,9 @@ object ExistenceNotLeakedRoutesSpec {
     "AutoLayoutService.scala"        -> 1,
     "DashboardContentsService.scala" -> 1,
     "DashboardService.scala"         -> 5,
+    // HEL-1629: `DraftSaveService.editable` -- a viewer grantee, reached only after `findByIdShared(.., Some(user))` returned the
+    // pipeline, so the caller already knows it exists; an invisible pipeline is the same 404 as an absent one. Legitimate.
+    "DraftSaveService.scala"         -> 1,
     "HookTriggerService.scala"       -> 1,
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 5,

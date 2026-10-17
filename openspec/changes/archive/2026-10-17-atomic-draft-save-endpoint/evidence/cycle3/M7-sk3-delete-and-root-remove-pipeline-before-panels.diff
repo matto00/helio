@@ -1,0 +1,8 @@
+1067c1067
+<               if (locks.active(LockSite.StepDeletePanelsFirst))
+---
+>               if (!locks.active(LockSite.StepDeletePanelsFirst))
+1285c1285
+<         if (locks.active(LockSite.RootRemovePanelsFirst))
+---
+>         if (!locks.active(LockSite.RootRemovePanelsFirst))

@@ -1,0 +1,20 @@
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1629/backup/DraftSaveService.scala.m3	2026-10-17 01:18:17.986834980 -0700
++++ DraftSaveService.scala	2026-10-17 01:18:17.994021571 -0700
+@@ -102,7 +102,7 @@
+                     case Left(err) => Future.successful(Left(err))
+                     case Right(()) =>
+                       pipelineRepo
+-                        .runPrivileged(transaction.run(pipelineId.value, pipeline.name, pipeline.ownerId, user, req, plan, mode))
++                        .runTransactionally(user.id.value)(transaction.run(pipelineId.value, pipeline.name, pipeline.ownerId, user, req, plan, mode))
+                         .map(saved => Right(saved): Either[ServiceError, DraftSaved])
+                         .recover {
+                           case DraftSaveAbort(err) => Left(err)
+@@ -166,7 +166,7 @@
+     pipelineRepo.findSummaryByIdShared(pipelineId, Some(user)).flatMap {
+       case None => Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
+       case Some(summary) =>
+-        pipelineRepo.runPrivilegedSnapshot(
++        pipelineRepo.runTransactionally(user.id.value)(
+           for {
+             state <- PatchSetPipelineDefinition.ofAction(pipelineId, definitionCtx)
+             defn  <- if (includeDefinition) reads.definition(pipelineId).map(Some(_)) else DBIO.successful(None)

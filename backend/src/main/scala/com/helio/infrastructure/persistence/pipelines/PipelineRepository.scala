@@ -296,6 +296,26 @@ class PipelineRepository(
         }
     }
 
+  /** The name, tag and roots the fingerprint hashes, as a composable `DBIO` (HEL-1629): the same join `findSummaryByIdShared`
+   *  runs, but ACL-free because the fingerprint read has already authorized the caller, and re-read INSIDE the fingerprint's
+   *  own transaction so a rename after an earlier summary read is reflected. */
+  def findDefinitionHeadAction(id: PipelineId): DBIO[Option[PipelineSummary]] =
+    for {
+      headOpt <- summaryQuery(pipelinesTable.filter(_.id === id.value)).result.headOption
+      roots   <- rootsByPipelineId(Set(id.value))
+    } yield headOpt.map { case (p, srcId, srcName, truncated, stepCounts) => rowToSummary(p, srcId, srcName, roots.getOrElse(id.value, Vector.empty), truncated, stepCounts) }
+
+  /** Runs `action` in one privileged transaction (HEL-1629): every call site of the fingerprint read, which covers other
+   *  users' panels and alert rules and so must not run under RLS (a user-context run would hide rows, never match the save's
+   *  hash, and make the save answer 409 forever). */
+  def runPrivileged[R](action: DBIO[R]): Future[R] = ctx.withSystemContext(action)
+
+  /** [[runPrivileged]] on ONE read-only REPEATABLE READ snapshot, for the reads a client bases a draft on: separate
+   *  READ COMMITTED statements could straddle a writer's commit (content ABA, X to Y to X). `SET TRANSACTION` is legal
+   *  only as the transaction's first statement, which is why it is composed in front of `action` here. */
+  def runPrivilegedSnapshot[R](action: DBIO[R]): Future[R] =
+    ctx.withSystemContext(sqlu"SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY".andThen(action))
+
   /** Owner-scoped joined summary for a single pipeline. */
   def findSummaryById(id: PipelineId, user: AuthenticatedUser): Future[Option[PipelineSummary]] = {
     val ownerUuid = UUID.fromString(user.id.value)
@@ -527,13 +547,15 @@ class PipelineRepository(
     * Privileged (`withSystemContext`) and unscoped by owner: the only caller has already resolved the pipeline as the
     * caller's own. `next_run_at`/`last_run_at` are tick-maintained and deliberately not returned. */
   def findScheduleDefinitionInternal(id: PipelineId): Future[Option[(String, String, Boolean, String)]] =
-    ctx.withSystemContext(
-      TableQuery[PipelineScheduleRepository.PipelineScheduleTable]
-        .filter(_.pipelineId === id.value)
-        .map(r => (r.kind, r.expression, r.enabled, r.timezone))
-        .result
-        .headOption
-    )
+    ctx.withSystemContext(findScheduleDefinitionAction(id))
+
+  /** [[findScheduleDefinitionInternal]] as a composable `DBIO` (HEL-1629). */
+  def findScheduleDefinitionAction(id: PipelineId): DBIO[Option[(String, String, Boolean, String)]] =
+    TableQuery[PipelineScheduleRepository.PipelineScheduleTable]
+      .filter(_.pipelineId === id.value)
+      .map(r => (r.kind, r.expression, r.enabled, r.timezone))
+      .result
+      .headOption
 
   /** Owner-scoped post-run housekeeping. Returns silently if no owned row
     * matches — keeps the run-lifecycle path resilient when the pipeline is

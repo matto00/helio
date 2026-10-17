@@ -1,0 +1,14 @@
+--- (i) first=add: root add (key-share source first) vs source delete (source FOR UPDATE first)
+A: 1||1|
+D: 1||p1|p2|p2|1|1|ERROR:  update or delete on table "pipeline_steps" violates foreign key constraint "pipeline_steps_parent_step_id_fkey" on table "pipeline_steps"|DETAIL:  Key (id)=(t1) is still referenced from table "pipeline_steps".|
+roots left on ds1 / p2: 3
+--- (i) first=delete: root add (key-share source first) vs source delete (source FOR UPDATE first)
+A: 1||
+D: 1||p1|p2|1|1|ERROR:  update or delete on table "pipeline_steps" violates foreign key constraint "pipeline_steps_parent_step_id_fkey" on table "pipeline_steps"|DETAIL:  Key (id)=(t1) is still referenced from table "pipeline_steps".|
+roots left on ds1 / p2: 3
+--- (ii) teardown order=panels_first vs source delete (source row first)
+T: |ERROR:  update or delete on table "pipeline_steps" violates foreign key constraint "pipeline_steps_parent_step_id_fkey" on table "pipeline_steps"|DETAIL:  Key (id)=(t1) is still referenced from table "pipeline_steps".|
+D: 1|ERROR:  deadlock detected|DETAIL:  Process 1801316 waits for ShareLock on transaction 1579; blocked by process 1801314.|Process 1801314 waits for ShareLock on transaction 1580; blocked by process 1801316.|HINT:  See server log for query details.|CONTEXT:  while locking tuple (0,1) in relation "pan
+--- (ii) teardown order=sources_first vs source delete (source row first)
+T: 1||
+D: 1||ERROR:  update or delete on table "pipeline_steps" violates foreign key constraint "pipeline_steps_parent_step_id_fkey" on table "pipeline_steps"|DETAIL:  Key (id)=(t1) is still referenced from table "pipeline_steps".|

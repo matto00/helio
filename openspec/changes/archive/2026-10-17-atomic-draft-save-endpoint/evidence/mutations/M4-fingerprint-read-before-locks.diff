@@ -1,0 +1,13 @@
+diff --git a/backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala b/backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala
+index 3eb641560..bb7e194f0 100644
+--- a/backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala
++++ b/backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala
+@@ -76,7 +76,7 @@ private[draft] final class DraftSaveTransaction(
+     for {
+       _        <- hooks.at(Begin)
++      prior    <- definition(pipelineId)
+       locked   <- writes.lockDefinition(pipelineId, preLockPlan.needsAdvisory, site => hooks.at(AfterLock(site)))
+       _        <- abortIf(!locked, ServiceError.NotFound(s"Pipeline not found: $pipelineId"))
+-      prior    <- definition(pipelineId)
+       priorFp   = PatchSetTargetFingerprint.of("pipeline", prior)
+       _        <- abortIf(priorFp != req.baseFingerprint, staleError(pipelineId, priorFp))

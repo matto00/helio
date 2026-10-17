@@ -1,0 +1,43 @@
+{
+  "run": {
+    "started": false,
+    "code": 429,
+    "reason": "Pipeline-run rate limit exceeded",
+    "retryAfterSeconds": 12
+  },
+  "saved": {
+    "applicationId": "application-1",
+    "definition": {
+      "outputs": [
+        {
+          "config": {},
+          "createdAt": "2026-10-16T12:00:00Z",
+          "id": "o1",
+          "kind": "table",
+          "name": "Out",
+          "nodeStepId": "s1",
+          "ownerId": "00000000-0000-0000-0000-0000000000a1",
+          "pipelineId": "p1",
+          "schema": [],
+          "updatedAt": "2026-10-16T12:00:00Z"
+        }
+      ],
+      "steps": [
+        {
+          "config": {
+            "count": 10
+          },
+          "createdAt": "2026-10-16T12:00:00Z",
+          "enabled": true,
+          "id": "s1",
+          "pipelineId": "p1",
+          "position": 0,
+          "rootId": "r1",
+          "type": "limit",
+          "updatedAt": "2026-10-16T12:00:00Z"
+        }
+      ]
+    },
+    "fingerprint": "v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}
