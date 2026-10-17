@@ -249,15 +249,15 @@ describe("BottomNav.css — expanding label (HEL-1583 D9)", () => {
     expect(base).not.toMatch(/--app-text-muted/);
   });
 
-  it("transitions only the label's max-width and opacity, and the lozenge's inline padding, on the standard motion tokens", () => {
+  it("transitions only the label's max-width and opacity, and the lozenge's inline padding, on the move-role duration and the ease-out curve", () => {
     const label = findRuleBody(css, ".bottom-nav__label {");
     const labelTransition = /transition:\s*([^;]+);/.exec(label)?.[1] ?? "";
     expect(labelTransition.replace(/\s+/g, " ").trim()).toBe(
-      "max-width var(--motion-duration-standard) var(--motion-ease-out), opacity var(--motion-duration-standard) var(--motion-ease-out)",
+      "max-width var(--motion-duration-move) var(--motion-ease-out), opacity var(--motion-duration-move) var(--motion-ease-out)",
     );
     const lozenge = findRuleBody(css, ".bottom-nav__lozenge {");
     expect(lozenge).toMatch(
-      /transition:\s*padding-inline var\(--motion-duration-standard\) var\(--motion-ease-out\)\s*;/,
+      /transition:\s*padding-inline var\(--motion-duration-move\) var\(--motion-ease-out\)\s*;/,
     );
     // Nothing else in the file animates width, flex or padding.
     expect(css).not.toMatch(

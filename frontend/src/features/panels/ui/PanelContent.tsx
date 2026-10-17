@@ -1,5 +1,6 @@
 import "./PanelContent.css";
 import { PanelBodySkeleton } from "./PanelBodySkeleton";
+import { Crossfade } from "../../../shared/ui/Crossfade";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import type { RequestErrorKind } from "../../../services/classifyRequestError";
 import type { MappedPanelData, Panel, PanelAppearance } from "../types/panel";
@@ -115,12 +116,29 @@ export interface PanelContentProps {
   historySource?: HistorySource;
 }
 
-export function PanelContent({
+/** The panel body (HEL-1573): the loading skeleton crossfades into it in place (`Crossfade`, DESIGN.md §10). */
+export function PanelContent(props: PanelContentProps) {
+  return (
+    <Crossfade
+      loading={props.isLoading === true}
+      skeleton={
+        // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent spinner: this is the panel's INITIAL
+        // structural load (see `Skeleton.tsx`'s division comment), not a short in-place refresh.
+        <div className="panel-content panel-content--state" aria-label="Loading data">
+          <PanelBodySkeleton />
+        </div>
+      }
+    >
+      <PanelContentBody {...props} />
+    </Crossfade>
+  );
+}
+
+function PanelContentBody({
   panel,
   data,
   rawRows,
   headers,
-  isLoading,
   error,
   errorKind,
   onRetry,
@@ -146,17 +164,6 @@ export function PanelContent({
   viewerFilterActive = false,
   historySource,
 }: PanelContentProps) {
-  if (isLoading) {
-    // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent
-    // spinner: this is the panel's INITIAL structural load (see
-    // `Skeleton.tsx`'s division comment), not a short in-place refresh.
-    return (
-      <div className="panel-content panel-content--state" aria-label="Loading data">
-        <PanelBodySkeleton />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="panel-content panel-content--state panel-content--error" role="alert">

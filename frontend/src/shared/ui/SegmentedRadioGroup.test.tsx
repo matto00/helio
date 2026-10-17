@@ -11,6 +11,23 @@ const options = [
   { value: "c", label: "Gamma" },
 ] as const;
 
+describe("SegmentedRadioGroup indicator (HEL-1573)", () => {
+  it("hosts the sliding indicator and marks only the selected option for it", () => {
+    const { container, rerender } = render(
+      <SegmentedRadioGroup label="Pick" options={options} value="b" onChange={jest.fn()} />,
+    );
+    expect(container.querySelectorAll(".ui-segmented > .motion-indicator")).toHaveLength(1);
+    expect(container.querySelector(".motion-indicator")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelectorAll("[data-indicator-active]")).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: "Beta" })).toHaveAttribute("data-indicator-active");
+    rerender(<SegmentedRadioGroup label="Pick" options={options} value="c" onChange={jest.fn()} />);
+    expect(screen.getByRole("radio", { name: "Gamma" })).toHaveAttribute("data-indicator-active");
+    expect(screen.getByRole("radio", { name: "Beta" })).not.toHaveAttribute(
+      "data-indicator-active",
+    );
+  });
+});
+
 describe("SegmentedRadioGroup", () => {
   it("exposes one checked radio and a roving tabindex", () => {
     render(<SegmentedRadioGroup label="Pick" options={options} value="b" onChange={jest.fn()} />);

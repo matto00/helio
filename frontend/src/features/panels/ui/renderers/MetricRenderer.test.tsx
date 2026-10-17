@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+
+import * as motionTokens from "../../../../shared/motion/motionTokens";
 
 import { MetricRenderer } from "./MetricRenderer";
 import type { MetricComparison } from "../../history/metricHistoryView";
@@ -215,5 +217,68 @@ describe("MetricRenderer — history comparison (HEL-1275)", () => {
     expect(screen.queryByRole("img")).toBeNull();
     rerender(<MetricRenderer data={{ value: "1" }} sparkline={null} />);
     expect(screen.queryByRole("img")).toBeNull();
+  });
+});
+
+describe("MetricRenderer — value tween (HEL-1573)", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.spyOn(motionTokens, "readMotionDuration").mockReturnValue(280);
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it("shows the first value at once, counts through intermediates to a changed value, and settles on its exact text", () => {
+    const { rerender, container } = render(<MetricRenderer data={{ value: "120" }} />);
+    const figure = () => container.querySelector(".panel-content__metric-value");
+    expect(figure()).toHaveTextContent("120");
+    rerender(<MetricRenderer data={{ value: "180" }} />);
+    act(() => {
+      jest.advanceTimersByTime(140);
+    });
+    const mid = Number(container.querySelector('[aria-hidden="true"]')?.textContent);
+    expect(mid).toBeGreaterThan(120);
+    expect(mid).toBeLessThan(180);
+    // Assistive tech only ever gets the final value, never the counting text.
+    expect(container.querySelector(".sr-only")).toHaveTextContent("180");
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(figure()).toHaveTextContent("180");
+    expect(container.querySelector('.panel-content__metric-value [aria-hidden="true"]')).toBeNull();
+  });
+
+  it("settles on the exact formatted text of a formatted value", () => {
+    const { rerender, container } = render(
+      <MetricRenderer data={{ value: "1000" }} format="currency" />,
+    );
+    rerender(<MetricRenderer data={{ value: "2500.5" }} format="currency" />);
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    expect(container.querySelector(".panel-content__metric-value")).toHaveTextContent("$2,500.50");
+  });
+
+  it("does not tween a non-numeric value", () => {
+    const { rerender, container } = render(<MetricRenderer data={{ value: "n/a" }} />);
+    rerender(<MetricRenderer data={{ value: "ok" }} />);
+    expect(container.querySelector(".panel-content__metric-value")).toHaveTextContent("ok");
+  });
+
+  it("with no format, every in-flight frame of an integer change is an integer (no invented decimals)", () => {
+    const { rerender, container } = render(<MetricRenderer data={{ value: "120" }} />);
+    rerender(<MetricRenderer data={{ value: "180" }} />);
+    const seen: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      act(() => {
+        jest.advanceTimersByTime(16);
+      });
+      const counting = container.querySelector('.panel-content__metric-value [aria-hidden="true"]');
+      if (counting) seen.push(counting.textContent ?? "");
+    }
+    expect(seen.length).toBeGreaterThan(3);
+    for (const text of seen) expect(text).toMatch(/^\d+$/);
   });
 });

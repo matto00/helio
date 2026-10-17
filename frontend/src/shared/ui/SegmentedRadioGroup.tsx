@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent } from "react";
 
+import { useIndicatorSlide } from "../motion/useIndicatorSlide";
 import "./SegmentedRadioGroup.css";
 
 export interface SegmentedOption<T extends string> {
@@ -16,7 +17,8 @@ interface SegmentedRadioGroupProps<T extends string> {
 }
 
 /** A small segmented single-choice control (HEL-1572): `role="radiogroup"` of `role="radio"` buttons with a roving
- *  tabindex, arrow keys moving (and selecting) the choice. Exactly one option is exposed as checked. */
+ *  tabindex, arrow keys moving (and selecting) the choice. Exactly one option is exposed as checked. The selected
+ *  option's raised background is a `.motion-indicator` that slides between options (HEL-1573). */
 export function SegmentedRadioGroup<T extends string>({
   label,
   options,
@@ -24,6 +26,7 @@ export function SegmentedRadioGroup<T extends string>({
   onChange,
 }: SegmentedRadioGroupProps<T>) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const groupRef = useIndicatorSlide<HTMLDivElement>();
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const step =
@@ -40,7 +43,8 @@ export function SegmentedRadioGroup<T extends string>({
   }
 
   return (
-    <div className="ui-segmented" role="radiogroup" aria-label={label}>
+    <div className="ui-segmented" role="radiogroup" aria-label={label} ref={groupRef}>
+      <span className="motion-indicator ui-segmented__indicator" aria-hidden="true" />
       {options.map((option, index) => {
         const selected = option.value === value;
         return (
@@ -52,6 +56,7 @@ export function SegmentedRadioGroup<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            data-indicator-active={selected ? "" : undefined}
             tabIndex={selected ? 0 : -1}
             className={`ui-segmented__option${selected ? " ui-segmented__option--selected" : ""}`}
             onClick={() => onChange(option.value)}

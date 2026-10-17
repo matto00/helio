@@ -8,6 +8,13 @@
   border-radius: var(--app-radius-md);
   background: transparent;
   max-width: 100%;
+  position: relative;
+}
+
+/* The selected option's raised background: a sliding indicator behind the options (HEL-1573). */
+.ui-segmented__indicator {
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-raised);
 }
 
 .ui-segmented__option {
@@ -21,6 +28,8 @@
   font-weight: var(--weight-medium);
   cursor: pointer;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
   transition:
     background-color var(--app-transition),
     color var(--app-transition);
@@ -34,7 +43,6 @@
 }
 
 .ui-segmented__option--selected {
-  background: var(--app-surface-raised);
   color: var(--app-text);
 }
 

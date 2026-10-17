@@ -114,7 +114,7 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--app-radius-pill);
   /* Padding grows with the label on the same timing, so the pill widens as one continuous interpolation. */
-  transition: padding-inline var(--motion-duration-standard) var(--motion-ease-out);
+  transition: padding-inline var(--motion-duration-move) var(--motion-ease-out);
 }
 
 /* The label is in the DOM on every tab but collapsed on inactive ones (`aria-hidden` in the markup; the tab's
@@ -134,8 +134,8 @@
   line-height: 1;
   color: var(--app-text);
   transition:
-    max-width var(--motion-duration-standard) var(--motion-ease-out),
-    opacity var(--motion-duration-standard) var(--motion-ease-out);
+    max-width var(--motion-duration-move) var(--motion-ease-out),
+    opacity var(--motion-duration-move) var(--motion-ease-out);
 }
 
 /* Accent is sanctioned here as the active-tab indicator (DESIGN.md §0.3) — on the active ICON alone, nowhere else in

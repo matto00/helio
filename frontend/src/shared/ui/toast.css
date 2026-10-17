@@ -76,6 +76,15 @@
   --toast-exit-duration: 0.01ms;
 }
 
+/* HEL-1573: Subtle keeps the fade and drops the slide (DESIGN.md §10). */
+:root[data-motion="subtle"] .toast {
+  animation-name: toast-fade-in;
+}
+
+:root[data-motion="subtle"] .toast--exiting {
+  animation-name: toast-fade-out-in-place;
+}
+
 .toast--info {
   /* HEL-1048 D9 — two-hop alias chain: `--toast-intent-color` used to reach
      `--app-info` -> `--app-accent`, both text-only failing floors (Yellow
@@ -207,5 +216,23 @@
   to {
     opacity: 0;
     transform: translateX(20px);
+  }
+}
+
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toast-fade-out-in-place {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }

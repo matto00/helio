@@ -237,7 +237,7 @@ blur(1–2px)` to separate the modal from the page behind it — this blurs
     `--font-sans`, `--text-xs`, `--weight-semibold`, `var(--app-text)`, on the
     opaque pill, measured from rendered pixels over the same backdrops. The
     label expands via its `max-width`/`opacity` (and the pill's inline padding)
-    on `--motion-duration-standard`/`--motion-ease-out`, instant under reduced
+    on `--motion-duration-move`/`--motion-ease-out`, instant under reduced
     motion and Off, and truncates with an ellipsis inside its own tab when the
     five tabs cannot all fit (320px).
   - **Accent-on-surface.** The active icon is accent-coloured on the opaque
@@ -439,7 +439,7 @@ elevationTokenGuard.css.test.ts` pins each declaration by exact file,
   `--transition-slow` (0.28s, entrances) are the two transition _shorthands_
   that predate the scale; they equal `--motion-duration-quick` and
   `--motion-duration-standard` (+ `--motion-ease-out`) and keep serving their
-  existing consumers until HEL-1573 migrates them. `--app-skeleton-shimmer`
+  existing consumers as permanent aliases (HEL-1573). `--app-skeleton-shimmer`
   (1.6s, the `Skeleton` shimmer loop) and `--app-spin-duration` (0.7s, the loop
   role shared by `Spinner` and any local copy — HEL-441) are loop tokens: a
   continuous loop needs its own duration rather than reusing a transition
@@ -1001,7 +1001,7 @@ DESIGN.md edit".
   foot Settings and the user avatar menu. The active item is an
   `--app-accent-dim` wash with an accent icon (`--app-accent-text`, the
   contrast-guaranteed accent-as-text token) and carries `aria-current="page"`;
-  it is static until the motion foundation (HEL-1573) adds the indicator slide.
+  the wash is the sliding `.motion-indicator` (`useIndicatorSlide`, §10).
   Usage is not a primary-nav item: owners reach it from the avatar menu.
   **Home** is a real page at `/home` (HEL-1578): the rail and phone
   `BottomNav` Home item opens it and is marked current only there, so exactly
@@ -1128,56 +1128,128 @@ DESIGN.md edit".
 Motion explains change: where something came from, where it went, what
 just updated. It has a little give, and it is never decoration. The tokens
 below are the source of truth; their declarations live in `theme.css`.
-Primitives and the Motion setting are implemented by HEL-1572/HEL-1573, and
-this section is the contract they implement. **[judgment]**
+The Motion setting (HEL-1572) and the shared primitives (HEL-1573) implement
+this section; the primitive APIs below are what HEL-1584 builds on.
+**[judgment]**
 
 ### Tokens
 
-| token                          | value                              | role                                                                                         |
-| ------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| `--motion-duration-quick`      | 160ms                              | hover, colour (equals `--app-transition`)                                                    |
-| `--motion-duration-standard`   | 280ms                              | entrances, crossfade, indicator slide, layout slide, collapse/expand (= `--transition-slow`) |
-| `--motion-duration-emphasized` | 420ms                              | panel/card rise only                                                                         |
-| `--motion-duration-highlight`  | 1200ms                             | the changed-row flash (§11)                                                                  |
-| `--motion-stagger`             | 40ms                               | per-item entrance step (the boards use 30–50ms)                                              |
-| `--motion-ease-standard`       | `ease`                             | colour and opacity                                                                           |
-| `--motion-ease-out`            | `cubic-bezier(0.3, 0.9, 0.4, 1)`   | the single deceleration curve (equals `--transition-slow`'s)                                 |
-| `--motion-ease-overshoot`      | `cubic-bezier(0.2, 0.9, 0.3, 1.1)` | "a little give" (a pop); never under Subtle                                                  |
+| token                          | value                              | role                                                                                                                     |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `--motion-duration-quick`      | 160ms                              | hover, colour (equals `--app-transition`)                                                                                |
+| `--motion-duration-standard`   | 280ms                              | entrances, crossfade, indicator slide, layout slide, collapse/expand (= `--transition-slow`)                             |
+| `--motion-duration-emphasized` | 420ms                              | panel/card rise only                                                                                                     |
+| `--motion-duration-highlight`  | 1200ms                             | the changed-row flash (§11)                                                                                              |
+| `--motion-stagger`             | 40ms                               | per-item entrance step (the boards use 30–50ms)                                                                          |
+| `--motion-ease-standard`       | `ease`                             | colour and opacity                                                                                                       |
+| `--motion-ease-out`            | `cubic-bezier(0.3, 0.9, 0.4, 1)`   | the single deceleration curve (equals `--transition-slow`'s)                                                             |
+| `--motion-ease-overshoot`      | `cubic-bezier(0.2, 0.9, 0.3, 1.1)` | "a little give" (a pop); never under Subtle                                                                              |
+| `--motion-duration-move`       | `var(--motion-duration-standard)`  | role: anything that translates or repositions (layout slide, indicator slide, grid items); `0.01ms` under Subtle and Off |
+| `--motion-rise-distance`       | `6px`                              | role: the entrance rise (the 4-8px band; no scale); `0px` under Subtle and Off                                           |
+
+`--motion-duration-move` is declared at `:root` as an alias that resolves there, so
+overriding `--motion-duration-standard` lower in the tree does not retime it.
 
 **[mechanical]** New code takes durations and easings from this scale; a
 literal duration in a `transition:`/`animation:` declaration is rejected by
 `motionTokenGuard.css.test.ts`, and a literal easing is a defect. The
-pre-existing `--app-transition`/`--transition-slow` keep serving their current
-consumers until HEL-1573 migrates them. Loops (`--app-skeleton-shimmer`,
+`--app-transition`/`--transition-slow` are permanent aliases of
+`--motion-duration-quick` + `--motion-ease-standard` and
+`--motion-duration-standard` + `--motion-ease-out`: they already obey Off and
+OS reduce, and the roughly 290 existing consumers are not migrated. Loops (`--app-skeleton-shimmer`,
 `--app-spin-duration`) and component-scoped exits (`--toast-exit-duration`)
 stay as §3 states. One ease-out curve is kept on purpose so the system has a
 single deceleration shape.
 
 ### Primitives
 
-- **Staggered entrance.** Items enter in sequence, each delayed by one
-  `--motion-stagger` step, fading in and rising a few px on `--motion-ease-out`.
-  A panel or card rise uses `--motion-duration-emphasized`; other entrances use
-  `--motion-duration-standard`. One entrance per surface (§3). Cap the
-  sequence so the last item does not start later than about 400ms.
-- **Layout slide.** Panels that move to a new position slide there
-  (`--motion-duration-standard`, `--motion-ease-out`) instead of jumping.
-- **Value tween.** A changed number counts to its new value rather than
-  swapping. Tabular numerals (§3) keep it from jittering.
-- **Crossfade.** Replacing content fades the old out and the new in over
-  `--motion-duration-standard`; layout does not collapse in between.
-- **Indicator slide.** The active-tab, active-nav and filter indicators slide
-  to the new position (`--motion-duration-standard`, `--motion-ease-out`).
+All live in `frontend/src/shared/motion/` (plus `shared/ui/Crossfade.tsx`),
+take every duration, delay and curve from the tokens above, and have no
+literal timing (`shared/motion/motionPrimitiveLiterals.test.ts` enforces it).
+JS reads token durations with `readMotionDuration(name)` (`motionTokens.ts`, in
+ms, `0` when unresolved) and treats anything at or below `0.01ms` as instant.
+Where it reads is part of the contract: the layout slide, value tween and chart
+entrance timer read in an (layout) effect, never during render, because the
+root attribute can lag one render behind a Motion change. The one exception is
+the chart option: it is a render product that `echarts-for-react` applies in its
+own mount, so `useChartEntranceMotion` reads the standard duration while it
+builds the option; after a Motion change that value can be one render stale
+until the `effectiveMotion` rebuild `useChartOption` schedules after paint. The Motion level comes from the one reader,
+`useMotion()` (`theme/ThemeProvider.tsx`; `appearancePrefs.effectiveMotion()` for
+non-React code); `useReducedMotion()` is `useMotion() === "off"`.
+
+- **Staggered entrance.** `useStaggeredEntrance(count).itemProps(index)` returns
+  `{className: "motion-enter", style}`. `.motion-enter` fades in while rising
+  `--motion-rise-distance` on `--motion-ease-out` over
+  `--motion-duration-standard`, delayed by `min(index, 10)` x `--motion-stagger`
+  (so the last item starts by about 400ms). Items present in the first non-empty
+  render stagger in order; an item added later gets index 0 (one rise, no queue).
+  Re-renders never replay it. `.motion-enter` always runs on
+  `--motion-duration-standard`; it has no hook for another duration, so a panel
+  or card rise on `--motion-duration-emphasized` is future work (HEL-1584), not
+  something this primitive provides. Consumer: `DashboardList` rows.
+- **Layout slide.** `useLayoutSlide<T>()` returns a ref for the list container;
+  keyed children carry `data-motion-key`. After each commit a moved child
+  animates (Web Animations FLIP) from its old offset over
+  `--motion-duration-move` and `--motion-ease-out`. Full only: under Subtle and
+  Off no animation is scheduled. Flow lists only, never react-grid-layout items.
+  Consumer: `DashboardList` rows (add, remove, move between folders).
+- **Value tween.** `useValueTween(number | null)` returns the number to show.
+  The first value shows at once; a change counts to the new value with an
+  ease-out cubic over `--motion-duration-standard`; the settled frame is exactly
+  the target, so the caller's own formatter renders the exact final text, and
+  in-flight frames are rounded to the larger fraction-digit count of the two
+  endpoints (an integer counts through integers). Full
+  only (decided from `useMotion()`, because the standard duration stays 280ms
+  under Subtle). Tabular numerals (§3) keep it from jittering; in flight the
+  counting text is `aria-hidden` and the final value is the screen-reader text.
+  Consumer: `MetricRenderer`.
+- **Crossfade.** `<Crossfade loading skeleton>{content}</Crossfade>` stacks both
+  layers in one grid cell, so the container does not collapse. `children` are
+  **not rendered while `loading`** (a Suspense fallback cannot render them
+  either); when loading ends they mount with a keyframe fade-in (a freshly
+  inserted node has nothing to transition from) while the skeleton fades out by
+  transition. The skeleton is `aria-hidden` and `inert` the moment loading
+  ends and unmounts on `transitionend`, `transitioncancel`, or, checked on the
+  next frame, no running animation (loading ended before it painted, or Off).
+  Opacity only, so it runs under Subtle. Consumer: `PanelContent`.
+- **Indicator slide.** `useIndicatorSlide<T>()` returns a ref for a positioned
+  container holding a `.motion-indicator` element; the active item carries
+  `data-indicator-active`. The hook writes `--indicator-x/-y/-w/-h`; the
+  indicator translates and resizes over `--motion-duration-move` on
+  `--motion-ease-out`. The container's `data-indicator` is `hidden` (no active
+  item), `snap` (a placement with no transition: the first, and the first after
+  hidden) or `ready`. Consumers: `AppRail` (the active wash is the indicator)
+  and `SegmentedRadioGroup`. The dashboard tab strip belongs to its own ticket.
 - **Pop.** A small overshoot (`--motion-ease-overshoot`) on a confirmed action
-  or an added item: the "give". Full only.
+  or an added item: the "give". Full only. No primitive yet.
 - **Changed-row flash.** See §11; it is the one motion that survives Subtle.
+- **Panel grid.** react-grid-layout keeps its own CSS-transform reflow, timed
+  by `--motion-duration-move` + `--motion-ease-out` for the items, the drag
+  placeholder and the container height (`PanelGrid.css`; each override beats
+  the vendor selector by specificity, never by import order; an item being
+  dragged or resized, and the placeholder while resizing, keep the vendor's
+  `transition: none`). No FLIP runs inside the grid.
+- **Chart entrance.** Charts enter over `--motion-duration-standard`
+  (`animationEasing: cubicOut`, the closest ECharts curve to ease-out) once per
+  mount; later option changes do not replay it, but `animationDurationUpdate`
+  keeps the token so legend toggles and dataZoom still animate. Subtle renders
+  with no entrance but keeps hover-emphasis colour fades; Off renders with no
+  animation (`utils/chartAppearance.ts` `applyChartMotion`,
+  `features/panels/ui/useChartEntranceMotion.ts`). The charts keep
+  `notMerge={true}` (its stale-series rationale holds): a future morph-on-refresh
+  (HEL-1584) must revisit it.
 
 ### Motion setting (Full / Subtle / Off)
 
 - **Full:** every primitive.
 - **Subtle:** opacity and colour fades only. No translate, scale, overshoot or
   layout slide; value tweens swap instantly. The changed-row flash stays (it
-  is a fade).
+  is a fade). Implemented as: `--motion-duration-move` and
+  `--motion-rise-distance` are zeroed (the entrance keeps its fade, the
+  indicator and grid snap), the JS primitives gate on `useMotion()`, charts drop
+  the entrance, and the toast, the mobile navigation sheet and the refinement
+  chat drawer fade in place instead of translating.
 - **Off:** no transform or position animation, and no fades beyond the
   instant. There is no flash; a static changed marker is enough.
 - **No saved preference:** follow `prefers-reduced-motion`. `reduce` gives
@@ -1211,11 +1283,6 @@ In `theme.css`:
   `prefers-reduced-motion` block under `frontend/src`. The public landing page
   (`frontend/src/landing/`) is excluded: it never carries `data-motion`, so the
   OS setting is its only signal.
-
-**Known gap (HEL-1573).** Today Subtle only swaps `--motion-ease-overshoot`
-for the ease-out curve. The sheet, drawer and toast keep their translate
-entrances under Subtle until HEL-1573 implements the per-primitive Subtle
-rules above.
 
 ## 11. Live preview
 
@@ -1277,7 +1344,7 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   `--app-text` ring); inactive tabs are icon-only. Tabs are content-sized
   (`flex: 0 1 auto`, 44px floor) and spread with `space-evenly`; the label's
   `max-width`/`opacity` and the pill's inline padding transition on
-  `--motion-duration-standard` with `--motion-ease-out`, instant for reduced
+  `--motion-duration-move` with `--motion-ease-out`, instant for reduced
   motion and Off. At 320px the label truncates inside its own tab. The HEL-774
   carve-out (§3) still binds: translucent capsule, glyph floor >=3:1, pill
   ring >=3:1 and label >=4.5:1 measured from rendered pixels, the `-3px`
