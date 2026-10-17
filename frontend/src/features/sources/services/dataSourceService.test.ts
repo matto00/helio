@@ -96,3 +96,27 @@ describe("dataSourceService.fetchFieldAggregate", () => {
     expect(result).toEqual({ field: "delta", op: "sum", value: 12 });
   });
 });
+
+describe("dataSourceService.fetchSourceSample", () => {
+  it("GETs /api/data-sources/:id/sample and returns the body unchanged", async () => {
+    const body = {
+      rows: [{ a: { $int: 1 } }],
+      capturedAt: "2026-10-16T12:00:00Z",
+      sourceRowCount: null,
+      truncated: true,
+      live: true,
+    };
+    mockedHttpClient.get.mockResolvedValueOnce({ data: body });
+    const { fetchSourceSample } = await import("./dataSourceService");
+    await expect(fetchSourceSample("src-1")).resolves.toBe(body);
+    expect(mockedHttpClient.get).toHaveBeenCalledWith("/api/data-sources/src-1/sample");
+  });
+});
+
+describe("dataSourceService.fetchSourceSample guard", () => {
+  it("refuses a body that is not a sample", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({ data: "<html>proxy error</html>" });
+    const { fetchSourceSample } = await import("./dataSourceService");
+    await expect(fetchSourceSample("src-1")).rejects.toThrow("Unexpected sample response.");
+  });
+});

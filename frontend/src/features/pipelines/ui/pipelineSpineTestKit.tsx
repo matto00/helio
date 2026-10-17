@@ -15,6 +15,7 @@ import { layoutHistoryReducer } from "../../layout/state/layoutHistorySlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
 import type { DataSource } from "../../sources/types/dataSource";
 import { sourcesReducer } from "../../sources/state/sourcesSlice";
+import { sourceSamplesReducer } from "../../sources/state/sourceSamplesSlice";
 import { toastsReducer } from "../../toasts/state/toastsSlice";
 import { outputsReducer } from "../state/outputsSlice";
 import { pipelinesReducer } from "../state/pipelinesSlice";
@@ -71,6 +72,7 @@ export function makeSpineStore(options: SpineStoreOptions = {}) {
       layoutHistory: layoutHistoryReducer,
       panels: panelsReducer,
       sources: sourcesReducer,
+      sourceSamples: sourceSamplesReducer,
       pipelines: pipelinesReducer,
       outputs: outputsReducer,
       toasts: toastsReducer,

@@ -13,7 +13,8 @@ import scala.util.Try
  *  `Owned(user)` scopes the lookup to the caller's own Connectors (`findByIdOwned`) — used
  *  by every request-driven path (`SourceService`, routes). `Internal` bypasses ownership
  *  (`findByIdInternal`) — used ONLY by the pipeline-execution path
- *  (`InProcessPipelineEngine`/`PipelineRunService`), mirroring
+ *  (`InProcessPipelineEngine`/`PipelineRunService`) and by the owner-checked source sample request
+ *  (`SourceSampleService`, HEL-1628: it reads only after `findByIdOwned`, through the same engine load as a run), mirroring
  *  `DataSourceRepository.findByIdInternal`'s existing precedent: the pipeline itself is the
  *  access boundary for a run, not per-artifact Connector ownership (design.md Decision 11).
  *  Implementations that never reference a Connector (e.g. `SqlConnectorDriver`) ignore this

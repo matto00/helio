@@ -1,4 +1,8 @@
+import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { sourceSamplesReducer } from "../../sources/state/sourceSamplesSlice";
+import { sourcesReducer } from "../../sources/state/sourcesSlice";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
 import type { DataSource } from "../../sources/types/dataSource";
 import type { PipelineRoot } from "../types/pipelineStep";
@@ -64,23 +68,44 @@ interface OverrideProps {
   onOpenShare?: () => void;
 }
 
-function renderHeader(overrides: OverrideProps = {}) {
+function makeHeaderStore(preloaded?: { sourceSamples: unknown }) {
+  return configureStore({
+    reducer: { sources: sourcesReducer, sourceSamples: sourceSamplesReducer },
+    preloadedState: {
+      sources: {
+        items: [],
+        status: "succeeded" as const,
+        error: null,
+        errorKind: null,
+        selectedSourceId: null,
+        addModalOpen: false,
+        references: {},
+        referencesStatus: "idle" as const,
+      },
+      ...(preloaded as object),
+    },
+  });
+}
+
+function renderHeader(overrides: OverrideProps = {}, store = makeHeaderStore()) {
   return render(
-    <PipelineDetailHeader
-      roots={overrides.roots ?? oneRoot}
-      sourceByRootId={overrides.sourceByRootId ?? { "root-1": sqlSource }}
-      onEditSource={overrides.onEditSource ?? jest.fn()}
-      onAddRoot={overrides.onAddRoot ?? jest.fn()}
-      onRemoveRoot={overrides.onRemoveRoot ?? jest.fn()}
-      outputsCount={overrides.outputsCount ?? 0}
-      lastRunStatus={overrides.lastRunStatus ?? null}
-      schedule={overrides.schedule ?? null}
-      onEditSchedule={overrides.onEditSchedule ?? jest.fn()}
-      onToggleScheduleEnabled={overrides.onToggleScheduleEnabled ?? jest.fn()}
-      onOpenHistory={overrides.onOpenHistory ?? jest.fn()}
-      isOwner={overrides.isOwner ?? false}
-      onOpenShare={overrides.onOpenShare ?? jest.fn()}
-    />,
+    <Provider store={store}>
+      <PipelineDetailHeader
+        roots={overrides.roots ?? oneRoot}
+        sourceByRootId={overrides.sourceByRootId ?? { "root-1": sqlSource }}
+        onEditSource={overrides.onEditSource ?? jest.fn()}
+        onAddRoot={overrides.onAddRoot ?? jest.fn()}
+        onRemoveRoot={overrides.onRemoveRoot ?? jest.fn()}
+        outputsCount={overrides.outputsCount ?? 0}
+        lastRunStatus={overrides.lastRunStatus ?? null}
+        schedule={overrides.schedule ?? null}
+        onEditSchedule={overrides.onEditSchedule ?? jest.fn()}
+        onToggleScheduleEnabled={overrides.onToggleScheduleEnabled ?? jest.fn()}
+        onOpenHistory={overrides.onOpenHistory ?? jest.fn()}
+        isOwner={overrides.isOwner ?? false}
+        onOpenShare={overrides.onOpenShare ?? jest.fn()}
+      />
+    </Provider>,
   );
 }
 
@@ -429,5 +454,46 @@ describe("PipelineDetailHeader — single-container structure (HEL-719)", () => 
   it("renders exactly one bordered/backed header container for source + type + schedule", () => {
     const { container } = renderHeader();
     expect(container.querySelectorAll(".pipeline-detail-header")).toHaveLength(1);
+  });
+});
+
+// HEL-1628: the phone layout shows (and can refresh) what the page paid source-fetch budget for.
+describe("PipelineDetailHeader — sample label under each source chip (HEL-1628)", () => {
+  const twoRoots: PipelineRoot[] = [
+    { id: "root-1", dataSourceId: "src-1", dataSourceName: "Test Source" },
+    { id: "root-2", dataSourceId: "src-2", dataSourceName: "Other" },
+  ];
+
+  it("renders a label with a refresh button under every chip", () => {
+    const store = makeHeaderStore({
+      sourceSamples: {
+        epoch: 0,
+        entries: {
+          "src-1": {
+            status: "ready",
+            requestedAt: 1,
+            sample: {
+              rows: [],
+              capturedAt: "2026-10-16T12:00:00Z",
+              sourceRowCount: 30,
+              truncated: false,
+              live: false,
+            },
+          },
+        },
+      },
+    });
+    const { container } = renderHeader(
+      { roots: twoRoots, sourceByRootId: { "root-1": sqlSource, "root-2": undefined } },
+      store,
+    );
+    expect(screen.getByText("Static · 30 rows")).toBeInTheDocument();
+    expect(container.querySelectorAll(".source-sample-label")).toHaveLength(2);
+    // The resolvable root can be refreshed; the unresolvable one reads unavailable with no control.
+    expect(
+      screen.getByRole("button", { name: "Refresh sample of Test Source" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sample unavailable")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh sample of Other" })).toBeNull();
   });
 });

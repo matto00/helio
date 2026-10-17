@@ -141,7 +141,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 149)", () => {
+  it("walks every CSS file in frontend/src (currently 150)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -166,8 +166,8 @@ describe("motion token guard (HEL-441)", () => {
     // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
     // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css`, HEL-1576 added `DashboardMetaRow.css`; tokens only, no shadow/radius/motion literals.
     // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
-    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 1 (HEL-1578: features/home/ui/HomePage.css) + 2 (HEL-1573: motion.css, Crossfade.css) = 149, recounted with find, not carried from any side.
-    expect(files.length).toBe(149);
+    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 1 (HEL-1578: features/home/ui/HomePage.css) + 2 (HEL-1573: motion.css, Crossfade.css) + 1 (HEL-1628: features/sources/ui/SourceSampleLabel.css) = 150, recounted with find, not carried from any side.
+    expect(files.length).toBe(150);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

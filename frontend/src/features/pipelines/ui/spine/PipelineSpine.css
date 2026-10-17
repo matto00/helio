@@ -370,6 +370,16 @@
   background: var(--app-surface-strong);
 }
 
+/* HEL-1628: the sample label's refresh button sits on the card's `--app-surface`, so its ghost hover
+   (`--app-surface-soft`, 1.03:1 there in dark) takes the same rung as the card menu above. */
+.spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="dark"] .spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
 /* On the selected row (accent wash backdrop) the menu trigger deepens to the selection-border tone, like the
    row's own select button. */
 .spine-row--selected .spine-row__menu .popover__trigger:hover {
