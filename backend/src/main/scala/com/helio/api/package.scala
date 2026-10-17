@@ -18,6 +18,10 @@ package object api {
   val PatchSetAlreadyAppliedResponse: protocols.PatchSetAlreadyAppliedResponse.type = protocols.PatchSetAlreadyAppliedResponse
   type StaleTargetResponse = protocols.StaleTargetResponse
   val StaleTargetResponse: protocols.StaleTargetResponse.type = protocols.StaleTargetResponse
+  type DraftCascadeImpactResponse = protocols.pipelines.DraftCascadeImpactResponse
+  val DraftCascadeImpactResponse: protocols.pipelines.DraftCascadeImpactResponse.type = protocols.pipelines.DraftCascadeImpactResponse
+  type DraftCascadeRequiredResponse = protocols.pipelines.DraftCascadeRequiredResponse
+  val DraftCascadeRequiredResponse: protocols.pipelines.DraftCascadeRequiredResponse.type = protocols.pipelines.DraftCascadeRequiredResponse
   type HealthResponse = protocols.HealthResponse
   val HealthResponse: protocols.HealthResponse.type = protocols.HealthResponse
 

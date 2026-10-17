@@ -1,0 +1,6 @@
+--- (A5) delete_without_pipeline_lock: Output delete vs save locking rules, then Outputs
+W: |
+S: |1|1|1|1|ERROR:  deadlock detected|DETAIL:  Process 1805049 waits for ShareLock on transaction 1638; blocked by process 1805048.|Process 1805048 waits for ShareLock on transaction 1637; blocked by process 1805049.|HINT:  See server log for query details.|CONTE
+--- (A5) delete_takes_pipeline_lock: Output delete vs save locking rules, then Outputs
+W: |1|
+S: |1|1|1|1|1|1|1|

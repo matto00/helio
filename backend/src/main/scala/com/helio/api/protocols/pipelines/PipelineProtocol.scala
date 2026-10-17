@@ -116,7 +116,11 @@ final case class RemovePipelineRootResponse(removedStepCount: Int, removedOutput
  *  means not recorded: never run, or the latest run failed, was blocked or reaped. Never rendered as zero.
  *
  *  HEL-1022: `updatedAt` is last edited, distinct from `lastRunAt` which means last run and is `None` for a
- *  never-run pipeline; it is the field the list view's default recency sort actually needs. */
+ *  never-run pipeline; it is the field the list view's default recency sort actually needs.
+ *
+ *  HEL-1629: `fingerprint` (the `pipeline` patch-set fingerprint the draft save compares, `v1:` + sha256) is present ONLY on
+ *  `GET /api/pipelines/:id`; with `?definition=true` the same response also carries `definition`
+ *  (`{steps, outputs}`) read from the SAME snapshot, which is what a draft is based on. The list never carries either. */
 final case class PipelineSummaryResponse(
     id: String,
     name: String,
@@ -129,7 +133,9 @@ final case class PipelineSummaryResponse(
     ownerId: Option[String] = None,
     tag: Option[String] = None,
     createdAt: String = "",
-    updatedAt: String = ""
+    updatedAt: String = "",
+    fingerprint: Option[String] = None,
+    definition: Option[JsValue] = None
 )
 
 
@@ -358,7 +364,7 @@ trait PipelineProtocol
     jsonFormat3(PipelineRootSummaryResponse.apply)
   implicit val removePipelineRootResponseFormat: RootJsonFormat[RemovePipelineRootResponse] =
     jsonFormat2(RemovePipelineRootResponse.apply)
-  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat12(PipelineSummaryResponse.apply)
+  implicit val pipelineSummaryResponseFormat: RootJsonFormat[PipelineSummaryResponse] = jsonFormat14(PipelineSummaryResponse.apply)
 
   implicit val assertionFailureDetailFormat: RootJsonFormat[AssertionFailureDetail] =
     jsonFormat4(AssertionFailureDetail.apply)

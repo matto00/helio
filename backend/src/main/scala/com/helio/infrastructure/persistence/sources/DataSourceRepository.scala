@@ -8,7 +8,7 @@ import com.helio.domain.engine.DatasetSchemaMigration.{FieldEditSpec, MigrationR
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.model._
 import com.helio.domain.steps.{UpsertMode, UpsertSourceConfig, UpsertTarget}
-import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
+import com.helio.infrastructure.persistence.pipelines.{LockSite, PipelineDefinitionLocks, PipelineStepRepository}
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -22,7 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.mutable
 
-class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class DataSourceRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
   import DataSourceRepository._
 
@@ -275,9 +275,17 @@ class DataSourceRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val owned = table.filter(r => r.id === id.value && r.ownerId === UUID.fromString(user.id.value))
     // HEL-1498: the cascade through pipeline_roots reaches the Outputs (and their panels) bound to this source's
     // roots, so once the owner check finds the row, lock those panels in id order before the DELETE.
+    // HEL-1629: the protocol order for a writer whose cascade reaches pipelines other users own. (0) the source row FOR UPDATE
+    // first: a root add's FK key-share on it conflicts, so the set of pipelines rooted on it is frozen before it is read.
+    // (1) the panels. (3) every pipeline rooted on the source, read and locked in one privileged statement because the
+    // source's owner cannot see, under RLS, a pipeline another user owns.
     val action = owned.map(_.id).result.headOption.flatMap {
       case None      => DBIO.successful(0)
-      case Some(sid) => PanelRowLocks.lockForDeletion(dataSources = Seq(sid)) andThen owned.delete
+      case Some(sid) =>
+        locks.choose(LockSite.SourceDeleteSourceRow, owned.map(_.id).forUpdate.result.map(_ => ()), DBIO.successful(())) andThen
+          PanelRowLocks.lockForDeletion(dataSources = Seq(sid)) andThen
+          locks.lockPipelinesRootedOn(LockSite.SourceDelete, Nil, Seq(sid)) andThen
+          owned.delete
     }
     ctx.withUserContext(user.id.value)(action.transactionally).map(_ > 0)
   }

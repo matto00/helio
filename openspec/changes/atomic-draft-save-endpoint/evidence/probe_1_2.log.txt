@@ -1,0 +1,20 @@
+--- order=earlier iter=1
+C: 1|ERROR:  deadlock detected|DETAIL:  Process 1789121 waits for ShareLock on transaction 1287; blocked by process 1789122.|Process 1789122 waits for ShareLock on transaction 1286; blocked by process 1789121.|HINT:  See server log for query details.|CONTEXT:  while locking tuple (0,1) in relation "outputs"|SQL statement "SELECT 1 FROM ONLY "public"."outputs" x WHERE "id" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x"|
+S: 1|1|1|1|1|1|1|1|
+--- order=earlier iter=2
+C: 1|ERROR:  deadlock detected|DETAIL:  Process 1789158 waits for ShareLock on transaction 1301; blocked by process 1789160.|Process 1789160 waits for ShareLock on transaction 1300; blocked by process 1789158.|HINT:  See server log for query details.|CONTEXT:  while locking tuple (0,1) in relation "outputs"|SQL statement "SELECT 1 FROM ONLY "public"."outputs" x WHERE "id" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x"|
+S: 1|1|1|1|1|1|1|1|
+--- order=earlier iter=3
+C: 1|ERROR:  deadlock detected|DETAIL:  Process 1789217 waits for ShareLock on transaction 1315; blocked by process 1789218.|Process 1789218 waits for ShareLock on transaction 1314; blocked by process 1789217.|HINT:  See server log for query details.|CONTEXT:  while locking tuple (0,1) in relation "outputs"|SQL statement "SELECT 1 FROM ONLY "public"."outputs" x WHERE "id" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x"|
+S: 1|1|1|1|1|1|1|1|
+--- order=H iter=1
+C: 1|
+S: |1|1|1|1|
+NOTICE:  database "pr12_h_2" does not exist, skipping
+--- order=H iter=2
+C: 1|
+S: |1|1|1|1|
+NOTICE:  database "pr12_h_3" does not exist, skipping
+--- order=H iter=3
+C: 1|
+S: |1|1|1|1|

@@ -35,23 +35,26 @@ class AuditEventRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
    *      the one that can fail to record.
    *   3. Audit writes must be able to record an action by actor A even when
    *      the surrounding request/transaction is scoped to a different user. */
-  def append(event: NewAuditEvent): Future[AuditEventId] = {
+  def append(event: NewAuditEvent): Future[AuditEventId] =
+    ctx.withSystemContext(appendAction(event))
+
+  /** [[append]] as a composable `DBIO` for a caller already inside a PRIVILEGED transaction (HEL-1629: the draft save writes
+   *  its one audit row in the save's own transaction, so a committed save always has exactly one). */
+  def appendAction(event: NewAuditEvent): DBIO[AuditEventId] = {
     val insertQuery =
       (table.map(t => (t.actorUserId, t.actorTokenId, t.source, t.action, t.resourceType, t.resourceId, t.metadata))
         returning table.map(_.id))
-    ctx.withSystemContext(
-      insertQuery += (
-        (
-          event.actorUserId.map(u => UUID.fromString(u.value)),
-          event.actorTokenId.map(t => UUID.fromString(t.value)),
-          AuditSource.asString(event.source),
-          event.action,
-          event.resourceType,
-          event.resourceId,
-          event.metadata.compactPrint
-        )
+    (insertQuery += (
+      (
+        event.actorUserId.map(u => UUID.fromString(u.value)),
+        event.actorTokenId.map(t => UUID.fromString(t.value)),
+        AuditSource.asString(event.source),
+        event.action,
+        event.resourceType,
+        event.resourceId,
+        event.metadata.compactPrint
       )
-    ).map(id => AuditEventId(id.toString))
+    )).map(id => AuditEventId(id.toString))
   }
 
   /** Owner-scoped: events authored by `actorUserId`, newest-first. The RLS

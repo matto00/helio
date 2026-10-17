@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/draft-save-response.schema.json",
+  "title": "DraftSaveResponse",
+  "description": "200 body of POST /api/pipelines/:id/draft/save (HEL-1629). `saved` is the committed definition with its new `fingerprint` and the id of the journal row (`applicationId`) that POST /api/patch-sets/:id/undo restores. `run` is ALWAYS present: null when no run was requested; `started: true` when the run was admitted; `started: false` with the HTTP `code` the run endpoint would have answered (429 for the HEL-505 guard, with `retryAfterSeconds`) when it was refused AFTER the save committed. A refused run never rolls the save back.",
+  "type": "object",
+  "required": ["saved", "run"],
+  "properties": {
+    "saved": {
+      "type": "object",
+      "required": ["fingerprint", "definition", "applicationId"],
+      "properties": {
+        "fingerprint": { "type": "string", "pattern": "^v1:[0-9a-f]{64}$" },
+        "definition": {
+          "type": "object",
+          "required": ["steps", "outputs"],
+          "properties": {
+            "steps": { "type": "array", "items": { "$ref": "#/$defs/SavedStep" } },
+            "outputs": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/SavedOutput" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "applicationId": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "run": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["started", "status"],
+          "properties": {
+            "started": { "const": true },
+            "runId": { "type": "string" },
+            "status": { "enum": ["succeeded", "blocked"] }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["started", "code", "reason"],
+          "properties": {
+            "started": { "const": false },
+            "code": { "type": "integer" },
+            "retryAfterSeconds": { "type": "integer", "minimum": 0 },
+            "reason": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "SavedOutput": {
+      "type": "object",
+      "description": "An Output as the save returns it: schemas/outputs/output.schema.json, except that `nodeStepId` and `rootId` are optional because spray-json omits an absent value (a root-bound Output has no nodeStepId on the wire).",
+      "required": [
+        "id",
+        "pipelineId",
+        "ownerId",
+        "name",
+        "kind",
+        "config",
+        "schema",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "pipelineId": { "type": "string" },
+        "nodeStepId": { "type": "string" },
+        "rootId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"] },
+        "config": { "type": "object" },
+        "schema": {
+          "type": "array",
+          "items": { "$ref": "https://helio.local/schemas/outputs/output-schema-field.schema.json" }
+        },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "SavedStep": {
+      "type": "object",
+      "required": [
+        "id",
+        "pipelineId",
+        "type",
+        "config",
+        "position",
+        "enabled",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "pipelineId": { "type": "string" },
+        "type": { "type": "string" },
+        "config": { "type": "object" },
+        "position": { "type": "integer", "minimum": 0 },
+        "enabled": { "type": "boolean" },
+        "parentStepId": { "type": "string" },
+        "rootId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  }
+}

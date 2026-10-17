@@ -1,0 +1,4 @@
+1086c1086
+<                               .update((deletedRow.parentStepId, deletedRow.rootId, deletedRow.position))
+---
+>                               .update((preRow.parentStepId, preRow.rootId, preRow.position))

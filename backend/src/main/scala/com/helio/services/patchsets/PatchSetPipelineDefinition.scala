@@ -6,6 +6,8 @@ import com.helio.infrastructure.persistence.pipelines.PipelineRepository.Pipelin
 import PatchSetApplyServiceJson._
 import spray.json._
 
+import slick.dbio.DBIO
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -22,34 +24,55 @@ private[services] object PatchSetPipelineDefinition {
   private val StepKeys   = Vector("id", "type", "config", "position", "enabled", "parentStepId", "rootId")
   private val OutputKeys = Vector("id", "name", "kind", "nodeStepId", "config")
 
-  def of(summary: PipelineSummary, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[JsObject] = {
-    val pipelineId = PipelineId(summary.id)
-    for {
-      stepsAndRoots <- ctx.pipelineStepRepo.listWithRootIdsInternal(pipelineId)
-      outputs       <- ctx.outputRepo.listByPipelineInternal(pipelineId)
-      configs       <- ctx.outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
-      schedule      <- ctx.pipelineRepo.findScheduleDefinitionInternal(pipelineId)
-      outputIds      = outputs.map(_.id.value)
-      panelIds      <- ctx.panelRepo.findIdsByOutputIdsInternal(outputIds)
-      alertRules    <- ctx.outputRepo.findAlertRuleDefinitionsInternal(outputIds)
-    } yield {
-      val (steps, rootIds) = stepsAndRoots
-      val stepJson   = stepsJson(steps, rootIds)
-      val outputJson = outputsJson(outputs, configs, panelIds, alertRules)
-      JsObject(
-        Map(
-          "name"    -> JsString(summary.name),
-          "roots"   -> JsArray(summary.roots.map(r => JsObject("id" -> JsString(r.id), "dataSourceId" -> JsString(r.dataSourceId)))),
-          "steps"   -> JsArray(stepJson),
-          "outputs" -> JsArray(outputJson)
-        ) ++ summary.tag.map("tag" -> JsString(_)) ++ schedule.map { case (kind, expression, enabled, timezone) =>
-          "schedule" -> JsObject(
-            "kind" -> JsString(kind), "expression" -> JsString(expression), "enabled" -> JsBoolean(enabled), "timezone" -> JsString(timezone)
-          )
-        }
-      )
+  /** The definition for a summary the caller already read. Delegates to [[ofAction]], which re-reads the head (name, tag,
+   *  roots) itself on the privileged pool, so a rename after the caller's summary read IS reflected; `summary` only supplies
+   *  the pipeline id, and its fields stand in when the pipeline has vanished (empty children, as before). */
+  def of(summary: PipelineSummary, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): Future[JsObject] =
+    ctx.pipelineRepo.runPrivileged(ofAction(PipelineId(summary.id), ctx)).recover {
+      case _: PipelineDefinitionGone => assemble(summary, Vector.empty, Map.empty, Vector.empty, Map.empty, Map.empty, Map.empty, None)
     }
-  }
+
+  /** The definition as ONE composable `DBIO` (HEL-1629): the draft save runs it inside its transaction after taking its locks,
+   *  and `GET /api/pipelines/:id` runs it on a REPEATABLE READ snapshot. Fails with [[PipelineDefinitionGone]] when the pipeline
+   *  does not exist. MUST run on the privileged pool at every call site: it covers other users' panels and alert rules, and a
+   *  user-context run would hide them, never match the save's hash, and make the save answer 409 forever. */
+  def ofAction(pipelineId: PipelineId, ctx: PatchSetApplyContext)(implicit ec: ExecutionContext): DBIO[JsObject] =
+    ctx.pipelineRepo.findDefinitionHeadAction(pipelineId).flatMap {
+      case None => DBIO.failed(PipelineDefinitionGone(pipelineId.value))
+      case Some(head) =>
+        for {
+          stepsAndRoots <- ctx.pipelineStepRepo.listWithRootIdsAction(pipelineId)
+          outputs       <- ctx.outputRepo.listByPipelineAction(pipelineId)
+          outputIds      = outputs.map(_.id.value)
+          configs       <- ctx.outputRepo.findConfigsByIdsAction(outputIds)
+          schedule      <- ctx.pipelineRepo.findScheduleDefinitionAction(pipelineId)
+          panelIds      <- ctx.panelRepo.findIdsByOutputIdsAction(outputIds)
+          alertRules    <- ctx.outputRepo.findAlertRuleDefinitionsAction(outputIds)
+        } yield assemble(head, stepsAndRoots._1, stepsAndRoots._2, outputs, configs, panelIds, alertRules, schedule)
+    }
+
+  private def assemble(
+      head: PipelineSummary,
+      steps: Vector[PipelineStep],
+      rootIds: Map[PipelineStepId, PipelineRootId],
+      outputs: Vector[Output],
+      configs: Map[String, JsObject],
+      panelIds: Map[String, Vector[String]],
+      alertRules: Map[String, Vector[(String, String, String, String, Boolean, String)]],
+      schedule: Option[(String, String, Boolean, String)]
+  ): JsObject =
+    JsObject(
+      Map(
+        "name"    -> JsString(head.name),
+        "roots"   -> JsArray(head.roots.map(r => JsObject("id" -> JsString(r.id), "dataSourceId" -> JsString(r.dataSourceId)))),
+        "steps"   -> JsArray(stepsJson(steps, rootIds)),
+        "outputs" -> JsArray(outputsJson(outputs, configs, panelIds, alertRules))
+      ) ++ head.tag.map("tag" -> JsString(_)) ++ schedule.map { case (kind, expression, enabled, timezone) =>
+        "schedule" -> JsObject(
+          "kind" -> JsString(kind), "expression" -> JsString(expression), "enabled" -> JsBoolean(enabled), "timezone" -> JsString(timezone)
+        )
+      }
+    )
 
   /** The steps as fingerprinted JSON, sorted by id (shared by the pipeline and step-delete fingerprints). */
   def stepsJson(steps: Vector[PipelineStep], rootIds: Map[PipelineStepId, PipelineRootId]): Vector[JsObject] = {
@@ -101,3 +124,6 @@ private[services] object PatchSetPipelineDefinition {
     JsObject(keys.flatMap(key => fields.get(key).map(key -> _)).toMap)
   }
 }
+
+/** Raised by [[PatchSetPipelineDefinition.ofAction]] when the pipeline does not exist (a racer deleted it). */
+final case class PipelineDefinitionGone(pipelineId: String) extends RuntimeException(s"Pipeline not found: $pipelineId")

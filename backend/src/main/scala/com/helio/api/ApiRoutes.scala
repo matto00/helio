@@ -45,6 +45,7 @@ import com.helio.services.sharing.{ShareTokenService, ShareTokenValidatorImpl}
 import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
+import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveService}
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -532,6 +533,12 @@ final class ApiRoutes(
   // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
   // patchSetApplyService's own always-constructed pattern below).
   private val patchSetApplicationRepo = new PatchSetApplicationRepository(dbContext)
+  // HEL-1629: the atomic draft save (and its undo restore). Shares the repositories above, journals through
+  // `patchSetApplicationRepo` and submits an optional run through the unchanged `pipelineRunService`.
+  private val draftSaveService = new DraftSaveService(
+    pipelineRepo, pipelineStepRepo, outputRepo, panelRepo, dataSourceRepo, pipelineRootRepo, patchSetApplicationRepo,
+    auditEventRepo, pipelineRunService
+  )
   // HEL-406: atomic patch-set apply — composes the same, already-constructed
   // per-resource services (panelService/dashboardService/dataSourceService/
   // dataTypeService/pipelineService) plus the repos/accessChecker its
@@ -564,7 +571,8 @@ final class ApiRoutes(
   private val patchSetUndoService = new PatchSetUndoService(
     panelService, dashboardService, dataSourceService, pipelineService,
     panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-    patchSetApplicationRepo, outputRepo = outputRepo
+    patchSetApplicationRepo, outputRepo = outputRepo,
+    draftRestore = new DraftRestore(draftSaveService, outputRepo, panelRepo)
   )
   // HEL-904 task 3.6/4.1: `BoundPanelService` (`POST /api/panels/bound`) is
   // deleted outright — design.md's P1.1 row lists it explicitly, and its
@@ -955,7 +963,8 @@ final class ApiRoutes(
                   // HEL-1619: MUST precede PipelineRoutes -- its unconstrained PipelineIdSegment GET would
                   // otherwise swallow the literal "context-details" segment as a pipeline id.
                   new PipelineContextDetailsRoutes(pipelineService, pipelineRunService, authenticatedUser).routes,
-                  new PipelineRoutes(pipelineService, authenticatedUser).routes,
+                  new PipelineDraftRoutes(draftSaveService, authenticatedUser).routes,
+                  new PipelineRoutes(pipelineService, authenticatedUser, Some(draftSaveService)).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.
                   new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig))).routes,

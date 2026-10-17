@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
  *  SELECT (V98 §11) -- so every write here goes through `ctx.withUserContext`
  *  scoped to the pipeline OWNER, exactly like `PipelineStepRepository`.
  */
-class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
   import PipelineRootRepository._
 
@@ -87,8 +87,13 @@ class PipelineRootRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     val pipelineNameQuery = pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.head
     ctx.withUserContext(user.id.value) {
       for {
+        // HEL-1629 (D5, hypothesis H'): the source row FOR KEY SHARE first, ahead of the advisory lock and the pipeline row. A
+        // source delete takes the same row FOR UPDATE before it reads which pipelines are rooted on it, so a root add can
+        // never grow that set between the read and the delete.
+        _            <- locks.choose(LockSite.RootAddSourceShare, sql"SELECT 1 FROM data_sources WHERE id = ${dataSourceId.value} FOR KEY SHARE".as[Int].map(_ => ()), DBIO.successful(()))
         pipelineName <- pipelineNameQuery
         _            <- PipelineCycleGuard.checkAddReadAction(this, stepRepoForCycleCheck, user.id.value, pipelineId, pipelineName, dataSourceId)
+        _            <- locks.lockPipelines(LockSite.RootAdd, Seq(pipelineId.value))
         maxPosOpt    <- nextPositionQuery
         row           = PipelineRootRow(id, pipelineId.value, dataSourceId.value, maxPosOpt.map(_ + 1).getOrElse(0), now)
         _            <- rootsTable += row

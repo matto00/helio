@@ -1,0 +1,98 @@
+- `backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql` — V137: SECURITY DEFINER hel1629_lock_pipelines(text[], text[]) returning the locked count; works as a non-BYPASSRLS role
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wiring and response fields for the draft save
+- `backend/src/main/scala/com/helio/api/JsonProtocols.scala` — wiring and response fields for the draft save
+- `backend/src/main/scala/com/helio/api/package.scala` — wiring and response fields for the draft save
+- `backend/src/main/scala/com/helio/api/protocols/ResourceProtocol.scala` — wiring and response fields for the draft save
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/DraftSaveProtocol.scala` — draft save request/response protocol and formats
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/PipelineProtocol.scala` — wiring and response fields for the draft save
+- `backend/src/main/scala/com/helio/api/routes/ServiceResponse.scala` — PatchSetStale.currentFingerprint, CascadeConfirmationRequired and its 422 body
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineDraftRoutes.scala` — POST /api/pipelines/:id/draft/save route
+- `backend/src/main/scala/com/helio/api/routes/pipelines/PipelineRoutes.scala` — GET /api/pipelines/:id serves fingerprint and ?definition=true
+- `backend/src/main/scala/com/helio/infrastructure/persistence/SqlTextArrays.scala` — shared SetParameter for text[] arguments to the lock function
+- `backend/src/main/scala/com/helio/infrastructure/persistence/audit/AuditEventRepository.scala` — appendAction DBIO variant so the audit row joins the save's transaction
+- `backend/src/main/scala/com/helio/infrastructure/persistence/panels/PanelRepository.scala` — findIdsByOutputIdsAction for the save's lock/impact reads
+- `backend/src/main/scala/com/helio/infrastructure/persistence/patchsets/PatchSetApplicationRepository.scala` — createAction DBIO variant so the journal row joins the save's transaction
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputRepository.scala` — Output Action variants; Output create/delete take the pipeline-row lock in the verified order
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineCycleGuard.scala` — lockAction made public for the save's ordered advisory lock
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineDefinitionLocks.scala` — LockSite seam + Enforced locks: the verified pipeline-row lock protocol (O*) behind a test-removable seam
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineDraftWrites.scala` — bulk definition writes and lockDefinition (O*) for the atomic save
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRepository.scala` — definition head/schedule reads, privileged and REPEATABLE READ snapshot runners
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRootRepository.scala` — root add/remove take source key-share, advisory and pipeline-row locks (H')
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineScheduleRepository.scala` — schedule upsert/delete take the pipeline-row lock
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` — lock-free *Action cores, listWithRootIdsAction, pipeline-row lock in every step writer (A3/A5), delete re-derived under lock
+- `backend/src/main/scala/com/helio/infrastructure/persistence/sources/DataSourceRepository.scala` — source delete locks the source row, then panels, then every rooted pipeline (H')
+- `backend/src/main/scala/com/helio/infrastructure/persistence/workspace/WorkspaceTeardownRepository.scala` — teardown locks tagged sources first, then pipelines rooted on them (A4)
+- `backend/src/main/scala/com/helio/services/ServiceError.scala` — PatchSetStale.currentFingerprint, CascadeConfirmationRequired and its 422 body
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetPipelineDefinition.scala` — ofAction in one transaction (fingerprint source of truth for GET and save)
+- `backend/src/main/scala/com/helio/services/patchsets/PatchSetUndoService.scala` — dispatch pipelineDefinition journal rows to DraftRestore
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreatePreflight.scala` — rewriteLaneClientId extracted for reuse by the draft planner
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreateTransaction.scala` — rewriteLaneClientId extracted for reuse by the draft planner
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDefinitionReads.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDiff.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftRestore.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveHooks.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveJournal.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveService.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/test/scala/com/helio/api/protocols/DraftSaveSeamSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveApiSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveDeadlockSpec.scala` — deadlock spec with opposite-order controls and a repeated mix
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveFaultSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRaceSpec.scala` — race specs (writer-first and save-first, controls red without the lock)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRlsSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRunSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveSetRaceSpec.scala` — race specs (writer-first and save-first, controls red without the lock)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveUndoSpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/infrastructure/persistence/V137LockPipelinesMigrationSpec.scala` — V137 as a non-BYPASSRLS role, both arguments
+- `backend/src/test/scala/com/helio/services/patchsets/PatchSetPipelineDefinitionParitySpec.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/services/pipelines/draft/DraftDiffSpec.scala` — atomic draft save: pure planner, hooks, journal, transaction, reads, service, restore
+- `backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala` — test fixtures and harness for the draft-save specs
+- `backend/src/test/scala/com/helio/testsupport/DraftSaveApiFixture.scala` — behaviour specs: API, fault injection, RLS, run-after-save, undo, seam, planner, fingerprint parity
+- `backend/src/test/scala/com/helio/testsupport/DraftSaveHarness.scala` — test fixtures and harness for the draft-save specs
+- `backend/src/test/scala/com/helio/testsupport/DraftSaveSeed.scala` — test fixtures and harness for the draft-save specs
+- `backend/src/test/scala/com/helio/testsupport/TwoUserRlsApiFixture.scala` — test fixtures and harness for the draft-save specs
+- `docs/live-draft-preview.md` — section 8.3.1: the verified protocol with the red/green evidence per lock
+- `frontend/src/features/pipelines/services/draftSaveService.test.ts` — service unit tests
+- `frontend/src/features/pipelines/services/draftSaveService.ts` — draft-save service: getPipelineWithDefinition, saveDraft, extractDraftSaveConflict (no force path)
+- `frontend/src/features/pipelines/services/draftSaveWire.contract.test.ts` — contract test against the shared fixtures and schemas
+- `frontend/src/features/pipelines/types/draftSave.ts` — draft-save types (no UI wiring; HEL-1631 owns the UI)
+- `frontend/src/features/pipelines/types/pipelineStep.ts` — PipelineSummary.fingerprint and definition
+- `openspec/changes/atomic-draft-save-endpoint/.openspec.yaml` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/design.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/proposal.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/skeptic-design-1.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/skeptic-design-2.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/skeptic-design-3.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/skeptic-design-4.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/specs/patch-set-undo/spec.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/specs/pipeline-definition-lock-protocol/spec.md` — G2 order updated to the verified order
+- `openspec/changes/atomic-draft-save-endpoint/specs/pipeline-draft-save/spec.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/tasks.md` — change artifacts / task checkboxes
+- `openspec/changes/atomic-draft-save-endpoint/ticket.md` — change artifacts / task checkboxes
+- `schemas/pipelines/draft-cascade-required-response.schema.json` — JSON Schema for the draft-save wire shapes / fingerprint / currentFingerprint
+- `schemas/pipelines/draft-save-request.schema.json` — JSON Schema for the draft-save wire shapes / fingerprint / currentFingerprint
+- `schemas/pipelines/draft-save-response.schema.json` — JSON Schema for the draft-save wire shapes / fingerprint / currentFingerprint
+- `schemas/pipelines/pipeline-summary.schema.json` — JSON Schema for the draft-save wire shapes / fingerprint / currentFingerprint
+- `schemas/shared/patch-set-stale-response.schema.json` — JSON Schema for the draft-save wire shapes / fingerprint / currentFingerprint
+- `shared-test-fixtures/draft-save/draft-save-cascade-422.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `shared-test-fixtures/draft-save/draft-save-request.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `shared-test-fixtures/draft-save/draft-save-response-run-rejected.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `shared-test-fixtures/draft-save/draft-save-response-run-started.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `shared-test-fixtures/draft-save/draft-save-response.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `shared-test-fixtures/draft-save/draft-save-stale-409.json` — shared wire fixtures validated by both the backend seam spec and the frontend contract test
+- `openspec/changes/atomic-draft-save-endpoint/evidence/**` — probe scripts and logs, mutation diffs/logs, race logs, red-green-log.md, g1-writers.md
+- `backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala` — cycle 2: oracle also flags a writer-first lost update (writer committed before the save, save 200)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRaceSpec.scala` — cycle 2: Output delete race block; raced-delete writers pin
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRlsSpec.scala` — cycle 2: editor root add/remove pins (C5)
+- `openspec/changes/atomic-draft-save-endpoint/evidence/**/*.log.txt` — cycle 2: logs renamed so they are tracked; M4, R3, R4 and the R5 summary added
+- `openspec/changes/atomic-draft-save-endpoint/evidence/cycle3/**` — cycle 3: F1/F2 red logs, mutations M5-M7, full-run summary
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala` — cycle 3: deleteInternal re-reads under (3), bounded retry; order switches for step delete and root remove
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineDefinitionLocks.scala` — cycle 3: StepDeletePanelsFirst/RootRemovePanelsFirst sites, (4)/(5) labels
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveDeadlockSpec.scala` — cycle 3: step delete and root remove deadlock cases
+
+## Existing specs adjusted (declared at Delivery; reviewed in evaluation-1.md as legitimate)
+
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/V94OutputsMigrationSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceUpsertSourceRlsSpec.scala`

@@ -1,0 +1,12 @@
+{
+  "code": "PATCH_SET_STALE",
+  "currentFingerprint": "v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "message": "Nothing was applied: changed since the preview: edit 0 (pipeline p1). Preview the patch set again before applying.",
+  "staleTargets": [
+    {
+      "id": "p1",
+      "index": 0,
+      "kind": "pipeline"
+    }
+  ]
+}

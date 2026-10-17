@@ -474,6 +474,74 @@ Running the save at `SERIALIZABLE` with retry is **not** a substitute: PostgreSQ
 transactions that are themselves serializable, so a concurrent `READ COMMITTED` writer that changes rows the save read but does not write would not be
 detected (only a direct write-write on the same row would).
 
+#### 8.3.1 The verified protocol (HEL-1629; supersedes the UNVERIFIED candidate above)
+
+Everything below was run, not argued: the lock sites sit behind the `LockSite` seam (`PipelineDefinitionLocks`), so a race spec can remove exactly one lock and
+show itself red. Evidence is kept in `openspec/changes/atomic-draft-save-endpoint/evidence/` (`red-green-log.md` is the index).
+
+**Order O\*** (every transaction that takes more than one of these takes them in this order):
+
+0. `data_sources` rows (`FOR UPDATE` by a source delete or a teardown of tagged sources; `FOR KEY SHARE` by a root add)
+1. `PanelRowLocks.lockForDeletion`: panels, then dashboards, **once and first** (`hel1498_lock_panels`)
+2. the cycle advisory lock (`PipelineCycleValidator.AdvisoryLockKey`), only when an `upsertsource` ExistingSource edge is added or changed
+3. the pipeline row `FOR NO KEY UPDATE`, through the SECURITY DEFINER `hel1629_lock_pipelines(text[], text[])` (migration **V137**)
+4. alert rules `FOR UPDATE` by id
+5. Outputs `FOR UPDATE` by (position, id)
+
+The save runs on the privileged pool after a service-level owner-or-editor check, because an editor's RLS view hides panels on a third user's dashboard and
+alert rules owned by someone else; a lock that silently matched zero rows there would be no lock at all (V137 returns the locked count; the save asserts it).
+The fingerprint is compared **after** the locks are taken, the plan is re-derived from the locked state, and only then does the cascade gate run.
+
+**Amendments to the candidate, each confirmed by a probe or a red spec, not by reading code:**
+
+| #    | Amendment                                                                                                                                                                                                                | Cause (probe or spec that was red)                                                                                                                                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1   | Outputs are locked by (position, id), not id                                                                                                                                                                             | the node-snapshot transaction inserts history points in position order; `DraftSaveDeadlockSpec` "node-snapshot" control deadlocks with id order                                                                                        |
+| A2   | alert rules are locked **before** Outputs                                                                                                                                                                                | alert-event FK checks take rule then Output; control "alert evaluator" deadlocks with the candidate's order                                                                                                                            |
+| A3   | the upsert write-back rewrite takes advisory, then (3), then the step row                                                                                                                                                | `DraftSaveDeadlockSpec` "upsert write-back rewrite" control                                                                                                                                                                            |
+| A4   | teardown locks tagged sources first                                                                                                                                                                                      | `DraftSaveDeadlockSpec` "workspace teardown" control; `DraftSaveSetRaceSpec` teardown control                                                                                                                                          |
+| A5   | an Output delete takes (3) after (1)                                                                                                                                                                                     | `DraftSaveDeadlockSpec` "Output delete" control                                                                                                                                                                                        |
+| H'   | a source delete locks the source row `FOR UPDATE` first, then (1), then (3) over every pipeline rooted on it (read inside the function); a root add takes `FOR KEY SHARE` on the source before the advisory lock and (3) | `DraftSaveSetRaceSpec` three-session race: red without the source-row lock (a root added between the delete's read and its DELETE is deleted away unlocked)                                                                            |
+| V137 | the function takes a second argument `p_source_ids`                                                                                                                                                                      | the source's owner cannot see another user's pipeline rooted on it under RLS, so the caller cannot name those pipelines; `V137LockPipelinesMigrationSpec` proves it as a non-BYPASSRLS role. Amends design D11, which had one argument |
+
+**Which spec is red without which lock (G1).** `DraftSaveRaceSpec` has one block per writer; each runs **writer-first** and **save-first**, asserts the
+violation oracle (the save returned 200 AND EITHER the writer committed while the save was parked inside its window, OR, writer-first, the writer committed a change before the save did: the client's base predates it, so a 200 is a lost update, which is what only a lock taken BEFORE the fingerprint read prevents), and a **control** that removes only that
+writer's protecting lock site and must be red. Writer-first red, recorded **before** any writer was instrumented, is `evidence/races/R0-pre-instrumentation.log.txt`
+(30 failures); green with the locks is `R1-with-locks.log.txt` (127 of 127, 60 of them controls that are red by design). The writers: panel insertPlaced,
+duplicate, batchUpdate, insertBatchPlaced, replace, delete; dashboard duplicate, import, replaceContents, delete; alert rule insert, update, delete; Output create,
+update, delete; pipeline rename, delete; step PATCH, insert, insert-at, splice, attach, reorder, trunk reorder, delete; root add, root remove; schedule upsert, delete;
+the upsert target rewrite; source delete. Writers that are only excluded by (1) or (4) (panels, alert rules, dashboards) get no pipeline-row lock: adding one
+would not make their spec any less red-able and would widen the lock surface (C1); their spec is the proof they need none. Output delete is excluded by BOTH its own (3) and the save's (5) on the Output row, so its control removes both (`LockSite.OutputDelete`, `LockSite.SaveOutputs`); the writer's (3) after (1) is there for G2 (A5). The two set-reading writers (a
+source delete and a root add on one source, a teardown) are raced with **three** sessions in `DraftSaveSetRaceSpec` (`R0b-set-race-pre-instrumentation.log.txt`
+red, green in `R1`).
+
+**Mutation M4 (fingerprint read before the locks).** Moving the fingerprint read above `lockDefinition` (`mutations/M4-fingerprint-read-before-locks.diff`) leaves the old oracle fully green while a lost update occurs; with the corrected oracle it turns 19 writer-first runs red (`mutations/M4-fingerprint-read-before-locks.log.txt`), and the unmutated tree is green again (`races/R3-corrected-oracle-with-locks.log.txt`, 136 of 136 including the new Output delete block and the editor root pins).
+
+**Serial-order oracle and the step-delete lost update (final gate F1).** "No fingerprint violation" is not enough: a writer that WAITS correctly behind the save but then writes from a row it read before its lock still loses the save's change. `deleteInternal` read the deleted step's parent/root/position before (3) and promoted the head child to that stale place after the save had moved the step. The race oracle now takes an optional `serialCheck`: when the save committed and the writer succeeded, the stored state must equal the save-then-writer serial outcome (a writer that fails instead of completing also fails it). Red on the pre-fix tree: `evidence/cycle3/F1-step-delete-red-before-fix.log.txt`. The fix re-reads the step row, its existence and the removal set under (3). Panels are locked once, in (1), over the pre-lock removal set and cannot be locked again after (3); if the locked removal set exceeds it (a racer attached a tail below the target in between) the attempt writes nothing and the delete retries in a fresh transaction, at most 3 times (chosen over a 409 because the caller asked for a delete that is still valid, the retry is cheap, and it is bounded; exhaustion would need three consecutive concurrent attaches inside one lock wait). Mutations: M5 promotes to the pre-lock place and M6 removes the retry; both turn the matching `DraftSaveRaceSpec` cases red (`evidence/cycle3/`). Every other writer was audited for a read-before-lock that feeds a write; the result is `g1-writers.md` Table D (no other confirmed instance).
+
+**Deadlock coverage of step delete and root remove (final gate F2).** Cycle 1 claimed deadlock-spec coverage for step delete, reorder, splice and root remove that did not exist. `DraftSaveDeadlockSpec` now has "a step delete against the save" and "a root remove against the save", each with the verified order (panels, then the pipeline row) that must not deadlock and an opposite-order control (`StepDeletePanelsFirst`, `RootRemovePanelsFirst`) that must raise `40P01`. Moving (3) before (1) in either writer (mutation M7, the skeptic's SK3) turns them red. Reorder, splice, attach, insert and update take only (3) and then write step rows: an order argument, stated as such in `g1-writers.md` Table B.
+
+**Count assertions (D5).** `hel1629_lock_pipelines` returns the locked count. Only the SAVE asserts it (a short count is its 404). A single-pipeline writer (step, Output, root, schedule) does not branch on it: if a racer deleted the pipeline first, its write runs against the vanished pipeline and takes the existing not-found path (an FK violation or a zero-row write), and a set writer (source delete, teardown) ignores a shorter count and carries on. `DraftSaveRaceSpec` "after a racer deleted the pipeline" (`races/R4-raced-delete-writers.log.txt`) pins that none of them writes definition state for the vanished pipeline.
+
+**Editor root add / remove (C5).** Both run on the application pool and the service accepts an editor, but RLS makes an editor's root change impossible, so there is no editor race for the lock to protect: an editor's `POST /roots` with their own source answers 500 and writes nothing (`pipeline_roots_insert` is owner-only), and an editor's `DELETE /roots/:id` answers 200 and removes nothing (`pipeline_steps_owner`, `pipeline_roots_delete` hide the rows), while the owner's identical request works. Both are pre-existing defects, listed as follow-ups, and pinned in `DraftSaveRlsSpec` so a policy change that WOULD create the race turns it red. Owner-run root races are in `DraftSaveRaceSpec` "root add" / "root remove".
+
+**Audit.** The draft save's audit row is written IN the save's transaction (`AuditEventRepository.appendAction`), a deliberate departure from HEL-471's swallow-on-failure `AuditService.record`: a committed save has exactly one audit row, and a failed audit insert (a DB failure that would endanger the save anyway) rolls the save back as a 5xx.
+
+**Where the evidence lives.** `openspec/changes/atomic-draft-save-endpoint/evidence/` while the change is open; after `openspec archive` it moves with the change to `openspec/changes/archive/<date>-atomic-draft-save-endpoint/evidence/` (the logs are `.log.txt` so they are tracked, not gitignored). A durable copy of every file is also persisted under `.concertino/runs/HEL-1629/evidence/`.
+
+**G2.** `DraftSaveDeadlockSpec` (`R2-deadlock-spec.log.txt`, 13 of 13): for each participant a deterministic control that takes the opposite order and must
+raise `40P01` (so the spec can fail), the verified order that must not, and a repeated concurrent mix of the save, a panel create, a pipeline delete, an Output
+delete, a source delete, a node-snapshot transaction, the rewrite and a teardown with 40P01 counted as a failure. SERIALIZABLE was not used or considered
+a substitute (see below).
+
+**G3.** `DraftSaveUndoSpec` and `DraftSaveApiSpec`: the journal row is written in the save's transaction from the **locked** state; a panel bound during a
+save is either in the cascade the caller confirmed or the bind waits until after commit. `DraftSaveFaultSpec` splits the transaction (mutation M1,
+`mutations/M1-split-transaction.diff`) and 6 of 9 faults go red; `lockForDeletion` twice (M2) goes red on "exactly one `hel1498_lock_panels`"; the fingerprint read
+in the editor's user context (M3, `mutations/M3-user-context-fingerprint.diff`) goes red in `DraftSaveApiSpec` and `DraftSaveRlsSpec` (12 failures), proving the editor round trip
+needs the privileged read.
+
+**Stale base is reload-only.** There is no force or overwrite parameter; the open question below is closed by the owner ruling (section 14).
+
 On a mismatch: **409** with the existing stale body (`code: "PATCH_SET_STALE"`, `stale: [{index, kind, id}]`, `ServiceResponse.scala:88-102`; message built like
 `PatchSetStaleMessage.scala:10-15`) naming `kind: "pipeline"` and the current fingerprint. Nothing is written. The UI offers **"reload the saved pipeline"**
 (the draft is kept as a diff to re-apply). Whether to also offer a force-save ("overwrite") is an unruled product call and is listed as an **open owner
