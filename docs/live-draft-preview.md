@@ -477,7 +477,7 @@ detected (only a direct write-write on the same row would).
 #### 8.3.1 The verified protocol (HEL-1629; supersedes the UNVERIFIED candidate above)
 
 Everything below was run, not argued: the lock sites sit behind the `LockSite` seam (`PipelineDefinitionLocks`), so a race spec can remove exactly one lock and
-show itself red. Evidence is kept in `openspec/changes/atomic-draft-save-endpoint/evidence/` (`red-green-log.md` is the index).
+show itself red. Evidence is kept in `openspec/changes/archive/2026-10-17-atomic-draft-save-endpoint/evidence/` (`red-green-log.md` is the index).
 
 **Order O\*** (every transaction that takes more than one of these takes them in this order):
 
@@ -527,7 +527,7 @@ red, green in `R1`).
 
 **Audit.** The draft save's audit row is written IN the save's transaction (`AuditEventRepository.appendAction`), a deliberate departure from HEL-471's swallow-on-failure `AuditService.record`: a committed save has exactly one audit row, and a failed audit insert (a DB failure that would endanger the save anyway) rolls the save back as a 5xx.
 
-**Where the evidence lives.** `openspec/changes/atomic-draft-save-endpoint/evidence/` while the change is open; after `openspec archive` it moves with the change to `openspec/changes/archive/<date>-atomic-draft-save-endpoint/evidence/` (the logs are `.log.txt` so they are tracked, not gitignored). A durable copy of every file is also persisted under `.concertino/runs/HEL-1629/evidence/`.
+**Where the evidence lives.** `openspec/changes/archive/2026-10-17-atomic-draft-save-endpoint/evidence/` (archived with the change; the logs are `.log.txt` so they are tracked, not gitignored). A durable copy of every file is also persisted under `.concertino/runs/HEL-1629/evidence/`.
 
 **G2.** `DraftSaveDeadlockSpec` (`R2-deadlock-spec.log.txt`, 13 of 13): for each participant a deterministic control that takes the opposite order and must
 raise `40P01` (so the spec can fail), the verified order that must not, and a repeated concurrent mix of the save, a panel create, a pipeline delete, an Output
