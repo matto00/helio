@@ -1,0 +1,56 @@
+# 3.1: 50 consecutive runs of DraftSaveDeadlockSpec on the FINAL fixture (park fix + commit-order fix), 17 tests each
+# profile: nice -n 19, taskset -c 0,1, HEL924_TEST_GROUP_CONCURRENCY=2, HELIO_TEST_JVM_XMX=4g, sbt -batch from /home/matt/Development/helio/.claude/worktrees/bug/draft-save-race-oracle/HEL-1654/backend, load gate <=10, each run its own sbtfull flock acquisition
+# project-path lines of every log name this worktree; full per-run logs: .concertino/runs/HEL-1654/evidence/fifty/
+
+run 1: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 2: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 3: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 4: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 5: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 6: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 7: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 8: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 9: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 10: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 11: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 12: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 13: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 14: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 15: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 16: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 17: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 18: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 19: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 20: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 21: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 22: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 23: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 24: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 25: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 26: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 27: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 28: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 29: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 30: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 31: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 32: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 33: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 34: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 35: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 36: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 37: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 38: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 39: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 40: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 41: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 42: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 43: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 44: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 45: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 46: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 47: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 48: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 49: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 50: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+
+RESULT: 50/50 green (850 of 850 test executions), 0 failures; logs mentioning HARNESS: 0

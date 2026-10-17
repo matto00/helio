@@ -1,0 +1,14 @@
+MUTATION M5
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+index 1de606282..40c6a10a4 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+@@ -1089,7 +1089,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
+                             stepsTable
+                               .filter(_.id === headChildId)
+                               .map(s => (s.parentStepId, s.rootId, s.position))
+-                              .update((deletedRow.parentStepId, deletedRow.rootId, deletedRow.position))
++                              .update((preRow.parentStepId, preRow.rootId, preRow.position))
+                           case None => DBIO.successful(0)
+                         }
+                         _ <- deleteStepsCoreAction(lockedRemoval.removed)

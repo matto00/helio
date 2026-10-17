@@ -1,0 +1,39 @@
+diff --git a/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala b/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala
+index fd0203daa..4b1735678 100644
+--- a/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala
++++ b/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala
+@@ -116,6 +116,18 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
+     override def failed(ex: Throwable): Unit = failure = Some(ex)
+   }
+ 
++
++  // ── HEL-1654 THROWAWAY PROBE ──
++  private val ProbeLog: Option[String] = sys.env.get("HEL1654_PROBE_LOG")
++  private val ProbeDelayMs: Long = sys.env.get("HEL1654_DELAY_MS").map(_.toLong).getOrElse(1500L)
++  private val ProbeDelay: Boolean = sys.env.get("HEL1654_DELAY").contains("1")
++  private def probe(label: String): Unit = ProbeLog.foreach { path =>
++    val acts = queryStrings("SELECT pid||' app='||application_name||' state='||state||' wait='||coalesce(wait_event_type,'-')||'/'||coalesce(wait_event,'-')||' blocked_by='||pg_blocking_pids(pid)::text||' q='||left(replace(query,E'\\n',' '),70) FROM pg_stat_activity WHERE application_name IN ('race-save','race-writer') ORDER BY application_name,pid")
++    val locks = queryStrings("SELECT l.pid||' '||coalesce(c.relname,l.locktype)||' '||l.mode||' granted='||l.granted||' key='||coalesce(l.objid::text,'') FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid LEFT JOIN pg_class c ON c.oid=l.relation WHERE a.application_name IN ('race-save','race-writer') AND l.locktype IN ('relation','tuple','transactionid','advisory') AND (c.relname IS NULL OR c.relname IN ('alert_rules','outputs','pipelines','panels','dashboards','alert_events')) AND l.mode NOT IN ('AccessShareLock') ORDER BY l.pid, c.relname")
++    val out = (s"=== $label @${System.currentTimeMillis}" +: acts.map("  ACT " + _) ++: locks.map("  LOCK " + _)).mkString("\n") + "\n"
++    java.nio.file.Files.write(java.nio.file.Paths.get(path), out.getBytes, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)
++  }
++
+   private final class Gate {
+     private val conn: Connection = superDb.createSession().conn
+     def close(): Unit = { release(); conn.close() }
+@@ -232,12 +244,15 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
+           }
+           (s, w)
+         case SaveFirst =>
++          val blk = if (ProbeDelay) { val c = superDb.createSession().conn; c.setAutoCommit(false); val st = c.createStatement(); st.execute(s"SELECT 1 FROM panels WHERE id='${seed.pa}' FOR UPDATE"); st.close(); val t = new Thread(() => { Thread.sleep(ProbeDelayMs); Try { c.rollback(); c.close() } }); t.setDaemon(true); t.start(); Some(c) } else None
+           val s = startSave()
+           val sPid = Await.result(hooks.backendPid.future, 15.seconds)
+           waitFor(15000)(hooks.parked.isCompleted || s.isCompleted)
+           note(if (hooks.parked.isCompleted) s"save (backend $sPid) PARKED past its compare" else s"save finished before parking: ${s.value}")
++          probe(s"SaveFirst parked-declared (save pid $sPid)")
+           val w = startWriter()
+           waitFor(5000)(w.isCompleted || activeBackend("race-writer").exists(wp => waitsOn(wp, sPid)))
++          probe(s"SaveFirst after writer wait (writer completed=${w.isCompleted}, waiting=${activeBackend("race-writer").exists(wp => waitsOn(wp, sPid))})")
+           if (activeBackend("race-writer").exists(wp => waitsOn(wp, sPid))) { blockedObserved = true; note("writer is WAITING on the parked save") }
+           committedWhileParked = w.isCompleted && w.value.exists(writer.didWrite)
+           if (committedWhileParked) note("writer COMMITTED while the save was parked")

@@ -1,0 +1,20 @@
+# 3.1: sibling specs DraftSaveRaceSpec + DraftSaveSetRaceSpec (151 tests/run) x15 on the FINAL fixture, same load profile
+# (an earlier 10-run loop on the park-fix-only fixture had 1 red, run 2: the commit-order weakness, see root-cause.md; pre-fix logs in .concertino/runs/HEL-1654/evidence/pre-commitorder-fix/)
+
+run 1: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 2: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 3: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 4: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 5: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 6: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 7: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 8: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 9: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 10: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 11: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 12: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 13: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 14: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+run 15: [info] Tests: succeeded 151, failed 0, canceled 0, ignored 0, pending 0 exit=0 0failmarkers [info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+
+RESULT: 15/15 green (2265 of 2265 test executions); logs mentioning HARNESS: 0
