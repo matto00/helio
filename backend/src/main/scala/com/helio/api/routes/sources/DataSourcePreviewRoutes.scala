@@ -75,8 +75,12 @@ final class DataSourcePreviewRoutes(
         // the pipeline-run guard is not reachable from here.
         path(DataSourceIdSegment / "sample") { sourceId =>
           get {
-            if (sampleService == null) reject
-            else ServiceResponse.run(sampleService.sample(sourceId, user))(identity)
+            // HEL-1648: `pipelineId` is the optional pipeline scope; a bad value is just another 404 in the service.
+            parameter("pipelineId".optional) { raw =>
+              val pipelineId = raw.filter(SourceSampleService.isPlausiblePipelineId).map(PipelineId(_))
+              if (sampleService == null) reject
+              else ServiceResponse.run(sampleService.sample(sourceId, user, pipelineId))(identity)
+            }
           }
         },
         path("infer") {

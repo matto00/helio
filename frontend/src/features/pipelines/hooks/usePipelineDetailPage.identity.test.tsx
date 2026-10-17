@@ -178,6 +178,7 @@ describe("usePipelineDetailPage identity stability (F-146)", () => {
         },
       ],
       costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+      callerRole: "owner",
       warnings: [{ stepId: "s1", code: "field-not-in-input-schema", message: "w" }],
     } as never);
     jest

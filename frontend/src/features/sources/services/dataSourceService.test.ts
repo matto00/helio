@@ -113,6 +113,32 @@ describe("dataSourceService.fetchSourceSample", () => {
   });
 });
 
+describe("dataSourceService.fetchSourceSample scope (HEL-1648)", () => {
+  const body = {
+    rows: [],
+    capturedAt: "2026-10-16T12:00:00Z",
+    sourceRowCount: 0,
+    truncated: false,
+    live: false,
+  };
+
+  it("appends the encoded pipelineId when one is given", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({ data: body });
+    const { fetchSourceSample } = await import("./dataSourceService");
+    await fetchSourceSample("src-1", "pipe 1&x");
+    expect(mockedHttpClient.get).toHaveBeenLastCalledWith(
+      "/api/data-sources/src-1/sample?pipelineId=pipe%201%26x",
+    );
+  });
+
+  it("sends no query for an empty pipelineId", async () => {
+    mockedHttpClient.get.mockResolvedValueOnce({ data: body });
+    const { fetchSourceSample } = await import("./dataSourceService");
+    await fetchSourceSample("src-1", "");
+    expect(mockedHttpClient.get).toHaveBeenLastCalledWith("/api/data-sources/src-1/sample");
+  });
+});
+
 describe("dataSourceService.fetchSourceSample guard", () => {
   it("refuses a body that is not a sample", async () => {
     mockedHttpClient.get.mockResolvedValueOnce({ data: "<html>proxy error</html>" });

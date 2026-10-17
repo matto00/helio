@@ -225,6 +225,14 @@ preview (`PipelineRunPreview.scala:280`) the owner wants gone.
 (`PipelineRunService.submit`; a sample is not a run) and it needs no new limiter. Today's step previews are covered
 only by the general `/api` limiter; the draft-preview endpoint in 6 needs its own.
 
+**Who may sample a source (HEL-1648).** The source's owner, as before. A collaborator on a shared pipeline reaches the same
+endpoint as `GET /api/data-sources/:id/sample?pipelineId=P`: allowed for P's owner or an `editor` grantee (a `viewer` is
+excluded; the sample's only consumer is the draft preview, which only owner/editor can save) when P uses the source as a root or as
+a join/union/lookup secondary of any step, enabled or not. Every other case (no/empty/unknown/malformed `pipelineId`, an unrelated
+source, a revoked grant, a source removed from P, a viewer, a stranger) is the byte-identical `404` of an unknown id. The grant is proved
+under the caller's RLS before any privileged read, the same bucket (source-fetch, keyed to the caller) is charged, never the run guard. The client learns
+its role from `callerRole` on the full analyze response (permission only, so an invalid step does not withdraw it).
+
 **Where it is cached.** Owner ruling C: `client-memory`. Client memory for one page load is the simplest and loses nothing on reload except
 one refresh; IndexedDB survives reloads at the cost of a persisted copy of user data in the browser (logout/tenant
 hygiene: `onFreshnessReset` in `outputFreshness` already exists for the panel caches and would need to cover it); a

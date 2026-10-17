@@ -63,7 +63,7 @@ class SourceSampleServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
     }
 
   private def serviceFor(repo: DataSourceRepository, connector: RestApiConnectorDriver = null) =
-    new SourceSampleService(repo, fileSystem, connector, typedSystem, realResolve, admitLocalhost, clock)
+    new SourceSampleService(repo, fileSystem, connector, typedSystem, realResolve, admitLocalhost, null, null, clock)
 
   private def sample(ds: DataSource, connector: RestApiConnectorDriver = null, datasetRows: Option[JsObject] = None) =
     await(serviceFor(repoOf(ds, datasetRows), connector).sample(ds.id, user))
@@ -123,7 +123,7 @@ class SourceSampleServiceSpec extends AnyWordSpec with Matchers with HelioRouteT
       // https://localhost resolves to loopback, which the production egress guard refuses; nothing listens there.
       val ds = csvSource("csv-url", "csv/url.csv", Some("https://localhost:1/data.csv"))
       SourceSampleService.isLive(ds) shouldBe true
-      val productionGuard = new SourceSampleService(repoOf(ds), fileSystem, null, typedSystem, realResolve, (_, addr) => ContentSourceSupport.isBlockedAddress(addr), clock)
+      val productionGuard = new SourceSampleService(repoOf(ds), fileSystem, null, typedSystem, realResolve, (_, addr) => ContentSourceSupport.isBlockedAddress(addr), null, null, clock)
       await(productionGuard.sample(ds.id, user)) match {
         case Left(ServiceError.BadGateway(m)) =>
           m should include("csv-src")
