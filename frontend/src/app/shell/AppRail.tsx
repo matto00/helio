@@ -10,6 +10,7 @@ import {
   navDestinations,
 } from "../../shared/chrome/navDestinations";
 import { OrbitMark } from "../../shared/chrome/OrbitMark";
+import { useIndicatorSlide } from "../../shared/motion/useIndicatorSlide";
 import { ICON_SIZE } from "../../shared/ui/iconSize";
 import { takeListFocus } from "./contextListLayout";
 import "./AppRail.css";
@@ -23,7 +24,7 @@ interface AppRailProps {
 
 /** The 56px icon rail (DESIGN.md §9): always rendered above the phone breakpoint, so every section stays one click
  *  away with the context list collapsed. Icon-only; every item has a `title` tooltip and an accessible name. Only the
- *  active item is accent-washed (static until the motion foundation, HEL-1573, adds the slide). Usage is not a rail
+ *  active item is accent-washed, by an indicator that slides between items (HEL-1573). Usage is not a rail
  *  item: owners reach it from the avatar menu. */
 export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRailProps) {
   const dispatch = useAppDispatch();
@@ -34,6 +35,7 @@ export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRail
   const HomeIcon = homeAlias.icon;
   const homeActive = isDestinationActive(homeAlias, pathname);
   const settingsActive = pathname.startsWith("/settings");
+  const railRef = useIndicatorSlide<HTMLDivElement>();
 
   async function handleLogout() {
     await dispatch(logout());
@@ -41,7 +43,8 @@ export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRail
   }
 
   return (
-    <div className="app-rail">
+    <div className="app-rail" ref={railRef}>
+      <span className="motion-indicator app-rail__indicator" aria-hidden="true" />
       <Link to={homeAlias.to} className="app-rail__logo" aria-label="Helio home" title="Helio">
         <OrbitMark size={20} />
       </Link>
@@ -51,6 +54,7 @@ export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRail
           className={homeActive ? "app-rail__item app-rail__item--active" : "app-rail__item"}
           aria-label={homeAlias.label}
           aria-current={homeActive ? "page" : undefined}
+          data-indicator-active={homeActive ? "" : undefined}
           title={homeAlias.label}
         >
           <HomeIcon size={ICON_SIZE.lg} aria-hidden="true" />
@@ -65,6 +69,7 @@ export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRail
               className={active ? "app-rail__item app-rail__item--active" : "app-rail__item"}
               aria-label={destination.label}
               aria-current={active ? "page" : undefined}
+              data-indicator-active={active ? "" : undefined}
               title={destination.label}
             >
               <Icon size={ICON_SIZE.lg} aria-hidden="true" />
@@ -94,6 +99,7 @@ export function AppRail({ sectionHasList, listCollapsed, onExpandList }: AppRail
           className={settingsActive ? "app-rail__item app-rail__item--active" : "app-rail__item"}
           aria-label="Settings"
           aria-current={settingsActive ? "page" : undefined}
+          data-indicator-active={settingsActive ? "" : undefined}
           title="Settings"
         >
           <Settings size={ICON_SIZE.lg} aria-hidden="true" />

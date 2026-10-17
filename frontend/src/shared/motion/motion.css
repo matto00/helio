@@ -1,0 +1,45 @@
+/* Shared motion primitives (HEL-1573, DESIGN.md §10). Timing comes only from the --motion-* tokens: no literal
+   duration, delay or curve. Subtle and Off zero --motion-rise-distance / --motion-duration-move in theme.css, so the
+   rise and the indicator slide collapse there while the fade keeps its duration. */
+
+/* Staggered entrance: fade in and rise by the rise distance, each item one stagger step after the previous (capped,
+   so the last item starts by about 400ms). `backwards` fill holds the hidden start state through the delay and then
+   releases it, so a settled row keeps no transform or stacking context. */
+@keyframes motion-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--motion-rise-distance));
+  }
+}
+
+.motion-enter {
+  --motion-stagger-cap: 10;
+  animation: motion-enter var(--motion-duration-standard) var(--motion-ease-out)
+    calc(min(var(--motion-index, 0), var(--motion-stagger-cap)) * var(--motion-stagger)) backwards;
+}
+
+/* Indicator slide: one absolutely positioned marker translated and sized to the active item by the
+   `useIndicatorSlide` custom properties. It never transitions on its first placement (data-indicator="snap"). */
+.motion-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: var(--indicator-w, 0);
+  height: var(--indicator-h, 0);
+  transform: translate(var(--indicator-x, 0), var(--indicator-y, 0));
+  pointer-events: none;
+  opacity: 0;
+}
+
+[data-indicator="snap"] .motion-indicator,
+[data-indicator="ready"] .motion-indicator {
+  opacity: 1;
+}
+
+[data-indicator="ready"] .motion-indicator {
+  transition:
+    transform var(--motion-duration-move) var(--motion-ease-out),
+    width var(--motion-duration-move) var(--motion-ease-out),
+    height var(--motion-duration-move) var(--motion-ease-out);
+}

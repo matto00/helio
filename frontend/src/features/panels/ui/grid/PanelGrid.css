@@ -6,11 +6,37 @@
   min-height: min(72vh, 960px);
 }
 
+/* HEL-1032: one move duration (--motion-duration-move) and the ease-out curve for the grid container height, the
+   items (reflow) and the drag placeholder, in place of the vendor's 200ms/100ms and a literal 180ms. Every override
+   beats its vendor selector by specificity, never by import order (this file is also imported by the skeleton and
+   can load before react-grid-layout/css/styles.css). Subtle and Off zero the token, so the grid snaps there. */
+.panel-grid.react-grid-layout {
+  transition: height var(--motion-duration-move) var(--motion-ease-out);
+}
+
+/* Keep exactly transform, width, height in this order: the vendor `.react-grid-item.cssTransforms` rule has the same
+   specificity and the same list, so the two can never disagree. */
 .panel-grid > .react-grid-item {
   transition:
-    transform 180ms ease,
-    width 180ms ease,
-    height 180ms ease;
+    transform var(--motion-duration-move) var(--motion-ease-out),
+    width var(--motion-duration-move) var(--motion-ease-out),
+    height var(--motion-duration-move) var(--motion-ease-out);
+}
+
+.panel-grid > .react-grid-item.react-grid-placeholder {
+  transition-duration: var(--motion-duration-move);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+/* The vendor's own no-transition states, re-asserted above the timing rules so an item being dragged or resized, and
+   the placeholder while resizing, follow the pointer. */
+.panel-grid > .react-grid-item.react-draggable-dragging,
+.panel-grid > .react-grid-item.resizing {
+  transition: none;
+}
+
+.panel-grid > .react-grid-item.react-grid-placeholder.placeholder-resizing {
+  transition: none;
 }
 
 .panel-grid > .react-grid-placeholder {
