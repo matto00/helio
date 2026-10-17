@@ -1,0 +1,92 @@
+[
+  {
+    "backdrop": "default",
+    "active": "Dashboards",
+    "edgeTop": 15.61,
+    "edgeBottom": 15.26,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 14.64
+  },
+  {
+    "backdrop": "white",
+    "active": "Dashboards",
+    "edgeTop": 3.96,
+    "edgeBottom": 3.43,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 3.43
+  },
+  {
+    "backdrop": "black",
+    "active": "Dashboards",
+    "edgeTop": 16.92,
+    "edgeBottom": 16.92,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 16.92
+  },
+  {
+    "backdrop": "accent",
+    "active": "Dashboards",
+    "edgeTop": 6.89,
+    "edgeBottom": 6.95,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 6.86
+  },
+  {
+    "backdrop": "photo",
+    "active": "Dashboards",
+    "edgeTop": 8.34,
+    "edgeBottom": 8.34,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 7.71
+  },
+  {
+    "backdrop": "default",
+    "active": "Pipelines",
+    "edgeTop": 16.18,
+    "edgeBottom": 16.18,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 16.27
+  },
+  {
+    "backdrop": "white",
+    "active": "Pipelines",
+    "edgeTop": 3.96,
+    "edgeBottom": 3.43,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 3.43
+  },
+  {
+    "backdrop": "black",
+    "active": "Pipelines",
+    "edgeTop": 16.92,
+    "edgeBottom": 16.92,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 16.92
+  },
+  {
+    "backdrop": "accent",
+    "active": "Pipelines",
+    "edgeTop": 6.89,
+    "edgeBottom": 6.95,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 6.86
+  },
+  {
+    "backdrop": "photo",
+    "active": "Pipelines",
+    "edgeTop": 8.34,
+    "edgeBottom": 8.34,
+    "label": 13.62,
+    "activeGlyph": 6.39,
+    "minInactiveGlyph": 7.71
+  }
+]

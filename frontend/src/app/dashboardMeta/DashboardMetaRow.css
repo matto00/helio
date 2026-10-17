@@ -86,3 +86,13 @@
 :root[data-theme="dark"] .app-command-bar .dashboard-meta-row__pressed:hover {
   background: var(--app-surface-strong);
 }
+
+/* HEL-1583 D11: the phone "refreshed" caption, the first child of `.panel-list` above the dashboard chip row. In normal
+ * flow, so the 56px command bar is untouched; `.panel-list` owns the 12px edge inset. Mono, like the desktop meta row's facts (HANDOFF: "slim mono meta row"). */
+.dashboard-refresh-line {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--app-text-muted);
+}

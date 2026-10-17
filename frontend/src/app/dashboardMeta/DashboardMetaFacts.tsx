@@ -1,6 +1,6 @@
 import { SaveStateIndicator } from "../../shared/chrome/SaveStateIndicator";
 import { useNow } from "../../hooks/useNow";
-import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { RefreshFact, refreshFactOf } from "./RefreshFact";
 import type { DashboardMeta } from "../../features/panels/state/dashboardMeta";
 
 /** Relative-time copy is re-rendered at most once a minute (design D2). */
@@ -37,16 +37,7 @@ export function DashboardMetaFacts({
   const countText = panelCountText(meta.panelCount);
   const sources = countOnly ? null : sourcesText(meta);
 
-  let refresh: { text: string; iso: string | null } | null = null;
-  if (!countOnly && meta.refreshState === "never")
-    refresh = { text: "not refreshed yet", iso: null };
-  if (!countOnly && meta.refreshState === "ran" && meta.refreshedAt !== null) {
-    const ago = formatRelativeTime(meta.refreshedAt, now);
-    refresh = {
-      text: meta.refreshIntent === "danger" ? `last run failed ${ago}` : `refreshed ${ago}`,
-      iso: meta.refreshedAt,
-    };
-  }
+  const refresh = countOnly ? null : refreshFactOf(meta, now);
 
   const fullText = [countText, refresh?.text, sources].filter(Boolean).join(" · ");
 
@@ -54,23 +45,7 @@ export function DashboardMetaFacts({
     <>
       <p className="dashboard-meta-row__facts" title={fullText}>
         <span className="dashboard-meta-row__fact">{countText}</span>
-        {refresh !== null && (
-          <span className="dashboard-meta-row__fact dashboard-meta-row__refresh">
-            {meta.refreshIntent !== null && (
-              <span
-                className={`dashboard-meta-row__dot dashboard-meta-row__dot--${meta.refreshIntent}`}
-                aria-hidden="true"
-              />
-            )}
-            {refresh.iso !== null ? (
-              <time dateTime={refresh.iso} title={new Date(refresh.iso).toLocaleString()}>
-                {refresh.text}
-              </time>
-            ) : (
-              refresh.text
-            )}
-          </span>
-        )}
+        {refresh !== null && <RefreshFact fact={refresh} intent={meta.refreshIntent} />}
         {sources !== null && <span className="dashboard-meta-row__fact">{sources}</span>}
       </p>
       {showSaveState && <SaveStateIndicator onSaveNow={onSaveNow} />}

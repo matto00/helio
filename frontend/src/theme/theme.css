@@ -126,8 +126,8 @@
   /* Total clearance from the viewport's bottom edge to the TOP of the
      capsule (capsule height + edge inset + home-indicator safe area) — the
      single source of truth for every OTHER consumer that just needs to clear
-     the bar: App.css:424's `.app-content` padding-bottom, PanelList.css's
-     zoom-widget clearance, and toast.css's viewport offset. Consolidated
+     the bar: App.css:424's `.app-content` padding-bottom and
+     toast.css's viewport offset (the zoom widget no longer renders on the phone shell, HEL-1583). Consolidated
      from three inlined copies of the old flat-height expression
      (BottomNav.css:27, App.css:424, and this token) onto one definition. */
   --bottom-nav-height: calc(

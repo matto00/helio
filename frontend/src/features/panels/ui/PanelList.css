@@ -99,7 +99,13 @@
 
 @media (max-width: 768px) {
   .panel-list {
-    padding: var(--space-5);
+    /* HEL-1583 D1: `.panel-list` is the single gutter owner on the phone
+     * shell — 12px (--space-3, DESIGN.md §12) from the screen edge. The
+     * inset stays here (not on the stack) so the PanelGrid container is
+     * still < 768px at a 768px viewport and the stack, never the desktop
+     * grid, renders; every other child (status, checklist, empty states)
+     * shares the same edge. */
+    padding: var(--space-5) var(--space-3);
     min-height: auto;
   }
 }
@@ -121,24 +127,12 @@
   }
 }
 
-/* W4.4: zoom is desktop chrome — iOS/Android have pinch, and the widget eats
-   header space at phone widths. */
-@media (max-width: 430px) {
-  .panel-list__zoom-widget {
-    display: none;
-  }
-}
-
-/* HEL-774 (D10): BottomNav now floats as a capsule rather than sitting on a
- * reserved ledge, and it renders up to 768px while the zoom widget only
- * hides below 430px — so between 431px and 768px it would otherwise sit
- * directly on top of the capsule, over the Assistant tab. Retargeted onto
- * the shared clearance token (rather than a second literal) so it can never
- * drift from the capsule's own geometry; desktop (>768px) is untouched. Must
- * come after the base `.panel-list__zoom-widget` rule above to win at equal
- * specificity. */
+/* W4.4 / HEL-1583 D2: zoom is desktop chrome — iOS/Android have pinch, and
+   nothing but the glass nav may float over content on the phone shell.
+   `PanelList` does not render the widget there at all; this is the backstop
+   across the whole phone shell (<= 768px, not only <= 430px). */
 @media (max-width: 768px) {
   .panel-list__zoom-widget {
-    bottom: calc(var(--bottom-nav-height) + var(--space-3));
+    display: none;
   }
 }

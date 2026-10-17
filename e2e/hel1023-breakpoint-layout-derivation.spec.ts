@@ -16,7 +16,7 @@ test.describe.configure({ mode: "parallel" });
 // bound to a pipeline chart output), text, divider.
 //
 // Container width, not window width, picks the breakpoint: container = window - 352 with the rail and
-// the default-width context list open (56 + 248 + 48 of page padding), window - 40 at the phone shell.
+// the default-width context list open (56 + 248 + 48 of page padding), window - 24 at the phone shell (HEL-1583: 12px `.panel-list` inset per side).
 // Windows used: 1900 (lg), 1500 (md), 1200 (sm), 1120 (container exactly 768 = sm), 400 (phone stack).
 
 const CSRF_HEADER = { "X-Helio-Requested-With": "1" };
@@ -46,7 +46,7 @@ const windows: { width: number; bp: Bp | "stack"; container: number }[] = [
   { width: 1500, bp: "md", container: 1148 },
   { width: 1200, bp: "sm", container: 848 },
   { width: 1120, bp: "sm", container: 768 },
-  { width: 400, bp: "stack", container: 360 },
+  { width: 400, bp: "stack", container: 376 },
 ];
 
 const titles = [

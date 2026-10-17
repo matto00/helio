@@ -1,0 +1,87 @@
+/* HEL-1583 D3-D5 — phone dashboard chip row. In normal flow (never sticky: only the glass nav floats over
+ * content), first child of `.panel-list`, which owns the 12px edge inset. The row bleeds to the screen edges with
+ * matching padding so chips start 12px in and scroll edge to edge. */
+.dashboard-chip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* 44px row = the hit-area height below, so the overflow clip of the scroller never trims the expander. */
+  min-height: 44px;
+  margin-inline: calc(-1 * var(--space-3));
+  margin-bottom: var(--space-2);
+  padding-inline: var(--space-3);
+  scroll-padding-inline: var(--space-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.dashboard-chip {
+  /* The tap-expander pattern (shared/ui/tapTarget.css): 32px painted pill, 44px hit area via ::after. */
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: var(--control-md);
+  /* 44px-wide floor: the ::after expander only grows vertically, so a short name ("Q") must not paint narrower. */
+  min-width: 44px;
+  max-width: 200px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-pill);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-quick) var(--motion-ease-standard),
+    color var(--motion-duration-quick) var(--motion-ease-standard),
+    border-color var(--motion-duration-quick) var(--motion-ease-standard);
+}
+
+.dashboard-chip__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Active: inverted ink, no accent (DESIGN.md §0 accent discipline). */
+.dashboard-chip--active {
+  border-color: var(--app-text);
+  background: var(--app-text);
+  color: var(--app-surface);
+}
+
+.dashboard-chip::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+/* HEL-1583 D8 — the pill is shared with the phone Data sub-row (`shared/chrome/DataSectionTabs`), whose pills are links:
+ * centre the label and drop the underline. A no-op for the row's buttons. */
+.data-section-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.data-section-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}

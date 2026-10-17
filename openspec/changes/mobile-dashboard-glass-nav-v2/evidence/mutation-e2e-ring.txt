@@ -1,0 +1,5 @@
+## Mutation A: active pill ring removed (box-shadow: none) -- the 375px light contrast spec must go RED
+    Error: 375px light Dashboards/default: ring edge >= 3:1
+    Expected: >= [32m3[39m
+    Received:    [31m1.04[39m
+  1 failed

@@ -1,0 +1,3 @@
+## GREEN: refreshed-line e2e, both themes at 375
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+  2 passed (6.3s)

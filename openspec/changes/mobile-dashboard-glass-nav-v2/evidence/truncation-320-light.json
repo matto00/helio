@@ -1,0 +1,16 @@
+{
+  "Dashboards": {
+    "tabWidth": 102,
+    "labelClientWidth": 54,
+    "labelScrollWidth": 72,
+    "truncated": true,
+    "contentWidth": 278
+  },
+  "Pipelines": {
+    "tabWidth": 102,
+    "labelClientWidth": 54,
+    "labelScrollWidth": 55,
+    "truncated": true,
+    "contentWidth": 278
+  }
+}

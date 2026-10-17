@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -55,7 +61,12 @@ interface UserMenuProps {
   onLogout: () => void;
   /** `rail`: the trigger sits at the foot of the icon rail (HEL-1574), so the menu opens up and to the right of it
    *  rather than below and flush right. */
-  placement?: "bar" | "rail";
+  placement?: "bar" | "rail" | "nav";
+  /** HEL-1583: the phone `BottomNav`'s Me tab renders the menu's trigger as a tab button instead of the avatar, so the
+   *  menu, its keyboard handling and its owner gating stay in one component. Pair with `placement="nav"`, which opens
+   *  the menu upward from the trigger, flush with its right edge. `active` is exposed as `aria-current="true"` (a menu
+   *  button is not a link, so never `"page"`). */
+  tabTrigger?: { className: string; label: string; active: boolean; children: ReactNode };
 }
 
 export function UserMenu({
@@ -63,6 +74,7 @@ export function UserMenu({
   onNavigateToSettings,
   onLogout,
   placement = "bar",
+  tabTrigger,
 }: UserMenuProps) {
   const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -138,11 +150,18 @@ export function UserMenu({
     if (isOpen) {
       close();
     } else {
-      handleOpen((rect) =>
-        placement === "rail"
-          ? { bottom: window.innerHeight - rect.bottom, left: rect.right + 8 }
-          : { top: rect.bottom + 8, right: window.innerWidth - rect.right },
-      );
+      handleOpen((rect) => {
+        if (placement === "rail") {
+          return { bottom: window.innerHeight - rect.bottom, left: rect.right + 8 };
+        }
+        if (placement === "nav") {
+          return {
+            bottom: window.innerHeight - rect.top + 8,
+            right: window.innerWidth - rect.right,
+          };
+        }
+        return { top: rect.bottom + 8, right: window.innerWidth - rect.right };
+      });
     }
   }
 
@@ -261,18 +280,33 @@ export function UserMenu({
       : null;
 
   return (
-    <div className="user-menu">
-      <button
-        ref={triggerRef}
-        type="button"
-        className="user-menu__trigger"
-        onClick={handleToggle}
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        aria-label="User menu"
-      >
-        <AvatarOrFallback avatarUrl={currentUser.avatarUrl} initial={initial} />
-      </button>
+    <div className={tabTrigger ? "user-menu user-menu--tab" : "user-menu"}>
+      {tabTrigger ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className={tabTrigger.className}
+          onClick={handleToggle}
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          aria-label={tabTrigger.label}
+          aria-current={tabTrigger.active ? "true" : undefined}
+        >
+          {tabTrigger.children}
+        </button>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          className="user-menu__trigger"
+          onClick={handleToggle}
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          aria-label="User menu"
+        >
+          <AvatarOrFallback avatarUrl={currentUser.avatarUrl} initial={initial} />
+        </button>
+      )}
       {panel}
     </div>
   );

@@ -159,3 +159,25 @@
 .mobile-panel-stack__item--divider .divider-panel {
   height: auto;
 }
+
+/* HEL-1583 D1 — phone gutters (DESIGN.md §12). `.panel-list` owns the 12px
+ * screen-edge inset, so the stack adds none; 10px between cards and 14px card
+ * padding are --space-3 +/- 2px optical tweaks (§3, <= 4px from a token).
+ * Chain at 375px: 12 (panel-list) + 1 (border) + 14 (card) + 0 (markdown) = 27px.
+ * `mobilePanelHeights.ts` mirrors these numbers. Phone shell only. */
+@media (max-width: 768px) {
+  .mobile-panel-stack {
+    gap: calc(var(--space-3) - 2px);
+    padding: 0;
+  }
+
+  .mobile-panel-stack__item.panel-grid-card {
+    padding: calc(var(--space-3) + 2px);
+  }
+
+  /* No second horizontal inset inside the card for plain-text bodies. */
+  .mobile-panel-stack__item--markdown .markdown-panel,
+  .mobile-panel-stack__item--text .panel-content--text {
+    padding-inline: 0;
+  }
+}

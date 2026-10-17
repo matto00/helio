@@ -108,6 +108,12 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
     count: 1,
     note: "triple-ring zero-blur focus indicator (D0), HEL-1050 D5/3.8 — recolours the ring to the contrast-derived focus-ring token and adds a third, neutral-and-therefore-backdrop-independent layer so :focus-visible stays visually distinct from --selected above even for the zero-darkening accent presets (evaluator cycle-2 correction: a --app-surface-strong 3rd layer is invisible in this picker's one real render context and, for those presets, left the two states pixel-identical).",
   },
+  {
+    file: "shared/chrome/BottomNav.css",
+    declaration: "box-shadow: inset 0 0 0 1px var(--app-text);",
+    count: 1,
+    note: "HEL-1583 D10 (owner answer opaque-pill-text-ring): the active bottom-nav pill's 1px full-strength --app-text ring. An inset zero-blur ring, not an elevation: it adds no geometry (the pill's box never shifts on activation) and carries the >=3:1 pill-edge contrast floor (DESIGN.md §3 carve-out).",
+  },
   // D0 / task 2.1b — the 13 horizontal scroll-fade insets, in FOUR distinct values
   // (not byte-identical). Reported as a spinoff candidate for the scroll-
   // fade duplication itself, not absorbed here.
@@ -373,7 +379,7 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 147)", () => {
+  it("walks every CSS file in frontend/src (currently 148)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no box-shadow/border-radius, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); its one
@@ -403,7 +409,8 @@ describe("elevation token guard (HEL-442)", () => {
     // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
     // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) = 146, recounted with find, not carried from any side.
     // HEL-1578 added `features/home/ui/HomePage.css` (146 -> 147), recounted with find after the merge; tokens only.
-    expect(files.length).toBe(147);
+    // HEL-1583 added `DashboardChipRow.css` (147 -> 148), recounted with find after the merge; tokens only.
+    expect(files.length).toBe(148);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

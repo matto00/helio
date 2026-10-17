@@ -145,58 +145,146 @@ describe("BottomNav.css — inactive ink is full-contrast (HEL-774)", () => {
   });
 });
 
-describe("BottomNav.css — active lozenge (HEL-774 D6)", () => {
-  it("every tab's lozenge carries identical geometry, so the icon never shifts on activation", () => {
+describe("BottomNav.css — lozenge geometry is state-independent (HEL-774 D6, replaced by HEL-1583 D9)", () => {
+  // HEL-774's "every lozenge carries identical geometry" cannot hold once the active lozenge grows with its label. It
+  // is REPLACED, not dropped: block padding and radius are identical in every state, the lozenge never gains a border
+  // or margin on activation, and growth is along the inline axis only.
+  it("the base lozenge carries the block padding, the --space-2 inline padding and the pill radius", () => {
     const body = findRuleBody(css, ".bottom-nav__lozenge {");
-    expect(body).toMatch(/padding:\s*var\(--space-1\)\s*var\(--space-3\)\s*;/);
+    expect(body).toMatch(/padding:\s*var\(--space-1\)\s*var\(--space-2\)\s*;/);
     expect(body).toMatch(/border-radius:\s*var\(--app-radius-pill\)\s*;/);
-    // Only `background` changes between states now, so no placeholder border
-    // is needed to hold the box steady — and declaring one would reintroduce
-    // the outlined-box look this replaced.
     expect(body).not.toMatch(/border:/);
   });
 
-  it("the active lozenge is a tinted highlight fill with no border", () => {
+  it("the active lozenge changes the INLINE padding only (--space-3), never the block padding, radius, border or margin", () => {
     const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
-    expect(body).toMatch(
-      /background:\s*color-mix\(in srgb,\s*var\(--app-accent\)\s*\d+%,\s*transparent\)\s*;/,
-    );
-    expect(body).not.toMatch(/border/);
+    expect(body).toMatch(/padding-inline:\s*var\(--space-3\)\s*;/);
+    expect(body).not.toMatch(/(?<!-)padding\s*:/);
+    expect(body).not.toMatch(/padding-block/);
+    expect(body).not.toMatch(/border-radius/);
+    expect(body).not.toMatch(/(?<!-)border\s*:/);
+    expect(body).not.toMatch(/margin/);
   });
 
-  // A neutral fill converges to invisible against the capsule's own
-  // translucent composite at every alpha — that convergence is why the old
-  // treatment needed a border to carry the affordance at all.
-  it("the highlight is mixed from --app-accent, not the neutral surface ramp", () => {
-    const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
-    expect(body).not.toMatch(/--app-surface/);
-  });
-
-  it("no background-clip is declared anywhere — dead CSS with no border to clip against", () => {
-    expect(css).not.toMatch(/background-clip/);
+  it("the lozenge is bounded to its own tab (min-width: 0; max-width: 100%) so it truncates instead of spilling at 320px", () => {
+    const body = findRuleBody(css, ".bottom-nav__lozenge {");
+    expect(body).toMatch(/min-width:\s*0\s*;/);
+    expect(body).toMatch(/max-width:\s*100%\s*;/);
   });
 
   it("the lozenge styling never targets an svg/icon element directly", () => {
     expect(css).not.toMatch(/\.bottom-nav__icon\s*\{[^}]*(?:padding|border)[^}]*\}/);
   });
+
+  it("no background-clip is declared anywhere", () => {
+    expect(css).not.toMatch(/background-clip/);
+  });
 });
 
-describe("BottomNav.css — reduced motion disables the lozenge transition outright (HEL-774 D8)", () => {
-  it(".bottom-nav__lozenge declares a transition on background only", () => {
+describe("BottomNav.css — the active pill is opaque with a text-ink ring (HEL-1583 D10, owner answer opaque-pill-text-ring)", () => {
+  it("the active lozenge is an opaque --app-surface-strong fill with a 1px --app-text ring (inset shadow: no geometry)", () => {
+    const body = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {");
+    expect(body).toMatch(/background:\s*var\(--app-surface-strong\)\s*;/);
+    expect(body).toMatch(/box-shadow:\s*inset 0 0 0 1px var\(--app-text\)\s*;/);
+    // Not the accent wash it replaced.
+    expect(body).not.toMatch(/color-mix/);
+    expect(body).not.toMatch(/--app-accent/);
+  });
+
+  it("only the ACTIVE lozenge has a fill or a ring: the base lozenge declares neither", () => {
     const body = findRuleBody(css, ".bottom-nav__lozenge {");
-    expect(body).toMatch(/transition:\s*background\s+var\(--app-transition\)\s*;/);
+    expect(body).not.toMatch(/background/);
+    expect(body).not.toMatch(/box-shadow/);
   });
 
-  it("reduced motion clears it with `transition: none`, not a shortened duration", () => {
+  it("the capsule's glass is unchanged: tint at 55% of --app-surface, blur 12px, --app-border-strong hairline", () => {
+    const beforeBody = findRuleBody(phoneMedia.body, ".bottom-nav::before {");
+    expect(beforeBody).toMatch(/color-mix\(in srgb,\s*var\(--app-surface\)\s*55%,\s*transparent\)/);
+    const body = findRuleBody(phoneMedia.body, ".bottom-nav {");
+    expect(body).toMatch(/blur\(12px\)/);
+    expect(body).toMatch(/border:\s*1px solid var\(--app-border-strong\)\s*;/);
+  });
+
+  it("the accent stays on the active ICON alone: the tab's colour is --app-accent-text, the label is --app-text", () => {
+    expect(findRuleBody(css, ".bottom-nav__tab--active {")).toMatch(
+      /color:\s*var\(--app-accent-text\)\s*;/,
+    );
+    expect(findRuleBody(css, ".bottom-nav__label {")).toMatch(/color:\s*var\(--app-text\)\s*;/);
+    expect(css.match(/--app-accent(?![-\w])/g)).toBeNull();
+  });
+});
+
+describe("BottomNav.css — expanding label (HEL-1583 D9)", () => {
+  it("every tab is content-sized (flex: 0 1 auto) and the bar spreads them with space-evenly", () => {
+    expect(findRuleBody(css, ".bottom-nav__tab {")).toMatch(/flex:\s*0 1 auto\s*;/);
+    expect(findRuleBody(phoneMedia.body, ".bottom-nav {")).toMatch(
+      /justify-content:\s*space-evenly\s*;/,
+    );
+    // No state ever changes flex-basis / flex-grow on activation.
+    expect(findRuleBody(css, ".bottom-nav__tab--active {")).not.toMatch(/flex/);
+    expect(findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__lozenge {")).not.toMatch(
+      /flex/,
+    );
+  });
+
+  it("the label is collapsed by default and expands only on the active tab, to a token-sized cap", () => {
+    const base = findRuleBody(css, ".bottom-nav__label {");
+    expect(base).toMatch(/max-width:\s*0\s*;/);
+    expect(base).toMatch(/opacity:\s*0\s*;/);
+    expect(base).toMatch(/min-width:\s*0\s*;/);
+    expect(base).toMatch(/overflow:\s*hidden\s*;/);
+    expect(base).toMatch(/white-space:\s*nowrap\s*;/);
+    expect(base).toMatch(/text-overflow:\s*ellipsis\s*;/);
+    const active = findRuleBody(css, ".bottom-nav__tab--active .bottom-nav__label {");
+    expect(active).toMatch(/max-width:\s*calc\(var\(--space-6\)\s*\*\s*4\)\s*;/);
+    expect(active).toMatch(/opacity:\s*1\s*;/);
+  });
+
+  it("the label is --text-xs / --weight-semibold sans in full --app-text ink (4.5:1 normal-text floor)", () => {
+    const base = findRuleBody(css, ".bottom-nav__label {");
+    expect(base).toMatch(/font-family:\s*var\(--font-sans\)\s*;/);
+    expect(base).toMatch(/font-size:\s*var\(--text-xs\)\s*;/);
+    expect(base).toMatch(/font-weight:\s*var\(--weight-semibold\)\s*;/);
+    expect(base).toMatch(/color:\s*var\(--app-text\)\s*;/);
+    expect(base).not.toMatch(/--app-text-muted/);
+  });
+
+  it("transitions only the label's max-width and opacity, and the lozenge's inline padding, on the standard motion tokens", () => {
+    const label = findRuleBody(css, ".bottom-nav__label {");
+    const labelTransition = /transition:\s*([^;]+);/.exec(label)?.[1] ?? "";
+    expect(labelTransition.replace(/\s+/g, " ").trim()).toBe(
+      "max-width var(--motion-duration-standard) var(--motion-ease-out), opacity var(--motion-duration-standard) var(--motion-ease-out)",
+    );
+    const lozenge = findRuleBody(css, ".bottom-nav__lozenge {");
+    expect(lozenge).toMatch(
+      /transition:\s*padding-inline var\(--motion-duration-standard\) var\(--motion-ease-out\)\s*;/,
+    );
+    // Nothing else in the file animates width, flex or padding.
+    expect(css).not.toMatch(
+      /transition:[^;]*(?<![-\w])(width|flex|flex-basis|flex-grow|min-width)(?![-\w])/,
+    );
+  });
+});
+
+describe("BottomNav.css — reduced motion removes the label and lozenge transitions outright (HEL-774 D8, HEL-1572, HEL-1583)", () => {
+  it("under prefers-reduced-motion (no explicit data-motion) both clear to `transition: none`", () => {
     const { body } = findMediaBlock(css, "prefers-reduced-motion: reduce");
-    const lozengeBody = findRuleBody(body, ".bottom-nav__lozenge {");
-    expect(lozengeBody).toMatch(/transition:\s*none\s*;/);
+    const rule = findRuleBody(body, ":root:not([data-motion]) .bottom-nav__label {");
+    expect(body).toMatch(/:root:not\(\[data-motion\]\) \.bottom-nav__lozenge/);
+    expect(rule).toMatch(/transition:\s*none\s*;/);
   });
 
-  it("the reduced-motion override is positioned AFTER the base .bottom-nav__lozenge rule (source order, equal specificity)", () => {
-    const baseIndex = css.indexOf(".bottom-nav__lozenge {");
+  it('an explicit data-motion="off" clears both too', () => {
+    const rule = findRuleBody(css, ':root[data-motion="off"] .bottom-nav__label {');
+    expect(rule).toMatch(/transition:\s*none\s*;/);
+    expect(css).toMatch(/:root\[data-motion="off"\] \.bottom-nav__lozenge/);
+  });
+
+  it("the overrides are positioned AFTER the base lozenge and label rules (source order, equal specificity)", () => {
     const { start: reducedMotionIndex } = findMediaBlock(css, "prefers-reduced-motion: reduce");
-    expect(reducedMotionIndex).toBeGreaterThan(baseIndex);
+    expect(reducedMotionIndex).toBeGreaterThan(css.indexOf(".bottom-nav__lozenge {"));
+    expect(reducedMotionIndex).toBeGreaterThan(css.indexOf(".bottom-nav__label {"));
+    expect(css.indexOf(':root[data-motion="off"]')).toBeGreaterThan(reducedMotionIndex);
   });
 });
 

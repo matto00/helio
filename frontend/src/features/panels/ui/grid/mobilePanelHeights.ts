@@ -41,14 +41,15 @@ export interface MobilePanelHeightPolicy {
 // there is no meaningful pixel value to precompute without a live viewport.
 
 /** Chrome subtracted from the measured stack-container width to approximate
- *  a single stack item's content width: the stack's own `--space-3`
- *  container padding (both sides, 2×12px) plus `.panel-grid-card`'s own
- *  internal padding (both sides, `clamp(14px, 2vw, 20px)`, ~16px typical at
- *  phone widths). Approximate by design (W4.3: "these numbers were derived
- *  by reading code... tune them on device") — not worth a live per-item
- *  ResizeObserver when every item in a single-column stack shares one width. */
-const STACK_CONTAINER_PADDING_PX = 24; // 2 × --space-3 (12px)
-const STACK_CARD_PADDING_PX = 32; // 2 × ~16px card padding
+ *  a single stack item's content width. HEL-1583 D1 (phone shell): the stack
+ *  adds no inline padding of its own (`.panel-list` owns the 12px edge inset
+ *  outside the measured container), and `.panel-grid-card` has a 1px border
+ *  and ~14px padding on each side (MobilePanelStack.css). Approximate by
+ *  design (W4.3: "these numbers were derived by reading code... tune them on
+ *  device") — not worth a live per-item ResizeObserver when every item in a
+ *  single-column stack shares one width. */
+const STACK_CONTAINER_PADDING_PX = 0; // stack inline padding is 0; .panel-list owns the inset
+const STACK_CARD_PADDING_PX = 30; // 2 × (1px border + 14px card padding)
 const STACK_ITEM_CHROME_PX = STACK_CONTAINER_PADDING_PX + STACK_CARD_PADDING_PX;
 
 /** Approximates a single stack item's content width from the measured grid

@@ -28,6 +28,7 @@ import { EmptyState } from "../../../shared/ui/EmptyState";
 import { PageContentSkeleton } from "../../../shared/ui/PageContentSkeleton";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PageShell } from "../../../shared/ui/PageShell";
+import { DataSectionTabs } from "../../../shared/chrome/DataSectionTabs";
 import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON, InlineError } from "../../../shared/chrome/InlineError";
 
@@ -171,6 +172,7 @@ export function SourcesPage() {
 
   return (
     <PageShell className="sources-page">
+      <DataSectionTabs />
       <PageHeader title="Data Sources" />
 
       <div className="sources-page__section">

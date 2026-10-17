@@ -314,17 +314,23 @@ describe("authenticated shell: icon rail and context list (HEL-1574)", () => {
   });
 
   describe("at the phone breakpoint (768px and below)", () => {
-    it("renders no rail and no context list, only the command bar's avatar and logo, and the bottom nav", async () => {
+    it("renders no rail and no context list, no header avatar (the Me tab replaced it), the logo, and the bottom nav", async () => {
       mockPhoneWidth(true);
       renderShell("/dashboards");
       await screen.findByRole("navigation", { name: "Primary" });
       expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
       expect(document.querySelector(".app-rail")).toBeNull();
       expect(document.querySelector(".context-list")).toBeNull();
-      expect(screen.getAllByRole("button", { name: "User menu" })).toHaveLength(1);
+      // HEL-1583: the header avatar is gone; the bottom nav's Me tab is the one user-menu trigger.
+      expect(screen.queryByRole("button", { name: "User menu" })).not.toBeInTheDocument();
       expect(screen.getAllByRole("link", { name: "Helio home" })).toHaveLength(1);
       const primary = screen.getByRole("navigation", { name: "Primary" });
       expect(within(primary).getAllByRole("link")[0]).toHaveAttribute("aria-label", "Home");
+      expect(within(primary).getAllByRole("button")).toHaveLength(1);
+      expect(within(primary).getByRole("button", { name: "Me" })).toHaveAttribute(
+        "aria-haspopup",
+        "menu",
+      );
     });
   });
 

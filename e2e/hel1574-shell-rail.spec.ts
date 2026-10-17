@@ -84,7 +84,11 @@ test.describe("HEL-1574 shell rail and context list", () => {
     await expect(
       page.getByRole("navigation", { name: "Primary" }).getByRole("link").first(),
     ).toHaveAttribute("aria-label", "Home");
-    await expect(page.getByRole("button", { name: "User menu" })).toHaveCount(1);
+    // HEL-1583: the header avatar is gone on the phone; the Me tab is the one user-menu trigger.
+    await expect(page.getByRole("button", { name: "User menu" })).toHaveCount(0);
+    await expect(
+      page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Me" }),
+    ).toHaveCount(1);
   });
 
   test("at 375px the bottom nav tabs are each at least 44px wide and do not overlap", async ({
@@ -94,7 +98,7 @@ test.describe("HEL-1574 shell rail and context list", () => {
     await page.setViewportSize({ width: 375, height: 800 });
     await registerAndLogin(page, request, { ...AUTH, label: "tabs375" });
     const tabs = page.locator(".bottom-nav__tab");
-    await expect(tabs).toHaveCount(6); // a non-owner: Home + the five sections
+    await expect(tabs).toHaveCount(5); // HEL-1583: Home, Dashboards, Data, Pipelines, Me (every tier)
     const boxes = await tabs.evaluateAll((els) =>
       els.map((el) => {
         const r = el.getBoundingClientRect();
@@ -105,13 +109,7 @@ test.describe("HEL-1574 shell rail and context list", () => {
     for (let i = 1; i < boxes.length; i++) {
       expect(boxes[i]!.left).toBeGreaterThanOrEqual(boxes[i - 1]!.right - 0.5);
     }
-    // An owner adds a seventh tab (Usage). Owners cannot be registered here, so prove the same tiling
-    // arithmetic from the measured bar: seven 44px tabs must fit the usable width.
-    const usable = await page.locator(".bottom-nav").evaluate((el) => {
-      const style = getComputedStyle(el);
-      return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    });
-    expect(usable).toBeGreaterThanOrEqual(7 * 44);
+    // An owner has the same five tabs (Usage moved into the Me menu), so there is no wider owner bar to prove.
   });
 
   test("resizes from the keyboard within 200..400 and the width survives a reload", async ({

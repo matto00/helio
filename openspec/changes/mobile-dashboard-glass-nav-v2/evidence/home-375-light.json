@@ -1,0 +1,24 @@
+{
+  "width": 375,
+  "theme": "light",
+  "viewportHeight": 800,
+  "viewWidth": 375,
+  "pageLeft": 0,
+  "cardCount": 4,
+  "firstCardLeft": 12,
+  "firstCardRightGap": 12,
+  "shelfTop": 206,
+  "shelfBottom": 1046.75,
+  "cardHeights": [
+    198,
+    198,
+    198,
+    198
+  ],
+  "sectionTop": 1070.75,
+  "timelineTop": 1152.75,
+  "horizontalOverflow": false,
+  "shelfHeight": 841,
+  "sectionBelowFold": true,
+  "sectionTopOverViewport": 1.34
+}

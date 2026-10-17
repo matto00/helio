@@ -84,9 +84,25 @@ async function findClipped(page: Page, selectors: string[]): Promise<string[]> {
       if (style.display === "inline" || style.display === "none") continue;
       if (style.textOverflow === "ellipsis") continue;
       if (!el.textContent?.trim()) continue;
+      // HEL-1583: the bottom nav's inactive tabs carry a deliberately collapsed label (max-width 0, opacity 0, aria-hidden), which
+      // is clipped by design and invisible. Measure only text a user can see: skip any text node under an opacity-0 ancestor.
       const range = document.createRange();
-      range.selectNodeContents(el);
-      if (range.getBoundingClientRect().width > el.clientWidth + 1) {
+      let left = Infinity;
+      let right = -Infinity;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        let hidden = false;
+        for (let up = node.parentElement; up && up !== el.parentElement; up = up.parentElement) {
+          if (getComputedStyle(up).opacity === "0") hidden = true;
+        }
+        if (hidden) continue;
+        range.selectNodeContents(node);
+        const rect = range.getBoundingClientRect();
+        left = Math.min(left, rect.left);
+        right = Math.max(right, rect.right);
+      }
+      if (right - left > el.clientWidth + 1) {
         bad.push(`${el.className} "${el.textContent.trim().slice(0, 30)}"`);
       }
     }
