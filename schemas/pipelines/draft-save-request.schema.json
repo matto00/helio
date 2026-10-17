@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/draft-save-request.schema.json",
+  "title": "DraftSaveRequest",
+  "description": "POST /api/pipelines/:id/draft/save body (HEL-1629, docs/live-draft-preview.md section 8). `steps` and `outputs` are the FINAL tree, diffed against the stored definition: an item carrying an `id` is an existing step or Output of THIS pipeline (any other id is a 400: explicit ids are accepted only when the server restores a journaled definition on undo); an item carrying a `clientId` is new. A step names exactly one of `parentStepId` (an existing step of the draft), `parentClientId` (a new step of the draft) or `rootId` (a parentless step names its root); an Output names exactly one of `nodeStepId`, `nodeStepClientId` or `rootId`. A stored step the draft omits is DELETED, with its tail subtree only if the draft omits it too: the server never deletes a step the draft keeps. `baseFingerprint` is the `fingerprint` of the `GET /api/pipelines/:id` the draft was based on; a stale base answers 409 PATCH_SET_STALE and there is no overwrite path of any kind. Removals (steps, Outputs and the panels and alert rules they cascade into) must be listed in `confirmCascade`, else 422 with the impact.",
+  "type": "object",
+  "required": ["baseFingerprint", "steps", "outputs"],
+  "properties": {
+    "baseFingerprint": { "type": "string", "minLength": 1 },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/DraftStep" } },
+    "outputs": { "type": "array", "items": { "$ref": "#/$defs/DraftOutput" } },
+    "runAfterSave": {
+      "enum": ["run", "dryRun", null],
+      "description": "When set, the server submits a run through the unchanged HEL-505 guard AFTER the save has committed. A guard rejection is reported in the response and never rolls the save back."
+    },
+    "confirmCascade": { "$ref": "#/$defs/DraftCascadeConfirmation" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "DraftStep": {
+      "type": "object",
+      "required": ["type", "config", "position"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "clientId": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "config": { "type": "object" },
+        "enabled": { "type": "boolean" },
+        "parentStepId": { "type": "string", "minLength": 1 },
+        "parentClientId": { "type": "string", "minLength": 1 },
+        "rootId": { "type": "string", "minLength": 1 },
+        "position": { "type": "integer", "minimum": 0 }
+      },
+      "oneOf": [{ "required": ["id"] }, { "required": ["clientId"] }],
+      "additionalProperties": false
+    },
+    "DraftOutput": {
+      "type": "object",
+      "required": ["name", "kind"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "clientId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"] },
+        "nodeStepId": { "type": "string", "minLength": 1 },
+        "nodeStepClientId": { "type": "string", "minLength": 1 },
+        "rootId": { "type": "string", "minLength": 1 },
+        "config": { "type": "object" }
+      },
+      "oneOf": [{ "required": ["id"] }, { "required": ["clientId"] }],
+      "additionalProperties": false
+    },
+    "DraftCascadeConfirmation": {
+      "type": "object",
+      "properties": {
+        "stepIds": { "type": "array", "items": { "type": "string" } },
+        "outputIds": { "type": "array", "items": { "type": "string" } },
+        "panelIds": { "type": "array", "items": { "type": "string" } },
+        "alertRuleIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

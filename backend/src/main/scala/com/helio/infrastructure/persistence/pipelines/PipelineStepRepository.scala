@@ -30,7 +30,7 @@ import scala.util.{Failure, Success, Try}
  *  `pipelines.owner_id` so the parent pipeline's ACL gates access. Steps
  *  inherit ACL from their parent pipeline; there is no separate `owner_id`
  *  column on `pipeline_steps`. */
-class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
+class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
   import PipelineStepRepository._
 
@@ -132,6 +132,15 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     case UpsertTarget.NewSource(evaluatedName) if evaluatedName.trim.nonEmpty =>
       val ownerUuid = UUID.fromString(ownerId)
       for {
+        // HEL-1629 (evidence probe 1.3 (a)): the cycle advisory lock, then lock (3), BEFORE the step row. The old order (step
+        // row, then the advisory lock inside the cycle check) deadlocks with a draft save that holds the advisory lock and
+        // writes this same step. The step is addressed by id, so its pipeline is read without a lock first.
+        pipelineId <- stepsTable.filter(_.id === stepId.value).map(_.pipelineId).result.headOption
+        _          <- locks.choose(
+                        LockSite.RewriteAdvisoryFirst,
+                        PipelineCycleGuard.lockAction.andThen(locks.lockPipelines(LockSite.RewriteUpsert, pipelineId.toSeq)).map(_ => ()),
+                        DBIO.successful(())
+                      )
         _          <- sql"SELECT id FROM pipeline_steps WHERE id = ${stepId.value} FOR UPDATE".as[String]
         currentRow <- stepsTable.filter(_.id === stepId.value).result.headOption
         result     <- currentRow match {
@@ -330,13 +339,19 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       stepsTable.filter(_.pipelineId === pipelineId.value).result
     ).map(rows => executionOrder(rows.toVector.map(rowToDomain)))
 
+  /** The raw rows as domain steps in [[executionOrder]] (HEL-1629: the draft save checks lane cycles on the rows it just wrote). */
+  def domainOf(rows: Vector[PipelineStepRow]): Vector[PipelineStep] = executionOrder(rows.map(rowToDomain))
+
   /** HEL-1206 design.md D6 -- [[listByPipelineInternal]] plus [[rootIdsOf]]'s side-map from ONE
     * query (the row already carries `root_id`), so provenance resolves steps + trunk roots in a
     * single read. Privileged (`withSystemContext`), same basis as both methods it combines. */
   def listWithRootIdsInternal(pipelineId: PipelineId): Future[(Vector[PipelineStep], Map[PipelineStepId, PipelineRootId])] =
-    ctx.withSystemContext(
-      stepsTable.filter(_.pipelineId === pipelineId.value).result
-    ).map { rows =>
+    ctx.withSystemContext(listWithRootIdsAction(pipelineId))
+
+  /** [[listWithRootIdsInternal]] as a composable `DBIO` (HEL-1629): the fingerprint read runs it, with the other definition
+   *  reads, inside one privileged transaction. */
+  def listWithRootIdsAction(pipelineId: PipelineId): DBIO[(Vector[PipelineStep], Map[PipelineStepId, PipelineRootId])] =
+    stepsTable.filter(_.pipelineId === pipelineId.value).result.map { rows =>
       val rootIds = rows.collect { case r if r.rootId.isDefined => PipelineStepId(r.id) -> PipelineRootId(r.rootId.get) }.toMap
       (executionOrder(rows.toVector.map(rowToDomain)), rootIds)
     }
@@ -398,7 +413,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-1101 skeptic-final-1.md CR1: see `insertInternalAction`'s matching parameter doc.
       actingUserId: String = ""
   ): Future[PipelineStep] =
-    ctx.withSystemContext(insertInternalAction(pipelineId, kind, config, enabled, parentStepId, explicitRootId, actingUserId).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepInsert, Seq(pipelineId.value)) andThen insertInternalAction(pipelineId, kind, config, enabled, parentStepId, explicitRootId, actingUserId)).transactionally)
 
   /** DBIO variant of `insertInternal` above -- extracted (HEL-906 task 3.1, coordinator ruling
    *  D3) so `PipelineService`'s single-call transactional pipeline-creation path can compose
@@ -467,6 +482,15 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     } yield rowToDomain(row)
   }
 
+  /** Lock (3) for a writer addressed by STEP id: the step's pipeline is read without a lock, then locked. The writer's own
+   *  reads come after this, so it never works from a row it read before the lock. A step (or pipeline) a racer already
+   *  deleted just means the writer takes its own not-found path. */
+  private def lockPipelineOfStep(site: LockSite, stepId: PipelineStepId): DBIO[Boolean] =
+    stepsTable.filter(_.id === stepId.value).map(_.pipelineId).result.headOption.flatMap {
+      case Some(pipelineId) => locks.lockPipelines(site, Seq(pipelineId))
+      case None             => DBIO.successful(false)
+    }
+
   /** ACL-bypassing update. Safe to call only after the caller's editor or
     * owner access has been confirmed by PipelineService via findByIdShared.
     *
@@ -494,9 +518,20 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // step's write target, so there is no new edge to check (a no-op call site, e.g. a bare
       // `enabled`/`position` PATCH, never needs a real caller id here).
       actingUserId: String = ""
-  ): Future[Option[PipelineStep]] = {
+  ): Future[Option[PipelineStep]] =
+    ctx.withSystemContext((lockPipelineOfStep(LockSite.StepUpdate, id) andThen updateAction(id, config, position, enabled, actingUserId)).transactionally)
+
+  /** DBIO body of [[updateInternal]] (HEL-1629 task 2.1), composable into a larger transaction. Behavior is exactly the
+   *  pre-extraction body: read, cycle check for an `upsertsource` config, position-scoped update. */
+  def updateAction(
+      id: PipelineStepId,
+      config: Option[Any],
+      position: Option[Int],
+      enabled: Option[Boolean] = None,
+      actingUserId: String = ""
+  ): DBIO[Option[PipelineStep]] = {
     val now = Instant.now()
-    val action = for {
+    for {
       existing <- stepsTable.filter(_.id === id.value).result.headOption
       updated  <- existing match {
         case None      => DBIO.successful(None)
@@ -514,7 +549,6 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           cycleCheck.flatMap(_ => positionScopedUpdateAction(row, newConfig, position, enabled, now)).map(r => Some(rowToDomain(r)))
       }
     } yield updated
-    ctx.withSystemContext(action.transactionally)
   }
 
   /** Shared position-scoped update body for [[update]]/[[updateInternal]]
@@ -595,7 +629,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       }
       _        <- DBIO.sequence(updates)
     } yield rowToDomain(newRow.copy(position = index))
-    ctx.withSystemContext(action.transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepInsertAt, Seq(pipelineId.value)) andThen action).transactionally)
   }
 
   /** ACL-bypassing splice-insert (HEL-904 cycle-7 fix, round-4 skeptic Finding
@@ -720,7 +754,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                            else DBIO.successful(Seq.empty[Int])
       persisted         <- stepsTable.filter(_.id === newId).result.head
     } yield (rowToDomain(persisted), existingChildren.map(_.id))
-    ctx.withSystemContext(action.transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepSplice, Seq(pipelineId.value)) andThen action).transactionally)
   }
 
   /** ACL-bypassing branch-attach (HEL-908): inserts a new step as a genuine NEW sibling of
@@ -768,7 +802,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-1101 task 3.4: see `spliceInsertAtInternal`'s matching parameter doc.
       actingUserId: String
   ): Future[PipelineStep] =
-    ctx.withSystemContext(attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled, actingUserId).transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepAttach, Seq(pipelineId.value)) andThen attachTailInternalAction(pipelineId, kind, config, parentStepId, enabled, actingUserId)).transactionally)
 
   /** DBIO body of [[attachTailInternal]] above -- extracted so route/service-level tests can
     * compose it into a larger transaction if ever needed, matching the `*InternalAction` idiom
@@ -829,7 +863,7 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       _    <- DBIO.sequence(updates.toSeq)
       rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
     } yield executionOrder(rows.toVector.map(rowToDomain))
-    ctx.withSystemContext(action.transactionally)
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepReorder, Seq(pipelineId.value)) andThen action).transactionally)
   }
 
   /** ACL-bypassing trunk-to-trunk reorder (HEL-908, design.md decision 15 / non-goal waiver #2;
@@ -863,9 +897,15 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * Returns `Left(error message)` (never partially applies a rejected request) when
     * `orderedTrunkIds` is not exactly a permutation of the union of every root's CURRENT trunk
     * ids -- any tail id present, any trunk id missing, or any duplicate. */
-  def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): Future[Either[String, Vector[PipelineStep]]] = {
+  def reorderTrunkInternal(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): Future[Either[String, Vector[PipelineStep]]] =
+    ctx.withSystemContext((locks.lockPipelines(LockSite.StepReorderTrunk, Seq(pipelineId.value)) andThen reorderTrunkAction(pipelineId, orderedTrunkIds)).transactionally)
+
+  /** DBIO body of [[reorderTrunkInternal]] (HEL-1629 task 2.1), composable into a larger transaction. A rejected request is a
+   *  `Left` that has written nothing; a lane cycle fails the action with [[LaneCycleOnReorderException]] so the enclosing
+   *  transaction rolls the relink back. */
+  def reorderTrunkAction(pipelineId: PipelineId, orderedTrunkIds: Seq[PipelineStepId]): DBIO[Either[String, Vector[PipelineStep]]] = {
     val now = Instant.now()
-    val action = for {
+    for {
       rows        <- stepsTable.filter(_.pipelineId === pipelineId.value).result
       steps        = rows.toVector.map(rowToDomain)
       rootIds     <- rootsTable.filter(_.pipelineId === pipelineId.value).map(_.id).result
@@ -922,7 +962,6 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           } yield Right(executionOrder(finalSteps)): Either[String, Vector[PipelineStep]]
       }
     } yield result
-    ctx.withSystemContext(action.transactionally)
   }
 
   /** Pure validation for [[reorderTrunkInternal]]'s request-shape contract (HEL-973 design.md
@@ -992,43 +1031,81 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     * presence to know whether the step existed; it does not consume the
     * count yet. */
   def deleteInternal(id: PipelineStepId): Future[Option[Int]] = {
-    val action = for {
+    def attempt(n: Int): Future[Option[Int]] =
+      ctx.withSystemContext(deleteAttemptAction(id).transactionally).flatMap {
+        case Some(done)                         => Future.successful(done)
+        case None if n < MaxDeleteAttempts      => attempt(n + 1)
+        case None                               =>
+          Future.failed(new IllegalStateException(s"step delete of ${id.value}: the removal set kept growing under the pipeline lock after $n attempts"))
+      }
+    attempt(1)
+  }
+
+  private val MaxDeleteAttempts = 3
+
+  /** One attempt of [[deleteInternal]]: `Some(result)` when done, `None` when the removal set read under the lock holds a step
+    * whose panels were NOT locked by the (1) call (a racer attached a tail below the target between the pre-lock read and the
+    * lock). Panels are locked once and first and cannot be locked again after the pipeline row, so this attempt writes nothing
+    * and the caller starts a fresh transaction whose pre-lock read includes that step. The deleted row's place, its existence
+    * and the removal set that drive every write are all read AFTER the pipeline-row lock (HEL-1629 final gate F1: a delete that
+    * waited behind a save used the pre-lock place of a step the save had moved). */
+  private def deleteAttemptAction(id: PipelineStepId): DBIO[Option[Option[Int]]] =
+    for {
       existing <- stepsTable.filter(_.id === id.value).result.headOption
       result   <- existing match {
-        case None => DBIO.successful(None)
-        case Some(deletedRow) =>
+        case None => DBIO.successful(Some(None))
+        case Some(preRow) =>
           for {
-            allRows        <- stepsTable.filter(_.pipelineId === deletedRow.pipelineId).map(s => (s.id, s.parentStepId, s.position)).result
-            removal         = PipelineStepRepository.removalOf(deletedRow.id, allRows)
-            headChildOpt    = removal.headChild
-            tailDescendantIds = removal.tailDescendants
-            // HEL-913 task 4.4d: the promoted head child inherits `deletedRow`'s `root_id` in
-            // the SAME update as its `parent_step_id` -- deleting a root-attached step
-            // (`deletedRow.parentStepId == None`, `deletedRow.rootId == Some(x)`) without this
-            // produces `parent_step_id IS NULL AND root_id IS NULL` on the promoted child,
-            // which V98's CHECK rejects outright. When the deleted step was itself non-root
-            // (`deletedRow.parentStepId` is `Some(...)`), `deletedRow.rootId` is already `None`,
-            // so this is a no-op for that case -- one update statement covers both.
-            // HEL-1498: lock the panels of EVERY Output this delete will cascade away -- the step's own and the
-            // tail subtrees' -- in one id-ordered statement, before the first write below (the promotion UPDATE).
-            // The promoted head child and its subtree survive, so they are not locked.
-            _ <- PanelRowLocks.lockForDeletion(steps = tailDescendantIds + deletedRow.id)
-            _ <- headChildOpt match {
-              case Some(headChildId) =>
-                stepsTable
-                  .filter(_.id === headChildId)
-                  .map(s => (s.parentStepId, s.rootId, s.position))
-                  .update((deletedRow.parentStepId, deletedRow.rootId, deletedRow.position))
-              case None => DBIO.successful(0)
+            preRows <- stepsTable.filter(_.pipelineId === preRow.pipelineId).map(s => (s.id, s.parentStepId, s.position)).result
+            preRemoval = PipelineStepRepository.removalOf(preRow.id, preRows)
+            // HEL-1498: lock the panels of EVERY Output this delete will cascade away -- the step's own and the tail
+            // subtrees' -- in one id-ordered statement, before the first write. The promoted head child and its subtree
+            // survive, so they are not locked.
+            // HEL-1629: lock (3) after (1), then re-read EVERYTHING under it. (`StepDeletePanelsFirst` inactive is the deadlock
+            // spec's recorded control: (3) before (1), the order the save's panels-then-pipeline order forms a cycle with.)
+            _ <-
+              if (locks.active(LockSite.StepDeletePanelsFirst))
+                PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id)
+                  .andThen(locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId)))
+              else
+                locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId))
+                  .andThen(PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id))
+            lockedRow <- stepsTable.filter(_.id === id.value).result.headOption
+            outcome <- lockedRow match {
+              case None => DBIO.successful(Some(None): Option[Option[Int]]) // a racer deleted the step: the not-found path
+              case Some(deletedRow) =>
+                for {
+                  lockedRows <- stepsTable.filter(_.pipelineId === deletedRow.pipelineId).map(s => (s.id, s.parentStepId, s.position)).result
+                  lockedRemoval = PipelineStepRepository.removalOf(deletedRow.id, lockedRows)
+                  covered       = preRemoval.tailDescendants + preRow.id
+                  r <-
+                    if (!lockedRemoval.removed.subsetOf(covered)) DBIO.successful(None: Option[Option[Int]])
+                    else
+                      for {
+                        // HEL-913 task 4.4d: the promoted head child inherits the LOCKED row's `root_id` in the same update as
+                        // its `parent_step_id` (V98's CHECK rejects parent NULL and root NULL).
+                        _ <- lockedRemoval.headChild match {
+                          case Some(headChildId) =>
+                            stepsTable
+                              .filter(_.id === headChildId)
+                              .map(s => (s.parentStepId, s.rootId, s.position))
+                              .update((deletedRow.parentStepId, deletedRow.rootId, deletedRow.position))
+                          case None => DBIO.successful(0)
+                        }
+                        _ <- deleteStepsCoreAction(lockedRemoval.removed)
+                      } yield Some(Some(lockedRemoval.tailDescendants.size))
+                } yield r
             }
-            _ <- if (tailDescendantIds.nonEmpty) stepsTable.filter(_.id.inSet(tailDescendantIds)).delete
-                 else DBIO.successful(0)
-            _ <- stepsTable.filter(_.id === deletedRow.id).delete
-          } yield Some(tailDescendantIds.size)
+          } yield outcome
       }
     } yield result
-    ctx.withSystemContext(action.transactionally)
-  }
+
+  /** The lock-free delete core (HEL-1629 task 2.1): removes exactly `ids` in ONE statement. Callers hold the locks
+   *  (`PanelRowLocks.lockForDeletion` over the steps, and for the draft save the whole definition protocol). One statement,
+   *  because `parent_step_id` is a NO ACTION FK checked at statement end: a removed subtree goes together, and every
+   *  surviving step has been re-linked off it first. Outputs on the removed steps cascade by FK. */
+  def deleteStepsCoreAction(ids: Set[String]): DBIO[Int] =
+    if (ids.isEmpty) DBIO.successful(0) else stepsTable.filter(_.id.inSet(ids)).delete
 
   /** Read-only: every step id `deleteInternal(id)` would remove (the target and its tail subtrees; the promoted head
     * child and its subtree survive). Empty when the step does not exist. Shares [[PipelineStepRepository.removalOf]]
@@ -1202,7 +1279,13 @@ class PipelineStepRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       // HEL-1498: the first write of the root-removal transaction (`PipelineRootWrites.removeRoot` composes this
       // first): lock, in id order, the panels of every Output this root's removal cascades away, including panels
       // on other users' dashboards the acting editor cannot see.
-      _    <- PanelRowLocks.lockForDeletion(roots = Seq(rootId.value))
+      // HEL-1629: lock (3) after (1) and before the reads below, so the step set they derive cannot move under us.
+      // (`RootRemovePanelsFirst` inactive is the deadlock spec's recorded control: (3) before (1).)
+      _    <-
+        if (locks.active(LockSite.RootRemovePanelsFirst))
+          PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)).andThen(locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)))
+        else
+          locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)).andThen(PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)))
       rows <- stepsTable.filter(_.pipelineId === pipelineId.value).result
       stepIdsUnderRoot = PipelineStepRepository.descendantsOfRoot(rows.toVector, rootId.value)
       _ <- DBIO.sequence(stepIdsUnderRoot.toVector.map { sid =>

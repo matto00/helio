@@ -1,0 +1,29 @@
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[info] DraftSaveDeadlockSpec:
+[info] a panel create against the save
+[info] - should not deadlock: the save locks panels and dashboards first, as a create does (dashboard before Output)
+[info] - should deadlock when the save takes the pipeline row and the Outputs before the panels (the section-8.3 earlier order)
+[info] an Output delete against the save
+[info] - should not deadlock: the delete takes the pipeline row first, as the save does
+[info] - should deadlock when the delete holds the Output and cascades into rules the save already holds
+[info] the alert evaluator against the save
+[info] - should not deadlock: the save locks the alert rules before the Outputs, the order the evaluator's FK checks take them
+[info] - should deadlock when the save locks the Outputs before the alert rules
+[info] a node-snapshot transaction against the save
+[info] - should not deadlock: the save locks Outputs by (position, id), the order the snapshot inserts its history points in
+[info] - should deadlock when the save locks Outputs by id on a node whose position order is the reverse of its id order
+[info] the upsert write-back rewrite against a save that changes the same step's upsert target
+[info] - should not deadlock: the rewrite takes the cycle advisory lock before the step row, as the save does
+[info] - should deadlock when the rewrite locks the step row first and the advisory lock after
+[info] a workspace teardown against a source delete on one of its sources
+[info] - should not deadlock: the teardown locks its source rows first, as a source delete does
+[info] - should deadlock when the teardown takes the panels before the source rows (the order it had)
+[info] a concurrent mix of the save and every participant, repeated
+[info] - should never raise 40P01
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 11 seconds, 468 milliseconds.
+[info] Total number of tests run: 13
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 13, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.

@@ -1,0 +1,32 @@
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1629/backup/DraftSaveTransaction.scala	2026-10-17 00:53:33.060289625 -0700
++++ DraftSaveTransaction.scala	2026-10-17 00:53:33.067623078 -0700
+@@ -50,7 +50,8 @@
+     auditRepo: AuditEventRepository,
+     definitionCtx: PatchSetApplyContext,
+     reads: DraftDefinitionReads,
+-    hooks: DraftSaveHooks
++    hooks: DraftSaveHooks,
++    pipelineRepo: com.helio.infrastructure.persistence.pipelines.PipelineRepository
+ )(implicit ec: ExecutionContext) {
+ 
+   import DraftHookPoint._
+@@ -147,7 +148,7 @@
+   ): DBIO[DraftSaved] = {
+     val actingOwner = ownerId.value
+     for {
+-      _          <- writes.insertSteps(pipelineId, pipelineName, actingOwner, plan.creates)
++      _          <- DBIO.from(pipelineRepo.runPrivileged(writes.insertSteps(pipelineId, pipelineName, actingOwner, plan.creates)))
+       _          <- hooks.at(AfterInserts)
+       _          <- writes.relinkSteps(plan.relinks)
+       _          <- hooks.at(AfterRelinks)
+--- /home/matt/Development/helio/.concertino/scratch/HEL-1629/backup/DraftSaveService.scala	2026-10-17 00:53:33.060317157 -0700
++++ DraftSaveService.scala	2026-10-17 00:53:33.067706183 -0700
+@@ -47,7 +47,7 @@
+   // Only the repositories `ofAction` reads are used; the rest of the patch-set context is not touched by a definition read.
+   private val definitionCtx = PatchSetApplyContext.build(panelRepo, null, dataSourceRepo, pipelineRepo, pipelineStepRepo, null, outputRepo)
+   private val transaction = new DraftSaveTransaction(
+-    writes, pipelineStepRepo, outputRepo, panelRepo, applicationRepo, auditRepo, definitionCtx, reads, hooks
++    writes, pipelineStepRepo, outputRepo, panelRepo, applicationRepo, auditRepo, definitionCtx, reads, hooks, pipelineRepo
+   )
+   private val support = new PipelineServiceSupport(pipelineStepRepo, dataSourceRepo, null)
+ 

@@ -120,6 +120,7 @@ class OutputRoutesSpec
       stmt.execute("GRANT helio_app_test_output_routes TO postgres")
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_app_test_output_routes")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO helio_app_test_output_routes")
+      stmt.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO helio_app_test_output_routes")
       stmt.close()
     } finally {
       superConn.close()

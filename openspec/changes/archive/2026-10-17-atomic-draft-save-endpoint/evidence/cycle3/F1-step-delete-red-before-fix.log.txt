@@ -1,0 +1,105 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala:209:22: match may not be exhaustive.
+[warn] It would fail on the following input: ThreeSession
+[warn]       val (sf, wf) = order match {
+[warn]                      ^
+[warn] one warning found
+[info] done compiling
+[info] compiling 3 Scala sources to /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+03:45:38,659 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+03:45:38,660 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5960b443 - No custom configurators were discovered as a service.
+03:45:38,660 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5960b443 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:45:38,660 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5960b443 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:45:38,661 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+03:45:38,662 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+03:45:38,693 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+03:45:38,694 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@38d4af2d - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+03:45:38,695 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+03:45:38,697 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+03:45:38,698 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@38d4af2d - value "plain" substituted for "${LOG_APPENDER}"
+03:45:38,698 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+03:45:38,698 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+03:45:38,698 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+03:45:38,701 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+03:45:38,711 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+03:45:38,711 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+03:45:38,711 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+03:45:38,711 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@38d4af2d - value "INFO" substituted for "${LOG_LEVEL}"
+03:45:38,711 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+03:45:38,711 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@38d4af2d - value "plain" substituted for "${LOG_APPENDER}"
+03:45:38,711 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+03:45:38,711 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@476dcbfd - End of configuration.
+03:45:38,712 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@4086f413 - Registering current configuration as safe fallback point
+03:45:38,714 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5960b443 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 52 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] DraftSaveRaceSpec:
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+03:45:40.625 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:45:40.652 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:45:40.658 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:45:40.658 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:45:40.659 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] panel create (PanelRepository.insertPlaced)
+[info] panel duplicate (PanelRepository.duplicate)
+[info] panel output swap, batch (PanelRepository.batchUpdate)
+[info] panel batch create (PanelRepository.insertBatchPlaced)
+[info] panel output swap, single (PanelRepository.replace)
+[info] panel delete (PanelRepository.delete)
+[info] dashboard duplicate (DashboardRepository.duplicate)
+[info] dashboard import (DashboardRepository.importSnapshot)
+[info] dashboard contents replace (DashboardRepository.replaceContents)
+[info] dashboard delete (DashboardRepository.delete)
+[info] alert rule insert (AlertRuleRepository.insert)
+[info] alert rule update (AlertRuleRepository.update)
+[info] alert rule delete (AlertRuleRepository.delete)
+[info] Output update (OutputRepository.updateOwned)
+[info] pipeline rename (PipelineRepository.updateName)
+[info] pipeline delete (PipelineRepository.delete)
+[info] step PATCH (PipelineStepRepository.updateInternal)
+[info] step insert (PipelineStepRepository.insertInternal)
+[info] step insert at index (PipelineStepRepository.insertAtInternal)
+[info] step splice (PipelineStepRepository.spliceInsertAtInternal)
+[info] step attach as tail (PipelineStepRepository.attachTailInternal)
+[info] step reorder (PipelineStepRepository.reorderInternal)
+[info] trunk reorder (PipelineStepRepository.reorderTrunkInternal)
+[info] step delete (PipelineStepRepository.deleteInternal)
+[info] Output delete (OutputRepository.deleteWithPanelsInternal)
+[info] Output create (OutputRepository.insertInternal)
+[info] root add (PipelineRootRepository.add)
+[info] root remove (removeRootCascadeAction, removeAction, compactPositions)
+[info] schedule upsert (PipelineScheduleRepository.upsert)
+[info] schedule delete (PipelineScheduleRepository.delete)
+[info] upsert target rewrite (StepRepository.rewriteUpsertTargetAction via applyWriteBacks)
+[info] source delete (DataSourceRepository.delete)
+[info] source delete by a source owner who cannot see the pipeline (RLS)
+[info] step delete of a step the save moved (PipelineStepRepository.deleteInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=true)
+[info]     save (backend 2715010) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: ok true was not equal to false (DraftSaveRaceSpec.scala:196)
+[info] every single-pipeline writer, run after a racer deleted the pipeline,
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 3 seconds, 576 milliseconds.
+[info] Total number of tests run: 2
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveRaceSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks

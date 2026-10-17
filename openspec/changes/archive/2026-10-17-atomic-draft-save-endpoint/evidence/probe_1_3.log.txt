@@ -1,0 +1,18 @@
+--- (a) step-row-then-advisory (current rewrite order) vs save advisory-then-step
+R: 1|ERROR:  deadlock detected|DETAIL:  Process 1790890 waits for ExclusiveLock on advisory lock [18989,0,72901101,1]; blocked by process 1790891.|Process 1790891 waits for ShareLock on transaction 1415; blocked by process 1790890.|HINT:  See server log for query
+S: |
+--- (a') advisory-then-step rewrite (restructured)
+R: |1|
+S: |
+--- (d) save locks outputs by id vs snapshot txn (history inserts in position order ob,oa)
+N: 1|ERROR:  deadlock detected|DETAIL:  Process 1791007 waits for ShareLock on transaction 1442; blocked by process 1791008.|Process 1791008 waits for ShareLock on transaction 1441; blocked by process 1791007.|HINT:  See server log for query details.|CONTEXT:  wh
+S: 1|1|1|
+--- (d) save locks outputs by position vs snapshot txn (history inserts in position order ob,oa)
+N: 1|
+S: 1|1|1|
+--- (e) save locks outputs_then_rules vs alert-event insert
+E: ERROR:  deadlock detected|DETAIL:  Process 1791162 waits for ShareLock on transaction 1468; blocked by process 1791164.|Process 1791164 waits for ShareLock on transaction 1469; blocked by process 1791162.|HINT:  See server log for query details.|CONTEXT:  whil
+S: 1|1|
+--- (e) save locks rules_then_outputs vs alert-event insert
+E: 
+S: 1|1|

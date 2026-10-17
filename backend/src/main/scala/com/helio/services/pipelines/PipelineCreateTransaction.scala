@@ -4,8 +4,6 @@ import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, PipelineId, PipelineRootId, PipelineStepId}
 import com.helio.domain.engine.{PipelineAnalyzeService, SchemaField}
-import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
-import com.helio.domain.steps.SecondaryInput
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineCycleGuard, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
@@ -151,22 +149,8 @@ private[pipelines] final class PipelineCreateTransaction(
    *  referenced clientId is not yet in `clientIdMap` -- see the call site's comment for why
    *  this can legitimately happen (a forward lane reference) and why it is reported as a named
    *  failure here rather than resolved. */
-  private def rewriteLaneClientId(typedConfig: Any, clientIdMap: Map[String, PipelineStepId]): Either[String, Any] = {
-    def rewrite(si: SecondaryInput): Either[String, SecondaryInput] = si match {
-      case SecondaryInput.Lane(clientId) =>
-        clientIdMap.get(clientId) match {
-          case Some(realId) => Right(SecondaryInput.Lane(realId.value))
-          case None         => Left(clientId)
-        }
-      case source => Right(source)
-    }
-    typedConfig match {
-      case c: JoinConfig   => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
-      case c: UnionConfig  => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
-      case c: LookupConfig => rewrite(c.secondaryInput).map(si => c.copy(secondaryInput = si))
-      case other            => Right(other)
-    }
-  }
+  private def rewriteLaneClientId(typedConfig: Any, clientIdMap: Map[String, PipelineStepId]): Either[String, Any] =
+    PipelineCreatePreflight.rewriteLaneClientId(typedConfig, id => clientIdMap.get(id).map(_.value))
 
   /** Builds `steps` (in array order, resolving `parentStepId` against earlier `clientId`s in
    *  the SAME request) as one composed `DBIO` chain -- every insert in this chain runs inside

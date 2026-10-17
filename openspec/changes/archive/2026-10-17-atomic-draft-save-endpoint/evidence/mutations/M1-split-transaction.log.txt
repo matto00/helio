@@ -1,0 +1,426 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[info] compiling 2 Scala sources to /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+00:53:45,531 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+00:53:45,531 |-INFO in ch.qos.logback.classic.util.ContextInitializer@ddf40c1 - No custom configurators were discovered as a service.
+00:53:45,531 |-INFO in ch.qos.logback.classic.util.ContextInitializer@ddf40c1 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+00:53:45,531 |-INFO in ch.qos.logback.classic.util.ContextInitializer@ddf40c1 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+00:53:45,533 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+00:53:45,534 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+00:53:45,562 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+00:53:45,563 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@989de30 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+00:53:45,564 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+00:53:45,566 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+00:53:45,566 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@989de30 - value "plain" substituted for "${LOG_APPENDER}"
+00:53:45,567 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+00:53:45,567 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+00:53:45,567 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+00:53:45,569 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+00:53:45,579 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+00:53:45,579 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+00:53:45,579 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+00:53:45,579 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@989de30 - value "INFO" substituted for "${LOG_LEVEL}"
+00:53:45,579 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+00:53:45,579 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@989de30 - value "plain" substituted for "${LOG_APPENDER}"
+00:53:45,579 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+00:53:45,579 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@1a60850d - End of configuration.
+00:53:45,579 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@6d259a88 - Registering current configuration as safe fallback point
+00:53:45,581 |-INFO in ch.qos.logback.classic.util.ContextInitializer@ddf40c1 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 48 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+00:53:45.583 INFO  [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] DraftSaveFaultSpec:
+00:53:46.118 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+00:53:46.129 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+00:53:46.130 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+00:53:46.156 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg11599198882107559243 ... ok
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+00:53:46.163 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+00:53:46.170 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+00:53:46.180 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+00:53:46.186 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+00:53:46.186 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+00:53:46.247 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+00:53:46.438 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg11599198882107559243 -l logfile start
+00:53:46.443 INFO  [initdb:pid(1844449)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+00:53:46.443 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 34284211-4920-462e-8c43-6c3fd559fae7 initdb completed in 00:00:00.286
+00:53:46.447 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 34284211-4920-462e-8c43-6c3fd559fae7 postmaster started as Process[pid=1844461, exitValue="not exited"] on port 34183.  Waiting up to PT10S for server startup to finish.
+00:53:46.462 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-10-17 00:53:46.462 PDT [1844464] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+00:53:46.463 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:46.463 PDT [1844464] LOG:  listening on IPv6 address "::1", port 34183
+00:53:46.463 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:46.463 PDT [1844464] LOG:  listening on IPv4 address "127.0.0.1", port 34183
+00:53:46.463 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:46.463 PDT [1844464] LOG:  listening on Unix socket "/tmp/.s.PGSQL.34183"
+00:53:46.464 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:46.464 PDT [1844465] LOG:  database system was shut down at 2026-10-17 00:53:46 PDT
+00:53:46.465 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:46.465 PDT [1844464] LOG:  database system is ready to accept connections
+00:53:46.551 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+00:53:46.551 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+00:53:46.585 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 34284211-4920-462e-8c43-6c3fd559fae7 postmaster startup finished in 00:00:00.140
+00:53:46.674 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:34183/postgres?user=postgres (PostgreSQL 14.10)
+00:53:46.708 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+00:53:46.714 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 137 migrations (execution time 00:00.026s)
+00:53:46.722 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+00:53:46.746 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+00:53:46.752 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+00:53:46.763 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+00:53:46.767 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+00:53:46.771 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+00:53:46.776 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+00:53:46.779 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+00:53:46.783 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+00:53:46.786 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+00:53:46.789 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+00:53:46.792 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+00:53:46.796 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+00:53:46.801 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+00:53:46.803 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+00:53:46.805 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+00:53:46.807 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+00:53:46.810 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+00:53:46.814 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+00:53:46.817 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+00:53:46.820 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+00:53:46.822 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+00:53:46.824 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+00:53:46.826 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+00:53:46.829 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+00:53:46.831 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+00:53:46.834 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+00:53:46.835 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+00:53:46.837 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+00:53:46.840 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+00:53:46.841 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+00:53:46.844 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+00:53:46.846 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+00:53:46.848 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+00:53:46.853 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+00:53:46.859 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+00:53:46.863 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+00:53:46.871 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+00:53:46.876 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+00:53:46.878 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+00:53:46.882 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+00:53:46.884 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+00:53:46.887 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+00:53:46.890 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+00:53:46.892 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+00:53:46.895 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+00:53:46.897 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+00:53:46.899 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+00:53:46.901 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+00:53:46.904 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+00:53:46.906 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+00:53:46.908 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+00:53:46.909 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+00:53:46.911 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+00:53:46.912 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+00:53:46.914 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+00:53:46.916 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+00:53:46.919 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+00:53:46.921 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+00:53:46.922 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+00:53:46.924 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+00:53:46.925 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+00:53:46.927 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+00:53:46.931 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+00:53:46.935 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+00:53:46.937 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+00:53:46.939 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+00:53:46.941 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+00:53:46.943 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+00:53:46.945 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+00:53:46.946 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+00:53:46.948 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+00:53:46.950 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+00:53:46.951 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+00:53:46.953 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+00:53:46.955 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+00:53:46.958 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+00:53:46.960 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+00:53:46.963 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+00:53:46.966 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+00:53:46.969 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+00:53:46.971 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+00:53:46.974 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+00:53:46.977 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+00:53:46.979 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+00:53:46.982 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+00:53:46.984 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+00:53:46.987 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+00:53:46.988 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+00:53:46.990 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+00:53:46.992 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+00:53:46.994 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+00:53:46.999 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+00:53:47.002 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+00:53:47.006 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+00:53:47.009 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+00:53:47.018 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+00:53:47.043 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+00:53:47.045 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+00:53:47.047 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+00:53:47.051 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+00:53:47.064 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+00:53:47.067 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+00:53:47.069 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+00:53:47.072 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+00:53:47.074 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+00:53:47.077 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+00:53:47.079 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+00:53:47.082 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+00:53:47.086 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+00:53:47.087 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+00:53:47.090 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+00:53:47.092 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+00:53:47.095 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+00:53:47.096 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+00:53:47.099 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+00:53:47.104 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+00:53:47.107 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+00:53:47.109 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+00:53:47.114 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+00:53:47.115 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+00:53:47.118 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+00:53:47.120 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+00:53:47.122 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+00:53:47.124 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+00:53:47.124 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+00:53:47.126 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+00:53:47.128 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+00:53:47.129 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "122 - strip deleted panel layout items"
+00:53:47.132 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "123 - strip existing ghost layout items"
+00:53:47.134 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+00:53:47.135 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "124 - pipeline runs triggered by user"
+00:53:47.137 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "125 - auto run debounce guard retry count"
+00:53:47.140 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "126 - pipeline runs heartbeat"
+00:53:47.143 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "127 - dashboard layout version"
+00:53:47.147 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "128 - stored object deletions"
+00:53:47.152 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "129 - lock panels for deletion"
+00:53:47.156 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "130 - lock dashboards for output deletion"
+00:53:47.159 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "131 - patch set applied proposals"
+00:53:47.163 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "132 - form and conversation object deletions"
+00:53:47.168 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "133 - pipeline run rate window user cascade"
+00:53:47.170 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "134 - dashboard folders"
+00:53:47.175 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "135 - pipeline run step row counts"
+00:53:47.176 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "136 - pipeline runs pipeline started idx"
+00:53:47.178 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "137 - lock pipelines for definition writes"
+00:53:47.182 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 137 migrations to schema "public", now at version v137 (execution time 00:00.139s)
+00:53:47.195 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+00:53:47.203 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@211c8d1
+00:53:47.203 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+00:53:47.207 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+00:53:47.211 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@4ca8b75d
+00:53:47.211 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+00:53:47.211 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+00:53:47.214 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@7c1bd10c
+00:53:47.214 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+00:53:47.383 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+00:53:47.406 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+00:53:47.412 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+00:53:47.412 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+00:53:47.412 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] a fault after AfterCompare
+00:53:48.203 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterCompare
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$run$22(DraftSaveTransaction.scala:92)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged
+[info] a fault after AfterInserts
+00:53:48.440 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterInserts
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$apply$1(DraftSaveTransaction.scala:152)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("2d84105c-0770-42aa-aafe-f0d3c88bb581|limit|{"count":9}|true|b9597b7e-t3|-|0", "b9597b7e-t1|limit|{"count":1}|true|-|b9597b7e-r1|0", "b9597b7e-t2|limit|{"count":2}|true|b9597b7e-t1|-|0", "b9597b7e-t3|limit|{"count":3}|true|b9597b7e-t1|-|1", "b9597b7e-t4|limit|{"count":4}|true|-|b9597b7e-r2|0", "b9597b7e-oa|oa|table|{}|b9597b7e-t2|-|1|00000000-0000-0000-0000-0000000000b1", "b9597b7e-ob|ob|table|{}|b9597b7e-t2|-|0|00000000-0000-0000-0000-0000000000b1", "b9597b7e-oc|oc|table|{}|b9597b7e-t3|-|2|00000000-0000-0000-0000-0000000000b1", "b9597b7e-od|od|table|{}|-|b9597b7e-r2|3|00000000-0000-0000-0000-0000000000b1", "panel b9597b7e-pa|b9597b7e-d1|b9597b7e-oa", "panel b9597b7e-pb|b9597b7e-d3|b9597b7e-ob", "rule b9597b7e-ra|b9597b7e-oa", "rule b9597b7e-rb|b9597b7e-ob", "root b9597b7e-r1|b9597b7e-ds1|0", "root b9597b7e-r2|b9597b7e-ds2|1", "schedule cron|0 * * * *", "pipeline b9597b7e-p|-") was not equal to Vector("b9597b7e-t1|limit|{"count":1}|true|-|b9597b7e-r1|0", "b9597b7e-t2|limit|{"count":2}|true|b9597b7e-t1|-|0", "b9597b7e-t3|limit|{"count":3}|true|b9597b7e-t1|-|1", "b9597b7e-t4|limit|{"count":4}|true|-|b9597b7e-r2|0", "b9597b7e-oa|oa|table|{}|b9597b7e-t2|-|1|00000000-0000-0000-0000-0000000000b1", "b9597b7e-ob|ob|table|{}|b9597b7e-t2|-|0|00000000-0000-0000-0000-0000000000b1", "b9597b7e-oc|oc|table|{}|b9597b7e-t3|-|2|00000000-0000-0000-0000-0000000000b1", "b9597b7e-od|od|table|{}|-|b9597b7e-r2|3|00000000-0000-0000-0000-0000000000b1", "panel b9597b7e-pa|b9597b7e-d1|b9597b7e-oa", "panel b9597b7e-pb|b9597b7e-d3|b9597b7e-ob", "rule b9597b7e-ra|b9597b7e-oa", "rule b9597b7e-rb|b9597b7e-ob", "root b9597b7e-r1|b9597b7e-ds1|0", "root b9597b7e-r2|b9597b7e-ds2|1", "schedule cron|0 * * * *", "pipeline b9597b7e-p|-") (DraftSaveFaultSpec.scala:45)
+[info] a fault after AfterRelinks
+00:53:48.609 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterRelinks
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$apply$3(DraftSaveTransaction.scala:154)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("5bed87ad-t1|limit|{"count":1}|true|-|5bed87ad-r1|0", "5bed87ad-t2|limit|{"count":2}|true|5bed87ad-t1|-|0", "5bed87ad-t3|limit|{"count":3}|true|5bed87ad-t1|-|1", "5bed87ad-t4|limit|{"count":4}|true|-|5bed87ad-r2|0", "e10121e0-a24c-423b-94fb-8e53d8e740fe|limit|{"count":9}|true|5bed87ad-t3|-|0", "5bed87ad-oa|oa|table|{}|5bed87ad-t2|-|1|00000000-0000-0000-0000-0000000000b1", "5bed87ad-ob|ob|table|{}|5bed87ad-t2|-|0|00000000-0000-0000-0000-0000000000b1", "5bed87ad-oc|oc|table|{}|5bed87ad-t3|-|2|00000000-0000-0000-0000-0000000000b1", "5bed87ad-od|od|table|{}|-|5bed87ad-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 5bed87ad-pa|5bed87ad-d1|5bed87ad-oa", "panel 5bed87ad-pb|5bed87ad-d3|5bed87ad-ob", "rule 5bed87ad-ra|5bed87ad-oa", "rule 5bed87ad-rb|5bed87ad-ob", "root 5bed87ad-r1|5bed87ad-ds1|0", "root 5bed87ad-r2|5bed87ad-ds2|1", "schedule cron|0 * * * *", "pipeline 5bed87ad-p|-") was not equal to Vector("5bed87ad-t1|limit|{"count":1}|true|-|5bed87ad-r1|0", "5bed87ad-t2|limit|{"count":2}|true|5bed87ad-t1|-|0", "5bed87ad-t3|limit|{"count":3}|true|5bed87ad-t1|-|1", "5bed87ad-t4|limit|{"count":4}|true|-|5bed87ad-r2|0", "5bed87ad-oa|oa|table|{}|5bed87ad-t2|-|1|00000000-0000-0000-0000-0000000000b1", "5bed87ad-ob|ob|table|{}|5bed87ad-t2|-|0|00000000-0000-0000-0000-0000000000b1", "5bed87ad-oc|oc|table|{}|5bed87ad-t3|-|2|00000000-0000-0000-0000-0000000000b1", "5bed87ad-od|od|table|{}|-|5bed87ad-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 5bed87ad-pa|5bed87ad-d1|5bed87ad-oa", "panel 5bed87ad-pb|5bed87ad-d3|5bed87ad-ob", "rule 5bed87ad-ra|5bed87ad-oa", "rule 5bed87ad-rb|5bed87ad-ob", "root 5bed87ad-r1|5bed87ad-ds1|0", "root 5bed87ad-r2|5bed87ad-ds2|1", "schedule cron|0 * * * *", "pipeline 5bed87ad-p|-") (DraftSaveFaultSpec.scala:45)
+[info] a fault after AfterDeletes
+00:53:48.782 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterDeletes
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$apply$5(DraftSaveTransaction.scala:156)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("ac1ae4b7-t1|limit|{"count":1}|true|-|ac1ae4b7-r1|0", "ac1ae4b7-t2|limit|{"count":2}|true|ac1ae4b7-t1|-|0", "ac1ae4b7-t3|limit|{"count":3}|true|ac1ae4b7-t1|-|1", "ac1ae4b7-t4|limit|{"count":4}|true|-|ac1ae4b7-r2|0", "e525f950-9338-4471-a140-9bbb9fb656f5|limit|{"count":9}|true|ac1ae4b7-t3|-|0", "ac1ae4b7-oa|oa|table|{}|ac1ae4b7-t2|-|1|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-ob|ob|table|{}|ac1ae4b7-t2|-|0|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-oc|oc|table|{}|ac1ae4b7-t3|-|2|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-od|od|table|{}|-|ac1ae4b7-r2|3|00000000-0000-0000-0000-0000000000b1", "panel ac1ae4b7-pa|ac1ae4b7-d1|ac1ae4b7-oa", "panel ac1ae4b7-pb|ac1ae4b7-d3|ac1ae4b7-ob", "rule ac1ae4b7-ra|ac1ae4b7-oa", "rule ac1ae4b7-rb|ac1ae4b7-ob", "root ac1ae4b7-r1|ac1ae4b7-ds1|0", "root ac1ae4b7-r2|ac1ae4b7-ds2|1", "schedule cron|0 * * * *", "pipeline ac1ae4b7-p|-") was not equal to Vector("ac1ae4b7-t1|limit|{"count":1}|true|-|ac1ae4b7-r1|0", "ac1ae4b7-t2|limit|{"count":2}|true|ac1ae4b7-t1|-|0", "ac1ae4b7-t3|limit|{"count":3}|true|ac1ae4b7-t1|-|1", "ac1ae4b7-t4|limit|{"count":4}|true|-|ac1ae4b7-r2|0", "ac1ae4b7-oa|oa|table|{}|ac1ae4b7-t2|-|1|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-ob|ob|table|{}|ac1ae4b7-t2|-|0|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-oc|oc|table|{}|ac1ae4b7-t3|-|2|00000000-0000-0000-0000-0000000000b1", "ac1ae4b7-od|od|table|{}|-|ac1ae4b7-r2|3|00000000-0000-0000-0000-0000000000b1", "panel ac1ae4b7-pa|ac1ae4b7-d1|ac1ae4b7-oa", "panel ac1ae4b7-pb|ac1ae4b7-d3|ac1ae4b7-ob", "rule ac1ae4b7-ra|ac1ae4b7-oa", "rule ac1ae4b7-rb|ac1ae4b7-ob", "root ac1ae4b7-r1|ac1ae4b7-ds1|0", "root ac1ae4b7-r2|ac1ae4b7-ds2|1", "schedule cron|0 * * * *", "pipeline ac1ae4b7-p|-") (DraftSaveFaultSpec.scala:45)
+[info] a fault after AfterUpdates
+00:53:48.926 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterUpdates
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$apply$7(DraftSaveTransaction.scala:158)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("48bb7db9-t1|limit|{"count":1}|true|-|48bb7db9-r1|0", "48bb7db9-t2|limit|{"count":2}|true|48bb7db9-t1|-|0", "48bb7db9-t3|limit|{"count":3}|true|48bb7db9-t1|-|1", "48bb7db9-t4|limit|{"count":4}|true|-|48bb7db9-r2|0", "f2e09118-d3f4-4931-be32-c4a2834f7f5f|limit|{"count":9}|true|48bb7db9-t3|-|0", "48bb7db9-oa|oa|table|{}|48bb7db9-t2|-|1|00000000-0000-0000-0000-0000000000b1", "48bb7db9-ob|ob|table|{}|48bb7db9-t2|-|0|00000000-0000-0000-0000-0000000000b1", "48bb7db9-oc|oc|table|{}|48bb7db9-t3|-|2|00000000-0000-0000-0000-0000000000b1", "48bb7db9-od|od|table|{}|-|48bb7db9-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 48bb7db9-pa|48bb7db9-d1|48bb7db9-oa", "panel 48bb7db9-pb|48bb7db9-d3|48bb7db9-ob", "rule 48bb7db9-ra|48bb7db9-oa", "rule 48bb7db9-rb|48bb7db9-ob", "root 48bb7db9-r1|48bb7db9-ds1|0", "root 48bb7db9-r2|48bb7db9-ds2|1", "schedule cron|0 * * * *", "pipeline 48bb7db9-p|-") was not equal to Vector("48bb7db9-t1|limit|{"count":1}|true|-|48bb7db9-r1|0", "48bb7db9-t2|limit|{"count":2}|true|48bb7db9-t1|-|0", "48bb7db9-t3|limit|{"count":3}|true|48bb7db9-t1|-|1", "48bb7db9-t4|limit|{"count":4}|true|-|48bb7db9-r2|0", "48bb7db9-oa|oa|table|{}|48bb7db9-t2|-|1|00000000-0000-0000-0000-0000000000b1", "48bb7db9-ob|ob|table|{}|48bb7db9-t2|-|0|00000000-0000-0000-0000-0000000000b1", "48bb7db9-oc|oc|table|{}|48bb7db9-t3|-|2|00000000-0000-0000-0000-0000000000b1", "48bb7db9-od|od|table|{}|-|48bb7db9-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 48bb7db9-pa|48bb7db9-d1|48bb7db9-oa", "panel 48bb7db9-pb|48bb7db9-d3|48bb7db9-ob", "rule 48bb7db9-ra|48bb7db9-oa", "rule 48bb7db9-rb|48bb7db9-ob", "root 48bb7db9-r1|48bb7db9-ds1|0", "root 48bb7db9-r2|48bb7db9-ds2|1", "schedule cron|0 * * * *", "pipeline 48bb7db9-p|-") (DraftSaveFaultSpec.scala:45)
+[info] a fault after AfterOutputs
+00:53:49.059 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at AfterOutputs
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$apply$15(DraftSaveTransaction.scala:162)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("5da193a1-98f3-49af-94d7-b556ce4d8a4a|limit|{"count":9}|true|f4abae86-t3|-|0", "f4abae86-t1|limit|{"count":1}|true|-|f4abae86-r1|0", "f4abae86-t2|limit|{"count":2}|true|f4abae86-t1|-|0", "f4abae86-t3|limit|{"count":3}|true|f4abae86-t1|-|1", "f4abae86-t4|limit|{"count":4}|true|-|f4abae86-r2|0", "f4abae86-oa|oa|table|{}|f4abae86-t2|-|1|00000000-0000-0000-0000-0000000000b1", "f4abae86-ob|ob|table|{}|f4abae86-t2|-|0|00000000-0000-0000-0000-0000000000b1", "f4abae86-oc|oc|table|{}|f4abae86-t3|-|2|00000000-0000-0000-0000-0000000000b1", "f4abae86-od|od|table|{}|-|f4abae86-r2|3|00000000-0000-0000-0000-0000000000b1", "panel f4abae86-pa|f4abae86-d1|f4abae86-oa", "panel f4abae86-pb|f4abae86-d3|f4abae86-ob", "rule f4abae86-ra|f4abae86-oa", "rule f4abae86-rb|f4abae86-ob", "root f4abae86-r1|f4abae86-ds1|0", "root f4abae86-r2|f4abae86-ds2|1", "schedule cron|0 * * * *", "pipeline f4abae86-p|-") was not equal to Vector("f4abae86-t1|limit|{"count":1}|true|-|f4abae86-r1|0", "f4abae86-t2|limit|{"count":2}|true|f4abae86-t1|-|0", "f4abae86-t3|limit|{"count":3}|true|f4abae86-t1|-|1", "f4abae86-t4|limit|{"count":4}|true|-|f4abae86-r2|0", "f4abae86-oa|oa|table|{}|f4abae86-t2|-|1|00000000-0000-0000-0000-0000000000b1", "f4abae86-ob|ob|table|{}|f4abae86-t2|-|0|00000000-0000-0000-0000-0000000000b1", "f4abae86-oc|oc|table|{}|f4abae86-t3|-|2|00000000-0000-0000-0000-0000000000b1", "f4abae86-od|od|table|{}|-|f4abae86-r2|3|00000000-0000-0000-0000-0000000000b1", "panel f4abae86-pa|f4abae86-d1|f4abae86-oa", "panel f4abae86-pb|f4abae86-d3|f4abae86-ob", "rule f4abae86-ra|f4abae86-oa", "rule f4abae86-rb|f4abae86-ob", "root f4abae86-r1|f4abae86-ds1|0", "root f4abae86-r2|f4abae86-ds2|1", "schedule cron|0 * * * *", "pipeline f4abae86-p|-") (DraftSaveFaultSpec.scala:45)
+[info] a fault after BeforeCommit
+00:53:49.215 ERROR [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step operation failed with unexpected error
+java.lang.RuntimeException: injected fault at BeforeCommit
+	at com.helio.api.routes.pipelines.DraftSaveFaultSpec$$anon$1.at(DraftSaveFaultSpec.scala:20)
+	at com.helio.services.pipelines.draft.DraftSaveTransaction.$anonfun$run$24(DraftSaveTransaction.scala:94)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runInContextInline$1(BasicBackend.scala:191)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:470)
+	at org.apache.pekko.dispatch.BatchingExecutor$AbstractBatch.processBatch(BatchingExecutor.scala:73)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.$anonfun$run$1(BatchingExecutor.scala:110)
+	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
+	at scala.concurrent.BlockContext$.withBlockContext(BlockContext.scala:94)
+	at org.apache.pekko.dispatch.BatchingExecutor$BlockableBatch.run(BatchingExecutor.scala:110)
+	at org.apache.pekko.dispatch.TaskInvocation.run(AbstractDispatcher.scala:59)
+	at org.apache.pekko.dispatch.ForkJoinExecutorConfigurator$PekkoForkJoinTask.exec(ForkJoinExecutorConfigurator.scala:61)
+	at java.base/java.util.concurrent.ForkJoinTask.doExec(ForkJoinTask.java:387)
+	at java.base/java.util.concurrent.ForkJoinPool$WorkQueue.topLevelExec(ForkJoinPool.java:1312)
+	at java.base/java.util.concurrent.ForkJoinPool.scan(ForkJoinPool.java:1843)
+	at java.base/java.util.concurrent.ForkJoinPool.runWorker(ForkJoinPool.java:1808)
+	at java.base/java.util.concurrent.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:188)
+[info] - should leave the definition, its fingerprint, the journal and the audit log unchanged *** FAILED ***
+[info]   Vector("99e0f05c-t1|limit|{"count":1}|true|-|99e0f05c-r1|0", "99e0f05c-t2|limit|{"count":2}|true|99e0f05c-t1|-|0", "99e0f05c-t3|limit|{"count":3}|true|99e0f05c-t1|-|1", "99e0f05c-t4|limit|{"count":4}|true|-|99e0f05c-r2|0", "fe7d0c6f-da35-4516-a067-f54cc48e2861|limit|{"count":9}|true|99e0f05c-t3|-|0", "99e0f05c-oa|oa|table|{}|99e0f05c-t2|-|1|00000000-0000-0000-0000-0000000000b1", "99e0f05c-ob|ob|table|{}|99e0f05c-t2|-|0|00000000-0000-0000-0000-0000000000b1", "99e0f05c-oc|oc|table|{}|99e0f05c-t3|-|2|00000000-0000-0000-0000-0000000000b1", "99e0f05c-od|od|table|{}|-|99e0f05c-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 99e0f05c-pa|99e0f05c-d1|99e0f05c-oa", "panel 99e0f05c-pb|99e0f05c-d3|99e0f05c-ob", "rule 99e0f05c-ra|99e0f05c-oa", "rule 99e0f05c-rb|99e0f05c-ob", "root 99e0f05c-r1|99e0f05c-ds1|0", "root 99e0f05c-r2|99e0f05c-ds2|1", "schedule cron|0 * * * *", "pipeline 99e0f05c-p|-") was not equal to Vector("99e0f05c-t1|limit|{"count":1}|true|-|99e0f05c-r1|0", "99e0f05c-t2|limit|{"count":2}|true|99e0f05c-t1|-|0", "99e0f05c-t3|limit|{"count":3}|true|99e0f05c-t1|-|1", "99e0f05c-t4|limit|{"count":4}|true|-|99e0f05c-r2|0", "99e0f05c-oa|oa|table|{}|99e0f05c-t2|-|1|00000000-0000-0000-0000-0000000000b1", "99e0f05c-ob|ob|table|{}|99e0f05c-t2|-|0|00000000-0000-0000-0000-0000000000b1", "99e0f05c-oc|oc|table|{}|99e0f05c-t3|-|2|00000000-0000-0000-0000-0000000000b1", "99e0f05c-od|od|table|{}|-|99e0f05c-r2|3|00000000-0000-0000-0000-0000000000b1", "panel 99e0f05c-pa|99e0f05c-d1|99e0f05c-oa", "panel 99e0f05c-pb|99e0f05c-d3|99e0f05c-ob", "rule 99e0f05c-ra|99e0f05c-oa", "rule 99e0f05c-rb|99e0f05c-ob", "root 99e0f05c-r1|99e0f05c-ds1|0", "root 99e0f05c-r2|99e0f05c-ds2|1", "schedule cron|0 * * * *", "pipeline 99e0f05c-p|-") (DraftSaveFaultSpec.scala:45)
+[info] the same draft with no fault
+[info] - should commit, so the fault specs above are not passing because the draft can never be saved
+[info] a save
+00:53:49.372 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+00:53:49.375 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@7532b4c4
+00:53:49.375 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+00:53:49.376 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-5 - Starting...
+00:53:49.378 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.pool.HikariPool - HikariPool-5 - Added connection org.postgresql.jdbc.PgConnection@786f8076
+00:53:49.378 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-5 - Start completed.
+00:53:49.418 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+00:53:49.420 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+00:53:49.420 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-5 - Shutdown initiated...
+00:53:49.431 INFO  [pool-1-thread-1-ScalaTest-running-DraftSaveFaultSpec] com.zaxxer.hikari.HikariDataSource - HikariPool-5 - Shutdown completed.
+[info] - should take hel1498_lock_panels exactly once
+00:53:50.046 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+00:53:50.047 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+00:53:50.047 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+00:53:50.048 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+00:53:50.048 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+00:53:50.048 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+00:53:50.050 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:50.050 PDT [1844464] LOG:  received fast shutdown request
+00:53:50.050 INFO  [postgres:pid(1844461)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-17 00:53:50.050 PDT [1844464] LOG:  aborting any active transactions
+00:53:50.151 INFO  [pg_ctl:pid(1844650)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+00:53:50.151 INFO  [pg_ctl:pid(1844650)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+00:53:50.151 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 34284211-4920-462e-8c43-6c3fd559fae7 shut down postmaster in 00:00:00.102
+00:53:50.197 INFO  [com-helio-api-routes-pipelines-DraftSaveFaultSpec-pekko.actor.default-dispatcher-4] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=6 aborted=0 unreadable=0
+[info] Run completed in 5 seconds, 304 milliseconds.
+[info] Total number of tests run: 9
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 3, failed 6, canceled 0, ignored 0, pending 0
+[info] *** 6 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveFaultSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 6 s, cache 93%, 27 disk cache hits, 2 onsite tasks

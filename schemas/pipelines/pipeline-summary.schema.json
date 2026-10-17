@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/pipeline-summary.schema.json",
   "title": "PipelineSummaryResponse",
-  "description": "A pipeline as returned by GET /api/pipelines, GET /api/pipelines/:id and the create/rename responses. `lastRun*` describe the latest non-dry run. `lastRunStepRowCounts` (HEL-1579) is that run's per-step row counts keyed by step id; it is omitted when not recorded (a never-run pipeline, a latest run that failed, was blocked or reaped, a Spark run, or a run that predates the column) and is never rendered as zero.",
+  "description": "A pipeline as returned by GET /api/pipelines, GET /api/pipelines/:id and the create/rename responses. `lastRun*` describe the latest non-dry run. `lastRunStepRowCounts` (HEL-1579) is that run's per-step row counts keyed by step id; it is omitted when not recorded (a never-run pipeline, a latest run that failed, was blocked or reaped, a Spark run, or a run that predates the column) and is never rendered as zero. `fingerprint` and `definition` (HEL-1629) are present only on the single-pipeline read.",
   "type": "object",
   "required": ["id", "name", "roots", "createdAt", "updatedAt"],
   "properties": {
@@ -33,7 +33,22 @@
     "ownerId": { "type": ["string", "null"] },
     "tag": { "type": ["string", "null"] },
     "createdAt": { "type": "string" },
-    "updatedAt": { "type": "string" }
+    "updatedAt": { "type": "string" },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^v1:[0-9a-f]{64}$",
+      "description": "Present ONLY on GET /api/pipelines/:id (HEL-1629): the `pipeline` fingerprint (name, tag, roots, steps, Outputs with their bound panel ids and alert rules, schedule) that POST /api/pipelines/:id/draft/save compares inside its own transaction. Computed on one read-only REPEATABLE READ snapshot. The list never carries it."
+    },
+    "definition": {
+      "type": "object",
+      "description": "Present only on GET /api/pipelines/:id?definition=true (HEL-1629): the steps and Outputs the `fingerprint` was computed from, read from the SAME snapshot. This is what a draft is based on.",
+      "required": ["steps", "outputs"],
+      "properties": {
+        "steps": { "type": "array", "items": { "type": "object" } },
+        "outputs": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }

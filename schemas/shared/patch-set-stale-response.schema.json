@@ -17,6 +17,10 @@
       "items": {
         "$ref": "#/$defs/StaleTarget"
       }
+    },
+    "currentFingerprint": {
+      "type": "string",
+      "description": "The `pipeline` fingerprint the pipeline has now (HEL-1629). Present on the 409 of POST /api/pipelines/:id/draft/save and of the undo of a draft save, so a client can offer to reload the saved pipeline. Absent on a patch-set apply."
     }
   },
   "additionalProperties": false,

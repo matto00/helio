@@ -6,6 +6,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import com.helio.testkit.VerifiedEmbeddedPostgres
+import com.helio.testsupport.LocksWithout
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.scalatest.BeforeAndAfterAll
@@ -476,7 +477,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
     // that never calls `executionOrder` at all) would NOT be caught by
     // calling `executionOrder` directly on a fetched Vector -- only by
     // calling `listByPipelineInternal` itself and checking its OUTPUT order.
-    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec))(ec)
+    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec), LocksWithout(LockSite.All: _*))(ec)
 
     "yield the pre-migration linear order for the pipeline's ORIGINAL steps, for every one of the 15 real multi-step pipelines" in {
       val multiStepPipelineIds = stepsBeforeCapture.groupBy(_._2).collect { case (pid, steps) if steps.size > 1 => pid }.toSet
@@ -566,7 +567,7 @@ class V94OutputsMigrationSpec extends AnyWordSpec with Matchers with BeforeAndAf
   // under. Exercised end-to-end against the real 20-step migrated pipeline
   // the round-5 report reproduced the collapse on. ──────────────────────────
   "PipelineStepRepository.updateInternal against the real 20-step migrated pipeline (HEL-904 cycle-8 proof)" should {
-    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec))(ec)
+    def dbStepRepo: PipelineStepRepository = new PipelineStepRepository(new DbContext(appDb, privilegedDb)(ec), LocksWithout(LockSite.All: _*))(ec)
 
     "survive a position PATCH on a mid-trunk step intact -- no truncation, run-result node key unchanged" in {
       val repo = dbStepRepo

@@ -1,0 +1,248 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/test-classes ...
+[warn] /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/src/test/scala/com/helio/testsupport/DraftRaceFixture.scala:209:22: match may not be exhaustive.
+[warn] It would fail on the following input: ThreeSession
+[warn]       val (sf, wf) = order match {
+[warn]                      ^
+[warn] one warning found
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+03:48:12,960 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+03:48:12,961 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5421fd63 - No custom configurators were discovered as a service.
+03:48:12,961 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5421fd63 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:48:12,961 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5421fd63 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:48:12,962 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+03:48:12,964 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+03:48:12,993 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+03:48:12,995 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@48fd567e - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+03:48:12,995 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+03:48:12,997 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+03:48:12,998 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@48fd567e - value "plain" substituted for "${LOG_APPENDER}"
+03:48:12,998 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+03:48:12,998 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+03:48:12,998 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+03:48:13,000 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+03:48:13,010 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+03:48:13,010 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+03:48:13,010 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+03:48:13,010 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@48fd567e - value "INFO" substituted for "${LOG_LEVEL}"
+03:48:13,010 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+03:48:13,010 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@48fd567e - value "plain" substituted for "${LOG_APPENDER}"
+03:48:13,010 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+03:48:13,011 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@2a4f40be - End of configuration.
+03:48:13,011 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@1b548bd3 - Registering current configuration as safe fallback point
+03:48:13,013 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5421fd63 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 50 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] DraftSaveRaceSpec:
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+03:48:14.790 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:48:14.811 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:48:14.816 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:48:14.816 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:48:14.816 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] panel create (PanelRepository.insertPlaced)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] panel duplicate (PanelRepository.duplicate)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] panel output swap, batch (PanelRepository.batchUpdate)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] panel batch create (PanelRepository.insertBatchPlaced)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] panel output swap, single (PanelRepository.replace)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] panel delete (PanelRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels
+[info] - should save-first control: be a violation without save.panels
+[info] dashboard duplicate (DashboardRepository.duplicate)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] dashboard import (DashboardRepository.importSnapshot)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] dashboard contents replace (DashboardRepository.replaceContents)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] dashboard delete (DashboardRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels
+[info] - should save-first control: be a violation without save.panels
+[info] alert rule insert (AlertRuleRepository.insert)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] alert rule update (AlertRuleRepository.update)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.rules
+[info] - should save-first control: be a violation without save.rules
+[info] alert rule delete (AlertRuleRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.rules
+[info] - should save-first control: be a violation without save.rules
+[info] Output update (OutputRepository.updateOwned)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] pipeline rename (PipelineRepository.updateName)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.pipeline
+[info] - should save-first control: be a violation without save.pipeline
+[info] pipeline delete (PipelineRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] step PATCH (PipelineStepRepository.updateInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.update
+[info] - should save-first control: be a violation without step.update
+[info] step insert (PipelineStepRepository.insertInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.insert
+[info] - should save-first control: be a violation without step.insert
+[info] step insert at index (PipelineStepRepository.insertAtInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.insertAt
+[info] - should save-first control: be a violation without step.insertAt
+[info] step splice (PipelineStepRepository.spliceInsertAtInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.splice
+[info] - should save-first control: be a violation without step.splice
+[info] step attach as tail (PipelineStepRepository.attachTailInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.attach
+[info] - should save-first control: be a violation without step.attach
+[info] step reorder (PipelineStepRepository.reorderInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.reorder
+[info] - should save-first control: be a violation without step.reorder
+[info] trunk reorder (PipelineStepRepository.reorderTrunkInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.reorderTrunk
+[info] - should save-first control: be a violation without step.reorderTrunk
+[info] step delete (PipelineStepRepository.deleteInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.delete
+[info] - should save-first control: be a violation without step.delete
+[info] Output delete (OutputRepository.deleteWithPanelsInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without output.delete,save.outputs
+[info] - should save-first control: be a violation without output.delete,save.outputs
+[info] Output create (OutputRepository.insertInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without output.create
+[info] - should save-first control: be a violation without output.create
+[info] root add (PipelineRootRepository.add)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without root.add
+[info] - should save-first control: be a violation without root.add
+[info] root remove (removeRootCascadeAction, removeAction, compactPositions)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without root.remove
+[info] - should save-first control: be a violation without root.remove
+[info] schedule upsert (PipelineScheduleRepository.upsert)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without schedule.upsert
+[info] - should save-first control: be a violation without schedule.upsert
+[info] schedule delete (PipelineScheduleRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without schedule.delete
+[info] - should save-first control: be a violation without schedule.delete
+[info] upsert target rewrite (StepRepository.rewriteUpsertTargetAction via applyWriteBacks)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without rewriteUpsert.pipeline
+[info] - should save-first control: be a violation without rewriteUpsert.pipeline
+[info] source delete (DataSourceRepository.delete)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without source.delete.pipelines
+[info] - should save-first control: be a violation without source.delete.pipelines
+[info] source delete by a source owner who cannot see the pipeline (RLS)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without source.delete.pipelines
+[info] - should save-first control: be a violation without source.delete.pipelines
+[info] step delete of a step the save moved (PipelineStepRepository.deleteInternal)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] step delete whose removal set the save grew (PipelineStepRepository.deleteInternal retry)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=java.lang.IllegalStateException: step delete of 6fd1623e-t2: the removal set kept growing under the pipeline lock after , violation=true, deadlock=false, blockedObserved=true)
+[info]     save (backend 2746154) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: java.lang.IllegalStateException: step delete of 6fd1623e-t2: the removal set kept growing under the pipeline lock after 1 attempts true was not equal to false (DraftSaveRaceSpec.scala:210)
+[info] every single-pipeline writer, run after a racer deleted the pipeline,
+[info] - should write nothing: step PATCH (PipelineStepRepository.updateInternal)
+[info] - should write nothing: step insert (PipelineStepRepository.insertInternal)
+[info] - should write nothing: step insert at index (PipelineStepRepository.insertAtInternal)
+[info] - should write nothing: step splice (PipelineStepRepository.spliceInsertAtInternal)
+[info] - should write nothing: step attach as tail (PipelineStepRepository.attachTailInternal)
+[info] - should write nothing: step reorder (PipelineStepRepository.reorderInternal)
+[info] - should write nothing: trunk reorder (PipelineStepRepository.reorderTrunkInternal)
+[info] - should write nothing: step delete (PipelineStepRepository.deleteInternal)
+[info] - should write nothing: Output delete (OutputRepository.deleteWithPanelsInternal)
+[info] - should write nothing: Output create (OutputRepository.insertInternal)
+[info] - should write nothing: schedule upsert (PipelineScheduleRepository.upsert)
+[info] - should write nothing: schedule delete (PipelineScheduleRepository.delete)
+[info] [hel1468-guard] ScalaTest summary: failed=1 aborted=0 unreadable=0
+[info] Run completed in 16 seconds, 244 milliseconds.
+[info] Total number of tests run: 146
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 145, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveRaceSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 17 s, cache 93%, 27 disk cache hits, 2 onsite tasks

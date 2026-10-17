@@ -5,7 +5,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.`Retry-After`
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.api.{ErrorResponse, JsonProtocols, PatchSetAlreadyAppliedResponse, PatchSetStaleResponse, StaleTargetResponse, StepConfigErrorResponse}
+import com.helio.api.{DraftCascadeImpactResponse, DraftCascadeRequiredResponse, ErrorResponse, JsonProtocols, PatchSetAlreadyAppliedResponse, PatchSetStaleResponse, StaleTargetResponse, StepConfigErrorResponse}
 import com.helio.api.protocols.dashboards.{DashboardResponse, LayoutConflictResponse}
 import com.helio.services.ServiceError
 
@@ -85,10 +85,18 @@ object ServiceResponse extends JsonProtocols {
       )
     case ServiceError.LayoutConflict(current) =>
       complete(statusCodeFor(e), LayoutConflictResponse(e.message, DashboardResponse.fromDomain(current)))
-    case ServiceError.PatchSetStale(staleTargets, message) =>
+    case ServiceError.PatchSetStale(staleTargets, message, currentFingerprint) =>
       complete(
         statusCodeFor(e),
-        PatchSetStaleResponse(message, PatchSetStaleCode, staleTargets.map(t => StaleTargetResponse(t.index, t.kind, t.id)))
+        PatchSetStaleResponse(message, PatchSetStaleCode, staleTargets.map(t => StaleTargetResponse(t.index, t.kind, t.id)), currentFingerprint)
+      )
+    case ServiceError.CascadeConfirmationRequired(impact, message) =>
+      complete(
+        statusCodeFor(e),
+        DraftCascadeRequiredResponse(
+          message, CascadeConfirmationRequiredCode,
+          DraftCascadeImpactResponse(impact.stepIds, impact.outputIds, impact.panelIds, impact.alertRuleIds, impact.hints)
+        )
       )
     case ServiceError.PatchSetAlreadyApplied(message) =>
       complete(statusCodeFor(e), PatchSetAlreadyAppliedResponse(message, PatchSetAlreadyAppliedCode))
@@ -97,6 +105,9 @@ object ServiceResponse extends JsonProtocols {
 
   /** Wire `code` of a [[ServiceError.PatchSetAlreadyApplied]] body (HEL-1522). */
   val PatchSetAlreadyAppliedCode: String = "PATCH_SET_ALREADY_APPLIED"
+
+  /** Wire `code` of a [[ServiceError.CascadeConfirmationRequired]] body (HEL-1629). */
+  val CascadeConfirmationRequiredCode: String = "CASCADE_CONFIRMATION_REQUIRED"
 
   /** Wire `code` of a [[ServiceError.PatchSetStale]] body (HEL-1458). */
   val PatchSetStaleCode: String = "PATCH_SET_STALE"
@@ -118,7 +129,8 @@ object ServiceResponse extends JsonProtocols {
     case ServiceError.LayoutConflict(_)      => StatusCodes.Conflict
     case ServiceError.UnprocessableEntity(_) => StatusCodes.UnprocessableEntity
     case ServiceError.StepConfigInvalid(_, _, _, _) => StatusCodes.UnprocessableEntity
-    case ServiceError.PatchSetStale(_, _)    => StatusCodes.Conflict
+    case ServiceError.PatchSetStale(_, _, _) => StatusCodes.Conflict
+    case ServiceError.CascadeConfirmationRequired(_, _) => StatusCodes.UnprocessableEntity
     case ServiceError.PatchSetAlreadyApplied(_) => StatusCodes.Conflict
     case ServiceError.BadGateway(_)          => StatusCodes.BadGateway
     case ServiceError.InternalError(_)       => StatusCodes.InternalServerError

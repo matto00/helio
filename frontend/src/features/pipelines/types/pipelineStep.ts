@@ -1,3 +1,5 @@
+import type { Output } from "./output";
+
 // PipelineStep — discriminated union over `type` (CS2c-3a wire shape).
 //
 // Each subtype carries its own typed `config` shape — no JSON.parse /
@@ -720,6 +722,12 @@ export interface PipelineSummary {
   // need updating just to satisfy the type.
   createdAt?: string;
   updatedAt?: string;
+  /** HEL-1629: present ONLY on `GET /api/pipelines/:id` (never the list): the `pipeline` fingerprint
+   *  `POST /api/pipelines/:id/draft/save` compares in its own transaction. */
+  fingerprint?: string;
+  /** HEL-1629: present only on `GET /api/pipelines/:id?definition=true`: the steps and Outputs `fingerprint` was computed
+   *  from, read from the SAME snapshot. This is what a draft is based on. */
+  definition?: { steps: PipelineStep[]; outputs: Output[] };
 }
 
 export type RunStatus = "queued" | "running" | "succeeded" | "failed";

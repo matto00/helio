@@ -114,11 +114,15 @@ class PanelRepository(protected val ctx: DbContext)(implicit protected val ec: E
    *  the caller was already resolved as the owner of. */
   def findIdsByOutputIdsInternal(outputIds: Vector[String]): Future[Map[String, Vector[String]]] =
     if (outputIds.isEmpty) Future.successful(Map.empty)
+    else ctx.withSystemContext(findIdsByOutputIdsAction(outputIds))
+
+  /** [[findIdsByOutputIdsInternal]] as a composable `DBIO` (HEL-1629). */
+  def findIdsByOutputIdsAction(outputIds: Vector[String]): DBIO[Map[String, Vector[String]]] =
+    if (outputIds.isEmpty) DBIO.successful(Map.empty)
     else
-      ctx.withSystemContext(
-        table.filter(_.outputId.inSet(outputIds)).map(r => (r.outputId, r.id)).result
-      ).map(_.collect { case (Some(outputId), id) => outputId -> id }
-        .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).sorted.toVector })
+      table.filter(_.outputId.inSet(outputIds)).map(r => (r.outputId, r.id)).result
+        .map(_.collect { case (Some(outputId), id) => outputId -> id }
+          .groupBy(_._1).map { case (outputId, rows) => outputId -> rows.map(_._2).sorted.toVector })
 
   /** No-ACL read. Documented callers:
    *  - `ResourceTypeRegistry` owner-resolver (privileged; resolves ownership for ACL check)

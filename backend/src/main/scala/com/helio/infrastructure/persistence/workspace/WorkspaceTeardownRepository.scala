@@ -1,6 +1,7 @@
 package com.helio.infrastructure.persistence.workspace
 
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.pipelines.{LockSite, PipelineDefinitionLocks}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
@@ -41,7 +42,8 @@ import scala.concurrent.{ExecutionContext, Future}
  *  independently tagged/guarded resource kind. `DataTypeRepository` is no
  *  longer a constructor dependency of this class. */
 class WorkspaceTeardownRepository(
-    ctx: DbContext
+    ctx: DbContext,
+    locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced
 )(implicit ec: ExecutionContext) {
 
   import WorkspaceTeardownRepository._
@@ -132,7 +134,13 @@ class WorkspaceTeardownRepository(
   private def planAndExecute(tag: String, dryRun: Boolean, user: AuthenticatedUser): DBIO[TeardownOutcome] = {
     val ownerUuid = UUID.fromString(user.id.value)
     for {
-      taggedSources    <- dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
+      // HEL-1629 (evidence probe 1.4 (ii)): the tagged source rows FOR UPDATE first, in id order, before anything else and
+      // before the panels, the order a source delete uses. Without it the teardown's panels-then-source order deadlocks with
+      // a source delete, and a root added on a tagged source after the re-check below would be cascaded away.
+      taggedSources    <- {
+        val tagged = dataSourcesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag)
+        if (locks.active(LockSite.TeardownSourcesFirst)) tagged.sortBy(_.id).forUpdate.result else tagged.result
+      }
       taggedPipelines  <- pipelinesTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
       taggedDashboards <- dashboardsTable.filter(r => r.ownerId === ownerUuid && r.tag === tag).result
 
@@ -163,7 +171,10 @@ class WorkspaceTeardownRepository(
           // including panels on untagged dashboards and on other users' dashboards (invisible to this RLS
           // context, hence the SECURITY DEFINER function). The pipeline cascade fires V122, which locks each
           // affected dashboard, so a later panel lock would invert the "panels by id, then dashboards" order.
-          (PanelRowLocks.lockForDeletion(dashboards = dashboardIds, pipelines = pipelineIds, dataSources = sourceIds) andThen deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
+          // (3) over the tagged pipelines and every pipeline rooted on a tagged source, right after (1).
+          (PanelRowLocks.lockForDeletion(dashboards = dashboardIds, pipelines = pipelineIds, dataSources = sourceIds) andThen
+            locks.lockPipelinesRootedOn(LockSite.TeardownPipelines, pipelineIds.toSeq, sourceIds.toSeq) andThen
+            deletePipelines andThen deleteSources andThen deleteDashboards).map(_ => true)
         }
     } yield TeardownOutcome(
       blocked = conflicts.nonEmpty,

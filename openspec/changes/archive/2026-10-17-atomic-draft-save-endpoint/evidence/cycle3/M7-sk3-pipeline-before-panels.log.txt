@@ -1,0 +1,132 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.12)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+03:50:55,350 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+03:50:55,350 |-INFO in ch.qos.logback.classic.util.ContextInitializer@11b835d2 - No custom configurators were discovered as a service.
+03:50:55,350 |-INFO in ch.qos.logback.classic.util.ContextInitializer@11b835d2 - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:50:55,350 |-INFO in ch.qos.logback.classic.util.ContextInitializer@11b835d2 - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:50:55,352 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+03:50:55,354 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+03:50:55,388 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+03:50:55,389 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@7cea8c6 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+03:50:55,389 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+03:50:55,392 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+03:50:55,392 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@7cea8c6 - value "plain" substituted for "${LOG_APPENDER}"
+03:50:55,393 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+03:50:55,393 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+03:50:55,393 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+03:50:55,395 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+03:50:55,405 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+03:50:55,405 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+03:50:55,405 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+03:50:55,406 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@7cea8c6 - value "INFO" substituted for "${LOG_LEVEL}"
+03:50:55,406 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+03:50:55,406 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@7cea8c6 - value "plain" substituted for "${LOG_APPENDER}"
+03:50:55,406 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+03:50:55,406 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@33743192 - End of configuration.
+03:50:55,406 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@612cd606 - Registering current configuration as safe fallback point
+03:50:55,408 |-INFO in ch.qos.logback.classic.util.ContextInitializer@11b835d2 - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 56 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+[info] DraftSaveDeadlockSpec:
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+03:50:57.292 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:50:57.316 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:50:57.323 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:50:57.323 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:50:57.323 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] a panel create against the save
+[info] - should not deadlock: the save locks panels and dashboards first, as a create does (dashboard before Output)
+[info] - should deadlock when the save takes the pipeline row and the Outputs before the panels (the section-8.3 earlier order)
+[info] an Output delete against the save
+[info] - should not deadlock: the delete takes the pipeline row first, as the save does
+[info] - should deadlock when the delete holds the Output and cascades into rules the save already holds
+[info] a step delete against the save
+[info] - should not deadlock: the delete locks the panels before the pipeline row, as the save does *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=org.postgresql.util.PSQLException: ERROR: deadlock detected
+[info]     Detail: Process 2759551 waits for ShareLock on transaction, violation=false, deadlock=true, blockedObserved=true)
+[info]     save (backend 2759545) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: org.postgresql.util.PSQLException: ERROR: deadlock detected
+[info]     Detail: Process 2759551 waits for ShareLock on transaction 1046; blocked by pr true was not equal to false (DraftSaveDeadlockSpec.scala:32)
+[info] - should deadlock when the delete takes the pipeline row before the panels *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=false, deadlock=false, blockedObserved=true)
+[info]     save (backend 2759610) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: ok false was not equal to true (DraftSaveDeadlockSpec.scala:32)
+[info] a root remove against the save
+[info] - should not deadlock: the removal locks the panels before the pipeline row, as the save does *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=org.postgresql.util.PSQLException: ERROR: deadlock detected
+[info]     Detail: Process 2759673 waits for ShareLock on transaction, violation=false, deadlock=true, blockedObserved=true)
+[info]     save (backend 2759670) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: org.postgresql.util.PSQLException: ERROR: deadlock detected
+[info]     Detail: Process 2759673 waits for ShareLock on transaction 1054; blocked by pr true was not equal to false (DraftSaveDeadlockSpec.scala:32)
+[info] - should deadlock when the removal takes the pipeline row before the panels *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=false, deadlock=false, blockedObserved=true)
+[info]     save (backend 2759741) PARKED past its compare
+[info]     writer is WAITING on the parked save
+[info]     save: 200 committed; writer: ok false was not equal to true (DraftSaveDeadlockSpec.scala:32)
+[info] the alert evaluator against the save
+[info] - should not deadlock: the save locks the alert rules before the Outputs, the order the evaluator's FK checks take them
+[info] - should deadlock when the save locks the Outputs before the alert rules
+[info] a node-snapshot transaction against the save
+[info] - should not deadlock: the save locks Outputs by (position, id), the order the snapshot inserts its history points in
+03:51:05.207 ERROR [com-helio-api-routes-pipelines-DraftSaveDeadlockSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step DB operation failed
+org.postgresql.util.PSQLException: ERROR: deadlock detected
+  Detail: Process 2759970 waits for ShareLock on transaction 1073; blocked by process 2759976.
+Process 2759976 waits for ShareLock on transaction 1074; blocked by process 2759970.
+  Hint: See server log for query details.
+  Where: while locking tuple (0,46) in relation "outputs"
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2993)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2656)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:446)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:533)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:449)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:197)
+	at org.postgresql.jdbc.PgPreparedStatement.execute(PgPreparedStatement.java:183)
+	at com.zaxxer.hikari.pool.ProxyPreparedStatement.execute(ProxyPreparedStatement.java:44)
+	at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.execute(HikariProxyPreparedStatement.java)
+	at slick.jdbc.StatementInvoker.results(StatementInvoker.scala:44)
+	at slick.jdbc.StatementInvoker.iteratorTo(StatementInvoker.scala:26)
+	at slick.jdbc.StreamingInvokerAction.run(StreamingInvokerAction.scala:24)
+	at slick.jdbc.StreamingInvokerAction.run$(StreamingInvokerAction.scala:22)
+	at slick.jdbc.SQLActionBuilder$$anon$1.run(StaticQuery.scala:63)
+	at slick.jdbc.SQLActionBuilder$$anon$1.run(StaticQuery.scala:63)
+	at slick.basic.BasicBackend$BasicDatabaseDef.liftedTree1$1(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2$adapted(BasicBackend.scala:318)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.runAndCleanUp(AsyncExecutor.scala:187)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.run(AsyncExecutor.scala:196)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should deadlock when the save locks Outputs by id on a node whose position order is the reverse of its id order
+[info] the upsert write-back rewrite against a save that changes the same step's upsert target
+[info] - should not deadlock: the rewrite takes the cycle advisory lock before the step row, as the save does
+[info] - should deadlock when the rewrite locks the step row first and the advisory lock after
+[info] a workspace teardown against a source delete on one of its sources
+[info] - should not deadlock: the teardown locks its source rows first, as a source delete does
+[info] - should deadlock when the teardown takes the panels before the source rows (the order it had)
+[info] a concurrent mix of the save and every participant, repeated
+[info] - should never raise 40P01
+[info] [hel1468-guard] ScalaTest summary: failed=4 aborted=0 unreadable=0
+[info] Run completed in 13 seconds, 444 milliseconds.
+[info] Total number of tests run: 17
+[info] Suites: completed 1, aborted 0
+[info] Tests: succeeded 13, failed 4, canceled 0, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveDeadlockSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 15 s, cache 93%, 27 disk cache hits, 2 onsite tasks

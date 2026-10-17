@@ -1,0 +1,2 @@
++        case None if n < MaxDeleteAttempts      => attempt(n + 1)
++  private val MaxDeleteAttempts = 1

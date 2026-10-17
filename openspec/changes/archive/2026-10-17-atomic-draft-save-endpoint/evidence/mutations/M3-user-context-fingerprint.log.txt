@@ -1,0 +1,62 @@
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/atomic-draft-save-endpoint/HEL-1629/backend/)
+[info] DraftSaveApiSpec:
+[info] GET /api/pipelines/:id
+[info] - should return a fingerprint, and with ?definition=true the steps and Outputs it was computed from
+[info] - should not carry a fingerprint in the list
+[info] - should serve the same fingerprint to an editor as to the owner (the privileged read sees other users' panels and rules) *** FAILED ***
+[info]   {"message":"Pipeline not found: 94099a69-p"} 404 was not equal to 200 (DraftSaveApiFixture.scala:29)
+[info] an unchanged draft
+[info] - should save with 200, leave the stored state and the fingerprint as they were, and write one journal and one audit row *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:49)
+[info] a whole draft
+[info] - should create, update, delete, reorder and edit Outputs in one call, and the stored definition equals the draft *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:64)
+[info] a stale base
+[info] - should answer 409 PATCH_SET_STALE naming the pipeline and the current fingerprint, and write nothing
+[info] - should have no force path: a request field cannot bypass the compare
+[info] - should be refused when only an alert rule changed (the fingerprint covers state the save does not write) *** FAILED ***
+[info]   500 Internal Server Error was not equal to 409 Conflict (DraftSaveApiSpec.scala:114)
+[info] the cascade
+[info] - should answer 422 listing the Outputs, panels (including another user's) and alert rules a removed step takes, and write nothing *** FAILED ***
+[info]   Set("ebe9ccb3-pa") was not equal to Set("ebe9ccb3-pa", "ebe9ccb3-pb") (DraftSaveApiSpec.scala:132)
+[info] - should delete exactly what the client confirmed *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:145)
+[info] - should keep a head child: delete a step while the draft re-parents its children *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:158)
+[info] - should keep a tail child that the draft moves elsewhere (the server never deletes a step the draft keeps) *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:175)
+[info] access control
+[info] - should answer 403 to a viewer, 404 to a stranger, and let an editor save with created rows owned by the pipeline owner *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveApiSpec.scala:192)
+[info] validation
+[info] - should answer 400 and write nothing: a step config that fails the strict write check, naming the step
+[info] - should answer 400 and write nothing: an unknown step type
+[info] - should answer 400 and write nothing: an explicit id that is not a step of this pipeline (explicit ids are undo-only)
+[info] - should answer 400 and write nothing: a parent that is not in the draft
+[info] - should answer 400 and write nothing: a parent cycle
+[info] - should answer 400 and write nothing: a step naming both a parent and a root
+[info] - should answer 400 and write nothing: a step with neither a parent nor a root
+[info] - should answer 400 and write nothing: a root that is not a root of this pipeline
+[info] - should answer 400 and write nothing: a duplicate clientId
+[info] - should answer 400 and write nothing: an Output on a step the draft removes
+[info] - should answer 400 and write nothing: a type change on an existing step
+[info] - should answer 400 and write nothing: an Output that moves to another node
+[info] - should answer 400 and write nothing: an Output with an unknown kind
+[info] an empty body shape
+[info] - should answer 400 for a blank baseFingerprint
+[info] DraftSaveRlsSpec:
+[info] on a non-BYPASSRLS application role
+[info] - should let an editor read the pipeline, save it unchanged and get 200 although a panel on a third user's dashboard and that user's alert rule are in the fingerprint *** FAILED ***
+[info]   {"message":"Pipeline not found: 60856e33-p"} 404 was not equal to 200 (DraftSaveApiFixture.scala:29)
+[info] - should stamp Outputs and steps an editor creates with the pipeline OWNER, and own the editor's journal row by the editor *** FAILED ***
+[info]   {"message":"Pipeline not found: 35232c36-p"} 404 was not equal to 200 (DraftSaveApiFixture.scala:29)
+[info] - should refuse a viewer (403) and a stranger (404) and write nothing
+[info] - should keep a viewer's and a stranger's reads of the fingerprint to what they may see *** FAILED ***
+[info]   404 Not Found was not equal to 200 OK (DraftSaveRlsSpec.scala:54)
+[info] [hel1468-guard] ScalaTest summary: failed=12 aborted=0 unreadable=0
+[info] Run completed in 10 seconds, 865 milliseconds.
+[info] Total number of tests run: 31
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 19, failed 12, canceled 0, ignored 0, pending 0
+[info] *** 12 TESTS FAILED ***

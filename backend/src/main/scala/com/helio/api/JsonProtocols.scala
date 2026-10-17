@@ -112,6 +112,7 @@ trait JsonProtocols
     with DataSourceProtocol
     with SourceSampleProtocol
     with PipelineProtocol
+    with DraftSaveProtocol
     with PermissionProtocol
     with ShareTokenProtocol
     with PaginationProtocol

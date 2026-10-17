@@ -5,10 +5,12 @@ import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.DbContext
+import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.services.pipelines.PipelineRunGuardConfig
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -28,6 +30,7 @@ import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 
 import java.util.UUID
+import javax.sql.DataSource
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -48,6 +51,17 @@ abstract class TwoUserRlsApiFixture
   protected var superDb: JdbcBackend.Database    = _
   protected var ctx: DbContext                   = _
   protected var routes: Route                    = _
+  private var embeddedDataSource: DataSource = _
+
+  /** A fresh connection pool on this spec's embedded Postgres, each connection running as `role` (`None` = the superuser):
+   *  for a spec that needs its own connections (a racer, a pool it closes to flush a backend's statistics). The caller closes it. */
+  protected def newPool(role: Option[String], size: Int = 5, applicationName: Option[String] = None): JdbcBackend.Database = {
+    val cfg = new HikariConfig()
+    cfg.setDataSource(embeddedDataSource); cfg.setMaximumPoolSize(size)
+    val init = role.map(r => s"SET ROLE $r").toVector ++ applicationName.map(n => s"SET application_name = '$n'")
+    if (init.nonEmpty) cfg.setConnectionInitSql(init.mkString("; "))
+    JdbcBackend.Database.forDataSource(new HikariDataSource(cfg), Some(size))
+  }
 
   protected val userA = "00000000-0000-0000-0000-0000000000b1"
   protected val userB = "00000000-0000-0000-0000-0000000000b2"
@@ -74,8 +88,19 @@ abstract class TwoUserRlsApiFixture
    *  real repository over `ctx`; `null` (the default) is the pre-existing wiring, so other specs are untouched. */
   protected def pipelineRunRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): PipelineRunRepository = null
 
+  /** HEL-1629: a spec that asserts the audit row of a mutation overrides this to return a real repository over `ctx`;
+   *  `null` (the default) is the pre-existing wiring, so other specs are untouched. */
+  protected def auditEventRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): AuditEventRepository = null
+
+  /** HEL-1629: a spec that exercises the HEL-505 pipeline-run guard overrides these two; the defaults are the
+   *  pre-existing wiring (no guard repository, the environment's config). */
+  protected def pipelineRunGuardRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): PipelineRunGuardRepository = null
+  protected def pipelineRunGuardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
+
   override def beforeAll(): Unit = {
-    embeddedPostgres = VerifiedEmbeddedPostgres.start(EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified"))
+    embeddedPostgres = VerifiedEmbeddedPostgres.start(
+      EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").setServerConfig("track_functions", "pl")
+    )
     val superDs = embeddedPostgres.getPostgresDatabase
     Flyway.configure()
       .dataSource(embeddedPostgres.getJdbcUrl("postgres", "postgres"), "postgres", "postgres")
@@ -101,15 +126,10 @@ abstract class TwoUserRlsApiFixture
       s.close()
     } finally c.close()
 
-    def pool(role: Option[String]): JdbcBackend.Database = {
-      val cfg = new HikariConfig()
-      cfg.setDataSource(superDs); cfg.setMaximumPoolSize(5)
-      role.foreach(r => cfg.setConnectionInitSql(s"SET ROLE $r"))
-      JdbcBackend.Database.forDataSource(new HikariDataSource(cfg), Some(5))
-    }
-    superDb      = pool(None)
-    privilegedDb = pool(Some("helio_privileged"))
-    appDb        = pool(Some("helio_app_test"))
+    embeddedDataSource = superDs
+    superDb      = newPool(None)
+    privilegedDb = newPool(Some("helio_privileged"))
+    appDb        = newPool(Some("helio_app_test"))
     ctx          = new DbContext(appDb, privilegedDb)(typedSystem.executionContext)
 
     val ec             = typedSystem.executionContext
@@ -127,6 +147,9 @@ abstract class TwoUserRlsApiFixture
       new PipelineRunCache(), new SparkJobSubmitter("local", dataSourceRepo, pipelineRepo)(ec),
       pipelineScheduleRepo = new PipelineScheduleRepository(ctx)(ec),
       pipelineRunRepo = pipelineRunRepoFor(ctx)(ec),
+      auditEventRepo = auditEventRepoFor(ctx)(ec),
+      pipelineRunGuardRepo = pipelineRunGuardRepoFor(ctx)(ec),
+      pipelineRunGuardConfig = pipelineRunGuardConfig,
       dbContext = ctx
     ).routes
 

@@ -86,6 +86,7 @@ class PipelineRunServiceUpsertSourceRlsSpec extends AnyWordSpec with Matchers wi
       stmt.execute("GRANT helio_app_test TO postgres")
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_app_test")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO helio_app_test")
+      stmt.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO helio_app_test")
       stmt.execute("GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO helio_app_test")
       stmt.execute("GRANT USAGE ON SCHEMA public TO helio_privileged")
       stmt.execute("GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO helio_privileged")
