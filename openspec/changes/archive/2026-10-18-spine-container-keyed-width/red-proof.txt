@@ -1,0 +1,38 @@
+
+Running 1 test using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1579-sweep-1792315678995-39102@example.test
+  ✘  1 e2e/hel1579-pipeline-spine-layout.spec.ts:395:7 › HEL-1579 pipeline detail step spine (live) › sweep 769-1100px: header and editor actions fit, both themes, list at default and max width (6.0s)
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+
+
+  1) e2e/hel1579-pipeline-spine-layout.spec.ts:395:7 › HEL-1579 pipeline detail step spine (live) › sweep 769-1100px: header and editor actions fit, both themes, list at default and max width 
+
+    Error: 769px dark list=default: step title unreadable -- "Step 1: Filter rows, 14 rows" visible 22px, full=false, unoccluded=true
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      515 |               ti.unoccluded && (ti.full || ti.visible >= 60),
+      516 |               `${at}: step title unreadable -- "${ti.label}" visible ${Math.round(ti.visible)}px, full=${ti.full}, unoccluded=${ti.unoccluded}`,
+    > 517 |             ).toBe(true);
+          |               ^
+      518 |           if (sampled.has(width)) {
+      519 |             await page.getByRole("button", { name: "Pipeline actions" }).click();
+      520 |             const menu = page.getByRole("menu", { name: "Pipeline actions" });
+        at /home/matt/Development/helio/.claude/worktrees/bug/pipeline-spine-container-width/HEL-1608/e2e/hel1579-pipeline-spine-layout.spec.ts:517:15
+
+    Error Context: test-results/hel1579-pipeline-spine-lay-5cc98-st-at-default-and-max-width/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1579-pipeline-spine-lay-5cc98-st-at-default-and-max-width/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1579-pipeline-spine-lay-5cc98-st-at-default-and-max-width/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e/hel1579-pipeline-spine-layout.spec.ts:395:7 › HEL-1579 pipeline detail step spine (live) › sweep 769-1100px: header and editor actions fit, both themes, list at default and max width 

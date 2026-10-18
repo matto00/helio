@@ -22,8 +22,12 @@
   display: grid;
   /* The `live-output` track is reserved but empty and zero-width until HEL-1581 sets the variable (about
      340-380px) and renders into it, so no width is spent on an empty column. */
+  /* HEL-1608: the spine track follows the PAGE container (`cqi`, the `.pipeline-detail-page--spine` container this
+     grid is a direct child of), not the viewport. It stays 180px until the page is wide enough to give the spine
+     240px and still leave the centre column about 320px, then grows with the page to a 340px cap (about 330px at
+     1280x800). The row compaction for the narrow track is keyed to the column itself (`spine-column`, below). */
   grid-template-columns:
-    clamp(180px, 22vw, 340px)
+    clamp(180px, max(34cqi, min(240px, 100cqi - 320px)), 340px)
     minmax(0, 1fr)
     var(--pipeline-live-output-width);
   grid-template-areas: "spine main live-output";
@@ -37,6 +41,9 @@
   overflow-y: auto;
   padding: var(--space-4);
   border-right: 1px solid var(--app-border-subtle);
+  /* HEL-1608: a NAMED size container so the row compaction in PipelineSpine.css measures this column; the unnamed
+     `@container` rules in this stylesheet and the header's keep resolving to the page / centre column. */
+  container: spine-column / inline-size;
 }
 
 .spine-body__main {
