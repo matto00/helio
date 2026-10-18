@@ -292,7 +292,7 @@
   }
 }
 
-/* Below 1100px the page has little room left beside the rail and the context list. The command bar already
+/* When the page container is 800px wide or less it has little room left beside the rail and the context list. The command bar already
    shows the section ("Data Pipelines"), so the "Pipelines /" crumb gives way first, and the schedule chip
    narrows: the name, the status and the controls keep their place on one row. */
 @container (max-width: 800px) {
@@ -328,7 +328,7 @@
   }
 }
 
-/* After the 1100px block so it wins at <=900px: the name's floor drops to 8ch (it still ellipsizes inside). */
+/* After the 800px container block so it wins at <=600px content width: the name's floor drops to 8ch (it still ellipsizes inside). */
 @container (max-width: 600px) {
   .spine-header__crumbs {
     min-width: 8ch;
