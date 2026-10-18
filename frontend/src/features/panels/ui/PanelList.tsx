@@ -22,6 +22,7 @@ import { PanelGridSkeleton } from "./grid/PanelGridSkeleton";
 import { panelGridConfig } from "./grid/panelGridConfig";
 import { OutputPicker } from "./OutputPicker";
 import { useCreatePanelAction } from "../hooks/useCreatePanelAction";
+import { usePipelineFedFlagSync } from "../hooks/usePipelineFedFlagSync";
 import { fetchPanels, panelsMatchDashboard, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
@@ -47,6 +48,8 @@ export function PanelList() {
   const { items, status, error, staleDashboardId, panelCreationModalOpen, restoringDashboardId } =
     useAppSelector((state) => state.panels);
   const currentUser = useAppSelector((state) => state.auth.currentUser);
+  // HEL-1646: keeps the dashboard list's pipeline-fed flag current for the phone skeleton's reserved slot.
+  usePipelineFedFlagSync();
   // HEL-548 D5/D6 — the create-action seam. `createDashboardAction` owns the
   // isPending/error state PanelList used to hold itself (`handleCreateDashboard`
   // moved into the hook, task 3.2); `createPanelAction` is a pure flag flip

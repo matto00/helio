@@ -22,11 +22,8 @@ import { RecentVisitsRouteObserver } from "../features/commandPalette/RecentVisi
 import { HelpOverlayHost } from "../shared/chrome/HelpOverlay";
 import { fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
 import { setCreatePipelineModalOpen } from "../features/pipelines/state/pipelinesSlice";
-import {
-  fetchPanels,
-  panelsMatchDashboard,
-  setPanelCreationModalOpen,
-} from "../features/panels/state/panelsSlice";
+import { fetchPanels, setPanelCreationModalOpen } from "../features/panels/state/panelsSlice";
+import { panelsSettledFor } from "../features/panels/state/panelsSettled";
 import { showDashboardPanels } from "../features/dashboards/tabs/warm/showDashboardPanels";
 import { setAddSourceModalOpen } from "../features/sources/state/sourcesSlice";
 import { useAppDispatch, useAppSelector } from "../hooks/reduxHooks";
@@ -102,12 +99,7 @@ export function AppShell() {
   // genuinely empty": `loadedDashboardId` records which dashboard the LAST dispatched
   // `fetchPanels` targeted (set at `.pending`, unchanged by `.fulfilled`), so pairing it with
   // `status === "succeeded"` is precise even when `items` is `[]`.
-  const currentDashboardPanelsReady =
-    selectedDashboardId !== null &&
-    (panelsMatchDashboard(panels.items, selectedDashboardId) ||
-      (panels.items.length === 0 &&
-        panels.loadedDashboardId === selectedDashboardId &&
-        panels.status === "succeeded"));
+  const currentDashboardPanelsReady = panelsSettledFor(panels, selectedDashboardId);
   useEffect(() => {
     if (
       panels.panelCreationModalOpen &&

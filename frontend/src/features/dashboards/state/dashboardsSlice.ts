@@ -64,7 +64,20 @@ function getMostRecentDashboardId(dashboards: Dashboard[]): string | null {
 // that server version" and a later re-baseline can never pair a local layout with a version that already
 // includes another writer's items.
 function keepLocalLayout(response: Dashboard, local: Dashboard): Dashboard {
-  return { ...response, layout: local.layout, layoutVersion: local.layoutVersion };
+  return withKnownFlag(local, {
+    ...response,
+    layout: local.layout,
+    layoutVersion: local.layoutVersion,
+  });
+}
+
+// HEL-1646: only the list route emits `hasPipelineFedPanels`, so every single-dashboard response that replaces an
+// existing item (rename, appearance, layout, repair, upsert) must carry the previously-known value forward instead
+// of silently dropping it. Applied at every replace site; only `fetchDashboards.fulfilled` overwrites from the wire.
+function withKnownFlag(prev: Dashboard, next: Dashboard): Dashboard {
+  return next.hasPipelineFedPanels === undefined && prev.hasPipelineFedPanels !== undefined
+    ? { ...next, hasPipelineFedPanels: prev.hasPipelineFedPanels }
+    : next;
 }
 
 // HEL-1119: push-or-replace-by-id, shared by every reducer that adds a
@@ -81,7 +94,7 @@ function upsertDashboardById(items: Dashboard[], dashboard: Dashboard): void {
   if (index === -1) {
     items.push(dashboard);
   } else {
-    items[index] = dashboard;
+    items[index] = withKnownFlag(items[index], dashboard);
   }
 }
 
@@ -402,6 +415,16 @@ const dashboardsSlice = createSlice({
         dashboard.layout = layout;
       }
     },
+    /** HEL-1646: record whether the dashboard's settled panels include a pipeline-fed one. Dispatched by `PanelList`
+     *  only once the panels are known for that dashboard, so the flag the skeleton reads stays current after
+     *  in-session panel adds and deletes. */
+    dashboardPipelineFedObserved(
+      state,
+      action: PayloadAction<{ dashboardId: string; value: boolean }>,
+    ) {
+      const dashboard = state.items.find((d) => d.id === action.payload.dashboardId);
+      if (dashboard) dashboard.hasPipelineFedPanels = action.payload.value;
+    },
     setLayoutPending(state, action: PayloadAction<boolean>) {
       state.hasPendingLayout = action.payload;
     },
@@ -454,7 +477,7 @@ const dashboardsSlice = createSlice({
       })
       .addCase(updateDashboardAppearance.fulfilled, (state, action) => {
         state.items = state.items.map((dashboard) =>
-          dashboard.id === action.payload.id ? action.payload : dashboard,
+          dashboard.id === action.payload.id ? withKnownFlag(dashboard, action.payload) : dashboard,
         );
       })
       .addCase(updateDashboardLayout.fulfilled, (state, action) => {
@@ -469,7 +492,7 @@ const dashboardsSlice = createSlice({
           if (dashboard.id !== action.payload.id) return dashboard;
           if (areDashboardLayoutsEqual(dashboard.layout, sentLayout)) {
             state.hasPendingLayout = false;
-            return action.payload;
+            return withKnownFlag(dashboard, action.payload);
           }
           return keepLocalLayout(action.payload, dashboard);
         });
@@ -480,7 +503,9 @@ const dashboardsSlice = createSlice({
         const { expectedLayout } = action.meta.arg;
         state.items = state.items.map((dashboard) => {
           if (dashboard.id !== action.payload.id) return dashboard;
-          if (areDashboardLayoutsEqual(dashboard.layout, expectedLayout)) return action.payload;
+          if (areDashboardLayoutsEqual(dashboard.layout, expectedLayout)) {
+            return withKnownFlag(dashboard, action.payload);
+          }
           return keepLocalLayout(action.payload, dashboard);
         });
       })
@@ -490,7 +515,7 @@ const dashboardsSlice = createSlice({
       })
       .addCase(renameDashboard.fulfilled, (state, action) => {
         state.items = state.items.map((dashboard) =>
-          dashboard.id === action.payload.id ? action.payload : dashboard,
+          dashboard.id === action.payload.id ? withKnownFlag(dashboard, action.payload) : dashboard,
         );
       })
       // F-031 defense-in-depth: DashboardList.tsx now surfaces these three
@@ -533,6 +558,7 @@ export const {
   setDashboardLayoutLocally,
   setLayoutPending,
   dashboardUpserted,
+  dashboardPipelineFedObserved,
   dashboardRemoved,
 } = dashboardsSlice.actions;
 export const dashboardsReducer = dashboardsSlice.reducer;

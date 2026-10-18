@@ -55,6 +55,9 @@ export interface DashboardResponse {
    *  existing convention extended to dashboards. Omitted on the wire when
    *  unset (spray-json drops `Option = None`) — read as `tag ?? null`. */
   tag?: string | null;
+  /** HEL-1646: emitted only by the list route (`list_dashboards`); true when the dashboard has at least one
+   *  output panel bound to an Output. Absent on every other single-dashboard response. */
+  hasPipelineFedPanels?: boolean;
 }
 
 /** One panel as serialized in a dashboard export snapshot. `config` is a typed

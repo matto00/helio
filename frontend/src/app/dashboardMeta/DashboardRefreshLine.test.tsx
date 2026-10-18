@@ -176,6 +176,89 @@ describe("DashboardRefreshLine (HEL-1583 D11)", () => {
       expect(renderWith(unbound).container.querySelector(".dashboard-refresh-line")).toBeNull();
     });
 
+    describe("before the panels are known (HEL-1646)", () => {
+      function renderState(
+        flag: boolean | undefined,
+        panels: Record<string, unknown>,
+        dashboards: unknown[] = [{ id: "d1", name: "Ops", hasPipelineFedPanels: flag }],
+      ) {
+        return renderWithStore(
+          <DashboardRefreshLine />,
+          {
+            dashboards: { items: dashboards, selectedDashboardId: "d1" },
+            panels: { items: [], loadedDashboardId: null, status: "idle", ...panels },
+          } as never,
+          "/dashboards",
+        ).container.querySelector(".dashboard-refresh-line");
+      }
+      const otherDashboardFed = [
+        makeOutputPanel({ id: "px", dashboardId: "d0", config: { outputId: "o9" } }),
+      ];
+
+      it("reserves the slot while loading when the list flag is true", () => {
+        const slot = renderState(true, { loadedDashboardId: "d1", status: "loading" });
+        expect(slot).toHaveAttribute("data-reserved", "true");
+      });
+
+      it("reserves nothing while loading when the flag is false or absent", () => {
+        expect(renderState(false, { loadedDashboardId: "d1", status: "loading" })).toBeNull();
+        expect(renderState(undefined, { loadedDashboardId: "d1", status: "loading" })).toBeNull();
+      });
+
+      it("never reads another dashboard's stale items: a fed previous dashboard gives a markdown-only target no slot", () => {
+        expect(
+          renderState(false, {
+            items: otherDashboardFed,
+            loadedDashboardId: "d1",
+            status: "loading",
+          }),
+        ).toBeNull();
+        // The pre-dispatch switch frame: succeeded, the previous dashboard's items, nothing loaded for d1.
+        expect(
+          renderState(false, {
+            items: otherDashboardFed,
+            loadedDashboardId: "d0",
+            status: "succeeded",
+          }),
+        ).toBeNull();
+      });
+
+      it("a restoring frame (previous items, succeeded) follows the flag", () => {
+        expect(
+          renderState(true, {
+            items: otherDashboardFed,
+            loadedDashboardId: "d0",
+            status: "succeeded",
+          }),
+        ).toHaveAttribute("data-reserved", "true");
+      });
+
+      it("loaded panels override a stale true flag, and a stale false flag", () => {
+        const md = [makeMarkdownPanel({ id: "m1", dashboardId: "d1" })];
+        const fedHere = [
+          makeOutputPanel({ id: "p1", dashboardId: "d1", config: { outputId: "o1" } }),
+        ];
+        expect(
+          renderState(true, { items: md, loadedDashboardId: "d1", status: "succeeded" }),
+        ).toBeNull();
+        expect(
+          renderState(false, { items: fedHere, loadedDashboardId: "d1", status: "succeeded" }),
+        ).toHaveAttribute("data-reserved", "true");
+      });
+
+      it("settled-empty and delete-last stale-empty override a true flag", () => {
+        expect(renderState(true, { loadedDashboardId: "d1", status: "succeeded" })).toBeNull();
+        expect(renderState(true, { status: "idle", staleDashboardId: "d1" })).toBeNull();
+      });
+
+      it("a failed panels fetch keeps the slot per the flag (keeps cards still on retry)", () => {
+        expect(renderState(true, { loadedDashboardId: "d1", status: "failed" })).toHaveAttribute(
+          "data-reserved",
+          "true",
+        );
+      });
+    });
+
     it("CSS pin: the slot has one fixed, token-derived height in every state (no literal pixels)", () => {
       const css = fs
         .readFileSync(path.join(__dirname, "DashboardMetaRow.css"), "utf-8")

@@ -32,6 +32,10 @@
       "minimum": 0,
       "description": "HEL-1457: database-maintained, bumped whenever the stored layout changes (any writer). Echo it as `expectedLayoutVersion` on a layout PATCH or auto-layout to have a stale write refused with 409 instead of overwriting."
     },
+    "hasPipelineFedPanels": {
+      "type": "boolean",
+      "description": "HEL-1646: true when the dashboard has at least one output panel bound to an Output. Emitted only by GET /api/dashboards (list items); other single-dashboard responses omit it, and a client keeps a previously-known value. Lets the phone skeleton reserve the refreshed-line slot before panels load."
+    },
     "tag": {
       "type": "string",
       "minLength": 1,

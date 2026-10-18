@@ -1,0 +1,20 @@
+- `backend/src/main/scala/com/helio/infrastructure/persistence/dashboards/DashboardRepository.scala` — `pipelineFedDashboardIds`: one batched query for a page
+- `backend/src/main/scala/com/helio/services/dashboards/DashboardService.scala` — `findAllWithPipelineFedFlag`, list-route-only
+- `backend/src/main/scala/com/helio/api/routes/dashboards/DashboardRoutes.scala` — list route sets `hasPipelineFedPanels`
+- `backend/src/main/scala/com/helio/api/protocols/dashboards/DashboardProtocol.scala` — optional field, `jsonFormat9`
+- `backend/src/test/scala/com/helio/api/routes/dashboards/DashboardPipelineFedFlagSpec.scala` — list/rename/create route test on the RLS app pool
+- `schemas/dashboards/dashboard.schema.json` — optional boolean property
+- `helio-mcp/src/types.ts` — `hasPipelineFedPanels?` on `DashboardResponse`
+- `frontend/src/features/dashboards/types/dashboard.ts` — `hasPipelineFedPanels?`
+- `frontend/src/features/dashboards/state/dashboardsSlice.ts` — `withKnownFlag` at every replace site, `dashboardPipelineFedObserved`
+- `frontend/src/features/dashboards/state/dashboardsSlice.pipelineFed.test.ts` — slice tests
+- `frontend/src/features/panels/state/panelsSettled.ts` (+ test) — `panelsSettledFor` / `panelsKnownFor`
+- `frontend/src/features/panels/hooks/usePipelineFedFlagSync.ts` (+ test) — effect keeping the flag current from known panels
+- `frontend/src/features/panels/state/dashboardMeta.ts` — `feedingOutputIds` tolerates a panel without `config`
+- `frontend/src/features/panels/ui/PanelList.tsx` — mounts the sync hook
+- `frontend/src/app/App.tsx` — uses `panelsSettledFor` (behaviour unchanged)
+- `frontend/src/app/dashboardMeta/DashboardRefreshLine.tsx` (+ test) — reserve by `panelsKnownFor` panels, else the list flag
+- `e2e/hel1646-skeleton-refresh-slot.spec.ts` — frame-sampling no-shift spec
+- `frontend/src/app/dashboardMeta/DashboardRefreshLine.test.tsx` — line unit tests (declared explicitly; the `(+ test)` shorthand above is not a declaration)
+- `frontend/src/features/panels/hooks/usePipelineFedFlagSync.test.tsx` — sync hook tests
+- `frontend/src/features/panels/state/panelsSettled.test.ts` — predicate tests
