@@ -130,6 +130,12 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
       return out;
     };
 
+    // HEL-1658: wait for the entrance's clock span to be recorded rather than reading the edges once after a fixed wait.
+    await expect
+      .poll(async () => spans(await edges()).length, {
+        message: "the chart entrance ran (the animation clock was busy at least once)",
+      })
+      .toBeGreaterThanOrEqual(1);
     const first = spans(await edges());
     testInfo.attach("chart-entrance-spans.json", {
       body: JSON.stringify(first),
