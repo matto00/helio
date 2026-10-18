@@ -1,5 +1,0 @@
-- `frontend/src/features/home/ui/HomePage.css` — drop the phone one-column shelf override (2 columns now apply on phones); skeleton thumbnail placeholder takes 16/7 aspect ratio
-- `frontend/src/features/home/ui/DashboardShelf.tsx` — skeleton thumbnail uses the `home-thumb-skeleton` class instead of fixed 96px
-- `DESIGN.md` — Home page entry notes the phone shelf stays two columns
-- `e2e/hel1642-home-phone-timeline.spec.ts` — new: pins timeline above bottom nav at 375/430 x light/dark, 2x2 cards, C1 no-horizontal-scroll (document and .app-content), 375x667 info-only, 1280/820 column regression
-- `e2e/hel1583-home-375.spec.ts` — right-gutter assertion now measures the second card (shelf is two columns on phones)
