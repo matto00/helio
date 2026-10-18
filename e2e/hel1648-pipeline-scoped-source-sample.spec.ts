@@ -105,9 +105,8 @@ test.describe("HEL-1648 pipeline-scoped source sample (live)", () => {
       await editor.page.goto("/home");
       await setTheme(editor.page, theme);
       await editor.page.goto(`/pipelines/${pipeline.id}`);
-      const chip = editor.page.locator(
-        ".pipeline-detail-header__source-chip-group .source-sample-label",
-      );
+      // The phone layout's source card (HEL-1582 retired the river header this used to read).
+      const chip = editor.page.locator(".spine-source-card .source-sample-label");
       await expect(chip).toContainText("Static · 3 rows");
       await editor.page.screenshot({ path: evidencePath("HEL-1648", `editor-phone-${theme}.png`) });
     }
