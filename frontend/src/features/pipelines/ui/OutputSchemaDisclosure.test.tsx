@@ -16,6 +16,98 @@ function openPopover() {
   fireEvent.click(screen.getByRole("button", { name: /fields/ }));
 }
 
+describe("OutputSchemaDisclosure panel placement (HEL-1582)", () => {
+  const originalWidth = window.innerWidth;
+  afterEach(() => {
+    jest.restoreAllMocks();
+    window.innerWidth = originalWidth;
+  });
+
+  it("keeps the panel inside the viewport when the trigger sits near the right edge", () => {
+    window.innerWidth = 390;
+    jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 276,
+      right: 348,
+      top: 424,
+      bottom: 441,
+      width: 72,
+      height: 17,
+      x: 276,
+      y: 424,
+      toJSON: () => ({}),
+    });
+    render(<OutputSchemaDisclosure fields={fields(50)} />);
+    openPopover();
+    const left = parseFloat(screen.getByRole("dialog", { name: "Output schema" }).style.left);
+    // 390 wide: the panel is 350 wide, so it must start at or before 390 - 350 - 8.
+    expect(left).toBeLessThanOrEqual(32);
+    expect(left).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("OutputSchemaDisclosure portal target and vertical placement (HEL-1582)", () => {
+  const originalHeight = window.innerHeight;
+  afterEach(() => {
+    jest.restoreAllMocks();
+    window.innerHeight = originalHeight;
+  });
+
+  it("portals the panel into the open <dialog> its trigger sits in (or it renders behind the modal)", () => {
+    render(
+      <dialog open data-testid="host">
+        <OutputSchemaDisclosure fields={fields(50)} />
+      </dialog>,
+    );
+    openPopover();
+    expect(screen.getByTestId("host")).toContainElement(
+      screen.getByRole("dialog", { name: "Output schema" }),
+    );
+  });
+
+  it("portals the panel to the body when the trigger is not inside an open dialog", () => {
+    const { container } = render(<OutputSchemaDisclosure fields={fields(50)} />);
+    openPopover();
+    const panel = screen.getByRole("dialog", { name: "Output schema" });
+    expect(container).not.toContainElement(panel);
+    expect(panel.closest("dialog")).toBeNull();
+  });
+
+  function triggerAt(top: number) {
+    jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      left: 20,
+      right: 92,
+      top,
+      bottom: top + 17,
+      width: 72,
+      height: 17,
+      x: 20,
+      y: top,
+      toJSON: () => ({}),
+    });
+  }
+
+  it("opens below, with its height capped to the room, when the trigger is near the top", () => {
+    window.innerHeight = 844;
+    triggerAt(120);
+    render(<OutputSchemaDisclosure fields={fields(50)} />);
+    openPopover();
+    const style = screen.getByRole("dialog", { name: "Output schema" }).style;
+    expect(style.top).not.toBe("");
+    expect(style.bottom).toBe("");
+    expect(parseFloat(style.maxHeight)).toBeLessThanOrEqual(384);
+  });
+
+  it("opens above, as before, when the trigger has room above it", () => {
+    window.innerHeight = 844;
+    triggerAt(700);
+    render(<OutputSchemaDisclosure fields={fields(50)} />);
+    openPopover();
+    const style = screen.getByRole("dialog", { name: "Output schema" }).style;
+    expect(style.bottom).not.toBe("");
+    expect(style.top).toBe("");
+  });
+});
+
 describe("OutputSchemaDisclosure", () => {
   it("renders a compact 'N fields' trigger rather than one chip per field", () => {
     render(<OutputSchemaDisclosure fields={fields(203)} />);

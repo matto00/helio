@@ -1,5 +1,5 @@
 // HEL-440 raw-element guard: asserts the migrated rename controls
-// (PanelCard title, PipelineDetailFooter output name) render the shared
+// (PanelCard title, the pipeline page header's pipeline name) render the shared
 // TextField primitive (`ui-input` class), not a bare <input>. Prior art:
 // PipelineShareDialog.test.tsx's F-143 assertion shape.
 //
@@ -15,7 +15,7 @@ import { screen } from "@testing-library/react";
 import { renderWithStore } from "./renderWithStore";
 import { makeOutputPanel } from "./panelFixtures";
 import { PanelCard } from "../features/panels/ui/PanelCard";
-import { PipelineDetailFooter } from "../features/pipelines/ui/PipelineDetailFooter";
+import { PipelineSpineHeader } from "../features/pipelines/ui/spine/PipelineSpineHeader";
 
 // HEL-1600 -- stands in for GET /api/outputs/:id, GET /api/outputs/:id/assertion-status, which this test reaches but does not exercise
 // (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.
@@ -65,39 +65,42 @@ const panelCardNoopProps = {
   onDetail: jest.fn(),
 };
 
-const pipelineFooterNoopProps = {
-  editingOutputName: true,
-  outputName: "My Pipeline",
+const pipelineHeaderNoopProps = {
   pipelineName: "My Pipeline",
+  outputName: "My Pipeline",
   setOutputName: jest.fn(),
-  setEditingOutputName: jest.fn(),
-  stepCount: 0,
-  outputSchema: [],
-  sseData: { status: null, rowCount: null, errorLog: null },
-  runStatus: null,
-  runError: null,
-  runIsDry: null,
-  runResult: null,
+  editingName: true,
+  setEditingName: jest.fn(),
   isDirty: false,
   updateError: null,
   updateStatus: "idle",
   isConfirmingCancel: false,
-  handleSave: jest.fn(),
-  confirmCancelDiscard: jest.fn(),
-  dismissCancelConfirm: jest.fn(),
-  handleCancel: jest.fn(),
-  openHistory: jest.fn(),
-  openPreview: jest.fn(),
-  handleDryRun: jest.fn(),
-  handleRunPipeline: jest.fn(),
-  isOwner: true,
-  onOpenShare: jest.fn(),
+  onSave: jest.fn(),
+  onCancel: jest.fn(),
+  onConfirmDiscard: jest.fn(),
+  onDismissConfirm: jest.fn(),
+  run: {
+    sseStatus: null,
+    sseRowCount: null,
+    sseErrorLog: null,
+    runStatus: null,
+    runError: null,
+    runIsDry: null,
+    runResult: null,
+  },
   lastRunAt: null,
   lastRunRowCount: null,
   lastRunStatus: null,
   lastRunTruncated: null,
-  costVerdict: null,
-  handleRunToUpdate: jest.fn(),
+  schedule: null,
+  onEditSchedule: jest.fn(),
+  onToggleScheduleEnabled: jest.fn(),
+  onOpenHistory: jest.fn(),
+  isOwner: true,
+  onOpenShare: jest.fn(),
+  onEditOnlySource: null,
+  onDryRun: jest.fn(),
+  onRun: jest.fn(),
 };
 
 describe("HEL-440 raw-element guard — migrated rename controls", () => {
@@ -111,8 +114,8 @@ describe("HEL-440 raw-element guard — migrated rename controls", () => {
     expect(input).toHaveClass("ui-input");
   });
 
-  it("PipelineDetailFooter: the 'Pipeline name' rename control carries TextField's ui-input class", () => {
-    renderWithStore(<PipelineDetailFooter {...pipelineFooterNoopProps} />);
+  it("PipelineSpineHeader: the 'Pipeline name' rename control carries TextField's ui-input class", () => {
+    renderWithStore(<PipelineSpineHeader {...pipelineHeaderNoopProps} />);
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     expect(input).toHaveClass("ui-input");

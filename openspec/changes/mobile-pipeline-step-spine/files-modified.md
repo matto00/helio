@@ -1,0 +1,123 @@
+- `DESIGN.md` — sheet API in section 10, phone pipeline page in section 12
+- `e2e/hel1582-mobile-pipeline.spec.ts` — live phone spec: fit, swipe, kinds, clearance, touch floor, contrast, mutations
+- `e2e/hel1628-source-sample-label.spec.ts` — port off river selectors / helpers
+- `e2e/hel520-focus-presence-guard.regression.spec.ts` — port off river selectors / helpers
+- `e2e/state-surface-contrast-guard.spec.ts` — port off river selectors / helpers
+- `e2e/support/pipelineSpine.ts` — port off river selectors / helpers
+- `frontend/src/features/pipelines/hooks/useLaneReorder.ts` — removed the river-only pending-focus code and unused LaneReorder type
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — exposes ensureRunHistoryLoaded
+- `frontend/src/features/pipelines/hooks/usePipelineLaneStepCreation.ts` — a failed immediate create also records its message on the kept temp step (shown in the sheet)
+- `frontend/src/features/pipelines/hooks/usePipelineStepCreation.ts` — a failed immediate create also records its message on the kept temp step (shown in the sheet)
+- `frontend/src/features/pipelines/hooks/useRunHistory.ts` — ensureRunHistoryLoaded(): loads without opening the modal
+- `frontend/src/features/pipelines/hooks/useStepSelection.ts` — useAddedStepId extracted for the phone sheet; desktop unchanged
+- `frontend/src/features/pipelines/ui/BranchAffordance.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/LaneColumn.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputGalleryCard.css` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputGalleryCard.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputsGalleryTab.css` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputsGalleryTab.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/OutputsGalleryTab.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputsRail.css` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/OutputsRail.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/OutputsRail.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.denial.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.stepConfigInvalid.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailFooter.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/PipelineDetailHeader.css` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/PipelineDetailHeader.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailHeader.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css` — pruned to step-editor styles and the loading placeholder; move-btn hover rung
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.css.test.ts` — rewritten for what remains of the CSS
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.reorderGuard.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.shapeReparent.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.spine.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.stepsError.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.switch.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — retargeted to the phone layout (see evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — phone branch renders PipelineMobileLayout; river branch and tab state removed
+- `frontend/src/features/pipelines/ui/PipelineDetailSkeleton.tsx` — header band + steps placeholder (no river header/footer bands)
+- `frontend/src/features/pipelines/ui/PipelineRiverView.emptyOutputs.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineRiverView.multiRootReorder.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineRiverView.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/PipelineRiverView.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/PipelinesPage.delete.test.tsx` — retargeted off the deleted header/footer onto PipelineSpineHeader
+- `frontend/src/features/pipelines/ui/RibbonSegment.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/RibbonSegment.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/RootColumn.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/RunHistoryModal.css` — Show log toggle: touch expander + hover
+- `frontend/src/features/pipelines/ui/RunHistoryModal.tsx` — RunHistoryList extracted (shared with the Runs tab)
+- `frontend/src/features/pipelines/ui/StepCard.test.tsx` — deleted with the river view (coverage mapped in evidence/test-mapping.md)
+- `frontend/src/features/pipelines/ui/StepCard.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/StepCardFocused.blurNoRepatch.test.tsx` — renamed from StepCard.blurNoRepatch.test.tsx, retargeted to StepCardFocused
+- `frontend/src/features/pipelines/ui/StepCardFocused.castSaveError.test.tsx` — renamed from StepCard.castSaveError.test.tsx, retargeted to StepCardFocused
+- `frontend/src/features/pipelines/ui/StepCardFocused.enumSaveError.test.tsx` — renamed from StepCard.enumSaveError.test.tsx, retargeted to StepCardFocused
+- `frontend/src/features/pipelines/ui/StepCardFocused.test.tsx` — focused-editor tests (ported from StepCard)
+- `frontend/src/features/pipelines/ui/StepCardHeader.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/StepCardPreviewTray.tsx` — deleted: retired river view
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineActions.tsx` — floating Dry run / Run pipeline pills, draft-status slot, measured clearance
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx` — compact header: back, mono name, status line, actions menu, rename/save/cancel
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineTabs.tsx` — Steps/Preview/Runs ARIA tabs with the sliding indicator
+- `frontend/src/features/pipelines/ui/mobile/MobilePreviewTab.tsx` — Preview tab: step chooser + preview table
+- `frontend/src/features/pipelines/ui/mobile/MobileRunsTab.tsx` — Runs tab: inline run history, loads on first activation
+- `frontend/src/features/pipelines/ui/mobile/MobileStepSheet.tsx` — step editor sheet: focused editor + preview table + Step actions menu
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css` — phone page styles: gutters, header, tabs, rows, pills, sheet, touch-floor expanders
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css.test.ts` — static touch-floor guard for the phone CSS (expander pattern)
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.test.tsx` — phone layout tests (header, tabs, steps, sheet, pills, river retired)
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.tsx` — the phone page body: tabs, step list, sheet, pills; owns the open-step state and its re-key
+- `frontend/src/features/pipelines/ui/outputHistory/OutputHistoryModal.css.test.ts` — dropped the gallery-card History button guards
+- `frontend/src/features/pipelines/ui/pipelineMobileTestKit.tsx` — phone DOM vocabulary for page tests (rows, sheet, menus)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.test.tsx` — spine tests: node-path titles, warnings in lanes/roots, per-root reorder, focus follows
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx` — takes actions as a prop; variant="phone" (hidden eyebrows, no add-source/shape buttons, add row)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineAccent.css` — neutral-accent overrides also apply under the phone page
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.css` — editor container-query rules also apply under the phone page
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx` — uses useSpineStepActions and renders its dialogs
+- `frontend/src/features/pipelines/ui/spine/SpineLane.tsx` — context.phone passed to rows
+- `frontend/src/features/pipelines/ui/spine/SpineOutputs.tsx` — phone variant: hidden eyebrow, chevron on the tappable card
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.tsx` — failed run status title carries the full error
+- `frontend/src/features/pipelines/ui/spine/SpineSourceCard.tsx` — phone variant: the name is the Edit source button (never nesting the menu/refresh)
+- `frontend/src/features/pipelines/ui/spine/SpineStepRow.tsx` — phone variant: full-width 60px row button with chevron, aria-haspopup, no grip/menu
+- `frontend/src/features/pipelines/ui/spine/useSpineStepActions.tsx` — palette/shape/add-root/reorder/menu state extracted from PipelineSpine for both layouts
+- `frontend/src/features/pipelines/ui/stepCardTypes.ts` — StepCardProps removed with the river card
+- `frontend/src/shared/chrome/ActionsMenu.tsx` — menu panel portals into an open dialog so it is not hidden by the top layer
+- `frontend/src/shared/motion/BottomSheet.css` — sheet phone presentation, grab handle, token-timed entrance/exit under Full/Subtle/Off
+- `frontend/src/shared/motion/BottomSheet.test.tsx` — sheet gesture, veto, exit, motion-level and no-transform tests
+- `frontend/src/shared/motion/BottomSheet.tsx` — new swipe-dismissable bottom sheet composing Modal (veto, held exit, no transform at rest)
+- `frontend/src/shared/motion/motionPrimitiveLiterals.test.ts` — the sheet files join the no-literal-timing guard
+- `frontend/src/shared/motion/sheetMotion.ts` — token-timed settle/fade helpers (instant when the token is instant)
+- `frontend/src/shared/motion/useSheetSwipe.ts` — header-only pointer drag with thresholds and spring back
+- `frontend/src/test/rawElementGuardHel440.test.tsx` — retargeted off the deleted header/footer onto PipelineSpineHeader
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file count / baseline / expired exceptions updated
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file count / baseline / expired exceptions updated
+- `frontend/src/theme/tokenAuditSweep.css.test.ts` — CSS file count / baseline / expired exceptions updated
+- `openspec/changes/mobile-pipeline-step-spine/.openspec.yaml` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/design.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/evidence/mutation-proofs.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/evidence/test-mapping.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/proposal.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/skeptic-design-1.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/skeptic-design-2.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/skeptic-design-3.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/specs/motion-primitives/spec.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/specs/pipeline-detail-mobile-layout/spec.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/specs/pipeline-detail-spine-layout/spec.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/tasks.md` — change artifacts and evidence
+- `openspec/changes/mobile-pipeline-step-spine/ticket.md` — change artifacts and evidence
+- `scripts/check-tokens.mjs` — --pipeline-mobile-actions-h is a runtime-set token
+
+## Cycle 2 notes
+
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css` is about 520 lines with section dividers (over the ~400 budget). Split proposal for a follow-up, not done here to keep the change focused: `PipelineMobile.css` (header, tabs, rows, pills), `PipelineMobileSheet.css` (sheet and editor family rules) and `PipelineMobileTouch.css` (the touch-gated expander blocks), each imported by `PipelineMobileLayout.tsx`; `PipelineMobile.css.test.ts` already reads blocks by selector, so it would read the concatenation.
+- Cycle 2 touched `BottomSheet.tsx` (exit trace cleared after close), `MobileStepSheet.tsx` and `useSpineStepActions.tsx` (focus after Move), `PipelineMobile.css` (back link), `MobilePreviewTab.tsx`, the `ActionsMenu` and `BottomSheet` tests, the mobile layout test, the desktop `spineEditing` test, the e2e spec and the `pipeline-detail-mobile-layout` spec (FU-3 named exception).
+
+## Later cycles (declared at delivery)
+
+- `frontend/src/features/pipelines/ui/OutputSchemaDisclosure.tsx` — touch-floor trigger, viewport clamp, portal into the open dialog, vertical placement (final-gate rounds 3–4)
+- `frontend/src/features/pipelines/ui/OutputSchemaDisclosure.test.tsx` — portal target and placement tests
+- `frontend/src/hooks/usePortalPopover.ts` — optional `maxHeight` on the popover position
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.css` — trigger expander kept inside the preview clip
+- `frontend/src/shared/ui/SchemaFieldViewer.css` — schema filter input at the touch floor (touch gate)
+- `frontend/src/shared/chrome/ActionsMenu.test.tsx` — menu renders inside an open dialog (evaluation-1 CR4)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.spineEditing.test.tsx` — desktop `recordCreateError` inline error test

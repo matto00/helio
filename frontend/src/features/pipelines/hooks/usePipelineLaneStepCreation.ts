@@ -18,6 +18,9 @@ type UsePipelineLaneStepCreationArgs = {
   id: string | undefined;
   pushToast: ReturnType<typeof useToast>["push"];
   markCreating: (tempId: string, creating: boolean) => void;
+  /** Shows a failed create's message inline on the kept temp step (HEL-1582: the phone's step sheet is a modal
+   *  dialog, which covers the toast viewport). */
+  recordCreateError: (tempId: string, message: string) => void;
   applyCreated: (tempId: string, created: CreatedPipelineStep, renderKey?: string) => void;
   stepsRef: MutableRefObject<Step[]>;
   setSteps: Dispatch<SetStateAction<Step[]>>;
@@ -31,6 +34,7 @@ export function usePipelineLaneStepCreation({
   id,
   pushToast,
   markCreating,
+  recordCreateError,
   applyCreated,
   stepsRef,
   setSteps,
@@ -114,6 +118,7 @@ export function usePipelineLaneStepCreation({
           variant: "error",
           message: `Failed to add ${opType.label.toLowerCase()} lane: ${message}`,
         });
+        recordCreateError(tempStep.id, message);
       } finally {
         markCreating(tempStep.id, false);
       }
@@ -122,6 +127,7 @@ export function usePipelineLaneStepCreation({
       id,
       pushToast,
       markCreating,
+      recordCreateError,
       applyCreated,
       stepsRef,
       setSteps,

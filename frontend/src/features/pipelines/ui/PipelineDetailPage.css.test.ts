@@ -2,114 +2,54 @@ import fs from "fs";
 import path from "path";
 import { expectTapExpander } from "../../../shared/ui/tapTargetTestUtils";
 
-// Regression guard for the F-006 mobile-footer fix. jsdom implements no real
-// layout or media-query evaluation, so no DOM-rendering Jest test can
-// observe the rendered geometry at a 430px viewport (verified live instead —
-// see the audit's fix screenshots). This test statically asserts the CSS
-// source keeps the 430px footer-wrap treatment and the 44px tap-target
-// convention (BottomNav.css / PanelDetailModal.mobile.css) for the footer's
-// action buttons and the step-card header's icon buttons.
-//
-// Mirrors the brace-matching helpers in
-// `../../panels/ui/PanelDetailModal.css.test.ts`.
+// Static guard for what is left of PipelineDetailPage.css after the river view and its footer were retired
+// (HEL-1582): the step editors' shared styles and the loading placeholder. The phone page's own touch floor is
+// guarded in `mobile/PipelineMobile.css.test.ts`; the river footer / step-card header assertions that lived here
+// were removed with those controls.
 
-const CSS_PATH = path.join(__dirname, "PipelineDetailPage.css");
-const css = fs.readFileSync(CSS_PATH, "utf-8");
+const css = fs.readFileSync(path.join(__dirname, "PipelineDetailPage.css"), "utf-8");
 
-/** Extracts the full body of the first `@media` at-rule whose prelude contains
- *  `preludeSubstring`, brace-matching so nested rule blocks are included. */
 function findMediaBlock(source: string, preludeSubstring: string): string {
-  let searchFrom = 0;
-  for (;;) {
-    const at = source.indexOf("@media", searchFrom);
-    if (at === -1) {
-      throw new Error(`No @media rule containing "${preludeSubstring}" found in ${CSS_PATH}`);
+  const at = source.indexOf(`@media (${preludeSubstring})`);
+  if (at === -1) throw new Error(`No @media (${preludeSubstring}) in PipelineDetailPage.css`);
+  const open = source.indexOf("{", at);
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) return source.slice(open + 1, i);
     }
-    const openBrace = source.indexOf("{", at);
-    const prelude = source.slice(at, openBrace);
-    if (prelude.includes(preludeSubstring)) {
-      let depth = 0;
-      for (let i = openBrace; i < source.length; i++) {
-        if (source[i] === "{") depth++;
-        else if (source[i] === "}") {
-          depth--;
-          if (depth === 0) return source.slice(openBrace + 1, i);
-        }
-      }
-      throw new Error(`Unbalanced braces in @media block in ${CSS_PATH}`);
-    }
-    searchFrom = openBrace + 1;
   }
+  throw new Error("Unbalanced braces");
 }
 
-/** Body of the first flat rule inside `block` whose selector contains
- *  `selectorSubstring`. Assumes flat rules (no nested at-rules). */
-function findRuleBody(block: string, selectorSubstring: string): string {
-  const selectorIndex = block.indexOf(selectorSubstring);
-  if (selectorIndex === -1) {
-    throw new Error(`Selector containing "${selectorSubstring}" not found in the media block`);
-  }
-  const openBrace = block.indexOf("{", selectorIndex);
-  const closeBrace = block.indexOf("}", openBrace);
-  return block.slice(openBrace + 1, closeBrace);
-}
-
-describe("PipelineDetailPage.css — phone footer wrap + reachability (F-006)", () => {
-  const phoneBlock = findMediaBlock(css, "max-width: 430px");
-  // F-131 consolidated the footer buttons' 44px tap-target floor into the
-  // existing `@media (max-width: 768px)` block (DESIGN.md's floor applies
-  // at *both* 430 and 768, matching Modal.css/inputs.css's convention of one
-  // 768px rule rather than a duplicate 430px-scoped copy) — the min-height
-  // assertions below moved from `phoneBlock` to `tabletBlock` accordingly.
-  // The 430px block still owns the *layout* rules (stacking, wrap, run-btn
-  // full-width) that only apply below 768px.
-  const tabletBlock = findMediaBlock(css, "max-width: 768px");
-
-  it("the footer stacks vertically instead of clipping sideways", () => {
-    const body = findRuleBody(phoneBlock, ".pipeline-detail-page__footer {");
-    expect(body).toMatch(/flex-direction:\s*column\s*;/);
+describe("PipelineDetailPage.css", () => {
+  it("the AI step's Move output field icon buttons clear a 44x44 tap target on phone", () => {
+    expectTapExpander(
+      findMediaBlock(css, "max-width: 430px"),
+      ".pipeline-detail-page__step-card-move-btn",
+      "square",
+    );
   });
 
-  it("the action-button row wraps instead of overflowing past the viewport edge", () => {
-    const body = findRuleBody(phoneBlock, ".pipeline-detail-page__footer-right");
-    expect(body).toMatch(/flex-wrap:\s*wrap\s*;/);
+  it("carries no rules of the retired river view or its footer", () => {
+    for (const retired of [
+      ".pipeline-detail-page__step-card {",
+      ".pipeline-detail-page__footer {",
+      ".pipeline-detail-page__footer-region",
+      ".pipeline-detail-page__tabs",
+      ".pipeline-detail-page__gap",
+      ".pipeline-detail-page__tail-chain",
+      ".pipeline-detail-page__root-column",
+      ".pipeline-detail-page__run-status",
+    ]) {
+      expect(css).not.toContain(retired);
+    }
   });
 
-  it("Run pipeline is full-width on phone and meets the 44px tap minimum (via the 768px floor)", () => {
-    const phoneBody = findRuleBody(phoneBlock, ".pipeline-detail-page__run-btn");
-    expect(phoneBody).toMatch(/width:\s*100%\s*;/);
-    expectTapExpander(tabletBlock, ".pipeline-detail-page__run-btn");
-  });
-
-  // design.md D8 (scope amendment): `__history-btn`/`__preview-btn` dropped
-  // from this list — D7 replaced those buttons with `ActionsMenu` menuitems,
-  // which no longer carry these class names at all (removed from
-  // PipelineDetailPage.css entirely). `ActionsMenu.css.test.ts` already
-  // covers the 44px floor for `.actions-menu__trigger`/`.actions-menu__item`
-  // independently. `__dry-run-btn` remains a real, always-visible button
-  // under D7 and must keep passing this exact assertion unchanged.
-  it.each([".pipeline-detail-page__dry-run-btn"])(
-    "%s meets the 44px tap minimum at both the 768px and 430px breakpoints",
-    (selector) => {
-      expectTapExpander(tabletBlock, selector);
-    },
-  );
-
-  it.each([
-    ".pipeline-detail-page__step-card-move-btn",
-    ".pipeline-detail-page__step-card-toggle-enabled-btn",
-    ".pipeline-detail-page__step-card-duplicate-btn",
-  ])("%s (step-card header icon button) clears a 44x44 tap target on phone", (selector) => {
-    expectTapExpander(phoneBlock, selector, "square");
-  });
-
-  // The drag handle is `aria-hidden` and pointer-only (StepCard.tsx routes
-  // keyboard/AT reordering through the Move up/down buttons instead), and
-  // HTML5 drag has no touch equivalent — so at phone width it was a dead 44px
-  // control crowding a row that already could not fit its contents. Hidden
-  // rather than deleted: with a mouse it is the primary reorder affordance.
-  it("the drag handle is hidden on phone rather than given a tap target", () => {
-    const body = findRuleBody(phoneBlock, ".pipeline-detail-page__step-card-drag-handle");
-    expect(body).toMatch(/display:\s*none\s*;/);
+  it("styles the loading placeholder's header band and steps frame", () => {
+    expect(css).toContain(".pipeline-detail-page__skeleton-header");
+    expect(css).toContain(".pipeline-detail-page__river-inner--skeleton");
   });
 });

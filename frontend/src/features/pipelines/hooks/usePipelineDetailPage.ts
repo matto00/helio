@@ -106,6 +106,7 @@ export function usePipelineDetailPage() {
   const {
     historyOpen,
     openRunHistory,
+    ensureRunHistoryLoaded,
     closeRunHistory,
     retryRunHistory,
     runs,
@@ -348,6 +349,7 @@ export function usePipelineDetailPage() {
     setEditingOutputName,
     historyOpen,
     openRunHistory,
+    ensureRunHistoryLoaded,
     closeRunHistory,
     retryRunHistory,
     runHistoryView,

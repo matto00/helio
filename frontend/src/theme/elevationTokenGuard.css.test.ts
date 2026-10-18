@@ -247,7 +247,8 @@ const BOX_SHADOW_EXCEPTIONS: Pin[] = [
 // rather than silently fixed here. HEL-1037 merged (#601) and removed them, so
 // the pin matched nothing and this guard's staleness check went RED on rebase
 // exactly as designed. The pin is deleted rather than loosened: an exception
-// that cannot expire is a permanent hole, and this one expired on schedule.
+// that cannot expire is a permanent hole, and this one expired on schedule. HEL-1582 deleted PipelineDetailPage.css's
+// other `border-radius: 1px` (the river card's drag-handle rule) with the river view, so that pin went the same way.
 const BORDER_RADIUS_EXCEPTIONS: Pin[] = [
   {
     file: "features/panels/ui/DividerPanel.css",
@@ -264,12 +265,6 @@ const BORDER_RADIUS_EXCEPTIONS: Pin[] = [
   {
     file: "features/panels/ui/MarkdownPanel.css",
     declaration: "border-radius: 4px;",
-    count: 1,
-    note: "sub-scale — D2 default LEAVE",
-  },
-  {
-    file: "features/pipelines/ui/PipelineDetailPage.css",
-    declaration: "border-radius: 1px;",
     count: 1,
     note: "sub-scale — D2 default LEAVE",
   },
@@ -379,7 +374,7 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 151)", () => {
+  it("walks every CSS file in frontend/src (currently 149)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no box-shadow/border-radius, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); its one
@@ -409,7 +404,8 @@ describe("elevation token guard (HEL-442)", () => {
     // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
     // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 1 (HEL-1578: features/home/ui/HomePage.css) + 2 (HEL-1573: motion.css, Crossfade.css) + 1 (HEL-1628: features/sources/ui/SourceSampleLabel.css) = 150, recounted with find, not carried from any side.
     // HEL-1583 added `features/dashboards/ui/DashboardChipRow.css` (150 -> 151), recounted with find after merging HEL-1628; tokens only.
-    expect(files.length).toBe(151);
+    // HEL-1582 added shared/motion/BottomSheet.css and features/pipelines/ui/mobile/PipelineMobile.css and deleted OutputsRail.css, OutputsGalleryTab.css, OutputGalleryCard.css and PipelineDetailHeader.css (151 -> 149), recounted with find.
+    expect(files.length).toBe(149);
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

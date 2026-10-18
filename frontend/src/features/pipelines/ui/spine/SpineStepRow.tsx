@@ -5,7 +5,7 @@
 // warnings) are quiet: never the accent. The accent appears only as the selected row's wash and filled
 // number (DESIGN.md §0).
 
-import { GripVertical, TriangleAlert } from "lucide-react";
+import { ChevronRight, GripVertical, TriangleAlert } from "lucide-react";
 import type { DragEvent } from "react";
 
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
@@ -41,6 +41,9 @@ interface SpineStepRowProps {
   menuItems: ActionsMenuItem[];
   reorder?: SpineRowReorder;
   nodePath?: string;
+  /** HEL-1582: the phone's row -- a full-width 60px+ button opening the step sheet, with a chevron and no grip or
+   *  row menu (HTML5 drag is mouse-only; Move up/down is in the sheet's "Step actions" menu). */
+  phone?: boolean;
   onSelect: (stepId: string) => void;
 }
 
@@ -57,6 +60,7 @@ export function SpineStepRow({
   menuItems,
   reorder,
   nodePath,
+  phone = false,
   onSelect,
 }: SpineStepRowProps) {
   const summary = summarizeStepConfig(step);
@@ -82,13 +86,13 @@ export function SpineStepRow({
 
   return (
     <div
-      className={`spine-row${selected ? " spine-row--selected" : ""}${!step.enabled ? " spine-row--disabled" : ""}`}
+      className={`spine-row${selected ? " spine-row--selected" : ""}${!step.enabled ? " spine-row--disabled" : ""}${phone ? " spine-row--phone" : ""}`}
       data-step-row={step.id}
-      onDragOver={reorder ? (e) => reorder.onDragOver(e, reorder.index) : undefined}
-      onDrop={reorder ? (e) => reorder.onDrop(e) : undefined}
+      onDragOver={reorder && !phone ? (e) => reorder.onDragOver(e, reorder.index) : undefined}
+      onDrop={reorder && !phone ? (e) => reorder.onDrop(e) : undefined}
       title={nodePath}
     >
-      {reorder && (
+      {reorder && !phone && (
         // The grip is a mouse/touch drag surface only: the keyboard path is the row menu's Move
         // up/down (the same decision the card's grip made, HEL-407 design.md Decision 5).
         <span
@@ -105,6 +109,7 @@ export function SpineStepRow({
         type="button"
         className="spine-row__select"
         aria-current={selected ? "true" : undefined}
+        aria-haspopup={phone ? "dialog" : undefined}
         aria-label={accessibleName}
         onClick={() => onSelect(step.id)}
       >
@@ -156,10 +161,15 @@ export function SpineStepRow({
         <span className="spine-row__count" aria-hidden="true">
           {countText}
         </span>
+        {phone && (
+          <ChevronRight className="spine-row__chevron" aria-hidden="true" size={ICON_SIZE.sm} />
+        )}
       </button>
-      <div className="spine-row__menu">
-        <ActionsMenu label={`Step actions for ${step.label}`} items={menuItems} />
-      </div>
+      {!phone && (
+        <div className="spine-row__menu">
+          <ActionsMenu label={`Step actions for ${step.label}`} items={menuItems} />
+        </div>
+      )}
     </div>
   );
 }

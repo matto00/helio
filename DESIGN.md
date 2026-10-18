@@ -1263,6 +1263,29 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   item), `snap` (a placement with no transition: the first, and the first after
   hidden) or `ready`. Consumers: `AppRail` (the active wash is the indicator)
   and `SegmentedRadioGroup`. The dashboard tab strip belongs to its own ticket.
+- **Bottom sheet.** `<BottomSheet open title onClosed onRequestClose? headerActions?>`
+  (`shared/motion/BottomSheet.tsx`, HEL-1582) composes `Modal` (focus trap,
+  focus restore; Escape, backdrop and the close button are one vetoable close
+  request) and adds the phone presentation at or below 768px: full height minus
+  `--space-4` from the bottom edge, top radius, opaque `--app-surface`, a grab
+  handle drawn on the header. Above 768px it is the ordinary centred Modal.
+  `useSheetSwipe` takes a drag on the **header (and handle) only**, with
+  `touch-action: none` and pointer capture; the body always scrolls and never
+  moves the sheet, and a press on a control in the header (the close button, an
+  actions menu) never starts a drag. The sheet follows the finger with an
+  inline `translateY` (never negative); a release past 25% of its height or
+  0.5 px/ms asks `onRequestClose` (`false` vetoes) and then exits, otherwise,
+  or when vetoed or on `pointercancel`, it settles back. **At rest the sheet
+  has no transform** (the entrance uses a `backwards` fill and the inline
+  transform is removed after every settle), because a transform would make the
+  dialog the containing block of portalled `position: fixed` popovers; popovers
+  inside it portal into the open dialog (`Select`, `ActionsMenu`). Entrance and
+  exit run on `--motion-duration-move` + `--motion-ease-out` (rise and slide
+  down); Subtle is an opacity fade on `--motion-duration-standard`; Off does not
+  animate. `Modal` stays open through the exit and `onClosed` runs after it, so
+  the consumer flips `open`. Following the finger is direct manipulation and
+  works at every Motion level. Consumers: the phone pipeline step editor;
+  HEL-1584's split and the mobile nav sheet (HEL-565) can adopt it.
 - **Pop.** A small overshoot (`--motion-ease-overshoot`) on a confirmed action
   or an added item: the "give". Full only. No primitive yet.
 - **Changed-row flash.** See §11; it is the one motion that survives Subtle.
@@ -1403,6 +1426,18 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   defect this replaces. **[mechanical]**
 - **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
   the desktop context list. **[judgment]**
+- **Pipeline detail (HEL-1582).** At or below 768px `/pipelines/:id` is a compact header (back, mono
+  name on one truncated line, one status line, actions menu), **Steps / Preview / Runs** tabs (ARIA tabs, an
+  accent indicator that slides on `--motion-duration-move`), and a scrolling body of the spine pieces as a touch
+  list: source card, numbered rows at least 60px tall on a vertical line, a 44px dashed "+ Add step" row and the
+  Output cards. A step opens in the shared **bottom sheet** (§10) with its focused editor above its preview
+  table, a close control and swipe-down; no phone body path drags it. Dry run (an **opaque** secondary pill: the
+  glass carve-out does not widen) and **Run pipeline** (the page's one accent fill) float above the nav, and the
+  body's bottom padding follows the bar's measured height (`--pipeline-mobile-actions-h`). The bar reserves an
+  empty `data-slot="draft-status"` row for HEL-1631's draft status. Every control reaches 44px by a hit
+  expander (a painted text field or select trigger is 44px; the editors in the sheet get the family rule in
+  `PipelineMobile.css`), and neighbouring expanders keep 16px or more between their painted boxes so one never
+  truncates another. The river view and its footer are gone. **[mechanical]**
 - **Home tab (HEL-1574, HEL-1578).** Home leads the phone bottom nav (owner
   ruling 2026-10-13: the phone has no rail). It opens the real Home page
   (`/home`) and is current there only. **[mechanical]**

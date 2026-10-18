@@ -31,6 +31,8 @@ export interface SpineLaneContext {
   /** Reorder wiring for a trunk lane's row; `undefined` for a branch lane. */
   reorderFor: (lane: Lane, index: number) => SpineRowReorder | undefined;
   dropIndicatorAt: (lane: Lane, index: number) => boolean;
+  /** HEL-1582: the phone's touch rows (no grip or row menu, a chevron, `aria-haspopup="dialog"`). */
+  phone: boolean;
 }
 
 interface SpineLaneProps {
@@ -71,6 +73,7 @@ export function SpineLane({ lane, context, label }: SpineLaneProps) {
                   menuItems={context.menuItemsFor(step, lane, index)}
                   reorder={context.reorderFor(lane, index)}
                   nodePath={context.nodePathByStepId[step.id]}
+                  phone={context.phone}
                   onSelect={context.onSelectStep}
                 />
                 {childLanes.map((child, childIndex) => (

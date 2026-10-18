@@ -168,3 +168,28 @@ describe("ActionsMenu item ariaLabel", () => {
     expect(item).toHaveTextContent("Move up");
   });
 });
+
+// HEL-1582: a native modal <dialog> sits in the top layer, so a panel portalled to the body would render behind it.
+// jsdom has no top layer; the DOM ancestry of the panel is the observable contract.
+describe("ActionsMenu portal target", () => {
+  const items = [{ label: "Rename", onClick: () => {} }];
+
+  it("portals the panel into the open <dialog> its trigger sits in", () => {
+    render(
+      <dialog open data-testid="host">
+        <ActionsMenu label="Step actions" items={items} />
+      </dialog>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Step actions" }));
+    expect(screen.getByTestId("host")).toContainElement(screen.getByRole("menu"));
+  });
+
+  it("portals the panel to the body when the trigger is not inside an open dialog", () => {
+    const { container } = render(<ActionsMenu label="Step actions" items={items} />);
+    fireEvent.click(screen.getByRole("button", { name: "Step actions" }));
+    const menu = screen.getByRole("menu");
+    expect(container).not.toContainElement(menu);
+    expect(menu.closest("dialog")).toBeNull();
+    expect(document.body.contains(menu)).toBe(true);
+  });
+});

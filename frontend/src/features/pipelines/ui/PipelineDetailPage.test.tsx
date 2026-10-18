@@ -17,6 +17,19 @@ import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import { installPhoneShell, settled } from "./pipelineDetailPageTestUtils";
 import {
+  chooseHeaderAction,
+  chooseStepAction,
+  closeStepSheet,
+  findStepRow,
+  openStepSheet,
+  queryStepRow,
+  queryStepSheet,
+  stepRow,
+  stepRows,
+  stepSheet,
+  stubDialogMethods,
+} from "./pipelineMobileTestKit";
+import {
   runPipeline,
   fetchRunHistory,
   getPipelineById,
@@ -356,25 +369,21 @@ function renderDetailPage(id = "pipe-1", store = makeStore()) {
 const renderDetailPageSettled = (id = "pipe-1", store = makeStore()) =>
   settled(renderDetailPage(id, store));
 
-/** The page's single actions menu, in the header. Holds "Edit source"/"Edit
- *  type"/"Edit schedule"/"Set schedule" (design.md D5) AND "Run history"/
- *  "Preview"/"Share" — the latter three moved here from the footer's former
- *  "More actions" menu, since two unlabeled kebabs on a stacked phone layout
- *  gave no clue which held what. */
+/** The page's single actions menu, in the header. Holds "Rename"/"Edit source"/"Add source"/"Add Outputs from a
+ *  shape"/"Edit schedule"/"Set schedule"/"Pause schedule" and (owner) "Share"; run history is the Runs tab. */
 function openPipelineActionsMenu() {
   fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));
 }
 
-/** Opens the actions menu and activates "Run history" — used throughout this
- *  file's run-history scenarios. */
+/** Opens the phone's Runs tab, which shows the run history inline (the desktop opens a modal) — used throughout
+ *  this file's run-history scenarios. */
 function openRunHistory() {
-  openPipelineActionsMenu();
-  fireEvent.click(screen.getByRole("menuitem", { name: "Run history" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Runs" }));
 }
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page tests assert the phone layout (HEL-1582: header, Steps / Preview / Runs tabs, step list and sheet, floating
+// run pills) and layout-independent page logic reached through its DOM; jsdom has no `matchMedia`, so stub the phone
+// shell. The desktop step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -385,14 +394,8 @@ afterEach(() => {
 
 describe("PipelineDetailPage", () => {
   beforeAll(() => {
-    // jsdom doesn't implement HTMLDialogElement.showModal — stub it for the
-    // RunHistoryModal opens.
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
+    // jsdom doesn't implement HTMLDialogElement.showModal — stub it for the run-history modal and the step sheet.
+    stubDialogMethods();
   });
 
   beforeEach(() => {
@@ -441,21 +444,40 @@ describe("PipelineDetailPage", () => {
   // pattern must be complete: each tab has an id + aria-controls pointing at
   // a real tabpanel with role="tabpanel" + aria-labelledby, and roving
   // tabindex keeps exactly one tab focusable at a time.
-  it("Steps/Outputs tabs wire a complete ARIA tabs pattern (CR6)", () => {
-    renderDetailPage();
+  // Evaluation-1 cycle-2 CR6, carried to the phone's Steps / Preview / Runs strip (HEL-1582): each tab has an id +
+  // aria-controls pointing at a real tabpanel with role="tabpanel" + aria-labelledby, roving tabindex keeps
+  // exactly one tab focusable at a time, and the arrow / Home / End keys move and select.
+  it("Steps / Preview / Runs tabs wire a complete ARIA tabs pattern (CR6)", async () => {
+    await renderDetailPageSettled();
     const stepsTab = screen.getByRole("tab", { name: "Steps" });
-    const outputsTab = screen.getByRole("tab", { name: /Outputs/ });
+    const previewTab = screen.getByRole("tab", { name: "Preview" });
+    const runsTab = screen.getByRole("tab", { name: "Runs" });
 
     expect(stepsTab).toHaveAttribute("aria-selected", "true");
     expect(stepsTab).toHaveAttribute("tabindex", "0");
-    expect(outputsTab).toHaveAttribute("aria-selected", "false");
-    expect(outputsTab).toHaveAttribute("tabindex", "-1");
+    for (const other of [previewTab, runsTab]) {
+      expect(other).toHaveAttribute("aria-selected", "false");
+      expect(other).toHaveAttribute("tabindex", "-1");
+    }
 
     const stepsPanelId = stepsTab.getAttribute("aria-controls");
     expect(stepsPanelId).toBeTruthy();
     const stepsPanel = document.getElementById(stepsPanelId!);
     expect(stepsPanel).toHaveAttribute("role", "tabpanel");
     expect(stepsPanel).toHaveAttribute("aria-labelledby", stepsTab.id);
+
+    fireEvent.keyDown(stepsTab, { key: "ArrowRight" });
+    expect(previewTab).toHaveAttribute("aria-selected", "true");
+    expect(previewTab).toHaveAttribute("tabindex", "0");
+    expect(previewTab).toHaveFocus();
+    fireEvent.keyDown(previewTab, { key: "End" });
+    expect(runsTab).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(runsTab, { key: "ArrowRight" });
+    expect(stepsTab).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(stepsTab, { key: "ArrowLeft" });
+    expect(runsTab).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(runsTab, { key: "Home" });
+    expect(stepsTab).toHaveAttribute("aria-selected", "true");
   });
 
   // F-105 regression — opening a pipeline that already has persisted steps
@@ -513,7 +535,7 @@ describe("PipelineDetailPage", () => {
   // straight from `PipelineRoot.dataSourceName` — it never depends on
   // resolving a matching `sources.items` entry (that lookup only gates the
   // "Edit source" action), so no kind badge is asserted here.
-  it("source chip shows the pipeline's bound source name", () => {
+  it("source card shows the pipeline's bound source name", async () => {
     const store = makeStore([
       {
         id: "src-1",
@@ -542,17 +564,19 @@ describe("PipelineDetailPage", () => {
         config: { path: "uploads/test.csv" },
       },
     ]);
-    renderDetailPage("pipe-1", store);
+    await renderDetailPageSettled("pipe-1", store);
     // defaultPipeline.roots[0].dataSourceName === "Test Source" — the
     // unrelated "CSV Upload" source is not a root and is not shown.
     expect(screen.getByText("Test Source")).toBeInTheDocument();
     expect(screen.queryByText("CSV Upload")).not.toBeInTheDocument();
   });
 
-  it("source chip renders the root's own dataSourceName even when no matching source is found", () => {
+  it("source card renders the root's own dataSourceName even when no matching source is found", async () => {
     const store = makeStore([]);
-    renderDetailPage("pipe-1", store);
+    await renderDetailPageSettled("pipe-1", store);
     expect(screen.getByText("Test Source")).toBeInTheDocument();
+    // Not resolvable in the caller's own list: plain text, not an "Edit source" button.
+    expect(screen.queryByRole("button", { name: "Edit source Test Source" })).toBeNull();
   });
 
   // HEL-969 (D3/task 6.4): `roots` is typed non-optional but arrives from the
@@ -570,13 +594,14 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
   });
 
-  it("adding a step adds a card to the river view", async () => {
+  it("adding a step adds a row to the Steps list and opens it in the sheet", async () => {
     await renderDetailPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
 
-    expect(screen.getByText("Filter rows")).toBeInTheDocument();
+    expect(stepRow(/Filter rows/i)).toBeInTheDocument();
+    expect(within(stepSheet()).getByLabelText(/^Step 1 Filter rows$/)).toBeInTheDocument();
     expect(screen.queryByText(/^Add your first transformation step/)).not.toBeInTheDocument();
   });
 
@@ -599,21 +624,22 @@ describe("PipelineDetailPage", () => {
     });
   });
 
-  it("removing a step removes its card", async () => {
-    // HEL-1294 — a card is not expandable while its create is in flight, so the never-persisted
+  it("removing a step removes its row and closes its sheet", async () => {
+    // HEL-1294 — a step is not editable while its create is in flight, so the never-persisted
     // (temp) step this test removes is the failed-create one: the create rejects and the kept
-    // local step becomes expandable again (its Remove button is the way out).
+    // local step becomes editable again (its Remove button is the way out).
     createPipelineStepMock.mockRejectedValueOnce(new Error("Request failed with status code 500"));
     await renderDetailPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
 
-    // Expand it to get the Remove button
-    fireEvent.click(await screen.findByRole("button", { name: /Rename column/i, expanded: false }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
+    // The created step is open in the sheet; once the create has failed its editor is enabled again.
+    await waitFor(() => expect(stepSheet().querySelector("fieldset")).toBeEnabled());
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Remove step" }));
 
-    expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
+    expect(queryStepRow(/Rename column/i)).not.toBeInTheDocument();
+    expect(queryStepSheet()).not.toBeInTheDocument();
     expect(screen.getByText(/^Add your first transformation step/)).toBeInTheDocument();
     // A never-persisted (temp) step has no backend row, so no DELETE is issued.
     expect(deletePipelineStepMock).not.toHaveBeenCalled();
@@ -622,8 +648,9 @@ describe("PipelineDetailPage", () => {
   // HEL-1109 (design.md D3, pipeline-ai-step-authoring spec) — an AI step's
   // create is deferred until its config first becomes complete.
   describe("deferred create for AI step kinds (HEL-1109)", () => {
+    // The draft opens in the step sheet as soon as it is added.
     function chooseSelectOption(comboboxName: RegExp, optionLabel: string) {
-      fireEvent.click(screen.getByRole("combobox", { name: comboboxName }));
+      fireEvent.click(within(stepSheet()).getByRole("combobox", { name: comboboxName }));
       fireEvent.click(screen.getByRole("option", { name: optionLabel }));
     }
 
@@ -633,8 +660,11 @@ describe("PipelineDetailPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Analyze with AI/i }));
 
-      expect(screen.getByText("Analyze with AI")).toBeInTheDocument();
-      expect(screen.getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+      expect(stepRow(/Analyze with AI/i)).toBeInTheDocument();
+      const sheet = stepSheet();
+      expect(within(sheet).getByLabelText(/^Step 1 Analyze with AI$/)).toBeInTheDocument();
+      expect(within(sheet).getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+      expect(sheet.querySelector("fieldset")).toBeEnabled();
       expect(createPipelineStepMock).not.toHaveBeenCalled();
     });
 
@@ -690,14 +720,14 @@ describe("PipelineDetailPage", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
-      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       expect(createPipelineStepMock).not.toHaveBeenCalled();
       chooseSelectOption(/input field to generate from/i, "notes");
-      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
-        target: { value: "Summarize" },
-      });
-      fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+      fireEvent.change(
+        within(stepSheet()).getByRole("textbox", { name: /instruction for the model/i }),
+        { target: { value: "Summarize" } },
+      );
+      fireEvent.change(within(stepSheet()).getByRole("textbox", { name: /destination field/i }), {
         target: { value: "summary" },
       });
 
@@ -713,13 +743,14 @@ describe("PipelineDetailPage", () => {
       );
 
       // A further edit after the create resolved must PATCH, not re-create.
-      // (HEL-1321: the card keeps its stable render key across the id swap, so it stays open.)
+      // (HEL-1321: the editor keeps its stable render key across the id swap, so the sheet stays open.)
       await waitFor(() =>
-        expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
+        expect(within(stepSheet()).queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
       );
-      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
-        target: { value: "Summarize briefly" },
-      });
+      fireEvent.change(
+        within(stepSheet()).getByRole("textbox", { name: /instruction for the model/i }),
+        { target: { value: "Summarize briefly" } },
+      );
       await waitFor(() =>
         expect(updatePipelineStepMock).toHaveBeenCalledWith("ai-1", expect.anything()),
       );
@@ -736,19 +767,19 @@ describe("PipelineDetailPage", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
-      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
       chooseSelectOption(/input field to generate from/i, "notes");
-      fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
-        target: { value: "Summarize" },
-      });
-      fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+      fireEvent.change(
+        within(stepSheet()).getByRole("textbox", { name: /instruction for the model/i }),
+        { target: { value: "Summarize" } },
+      );
+      fireEvent.change(within(stepSheet()).getByRole("textbox", { name: /destination field/i }), {
         target: { value: "summary" },
       });
 
       await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
-      expect(await screen.findByText(/failed to save this step/i)).toBeInTheDocument();
-      expect(screen.getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+      expect(await within(stepSheet()).findByText(/failed to save this step/i)).toBeInTheDocument();
+      expect(within(stepSheet()).getByText(/draft.*not yet saved/i)).toBeInTheDocument();
     });
 
     // evaluation-1.md CR2(c) — the "nearest earlier step" backward-walk path
@@ -787,21 +818,22 @@ describe("PipelineDetailPage", () => {
         ],
       });
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalled());
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
-      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
-      fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
+      fireEvent.click(
+        within(stepSheet()).getByRole("combobox", { name: /input field to generate from/i }),
+      );
       expect(screen.getByRole("option", { name: "clean_notes" })).toBeInTheDocument();
       expect(screen.queryByRole("option", { name: "raw_notes" })).not.toBeInTheDocument();
     });
 
     // HEL-1414 evaluation-1 CR1 -- the page's analyze result reaches each step's card through the
     // real `usePipelineDetailPage` grouping (a hook that dropped every warning must fail here).
-    it("renders each step's analyze warnings on its own card, in server order, none on other steps", async () => {
+    it("renders each step's analyze warnings on its own step, in server order, none on other steps", async () => {
       getPipelineStepsMock.mockResolvedValue([
         {
           id: "rename-1",
@@ -834,10 +866,18 @@ describe("PipelineDetailPage", () => {
         ],
       });
       renderDetailPage();
-      const indicator = await screen.findByRole("img", { name: "2 schema warnings" });
-      expect(screen.getAllByRole("img", { name: /schema warning/ })).toHaveLength(1);
-      fireEvent.click(indicator.closest("button") as HTMLElement);
-      const region = await screen.findByRole("region", { name: /Check before running/ });
+      // The row's accessible name says its warnings (the markers sit inside the button): only the rename row has them.
+      const renameRow = await screen.findByRole("button", {
+        name: /^Step 1: Rename column.*2 schema warnings$/,
+      });
+      expect(stepRow(/Limit rows/i)).not.toHaveAccessibleName(/schema warning/);
+      expect(
+        stepRows().filter((row) => /schema warning/.test(row.getAttribute("aria-label") ?? "")),
+      ).toHaveLength(1);
+      fireEvent.click(renameRow);
+      const region = await within(stepSheet()).findByRole("region", {
+        name: /Check before running/,
+      });
       const items = within(region).getAllByRole("listitem");
       expect(items.map((li) => li.textContent)).toEqual([
         "first rename warning",
@@ -900,22 +940,16 @@ describe("PipelineDetailPage", () => {
         ],
       });
       renderDetailPage();
-      const renameCard = await screen.findByRole("button", {
-        name: /Rename column/i,
-        expanded: false,
-      });
+      await findStepRow(/Rename column/i);
       await waitFor(() => expect(analyzePipelineMock).toHaveBeenCalled());
 
-      const renameSection = renameCard.closest(".pipeline-detail-page__step-section");
-      fireEvent.click(
-        within(renameSection as HTMLElement).getByRole("button", {
-          name: /Branch this step into a new lane/i,
-        }),
-      );
+      openStepSheet(/Rename column/i);
+      chooseStepAction("Branch from here");
       fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
-      fireEvent.click(screen.getByRole("button", { name: /Generate text/i, expanded: false }));
 
-      fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
+      fireEvent.click(
+        within(stepSheet()).getByRole("combobox", { name: /input field to generate from/i }),
+      );
       expect(screen.getByRole("option", { name: "anchor_field" })).toBeInTheDocument();
       expect(
         screen.queryByRole("option", { name: "unrelated_trunk_field" }),
@@ -939,11 +973,8 @@ describe("PipelineDetailPage", () => {
     renderDetailPage();
 
     // The step renders from the fetched (already-persisted) data with its real id.
-    const card = await screen.findByRole("button", {
-      name: /Rename column/i,
-      expanded: false,
-    });
-    fireEvent.click(card);
+    await findStepRow(/Rename column/i);
+    openStepSheet(/Rename column/i);
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
@@ -979,18 +1010,15 @@ describe("PipelineDetailPage", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    const card = await screen.findByRole("button", {
-      name: /Rename column/i,
-      expanded: false,
-    });
-    fireEvent.click(card);
+    await findStepRow(/Rename column/i);
+    openStepSheet(/Rename column/i);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
     });
 
     // Restored — the failure and the visible state agree.
-    expect(screen.getByText("Rename column")).toBeInTheDocument();
+    expect(stepRow(/Rename column/i)).toBeInTheDocument();
     const toasts = store.getState().toasts.items;
     expect(toasts).toHaveLength(1);
     expect(toasts[0].variant).toBe("error");
@@ -1021,11 +1049,8 @@ describe("PipelineDetailPage", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    const card = await screen.findByRole("button", {
-      name: /Rename column/i,
-      expanded: false,
-    });
-    fireEvent.click(card);
+    await findStepRow(/Rename column/i);
+    openStepSheet(/Rename column/i);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
@@ -1062,7 +1087,7 @@ describe("PipelineDetailPage", () => {
     };
 
     function stepLabels(container: HTMLElement): string[] {
-      return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+      return Array.from(container.querySelectorAll(".spine-row__title")).map(
         (el) => el.textContent ?? "",
       );
     }
@@ -1077,7 +1102,7 @@ describe("PipelineDetailPage", () => {
       createPipelineStepMock.mockReturnValueOnce(new Promise<never>(() => {}));
 
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Limit rows/i }));
@@ -1090,13 +1115,8 @@ describe("PipelineDetailPage", () => {
         }),
       );
 
-      const filterSection = screen
-        .getByRole("button", { name: /Filter rows/i, expanded: false })
-        .closest(".pipeline-detail-page__step-section");
-      expect(filterSection).not.toBeNull();
-      fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-      );
+      openStepSheet(/Filter rows/i);
+      chooseStepAction(/^Move step up/);
 
       // Optimistic — order updates immediately, before the PUT resolves. The
       // temp "Limit rows" step (still POSTing) is excluded from the call but
@@ -1119,20 +1139,14 @@ describe("PipelineDetailPage", () => {
       reorderPipelineStepsMock.mockRejectedValueOnce(new Error("Conflict"));
       const store = makeStore();
       const { container } = renderDetailPage("pipe-1", store);
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
       expect(stepLabels(container)).toEqual(["Rename column", "Filter rows"]);
 
-      const filterSection = screen
-        .getByRole("button", { name: /Filter rows/i, expanded: false })
-        .closest(".pipeline-detail-page__step-section");
-      expect(filterSection).not.toBeNull();
+      openStepSheet(/Filter rows/i);
 
-      await act(async () => {
-        fireEvent.click(
-          within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-        );
-      });
+      chooseStepAction(/^Move step up/);
+      await act(async () => {});
 
       // Reverted to the pre-reorder order.
       expect(stepLabels(container)).toEqual(["Rename column", "Filter rows"]);
@@ -1216,15 +1230,10 @@ describe("PipelineDetailPage", () => {
 
       const store = makeStore([], { currentPipeline: twoRootPipeline });
       renderDetailPage("pipe-1", store);
-      await screen.findAllByRole("button", { name: /Rename column/i, expanded: false });
+      await waitFor(() => expect(stepRows().length).toBeGreaterThan(0));
 
-      const limitSection = screen
-        .getByRole("button", { name: /Limit rows/i, expanded: false })
-        .closest(".pipeline-detail-page__step-section");
-      expect(limitSection).not.toBeNull();
-      fireEvent.click(
-        within(limitSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-      );
+      openStepSheet(/Limit rows/i);
+      chooseStepAction(/^Move step up/);
 
       expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
       const persistedIds = reorderPipelineStepsMock.mock.calls[0][1];
@@ -1296,15 +1305,10 @@ describe("PipelineDetailPage", () => {
 
       const store = makeStore([], { currentPipeline: twoRootPipeline });
       renderDetailPage("pipe-1", store);
-      await screen.findAllByRole("button", { name: /Rename column/i, expanded: false });
+      await waitFor(() => expect(stepRows().length).toBeGreaterThan(0));
 
-      const filterSection = screen
-        .getByRole("button", { name: /Filter rows/i, expanded: false })
-        .closest(".pipeline-detail-page__step-section");
-      expect(filterSection).not.toBeNull();
-      fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-      );
+      openStepSheet(/Filter rows/i);
+      chooseStepAction(/^Move step up/);
 
       expect(reorderPipelineStepsMock).toHaveBeenCalledTimes(1);
       const persistedIds = reorderPipelineStepsMock.mock.calls[0][1];
@@ -1343,7 +1347,7 @@ describe("PipelineDetailPage", () => {
     reorderPipelineStepsMock.mockResolvedValue([]);
 
     renderDetailPage();
-    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+    await findStepRow(/Rename column/i);
 
     // Let the mount-triggered fingerprint settle before taking the baseline.
     await act(async () => {
@@ -1351,13 +1355,8 @@ describe("PipelineDetailPage", () => {
     });
     const callsBeforeReorder = analyzePipelineMock.mock.calls.length;
 
-    const filterSection = screen
-      .getByRole("button", { name: /Filter rows/i, expanded: false })
-      .closest(".pipeline-detail-page__step-section");
-    expect(filterSection).not.toBeNull();
-    fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-    );
+    openStepSheet(/Filter rows/i);
+    chooseStepAction(/^Move step up/);
 
     await waitFor(() =>
       expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeReorder),
@@ -1414,7 +1413,7 @@ describe("PipelineDetailPage", () => {
     );
 
     renderDetailPage();
-    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+    await findStepRow(/Rename column/i);
 
     // Let the mount-triggered fingerprint settle before taking the baseline.
     await act(async () => {
@@ -1425,13 +1424,8 @@ describe("PipelineDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Dry run" }));
     await waitFor(() => expect(runPipelineMock).toHaveBeenCalledWith("pipe-1", true));
 
-    const filterSection = screen
-      .getByRole("button", { name: /Filter rows/i, expanded: false })
-      .closest(".pipeline-detail-page__step-section");
-    expect(filterSection).not.toBeNull();
-    fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-    );
+    openStepSheet(/Filter rows/i);
+    chooseStepAction(/^Move step up/);
 
     // Well past the 300ms debounce window, with the run STILL in flight --
     // the reorder's own debounced analyze must not have fired.
@@ -1479,7 +1473,7 @@ describe("PipelineDetailPage", () => {
     fetchRunHistoryMock.mockResolvedValue([]);
 
     renderDetailPage();
-    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+    await findStepRow(/Rename column/i);
 
     // Let the mount effect's own (immediate, non-debounced) analyze call and
     // the seeded-steps debounce window settle before taking the baseline.
@@ -1498,15 +1492,10 @@ describe("PipelineDetailPage", () => {
         }),
     );
 
-    const filterSection = screen
-      .getByRole("button", { name: /Filter rows/i, expanded: false })
-      .closest(".pipeline-detail-page__step-section");
-    expect(filterSection).not.toBeNull();
+    openStepSheet(/Filter rows/i);
 
     // First edit: its debounce fires and dispatches -- now in flight/"loading".
-    fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-    );
+    chooseStepAction(/^Move step up/);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 350));
     });
@@ -1514,9 +1503,7 @@ describe("PipelineDetailPage", () => {
 
     // Second edit while the first's analyze is still loading: its own
     // debounce must be DEFERRED, not dispatched -- no second concurrent call.
-    fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step down/ }),
-    );
+    chooseStepAction(/^Move step down/);
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 350));
     });
@@ -1579,7 +1566,7 @@ describe("PipelineDetailPage", () => {
     );
 
     renderDetailPage();
-    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+    await findStepRow(/Rename column/i);
 
     // Let the mount effect's own (immediate) 600ms analyze settle first.
     await act(async () => {
@@ -1587,15 +1574,10 @@ describe("PipelineDetailPage", () => {
     });
     const callsBeforeEdit = analyzePipelineMock.mock.calls.length;
 
-    const filterSection = screen
-      .getByRole("button", { name: /Filter rows/i, expanded: false })
-      .closest(".pipeline-detail-page__step-section");
-    expect(filterSection).not.toBeNull();
+    openStepSheet(/Filter rows/i);
 
     // ONE edit, then go completely idle -- no further edits at all.
-    fireEvent.click(
-      within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-    );
+    chooseStepAction(/^Move step up/);
 
     // Past the 300ms debounce, past the 600ms analyze, and then 5s of pure
     // idle -- the cycle-2 regression measured ~1 dispatch/830ms here,
@@ -1667,13 +1649,8 @@ describe("PipelineDetailPage", () => {
         await Promise.resolve();
       });
 
-      const filterSection = screen
-        .getByRole("button", { name: /Filter rows/i, expanded: false })
-        .closest(".pipeline-detail-page__step-section");
-      expect(filterSection).not.toBeNull();
-      fireEvent.click(
-        within(filterSection as HTMLElement).getByRole("button", { name: /^Move step up/ }),
-      );
+      openStepSheet(/Filter rows/i);
+      chooseStepAction(/^Move step up/);
 
       // Past the 300ms debounce -- the edit is deferred (run "in flight"
       // forever, as far as this hook can tell), not dispatched yet.
@@ -1731,7 +1708,7 @@ describe("PipelineDetailPage", () => {
       getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
     });
 
-    it("toggling disable mutes the card optimistically, persists via updatePipelineStepEnabled, and hides the preview control", async () => {
+    it("toggling disable mutes the step optimistically, persists via updatePipelineStepEnabled, and replaces its preview with the 'step is off' note", async () => {
       let resolveToggle!: (step: PipelineStep) => void;
       updatePipelineStepEnabledMock.mockReturnValueOnce(
         new Promise<PipelineStep>((resolve) => {
@@ -1740,49 +1717,45 @@ describe("PipelineDetailPage", () => {
       );
 
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
-      // Expand both cards so their preview controls (only rendered while
-      // expanded) are in view for the assertion below.
-      fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
-      fireEvent.click(screen.getByRole("button", { name: /Filter rows/i, expanded: false }));
-      expect(screen.getAllByRole("button", { name: "Preview data" })).toHaveLength(2);
+      // The open step's editor and its preview table are in the sheet.
+      const sheet = openStepSheet(/Rename column/i);
+      expect(within(sheet).getByRole("region", { name: "Rows after step 1" })).toBeInTheDocument();
+      expect(within(sheet).queryByText(/This step is off/)).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+      fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
 
       // Optimistic — muted immediately, before the PATCH resolves.
-      expect(
-        container.querySelector(".pipeline-detail-page__step-card--disabled"),
-      ).toBeInTheDocument();
+      expect(container.querySelector(".spine-row--disabled")).toBeInTheDocument();
       expect(updatePipelineStepEnabledMock).toHaveBeenCalledWith("x1", false);
-      expect(screen.getByRole("button", { name: "Enable step" })).toBeInTheDocument();
-      // Only one "Preview data" button remains — the muted card's control is
-      // hidden entirely, the still-enabled sibling's stays.
-      expect(screen.getAllByRole("button", { name: "Preview data" })).toHaveLength(1);
+      expect(within(sheet).getByRole("button", { name: "Enable step" })).toBeInTheDocument();
+      // The muted step's preview is hidden: the note replaces the table (the sibling's, not open, is unaffected).
+      expect(within(sheet).getByText(/This step is off/)).toBeInTheDocument();
+      expect(container.querySelectorAll(".spine-row--disabled")).toHaveLength(1);
 
       await act(async () => {
         resolveToggle({ ...persistedRename, enabled: false });
       });
 
-      expect(
-        container.querySelector(".pipeline-detail-page__step-card--disabled"),
-      ).toBeInTheDocument();
+      expect(container.querySelector(".spine-row--disabled")).toBeInTheDocument();
+      expect(within(sheet).getByText(/This step is off/)).toBeInTheDocument();
     });
 
     it("a failed toggle reverts the optimistic flip and surfaces an error toast", async () => {
       updatePipelineStepEnabledMock.mockRejectedValueOnce(new Error("Conflict"));
       const store = makeStore();
       const { container } = renderDetailPage("pipe-1", store);
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+      const sheet = openStepSheet(/Rename column/i);
 
       await act(async () => {
-        fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+        fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
       });
 
-      expect(
-        container.querySelector(".pipeline-detail-page__step-card--disabled"),
-      ).not.toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: "Disable step" })).toHaveLength(2);
+      expect(container.querySelector(".spine-row--disabled")).not.toBeInTheDocument();
+      expect(within(sheet).getByRole("button", { name: "Disable step" })).toBeInTheDocument();
+      expect(within(sheet).queryByText(/This step is off/)).not.toBeInTheDocument();
       const toasts = store.getState().toasts.items;
       expect(toasts).toHaveLength(1);
       expect(toasts[0].variant).toBe("error");
@@ -1793,10 +1766,10 @@ describe("PipelineDetailPage", () => {
       const duplicatedRename = { ...persistedRename, id: "x1-clone" };
       duplicatePipelineStepMock.mockResolvedValueOnce(duplicatedRename);
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
       function stepLabels(): string[] {
-        return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+        return Array.from(container.querySelectorAll(".spine-row__title")).map(
           (el) => el.textContent ?? "",
         );
       }
@@ -1813,12 +1786,15 @@ describe("PipelineDetailPage", () => {
         persistedFilter,
       ]);
 
+      const sheet = openStepSheet(/Rename column/i);
       await act(async () => {
-        fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+        fireEvent.click(within(sheet).getByRole("button", { name: "Duplicate step" }));
       });
 
       expect(duplicatePipelineStepMock).toHaveBeenCalledWith("x1");
       expect(stepLabels()).toEqual(["Rename column", "Rename column", "Filter rows"]);
+      // The step the duplicate added opens in the sheet.
+      expect(within(stepSheet()).getByLabelText("Step 2 Rename column")).toBeInTheDocument();
     });
 
     // HEL-1476: duplicate now returns the write path's 422; its server message must reach the user.
@@ -1829,7 +1805,8 @@ describe("PipelineDetailPage", () => {
       const store = makeStore();
       await renderDetailPageSettled("pipe-1", store);
 
-      fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+      openStepSheet(/Rename column/i);
+      fireEvent.click(screen.getByRole("button", { name: "Duplicate step" }));
 
       await waitFor(() => {
         const toasts = store.getState().toasts.items;
@@ -1847,14 +1824,15 @@ describe("PipelineDetailPage", () => {
         }),
       );
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+      openStepSheet(/Rename column/i);
 
       // Fire both activations before any re-render commits -- a rendered
       // `isDuplicating`-disabled button would block the second click on its
       // own regardless of whether the ref-based guard exists, which
       // wouldn't prove the synchronous check is doing anything (the direct
       // hook test in useInFlightGuard.test.ts already covers that check).
-      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      const duplicateButton = screen.getByRole("button", { name: "Duplicate step" });
       fireEvent.click(duplicateButton);
       fireEvent.click(duplicateButton);
 
@@ -1873,9 +1851,10 @@ describe("PipelineDetailPage", () => {
         }),
       );
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+      openStepSheet(/Rename column/i);
 
-      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      const duplicateButton = screen.getByRole("button", { name: "Duplicate step" });
       fireEvent.click(duplicateButton);
       expect(duplicateButton).toBeDisabled();
 
@@ -1891,7 +1870,10 @@ describe("PipelineDetailPage", () => {
         resolveDuplicate(duplicatedRename);
       });
 
-      const reEnabledButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      // The step the duplicate added now holds the sheet; reopen the ORIGINAL step: its button is enabled again.
+      fireEvent.click(stepRows()[0]);
+      const reEnabledButton = screen.getByRole("button", { name: "Duplicate step" });
+      expect(within(stepSheet()).getByLabelText("Step 1 Rename column")).toBeInTheDocument();
       expect(reEnabledButton).toBeEnabled();
 
       await act(async () => {
@@ -1904,9 +1886,10 @@ describe("PipelineDetailPage", () => {
     it("HEL-706: the Duplicate step button re-enables after the request rejects, and a further click fires a new call", async () => {
       duplicatePipelineStepMock.mockRejectedValueOnce(new Error("Server error"));
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+      openStepSheet(/Rename column/i);
 
-      const duplicateButton = screen.getAllByRole("button", { name: "Duplicate step" })[0];
+      const duplicateButton = screen.getByRole("button", { name: "Duplicate step" });
       await act(async () => {
         fireEvent.click(duplicateButton);
       });
@@ -1931,15 +1914,16 @@ describe("PipelineDetailPage", () => {
       duplicatePipelineStepMock.mockRejectedValueOnce(new Error("Server error"));
       const store = makeStore();
       const { container } = renderDetailPage("pipe-1", store);
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+      openStepSheet(/Rename column/i);
 
       await act(async () => {
-        fireEvent.click(screen.getAllByRole("button", { name: "Duplicate step" })[0]);
+        fireEvent.click(screen.getByRole("button", { name: "Duplicate step" }));
       });
 
-      const labels = Array.from(
-        container.querySelectorAll(".pipeline-detail-page__step-card-label"),
-      ).map((el) => el.textContent ?? "");
+      const labels = Array.from(container.querySelectorAll(".spine-row__title")).map(
+        (el) => el.textContent ?? "",
+      );
       expect(labels).toEqual(["Rename column", "Filter rows"]);
       const toasts = store.getState().toasts.items;
       expect(toasts).toHaveLength(1);
@@ -1950,7 +1934,9 @@ describe("PipelineDetailPage", () => {
     it("toggling a step changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
       updatePipelineStepEnabledMock.mockResolvedValueOnce({ ...persistedRename, enabled: false });
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
+
+      openStepSheet(/Rename column/i);
 
       // Let the mount-triggered fingerprint settle before taking the baseline.
       await act(async () => {
@@ -1958,7 +1944,7 @@ describe("PipelineDetailPage", () => {
       });
       const callsBeforeToggle = analyzePipelineMock.mock.calls.length;
 
-      fireEvent.click(screen.getAllByRole("button", { name: "Disable step" })[0]);
+      fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
 
       await waitFor(() =>
         expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeToggle),
@@ -2001,7 +1987,7 @@ describe("PipelineDetailPage", () => {
     };
 
     function stepLabels(container: HTMLElement): string[] {
-      return Array.from(container.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
+      return Array.from(container.querySelectorAll(".spine-row__title")).map(
         (el) => el.textContent ?? "",
       );
     }
@@ -2010,16 +1996,14 @@ describe("PipelineDetailPage", () => {
       getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
     });
 
-    it("inserting before the first step renders the new card first and calls the service with position 0", async () => {
+    it("inserting before the first step renders the new row first and calls the service with position 0", async () => {
       createPipelineStepMock.mockResolvedValueOnce(persistedCast);
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
-      // 2 persisted steps -> 2 gaps: before Rename (index 0), between Rename
-      // and Filter (index 1). After-last stays the existing add row.
-      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
-      expect(gapButtons).toHaveLength(2);
-      fireEvent.click(gapButtons[0]);
+      // The first row's sheet offers "Insert step before" (the gap above it); every row offers "Insert step after".
+      openStepSheet(/Rename column/i);
+      chooseStepAction("Insert step before");
       fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       // Optimistic — renders immediately, before the POST settles.
@@ -2038,13 +2022,13 @@ describe("PipelineDetailPage", () => {
       });
     });
 
-    it("inserting between two steps renders the new card in the middle and anchors the create on the preceding persisted step", async () => {
+    it("inserting between two steps renders the new row in the middle and anchors the create on the preceding persisted step", async () => {
       createPipelineStepMock.mockResolvedValueOnce({ ...persistedCast, position: 1 });
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
-      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
-      fireEvent.click(gapButtons[1]);
+      openStepSheet(/Rename column/i);
+      chooseStepAction("Insert step after");
       fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       expect(stepLabels(container)).toEqual(["Rename column", "Cast type", "Filter rows"]);
@@ -2066,7 +2050,7 @@ describe("PipelineDetailPage", () => {
 
     it("the append path (bottom add-step control) still calls the service without a position argument", async () => {
       const { container } = renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
       fireEvent.click(screen.getByRole("button", { name: "+ Add transformation step" }));
       fireEvent.click(await screen.findByRole("option", { name: /Limit rows/i }));
@@ -2090,10 +2074,10 @@ describe("PipelineDetailPage", () => {
       createPipelineStepMock.mockRejectedValueOnce(new Error("Conflict"));
       const store = makeStore();
       const { container } = await renderDetailPageSettled("pipe-1", store);
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
-      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
-      fireEvent.click(gapButtons[0]);
+      openStepSheet(/Rename column/i);
+      chooseStepAction("Insert step before");
       fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       expect(stepLabels(container)).toEqual(["Cast type", "Rename column", "Filter rows"]);
@@ -2121,7 +2105,7 @@ describe("PipelineDetailPage", () => {
         reparentedStepIds: [],
       });
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
       // Let the mount-triggered fingerprint settle before taking the baseline.
       await act(async () => {
@@ -2129,8 +2113,8 @@ describe("PipelineDetailPage", () => {
       });
       const callsBeforeInsert = analyzePipelineMock.mock.calls.length;
 
-      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
-      fireEvent.click(gapButtons[1]);
+      openStepSheet(/Rename column/i);
+      chooseStepAction("Insert step after");
       fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
 
       await waitFor(() =>
@@ -2142,41 +2126,39 @@ describe("PipelineDetailPage", () => {
     // preview fingerprint so a position-only change re-fetches an already-open
     // preview. An insert shifts every later step's `stepIndex` — verify that
     // machinery composes with insert (implement nothing new; assert only).
-    it("a step after the insert point gets a new stepIndex, refreshing its open preview", async () => {
+    // HEL-407 (design.md Decision 9): the preview fingerprint folds in `stepIndex`, so a position-only change
+    // re-fetches an already-open preview. On the phone the open step's preview lives in the (modal) sheet, so an
+    // insert cannot shift the open step; the same machinery is exercised by the open step's own move, which
+    // changes its index while its sheet and preview stay open (implement nothing new; assert only).
+    it("a step whose index changes while its sheet is open gets a new stepIndex, refreshing its open preview", async () => {
       fetchStepPreviewMock.mockResolvedValue({ rows: [], rowCount: 0 });
-      createPipelineStepMock.mockResolvedValueOnce({
-        ...persistedCast,
-        parentStepId: "x1",
-        reparentedStepIds: [],
-      });
+      reorderPipelineStepsMock.mockResolvedValue([
+        { ...persistedFilter, position: 0 },
+        { ...persistedRename, position: 1 },
+      ]);
       renderDetailPage();
-      await screen.findByRole("button", { name: /Rename column/i, expanded: false });
+      await findStepRow(/Rename column/i);
 
-      // Open Filter's card and activate its preview — Filter is stepIndex 1.
-      fireEvent.click(screen.getByRole("button", { name: /Filter rows/i, expanded: false }));
-      fireEvent.click(await screen.findByRole("button", { name: "Preview data" }));
+      // Open Filter's sheet: its preview loads at once (the table has no "Preview data" toggle) — Filter is stepIndex 1.
+      openStepSheet(/Filter rows/i);
       await waitFor(() => {
         expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "y1");
       });
-      const callsBeforeInsert = fetchStepPreviewMock.mock.calls.length;
+      const callsBeforeMove = fetchStepPreviewMock.mock.calls.length;
 
-      // HEL-1345 D5 — the post-insert server truth arrives via the create response (no resync
-      // GET), so there is nothing to queue for `getPipelineSteps` here.
-
-      // Insert a new step before Filter (gap index 1) — Filter's stepIndex
-      // shifts from 1 to 2, changing its `${stepIndex}:config` fingerprint.
-      const gapButtons = screen.getAllByRole("button", { name: "Insert step here" });
-      fireEvent.click(gapButtons[1]);
-      fireEvent.click(await screen.findByRole("option", { name: /Cast type/i }));
+      // Move Filter above Rename from its own sheet: its stepIndex goes 1 -> 0, changing its
+      // `${stepIndex}:config` fingerprint, so the open preview refetches.
+      chooseStepAction(/^Move step up/);
 
       await waitFor(
-        () => expect(fetchStepPreviewMock.mock.calls.length).toBeGreaterThan(callsBeforeInsert),
+        () => expect(fetchStepPreviewMock.mock.calls.length).toBeGreaterThan(callsBeforeMove),
         { timeout: 2000 },
       );
+      expect(fetchStepPreviewMock.mock.calls.at(-1)).toEqual(["pipe-1", "y1"]);
     });
   });
 
-  it("output name field is editable — input appears on click", async () => {
+  it("pipeline name field is editable — Rename swaps the name for the input", async () => {
     const store = makeStore([], {
       currentPipeline: {
         id: "pipe-1",
@@ -2190,11 +2172,13 @@ describe("PipelineDetailPage", () => {
     });
     renderDetailPage("pipe-1", store);
 
-    const outputNameBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(outputNameBtn);
+    expect(await screen.findByText("My Pipeline")).toBeInTheDocument();
+    chooseHeaderAction("Rename");
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     expect(input).toBeInTheDocument();
+    // The shared TextField primitive (HEL-440), not a raw input.
+    expect(input).toHaveClass("ui-input");
 
     fireEvent.change(input, { target: { value: "New Output" } });
     expect(input).toHaveValue("New Output");
@@ -2352,18 +2336,16 @@ describe("PipelineDetailPage", () => {
     expect(screen.queryByLabelText(/Run status/)).not.toBeInTheDocument();
   });
 
-  it("run history menu item is reachable when there are no runs yet", () => {
-    // design.md D7 (scope amendment): the actions menu's "Run history" item
-    // no longer carries a run-count suffix (ActionsMenuItem has no separate
-    // aria-label field, so its label is both the visible text and the
-    // accessible name) — this now just confirms the item still renders (not
+  it("the Runs tab is reachable and says so when there are no runs yet", async () => {
+    // The phone has no Run history menu item: the Runs tab is the way in, and it must still render (not be
     // conditionally hidden) when the pipeline has zero runs.
     renderDetailPage();
-    openPipelineActionsMenu();
-    expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Runs" })).toBeInTheDocument();
+    openRunHistory();
+    expect(await screen.findByText("No runs recorded yet")).toBeInTheDocument();
   });
 
-  it("run history modal shows runs from store after opening", async () => {
+  it("the Runs tab shows the runs fetched when it is opened", async () => {
     const run: PipelineRunRecord = {
       id: "run-1",
       pipelineId: "pipe-1",
@@ -2375,7 +2357,7 @@ describe("PipelineDetailPage", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -2383,7 +2365,7 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText("42 rows")).toBeInTheDocument();
   });
 
-  it("run history modal shows a Manual badge for a manual run", async () => {
+  it("the Runs tab shows a Manual badge for a manual run", async () => {
     const run: PipelineRunRecord = {
       id: "run-manual-1",
       pipelineId: "pipe-1",
@@ -2395,7 +2377,7 @@ describe("PipelineDetailPage", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -2403,7 +2385,7 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText("Manual")).toBeInTheDocument();
   });
 
-  it("run history modal shows a Scheduled badge for a scheduled run", async () => {
+  it("the Runs tab shows a Scheduled badge for a scheduled run", async () => {
     const run: PipelineRunRecord = {
       id: "run-scheduled-1",
       pipelineId: "pipe-1",
@@ -2415,7 +2397,7 @@ describe("PipelineDetailPage", () => {
       triggerSource: "scheduled",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -2423,7 +2405,7 @@ describe("PipelineDetailPage", () => {
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
   });
 
-  it("failed run shows a Show log toggle in the run history modal", async () => {
+  it("failed run shows a Show log toggle in the Runs tab", async () => {
     const run: PipelineRunRecord = {
       id: "run-2",
       pipelineId: "pipe-1",
@@ -2435,7 +2417,7 @@ describe("PipelineDetailPage", () => {
       triggerSource: "scheduled",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -2487,7 +2469,7 @@ describe("PipelineDetailPage", () => {
       currentPipelineStatus: "succeeded",
     });
     renderDetailPage("pipe-1", store);
-    expect(screen.getByText("5,678")).toBeInTheDocument();
+    expect(screen.getByText(/5,678 rows written/)).toBeInTheDocument();
   });
 
   it("meta bar does not crash when lastRunRowCount is undefined", () => {
@@ -2563,11 +2545,12 @@ describe("PipelineDetailPage — pinned footer actions + header actions menu", (
     expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
   });
 
-  it("Run history is not an always-visible button — reachable only via the actions menu", () => {
+  it("Run history is reachable only through the Runs tab — not a button, and not an actions menu item", () => {
     renderDetailPage();
     expect(screen.queryByRole("button", { name: "Run history" })).not.toBeInTheDocument();
     openPipelineActionsMenu();
-    expect(screen.getByRole("menuitem", { name: "Run history" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Run history" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Runs" })).toBeInTheDocument();
   });
 
   // HEL-908 task 8.2 — `PipelinePreviewModal` was deleted, superseded by
@@ -2613,16 +2596,18 @@ describe("PipelineDetailPage loading state", () => {
     expect(screen.queryByText("Run pipeline")).not.toBeInTheDocument();
   });
 
-  it("renders header/river/footer band skeletons instead of a bare spinner (HEL-528)", () => {
+  it("renders a header band and steps skeletons instead of a bare spinner (HEL-528)", () => {
     const store = makeStore([], {
       currentPipelineStatus: "idle",
       currentPipeline: null,
     });
     const { container } = renderDetailPage("pipe-1", store);
     expect(container.querySelectorAll(".ui-skeleton").length).toBeGreaterThan(0);
-    expect(container.querySelector(".pipeline-detail-header")).toBeInTheDocument();
+    expect(container.querySelector(".pipeline-detail-page__skeleton-header")).toBeInTheDocument();
     expect(container.querySelector(".pipeline-detail-page__river")).toBeInTheDocument();
-    expect(container.querySelector(".pipeline-detail-page__footer-region")).toBeInTheDocument();
+    // The retired river layout's header and footer bands are not mimicked any more.
+    expect(container.querySelector(".pipeline-detail-header")).not.toBeInTheDocument();
+    expect(container.querySelector(".pipeline-detail-page__footer-region")).not.toBeInTheDocument();
   });
 });
 
@@ -2722,8 +2707,8 @@ describe("PipelineDetailPage dirty-state detection", () => {
     await act(async () => {});
 
     // Click the output name button to enter edit mode
-    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(editBtn);
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Rename");
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Changed Name" } });
@@ -2739,8 +2724,8 @@ describe("PipelineDetailPage dirty-state detection", () => {
     renderDetailPage("pipe-1");
     await act(async () => {});
 
-    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(editBtn);
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Rename");
 
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Changed Name" } });
@@ -2748,8 +2733,7 @@ describe("PipelineDetailPage dirty-state detection", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Save pipeline")).toBeInTheDocument());
 
-    const editBtn2 = screen.getByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(editBtn2);
+    chooseHeaderAction("Rename");
     const input2 = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input2, { target: { value: defaultPipeline.name } });
     fireEvent.blur(input2);
@@ -2777,8 +2761,8 @@ describe("PipelineDetailPage Cancel confirmation", () => {
 
   async function makeDirty() {
     await act(async () => {});
-    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(editBtn);
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Rename");
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Dirty Name" } });
     fireEvent.blur(input);
@@ -2891,7 +2875,7 @@ describe("PipelineDetailPage select step config round-trip", () => {
       expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
+    openStepSheet(/Select fields/i);
 
     // Previously saved fields should be checked; unsaved field should not be
     await waitFor(() => {
@@ -2988,7 +2972,7 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+    openStepSheet(/Rename column/i);
 
     // Each field from the analyze inputSchema gets a text input
     await waitFor(() => {
@@ -3006,7 +2990,7 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+    openStepSheet(/Rename column/i);
 
     // "name" → "full_name" should be pre-filled; others empty
     await waitFor(() => {
@@ -3024,7 +3008,7 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+    openStepSheet(/Rename column/i);
 
     await waitFor(() => {
       expect(screen.getByRole("textbox", { name: "New name for dept" })).toBeInTheDocument();
@@ -3052,7 +3036,7 @@ describe("PipelineDetailPage rename step config", () => {
       expect(screen.getByRole("button", { name: /Rename column/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Rename column/i, expanded: false }));
+    openStepSheet(/Rename column/i);
 
     // Confirm the "name" input is pre-filled with "full_name"
     await waitFor(() => {
@@ -3092,8 +3076,8 @@ describe("PipelineDetailPage beforeunload", () => {
     renderDetailPage("pipe-1");
     await act(async () => {});
 
-    const editBtn = await screen.findByRole("button", { name: "Edit pipeline name" });
-    fireEvent.click(editBtn);
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Rename");
     const input = screen.getByRole("textbox", { name: "Pipeline name" });
     fireEvent.change(input, { target: { value: "Dirty Value" } });
     fireEvent.blur(input);
@@ -3193,10 +3177,6 @@ const persistedPreviewStep: PipelineStep = {
 
 describe("PipelineDetailPage step preview", () => {
   beforeEach(() => {
-    // HEL-404 — StepCard's previewOpen now defaults from
-    // localStorage("helio-step-preview-open"); start each test clean so a
-    // prior test's toggle doesn't leak into the next one (same precedent as
-    // theme.test.ts / ThemeProvider.test.tsx / App.test.tsx).
     window.localStorage.clear();
     fetchRunHistoryMock.mockResolvedValue([]);
     getPipelineByIdMock.mockResolvedValue(defaultPipeline);
@@ -3218,20 +3198,15 @@ describe("PipelineDetailPage step preview", () => {
     jest.clearAllMocks();
   });
 
-  it('"Preview data" button triggers fetchStepPreview and renders table on success', async () => {
+  it("opening a step's sheet fetches its preview and renders the table", async () => {
     renderDetailPage("pipe-1");
 
     // Wait for the persisted step to appear
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-    });
+    await findStepRow(/Select fields/i);
 
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
-
-    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
-    await act(async () => {
-      fireEvent.click(previewBtn);
-    });
+    // The preview table is part of the sheet (the card's "Preview data" toggle is gone): no fetch until opened.
+    expect(fetchStepPreviewMock).not.toHaveBeenCalled();
+    openStepSheet(/Select fields/i);
 
     await waitFor(() => {
       expect(fetchStepPreviewMock).toHaveBeenCalledWith("pipe-1", "step-preview-1");
@@ -3251,18 +3226,14 @@ describe("PipelineDetailPage step preview", () => {
     fetchStepPreviewMock.mockReturnValue(new Promise<never>(() => {}));
 
     renderDetailPage("pipe-1");
+    await findStepRow(/Select fields/i);
+
+    openStepSheet(/Select fields/i);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
-
-    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
-    fireEvent.click(previewBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText("Loading preview…")).toBeInTheDocument();
+      expect(
+        within(stepSheet()).getByRole("status", { name: "Loading preview" }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -3270,56 +3241,40 @@ describe("PipelineDetailPage step preview", () => {
     fetchStepPreviewMock.mockRejectedValue(new Error("Network error"));
 
     renderDetailPage("pipe-1");
+    await findStepRow(/Select fields/i);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-    });
+    openStepSheet(/Select fields/i);
 
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
-
-    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
-    await act(async () => {
-      fireEvent.click(previewBtn);
-    });
-
-    // HEL sweep F-155: StepCard reads the error via the app-wide
+    // HEL sweep F-155: the preview reads the error via the app-wide
     // `extractErrorMessage` convention, which deliberately never surfaces a
     // raw transport-layer `err.message` (e.g. "Network error") — a plain,
     // non-Axios `Error` falls through to the caller-supplied fallback copy.
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toBeInTheDocument();
-      expect(screen.getByText("Preview failed — try again.")).toBeInTheDocument();
+      expect(within(stepSheet()).getByRole("alert")).toBeInTheDocument();
+      expect(within(stepSheet()).getByText("Preview failed — try again.")).toBeInTheDocument();
     });
   });
 
-  it("second click on Preview button hides the table", async () => {
+  it("closing the sheet hides the preview table", async () => {
     renderDetailPage("pipe-1");
+    await findStepRow(/Select fields/i);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
-
-    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
-    await act(async () => {
-      fireEvent.click(previewBtn);
-    });
+    openStepSheet(/Select fields/i);
 
     await waitFor(() => {
       expect(screen.getByText("alice")).toBeInTheDocument();
     });
 
-    const hideBtn = screen.getByRole("button", { name: "Hide preview" });
-    fireEvent.click(hideBtn);
+    // There is no per-step "Hide preview" toggle on the phone: the preview lives and dies with the open sheet.
+    await closeStepSheet();
 
     await waitFor(() => {
       expect(screen.queryByText("alice")).not.toBeInTheDocument();
     });
   });
 
-  // HEL-412 evaluation-1.md CR1/CR2 — re-enabling a step whose preview panel
-  // is open must not race the enable PATCH: StepCard's preview-refresh
+  // HEL-412 evaluation-1.md CR1/CR2 — re-enabling a step whose preview
+  // is open must not race the enable PATCH: the preview-refresh
   // effect must debounce the re-fetch (never take the undebounced
   // "activation" path) so the GET can't reach the backend's defensive 422
   // ("step is disabled") before the PATCH commits. Uses fake timers + a
@@ -3329,15 +3284,10 @@ describe("PipelineDetailPage step preview", () => {
   it("re-enabling a step with its preview open debounces the refetch instead of racing the enable PATCH", async () => {
     renderDetailPage("pipe-1");
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-    });
+    await findStepRow(/Select fields/i);
 
-    fireEvent.click(screen.getByRole("button", { name: /Select fields/i, expanded: false }));
-    const previewBtn = await screen.findByRole("button", { name: "Preview data" });
-    await act(async () => {
-      fireEvent.click(previewBtn);
-    });
+    // The preview loads as soon as the step's sheet opens.
+    openStepSheet(/Select fields/i);
     await waitFor(() => expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1));
 
     // Disable the step first — fully settled, not the case under test.
@@ -3456,7 +3406,7 @@ describe("PipelineDetailPage dry-run (HEL-197)", () => {
       triggerSource: "manual",
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([dryRun]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -3569,19 +3519,19 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
   });
 
   // 3.8a — spinner class applied for running status
-  it("footer status badge has --running class when runStatus is running", () => {
+  it("header status badge has --running class when runStatus is running", () => {
     const store = makeStore([], { runStatus: "running", runId: "run-spin" });
     renderDetailPage("pipe-1", store);
     const badge = screen.getByLabelText("Run status: running");
-    expect(badge).toHaveClass("pipeline-detail-page__run-status--running");
+    expect(badge).toHaveClass("spine-header__run-status--running");
   });
 
   // 3.8b — pulse class applied for queued status
-  it("footer status badge has --queued class when runStatus is queued", () => {
+  it("header status badge has --queued class when runStatus is queued", () => {
     const store = makeStore([], { runStatus: "queued", runId: "run-pulse" });
     renderDetailPage("pipe-1", store);
     const badge = screen.getByLabelText("Run status: queued");
-    expect(badge).toHaveClass("pipeline-detail-page__run-status--queued");
+    expect(badge).toHaveClass("spine-header__run-status--queued");
   });
 
   // 3.8c — history modal status badge uses --running class
@@ -3597,7 +3547,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       triggerSource: "manual" as const,
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -3620,7 +3570,7 @@ describe("PipelineDetailPage StatusBadge running and queued states (HEL-199)", (
       triggerSource: "manual" as const,
       assertions: { passed: 0, warnFailed: 0, errorFailed: 0, failures: [] },
     };
-    // HEL-1354: run history is fetched when the modal opens (not seeded into the store).
+    // HEL-1354: run history is fetched when the Runs tab is opened (not seeded into the store).
     fetchRunHistoryMock.mockResolvedValue([run]);
     renderDetailPage("pipe-1");
     openRunHistory();
@@ -3753,12 +3703,12 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     getPipelineScheduleMock.mockRejectedValue(axiosError(404));
   });
 
-  it("shows 'No schedule set' for a pipeline with no schedule — existing layout unaffected", async () => {
+  it("shows 'Add schedule' for a pipeline with no schedule — existing layout unaffected", async () => {
     getPipelineScheduleMock.mockRejectedValueOnce(axiosError(404));
-    renderDetailPage("pipe-1");
+    await renderDetailPageSettled("pipe-1");
 
     await waitFor(() => {
-      expect(screen.getByText("No schedule set")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add schedule" })).toBeInTheDocument();
     });
     // The rest of the editor still renders exactly as before.
     expect(screen.getByText("Test Source")).toBeInTheDocument();
@@ -3783,15 +3733,15 @@ describe("PipelineDetailPage schedule bar (HEL-416)", () => {
     });
   });
 
-  it("toggling enabled from the bar calls PUT with the unchanged kind/expression/timezone", async () => {
+  it("pausing from the actions menu calls PUT with the unchanged kind/expression/timezone", async () => {
     getPipelineScheduleMock.mockResolvedValueOnce(sampleSchedule);
     putPipelineScheduleMock.mockResolvedValueOnce({ ...sampleSchedule, enabled: false });
     renderDetailPage("pipe-1");
 
-    // The shared `Toggle` primitive (`shared/ui/Toggle.tsx`) renders
-    // `<input type="checkbox" role="switch">` for assistive-tech support.
-    const toggle = await screen.findByRole("switch", { name: "Disable schedule" });
-    fireEvent.click(toggle);
+    // The schedule chip shows the loaded schedule; enable/disable lives in the actions menu.
+    await screen.findByText("Every 15m");
+    openPipelineActionsMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Pause schedule" }));
 
     await waitFor(() => {
       expect(putPipelineScheduleMock).toHaveBeenCalledWith("pipe-1", {
@@ -3834,12 +3784,7 @@ const singleRowCatalogEntry: PipelineShapeCatalogEntry = {
 
 describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
   beforeAll(() => {
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
+    stubDialogMethods();
   });
 
   beforeEach(() => {
@@ -3853,16 +3798,18 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     jest.clearAllMocks();
   });
 
-  it("empty-state offers 'Start from a shape' alongside '+ Add step'", async () => {
+  it("empty-state offers '+ Add step', and the actions menu 'Add Outputs from a shape'", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     renderDetailPage();
 
     expect(await screen.findByText(/^Add your first transformation step/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Add step" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeInTheDocument();
+    // On the phone the shape picker is an item of the header's actions menu.
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
-  it("the add-step row offers 'Start from a shape' alongside the op picker once steps exist", async () => {
+  it("the add-step row and the actions menu's 'Add Outputs from a shape' both exist once steps exist", async () => {
     getPipelineStepsMock.mockResolvedValue([
       {
         id: "step-1",
@@ -3879,7 +3826,8 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     expect(
       await screen.findByRole("button", { name: "+ Add transformation step" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeInTheDocument();
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeInTheDocument();
   });
 
   it("selecting a shape, filling params, and submitting seeds a step card", async () => {
@@ -3899,7 +3847,8 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     });
     await renderDetailPageSettled();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Add Outputs from a shape");
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -3917,11 +3866,9 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
         "root-1",
       );
     });
-    // Seeded step renders through the unmodified StepCard/OP_TYPES machinery —
+    // Seeded step renders through the unmodified OP_TYPES machinery —
     // "Group & aggregate" is OP_TYPES' label for the "aggregate" kind.
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
-    });
+    await findStepRow(/Group & aggregate/i);
     expect(
       screen.queryByRole("dialog", { name: "Add Outputs from a shape" }),
     ).not.toBeInTheDocument();
@@ -3955,11 +3902,11 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     await renderDetailPageSettled();
 
     // Wait for the pre-existing step to render first — this ensures the
-    // river view has settled into its non-empty layout before interacting
+    // step list has settled into its non-empty layout before interacting
     // with it, avoiding a race with the async step-load re-render.
-    await screen.findByRole("button", { name: /Select fields/i });
+    await findStepRow(/Select fields/i);
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Outputs from a shape" }));
+    chooseHeaderAction("Add Outputs from a shape");
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -3969,8 +3916,8 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     // Both the pre-existing step and the newly seeded step are present —
     // the existing step is not replaced (design.md Decision 3: append).
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Select fields/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
+      expect(stepRow(/Select fields/i)).toBeInTheDocument();
+      expect(stepRow(/Group & aggregate/i)).toBeInTheDocument();
     });
   });
 
@@ -4002,7 +3949,8 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     const store = makeStore();
     await renderDetailPageSettled("pipe-1", store);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Add Outputs from a shape");
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -4013,7 +3961,7 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     await waitFor(() => {
       expect(createPipelineStepMock).toHaveBeenCalledTimes(2);
     });
-    expect(screen.getByRole("button", { name: /Group & aggregate/i })).toBeInTheDocument();
+    expect(stepRow(/Group & aggregate/i)).toBeInTheDocument();
 
     // A visible toast reports the partial application.
     await waitFor(() => {
@@ -4040,7 +3988,8 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     });
     renderDetailPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
+    await screen.findByRole("button", { name: "Pipeline actions" });
+    chooseHeaderAction("Add Outputs from a shape");
     fireEvent.click(await screen.findByText("Single row"));
     fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), {
       target: { value: "aggregate" },
@@ -4089,9 +4038,10 @@ describe("PipelineDetailPage 'Start from a shape' (HEL-402)", () => {
     // same accessible name exists in BOTH the empty-state and non-empty
     // layouts (only its class differs), so a bare `findByRole` can resolve
     // against the transient empty-state render before steps finish loading.
-    await screen.findByRole("button", { name: /Select fields/i });
+    await findStepRow(/Select fields/i);
 
-    expect(screen.getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
+    openPipelineActionsMenu();
+    expect(screen.getByRole("menuitem", { name: "Add Outputs from a shape" })).toBeEnabled();
   });
 });
 
@@ -4119,17 +4069,10 @@ describe("PipelineDetailPage — root removal (HEL-968)", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    await screen.findAllByText("Shipments");
-    // Two "Remove source Shipments" controls now exist post-HEL-1022 (the
-    // header chip AND the canvas RootColumn) -- both call the identical
-    // handler with the identical root id, so either serves this assertion;
-    // scope to the canvas control specifically for a deterministic query.
+    // Each source card's "Source actions" menu holds "Remove from pipeline".
+    fireEvent.click(await screen.findByRole("button", { name: "Source actions for Shipments" }));
     await act(async () => {
-      const canvasRemoveBtn = screen
-        .getAllByRole("button", { name: /Remove source Shipments/i })
-        .find((btn) => btn.closest(".pipeline-detail-page__root-column") !== null);
-      if (!canvasRemoveBtn) throw new Error("canvas Remove source button not found");
-      fireEvent.click(canvasRemoveBtn);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Remove source Shipments/i }));
     });
 
     expect(removePipelineRootMock).toHaveBeenCalledWith("pipe-1", "root-2");
@@ -4148,13 +4091,10 @@ describe("PipelineDetailPage — root removal (HEL-968)", () => {
     const store = makeStore();
     renderDetailPage("pipe-1", store);
 
-    await screen.findAllByText("Shipments");
+    // Each source card's "Source actions" menu holds "Remove from pipeline".
+    fireEvent.click(await screen.findByRole("button", { name: "Source actions for Shipments" }));
     await act(async () => {
-      const canvasRemoveBtn = screen
-        .getAllByRole("button", { name: /Remove source Shipments/i })
-        .find((btn) => btn.closest(".pipeline-detail-page__root-column") !== null);
-      if (!canvasRemoveBtn) throw new Error("canvas Remove source button not found");
-      fireEvent.click(canvasRemoveBtn);
+      fireEvent.click(screen.getByRole("menuitem", { name: /Remove source Shipments/i }));
     });
 
     await waitFor(() => {

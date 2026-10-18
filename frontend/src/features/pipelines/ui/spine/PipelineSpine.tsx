@@ -1,39 +1,36 @@
 // PipelineSpine -- HEL-1579 (design.md D5): the left column of the desktop pipeline page. Sources (one
 // card per root), the numbered steps of every root's trunk with branches as labelled sub-spines, the
 // add-step / shape affordances, and the OUTPUTS section. Presentational: every handler comes from
-// `usePipelineDetailPage`; this component owns only the palette / shape-picker / add-source dialogs'
-// open state and the drag-reorder wiring (`useLaneReorder`, lane-scoped as before).
+// `usePipelineDetailPage` and the palette / shape-picker / add-source / reorder / menu state comes in as
+// `actions` (`useSpineStepActions`, owned by the layout so the phone's header and step sheet share it).
+//
+// `variant="phone"` (HEL-1582, design.md D4): the same pieces as a touch list -- the section eyebrows are
+// visually hidden, the step-count line (with its partial-count badge) stays visible, rows are full-width
+// 60px+ buttons with a chevron and no grip or row menu, "+ Add source" and "Add Outputs from a shape" live in
+// the page header's overflow menu, and the cards are the board's.
 
 import { GitBranch } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
-import type { ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import type { DataSource } from "../../../sources/types/dataSource";
-import { useLaneReorder } from "../../hooks/useLaneReorder";
 import { nodePath } from "../../state/nodePath";
-import type { Lane, LaneGraph } from "../../state/stepTree";
-import type { ExpandPipelineShapeResponse } from "../../types/pipelineShape";
+import type { LaneGraph } from "../../state/stepTree";
 import type { Output } from "../../types/output";
 import type { AnalyzeWarning, PipelineRoot } from "../../types/pipelineStep";
-import type { OpType, Step } from "../../types/step";
-import { AddRootModal } from "../AddRootModal";
-import { StepPalette } from "../StepPalette";
+import type { Step } from "../../types/step";
 import { TruncatedRowCountBadge } from "../TruncatedRowCountBadge";
-import { ShapePickerModal } from "../shapes/ShapePickerModal";
 import { SpineLane } from "./SpineLane";
 import type { SpineLaneContext } from "./SpineLane";
 import { SpineOutputs } from "./SpineOutputs";
 import { SpineSourceCard } from "./SpineSourceCard";
+import type { SpineStepActions } from "./useSpineStepActions";
 import "./PipelineSpine.css";
 
-/** What the open step palette will do with the op the user picks. */
-type PaletteTarget =
-  | { kind: "append" }
-  | { kind: "insert"; index: number }
-  | { kind: "branch"; parentStepId: string };
-
 interface PipelineSpineProps {
+  /** `desktop` (default) is the left column; `phone` is the Steps tab's touch list. */
+  variant?: "desktop" | "phone";
+  actions: SpineStepActions;
   steps: Step[];
   laneGraph: LaneGraph;
   roots: PipelineRoot[];
@@ -50,22 +47,15 @@ interface PipelineSpineProps {
   creatingStepIds: ReadonlySet<string>;
   onSelectStep: (stepId: string) => void;
   onEditSource: (sourceId: string) => void;
-  onAddRoot: (sourceId: string) => void;
   onRemoveRoot: (rootId: string) => void;
-  onAddStep: (opType: OpType) => void;
-  onInsertStep: (opType: OpType, index: number) => void;
-  onAddLaneStep: (opType: OpType, parentStepId: string) => void;
   onAddOutput: (stepId?: string) => void;
   onOpenOutput: (output: Output) => void;
   onOpenOutputHistory: (output: Output) => void;
-  onInstantiateShape: (
-    expansion: ExpandPipelineShapeResponse,
-    anchorStepId?: string,
-  ) => Promise<void>;
-  onReorderSteps: (newOrder: Step[]) => void | Promise<void>;
 }
 
 export function PipelineSpine({
+  variant = "desktop",
+  actions,
   steps,
   laneGraph,
   roots,
@@ -81,43 +71,16 @@ export function PipelineSpine({
   creatingStepIds,
   onSelectStep,
   onEditSource,
-  onAddRoot,
   onRemoveRoot,
-  onAddStep,
-  onInsertStep,
-  onAddLaneStep,
   onAddOutput,
   onOpenOutput,
   onOpenOutputHistory,
-  onInstantiateShape,
-  onReorderSteps,
 }: PipelineSpineProps) {
-  const [palette, setPalette] = useState<PaletteTarget | null>(null);
-  const [shapePickerOpen, setShapePickerOpen] = useState(false);
-  const [shapeAnchorStepId, setShapeAnchorStepId] = useState<string | undefined>(undefined);
-  const [addRootOpen, setAddRootOpen] = useState(false);
-
-  const rootRef = useRef<HTMLDivElement>(null);
-  const reorder = useLaneReorder(laneGraph, onReorderSteps, rootRef);
-
-  // Focus follows a moved step: the row menu closes on activation, so put focus on the moved row.
-  const focusRowAfterMoveRef = useRef<string | null>(null);
-  useEffect(() => {
-    const stepId = focusRowAfterMoveRef.current;
-    if (stepId === null) return;
-    focusRowAfterMoveRef.current = null;
-    rootRef.current
-      ?.querySelector<HTMLButtonElement>(
-        `[data-step-row="${CSS.escape(stepId)}"] .spine-row__select`,
-      )
-      ?.focus();
-  }, [laneGraph]);
-
+  const phone = variant === "phone";
+  const { rootRef, reorder, menuItemsFor } = actions;
   const firstRootId = roots[0]?.id;
   const trunkOf = (rootId: string) =>
     laneGraph.lanes.find((l) => l.parentStepId === undefined && l.rootId === rootId);
-  const rootNameOf = (rootId: string) =>
-    roots.find((r) => r.id === rootId)?.dataSourceName ?? "this source";
   const rootZeroTrunk = firstRootId !== undefined ? trunkOf(firstRootId) : undefined;
   const rootZeroSteps = rootZeroTrunk?.steps ?? [];
 
@@ -126,67 +89,6 @@ export function PipelineSpine({
     for (const step of steps) entries[step.id] = nodePath(step.id, steps, roots);
     return entries;
   }, [steps, roots]);
-
-  function openShapePicker(anchor: string | undefined) {
-    setShapeAnchorStepId(anchor);
-    setShapePickerOpen(true);
-  }
-
-  function menuItemsFor(step: Step, lane: Lane, index: number): ActionsMenuItem[] {
-    const items: ActionsMenuItem[] = [];
-    const isTrunk = lane.parentStepId === undefined;
-    if (isTrunk) {
-      const laneLabel = rootNameOf(lane.rootId);
-      items.push(
-        {
-          label: "Move up",
-          ariaLabel: `Move step up in ${laneLabel}`,
-          disabled: index === 0,
-          onClick: () => {
-            focusRowAfterMoveRef.current = step.id;
-            reorder.onMoveUp(step.id);
-          },
-        },
-        {
-          label: "Move down",
-          ariaLabel: `Move step down in ${laneLabel}`,
-          disabled: index === lane.steps.length - 1,
-          onClick: () => {
-            focusRowAfterMoveRef.current = step.id;
-            reorder.onMoveDown(step.id);
-          },
-        },
-      );
-    }
-    // Insert is offered exactly where the river had "Insert step here" gaps: root 0's trunk. Index 0
-    // gets "before" (the gap above the first card); the last row's "after" appends, as the river's
-    // "+ Add transformation step" did (no new insertion semantics, design.md D5).
-    if (isTrunk && lane.rootId === firstRootId) {
-      if (index === 0) {
-        items.push({
-          label: "Insert step before",
-          onClick: () => setPalette({ kind: "insert", index: 0 }),
-        });
-      }
-      items.push({
-        label: "Insert step after",
-        onClick: () =>
-          setPalette(
-            index === lane.steps.length - 1
-              ? { kind: "append" }
-              : { kind: "insert", index: index + 1 },
-          ),
-      });
-    }
-    items.push(
-      {
-        label: "Branch from here",
-        onClick: () => setPalette({ kind: "branch", parentStepId: step.id }),
-      },
-      { label: "Add output", onClick: () => onAddOutput(step.id) },
-    );
-    return items;
-  }
 
   const laneContext: SpineLaneContext = {
     laneGraph,
@@ -200,6 +102,7 @@ export function PipelineSpine({
     nodePathByStepId,
     onSelectStep,
     menuItemsFor,
+    phone,
     reorderFor: (lane, index) =>
       lane.parentStepId === undefined
         ? {
@@ -213,25 +116,23 @@ export function PipelineSpine({
     dropIndicatorAt: (lane, index) => reorder.dragLaneId === lane.id && reorder.overIndex === index,
   };
 
-  function handlePaletteSelect(opType: OpType) {
-    const target = palette;
-    setPalette(null);
-    if (target === null) return;
-    if (target.kind === "append") onAddStep(opType);
-    else if (target.kind === "insert") onInsertStep(opType, target.index);
-    else onAddLaneStep(opType, target.parentStepId);
-  }
-
   const multiRoot = roots.length > 1;
   const hasSteps = steps.length > 0;
 
+  const eyebrowClass = `spine-section__eyebrow eyebrow${phone ? " sr-only" : ""}`;
+
   return (
-    <div className="pipeline-spine" ref={rootRef} aria-label="Pipeline steps">
+    <div
+      className={`pipeline-spine${phone ? " pipeline-spine--phone" : ""}`}
+      ref={rootRef}
+      aria-label="Pipeline steps"
+    >
       <section className="spine-section" aria-label={multiRoot ? "Sources" : "Source"}>
-        <h3 className="spine-section__eyebrow eyebrow">{multiRoot ? "Sources" : "Source"}</h3>
+        <h3 className={eyebrowClass}>{multiRoot ? "Sources" : "Source"}</h3>
         {roots.map((root, index) => (
           <SpineSourceCard
             key={root.id}
+            variant={variant}
             root={root}
             source={sourceByRootId[root.id]}
             ordinal={multiRoot ? index + 1 : null}
@@ -240,19 +141,21 @@ export function PipelineSpine({
             onRemoveRoot={onRemoveRoot}
           />
         ))}
-        <button
-          type="button"
-          className="spine-ghost-btn"
-          aria-label="Add source"
-          onClick={() => setAddRootOpen(true)}
-        >
-          + Add source
-        </button>
+        {!phone && (
+          <button
+            type="button"
+            className="spine-ghost-btn"
+            aria-label="Add source"
+            onClick={actions.openAddRoot}
+          >
+            + Add source
+          </button>
+        )}
       </section>
 
       <section className="spine-section" aria-label="Steps">
         <div className="spine-section__heading">
-          <h3 className="spine-section__eyebrow eyebrow">Steps</h3>
+          <h3 className={eyebrowClass}>Steps</h3>
           {stepCount !== null && (
             <span className="spine-section__count">
               {stepCount} step{stepCount !== 1 ? "s" : ""}
@@ -291,25 +194,30 @@ export function PipelineSpine({
         <div className="spine-actions">
           <button
             type="button"
-            className="spine-ghost-btn"
+            className={phone ? "spine-add-row" : "spine-ghost-btn"}
             aria-label={hasSteps ? "+ Add transformation step" : "+ Add step"}
-            onClick={() => setPalette({ kind: "append" })}
+            onClick={actions.openAppendPalette}
           >
             + Add step
           </button>
-          <button
-            type="button"
-            className="spine-ghost-btn"
-            onClick={() =>
-              openShapePicker(hasSteps ? rootZeroSteps[rootZeroSteps.length - 1]?.id : undefined)
-            }
-          >
-            Add Outputs from a shape
-          </button>
+          {!phone && (
+            <button
+              type="button"
+              className="spine-ghost-btn"
+              onClick={() =>
+                actions.openShapePicker(
+                  hasSteps ? rootZeroSteps[rootZeroSteps.length - 1]?.id : undefined,
+                )
+              }
+            >
+              Add Outputs from a shape
+            </button>
+          )}
         </div>
       </section>
 
       <SpineOutputs
+        variant={variant}
         outputs={outputs}
         steps={steps}
         laneGraph={laneGraph}
@@ -317,30 +225,6 @@ export function PipelineSpine({
         onOpenHistory={onOpenOutputHistory}
         onAddOutput={() => onAddOutput()}
       />
-
-      {/* `open` is the real boolean, not a conditional mount: Modal's focus-restore only runs on a
-          true->false transition (HEL-1136 evaluation-1.md CR1). */}
-      <StepPalette
-        open={palette !== null}
-        onSelect={handlePaletteSelect}
-        onClose={() => setPalette(null)}
-      />
-      {shapePickerOpen && (
-        <ShapePickerModal
-          anchorStepId={shapeAnchorStepId}
-          onClose={() => setShapePickerOpen(false)}
-          onSeedSteps={onInstantiateShape}
-        />
-      )}
-      {addRootOpen && (
-        <AddRootModal
-          onClose={() => setAddRootOpen(false)}
-          onAdd={(sourceId) => {
-            onAddRoot(sourceId);
-            setAddRootOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }

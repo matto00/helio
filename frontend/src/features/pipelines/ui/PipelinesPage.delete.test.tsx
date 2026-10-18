@@ -6,7 +6,7 @@ import { deletePipeline, getPipelines } from "../services/pipelineService";
 import { renderWithStore } from "../../../test/renderWithStore";
 import { expectTapExpander, findMediaBlock } from "../../../shared/ui/tapTargetTestUtils";
 import { PipelinesPage } from "./PipelinesPage";
-import { PipelineDetailHeader } from "./PipelineDetailHeader";
+import { PipelineSpineHeader } from "./spine/PipelineSpineHeader";
 
 jest.mock("../services/pipelineService", () => ({
   getPipelines: jest.fn(),
@@ -99,20 +99,42 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
 
   it("is absent from the pipeline detail header's actions", () => {
     renderWithStore(
-      <PipelineDetailHeader
-        roots={[]}
-        sourceByRootId={{}}
-        onEditSource={jest.fn()}
-        onAddRoot={jest.fn()}
-        onRemoveRoot={jest.fn()}
-        outputsCount={0}
+      <PipelineSpineHeader
+        pipelineName="Sales Pipeline"
+        outputName="Sales Pipeline"
+        setOutputName={jest.fn()}
+        editingName={false}
+        setEditingName={jest.fn()}
+        isDirty={false}
+        updateError={null}
+        updateStatus="idle"
+        isConfirmingCancel={false}
+        onSave={jest.fn()}
+        onCancel={jest.fn()}
+        onConfirmDiscard={jest.fn()}
+        onDismissConfirm={jest.fn()}
+        run={{
+          sseStatus: null,
+          sseRowCount: null,
+          sseErrorLog: null,
+          runStatus: null,
+          runError: null,
+          runIsDry: null,
+          runResult: null,
+        }}
+        lastRunAt={null}
+        lastRunRowCount={null}
         lastRunStatus={null}
+        lastRunTruncated={null}
         schedule={null}
         onEditSchedule={jest.fn()}
         onToggleScheduleEnabled={jest.fn()}
         onOpenHistory={jest.fn()}
         isOwner
         onOpenShare={jest.fn()}
+        onEditOnlySource={null}
+        onDryRun={jest.fn()}
+        onRun={jest.fn()}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Pipeline actions" }));

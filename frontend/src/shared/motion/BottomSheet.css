@@ -1,0 +1,81 @@
+/* Bottom sheet (HEL-1582, DESIGN.md §10). Phone presentation only: above 768px the sheet is the ordinary centred
+   Modal it composes. Timing comes only from the --motion-* tokens. The sheet has NO transform at rest (the entrance
+   animation uses a `backwards` fill and the drag's inline transform is removed after it settles), because a
+   transform would make the dialog the containing block of portalled `position: fixed` popovers (Modal.css). */
+@media (max-width: 768px) {
+  /* Higher specificity than `.ui-modal--full` / `.ui-modal[open]`, so no `!important` is needed. */
+  .ui-modal.bottom-sheet {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: 100%;
+    height: calc(100dvh - var(--space-4));
+    max-height: calc(100dvh - var(--space-4));
+    margin: 0;
+    border-right: none;
+    border-bottom: none;
+    border-left: none;
+    border-radius: var(--app-radius-lg) var(--app-radius-lg) 0 0;
+    background: var(--app-surface);
+    overscroll-behavior: contain;
+  }
+
+  .ui-modal.bottom-sheet[open] {
+    animation: bottom-sheet-in var(--motion-duration-move) var(--motion-ease-out) backwards;
+  }
+
+  /* The header is the gesture surface (with its grab handle): the browser must not claim the pan. */
+  .bottom-sheet .ui-modal__header {
+    position: relative;
+    align-items: center;
+    padding-top: var(--space-5);
+    touch-action: none;
+    user-select: none;
+  }
+
+  /* The grab handle: decorative, drawn on the header so a drag on it is a drag on the header. */
+  .bottom-sheet .ui-modal__header::before {
+    content: "";
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    width: var(--space-8);
+    height: 4px;
+    border-radius: var(--app-radius-pill);
+    background: var(--app-border-strong);
+    transform: translateX(-50%);
+  }
+
+  .bottom-sheet .ui-modal__body {
+    padding: var(--space-3);
+    overscroll-behavior: contain;
+  }
+
+  .bottom-sheet[data-sheet-settling] {
+    transition: transform var(--motion-duration-move) var(--motion-ease-out);
+  }
+
+  /* Subtle exit: opacity only. */
+  .bottom-sheet[data-sheet-exiting] {
+    opacity: 0;
+    transition: opacity var(--motion-duration-standard) var(--motion-ease-standard);
+  }
+
+  /* Subtle entrance: a fade, no travel. */
+  :root[data-motion="subtle"] .ui-modal.bottom-sheet[open] {
+    animation: bottom-sheet-fade var(--motion-duration-standard) var(--motion-ease-standard)
+      backwards;
+  }
+}
+
+@keyframes bottom-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes bottom-sheet-fade {
+  from {
+    opacity: 0;
+  }
+}

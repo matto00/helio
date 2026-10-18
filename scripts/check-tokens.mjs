@@ -108,6 +108,8 @@ export const ALLOWLIST = {
   "--indicator-y": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
   "--indicator-w": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
   "--indicator-h": "shared/motion/useIndicatorSlide.ts (container style.setProperty)",
+  "--pipeline-mobile-actions-h":
+    "features/pipelines/ui/mobile/MobilePipelineActions.tsx (page element style.setProperty from a ResizeObserver)",
 };
 
 // files: Map<relPath, rawText>. The token source set is every `--x:`

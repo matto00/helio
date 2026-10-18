@@ -116,11 +116,18 @@ export function useRunHistory(id: string | undefined) {
     if (!fresh) load();
   }, [fresh, load]);
 
+  /** Loads the list for this page open unless it is already fresh, WITHOUT opening the modal: the phone's inline
+   *  Runs tab calls it on first activation (HEL-1582). */
+  const ensureRunHistoryLoaded = useCallback(() => {
+    if (!fresh) load();
+  }, [fresh, load]);
+
   const closeRunHistory = useCallback(() => setHistoryOpen(false), []);
 
   return {
     historyOpen,
     openRunHistory,
+    ensureRunHistoryLoaded,
     closeRunHistory,
     retryRunHistory: load,
     runs,

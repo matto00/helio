@@ -10,6 +10,9 @@ import { SourceSampleLabel } from "../../../sources/ui/SourceSampleLabel";
 import type { PipelineRoot } from "../../types/pipelineStep";
 
 interface SpineSourceCardProps {
+  /** `phone` (HEL-1582): the mono name is the "Edit source" button (when the source resolves), a sibling of the
+   *  sample refresh and the "Source actions" menu, never nesting them. */
+  variant?: "desktop" | "phone";
   root: PipelineRoot;
   /** `undefined` when the source is not resolvable in the caller's own list: no Edit item, no kind. */
   source: DataSource | undefined;
@@ -21,6 +24,7 @@ interface SpineSourceCardProps {
 }
 
 export function SpineSourceCard({
+  variant = "desktop",
   root,
   source,
   ordinal,
@@ -28,6 +32,12 @@ export function SpineSourceCard({
   onEditSource,
   onRemoveRoot,
 }: SpineSourceCardProps) {
+  const nameContent = (
+    <>
+      {ordinal !== null && <span className="spine-card__ordinal">{ordinal}</span>}
+      {root.dataSourceName}
+    </>
+  );
   const items: ActionsMenuItem[] = [
     ...(source
       ? [
@@ -48,10 +58,19 @@ export function SpineSourceCard({
   return (
     <div className="spine-card spine-source-card">
       <div className="spine-card__text">
-        <span className="spine-card__name">
-          {ordinal !== null && <span className="spine-card__ordinal">{ordinal}</span>}
-          {root.dataSourceName}
-        </span>
+        {variant === "phone" && source ? (
+          // The button itself must not clip (overflow would cut off its hit expander); the name inside ellipsizes.
+          <button
+            type="button"
+            className="spine-card__name-btn"
+            aria-label={`Edit source ${root.dataSourceName}`}
+            onClick={() => onEditSource(source.id)}
+          >
+            <span className="spine-card__name">{nameContent}</span>
+          </button>
+        ) : (
+          <span className="spine-card__name">{nameContent}</span>
+        )}
         {source && <span className="spine-card__meta">{labelForKind(source.type)}</span>}
         <SourceSampleLabel
           sourceId={root.dataSourceId}

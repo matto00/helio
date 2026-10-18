@@ -3,8 +3,8 @@
 // THIS TESTS A DEFENSE-IN-DEPTH BRANCH THAT HAS NO LIVE PATH. It does not prove reachability: no UI
 // interaction can produce the state below (every Move/drag goes through `reorderLane`, which carries
 // `rootId` with a lane's head -- see the exhaustive invariant test in state/stepTree.test.ts). The
-// `newOrder` is hand-built and fed straight to `handleReorderSteps` (captured off the river's
-// `onReorderSteps` prop) to pin what the HEL-973 evaluation-1 CR2 guard does if that state ever
+// `newOrder` is hand-built and fed straight to `handleReorderSteps` (captured off the step actions' `onReorderSteps`
+// argument, which both layouts pass) to pin what the HEL-973 evaluation-1 CR2 guard does if that state ever
 // arises: refuse loudly, never send a silently truncated payload.
 
 import { act, render, screen } from "@testing-library/react";
@@ -50,17 +50,27 @@ jest.mock("../services/pipelineService", () => ({
   reorderPipelineSteps: jest.fn(),
 }));
 
-// Capture the river's props (the page's real `handleReorderSteps` is `onReorderSteps`) while still
-// rendering the real river.
-const mockCapture: { props: { onReorderSteps: (o: Step[]) => unknown; steps: Step[] } | null } = {
-  props: null,
+// Capture the page's real `handleReorderSteps` (handed to `useSpineStepActions` by the phone layout, as by the desktop one)
+// and the steps the layout renders, while still running the real hook and spine.
+const mockCapture: { onReorderSteps: ((o: Step[]) => unknown) | null; steps: Step[] } = {
+  onReorderSteps: null,
+  steps: [],
 };
-jest.mock("./PipelineRiverView", () => {
-  const actual = jest.requireActual("./PipelineRiverView");
+jest.mock("./spine/useSpineStepActions", () => {
+  const actual = jest.requireActual("./spine/useSpineStepActions");
   return {
-    PipelineRiverView: (props: { onReorderSteps: (o: Step[]) => unknown; steps: Step[] }) => {
-      mockCapture.props = props;
-      return createElement(actual.PipelineRiverView, props);
+    useSpineStepActions: (args: { onReorderSteps: (o: Step[]) => unknown }) => {
+      mockCapture.onReorderSteps = args.onReorderSteps;
+      return actual.useSpineStepActions(args);
+    },
+  };
+});
+jest.mock("./spine/PipelineSpine", () => {
+  const actual = jest.requireActual("./spine/PipelineSpine");
+  return {
+    PipelineSpine: (props: { steps: Step[] }) => {
+      mockCapture.steps = props.steps;
+      return createElement(actual.PipelineSpine, props);
     },
   };
 });
@@ -106,9 +116,8 @@ function makeStore() {
   });
 }
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -159,15 +168,15 @@ describe("handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path)",
         </ThemeProvider>
       </MemoryRouter>,
     );
-    await screen.findAllByRole("button", { name: /Rename column/i, expanded: false });
+    await screen.findAllByRole("button", { name: /^Step \d+:/ });
 
-    const before = mockCapture.props!.steps;
+    const before = mockCapture.steps;
     expect(before.map((s) => s.id)).toEqual(["a1", "b1", "x1"]);
     // Hand-built truncated order: root-1's head loses its `rootId`, orphaning root-1's chain.
     const truncated = before.map((s) => (s.id === "a1" ? { ...s, rootId: undefined } : s));
 
     await act(async () => {
-      await mockCapture.props!.onReorderSteps(truncated);
+      await mockCapture.onReorderSteps!(truncated);
     });
 
     expect(reorderPipelineSteps).not.toHaveBeenCalled();
@@ -177,7 +186,7 @@ describe("handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path)",
     expect(toasts[0].message).toContain('"Orders" root lost its trunk lane');
     expect(toasts[0].message).not.toContain("root-1");
     // No optimistic `setSteps`: the page's steps are exactly what they were (head keeps its rootId).
-    expect(mockCapture.props!.steps.map((s) => [s.id, s.rootId])).toEqual(
+    expect(mockCapture.steps.map((s) => [s.id, s.rootId])).toEqual(
       before.map((s) => [s.id, s.rootId]),
     );
   });

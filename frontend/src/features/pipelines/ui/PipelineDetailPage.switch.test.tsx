@@ -35,6 +35,7 @@ import {
 import { httpClient } from "../../../services/httpClient";
 import type { PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import { installPhoneShell } from "./pipelineDetailPageTestUtils";
+import { stepRows, stubDialogMethods } from "./pipelineMobileTestKit";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -64,20 +65,35 @@ jest.mock("../services/outputService", () => ({
   listOutputs: jest.fn().mockResolvedValue([]),
 }));
 
-// Capture the header's props (the page's real handleAddRoot / handleRemoveRoot) while still
-// rendering the real header, so a test can start a root add/remove on A and let it outlive A's page.
+// Capture the page's real handleAddRoot / handleRemoveRoot (handed to the step actions and the spine by the phone
+// layout, as by the desktop one) while still rendering the real thing, so a test can start a root add/remove on A and
+// let it outlive A's page.
 const mockHeader: {
   props: { onAddRoot: (sourceId: string) => void; onRemoveRoot: (rootId: string) => void } | null;
 } = { props: null };
-jest.mock("./PipelineDetailHeader", () => {
-  const actual = jest.requireActual("./PipelineDetailHeader");
+jest.mock("./spine/useSpineStepActions", () => {
+  const actual = jest.requireActual("./spine/useSpineStepActions");
   return {
-    PipelineDetailHeader: (props: {
-      onAddRoot: (sourceId: string) => void;
-      onRemoveRoot: (rootId: string) => void;
-    }) => {
-      mockHeader.props = props;
-      return actual.PipelineDetailHeader(props);
+    useSpineStepActions: (args: { onAddRoot: (sourceId: string) => void }) => {
+      mockHeader.props = {
+        onRemoveRoot: () => {},
+        ...mockHeader.props,
+        onAddRoot: args.onAddRoot,
+      };
+      return actual.useSpineStepActions(args);
+    },
+  };
+});
+jest.mock("./spine/PipelineSpine", () => {
+  const actual = jest.requireActual("./spine/PipelineSpine");
+  return {
+    PipelineSpine: (props: { onRemoveRoot: (rootId: string) => void }) => {
+      mockHeader.props = {
+        onAddRoot: () => {},
+        ...mockHeader.props,
+        onRemoveRoot: props.onRemoveRoot,
+      };
+      return actual.PipelineSpine(props);
     },
   };
 });
@@ -181,17 +197,13 @@ const getPipelineByIdIdsSince = (since: number) =>
     .mock.calls.slice(since)
     .map((c) => c[0]);
 
-const stepButtons = () => screen.queryAllByRole("button", { name: /limit/i, expanded: false });
+/** The phone Steps tab's step rows (every step in this file is a limit step). */
+const stepButtons = () => stepRows();
 
 let aSteps: PipelineStep[];
 beforeEach(() => {
   aSteps = A_STEPS;
-  HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-    this.setAttribute("open", "");
-  });
-  HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-    this.removeAttribute("open");
-  });
+  stubDialogMethods();
   jest.mocked(fetchRunHistory).mockResolvedValue([]);
   jest.mocked(getPipelineById).mockImplementation((id: string) => Promise.resolve(pipelineOf(id)));
   jest
@@ -221,9 +233,8 @@ async function openAThenSwitchToB() {
   return store;
 }
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -318,7 +329,10 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(screen.queryByText("No steps yet")).toBeNull();
   });
 
-  it("drops a pending debounced step save for A when the page switches to B", async () => {
+  // HEL-1582: the step editor (the sheet's, like the desktop's) FLUSHES a pending debounced edit when it unmounts
+  // instead of dropping it, so leaving A with an edit in flight saves it to A's own step (never lost) and nothing
+  // is ever sent against B. (The river's cards used to drop it; this test pinned that.)
+  it("sends a pending debounced step save for A, to A's own step only, when the page switches to B", async () => {
     renderAt("/pipelines/A");
     await waitFor(() => expect(stepButtons()).toHaveLength(3));
     fireEvent.click(stepButtons()[0]);
@@ -329,7 +343,12 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 700));
     });
-    expect(updatePipelineStep).not.toHaveBeenCalled();
+    expect(updatePipelineStep).toHaveBeenCalledTimes(1);
+    expect(updatePipelineStep).toHaveBeenCalledWith("a1", { count: 77 });
+    await waitFor(() => expect(stepButtons()).toHaveLength(1));
+    expect(
+      jest.mocked(updatePipelineStep).mock.calls.every(([stepId]) => stepId.startsWith("a")),
+    ).toBe(true);
   });
 
   it("does not let a late fetchPipelineById(A) overwrite B's page", async () => {

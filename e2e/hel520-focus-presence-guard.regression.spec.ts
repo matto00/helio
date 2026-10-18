@@ -1,6 +1,3 @@
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
-
 import { expect, test, type CDPSession, type Locator, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 
@@ -39,23 +36,6 @@ test.skip(!process.env.HEL520_REGRESSION, "opt-in only - see e2e/README.md");
 const CSRF_HEADER = "X-Helio-Requested-With";
 
 const AUTH = { prefix: "hel520reg", displayName: "HEL-520 Regression" } as const;
-
-async function writeAndSettle(filePath: string, content: string): Promise<void> {
-  await fs.writeFile(filePath, content, "utf8");
-  // 3000ms, not hel813's 700ms — confirmed live (a real timing bug this
-  // harness itself hit, not a copy of a known-good constant): a mutation
-  // to auth.css was still serving the PRE-mutation computed style at
-  // 700ms and even at 1500ms; only reliably visible by 3000ms. Vite's
-  // dev-server file-watch-to-recompile-to-HMR-push round trip apparently
-  // varies by file/route, so this harness uses a wider, directly-measured
-  // margin rather than assuming hel813's constant transfers unchanged.
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-}
-
-async function reloadAndSettle(page: Page): Promise<void> {
-  await page.reload();
-  await page.waitForLoadState("networkidle");
-}
 
 /** Runs the shared measurement pipeline (real `.focus()` + CDP-forced
  *  `:focus-visible`, exactly as the steady-state guard does) against one
@@ -116,27 +96,12 @@ async function measureLive(
 // `:focus-visible`, no channel differs from rest, reproducing "suppressed
 // with no replacement" exactly.
 
-// HEL-520 regression Case B anchor — the add-source button fix this same
-// cycle just shipped (PipelineDetailHeader.css). Reverting the
-// `outline-offset: -2px` rule reproduces the exact clipped-ring shape the
-// guard caught before that fix, patched into the SAME real, rendering
-// source the fix lives in (not a synthesized fixture).
-const ADD_SOURCE_BTN_CSS = path.resolve(
-  __dirname,
-  "../frontend/src/features/pipelines/ui/PipelineDetailHeader.css",
-);
-const ADD_SOURCE_BTN_FOCUS_RULE = `.pipeline-detail-header__add-source-btn:focus-visible {
-  outline-offset: -2px;
-}`;
-
-function assertAddSourceBtnRuleUnique(original: string): void {
-  const matches = original.split(ADD_SOURCE_BTN_FOCUS_RULE).length - 1;
-  if (matches !== 1) {
-    throw new Error(
-      `regression harness: expected exactly 1 "${ADD_SOURCE_BTN_FOCUS_RULE}" rule in PipelineDetailHeader.css, found ${matches} — source drifted from the expected (HEL-520-fixed) shape`,
-    );
-  }
-}
+// HEL-520 regression Case B anchor -- the pipeline page's "+ Add source" ghost button (desktop spine, HEL-1582
+// replaced the river header's add-source button this case used to patch on disk). Its focus ring is the global
+// +2px outward outline, which a `overflow: hidden` ancestor clips because the button sits flush against its
+// section's left edge. Like Case A, the mutation is an injected `<style>` (no tracked source to revert, no Vite
+// file-watch round trip), driving the same `measureOneElement` path against a real, rendered element.
+const SECTION_CLIP_CSS = `.spine-section { overflow: hidden !important; }`;
 
 test.describe("HEL-520 demonstrated-RED regression harness", () => {
   test("Case A — an indicator suppressed with no replacement goes red, then clean on revert", async ({
@@ -235,102 +200,81 @@ test.describe("HEL-520 demonstrated-RED regression harness", () => {
 
   test("Case B — a clipped ring goes red, then clean on revert", async ({ page, request }) => {
     test.setTimeout(60_000);
-    const original = await fs.readFile(ADD_SOURCE_BTN_CSS, "utf8");
-    let mutated = false;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const client = await page.context().newCDPSession(page);
+    await client.send("DOM.enable");
+    await client.send("CSS.enable");
 
-    try {
-      assertAddSourceBtnRuleUnique(original);
-      const client = await page.context().newCDPSession(page);
-      await client.send("DOM.enable");
-      await client.send("CSS.enable");
+    await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
+    // HEL-1300: seeding below must not race the live post-login `/home`.
+    await isolateLivePage(page);
+    const sourceRes = await page.request.post("/api/data-sources", {
+      data: {
+        name: "HEL-520 Regression Source",
+        type: "static",
+        columns: [{ name: "amount", type: "integer" }],
+        rows: [[10]],
+      },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(sourceRes.status()).toBe(201);
+    const source = await sourceRes.json();
+    const pipelineRes = await page.request.post("/api/pipelines", {
+      data: { name: "HEL-520 Regression Pipeline", roots: [{ sourceId: source.id }] },
+      headers: { [CSRF_HEADER]: "1" },
+    });
+    expect(pipelineRes.status()).toBe(201);
+    const pipeline = await pipelineRes.json();
 
-      await registerAndLogin(page, request, { ...AUTH, label: "caseB" });
-      // HEL-1300: seeding below must not race the live post-login `/home`.
-      await isolateLivePage(page);
-      const sourceRes = await page.request.post("/api/data-sources", {
-        data: {
-          name: "HEL-520 Regression Source",
-          type: "static",
-          columns: [{ name: "amount", type: "integer" }],
-          rows: [[10]],
-        },
-        headers: { [CSRF_HEADER]: "1" },
-      });
-      expect(sourceRes.status()).toBe(201);
-      const source = await sourceRes.json();
-      const pipelineRes = await page.request.post("/api/pipelines", {
-        data: { name: "HEL-520 Regression Pipeline", roots: [{ sourceId: source.id }] },
-        headers: { [CSRF_HEADER]: "1" },
-      });
-      expect(pipelineRes.status()).toBe(201);
-      const pipeline = await pipelineRes.json();
+    await page.goto(`/pipelines/${pipeline.id}`);
+    const btn = page.getByRole("button", { name: "Add source" });
+    await expect(btn).toBeVisible();
 
-      await page.goto(`/pipelines/${pipeline.id}`);
-      await page.waitForTimeout(300);
-      const btn = page.locator(".pipeline-detail-header__add-source-btn");
+    // 1. Baseline PASS -- the current source: nothing clips the ring.
+    const baseline = await measureLive(
+      page,
+      client,
+      btn,
+      `/pipelines/${pipeline.id}`,
+      "add-source-btn",
+    );
+    console.log(
+      `[hel520-regression][Case B][baseline] verdict=${baseline.verdict} detail=${baseline.detail}`,
+    );
+    expect(baseline.verdict).toBe("pass");
 
-      // 1. Baseline PASS — current (HEL-520-fixed) source.
-      const baseline = await measureLive(
-        page,
-        client,
-        btn,
-        `/pipelines/${pipeline.id}`,
-        "add-source-btn",
-      );
-      console.log(
-        `[hel520-regression][Case B][baseline] verdict=${baseline.verdict} detail=${baseline.detail}`,
-      );
-      expect(baseline.verdict).toBe("pass");
+    // 2. Mutate: clip the section the button sits flush against.
+    const styleHandle = await page.addStyleTag({ content: SECTION_CLIP_CSS });
 
-      // 2. Mutate: remove the -2px inward `outline-offset` fix, restoring
-      // the global default (+2px outward) that clips against the 25px-
-      // tall `.pipeline-detail-header__group-value` ancestor.
-      await writeAndSettle(ADD_SOURCE_BTN_CSS, original.replace(ADD_SOURCE_BTN_FOCUS_RULE, ""));
-      mutated = true;
-      await reloadAndSettle(page);
+    // 3. Confirm RED for the STATED reason: "clipped", not merely "not pass".
+    const mutatedResult = await measureLive(
+      page,
+      client,
+      btn,
+      `/pipelines/${pipeline.id}`,
+      "add-source-btn",
+    );
+    console.log(
+      `[hel520-regression][Case B][mutated] verdict=${mutatedResult.verdict} detail=${mutatedResult.detail}`,
+    );
+    expect(
+      mutatedResult.verdict,
+      "measureOneElement must report clipped against an ancestor that clips the ring",
+    ).toBe("clipped");
+    expect(mutatedResult.detail).toMatch(/clipped on [XY] by ancestor box/);
 
-      // 3. Confirm RED for the STATED reason: "clipped", not merely "not
-      // pass" — against the SAME `.pipeline-detail-header__group-value`
-      // ancestor box measured live before the fix (its overflow is
-      // hidden on BOTH axes, and the button sits flush against its right
-      // edge; which axis `readAncestorClipBoxes` reports first, X or Y,
-      // is an iteration-order detail, not the thing under test — the
-      // ancestor box bounds identify it either way).
-      const mutatedResult = await measureLive(
-        page,
-        client,
-        page.locator(".pipeline-detail-header__add-source-btn"),
-        `/pipelines/${pipeline.id}`,
-        "add-source-btn",
-      );
-      console.log(
-        `[hel520-regression][Case B][mutated] verdict=${mutatedResult.verdict} detail=${mutatedResult.detail}`,
-      );
-      expect(
-        mutatedResult.verdict,
-        "measureOneElement must report clipped against the reintroduced +2px-outward-offset shape",
-      ).toBe("clipped");
-      expect(mutatedResult.detail).toMatch(/clipped on [XY] by ancestor box/);
-
-      // 4. Revert and confirm clean.
-      await writeAndSettle(ADD_SOURCE_BTN_CSS, original);
-      mutated = false;
-      await reloadAndSettle(page);
-      const revertedResult = await measureLive(
-        page,
-        client,
-        page.locator(".pipeline-detail-header__add-source-btn"),
-        `/pipelines/${pipeline.id}`,
-        "add-source-btn",
-      );
-      console.log(
-        `[hel520-regression][Case B][reverted] verdict=${revertedResult.verdict} detail=${revertedResult.detail}`,
-      );
-      expect(revertedResult.verdict).toBe("pass");
-    } finally {
-      if (mutated) {
-        await fs.writeFile(ADD_SOURCE_BTN_CSS, original, "utf8");
-      }
-    }
+    // 4. Revert and confirm clean.
+    await styleHandle.evaluate((el: Element) => el.remove());
+    const revertedResult = await measureLive(
+      page,
+      client,
+      btn,
+      `/pipelines/${pipeline.id}`,
+      "add-source-btn",
+    );
+    console.log(
+      `[hel520-regression][Case B][reverted] verdict=${revertedResult.verdict} detail=${revertedResult.detail}`,
+    );
+    expect(revertedResult.verdict).toBe("pass");
   });
 });

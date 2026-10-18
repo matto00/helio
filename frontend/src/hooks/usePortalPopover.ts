@@ -14,6 +14,8 @@ export type PortalPopoverPos = {
   right?: number;
   left?: number;
   width?: number;
+  /** Caps the panel's height to the room on the side it opens toward (HEL-1582). */
+  maxHeight?: number;
 };
 
 /** Minimum gap kept between a portalled panel and the viewport edge. */
