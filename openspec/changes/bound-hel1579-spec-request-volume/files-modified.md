@@ -1,5 +1,0 @@
-- `e2e/support/apiRequestCounter.ts` — new per-user /api request counter (page events plus wrapped page.request.fetch): total, max sliding 60s window, 429s, breakdown
-- `e2e/hel1579-pipeline-spine-layout.spec.ts` — accent audit split into 4 tests (theme x accent), 820/900/1100 and evidence tests split per theme, each a fresh user; permanent zero-429 and window <= 90 guard in afterEach
-- `frontend/src/app/App.tsx` — useRef once-guard on the mount rehydrate effect so StrictMode no longer sends two GET /api/auth/me per load
-- `frontend/src/app/App.test.tsx` — StrictMode test: one auth/me per mount (red on base, green after)
-- `openspec/changes/bound-hel1579-spec-request-volume/measurements.md` — red evidence, classification, 10-run results, guard mutation check
