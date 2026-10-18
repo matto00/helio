@@ -179,6 +179,7 @@ function PipelineDetailPageContent() {
       {/* ── Header: bound source(s) + bound type + schedule ── */}
       <PipelineDetailHeader
         roots={roots}
+        pipelineId={currentPipeline.id}
         sourceByRootId={sourceByRootId}
         onEditSource={handleEditSource}
         onAddRoot={(sourceId) => void handleAddRoot(sourceId)}

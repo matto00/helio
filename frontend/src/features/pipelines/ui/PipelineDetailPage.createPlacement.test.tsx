@@ -44,6 +44,17 @@ import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import { installPhoneShell } from "./pipelineDetailPageTestUtils";
 
+jest.mock("../../sources/services/dataSourceService", () => ({
+  ...jest.requireActual("../../sources/services/dataSourceService"),
+  fetchSourceSample: jest.fn().mockResolvedValue({
+    rows: [],
+    capturedAt: "2026-10-16T12:00:00Z",
+    sourceRowCount: 0,
+    truncated: false,
+    live: false,
+  }),
+}));
+
 jest.mock("../services/pipelineService", () => ({
   fetchPipelines: jest.fn(),
   runPipeline: jest.fn(),
@@ -341,6 +352,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       sourceSchemas: [{ rootId: "root-1", sourceSchema: notesSchema }],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+      callerRole: "owner",
       warnings: [],
     } as PipelineAnalyzeResponse);
     getPipelineStepsMock.mockResolvedValue([A(), B(), C()]);

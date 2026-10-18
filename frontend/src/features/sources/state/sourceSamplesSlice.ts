@@ -40,6 +40,9 @@ export interface FetchSourceSampleArg {
   sourceId: string;
   /** Set only by the refresh control: re-fetch even though an entry exists. */
   force?: boolean;
+  /** HEL-1648: the pipeline page the request is made from, so a source the caller does not own can be sampled
+   *  through a pipeline that uses it. Never remembered per entry: each request names the CURRENT page's pipeline. */
+  pipelineId?: string;
 }
 
 interface FetchFulfilled {
@@ -60,10 +63,10 @@ export const fetchSourceSample = createAsyncThunk<
   { state: SamplesRootState; rejectValue: FetchRejected }
 >(
   "sourceSamples/fetch",
-  async ({ sourceId }, { getState, rejectWithValue }) => {
+  async ({ sourceId, pipelineId }, { getState, rejectWithValue }) => {
     const epoch = getState().sourceSamples.epoch;
     try {
-      return { sourceId, sample: await fetchSourceSampleRequest(sourceId), epoch };
+      return { sourceId, sample: await fetchSourceSampleRequest(sourceId, pipelineId), epoch };
     } catch (err) {
       return rejectWithValue({
         sourceId,

@@ -267,7 +267,11 @@ final case class AnalyzeWarningResponse(stepId: String, code: String, message: S
  *  `costVerdict` (HEL-1092) is always present on this response -- unlike every other optional
  *  field here, it is NOT an `Option`, since deny-by-default means every pipeline has a verdict.
  *  Never populated on `PipelineAnalyzeConciseResponse` or the proposal-mode analyze response
- *  (design.md D6, ticket non-goals). */
+ *  (design.md D6, ticket non-goals).
+ *
+ *  `callerRole` (HEL-1648) is the caller's PERMISSION on this pipeline -- `owner`, `editor` or `viewer` -- and
+ *  nothing else: unlike `costVerdict.canRun` it does not go false when a step is invalid. The client uses it to
+ *  decide whether a shared pipeline's sources may be sampled. Required; full response only. */
 final case class PipelineAnalyzeResponse(
     id:                String,
     name:              String,
@@ -275,7 +279,8 @@ final case class PipelineAnalyzeResponse(
     steps:             Vector[AnalyzeStepResponse],
     sourceSchemaDrift: Option[SourceSchemaDriftResponse] = None,
     costVerdict:       CostVerdictResponse,
-    warnings:          Vector[AnalyzeWarningResponse] = Vector.empty
+    warnings:          Vector[AnalyzeWarningResponse] = Vector.empty,
+    callerRole:        String
 )
 
 /** HEL-914 task 6.4/D6: `GET /pipelines/:id/analyze?concise=true`'s opt-in per-node
@@ -443,7 +448,7 @@ trait PipelineAnalyzeProtocol
   implicit val costVerdictResponseFormat: RootJsonFormat[CostVerdictResponse] = jsonFormat5(CostVerdictResponse.apply)
 
   implicit val analyzeWarningResponseFormat: RootJsonFormat[AnalyzeWarningResponse] = jsonFormat3(AnalyzeWarningResponse.apply)
-  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat7(PipelineAnalyzeResponse.apply)
+  implicit val pipelineAnalyzeResponseFormat: RootJsonFormat[PipelineAnalyzeResponse] = jsonFormat8(PipelineAnalyzeResponse.apply)
 
   implicit val conciseAnalyzeNodeFormat: RootJsonFormat[ConciseAnalyzeNode] = jsonFormat4(ConciseAnalyzeNode.apply)
   implicit val pipelineAnalyzeConciseResponseFormat: RootJsonFormat[PipelineAnalyzeConciseResponse] =

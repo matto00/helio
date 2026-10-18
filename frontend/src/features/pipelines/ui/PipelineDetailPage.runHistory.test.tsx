@@ -48,6 +48,13 @@ jest.mock("../services/outputService", () => ({
 jest.mock("../../sources/services/dataSourceService", () => ({
   ...jest.requireActual("../../sources/services/dataSourceService"),
   fetchSources: jest.fn(),
+  fetchSourceSample: jest.fn().mockResolvedValue({
+    rows: [],
+    capturedAt: "2026-10-16T12:00:00Z",
+    sourceRowCount: 0,
+    truncated: false,
+    live: false,
+  }),
 }));
 
 jest.mock("../services/pipelineService", () => ({
@@ -189,6 +196,7 @@ describe("PipelineDetailPage — on-demand run history (HEL-1354)", () => {
       sourceSchemas: [],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
+      callerRole: "owner",
       warnings: [],
     });
     jest.mocked(runPipeline).mockResolvedValue({

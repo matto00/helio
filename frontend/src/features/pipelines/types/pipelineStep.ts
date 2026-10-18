@@ -664,7 +664,12 @@ export interface PipelineAnalyzeResponse {
   costVerdict: CostVerdict;
   // The backend always sends this (empty when there are none).
   warnings: AnalyzeWarning[];
+  // HEL-1648: the caller's permission on the pipeline and nothing else (unlike `costVerdict.canRun` it does not
+  // go false on an invalid step). Gates sampling of a shared pipeline's sources.
+  callerRole: PipelineCallerRole;
 }
+
+export type PipelineCallerRole = "owner" | "editor" | "viewer";
 
 // HEL-1235: the opt-in `?concise=true` per-node shape; `warnings` (messages only) is omitted on
 // nodes without any. No frontend caller consumes the concise shape today.

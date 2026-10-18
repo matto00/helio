@@ -107,6 +107,8 @@ const analyzeResponse = {
   sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "a", type: "string" }] }],
   steps: [],
   costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+  // A viewer samples nothing, so this characterization of analyze/render counts stays free of sample-capture renders.
+  callerRole: "viewer",
   warnings: [],
 };
 

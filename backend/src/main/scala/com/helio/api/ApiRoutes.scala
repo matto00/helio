@@ -400,7 +400,7 @@ final class ApiRoutes(
   // is invoked internally, no extra wiring needed here.
   private val autoLayoutService = new AutoLayoutService(dashboardRepo, panelRepo, accessChecker, auditService)
   // HEL-1628: owns its own engine; shares the run's URL-fetch seam and host guards but never PipelineRunService.
-  private val sourceSampleService = new SourceSampleService(dataSourceRepo, fileSystem, connector, system, sqlUrlResolveHost, sqlUrlIsBlocked)
+  private val sourceSampleService = new SourceSampleService(dataSourceRepo, fileSystem, connector, system, sqlUrlResolveHost, sqlUrlIsBlocked, pipelineRepo, pipelineStepRepo)
   private val sourceService     = new SourceService(dataSourceRepo, connector, auditService, connectorRepo, sqlUrlResolveHost, sqlUrlIsBlocked)
   // HEL-904 task 4.1: `DataTypeService`/`DataTypeRoutes` deleted outright —
   // DataTypes no longer exist.

@@ -327,8 +327,15 @@ export async function fetchRestPreview(sourceId: string): Promise<RestPreviewRes
 
 /** HEL-1628: the 1,000-row engine-loaded sample. Counts against the source-fetch limiter (30/min per user), so
  *  callers go through the sample store, which captures once and refreshes only on demand. */
-export async function fetchSourceSample(sourceId: string): Promise<SourceSample> {
-  const response = await httpClient.get<SourceSample>(`/api/data-sources/${sourceId}/sample`);
+export async function fetchSourceSample(
+  sourceId: string,
+  pipelineId?: string,
+): Promise<SourceSample> {
+  // HEL-1648: `pipelineId` scopes the request to a pipeline that uses the source (an editor grantee's access).
+  const query = pipelineId ? `?pipelineId=${encodeURIComponent(pipelineId)}` : "";
+  const response = await httpClient.get<SourceSample>(
+    `/api/data-sources/${sourceId}/sample${query}`,
+  );
   const body = response.data as Partial<SourceSample> | undefined;
   // The label and the evaluator both index `rows` and format `capturedAt`; refuse a body that is not a sample
   // (a proxy error page, a stale server) here rather than crash a render later.

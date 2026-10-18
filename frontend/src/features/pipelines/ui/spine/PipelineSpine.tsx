@@ -37,6 +37,8 @@ interface PipelineSpineProps {
   steps: Step[];
   laneGraph: LaneGraph;
   roots: PipelineRoot[];
+  /** The pipeline page the sources are on (HEL-1648: scopes each source's sample). */
+  pipelineId: string;
   sourceByRootId: Record<string, DataSource | undefined>;
   outputs: Output[];
   selectedStepId: string | null;
@@ -69,6 +71,7 @@ export function PipelineSpine({
   steps,
   laneGraph,
   roots,
+  pipelineId,
   sourceByRootId,
   outputs,
   selectedStepId,
@@ -233,6 +236,7 @@ export function PipelineSpine({
           <SpineSourceCard
             key={root.id}
             root={root}
+            pipelineId={pipelineId}
             source={sourceByRootId[root.id]}
             ordinal={multiRoot ? index + 1 : null}
             canRemove={multiRoot}
