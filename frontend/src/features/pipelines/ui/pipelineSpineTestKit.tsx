@@ -274,6 +274,7 @@ export function analyzeFor(
       outputSchema: SCHEMA,
     })) as PipelineAnalyzeResponse["steps"],
     costVerdict: { autoRunnable: true, stepCount: steps.length, reasons: [], canRun: true },
+    callerRole: "owner",
     warnings: [],
     ...overrides,
   };

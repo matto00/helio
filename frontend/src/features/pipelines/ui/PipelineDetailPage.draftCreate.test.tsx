@@ -134,6 +134,7 @@ const analyzeResponse: PipelineAnalyzeResponse = {
     outputSchema: schema,
   })),
   costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+  callerRole: "owner",
   warnings: [],
 };
 

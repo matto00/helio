@@ -8,6 +8,8 @@ import { useCallback, useMemo, useState } from "react";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 
 import { renderWithStore } from "../../../../test/renderWithStore";
+import { ownedSource } from "../../../sources/test/sampleFixtures";
+import * as sampleAccess from "../../../sources/hooks/useSourceSampleAccess";
 import { OP_TYPES } from "../../state/stepNarrowing";
 import { buildLaneGraph } from "../../state/stepTree";
 import type { AnalyzeWarning, PipelineRoot } from "../../types/pipelineStep";
@@ -90,6 +92,7 @@ function Harness({
     <>
       <PipelineSpine
         variant={variant}
+        pipelineId="pipe-1"
         actions={actions}
         steps={steps}
         laneGraph={laneGraph}
@@ -401,5 +404,36 @@ describe("PipelineSpine -- reorder in every root's trunk lane (HEL-1007)", () =>
       });
       expect(document.activeElement).toBe(elsewhere);
     });
+  });
+});
+
+// ---- HEL-1648: pipeline-scoped sample labels on the phone variant -----------------------------------------------
+
+afterEach(() => jest.restoreAllMocks());
+
+describe("PipelineSpine (phone) -- source sample labels are scoped to the pipeline (HEL-1648)", () => {
+  const sources = {
+    items: [ownedSource("src-1")],
+    status: "succeeded" as const,
+    error: null,
+    errorKind: null,
+    selectedSourceId: null,
+    addModalOpen: false,
+    references: {},
+    referencesStatus: "idle" as const,
+  };
+
+  it("an owned source can be refreshed; a shared one waits for analyze's role, with no refresh control", () => {
+    renderWithStore(<Harness initialSteps={[]} variant="phone" />, { sources } as never);
+    expect(screen.getByRole("button", { name: "Refresh sample of Orders" })).toBeInTheDocument();
+    expect(screen.getByText("Loading sample…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh sample of Shipments" })).toBeNull();
+  });
+
+  it("an editor on the pipeline may refresh a source they do not own", () => {
+    // The role comes from analyze (not modelled by the test store): an editor's access is "yes" for any source.
+    jest.spyOn(sampleAccess, "useSourceSampleAccess").mockReturnValue("yes");
+    renderWithStore(<Harness initialSteps={[]} variant="phone" />, { sources } as never);
+    expect(screen.getByRole("button", { name: "Refresh sample of Shipments" })).toBeInTheDocument();
   });
 });

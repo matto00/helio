@@ -23,6 +23,7 @@ import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
 import { usePipelineRunStream } from "./usePipelineRunStream";
 import { usePipelineSourceScheduleActions } from "./usePipelineSourceScheduleActions";
 import { useToast } from "../../toasts/hooks/useToast";
+import { canSampleShared } from "../../sources/hooks/useSourceSampleAccess";
 import { useSourceSamples } from "../../sources/hooks/useSourceSamples";
 import type { PipelineRoot } from "../types/pipelineStep";
 
@@ -183,7 +184,14 @@ export function usePipelineDetailPage() {
   // HEL-1628: one sample capture per root source when the page opens with nothing cached (both layouts); the
   // label's refresh button is the only other fetch. Never from a step editor, so edits do not re-fetch.
   const rootSourceIds = useMemo(() => roots.map((r) => r.dataSourceId), [roots]);
-  useSourceSamples(rootSourceIds);
+  // HEL-1648: a non-owned (shared) source is sampled through this pipeline once analyze says the caller is its
+  // owner or an editor; `callerRole` is permission-only, so an invalid step does not withdraw it.
+  useSourceSamples(
+    rootSourceIds,
+    id
+      ? { pipelineId: id, canSampleShared: canSampleShared(analyzeResult?.callerRole) }
+      : undefined,
+  );
   const { clearDeferWatchdog, forceDeferredAnalyze } = usePipelineAnalyzeDeferWatchdog({
     id,
     dispatch,

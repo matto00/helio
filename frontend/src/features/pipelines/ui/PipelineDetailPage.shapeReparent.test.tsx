@@ -267,6 +267,7 @@ describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)"
       sourceSchemas: [{ rootId: "root-1", sourceSchema: [{ name: "notes", type: "string" }] }],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 1, reasons: [], canRun: true },
+      callerRole: "owner",
       warnings: [],
     } as PipelineAnalyzeResponse);
     jest.mocked(getPipelineSteps).mockResolvedValue([A(), B(), L()]);

@@ -141,6 +141,7 @@ describe("handleReorderSteps CR2 guard (DEFENSE-IN-DEPTH branch, no live path)",
       sourceSchemas: [],
       steps: [],
       costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
+      callerRole: "owner",
       warnings: [],
     });
     jest

@@ -137,6 +137,7 @@ function analyzeOf(id: string, steps: PipelineStep[]) {
     sourceSchemas: [{ rootId: `root-${id}`, sourceSchema: [] }],
     steps: steps.map((s) => ({ stepId: s.id, inputSchema: [], outputSchema: [] })),
     costVerdict: { autoRunnable: true, stepCount: steps.length, reasons: [], canRun: true },
+    callerRole: "owner",
     warnings: [],
   };
 }

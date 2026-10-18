@@ -180,6 +180,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 steps={steps}
                 laneGraph={laneGraph}
                 roots={roots}
+                pipelineId={pipelineId}
                 sourceByRootId={page.sourceByRootId}
                 outputs={page.allOutputs}
                 selectedStepId={selectedStepId}

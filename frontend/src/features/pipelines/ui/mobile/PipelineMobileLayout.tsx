@@ -142,6 +142,7 @@ export function PipelineMobileLayout({ page }: { page: PipelinePageState }) {
                 steps={steps}
                 laneGraph={laneGraph}
                 roots={roots}
+                pipelineId={page.id ?? ""}
                 sourceByRootId={page.sourceByRootId}
                 outputs={page.allOutputs}
                 selectedStepId={open?.step.id ?? null}

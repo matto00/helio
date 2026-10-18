@@ -3,6 +3,7 @@
 // shell. The shared sheet primitive has its own tests (`shared/motion/BottomSheet.test.tsx`).
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 
+import * as sampleAccess from "../../../sources/hooks/useSourceSampleAccess";
 import { renderWithStore } from "../../../../test/renderWithStore";
 import { httpClient } from "../../../../services/httpClient";
 import {
@@ -216,6 +217,14 @@ describe("phone Steps tab", () => {
     expect(menu.closest(".spine-card__name-btn")).toBeNull();
     fireEvent.click(menu);
     expect(screen.getByRole("menuitem", { name: /Remove source Sales CSV/ })).toBeDisabled();
+  });
+
+  it("scopes the source card's sample label to the pipeline, so an editor of a shared pipeline can sample (HEL-1648)", async () => {
+    const access = jest.spyOn(sampleAccess, "useSourceSampleAccess");
+    await renderSpinePageSettled();
+    await screen.findByRole("button", { name: "Edit source Sales CSV" });
+    expect(access).toHaveBeenCalledWith("pipe-1", expect.any(String));
+    access.mockRestore();
   });
 
   it("keeps HEL-1628's sample label and its refresh control on the source card", async () => {

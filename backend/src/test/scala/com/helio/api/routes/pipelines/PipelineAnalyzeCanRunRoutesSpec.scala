@@ -47,6 +47,7 @@ class PipelineAnalyzeCanRunRoutesSpec
   private var db: JdbcBackend.Database                 = _
   private var pipelineStepRepo: PipelineStepRepository = _
   private var routes: Route                            = _
+  private var routesFor: AuthenticatedUser => Route    = _
 
   private val owner = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 
@@ -62,7 +63,9 @@ class PipelineAnalyzeCanRunRoutesSpec
     val pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(routeEc)
     pipelineStepRepo   = new PipelineStepRepository(ctx)(routeEc)
     implicit val ec: ExecutionContext = routeEc
-    routes = new PipelineRoutes(new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx)), owner).routes
+    val service = new PipelineService(pipelineRepo, pipelineStepRepo, dataSourceRepo, outputRepo = new OutputRepository(ctx))
+    routesFor = u => new PipelineRoutes(service, u).routes
+    routes = routesFor(owner)
   }
 
   override def afterAll(): Unit = {
@@ -142,6 +145,51 @@ class PipelineAnalyzeCanRunRoutesSpec
           verdict.canRun shouldBe true
         }
       }
+    }
+  }
+
+  "GET /pipelines/:id/analyze callerRole (HEL-1648)" should {
+    import PostgresProfile.api._
+
+    val editor = AuthenticatedUser(UserId("00000000-0000-0000-0000-0000000000e1"))
+    val viewer = AuthenticatedUser(UserId("00000000-0000-0000-0000-0000000000e2"))
+
+    def grant(pid: String, user: AuthenticatedUser, role: String): Unit =
+      await(db.run(DBIO.seq(
+        sqlu"INSERT INTO users (id, email, created_at) VALUES (${user.id.value}::uuid, ${s"${user.id.value}@helio.test"}, now()) ON CONFLICT (id) DO NOTHING",
+        sqlu"INSERT INTO resource_permissions (resource_type, resource_id, grantee_id, role) VALUES ('pipeline', $pid, ${user.id.value}::uuid, $role)"
+      )))
+
+    def roleAndCanRun(user: AuthenticatedUser, pid: String): (String, Boolean) = {
+      var out: (String, Boolean) = null
+      Get(s"/pipelines/$pid/analyze") ~> routesFor(user) ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[String]
+        JsonSchemaValidation.validationErrors(
+          JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json"), body
+        ) shouldBe empty
+        val j = body.parseJson.asJsObject
+        out = (j.fields("callerRole").convertTo[String], j.fields("costVerdict").asJsObject.fields("canRun").convertTo[Boolean])
+      }
+      out
+    }
+
+    "be owner, editor or viewer from permission alone, and stay editor (while canRun is false) when a step is invalid" in {
+      val clean = seedDatasetPipeline()
+      addStep(clean, "sum", enabled = true)
+      grant(clean, editor, "editor")
+      grant(clean, viewer, "viewer")
+      roleAndCanRun(owner, clean) shouldBe (("owner", true))
+      roleAndCanRun(editor, clean) shouldBe (("editor", true))
+      roleAndCanRun(viewer, clean) shouldBe (("viewer", false))
+
+      val broken = seedDatasetPipeline()
+      addStep(broken, "bogus_fn", enabled = true)
+      grant(broken, editor, "editor")
+      grant(broken, viewer, "viewer")
+      roleAndCanRun(owner, broken) shouldBe (("owner", false))
+      roleAndCanRun(editor, broken) shouldBe (("editor", false))
+      roleAndCanRun(viewer, broken) shouldBe (("viewer", false))
     }
   }
 }
