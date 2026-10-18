@@ -71,7 +71,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
     expect(option.tooltip.trigger).toBeUndefined();
   });
 
-  it("adds accent-strong-colored emphasis to every rendered series", () => {
+  it("adds accent-emphasis-colored emphasis to every rendered series", () => {
     renderChart(<ChartPanel {...barMultiSeries} />);
     const option = getOption(screen.getByTestId("echarts")) as {
       series: Array<{ emphasis?: { focus?: string; itemStyle?: { borderColor?: string } } }>;
@@ -80,7 +80,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
     for (const s of option.series) {
       expect(s.emphasis).toMatchObject({
         focus: "series",
-        itemStyle: { borderColor: theme.accentStrong },
+        itemStyle: { borderColor: theme.accentEmphasis },
       });
     }
   });
@@ -100,8 +100,8 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
   // JS-visible signal `ThemeProvider` actually mutates
   // (`document.documentElement`'s `data-theme` attribute for theme;
   // `applyAccentTokens`'s real inline `--app-accent` custom property for
-  // accent — `--app-accent-strong` itself is CSS `color-mix`-derived and
-  // unreadable in jsdom, which never loads theme.css, so the mock stands in
+  // accent — `--app-focus-ring-color` is applied inline but
+  // the cascade is a browser concern; jsdom never loads theme.css, so the mock stands in
   // for the browser's own cascade) — this is a faithful "does the real
   // wiring converge to the right VALUE" test, not merely a call-count spy
   // (a call-count-only assertion passes even when the returned value is
@@ -120,7 +120,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
           fontMono: "mono",
           shadowSoft: isDark ? "DARK_SHADOW" : "LIGHT_SHADOW",
           radiusMd: "9px",
-          accentStrong: `ACCENT_STRONG(${accent})`,
+          accentEmphasis: `ACCENT_EMPHASIS(${accent})`,
           accent: `ACCENT(${accent})`,
           textMuted: "MUTED",
           success: "#4cc38a",
@@ -189,7 +189,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
       const before = getOption(echartsNode) as {
         series: Array<{ emphasis?: { itemStyle?: { borderColor?: string } } }>;
       };
-      expect(before.series[0].emphasis?.itemStyle?.borderColor).toBe("ACCENT_STRONG(#f97316)");
+      expect(before.series[0].emphasis?.itemStyle?.borderColor).toBe("ACCENT_EMPHASIS(#f97316)");
 
       await act(async () => {
         screen.getByText("change accent").click();
@@ -199,7 +199,7 @@ describe("ChartPanel — tooltip and hover emphasis (HEL-566)", () => {
       const after = getOption(screen.getByTestId("echarts")) as {
         series: Array<{ emphasis?: { itemStyle?: { borderColor?: string } } }>;
       };
-      expect(after.series[0].emphasis?.itemStyle?.borderColor).toBe("ACCENT_STRONG(#123456)");
+      expect(after.series[0].emphasis?.itemStyle?.borderColor).toBe("ACCENT_EMPHASIS(#123456)");
       expect(screen.getByTestId("echarts")).toBe(echartsNode);
 
       resolveSpy.mockRestore();

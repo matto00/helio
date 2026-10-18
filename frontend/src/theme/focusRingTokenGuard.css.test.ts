@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { deriveFocusRingColor } from "./appearance";
+import { buildAccentTokens, deriveFocusRingColor } from "./appearance";
 import { ACCENT_PRESETS, DefaultAccentColorByTheme } from "./theme";
 
 // Focus-ring contrast guard for HEL-1046 (design.md D1/D4).
@@ -340,8 +340,8 @@ describe("focus-ring token adoption guard (HEL-1046 CR2)", () => {
 // indicator declaration in a genuine focus rule references the bare, raw
 // `var(--app-accent)` (part 2). It also proves `--app-accent-strong` is not
 // a conforming focus colour for at least one accent preset (Yellow), by
-// PARSING its mix percentage/base colour out of theme.css rather than
-// trusting a hardcoded ratio (D5a).
+// evaluating buildAccentTokens' rendered --app-accent-strong rather than
+// trusting a hardcoded ratio (D5a; retargeted from the theme.css fallback by HEL-1669).
 //
 // CANNOT PROVE:
 // 1. That a colour composed at RUNTIME (inline style, JS-computed) is
@@ -350,11 +350,8 @@ describe("focus-ring token adoption guard (HEL-1046 CR2)", () => {
 //    caught — it matches token references by name
 //    (`var(--app-focus-ring-color)` / `var(--app-focus-ring)`), so renaming
 //    a token without updating this guard defeats it.
-// 3. Arbitrary runtime composition. It CAN evaluate one specific, simple
-//    two-colour sRGB mix that it has PARSED directly from theme.css's
-//    `--app-accent-strong` declaration (D5a) — that is not the same claim as
-//    "cannot evaluate `color-mix`" (round 1's wording, which this guard's
-//    4.3 check would make false).
+// 3. Arbitrary runtime composition. It evaluates exactly the hex
+//    `buildAccentTokens` writes for `--app-accent-strong` (D5a, HEL-1669).
 // ===========================================================================
 
 const INDICATOR_PROPERTIES = new Set([
@@ -836,63 +833,22 @@ describe("border/box-shadow focus-indicator guard (HEL-1050)", () => {
   });
 });
 
-describe("--app-accent-strong is not a conforming focus colour (HEL-1050 D5a)", () => {
-  /** Parses `--app-accent-strong: color-mix(in srgb, var(--app-accent) N%,
-   * (white|black));` out of a theme block's raw text — the mix percentage
-   * and base colour are read from theme.css itself, not hardcoded, so this
-   * assertion tracks a future change to the mix rather than silently
-   * drifting (D5a). */
-  function parseAccentStrongMix(blockText: string): { percent: number; base: "white" | "black" } {
-    const re =
-      /--app-accent-strong\s*:\s*color-mix\(in srgb,\s*var\(--app-accent\)\s*(\d+)%\s*,\s*(white|black)\)/;
-    const m = re.exec(blockText);
-    if (m === null) {
-      throw new Error("could not parse --app-accent-strong color-mix declaration from theme.css");
-    }
-    return { percent: Number.parseInt(m[1], 10), base: m[2] as "white" | "black" };
-  }
-
-  function mixWith(
-    accent: { r: number; g: number; b: number },
-    percent: number,
-    base: "white" | "black",
-  ) {
-    const baseRgb = base === "white" ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 };
-    const p = percent / 100;
-    return {
-      r: accent.r * p + baseRgb.r * (1 - p),
-      g: accent.g * p + baseRgb.g * (1 - p),
-      b: accent.b * p + baseRgb.b * (1 - p),
-    };
-  }
-
-  it("re-parses both theme blocks' --app-accent-strong mix (sanity: not vacuous)", () => {
+describe("--app-accent-strong is not a conforming focus colour (HEL-1050 D5a, HEL-1669)", () => {
+  // HEL-1669: --app-accent-strong is runtime-written by buildAccentTokens (ink-aware), so the value
+  // that actually renders is that function's output -- not theme.css's static pre-effect fallback.
+  it("at least one accent preset fails 3:1 for the rendered --app-accent-strong in at least one theme, and Yellow is among the failures", () => {
     const raw = fs.readFileSync(THEME_CSS_PATH, "utf-8");
     const css = stripComments(raw);
-    const dark = parseAccentStrongMix(extractThemeBlock(css, "dark"));
-    const light = parseAccentStrongMix(extractThemeBlock(css, "light"));
-    expect(dark.percent).toBeGreaterThan(0);
-    expect(light.percent).toBeGreaterThan(0);
-  });
-
-  it("at least one accent preset fails 3:1 for --app-accent-strong in at least one theme, and Yellow is among the failures", () => {
-    const raw = fs.readFileSync(THEME_CSS_PATH, "utf-8");
-    const css = stripComments(raw);
-    const darkMix = parseAccentStrongMix(extractThemeBlock(css, "dark"));
-    const lightMix = parseAccentStrongMix(extractThemeBlock(css, "light"));
     const darkSurfaces = extractLiteralSurfaces(extractThemeBlock(css, "dark"));
     const lightSurfaces = extractLiteralSurfaces(extractThemeBlock(css, "light"));
 
     const failingPresets: string[] = [];
     for (const { label, hex } of ACCENT_PRESETS) {
-      const rgb = hexToRgb(hex);
-
-      const darkStrong = mixWith(rgb, darkMix.percent, darkMix.base);
-      const darkHex = toHex(darkStrong);
+      const darkHex = buildAccentTokens(hex, "dark")["--app-accent-strong"];
+      const lightHex = buildAccentTokens(hex, "light")["--app-accent-strong"];
+      expect(darkHex).toMatch(/^#[0-9a-f]{6}$/);
+      expect(lightHex).toMatch(/^#[0-9a-f]{6}$/);
       const darkMin = Math.min(...darkSurfaces.map((s) => contrastRatio(darkHex, s)));
-
-      const lightStrong = mixWith(rgb, lightMix.percent, lightMix.base);
-      const lightHex = toHex(lightStrong);
       const lightMin = Math.min(...lightSurfaces.map((s) => contrastRatio(lightHex, s)));
 
       if (darkMin < FOCUS_RING_TARGET || lightMin < FOCUS_RING_TARGET) {
@@ -900,15 +856,8 @@ describe("--app-accent-strong is not a conforming focus colour (HEL-1050 D5a)", 
       }
     }
 
-    // Not vacuous: assert at least one preset actually fails, so this
-    // cannot pass merely because the parse returned nothing meaningful.
+    // Not vacuous: assert at least one preset actually fails.
     expect(failingPresets.length).toBeGreaterThan(0);
     expect(failingPresets).toContain("Yellow");
   });
-
-  function toHex(c: { r: number; g: number; b: number }): string {
-    const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
-    const h = (n: number) => clamp(n).toString(16).padStart(2, "0");
-    return `#${h(c.r)}${h(c.g)}${h(c.b)}`;
-  }
 });

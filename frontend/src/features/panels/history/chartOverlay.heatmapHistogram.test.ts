@@ -12,7 +12,7 @@ const themeTokens = {
   fontMono: "mono",
   shadowSoft: "none",
   radiusMd: "8px",
-  accentStrong: "#ea580c",
+  accentEmphasis: "#ea580c",
   accent: "#ea580c",
   textMuted: "#778899",
   success: "#4cc38a",

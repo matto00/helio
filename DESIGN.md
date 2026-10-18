@@ -128,7 +128,7 @@ hardcode a value a token exists for.** **[mechanical]**
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Text              | `--app-text`, `--app-text-muted`                                                                                                                                                                                                                               |
 | Canvas / surfaces | `--app-bg` (canvas) → `--app-surface-soft` (recessed wells/inputs; **also the default interactive-state background — see the HEL-866 note below**) → `--app-surface` (cards/chrome) → `--app-surface-raised` → `--app-surface-strong` (modals/popovers/toasts) |
-| Accent (user-set) | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders)                                                                                      |
+| Accent (user-set) | `--app-accent`, `--app-accent-ink`, `--app-accent-strong` (hover; ink-aware, runtime-written: mixed away from the ink so ink-on-hover stays >= 4.5:1), `--app-accent-surface` / `--app-accent-dim` (selection washes), `--app-accent-mid` (selection borders)  |
 | Border            | `--app-border-subtle` (default hairline), `--app-border-strong` (hover/emphasis) — **neutral, never accent-tinted**                                                                                                                                            |
 | Intent            | `--app-success`, `--app-warning`, `--app-error` (+ `--app-*-surface` washes), `--app-info` (→ accent). `--app-danger` aliases error.                                                                                                                           |
 | Overlay / texture | `--app-overlay` (modal backdrop), `--canvas-dot` (neutral dot field)                                                                                                                                                                                           |
@@ -486,7 +486,7 @@ Until a shared `Button` component exists, every button follows one of these
 recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 
 - **Primary** — solid `--app-accent`, text `--app-accent-ink`, hover
-  `--app-accent-strong`, no border. One primary per view/section.
+  `--app-accent-strong` (ink-aware: lighter than the accent under the dark ink, darker under the light ink; HEL-1669), no border. One primary per view/section.
 - **Secondary** — transparent bg, `--app-border-subtle` hairline, muted text;
   hover: `--app-border-strong` + `--app-surface-soft` + full text (HEL-866 —
   see §3's ramp note; `--app-surface-raised` collides with modal/top-surface
@@ -919,14 +919,14 @@ var(--app-focus-ring); outline-offset: 2px`. `outline-offset` still varies
     affordance is a halo (`DashboardList.css`'s always-bordered rename
     input, where focus previously added nothing but the halo) must gain a
     conforming border, not a thicker halo.
-  - **`--app-accent-strong` (`color-mix(in srgb, var(--app-accent) 76-78%,
-black|white)`) is not a conforming focus colour** — Yellow measures
+  - **`--app-accent-strong` (the accent mixed 22-24% away from the ink, written
+    at runtime by `buildAccentTokens`) is not a conforming focus colour** — Yellow measures
     2.78:1 in light, below the floor, even though seven of the eight
     presets pass. `PanelGrid.css`'s title input (`border-bottom-color`)
     repoints to `--app-focus-ring-color` instead. `focusRingTokenGuard.css.test.ts`
-    asserts this per-preset by parsing the mix percentage/base colour out
-    of `theme.css` itself (never a hardcoded `2.78`), so a future edit to
-    the mix ratio re-checks itself rather than going stale. **This
+    asserts this per-preset against `buildAccentTokens(...)["--app-accent-strong"]`
+    (the value that actually renders; never a hardcoded `2.78`), so a future
+    edit to the mix ratio re-checks itself rather than going stale. **This
     indicator's binding surface is the user-chosen panel background, not a
     theme surface** — no single derived colour can guarantee 3:1 there; the
     repoint is a strict improvement (fixes the Yellow failure, conforms
