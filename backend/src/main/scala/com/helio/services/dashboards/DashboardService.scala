@@ -66,6 +66,15 @@ final class DashboardService(
   def findAll(user: AuthenticatedUser, page: Page): Future[PagedResult[Dashboard]] =
     dashboardRepo.findAll(user.id, page)
 
+  /** The list route's page of dashboards plus their `hasPipelineFedPanels` flag (HEL-1646), computed in one
+   *  extra query for the page. Separate from `findAll` so its other callers pay nothing. */
+  def findAllWithPipelineFedFlag(user: AuthenticatedUser, page: Page): Future[PagedResult[(Dashboard, Boolean)]] =
+    findAll(user, page).flatMap { result =>
+      dashboardRepo.pipelineFedDashboardIds(user.id, result.items.map(_.id)).map { fed =>
+        result.copy(items = result.items.map(d => (d, fed.contains(d.id))))
+      }
+    }
+
   /** Owner-scoped single-resource read (HEL-661 design.md D3), added in the same shape as the
    *  (since-retired, HEL-904) `DataTypeService.findById` over `DashboardRepository.findByIdOwned`
    *  — deliberately NOT the sharing-aware

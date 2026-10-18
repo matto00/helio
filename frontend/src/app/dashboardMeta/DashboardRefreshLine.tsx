@@ -1,5 +1,6 @@
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import { feedingOutputIds } from "../../features/panels/state/dashboardMeta";
+import { panelsKnownFor } from "../../features/panels/state/panelsSettled";
 import type { Panel } from "../../features/panels/types/panel";
 import { useAppSelector } from "../../hooks/reduxHooks";
 import { useNow } from "../../hooks/useNow";
@@ -16,26 +17,38 @@ const RELATIVE_TIME_TICK_MS = 60_000;
  *  so the public viewer never mounts this.
  *
  *  Layout stability: the facts arrive after the panels (Output and pipeline fetches), and a line appearing late would
- *  push every card down by its own height. So when the dashboard has pipeline-fed panels (`feedingOutputIds`, known
- *  synchronously from the panels) the slot is reserved from the first paint: an empty `aria-hidden` paragraph with no
+ *  push every card down by its own height. So when the dashboard has pipeline-fed panels the slot is reserved from the
+ *  first paint. Once the panels are known for the dashboard they decide (`feedingOutputIds`); before that (the skeleton,
+ *  a restore, the pre-dispatch frame) the dashboard list's `hasPipelineFedPanels` decides, so the placeholders sit
+ *  where the real cards will land (HEL-1646). The slot is: an empty `aria-hidden` paragraph with no
  *  placeholder text, whose fixed height (see `DashboardMetaRow.css`) equals the filled line's, so the text fills it with
  *  no shift. If the refresh state then resolves to `unknown` the EMPTY RESERVED SLOT STAYS: collapsing it would be a
  *  second 27px shift after the user has started reading, a worse outcome than a quiet gap. A dashboard with no
  *  pipeline-fed panels never has a slot. */
 export function DashboardRefreshLine() {
   const selectedDashboardId = useAppSelector((state) => state.dashboards.selectedDashboardId);
+  // Only panels KNOWN for the selected dashboard count (HEL-1646): `fetchPanels.pending` marks the dashboard loaded
+  // while `items` is still `[]` or the previous dashboard's panels, so reading `items` then is wrong both ways.
   const panels = useAppSelector((state) =>
-    state.panels.loadedDashboardId === state.dashboards.selectedDashboardId &&
-    state.dashboards.selectedDashboardId !== null
+    panelsKnownFor(state.panels, state.dashboards.selectedDashboardId)
       ? state.panels.items
       : NO_PANELS,
+  );
+  const panelsKnown = useAppSelector((state) =>
+    panelsKnownFor(state.panels, state.dashboards.selectedDashboardId),
+  );
+  const listedPipelineFed = useAppSelector(
+    (state) =>
+      state.dashboards.items.find((d) => d.id === state.dashboards.selectedDashboardId)
+        ?.hasPipelineFedPanels === true,
   );
   const meta = useDashboardMeta(selectedDashboardId, panels);
   const now = useNow(RELATIVE_TIME_TICK_MS);
   const fact = refreshFactOf(meta, now);
   if (selectedDashboardId === null) return null;
   if (fact === null) {
-    return feedingOutputIds(panels).length > 0 ? (
+    const pipelineFed = panelsKnown ? feedingOutputIds(panels).length > 0 : listedPipelineFed;
+    return pipelineFed ? (
       <p className="dashboard-refresh-line" aria-hidden="true" data-reserved="true" />
     ) : null;
   }

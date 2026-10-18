@@ -38,6 +38,11 @@ export interface Dashboard {
    *  `expectedLayoutVersion` (see `useLayoutSave`); optional in the type only for hand-built fixtures, and an
    *  absent value (an older server) means the save carries no precondition. */
   layoutVersion?: number;
+  /** HEL-1646: true when the dashboard has at least one output panel bound to an Output. Emitted by the list
+   *  route only (other responses omit it), kept across those replacements by `withKnownFlag` and refreshed from
+   *  settled panels (`dashboardPipelineFedObserved`). The phone skeleton reads it to reserve the refreshed-line slot
+   *  before the panels load; `undefined` means unknown (no slot). */
+  hasPipelineFedPanels?: boolean;
 }
 
 export interface DuplicateDashboardResponse {

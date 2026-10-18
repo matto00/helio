@@ -35,7 +35,13 @@ export interface DashboardMeta {
 export function feedingOutputIds(panels: readonly Panel[]): string[] {
   const ids = new Set<string>();
   for (const panel of panels) {
-    if (panel.type === "output" && panel.config.outputId !== "") ids.add(panel.config.outputId);
+    // Optional chaining: since HEL-1646 this runs on every `PanelList` render (the pipeline-fed flag sync), so a
+    // panel without a `config` must read as unbound rather than crash the page.
+    const outputId =
+      panel.type === "output"
+        ? (panel.config as { outputId?: string } | undefined)?.outputId
+        : undefined;
+    if (outputId) ids.add(outputId);
   }
   return [...ids];
 }
