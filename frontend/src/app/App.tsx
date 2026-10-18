@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import "./App.css";
@@ -398,8 +398,17 @@ export function App() {
   // visitor, so not an existence/state oracle) but unnecessary; a signed-in user who navigates
   // there directly still has `authStatus` already resolved from elsewhere in the app, so this
   // never leaves a genuinely authenticated session unresolved.
+  // HEL-1620: that status gate does NOT stop StrictMode's double-invoke -- both runs close over the same
+  // "idle" `authStatus` -- so every dev-build page load sent two identical GET /api/auth/me. A ref survives
+  // the simulated remount (the pattern OAuthCallbackPage's `calledRef` uses), so it dedupes only that.
+  const rehydrateDispatchedRef = useRef(false);
   useEffect(() => {
-    if (authStatus === "idle" && !PUBLIC_DASHBOARD_VIEWER_PATH.test(location.pathname)) {
+    if (
+      authStatus === "idle" &&
+      !rehydrateDispatchedRef.current &&
+      !PUBLIC_DASHBOARD_VIEWER_PATH.test(location.pathname)
+    ) {
+      rehydrateDispatchedRef.current = true;
       void dispatch(rehydrateAuth());
     }
   }, [dispatch, authStatus, location.pathname]);

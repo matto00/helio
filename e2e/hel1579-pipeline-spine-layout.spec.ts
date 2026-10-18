@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { auditAccent } from "./support/accentAudit";
+import {
+  attachApiRequestCounter,
+  MAX_WINDOW_TARGET,
+  type ApiRequestCounter,
+} from "./support/apiRequestCounter";
 import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 
@@ -117,6 +122,34 @@ async function seedPipeline(page: Page, withBranch = false, manyKinds = false): 
 test.describe("HEL-1579 pipeline detail step spine (live)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
+  // HEL-1620: the backend limits one session user to 120 /api requests per 60 s (RATE_LIMIT_REQUESTS_PER_WINDOW,
+  // not raised and not waived for test users). Every test here is one user, so each is held to a worst
+  // 60 s window of MAX_WINDOW_TARGET (a quarter of the limit as headroom) and zero 429s. A test that needs
+  // more splits into several (one fresh user each) rather than reloading one user harder.
+  let counter: ApiRequestCounter;
+  test.beforeEach(({ page }) => {
+    counter = attachApiRequestCounter(page);
+  });
+  // Playwright requires a destructured first argument (a bare `_` is rejected) and ESLint rejects `{}`, so a
+  // fixture is named here only to satisfy both; it is unused.
+  test.afterEach(async ({ page: _page }, info) => {
+    const r = counter.report();
+    console.log(`[HEL-1620 e2e] ${info.title}: ${counter.describe()}`);
+    const out = process.env.HEL1620_OUT;
+    if (out) {
+      const fs = await import("fs");
+      fs.appendFileSync(
+        out,
+        JSON.stringify({ title: info.title, status: info.status, ...r }) + "\n",
+      );
+    }
+    expect(r.count429, `rate-limited (429) responses: ${counter.describe()}`).toBe(0);
+    expect(
+      r.maxWindow,
+      `worst 60s /api window exceeds ${MAX_WINDOW_TARGET}: ${counter.describe()}`,
+    ).toBeLessThanOrEqual(MAX_WINDOW_TARGET);
+  });
+
   test("1280x800: spine, editor and at least 8 preview rows fit without page scroll", async ({
     page,
     request,
@@ -171,15 +204,17 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     await page.screenshot({ path: evidencePath("HEL-1579", "spine-1440x900-dark.png") });
   });
 
-  test("accent audit: only Run, the selected step and focus use the accent (every kind, both themes, two presets)", async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(240_000);
-    await registerAndLogin(page, request, { ...AUTH, label: "accent" });
-    const { pipelineId } = await seedPipeline(page, true, true);
-    for (const theme of ["dark", "light"] as const) {
-      for (const accent of ["#ec4899", "#3b82f6"]) {
+  // One test (one fresh user, one seed, one page load) per theme/accent pair: all four in one test drove a
+  // single user past the per-user rate limit (HEL-1620). Each still audits every spine row and the tab focus.
+  for (const theme of ["dark", "light"] as const) {
+    for (const accent of ["#ec4899", "#3b82f6"]) {
+      test(`accent audit [${theme} ${accent}]: only Run, the selected step and focus use the accent (every kind)`, async ({
+        page,
+        request,
+      }) => {
+        test.setTimeout(120_000);
+        await registerAndLogin(page, request, { ...AUTH, label: `accent-${theme}` });
+        const { pipelineId } = await seedPipeline(page, true, true);
         await page.evaluate(
           ([t, a]) => {
             window.localStorage.setItem("helio-theme", t);
@@ -207,25 +242,26 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
         for (const h of await auditAccent(page, accent))
           leaks.push(`[${theme} ${accent}] (tab focus): ${h.selector} ${h.property} ${h.value}`);
         expect(leaks, leaks.join("\n")).toEqual([]);
-      }
+      });
     }
-  });
+  }
 
-  test("820/900/1100px: the header keeps one row and the page does not scroll (screenshots, both themes)", async ({
-    page,
-    request,
-  }) => {
-    // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
-    test.setTimeout(120_000);
-    await registerAndLogin(page, request, { ...AUTH, label: "narrow" });
-    const { pipelineId } = await seedPipeline(page);
-    // A PAUSED schedule: its state must stay visible at every width (never dropped from the header).
-    const put = await page.request.put(`/api/pipelines/${pipelineId}/schedule`, {
-      data: { kind: "interval", expression: "15m", timezone: "UTC", enabled: false },
-      headers: CSRF,
-    });
-    expect(put.status()).toBeLessThan(300);
-    for (const theme of ["dark", "light"] as const)
+  // One test (one fresh user) per theme: both themes on one user took 8 loads and exceeded the per-user budget (HEL-1620).
+  for (const theme of ["dark", "light"] as const) {
+    test(`820/900/1100px [${theme}]: the header keeps one row and the page does not scroll (screenshots)`, async ({
+      page,
+      request,
+    }) => {
+      // Register + seed + several viewport/theme reloads: about 10s locally, over 30s on a loaded CI runner.
+      test.setTimeout(120_000);
+      await registerAndLogin(page, request, { ...AUTH, label: `narrow-${theme}` });
+      const { pipelineId } = await seedPipeline(page);
+      // A PAUSED schedule: its state must stay visible at every width (never dropped from the header).
+      const put = await page.request.put(`/api/pipelines/${pipelineId}/schedule`, {
+        data: { kind: "interval", expression: "15m", timezone: "UTC", enabled: false },
+        headers: CSRF,
+      });
+      expect(put.status()).toBeLessThan(300);
       for (const width of [820, 900, 1100, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
@@ -294,7 +330,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
           path: evidencePath("HEL-1579", `spine-${width}x900-${theme}.png`),
         });
       }
-  });
+    });
+  }
 
   test("selecting a step updates the focused editor heading and the preview header", async ({
     page,
@@ -359,14 +396,15 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     expect(req.postData()).toContain("270");
   });
 
-  test("evidence: the running page at 1440, 1280 and 820 wide, in both themes", async ({
-    page,
-    request,
-  }) => {
-    test.setTimeout(120_000);
-    await registerAndLogin(page, request, { ...AUTH, label: "evidence" });
-    const { pipelineId } = await seedPipeline(page, true);
-    for (const theme of ["dark", "light"] as const) {
+  // One test (one fresh user) per theme, to stay inside the per-user rate budget (HEL-1620).
+  for (const theme of ["dark", "light"] as const) {
+    test(`evidence: the running page at 1440, 1280 and 820 wide [${theme}]`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(120_000);
+      await registerAndLogin(page, request, { ...AUTH, label: `evidence-${theme}` });
+      const { pipelineId } = await seedPipeline(page, true);
       await page.evaluate((t) => window.localStorage.setItem("helio-theme", t), theme);
       for (const [width, height] of [
         [1440, 900],
@@ -385,8 +423,8 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
           path: evidencePath("HEL-1579", `spine-${width}x${height}-${theme}.png`),
         });
       }
-    }
-  });
+    });
+  }
 
   // Every desktop width from 769 to 1100px, with the context list at its default (248px) and at its max (400px):
   // nothing in the header overflows or is clipped, Run and the actions menu stay inside the viewport, the editor's
