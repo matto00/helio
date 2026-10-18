@@ -1,9 +1,9 @@
-// HEL-1294 — a step card whose optimistic create (POST + resync) is in flight must not be
-// expandable: the resync swaps the temp id for the persisted one, which remounts the keyed card
-// collapsed, dropping an open editor (and any edit made on the temp id, a no-op). The create mock
-// resolves immediately here; the RESYNC (`getPipelineSteps`) is held on a deferred promise so the
-// in-flight window is deterministic.
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+// HEL-1294 — a step whose optimistic create is in flight must not be editable: the swap of the temp id for the
+// persisted one would drop an edit made on the temp id (a no-op). On the phone (HEL-1582) a created step opens
+// in the step sheet straight away, so the contract is: the sheet's editor is DISABLED while the create is held,
+// and when the create lands the SAME sheet stays open on the confirmed step with an enabled editor. The create
+// request itself is held on a deferred promise so the in-flight window is deterministic.
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
@@ -212,9 +212,11 @@ async function addFilterStep() {
   fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
 }
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+/** The phone step sheet (a created step opens in it). */
+const stepSheet = () => screen.getByRole("dialog", { name: "Step editor" });
+
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -223,9 +225,9 @@ afterEach(() => {
   restorePhoneShell();
 });
 
-describe("PipelineDetailPage — step card is not expandable while its create is in flight (HEL-1294)", () => {
+describe("PipelineDetailPage — a step is not editable while its create is in flight (HEL-1294)", () => {
   beforeAll(() => {
-    // jsdom doesn't implement HTMLDialogElement.showModal (the step palette opens in a dialog).
+    // jsdom doesn't implement HTMLDialogElement.showModal (the step palette and the step sheet are dialogs).
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
       this.setAttribute("open", "");
     });
@@ -250,7 +252,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
     jest.clearAllMocks();
   });
 
-  it("disables the toggle and opens no editor until the create lands, then edits PATCH the real id", async () => {
+  it("disables the sheet's editor until the create lands, keeps the same sheet open, then edits PATCH the real id", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     const create = holdCreate();
     await renderPageSettled();
@@ -259,22 +261,22 @@ describe("PipelineDetailPage — step card is not expandable while its create is
     fireEvent.click(await screen.findByRole("option", { name: /Rename column/i }));
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
 
-    // In flight: the create request is held.
-    const toggle = screen.getByRole("button", { name: /Rename column/i });
-    expect(toggle).toBeDisabled();
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("textbox", { name: "New name for dept" })).not.toBeInTheDocument();
+    // In flight: the create request is held. The new step is open in the sheet, saying so, and not editable.
+    const sheet = stepSheet();
+    expect(sheet).toHaveAttribute("open");
+    expect(within(sheet).getByText("Saving step…")).toBeInTheDocument();
+    expect(sheet.querySelector("fieldset")).toBeDisabled();
 
     await create.release(persisted("real-1", "rename", 0));
 
-    // Settled: the persisted card is enabled and opens; an edit PATCHes the real id.
-    const settled = await screen.findByRole("button", { name: /Rename column/i, expanded: false });
-    expect(settled).toBeEnabled();
-    fireEvent.click(settled);
-    fireEvent.change(await screen.findByRole("textbox", { name: "New name for dept" }), {
-      target: { value: "department" },
-    });
+    // Settled: the SAME sheet stays open on the confirmed step (no close and reopen), its editor enabled; an
+    // edit PATCHes the real id.
+    const field = await within(stepSheet()).findByRole("textbox", { name: "New name for dept" });
+    await waitFor(() => expect(field).toBeEnabled());
+    expect(stepSheet()).toBe(sheet);
+    expect(sheet).toHaveAttribute("open");
+    expect(within(sheet).queryByText("Saving step…")).not.toBeInTheDocument();
+    fireEvent.change(field, { target: { value: "department" } });
     await waitFor(() =>
       expect(updatePipelineStepMock).toHaveBeenCalledWith(
         "real-1",
@@ -283,7 +285,7 @@ describe("PipelineDetailPage — step card is not expandable while its create is
     );
   });
 
-  it("a failed create re-enables the toggle on the kept local step", async () => {
+  it("a failed create keeps the sheet on the local step, shows the error inside it and re-enables the editor", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     let rejectCreate: (err: Error) => void = () => {};
     createPipelineStepMock.mockReturnValueOnce(
@@ -294,43 +296,54 @@ describe("PipelineDetailPage — step card is not expandable while its create is
     await renderPageSettled();
 
     await addFilterStep();
-    expect(screen.getByRole("button", { name: /Filter rows/i })).toBeDisabled();
+    const sheet = stepSheet();
+    expect(within(sheet).getByText("Saving step…")).toBeInTheDocument();
+    expect(sheet.querySelector("fieldset")).toBeDisabled();
 
     await act(async () => rejectCreate(new Error("Request failed with status code 500")));
 
-    const toggle = await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
-    expect(toggle).toBeEnabled();
-    fireEvent.click(toggle);
-    expect(screen.getByRole("button", { name: "Remove step" })).toBeInTheDocument();
+    // The sheet is a modal dialog that covers the toast viewport, so the failure is shown inside it.
+    expect(stepSheet()).toBe(sheet);
+    expect(await within(sheet).findByText("Failed to add step.")).toBeVisible();
+    expect(within(sheet).queryByText("Saving step…")).not.toBeInTheDocument();
+    expect(sheet.querySelector("fieldset")).toBeEnabled();
+    expect(within(sheet).getByRole("button", { name: "Remove step" })).toBeInTheDocument();
   });
 
-  it("an AI draft (no create request) stays expandable", async () => {
+  it("an AI draft (no create request) opens editable in the sheet", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     await renderPageSettled();
 
     fireEvent.click(screen.getByRole("button", { name: "+ Add step" }));
     fireEvent.click(await screen.findByRole("option", { name: /Analyze with AI/i }));
 
-    const toggle = screen.getByRole("button", { name: /Analyze with AI/i });
+    const sheet = stepSheet();
     expect(createPipelineStepMock).not.toHaveBeenCalled();
-    expect(toggle).toBeEnabled();
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(sheet).toHaveAttribute("open");
+    expect(within(sheet).getByText(/draft.*not yet saved/i)).toBeInTheDocument();
+    expect(sheet.querySelector("fieldset")).toBeEnabled();
   });
 
-  it("a lane-add step is not expandable while its create is in flight", async () => {
+  it("a lane-add step is not editable while its create is in flight, and its sheet stays open when it lands", async () => {
     getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
     const create = holdCreate();
     await renderPageSettled();
-    await screen.findByRole("button", { name: /Rename column/i, expanded: false });
 
-    fireEvent.click(screen.getByRole("button", { name: /Branch this step into a new lane/i }));
+    // Open the anchor's sheet, then branch from it through its Step actions menu.
+    fireEvent.click(await screen.findByRole("button", { name: /^Step 1:/ }));
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: /Step actions for/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Branch from here" }));
     fireEvent.click(await screen.findByRole("option", { name: /Filter rows/i }));
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
 
-    expect(screen.getByRole("button", { name: /Filter rows/i })).toBeDisabled();
+    // The sheet moved to the new lane step, whose editor is disabled while the create is held.
+    const sheet = stepSheet();
+    expect(within(sheet).getByText("Saving step…")).toBeInTheDocument();
+    expect(sheet.querySelector("fieldset")).toBeDisabled();
 
     await create.release(persisted("real-1", "filter", 1));
-    await waitFor(() => expect(screen.getByRole("button", { name: /Filter rows/i })).toBeEnabled());
+    await waitFor(() => expect(sheet.querySelector("fieldset")).toBeEnabled());
+    expect(stepSheet()).toBe(sheet);
+    expect(within(sheet).queryByText("Saving step…")).not.toBeInTheDocument();
   });
 });

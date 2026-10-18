@@ -20,6 +20,7 @@ import { PipelineRiverSkeleton } from "../PipelineRiverSkeleton";
 import { StepCardFocused } from "../StepCardFocused";
 import { PipelineSpine } from "./PipelineSpine";
 import { PipelineSpineHeader } from "./PipelineSpineHeader";
+import { useSpineStepActions } from "./useSpineStepActions";
 import { SpineStatusStrip } from "./SpineStatusStrip";
 import { StepPreviewTable } from "./StepPreviewTable";
 import "./PipelineSpineLayout.css";
@@ -56,6 +57,17 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
   });
   const { contextValue, tracker, stepSaveErrors } = useStepSaveSeam(steps);
   const [dedupe] = useState(createInFlightDedupe);
+  const actions = useSpineStepActions({
+    laneGraph,
+    roots,
+    onAddStep: page.handleAddStep,
+    onInsertStep: (opType, index) => void page.handleInsertStep(opType, index),
+    onAddLaneStep: (opType, parentStepId) => void page.handleAddLaneStep(opType, parentStepId),
+    onAddOutput: page.handleAddOutput,
+    onAddRoot: (sourceId) => void page.handleAddRoot(sourceId),
+    onInstantiateShape: page.handleInstantiateShape,
+    onReorderSteps: page.handleReorderSteps,
+  });
 
   const selectedStep =
     selectedStepId !== null ? steps.find((s) => s.id === selectedStepId) : undefined;
@@ -164,6 +176,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
               />
             ) : (
               <PipelineSpine
+                actions={actions}
                 steps={steps}
                 laneGraph={laneGraph}
                 roots={roots}
@@ -180,18 +193,10 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 creatingStepIds={page.creatingStepIds}
                 onSelectStep={selectStep}
                 onEditSource={page.handleEditSource}
-                onAddRoot={(sourceId) => void page.handleAddRoot(sourceId)}
                 onRemoveRoot={(rootId) => void page.handleRemoveRoot(rootId)}
-                onAddStep={page.handleAddStep}
-                onInsertStep={(opType, index) => void page.handleInsertStep(opType, index)}
-                onAddLaneStep={(opType, parentStepId) =>
-                  void page.handleAddLaneStep(opType, parentStepId)
-                }
                 onAddOutput={page.handleAddOutput}
                 onOpenOutput={page.handleOpenOutput}
                 onOpenOutputHistory={page.handleOpenOutputHistory}
-                onInstantiateShape={page.handleInstantiateShape}
-                onReorderSteps={page.handleReorderSteps}
               />
             )}
           </aside>
@@ -258,6 +263,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
               --pipeline-live-output-width and renders into it (design.md D2). */}
           <div className="spine-body__live-output" aria-hidden="true" />
         </div>
+        {actions.dialogs}
       </div>
     </StepSaveContext.Provider>
   );

@@ -33,6 +33,8 @@ export function SpineRunStatus({
       <span
         className={`spine-header__run-status spine-header__run-status--${displayStatus}`}
         aria-label={`Run status: ${displayStatus}`}
+        // The label ellipsizes in a narrow header; a failed run's full error stays reachable here (HEL-1582).
+        title={displayStatus === "failed" && displayErrorLog ? displayErrorLog : undefined}
       >
         {displayStatus === "queued" && "Queued…"}
         {displayStatus === "running" && "Running…"}
@@ -67,8 +69,12 @@ export function SpineLastRunMeta({
   lastRunTruncated: boolean | null;
 }) {
   if (lastRunAt == null) return null;
+  const full = `${lastRunRowCount != null ? `${lastRunRowCount.toLocaleString()} rows written · ` : ""}${formatRelativeTime(lastRunAt)}${
+    lastRunTruncated === true && lastRunRowCount != null ? " · Partial (row cap reached)" : ""
+  }`;
   return (
-    <span className="spine-header__meta" aria-label="Last run metadata">
+    // The text ellipsizes in a narrow header (phone); the full figures stay in the title.
+    <span className="spine-header__meta" aria-label="Last run metadata" title={full}>
       <span className="spine-header__meta-text">
         {lastRunRowCount != null && `${lastRunRowCount.toLocaleString()} rows written · `}
         {formatRelativeTime(lastRunAt)}

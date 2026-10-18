@@ -24,6 +24,7 @@
 // the popover; this component only supplies the chip `renderField`/
 // `fieldsContainer` and the trigger/popover shell around it.
 
+import { useState } from "react";
 import { createPortal } from "react-dom";
 
 import { usePortalPopover } from "../../../hooks/usePortalPopover";
@@ -41,9 +42,16 @@ interface OutputSchemaDisclosureProps {
   fields: SchemaField[];
 }
 
+/** `28rem` and the gap kept to the viewport edge, as the panel's CSS width is expressed. */
+const PANEL_MAX_WIDTH_PX = 448;
+const PANEL_EDGE_MARGIN_PX = 8;
+/** `24rem`, the panel's CSS height cap. */
+const PANEL_MAX_HEIGHT_PX = 384;
+
 export function OutputSchemaDisclosure({ fields }: OutputSchemaDisclosureProps) {
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
 
   function handleToggle() {
     if (isOpen) {
@@ -55,10 +63,36 @@ export function OutputSchemaDisclosure({ fields }: OutputSchemaDisclosureProps) 
     // idiom) -- the trigger lives in the page's bottom footer, so opening
     // downward would push the panel toward (or under) the phone BottomNav
     // capsule / viewport edge instead of into the canvas above it.
-    handleOpen((rect) => ({
-      bottom: window.innerHeight - rect.top + 8,
-      left: rect.left,
-    }));
+    // Inside an open <dialog> (the phone step sheet) the panel portals into that dialog, or it would render behind the
+    // modal's top layer (the ActionsMenu / Select pattern, HEL-1582).
+    setPortalTarget(triggerRef.current?.closest("dialog[open]") ?? document.body);
+    handleOpen((rect) => {
+      // Kept inside the viewport (HEL-1582): a trigger far to the right of a narrow header would otherwise push the
+      // panel, and its filter field, off the right edge. The panel is `min(28rem, 100vw - 40px)` wide (CSS).
+      const left = Math.max(
+        PANEL_EDGE_MARGIN_PX,
+        Math.min(
+          rect.left,
+          window.innerWidth -
+            Math.min(PANEL_MAX_WIDTH_PX, window.innerWidth - 40) -
+            PANEL_EDGE_MARGIN_PX,
+        ),
+      );
+      // Vertical: opens above when that side has room for the whole panel or more room than below; otherwise it opens
+      // below. Either way its height is capped to the room on the chosen side, so it never leaves the viewport.
+      const gap = 8;
+      const roomAbove = rect.top - gap - PANEL_EDGE_MARGIN_PX;
+      const roomBelow = window.innerHeight - rect.bottom - gap - PANEL_EDGE_MARGIN_PX;
+      const fullHeight = Math.min(PANEL_MAX_HEIGHT_PX, window.innerHeight - 80);
+      if (roomAbove >= fullHeight || roomAbove >= roomBelow) {
+        return {
+          bottom: window.innerHeight - rect.top + gap,
+          left,
+          maxHeight: Math.min(fullHeight, roomAbove),
+        };
+      }
+      return { top: rect.bottom + gap, left, maxHeight: Math.min(fullHeight, roomBelow) };
+    });
   }
 
   const panel =
@@ -75,8 +109,10 @@ export function OutputSchemaDisclosure({ fields }: OutputSchemaDisclosureProps) 
               aria-label="Output schema"
               style={{
                 position: "fixed",
+                top: panelPos.top,
                 bottom: panelPos.bottom,
                 left: panelPos.left,
+                maxHeight: panelPos.maxHeight,
               }}
             >
               {/* Bounded by CSS (`max-height` + `overflow-y: auto` on
@@ -98,7 +134,7 @@ export function OutputSchemaDisclosure({ fields }: OutputSchemaDisclosureProps) 
               />
             </div>
           </>,
-          document.body,
+          portalTarget ?? document.body,
         )
       : null;
 

@@ -113,11 +113,14 @@
    about 250-450px): the filter rows stack instead of squeezing every control to a few characters.
    Scoped to the spine page; the phone river keeps its own rules. */
 @container (max-width: 480px) {
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row > :first-child {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row
+    > :first-child {
     grid-column: 1 / -1;
   }
 }
@@ -125,20 +128,29 @@
 /* Narrower still (about 820 to 900px viewports): every control gets its own full-width line, the remove button
    stays beside the field. */
 @container (max-width: 340px) {
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row > :first-child {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row
+    > :first-child {
     grid-column: 1;
   }
 
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row > :nth-child(2),
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row > :nth-child(3) {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row
+    > :nth-child(2),
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row
+    > :nth-child(3) {
     grid-column: 1 / -1;
   }
 
-  .pipeline-detail-page--spine .pipeline-detail-page__filter-condition-row > :nth-child(4) {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-condition-row
+    > :nth-child(4) {
     grid-row: 1;
     grid-column: 2;
   }

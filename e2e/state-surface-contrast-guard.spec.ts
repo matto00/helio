@@ -689,17 +689,9 @@ function finishCell(cell: string, results: ElementResult[], counts: Counts) {
   //      this is a before/after-diff probe limitation for an
   //      already-active resting state, not the D4a "conveys nothing at
   //      all" absence this guard exists to catch.
-  //   4. `.pipeline-detail-page__tab` (Steps/Outputs tabs on
-  //      `/pipelines/:id`, newly reached by cycle 4's route addition) —
-  //      its hover feedback is a text COLOUR change only
-  //      (`color: var(--app-text-muted)` → `var(--app-text)`); the active
-  //      state's own indicator is a `border-bottom` underline, a
-  //      deliberate, visible, non-background channel (design.md's tab
-  //      convention). This guard's D4a classifier (background/border/
-  //      outline/box-shadow) does not track plain `color`, so it reads
-  //      as "nothing changed" — the same guard LIMITATION shape as
-  //      #1 (a real, visible channel outside what this guard measures),
-  //      not an app defect.
+  //   (A fourth, `.pipeline-detail-page__tab`, the river view's Steps/Outputs tab strip, was exempted here until
+  //   HEL-1582 deleted that strip. The phone's own tabs are at 375px, outside this 1440px guard; their hover is
+  //   measured by e2e/hel1582-mobile-pipeline.spec.ts.)
   // evaluation-1.md CR5 / evaluation-2.md CR9 — keyed on STABLE IDENTITY
   // (the `[class]` token `describeElement` always emits), never on
   // `#index`: an ordinal shifts if any element upstream in DOM order
@@ -713,8 +705,7 @@ function finishCell(cell: string, results: ElementResult[], counts: Counts) {
     r.forced === "hover" &&
     (r.desc.includes("[accent-picker__swatch]") ||
       r.desc.includes("[command-palette__item]") ||
-      r.desc.includes("[add-source-modal__type-btn]") ||
-      r.desc.includes("[pipeline-detail-page__tab]"));
+      r.desc.includes("[add-source-modal__type-btn]"));
 
   const failures = results.filter((r) => r.verdict === "fail" && !isExempt(r));
   const exempted = results.filter((r) => r.verdict === "fail" && isExempt(r));

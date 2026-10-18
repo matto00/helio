@@ -550,7 +550,7 @@ jobs:
     runs-on: ubuntu-latest
     # Slowest leg measures ~7 min; ~2.5x so a hung leg frees its runner instead of holding it for
     # the 6 h default (HEL-1288).
-    timeout-minutes: 18
+    timeout-minutes: 25
     # HEL-1288 (C8) — at most 4 legs (account-wide concurrent-job cap, shared with the backend job's legs;
     # see profile.md); per-leg speed comes from Playwright `workers` (playwright.config.ts), not more legs.
     # Sharded across N runners (each with its OWN Postgres service, backend and Vite,

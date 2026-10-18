@@ -6,14 +6,18 @@
    allowance for selection washes on checkboxes and toggles, so native checkbox/radio `accent-color` is
    neutral here too. */
 
-.pipeline-detail-page.pipeline-detail-page--spine input[type="checkbox"],
-.pipeline-detail-page.pipeline-detail-page--spine input[type="radio"],
-.pipeline-detail-page.pipeline-detail-page--spine .pipeline-detail-page__select-fields-checkbox {
+.pipeline-detail-page:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  input[type="checkbox"],
+.pipeline-detail-page:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  input[type="radio"],
+.pipeline-detail-page:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__select-fields-checkbox {
   accent-color: var(--app-text);
 }
 
 /* Selected state of a combinator / segmented choice: a neutral lift, not an accent wash. */
-.pipeline-detail-page--spine .pipeline-detail-page__filter-combinator-btn--active {
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__filter-combinator-btn--active {
   background: var(--app-surface-raised);
   border-color: var(--app-border-strong);
   color: var(--app-text);
@@ -21,27 +25,33 @@
 }
 
 /* "+ Add condition" / "+ Add sort": ghost with a dashed neutral hairline. */
-.pipeline-detail-page--spine .pipeline-detail-page__filter-add-btn,
-.pipeline-detail-page--spine .pipeline-detail-page__sort-config-add-btn {
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__filter-add-btn,
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__sort-config-add-btn {
   border-color: var(--app-border-strong);
   color: var(--app-text-muted);
 }
 
-.pipeline-detail-page--spine .pipeline-detail-page__filter-add-btn:hover,
-.pipeline-detail-page--spine .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__filter-add-btn:hover,
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
   background: var(--app-surface-soft);
   color: var(--app-text);
 }
 
 /* Schema-diff chips: added = success, dropped = error (already), renamed = warning (already),
    retyped = neutral. */
-.pipeline-detail-page--spine .pipeline-detail-page__step-card-diff-chip--added {
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__step-card-diff-chip--added {
   background: var(--app-success-surface);
   color: var(--app-success);
   border-color: color-mix(in srgb, var(--app-success) 35%, transparent);
 }
 
-.pipeline-detail-page--spine .pipeline-detail-page__step-card-diff-chip--changed {
+:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+  .pipeline-detail-page__step-card-diff-chip--changed {
   background: var(--app-surface-soft);
   color: var(--app-text);
   border-color: var(--app-border-subtle);

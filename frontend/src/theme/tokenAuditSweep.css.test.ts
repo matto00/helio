@@ -59,7 +59,6 @@ const SRC_ROOT = path.join(__dirname, "..");
 const SWEPT_FILES = [
   "features/dashboards/ui/DashboardAppearanceEditor.css",
   "features/panels/ui/ImagePanel.css",
-  "features/pipelines/ui/PipelineDetailHeader.css",
   "features/pipelines/ui/PipelineDetailPage.css",
   "features/pipelines/ui/PipelinesPage.css",
   "features/pipelines/ui/RunHistoryModal.css",
@@ -166,7 +165,6 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // `.pipeline-detail-page__compute-fields-hint-list` — verified
   // line-by-line against the pre-change baseline (each entry's line
   // content is byte-identical at its new line number).
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 28 },
   // HEL-1109 shifted every PipelineDetailPage.css baseline entry below line
   // ~980 down by 5 (three new `.pipeline-detail-page__{convertformat,
   // analyzewithai,generatetext}-config` selectors + a comment added to the
@@ -179,12 +177,13 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // rather than shifted) — every entry below line ~260 shifts up by 39,
   // verified line-by-line (each entry's line content is byte-identical at
   // new_line = old_line - 39).
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 849 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 949 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1012 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1221 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 1452 },
-  { file: "features/pipelines/ui/RunHistoryModal.css", line: 136 },
+  // HEL-1582 retired the river view's rules from PipelineDetailPage.css: three off-scale literals survive, all <=4px
+  // optical tweaks of the step editors, re-found at their new lines (each line is byte-identical to its pre-change
+  // counterpart: `gap: 4px`).
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 178 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 236 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 386 },
+  { file: "features/pipelines/ui/RunHistoryModal.css", line: 160 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },
 ];

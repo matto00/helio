@@ -699,20 +699,36 @@ describe("PipelineDetailPage desktop spine: status strip", () => {
   });
 });
 
-describe("PipelineDetailPage phone path (C4)", () => {
+describe("PipelineDetailPage phone path (HEL-1582)", () => {
   let restore: () => void;
   beforeEach(() => {
     restore = installPhoneShell();
   });
   afterEach(() => restore());
 
-  it("still renders the river view with its tabs and footer at the phone breakpoint, not the spine", async () => {
+  it("renders the phone layout at the phone breakpoint: header, Steps / Preview / Runs tabs, step list and floating run pills; no river, Outputs tab or footer, and not the spine", async () => {
     await renderSpinePageSettled();
     expect(screen.getByRole("tab", { name: "Steps" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: /Outputs/ })).toBeInTheDocument();
-    expect(await screen.findByText("+ Add transformation step")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Runs" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Outputs/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to pipelines" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pipeline actions" })).toBeInTheDocument();
+    expect(await screen.findByText("+ Add step")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dry run" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Steps and outputs")).not.toBeInTheDocument();
     expect(document.querySelector(".pipeline-detail-page--spine")).toBeNull();
+    expect(document.querySelector(".pipeline-detail-page--mobile")).not.toBeNull();
+    // Retired: the river, its ribbon and footer, and the phone Outputs gallery.
+    for (const retired of [
+      ".pipeline-detail-page__river",
+      ".pipeline-detail-page__footer",
+      ".pipeline-detail-page__footer-region",
+      ".pipeline-detail-header",
+      ".outputs-gallery",
+    ]) {
+      expect(document.querySelector(retired)).toBeNull();
+    }
   });
 });

@@ -101,3 +101,28 @@
 :root[data-theme="dark"] .step-preview .ui-data-grid tbody tr:hover {
   background: var(--app-surface-strong);
 }
+
+/* HEL-1582 (DESIGN.md §3): the "N fields" disclosure trigger is a compact text button, so on touch it takes the
+   invisible 44px ::after expander instead of a taller painted box. `.step-preview` clips its overflow, so the header
+   carries enough vertical padding that the expander's overhang (about 14px each side) stays inside the clip; its
+   only siblings (title, count, chips) are not interactive, so nothing overlaps it. */
+@media (max-width: 768px), (pointer: coarse) {
+  .step-preview__header:has(.output-schema-disclosure__trigger) {
+    padding-block: var(--space-4);
+  }
+
+  .step-preview__header .output-schema-disclosure__trigger {
+    position: relative;
+  }
+
+  .step-preview__header .output-schema-disclosure__trigger::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}

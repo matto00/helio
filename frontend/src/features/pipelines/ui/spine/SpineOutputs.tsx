@@ -3,7 +3,10 @@
 // opens the Output editor sheet; its quiet menu carries History. "used in N panels" reads `panelCount`
 // from the pipeline's Outputs list response (no per-Output request, design.md D13).
 
+import { ChevronRight } from "lucide-react";
+
 import { ActionsMenu } from "../../../../shared/chrome/ActionsMenu";
+import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 import { laneOutputSubtitle } from "../../state/laneLayout";
 import type { LaneGraph } from "../../state/stepTree";
 import type { Output } from "../../types/output";
@@ -14,6 +17,7 @@ function kindLabel(kind: string): string {
 }
 
 interface SpineOutputsProps {
+  variant?: "desktop" | "phone";
   outputs: Output[];
   steps: Step[];
   laneGraph: LaneGraph;
@@ -23,6 +27,7 @@ interface SpineOutputsProps {
 }
 
 export function SpineOutputs({
+  variant = "desktop",
   outputs,
   steps,
   laneGraph,
@@ -30,10 +35,11 @@ export function SpineOutputs({
   onOpenHistory,
   onAddOutput,
 }: SpineOutputsProps) {
+  const phone = variant === "phone";
   const stepLabelById = new Map(steps.map((s) => [s.id, s.label]));
   return (
     <section className="spine-section" aria-label="Outputs">
-      <h3 className="spine-section__eyebrow eyebrow">Outputs</h3>
+      <h3 className={`spine-section__eyebrow eyebrow${phone ? " sr-only" : ""}`}>Outputs</h3>
       <ul className="spine-outputs">
         {outputs.map((output) => (
           <li key={output.id} className="spine-card spine-output-card">
@@ -55,6 +61,13 @@ export function SpineOutputs({
                   ? laneOutputSubtitle(laneGraph, stepLabelById, output.nodeStepId)
                   : "the pipeline's source"}
               </span>
+              {phone && (
+                <ChevronRight
+                  className="spine-card__chevron"
+                  aria-hidden="true"
+                  size={ICON_SIZE.sm}
+                />
+              )}
             </button>
             <div className="spine-card__menu">
               <ActionsMenu
