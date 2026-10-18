@@ -350,8 +350,10 @@ test.describe("HEL-1584 when the grid enters", () => {
     const world = await start(page, request, "full", "warm");
     // First visit: network load, the cards enter.
     await openDashboard(page, world.dashboardId);
-    await page.waitForTimeout(1800);
-    expect(cardEnters(await log(page)).length, "first visit enters").toBeGreaterThanOrEqual(3);
+    // HEL-1658: poll the log (a positive assertion) rather than reading it once after a fixed wait.
+    await expect
+      .poll(async () => cardEnters(await log(page)).length, { message: "first visit enters" })
+      .toBeGreaterThanOrEqual(3);
     await clearLog(page);
 
     // Warm switch: open a second dashboard as a tab (Control-click), then come back to the first tab within the TTL. The
@@ -404,9 +406,13 @@ test.describe("HEL-1584 when the grid enters", () => {
       entrance.filter((e) => e === "enter"),
       "no one else re-enters",
     ).toHaveLength(0);
-    const pops = (await log(page)).filter(
-      (r) => r.name === "motion-enter" && r.target.includes("panel-grid-card"),
-    );
+    const cardPops = async () =>
+      (await log(page)).filter(
+        (r) => r.name === "motion-enter" && r.target.includes("panel-grid-card"),
+      );
+    // HEL-1658: the pop's animationstart can land after the 2.5s wait on a slow runner; wait for it, then pin the count.
+    await expect.poll(async () => (await cardPops()).length).toBeGreaterThanOrEqual(1);
+    const pops = await cardPops();
     expect(pops, "the existing cards do not animate; the new one pops").toHaveLength(1);
     expect(pops[0].delay).toBe(0);
     // The pop runs on the overshoot curve (a CSS animation's curve lives on its keyframes, so read it from the cascade).
@@ -512,25 +518,57 @@ test.describe("HEL-1584 chart refresh", () => {
       .locator(".panel-grid-card", { hasText: "M-refresh Chart" })
       .getByRole("button", { name: "Refresh M-refresh Chart" })
       .click();
-    await page.waitForTimeout(1800);
+    // HEL-1658: wait on the chart's own state, not a wall-clock window. The morph is done once the zrender animation
+    // clock has gone unfinished after the click and then finished again; a hard cut never makes it unfinished.
+    const chartState = () =>
+      page.evaluate(() => {
+        const w = window as unknown as {
+          __chartBars: Array<{ t: number; sum: number }>;
+          __chartEdges: Array<{ t: number; unfinished: boolean }>;
+        };
+        return { bars: [...w.__chartBars], edges: [...w.__chartEdges] };
+      });
+    await expect
+      .poll(
+        async () => {
+          const { edges } = await chartState();
+          const started = edges.findIndex((e) => e.t >= refreshedAt && e.unfinished);
+          return started >= 0 && edges.slice(started + 1).some((e) => !e.unfinished);
+        },
+        {
+          message:
+            "the chart animation clock ran (went unfinished, then finished) after the refresh",
+        },
+      )
+      .toBe(true);
+    const { bars: samples, edges } = await chartState();
+    const started = edges.find((e) => e.t >= refreshedAt && e.unfinished)!;
+    const finished = edges.find((e) => e.t > started.t && !e.unfinished)!;
 
-    const samples = await page.evaluate(
-      () => (window as unknown as { __chartBars: Array<{ t: number; sum: number }> }).__chartBars,
-    );
     const settled = samples.filter((b) => b.t < refreshedAt).at(-1)?.sum ?? 0;
-    const after = samples
-      .filter((b) => b.t >= refreshedAt && b.t < refreshedAt + 1800)
-      .map((b) => b.sum);
-    const final = after.at(-1) ?? 0;
+    // Frames from the click until one frame after the clock finished: the whole morph, however slow the runner is.
+    const after = samples.filter((b) => b.t >= refreshedAt).filter((b) => b.t <= finished.t + 100);
+    const final = samples.at(-1)?.sum ?? 0;
     expect(Math.abs(final - settled), "the data really changed").toBeGreaterThan(1);
+    expect(
+      Math.abs((after.at(-1)?.sum ?? 0) - final),
+      "the morph reached the new bars when the clock finished",
+    ).toBeLessThan(Math.abs(final - settled) * 0.05);
     const lo = Math.min(settled, final);
     const hi = Math.max(settled, final);
-    const between = after.filter((s) => s > lo + (hi - lo) * 0.05 && s < hi - (hi - lo) * 0.05);
+    const between = after
+      .map((b) => b.sum)
+      .filter((v) => v > lo + (hi - lo) * 0.05 && v < hi - (hi - lo) * 0.05);
+    // A hard cut draws 0 frames between the old and the new bars and never starts the animation clock; a slow runner
+    // draws fewer frames per tween, so one frame is the floor and the clock edges are the second, hard-cut-proof signal.
     expect(
       between.length,
       "intermediate frames between the old and the new bars (a morph)",
-    ).toBeGreaterThanOrEqual(2);
-    expect(Math.min(...after) / settled, "bars never collapse toward zero").toBeGreaterThan(0.4);
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      Math.min(...after.map((b) => b.sum)) / settled,
+      "bars never collapse toward zero",
+    ).toBeGreaterThan(0.4);
     const ids = await page.evaluate(() => {
       const chart = (
         window as unknown as {
@@ -547,7 +585,7 @@ test.describe("HEL-1584 chart refresh", () => {
           settled,
           final,
           framesBetween: between.length,
-          minRatio: Math.min(...after) / settled,
+          minRatio: Math.min(...after.map((b) => b.sum)) / settled,
           ids,
         },
         null,
@@ -584,10 +622,15 @@ test.describe("HEL-1584 save and run feedback", () => {
       await page.getByRole("button", { name: "Save now" }).first().click();
       const check = page.getByRole("img", { name: "Saved" }).first();
       await expect(check).toBeVisible({ timeout: 10_000 });
-      const pop = (await log(page)).filter(
-        (r) => r.name === "motion-enter" && r.target.includes("motion-pop"),
-      );
-      expect(pop.length, "the check pops").toBeGreaterThanOrEqual(1);
+      // HEL-1658: the recorder logs the pop on animationstart, which can land a frame after the check is visible.
+      const pops = async () =>
+        (await log(page)).filter(
+          (r) => r.name === "motion-enter" && r.target.includes("motion-pop"),
+        );
+      await expect
+        .poll(async () => (await pops()).length, { message: "the check pops" })
+        .toBeGreaterThanOrEqual(1);
+      const pop = await pops();
       const checkCurve = await check.evaluate((el) => getComputedStyle(el).animationTimingFunction);
       expect(checkCurve).toContain("1.1");
       await page.screenshot({ path: evidencePath(TICKET, `save-check-${theme}.png`) });
