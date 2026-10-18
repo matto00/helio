@@ -382,3 +382,18 @@ tasks.md group 5; multi-root `roots` replaces the single `input` (round 2 CR5); 
   draft-preview wording sits in the `StringBudget.tooLong` / `exceeded` messages and the engine's memory-limit message. A `label`
   parameter on those messages would let a second consumer reuse them; nothing in this change depends on it.
 - **Left alone, as directed:** the run path, the catch-all `Throwable`, anything for HEL-1660.
+
+## Gate-Chain Implications Checklist
+
+The only gate-chain file this change touches is `scripts/check-schema-drift.mjs` (run by `.husky/pre-commit` through
+`npm run check:schemas`). The diff adds one entry, `"DraftPreviewLine"`, to its existing `SKIP` set; nothing else changes.
+
+- **What does it execute?** Node only: it reads JSON Schema files under `schemas/` and Scala protocol sources and compares
+  field names. The change adds one skip-list name; no new command, subprocess or import.
+- **What environment does it inherit, and from where?** The husky pre-commit shell's environment (the committer's shell plus
+  husky's GIT_* variables). The script reads no environment variable that this change adds or alters.
+- **Does it write anything outside its own sandbox?** No. It only reads files and prints; the change adds no write.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. It resolves paths relative to the
+  repository root it runs in and runs no git command; a linked worktree and the main checkout behave identically.
+- **What happens on its first run?** The same as every run: the new skip entry only stops the `oneOf` line schema
+  `DraftPreviewLine` from being compared against a single case class. There is no cache, state or setup step.
