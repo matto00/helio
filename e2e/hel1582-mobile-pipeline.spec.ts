@@ -1037,133 +1037,166 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
   }
 
   test("phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail)", async ({
-    page,
+    browser,
+    baseURL,
     request,
   }) => {
     test.setTimeout(240_000);
-    await registerAndLogin(page, request, { ...AUTH, label: "contrast" });
-    const pipelineId = await seedPipeline(page);
-    const client = await page.context().newCDPSession(page);
-    await client.send("DOM.enable");
-    await client.send("CSS.enable");
-    const results: StateResult[] = [];
-
-    for (const theme of THEMES) {
-      await openPipeline(page, pipelineId, theme);
-      const controls: [string, Locator][] = [
-        ["tab (inactive)", page.getByRole("tab", { name: "Preview" })],
-        ["step row", page.locator(".spine-row__select").nth(1)],
-        ["add step row", page.locator(".spine-add-row")],
-        ["Dry run pill", page.getByRole("button", { name: "Dry run" })],
-        ["Run pipeline pill", page.getByRole("button", { name: "Run pipeline" })],
-        ["back link", page.getByRole("link", { name: "Back to pipelines" })],
-        ["actions menu trigger", page.getByRole("button", { name: "Pipeline actions" })],
-        ["source name button", page.locator(".spine-card__name-btn")],
-        ["source menu trigger", page.getByRole("button", { name: /^Source actions for/ })],
-        ["output card", page.locator(".spine-card__open")],
-        ["new output button", page.getByRole("button", { name: "New output" })],
-        ["schedule chip", page.getByRole("button", { name: "Add schedule" })],
-      ];
-      for (const [name, locator] of controls) {
-        await measureControl(page, client, theme, name, locator, results);
-      }
-    }
-    writeFileSync(
-      evidencePath("HEL-1582", "phone-state-contrast.json"),
-      JSON.stringify(results, null, 2),
-    );
-    console.table(
-      results.map((r) => ({
-        theme: r.theme,
-        control: r.control,
-        state: r.state,
-        surface: r.surfaceRatio?.toFixed(3) ?? "-",
-        text: r.textRatio?.toFixed(2) ?? "-",
-        indicator: r.indicatorRatio?.toFixed(2) ?? "-",
-        verdict: r.verdict,
-      })),
-    );
-    const failures = results.filter(
-      (r) =>
-        r.verdict === "fail" ||
-        (r.textRatio !== null && r.textRatio < 4.5) ||
-        (r.indicatorRatio !== null && r.indicatorRatio < 3),
-    );
-    expect(
-      failures.map(
-        (f) =>
-          `${f.theme} ${f.control} ${f.state} surface=${f.surfaceRatio} text=${f.textRatio} ind=${f.indicatorRatio}`,
-      ),
-    ).toEqual([]);
-    // HEL-1669: no exception remains -- the Run pill hover (ink on --app-accent-strong) is held to 4.5 by the
-    // generic filter above; make sure that filter actually saw it, in both themes.
-    const runPillHover = results.filter(
-      (r) => r.control === "Run pipeline pill" && r.state === "hover" && r.textRatio !== null,
-    );
-    expect(runPillHover.map((r) => r.theme).sort()).toEqual([...THEMES].sort());
-
-    // Mutation: a hover wash identical to the backdrop must read as "nothing changed" (a failing verdict).
-    await openPipeline(page, pipelineId, "dark");
-    await page.addStyleTag({
-      content:
-        ".mobile-tabs__tab:hover { background: transparent !important; color: var(--app-text-muted) !important; }",
+    // HEL-1668 D5: hover fills apply only on hover-capable pointers, so hover is measured in a non-touch context at the
+    // phone viewport (the touch side is covered by the hel1668 sticky-hover e2e).
+    const context = await browser.newContext({
+      baseURL,
+      viewport: { width: 375, height: 812 },
+      isMobile: false,
+      hasTouch: false,
+      deviceScaleFactor: 2,
     });
-    const mutated: StateResult[] = [];
-    await measureControl(
-      page,
-      client,
-      "dark",
-      "tab (mutated)",
-      page.getByRole("tab", { name: "Runs" }),
-      mutated,
-    );
-    expect(mutated.find((m) => m.state === "hover")?.verdict).toBe("fail");
+    const page = await context.newPage();
+    try {
+      await registerAndLogin(page, request, { ...AUTH, label: "contrast" });
+      const pipelineId = await seedPipeline(page);
+      const client = await page.context().newCDPSession(page);
+      await client.send("DOM.enable");
+      await client.send("CSS.enable");
+      const results: StateResult[] = [];
+
+      for (const theme of THEMES) {
+        await openPipeline(page, pipelineId, theme);
+        const controls: [string, Locator][] = [
+          ["tab (inactive)", page.getByRole("tab", { name: "Preview" })],
+          ["step row", page.locator(".spine-row__select").nth(1)],
+          ["add step row", page.locator(".spine-add-row")],
+          ["Dry run pill", page.getByRole("button", { name: "Dry run" })],
+          ["Run pipeline pill", page.getByRole("button", { name: "Run pipeline" })],
+          ["back link", page.getByRole("link", { name: "Back to pipelines" })],
+          ["actions menu trigger", page.getByRole("button", { name: "Pipeline actions" })],
+          ["source name button", page.locator(".spine-card__name-btn")],
+          ["source menu trigger", page.getByRole("button", { name: /^Source actions for/ })],
+          ["output card", page.locator(".spine-card__open")],
+          ["new output button", page.getByRole("button", { name: "New output" })],
+          ["schedule chip", page.getByRole("button", { name: "Add schedule" })],
+        ];
+        for (const [name, locator] of controls) {
+          await measureControl(page, client, theme, name, locator, results);
+        }
+      }
+      writeFileSync(
+        evidencePath("HEL-1582", "phone-state-contrast.json"),
+        JSON.stringify(results, null, 2),
+      );
+      console.table(
+        results.map((r) => ({
+          theme: r.theme,
+          control: r.control,
+          state: r.state,
+          surface: r.surfaceRatio?.toFixed(3) ?? "-",
+          text: r.textRatio?.toFixed(2) ?? "-",
+          indicator: r.indicatorRatio?.toFixed(2) ?? "-",
+          verdict: r.verdict,
+        })),
+      );
+      const failures = results.filter(
+        (r) =>
+          r.verdict === "fail" ||
+          (r.textRatio !== null && r.textRatio < 4.5) ||
+          (r.indicatorRatio !== null && r.indicatorRatio < 3),
+      );
+      expect(
+        failures.map(
+          (f) =>
+            `${f.theme} ${f.control} ${f.state} surface=${f.surfaceRatio} text=${f.textRatio} ind=${f.indicatorRatio}`,
+        ),
+      ).toEqual([]);
+      // HEL-1669: no exception remains -- the Run pill hover (ink on --app-accent-strong) is held to 4.5 by the
+      // generic filter above; make sure that filter actually saw it, in both themes.
+      const runPillHover = results.filter(
+        (r) => r.control === "Run pipeline pill" && r.state === "hover" && r.textRatio !== null,
+      );
+      expect(runPillHover.map((r) => r.theme).sort()).toEqual([...THEMES].sort());
+
+      // Mutation: a hover wash identical to the backdrop must read as "nothing changed" (a failing verdict).
+      await openPipeline(page, pipelineId, "dark");
+      await page.addStyleTag({
+        content:
+          ".mobile-tabs__tab:hover { background: transparent !important; color: var(--app-text-muted) !important; }",
+      });
+      const mutated: StateResult[] = [];
+      await measureControl(
+        page,
+        client,
+        "dark",
+        "tab (mutated)",
+        page.getByRole("tab", { name: "Runs" }),
+        mutated,
+      );
+      expect(mutated.find((m) => m.state === "hover")?.verdict).toBe("fail");
+    } finally {
+      await context.close();
+    }
   });
+
   test("HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in both themes", async ({
-    page,
+    browser,
+    baseURL,
     request,
   }) => {
     test.setTimeout(120_000);
-    await registerAndLogin(page, request, { ...AUTH, label: "hover-distinct" });
-    const pipelineId = await seedPipeline(page);
-    const bgOf = (locator: Locator) =>
-      locator.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const token = (name: string) =>
-      page.evaluate((n) => {
-        const probe = document.createElement("div");
-        probe.style.background = `var(${n})`;
-        document.body.appendChild(probe);
-        const v = getComputedStyle(probe).backgroundColor;
-        probe.remove();
-        return v;
-      }, name);
-    const numbers: Record<string, unknown> = {};
-    for (const theme of THEMES) {
-      await openPipeline(page, pipelineId, theme);
-      const dry = page.getByRole("button", { name: "Dry run" });
-      const run = page.getByRole("button", { name: "Run pipeline" });
+    // HEL-1668 D5: hover fills apply only on hover-capable pointers, so hover is measured in a non-touch context at the
+    // phone viewport (the touch side is covered by the hel1668 sticky-hover e2e).
+    const context = await browser.newContext({
+      baseURL,
+      viewport: { width: 375, height: 812 },
+      isMobile: false,
+      hasTouch: false,
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
+    try {
+      await registerAndLogin(page, request, { ...AUTH, label: "hover-distinct" });
+      const pipelineId = await seedPipeline(page);
+      const bgOf = (locator: Locator) =>
+        locator.evaluate((el) => getComputedStyle(el).backgroundColor);
+      const token = (name: string) =>
+        page.evaluate((n) => {
+          const probe = document.createElement("div");
+          probe.style.background = `var(${n})`;
+          document.body.appendChild(probe);
+          const v = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return v;
+        }, name);
+      const numbers: Record<string, unknown> = {};
+      for (const theme of THEMES) {
+        await openPipeline(page, pipelineId, theme);
+        const dry = page.getByRole("button", { name: "Dry run" });
+        const run = page.getByRole("button", { name: "Run pipeline" });
 
-      const dryRest = await bgOf(dry);
-      await dry.hover({ force: true });
-      await settleTransitions(page);
-      const dryHover = await bgOf(dry);
-      await page.mouse.move(0, 0);
-      await settleTransitions(page);
-      const dryVsRest = contrastRatio(parseColor(dryHover), parseColor(dryRest));
+        const dryRest = await bgOf(dry);
+        await dry.hover({ force: true });
+        await settleTransitions(page);
+        const dryHover = await bgOf(dry);
+        await page.mouse.move(0, 0);
+        await settleTransitions(page);
+        const dryVsRest = contrastRatio(parseColor(dryHover), parseColor(dryRest));
 
-      const runRest = await bgOf(run);
-      await run.hover({ force: true });
-      await settleTransitions(page);
-      const runHover = await bgOf(run);
-      await page.mouse.move(0, 0);
+        const runRest = await bgOf(run);
+        await run.hover({ force: true });
+        await settleTransitions(page);
+        const runHover = await bgOf(run);
+        await page.mouse.move(0, 0);
 
-      numbers[theme] = { dryRest, dryHover, dryVsRest, runRest, runHover };
-      expect(dryVsRest, `${theme}: Dry run hover vs rest`).toBeGreaterThanOrEqual(1.1);
-      expect(runRest, `${theme}: Run pill rest is --app-accent`).toBe(await token("--app-accent"));
-      expect(runHover, `${theme}: Run pill hover is --app-accent-strong`).toBe(
-        await token("--app-accent-strong"),
-      );
+        numbers[theme] = { dryRest, dryHover, dryVsRest, runRest, runHover };
+        expect(dryVsRest, `${theme}: Dry run hover vs rest`).toBeGreaterThanOrEqual(1.1);
+        expect(runRest, `${theme}: Run pill rest is --app-accent`).toBe(
+          await token("--app-accent"),
+        );
+        expect(runHover, `${theme}: Run pill hover is --app-accent-strong`).toBe(
+          await token("--app-accent-strong"),
+        );
+      }
+      console.log(JSON.stringify(numbers, null, 2));
+    } finally {
+      await context.close();
     }
-    console.log(JSON.stringify(numbers, null, 2));
   });
 });

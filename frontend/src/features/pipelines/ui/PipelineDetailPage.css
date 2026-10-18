@@ -63,13 +63,17 @@
 
 /* The "Move output field up/down" buttons of the AI step's output-schema table sit in the focused editor, a
    `--app-surface` card: the hover rung is soft in light, strong in dark (HEL-866, DESIGN.md §3). */
-.pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
-:root[data-theme="dark"] .pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .pipeline-detail-page__step-card-move-btn:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* HEL-706 — `isDuplicating` disables this button while its own duplicate
@@ -280,8 +284,10 @@
   transition: background-color var(--app-transition);
 }
 
-.pipeline-detail-page__select-fields-label:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .pipeline-detail-page__select-fields-label:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .pipeline-detail-page__select-fields-checkbox {
@@ -332,9 +338,11 @@
     color var(--app-transition);
 }
 
-.pipeline-detail-page__filter-combinator-btn:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .pipeline-detail-page__filter-combinator-btn:hover {
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .pipeline-detail-page__filter-combinator-btn--active {
@@ -375,9 +383,11 @@
     border-style var(--app-transition);
 }
 
-.pipeline-detail-page__filter-add-btn:hover {
-  background: var(--app-accent-surface);
-  border-style: solid;
+@media (hover: hover) {
+  .pipeline-detail-page__filter-add-btn:hover {
+    background: var(--app-accent-surface);
+    border-style: solid;
+  }
 }
 
 .pipeline-detail-page__filter-warning {
@@ -449,9 +459,11 @@
     background-color var(--app-transition);
 }
 
-.pipeline-detail-page__sort-config-direction-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .pipeline-detail-page__sort-config-direction-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 /* F-208: the remove-button recipe formerly here now lives on the shared
@@ -472,9 +484,11 @@
     border-style var(--app-transition);
 }
 
-.pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
-  background: var(--app-accent-surface);
-  border-style: solid;
+@media (hover: hover) {
+  .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
+    background: var(--app-accent-surface);
+    border-style: solid;
+  }
 }
 
 .pipeline-detail-page__sort-config-add-btn:disabled {
@@ -587,9 +601,11 @@
     color var(--app-transition);
 }
 
-.pipeline-detail-page__row-remove-btn:hover {
-  border-color: var(--app-error);
-  color: var(--app-error);
+@media (hover: hover) {
+  .pipeline-detail-page__row-remove-btn:hover {
+    border-color: var(--app-error);
+    color: var(--app-error);
+  }
 }
 
 /* ── Step config: Cast / Rename field tables ────────────────────────────── */

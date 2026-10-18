@@ -56,7 +56,7 @@ export function SpineOutputs({
                   ` · used in ${output.panelCount} ${output.panelCount === 1 ? "panel" : "panels"}`}
               </span>
               <span className="spine-card__meta">
-                off{" "}
+                from{" "}
                 {output.nodeStepId !== undefined
                   ? laneOutputSubtitle(laneGraph, stepLabelById, output.nodeStepId)
                   : "the pipeline's source"}

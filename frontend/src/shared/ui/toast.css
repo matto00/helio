@@ -53,6 +53,11 @@
   animation: toast-slide-in var(--transition-slow) both;
 }
 
+/* A toast that already entered (the viewport moved into or out of a modal and remounted it) does not slide in again. */
+.toast--entered {
+  animation: none;
+}
+
 .toast--exiting {
   animation: toast-fade-out var(--toast-exit-duration) ease forwards;
 }

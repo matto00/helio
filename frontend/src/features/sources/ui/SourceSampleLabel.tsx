@@ -1,12 +1,10 @@
 import { RefreshCw } from "lucide-react";
 
-import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { useNow } from "../../../hooks/useNow";
+import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
-import { useSourceSampleAccess } from "../hooks/useSourceSampleAccess";
-import { fetchSourceSample, selectSourceSampleEntry } from "../state/sourceSamplesSlice";
-import { describeSampleLabel } from "../utils/describeSampleLabel";
+import { useSourceSampleLabel } from "../hooks/useSourceSampleLabel";
+import { fetchSourceSample } from "../state/sourceSamplesSlice";
 import "./SourceSampleLabel.css";
 
 interface SourceSampleLabelProps {
@@ -17,9 +15,6 @@ interface SourceSampleLabelProps {
   pipelineId: string;
 }
 
-// The age text re-renders on a 30 s tick so "fetched 3 minutes ago" stays honest on a long-open page.
-const AGE_TICK_MS = 30_000;
-
 /**
  * HEL-1628 (docs/live-draft-preview.md §4): the sample label and refresh control under a source on the pipeline
  * page. Rules live in `describeSampleLabel`; this component only chooses between loading, unavailable and the
@@ -27,27 +22,9 @@ const AGE_TICK_MS = 30_000;
  */
 export function SourceSampleLabel({ sourceId, sourceName, pipelineId }: SourceSampleLabelProps) {
   const dispatch = useAppDispatch();
-  const sourcesStatus = useAppSelector((state) => state.sources.status);
-  const entry = useAppSelector((state) => selectSourceSampleEntry(state, sourceId));
-  const now = useNow(AGE_TICK_MS);
-  const access = useSourceSampleAccess(pipelineId, sourceId);
+  const { text, caveat, loading, entry, canRefresh } = useSourceSampleLabel(sourceId, pipelineId);
 
-  const loading = entry?.status === "loading";
-  // Only idle/loading is still waiting; a failed sources list means ownership is unknown and no capture was sent.
-  const waitingForSources = (sourcesStatus === "idle" || sourcesStatus === "loading") && !entry;
-  const label = entry?.sample ? describeSampleLabel(entry.sample, now) : null;
-
-  // HEL-1648 (D6b): a viewer's source they do not own has no sample and is never requested -- no label at all.
-  if (access === "no") return null;
-
-  let text: string;
-  if (label) text = label.text;
-  else if (access === "unavailable") text = "Sample unavailable";
-  else if (access === "unknown" || waitingForSources || loading) text = "Loading sample…";
-  else text = "Sample unavailable";
-
-  // Nothing to refresh until the caller is known to be allowed to sample the source.
-  const canRefresh = access === "yes" && !waitingForSources;
+  if (text === null) return null;
 
   return (
     <div className="source-sample-label" aria-busy={loading}>
@@ -64,7 +41,7 @@ export function SourceSampleLabel({ sourceId, sourceName, pipelineId }: SourceSa
           />
         )}
       </span>
-      {label?.caveat && <span className="source-sample-label__caveat">{label.caveat}</span>}
+      {caveat && <span className="source-sample-label__caveat">{caveat}</span>}
       {entry?.status === "error" && entry.sample && (
         <span className="source-sample-label__caveat">
           Refresh failed; showing the last sample.

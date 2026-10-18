@@ -111,9 +111,11 @@
   transition: background-color var(--app-transition);
 }
 
-.spine-ghost-btn:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .spine-ghost-btn:hover {
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .spine-actions {
@@ -186,13 +188,20 @@
   border-radius: var(--app-radius-sm);
 }
 
-.spine-row:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .spine-row:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
-.spine-row--selected,
-.spine-row--selected:hover {
+.spine-row--selected {
   background: var(--app-accent-dim);
+}
+
+@media (hover: hover) {
+  .spine-row--selected:hover {
+    background: var(--app-accent-dim);
+  }
 }
 
 .spine-row__grip {
@@ -341,49 +350,69 @@
 
 /* A row's hover lives on its select button (the element a pointer is actually over); the selected row keeps
    its accent wash on the row, and its button deepens to the selection-border tone on hover. */
-.spine-row:hover {
-  background: transparent;
+@media (hover: hover) {
+  .spine-row:hover {
+    background: transparent;
+  }
 }
 
-.spine-row__select:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .spine-row__select:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
-.spine-row--selected .spine-row__select:hover {
-  background: var(--app-accent-mid);
+@media (hover: hover) {
+  .spine-row--selected .spine-row__select:hover {
+    background: var(--app-accent-mid);
+  }
 }
 
-.spine-row--selected:hover {
-  background: var(--app-accent-dim);
+@media (hover: hover) {
+  .spine-row--selected:hover {
+    background: var(--app-accent-dim);
+  }
 }
 
 /* The quiet menu triggers of rows (on the canvas) and of cards (on a surface). */
-.spine-row__menu .popover__trigger:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .spine-row__menu .popover__trigger:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
-.spine-card .popover__trigger:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .spine-card .popover__trigger:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
-:root[data-theme="dark"] .spine-card .popover__trigger:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .spine-card .popover__trigger:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* HEL-1628: the sample label's refresh button sits on the card's `--app-surface`, so its ghost hover
    (`--app-surface-soft`, 1.03:1 there in dark) takes the same rung as the card menu above. */
-.spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+  }
 }
 
-:root[data-theme="dark"] .spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .spine-card .source-sample-label .ui-icon-btn:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* On the selected row (accent wash backdrop) the menu trigger deepens to the selection-border tone, like the
    row's own select button. */
-.spine-row--selected .spine-row__menu .popover__trigger:hover {
-  background: var(--app-accent-mid);
+@media (hover: hover) {
+  .spine-row--selected .spine-row__menu .popover__trigger:hover {
+    background: var(--app-accent-mid);
+  }
 }
 
 /* HEL-1608: compact rows. When the spine column's own content box is 226px or less (a track of about 259px; only

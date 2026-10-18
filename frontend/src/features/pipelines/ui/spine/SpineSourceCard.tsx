@@ -6,6 +6,7 @@
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { DataSource } from "../../../sources/types/dataSource";
+import { useSourceSampleLabel } from "../../../sources/hooks/useSourceSampleLabel";
 import { SourceSampleLabel } from "../../../sources/ui/SourceSampleLabel";
 import type { PipelineRoot } from "../../types/pipelineStep";
 
@@ -35,6 +36,11 @@ export function SpineSourceCard({
   onEditSource,
   onRemoveRoot,
 }: SpineSourceCardProps) {
+  // HEL-1668: the sample label already says "Static · 30 rows" for a static source, so the kind meta is dropped
+  // only when the rendered label text starts with the kind (loading / unavailable / truncated keep it).
+  const sampleText = useSourceSampleLabel(root.dataSourceId, pipelineId).text;
+  const kind = source ? labelForKind(source.type) : null;
+  const labelNamesKind = kind !== null && sampleText !== null && sampleText.startsWith(kind);
   const nameContent = (
     <>
       {ordinal !== null && <span className="spine-card__ordinal">{ordinal}</span>}
@@ -74,7 +80,7 @@ export function SpineSourceCard({
         ) : (
           <span className="spine-card__name">{nameContent}</span>
         )}
-        {source && <span className="spine-card__meta">{labelForKind(source.type)}</span>}
+        {kind !== null && !labelNamesKind && <span className="spine-card__meta">{kind}</span>}
         <SourceSampleLabel
           sourceId={root.dataSourceId}
           sourceName={root.dataSourceName}

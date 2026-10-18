@@ -18,10 +18,16 @@
   padding: 1px 4px;
 }
 
-.output-schema-disclosure__trigger:hover,
 .output-schema-disclosure__trigger[aria-expanded="true"] {
   border-bottom-color: var(--app-accent);
   color: var(--app-text);
+}
+
+@media (hover: hover) {
+  .output-schema-disclosure__trigger:hover {
+    border-bottom-color: var(--app-accent);
+    color: var(--app-text);
+  }
 }
 
 .output-schema-disclosure__chevron {
@@ -34,10 +40,14 @@
  * ~200-field REST source (`proj-2026-flat`), where the footer's own height
  * no longer changes at all between a 0-field and a 200-field output. */
 .output-schema-disclosure__panel {
+  /* Read by the panel's placement (outputSchemaPanelPlacement.ts), so JS never carries a px copy of these. */
+  --schema-panel-max-width: 28rem;
+  --schema-panel-max-height: 24rem;
+  --schema-panel-edge-margin: 0.5rem;
   display: flex;
   flex-direction: column;
-  width: min(28rem, calc(100vw - 40px));
-  max-height: min(24rem, calc(100vh - 80px));
+  width: min(var(--schema-panel-max-width), calc(100vw - 40px));
+  max-height: min(var(--schema-panel-max-height), calc(100vh - 80px));
   overflow-y: auto;
 }
 
