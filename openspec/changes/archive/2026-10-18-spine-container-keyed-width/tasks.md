@@ -3,6 +3,7 @@
 - [C1] Driver run rules: scratch only in /home/matt/Development/helio/.concertino/scratch/HEL-1608/; jest and Playwright at most 2 workers under nice -n 19; full Playwright suites under flock -w 3600 /tmp/claude-1000/-home-matt-Development-helio/9b21e65f-3fe7-47b2-9c41-c08a39656cd5/scratchpad/e2e.lock, sbt testFull under sbtfull.lock; load gate (1-min load >10 -> sleep 60, recheck, up to 30 min); never kill/pkill/pgrep/killall; stop servers only via scripts/concertino/stop-servers.sh; Playwright --trace retain-on-failure
 - [C2] Phone layout (<=768px) stays exactly as HEL-1582 left it; hel1582-* e2e specs stay green; no HEL-1668/HEL-1669 scope; report before committing if touching HEL-1630 or HEL-1620 files
 - [C3] hel1579 spec edit confined to the 769-1100px sweep test; never touch the :174 accent test or seedPipeline/shared setup; if merging after HEL-1620, keep its shared setup, adapt seeding, re-run the WHOLE hel1579 spec (both themes) on the merged head before CI
+- [C4] Overnight mode: reversible nothing-builds-on-it UI calls built with the recommended option and listed in the PR body under 'UI decisions taken overnight'; every other owner decision -> escalation --raise-only, screenshots to scratch, hand back and stop; full local e2e under the e2e lock before Delivery; no release
 
 ### Tests (red first)
 
