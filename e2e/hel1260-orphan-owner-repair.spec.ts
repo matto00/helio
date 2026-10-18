@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
 
 // HEL-1260 — the owner of a dashboard holding a panel with NO stored layout item (an orphan, which
@@ -18,6 +18,36 @@ async function storedLayout(request: APIRequestContext, dashboardId: string) {
     items: { id: string; layout: Record<string, { panelId: string }[]> }[];
   };
   return body.items.find((d) => d.id === dashboardId)!.layout;
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+const sameBox = (a: Box, b: Box) =>
+  Math.abs(a.x - b.x) < 0.5 &&
+  Math.abs(a.y - b.y) < 0.5 &&
+  Math.abs(a.width - b.width) < 0.5 &&
+  Math.abs(a.height - b.height) < 0.5;
+
+/**
+ * HEL-1658: the grid item's box once its layout has settled. A box read at a wall-clock moment is null while the
+ * HEL-1584 grid entrance has not given the item a box yet (a slow runner); wait on the state itself: non-null and
+ * unchanged across two reads one animation frame apart.
+ */
+async function settledGridItemBox(page: Page): Promise<Box> {
+  const item = page.locator(".react-grid-item").first();
+  let previous: Box | null = null;
+  await expect
+    .poll(
+      async () => {
+        const box = await item.boundingBox();
+        const settled = box !== null && previous !== null && sameBox(previous, box);
+        previous = box;
+        await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+        return settled;
+      },
+      { message: "the grid item has a settled layout box" },
+    )
+    .toBe(true);
+  return previous!;
 }
 
 for (const theme of ["light", "dark"] as const) {
@@ -86,15 +116,14 @@ for (const theme of ["light", "dark"] as const) {
         })
         .toBe(true);
       await expect(page.getByText("Unsaved changes")).toHaveCount(0);
-      const rectBefore = await page.locator(".react-grid-item").first().boundingBox();
+      const rectBefore = await settledGridItemBox(page);
 
       await page.reload();
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
-      await page.waitForTimeout(500);
-      const rectAfter = await page.locator(".react-grid-item").first().boundingBox();
-      expect(Math.abs(rectAfter!.x - rectBefore!.x)).toBeLessThan(2);
-      expect(Math.abs(rectAfter!.y - rectBefore!.y)).toBeLessThan(2);
-      expect(Math.abs(rectAfter!.width - rectBefore!.width)).toBeLessThan(2);
+      const rectAfter = await settledGridItemBox(page);
+      expect(Math.abs(rectAfter.x - rectBefore.x)).toBeLessThan(2);
+      expect(Math.abs(rectAfter.y - rectBefore.y)).toBeLessThan(2);
+      expect(Math.abs(rectAfter.width - rectBefore.width)).toBeLessThan(2);
       expect(repairPosts).toHaveLength(1);
       expect(layoutPatches).toHaveLength(0);
       await expect(page.getByText("Unsaved changes")).toHaveCount(0);
@@ -141,17 +170,15 @@ for (const theme of ["light", "dark"] as const) {
       const layout = await storedLayout(request, dashboardId);
       for (const bp of BREAKPOINTS) expect(layout[bp], `${theme} ${bp}`).toHaveLength(1);
       await expect(page.getByText("Unsaved changes")).toHaveCount(0);
-      await page.waitForTimeout(500);
-      const rectBefore = await page.locator(".react-grid-item").first().boundingBox();
+      const rectBefore = await settledGridItemBox(page);
 
       await page.reload();
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
-      await page.waitForTimeout(500);
-      const rectAfter = await page.locator(".react-grid-item").first().boundingBox();
-      expect(Math.abs(rectAfter!.x - rectBefore!.x)).toBeLessThan(2);
-      expect(Math.abs(rectAfter!.y - rectBefore!.y)).toBeLessThan(2);
-      expect(Math.abs(rectAfter!.width - rectBefore!.width)).toBeLessThan(2);
-      expect(Math.abs(rectAfter!.height - rectBefore!.height)).toBeLessThan(2);
+      const rectAfter = await settledGridItemBox(page);
+      expect(Math.abs(rectAfter.x - rectBefore.x)).toBeLessThan(2);
+      expect(Math.abs(rectAfter.y - rectBefore.y)).toBeLessThan(2);
+      expect(Math.abs(rectAfter.width - rectBefore.width)).toBeLessThan(2);
+      expect(Math.abs(rectAfter.height - rectBefore.height)).toBeLessThan(2);
       expect(await storedLayout(request, dashboardId)).toEqual(layout);
       expect(repairPosts).toHaveLength(0);
     } finally {
