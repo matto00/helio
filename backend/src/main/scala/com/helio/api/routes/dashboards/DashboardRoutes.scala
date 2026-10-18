@@ -37,8 +37,11 @@ final class DashboardRoutes(
                   complete(StatusCodes.BadRequest, ErrorResponse("offset must not be negative"))
                 else {
                   val page = Page(offset = offsetRaw, limit = math.min(limitRaw, Page.MaxLimit))
-                  onSuccess(dashboardService.findAll(user, page)) { result =>
-                    complete(PagedResult(result.items.map(DashboardResponse.fromDomain), result.total, result.offset, result.limit))
+                  onSuccess(dashboardService.findAllWithPipelineFedFlag(user, page)) { result =>
+                    complete(PagedResult(
+                      result.items.map { case (d, fed) => DashboardResponse.fromDomain(d).copy(hasPipelineFedPanels = Some(fed)) },
+                      result.total, result.offset, result.limit
+                    ))
                   }
                 }
               }

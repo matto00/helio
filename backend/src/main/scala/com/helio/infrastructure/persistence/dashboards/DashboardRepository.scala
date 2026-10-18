@@ -67,6 +67,23 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
     )
   }
 
+  /** Of `dashboardIds`, those with at least one output panel bound to an Output (HEL-1646): one query for the
+   *  whole page, mirroring the client's `feedingOutputIds` (`kind = 'output'` and a non-empty `output_id`). It
+   *  does not join `outputs`, so it never consults pipeline access: the phone skeleton's reserved slot must
+   *  match what the loaded panels will decide. Runs in the caller's user context like `findAll`. */
+  def pipelineFedDashboardIds(ownerId: UserId, dashboardIds: Vector[DashboardId]): Future[Set[DashboardId]] =
+    if (dashboardIds.isEmpty) Future.successful(Set.empty)
+    else {
+      val ids = dashboardIds.map(_.value)
+      ctx.withUserContext(ownerId.value)(
+        TableQuery[PanelRepository.PanelTable]
+          .filter(p => p.dashboardId.inSet(ids) && p.kind === "output" && p.outputId.isDefined)
+          .map(_.dashboardId)
+          .distinct
+          .result
+      ).map(_.map(DashboardId(_)).toSet)
+    }
+
   /** Sharing-aware read. Returns Some if:
    *  - `callerOpt` is Some and the caller is the owner,
    *  - `callerOpt` is Some and the caller has an editor/viewer grant, or

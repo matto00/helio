@@ -414,6 +414,18 @@
   background: var(--app-surface-strong);
 }
 
+/* HEL-1669 D2: in light, --app-surface (#fdfcfa) is nearly white, so the white hover rung was only
+   1.025:1 from the rest fill. Rest moves to the recessed --app-surface-soft; hover stays --app-surface-strong
+   (1.18:1 vs rest, 1.12:1 vs the --app-bg backdrop). :not(.mobile-pill--primary) keeps the Run pill's accent
+   rest/hover fills untouched (a bare light-scoped .mobile-pill would outrank .mobile-pill--primary). */
+:root[data-theme="light"] .mobile-pill:not(.mobile-pill--primary) {
+  background: var(--app-surface-soft);
+}
+
+:root[data-theme="light"] .mobile-pill:not(.mobile-pill--primary):hover:not(:disabled) {
+  background: var(--app-surface-strong);
+}
+
 .mobile-pill--primary,
 .mobile-pill--primary:hover:not(:disabled) {
   border-color: transparent;

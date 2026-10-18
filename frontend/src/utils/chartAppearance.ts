@@ -30,13 +30,16 @@ export interface ChartThemeTokens {
   shadowSoft: string;
   /** HEL-566: `--app-radius-md`, applied to the tooltip's `extraCssText`. */
   radiusMd: string;
-  /** HEL-566: `--app-accent-strong` — DESIGN.md §3's documented `(hover)`
-   *  accent token, used for hover-emphasis highlighting. Deliberately NOT
-   *  plain `--app-accent` (see design.md Decision 5). */
-  accentStrong: string;
+  /** HEL-566/HEL-1669: `--app-focus-ring-color`, the hover-emphasis highlight
+   *  (a 2-3px non-text indicator on panel surfaces). Deliberately NOT
+   *  `--app-accent-strong` (HEL-1669 D2b: that is the primary-button hover fill and is
+   *  a light tint in the light theme, which would fall below 3:1 on white panels), and
+   *  NOT plain `--app-accent`. The focus-ring colour is JS-derived per accent and
+   *  guaranteed >= 3:1 against the theme surfaces. */
+  accentEmphasis: string;
   /** HEL-1277: `--app-text-muted`, the subordinate colour of the "vs" comparison overlay series. */
   textMuted: string;
-  /** HEL-1311: `--app-accent` (a plain hex, unlike the `color-mix()` `accentStrong`), the heatmap colour
+  /** HEL-1311: `--app-accent` (a plain hex), the heatmap colour
    *  scale's hue. Passed through only when it is a colour zrender can parse (hex or rgb[a]). */
   accent: string;
   /** HEL-1306: `--app-success|warning|error`, the reference line/band tones (hex in both themes). Passed
@@ -51,11 +54,9 @@ export interface ChartThemeTokens {
  *  ChartPanel test mocks `echarts-for-react` down to a plain div, so the
  *  option this builds is asserted directly rather than rendered to a real
  *  canvas). Real browser sessions always resolve the live computed values
- *  instead. `accentStrong`'s fallback is a rounded approximation of
- *  `color-mix(in srgb, #f97316 78%, white)` — dark theme's default accent
- *  (`DefaultAccentColorByTheme.dark`, `theme.ts`) run through `--app-accent-
- *  strong`'s own recipe (`theme.css`) — since `color-mix` can't be evaluated
- *  outside a real browser; only ever used off this SSR/Jest path. */
+ *  instead. `accentEmphasis`'s fallback is `deriveFocusRingColor("#f97316")`, the
+ *  focus-ring colour of dark theme's default accent (`DefaultAccentColorByTheme.dark`,
+ *  `theme.ts`); only ever used off this SSR/Jest path. */
 const FALLBACK_CHART_THEME: ChartThemeTokens = {
   surfaceStrong: "#262320",
   borderSubtle: "rgba(242, 239, 233, 0.09)",
@@ -64,7 +65,7 @@ const FALLBACK_CHART_THEME: ChartThemeTokens = {
   fontMono: "JetBrains Mono, ui-monospace, monospace",
   shadowSoft: "0 4px 16px rgba(0, 0, 0, 0.35), 0 24px 64px -16px rgba(0, 0, 0, 0.55)",
   radiusMd: "9px",
-  accentStrong: "#fa9249",
+  accentEmphasis: "#db6513",
   textMuted: "#aaa49c",
   accent: "#f97316",
   success: "#4cc38a",
@@ -99,7 +100,7 @@ export function resolveChartTheme(): ChartThemeTokens {
     fontMono: read("--font-mono", FALLBACK_CHART_THEME.fontMono),
     shadowSoft: read("--app-shadow-soft", FALLBACK_CHART_THEME.shadowSoft),
     radiusMd: read("--app-radius-md", FALLBACK_CHART_THEME.radiusMd),
-    accentStrong: read("--app-accent-strong", FALLBACK_CHART_THEME.accentStrong),
+    accentEmphasis: read("--app-focus-ring-color", FALLBACK_CHART_THEME.accentEmphasis),
     textMuted: parseableOr(
       read("--app-text-muted", FALLBACK_CHART_THEME.textMuted),
       FALLBACK_CHART_THEME.textMuted,
@@ -280,7 +281,7 @@ export function applyAxisTriggerTooltip(
   };
 }
 
-/** Design D4 — subtle, `--app-accent-strong`-colored hover emphasis on every
+/** Design D4 — subtle, `--app-focus-ring-color`-colored hover emphasis on every
  *  series (series/point highlight), gated on a live `prefers-reduced-motion`
  *  read: when reduced motion is requested, the emphasis state change is
  *  instant (`animation: false` on the series) rather than omitted outright —
@@ -296,8 +297,8 @@ export function applyHoverEmphasis(
   if (series.length === 0) return option;
   const emphasis = {
     focus: "series",
-    itemStyle: { borderColor: themeTokens.accentStrong, borderWidth: 2 },
-    lineStyle: { color: themeTokens.accentStrong, width: 3 },
+    itemStyle: { borderColor: themeTokens.accentEmphasis, borderWidth: 2 },
+    lineStyle: { color: themeTokens.accentEmphasis, width: 3 },
   };
   return {
     ...option,

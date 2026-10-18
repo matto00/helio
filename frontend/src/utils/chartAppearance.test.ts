@@ -232,14 +232,14 @@ describe("appearanceToEChartsOption", () => {
   });
 });
 
-// HEL-566 — `shadowSoft`/`radiusMd`/`accentStrong` read with the same
+// HEL-566 — `shadowSoft`/`radiusMd`/`accentEmphasis` read with the same
 // live/fallback pattern as the existing five `ChartThemeTokens`.
 describe("resolveChartTheme — new tokens (HEL-566)", () => {
-  it("resolves shadowSoft, radiusMd, and accentStrong (falling back off jsdom, same as the existing tokens)", () => {
+  it("resolves shadowSoft, radiusMd, and accentEmphasis (falling back off jsdom, same as the existing tokens)", () => {
     const theme = resolveChartTheme();
     expect(theme.shadowSoft).toBeTruthy();
     expect(theme.radiusMd).toBeTruthy();
-    expect(theme.accentStrong).toBeTruthy();
+    expect(theme.accentEmphasis).toBeTruthy();
   });
 });
 
@@ -292,7 +292,7 @@ describe("applyAxisTriggerTooltip", () => {
   });
 });
 
-// HEL-566 D4 — subtle, accent-strong-colored hover emphasis on every series;
+// HEL-566 D4 — subtle, accent-emphasis-colored hover emphasis on every series;
 // reduced motion makes the state change instant instead of omitting it.
 describe("applyHoverEmphasis", () => {
   const themeTokens = resolveChartTheme();
@@ -303,13 +303,13 @@ describe("applyHoverEmphasis", () => {
     ],
   });
 
-  it("adds accent-strong-colored emphasis with focus:series to every series (animated case)", () => {
+  it("adds accent-emphasis-colored emphasis with focus:series to every series (animated case)", () => {
     const option = applyHoverEmphasis(optionWithSeries(), themeTokens, false);
     const series = option.series as Array<{ emphasis?: Record<string, unknown> }>;
     for (const s of series) {
       expect(s.emphasis).toMatchObject({
         focus: "series",
-        itemStyle: { borderColor: themeTokens.accentStrong },
+        itemStyle: { borderColor: themeTokens.accentEmphasis },
       });
     }
   });
