@@ -76,7 +76,10 @@ final case class RaceOutcome(
  *     parked; the save then commits: the writer's change landed inside the save's window.
  *   - SaveFirst: the save parks past the compare; the writer starts. Protected, the writer waits behind the save. Unprotected,
  *     the writer commits while the save is parked.
- *  `40P01` is a failure in every case. */
+ *  `40P01` is a failure in every case.
+ *
+ *  Every wait that decides a verdict is a condition wait bounded only by `HangGuardMs`; its expiry fails the test as a harness
+ *  fault (HEL-1654), and "parked" is confirmed from Postgres (`idle in transaction`) as well as from the hook's promise. */
 abstract class DraftRaceFixture extends DraftSaveApiFixture {
 
   protected val GateKey: Long = 7770001L
@@ -105,14 +108,15 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
     def at(point: DraftHookPoint): DBIO[Unit] = point match {
       case DraftHookPoint.Begin =>
         sql"SELECT set_config('race.exempt','1',true)".as[String].andThen(sql"SELECT pg_backend_pid()".as[Int].head).map(pid => { backendPid.trySuccess(pid); () })
-      case DraftHookPoint.AfterCompare if parkAfter.isEmpty =>
-        parked.trySuccess(())
-        DBIO.from(release.future)
-      case DraftHookPoint.AfterLock(site) if parkAfter.contains(site) =>
-        parked.trySuccess(())
-        DBIO.from(release.future)
+      case DraftHookPoint.AfterCompare if parkAfter.isEmpty => park
+      case DraftHookPoint.AfterLock(site) if parkAfter.contains(site) => park
       case _ => DBIO.successful(())
     }
+    /** `parked` completes when this DBIO EXECUTES, never when it is built: production composes some `AfterLock(site)` hooks
+     *  eagerly (`PipelineDraftWrites.lockDefinition` builds them all up front), so a signal raised at construction would
+     *  declare the save parked before it had taken a single lock (HEL-1654). Slick runs a transaction's actions in order,
+     *  so by the time this runs every earlier statement, the site's lock included, has returned. */
+    private def park: DBIO[Unit] = DBIO.successful(()).flatMap { _ => parked.trySuccess(()); DBIO.from(release.future) }
     override def failed(ex: Throwable): Unit = failure = Some(ex)
   }
 
@@ -143,8 +147,32 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
     loop(Set(pid), Set(pid))
   }
 
-  private def activeBackend(application: String): Option[Int] =
-    queryStrings(s"SELECT pid::text FROM pg_stat_activity WHERE application_name='$application' AND state<>'idle' ORDER BY query_start DESC LIMIT 1").headOption.map(_.toInt)
+  /** Every non-idle backend tagged `application` (a participant runs on two pools, so more than one can be live). */
+  private def activeBackends(application: String): Vector[Int] =
+    queryStrings(s"SELECT pid::text FROM pg_stat_activity WHERE application_name='$application' AND state<>'idle'").map(_.toInt)
+
+  /** Whether any live backend tagged `application` waits, directly or through a chain, on `target`. */
+  private def anyWaitsOn(application: String, target: Int): Boolean = activeBackends(application).exists(waitsOn(_, target))
+
+  /** The upper bound of every wait that decides a verdict. A HANG GUARD, not a window: the green path returns the moment the
+   *  decisive state is observed, and expiry is a harness failure (`harnessFail`), never read as "the writer did not block". */
+  private val HangGuardMs = 60000L
+
+  private def harnessFail(what: String, trace: Vector[String]): Nothing =
+    fail(s"HARNESS: $what (no verdict is drawn)\n  " + trace.mkString("\n  "))
+
+  /** The relation locks `pid` holds granted, as text, for the trace. */
+  private def heldLocks(pid: Int): String =
+    queryStrings(s"""SELECT DISTINCT c.relname FROM pg_locks l JOIN pg_class c ON c.oid=l.relation WHERE l.pid=$pid AND l.granted AND l.locktype='relation' AND c.relname IN ('panels','dashboards','pipelines','alert_rules','outputs') ORDER BY 1""").mkString(",")
+
+  /** D3: cross-checks the promise against Postgres. A save that is really parked has run every statement up to its hook and
+   *  holds its transaction open: `idle in transaction`. Anything else is a harness fault, not a verdict. */
+  private def confirmParked(sPid: Int, label: String, note: String => Unit, trace: => Vector[String]): Unit = {
+    def state: String = queryStrings(s"SELECT state FROM pg_stat_activity WHERE pid=$sPid").headOption.getOrElse("gone")
+    if (!waitFor(HangGuardMs)(state == "idle in transaction"))
+      harnessFail(s"save (backend $sPid) was declared parked $label but is '$state', not idle in transaction", trace)
+    note(s"save (backend $sPid) is idle in transaction $label, holding relation locks on [${heldLocks(sPid)}]")
+  }
 
   @tailrec private def sqlStateOf(t: Throwable, depth: Int = 0): Option[String] = t match {
     case e: PSQLException => Option(e.getSQLState)
@@ -191,6 +219,7 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
     val gate    = new Gate
     val trace   = Vector.newBuilder[String]
     def note(s: String): Unit = trace += s
+    val parkedAt = parkAfter.fold("past its compare")(site => s"after the $site lock")
     val completions = new AtomicInteger(0)
     val saveDone, writerDone = new AtomicInteger(Int.MaxValue)
     def startSave(): Future[Either[ServiceError, DraftSaveResponse]] = {
@@ -206,26 +235,33 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
     try {
       var blockedObserved = false
       var committedWhileParked = false
+      // Which transaction Postgres showed waiting on the other (WriterFirst). The commit ORDER is read from these, not from the order
+      // the two Futures completed in: the save's Future completes after a few more steps than its commit, so a writer that waited
+      // for the save can complete its Future first on a loaded runner (seen: HEL-1654, DraftSaveRaceSpec dashboard import).
+      var saveWaitedOnWriter = false
+      var writerWaitedOnSave = false
       val (sf, wf) = order match {
         case WriterFirst =>
           gate.hold()
           val w = startWriter()
-          if (!waitFor(15000)(gateWaiters().nonEmpty || w.isCompleted)) note("writer neither reached the gate nor finished")
+          if (!waitFor(HangGuardMs)(gateWaiters().nonEmpty || w.isCompleted)) harnessFail("writer neither reached the gate nor finished", trace.result())
           if (w.isCompleted) note(s"writer finished before reaching the gate: ${w.value.get}")
           val wPid = gateWaiters().headOption
           note(s"writer held open at its first write (backend ${wPid.getOrElse("?")})")
           val s = startSave()
           val sPid = Await.result(hooks.backendPid.future, 15.seconds)
-          val settled = waitFor(15000)(hooks.parked.isCompleted || s.isCompleted || wPid.exists(w0 => waitsOn(sPid, w0)))
-          if (!settled) note("save neither parked, waited nor finished")
-          if (wPid.exists(w0 => waitsOn(sPid, w0))) { blockedObserved = true; note(s"save (backend $sPid) is WAITING on the writer") }
-          else if (hooks.parked.isCompleted) note(s"save (backend $sPid) PARKED past its compare, holding no wait on the writer")
+          val settled = waitFor(HangGuardMs)(hooks.parked.isCompleted || s.isCompleted || wPid.exists(w0 => waitsOn(sPid, w0)))
+          if (!settled) harnessFail("save neither parked, waited nor finished", trace.result())
+          if (wPid.exists(w0 => waitsOn(sPid, w0))) { blockedObserved = true; saveWaitedOnWriter = true; note(s"save (backend $sPid) is WAITING on the writer") }
+          else if (hooks.parked.isCompleted) { note(s"save (backend $sPid) PARKED $parkedAt, holding no wait on the writer"); confirmParked(sPid, parkedAt, note, trace.result()) }
           else note("save finished early")
           gate.release()
           note("gate released: writer may commit")
           if (hooks.parked.isCompleted && !s.isCompleted) {
-            waitFor(5000)(w.isCompleted || wPid.exists(w0 => waitsOn(w0, sPid)))
-            if (wPid.exists(w0 => waitsOn(w0, sPid))) { blockedObserved = true; note("writer is WAITING on the parked save") }
+            var sawWaiting = false
+            if (!waitFor(HangGuardMs) { if (wPid.exists(w0 => waitsOn(w0, sPid))) sawWaiting = true; w.isCompleted || sawWaiting })
+              harnessFail("writer neither completed nor waited on the parked save", trace.result())
+            if (sawWaiting) { blockedObserved = true; writerWaitedOnSave = true; note("writer is WAITING on the parked save") }
             committedWhileParked = w.isCompleted && w.value.exists(writer.didWrite)
             if (committedWhileParked) note("writer COMMITTED while the save was parked")
             hooks.release.trySuccess(())
@@ -234,11 +270,15 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
         case SaveFirst =>
           val s = startSave()
           val sPid = Await.result(hooks.backendPid.future, 15.seconds)
-          waitFor(15000)(hooks.parked.isCompleted || s.isCompleted)
-          note(if (hooks.parked.isCompleted) s"save (backend $sPid) PARKED past its compare" else s"save finished before parking: ${s.value}")
+          // A save that never parks means the choreography did not happen: the writer is NOT started and no verdict is drawn.
+          if (!waitFor(HangGuardMs)(hooks.parked.isCompleted || s.isCompleted)) harnessFail("save neither parked nor finished; the writer was not started", trace.result())
+          note(if (hooks.parked.isCompleted) s"save (backend $sPid) PARKED $parkedAt" else s"save finished before parking: ${s.value}")
+          if (hooks.parked.isCompleted) confirmParked(sPid, parkedAt, note, trace.result())
           val w = startWriter()
-          waitFor(5000)(w.isCompleted || activeBackend("race-writer").exists(wp => waitsOn(wp, sPid)))
-          if (activeBackend("race-writer").exists(wp => waitsOn(wp, sPid))) { blockedObserved = true; note("writer is WAITING on the parked save") }
+          var sawWaiting = false
+          if (!waitFor(HangGuardMs) { if (anyWaitsOn("race-writer", sPid)) sawWaiting = true; w.isCompleted || sawWaiting })
+            harnessFail("writer neither completed nor waited on the parked save", trace.result())
+          if (sawWaiting) { blockedObserved = true; note("writer is WAITING on the parked save") }
           committedWhileParked = w.isCompleted && w.value.exists(writer.didWrite)
           if (committedWhileParked) note("writer COMMITTED while the save was parked")
           hooks.release.trySuccess(())
@@ -249,7 +289,12 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
       val writerResult = Try(Await.result(wf, 30.seconds))
       note(s"save: ${saveResult.fold(_.toString.take(100), _ => "200 committed")}; writer: ${writerResult.fold(_.toString.take(140), _ => "ok")}")
       val deadlock = hooks.failure.exists(isDeadlock) || writerResult.failed.toOption.exists(isDeadlock)
-      RaceOutcome(order, saveResult, writerResult, violation = saveResult.isRight && (committedWhileParked || lostUpdate(order, writer, writerResult, writerDone.get < saveDone.get) || notSerial(writer, writerResult, seed)), deadlock = deadlock, blockedObserved = blockedObserved, trace = trace.result())
+      val writerCommittedFirst =
+        if (saveWaitedOnWriter) true       // the save could not proceed until the writer's transaction ended
+        else if (writerWaitedOnSave) false // the writer could not commit until the save's transaction ended
+        else writerDone.get < saveDone.get // neither wait observed: the order the two Futures completed in
+      note(s"commit order: ${if (saveWaitedOnWriter) "save waited on the writer" else if (writerWaitedOnSave) "writer waited on the save" else "no wait observed"}; futures completed save=${saveDone.get} writer=${writerDone.get}")
+      RaceOutcome(order, saveResult, writerResult, violation = saveResult.isRight && (committedWhileParked || lostUpdate(order, writer, writerResult, writerCommittedFirst) || notSerial(writer, writerResult, seed)), deadlock = deadlock, blockedObserved = blockedObserved, trace = trace.result())
     } finally {
       hooks.release.trySuccess(())
       gate.close()
@@ -287,26 +332,29 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
       note(s"blocker holds FOR KEY SHARE on $source")
 
       val d = Try(reader.run(readerH, seed)).fold(Future.failed, identity)
-      val stalled = waitFor(15000)(lockWaiting("race-reader") || d.isCompleted)
-      note(if (d.isCompleted) s"reader finished without stalling: ${d.value.get}" else if (stalled) "reader STALLED on the source (it has read its set, if it reads one before locking)" else "reader neither stalled nor finished")
+      if (!waitFor(HangGuardMs)(lockWaiting("race-reader") || d.isCompleted)) harnessFail("reader neither stalled nor finished", trace.result())
+      note(if (d.isCompleted) s"reader finished without stalling: ${d.value.get}" else "reader STALLED on the source (it has read its set, if it reads one before locking)")
 
       val r = Try(grower.run(growerH, seed)).fold(Future.failed, identity)
-      waitFor(15000)(r.isCompleted)
+      if (!waitFor(HangGuardMs)(r.isCompleted)) harnessFail("grower did not finish", trace.result())
       note(s"grower: ${r.value.fold("still running")(_.fold(e => s"FAILED $e", _ => "COMMITTED its root"))}")
 
       val snapshot = await(new DraftSaveHarness(ctx).service.read(PipelineId(seed.pipeline), actor, includeDefinition = true)).toOption.get
       val request  = raceDraft(seed, snapshot.fingerprint.get, snapshot.definition.get.asJsObject).convertTo[DraftSaveRequest]
       val s        = saveH.service.save(PipelineId(seed.pipeline), request, actor)
       val sPid     = Await.result(hooks.backendPid.future, 15.seconds)
-      waitFor(15000)(hooks.parked.isCompleted || s.isCompleted)
+      if (!waitFor(HangGuardMs)(hooks.parked.isCompleted || s.isCompleted)) harnessFail("save neither parked nor finished", trace.result())
       note(if (hooks.parked.isCompleted) s"save (backend $sPid) PARKED past its compare (its base includes the grower's root)" else s"save finished: ${s.value}")
+      if (hooks.parked.isCompleted) confirmParked(sPid, "past its compare", note, trace.result())
 
       blockerConn.rollback()
       note("blocker released")
       var blockedObserved = false
       var committedWhileParked = false
-      waitFor(5000)(d.isCompleted || activeBackend("race-reader").exists(rp => waitsOn(rp, sPid)))
-      if (activeBackend("race-reader").exists(rp => waitsOn(rp, sPid))) { blockedObserved = true; note("reader is WAITING on the parked save") }
+      var sawWaiting = false
+      if (!waitFor(HangGuardMs) { if (anyWaitsOn("race-reader", sPid)) sawWaiting = true; d.isCompleted || sawWaiting })
+        harnessFail("reader neither completed nor waited on the parked save", trace.result())
+      if (sawWaiting) { blockedObserved = true; note("reader is WAITING on the parked save") }
       committedWhileParked = hooks.parked.isCompleted && !s.isCompleted && d.isCompleted && d.value.exists(reader.didWrite)
       if (committedWhileParked) note("reader COMMITTED while the save was parked")
       hooks.release.trySuccess(())
@@ -340,12 +388,13 @@ abstract class DraftRaceFixture extends DraftSaveApiFixture {
     try {
       gate.hold()
       val f = Try(first.run(firstH, seed)).fold(Future.failed, identity)
-      waitFor(15000)(gateWaiters().nonEmpty || f.isCompleted)
+      if (!waitFor(HangGuardMs)(gateWaiters().nonEmpty || f.isCompleted)) harnessFail("first neither reached the gate nor finished", trace.result())
       val fPid = gateWaiters().headOption
       note(s"first held open at its first write (backend ${fPid.getOrElse("?")})")
       val sec = Try(second.run(secondH, seed)).fold(Future.failed, identity)
-      waitFor(5000)(sec.isCompleted || activeBackend("race-second").exists(sp => fPid.exists(fp => waitsOn(sp, fp))))
-      val blocked = activeBackend("race-second").exists(sp => fPid.exists(fp => waitsOn(sp, fp)))
+      var blocked = false
+      if (!waitFor(HangGuardMs) { if (fPid.exists(fp => anyWaitsOn("race-second", fp))) blocked = true; sec.isCompleted || blocked })
+        harnessFail("second neither completed nor waited on first", trace.result())
       note(if (blocked) "second is WAITING on first" else s"second ${if (sec.isCompleted) "finished" else "is running"} without waiting on first")
       gate.release()
       note("gate released")

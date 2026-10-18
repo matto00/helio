@@ -1,0 +1,14 @@
+MUTATION SK1
+diff --git a/backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql b/backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql
+index c524809b1..4539ea860 100644
+--- a/backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql
++++ b/backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql
+@@ -51,7 +51,7 @@ BEGIN
+   WHERE p.id = ANY (COALESCE(p_pipeline_ids, ARRAY[]::text[]))
+      OR p.id IN (SELECT r.pipeline_id FROM pipeline_roots r WHERE r.data_source_id = ANY (COALESCE(p_source_ids, ARRAY[]::text[])))
+   ORDER BY p.id
+-  FOR NO KEY UPDATE OF p;
++  FOR KEY SHARE OF p;
+   GET DIAGNOSTICS v_locked = ROW_COUNT;
+   RETURN v_locked;
+ END;

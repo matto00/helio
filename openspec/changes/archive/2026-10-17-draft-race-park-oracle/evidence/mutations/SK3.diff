@@ -1,0 +1,16 @@
+MUTATION SK3
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+index 1de606282..104e64282 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+@@ -1065,8 +1065,8 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
+             // spec's recorded control: (3) before (1), the order the save's panels-then-pipeline order forms a cycle with.)
+             _ <-
+               if (locks.active(LockSite.StepDeletePanelsFirst))
+-                PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id)
+-                  .andThen(locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId)))
++                locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId))
++                  .andThen(PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id))
+               else
+                 locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId))
+                   .andThen(PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id))
