@@ -18,6 +18,10 @@ export type PortalPopoverPos = {
   maxHeight?: number;
 };
 
+/** An opt-in placement function (HEL-1668): called once the panel is mounted and its real size is measurable, and again on
+ *  window resize, with the mounted panel and the trigger's current rect. */
+export type PortalPopoverPlace = (panel: HTMLElement, triggerRect: DOMRect) => PortalPopoverPos;
+
 /** Minimum gap kept between a portalled panel and the viewport edge. */
 const VIEWPORT_MARGIN = 8;
 
@@ -50,7 +54,15 @@ const VIEWPORT_MARGIN = 8;
  * `ActionsMenu.tsx` / `Select.tsx` for the wired usage (HEL a11y sweep
  * F-007 / F-048).
  */
-export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
+export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(options?: {
+  /** Opts into measured placement: the panel renders `visibility: hidden` (`placed` false) until the first placement,
+   *  so there is no flash. Consumers that do not pass it keep the `computePos` path untouched. */
+  place?: PortalPopoverPlace;
+}) {
+  const place = options?.place;
+  const placeRef = useRef(place);
+  const opted = options?.place !== undefined;
+  const [placedState, setPlaced] = useState(false);
   const triggerRef = useRef<T>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +76,9 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
     if (!isOpen) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        // Escape closes this popover only: preventDefault suppresses an enclosing modal <dialog>'s native `cancel`
+        // (HEL-1668). Deliberately not stopPropagation, which would also hide Escape from window-level handlers.
+        event.preventDefault();
         setIsOpen(false);
         triggerRef.current?.focus();
       }
@@ -150,12 +165,38 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
     );
   }, [isOpen, panelPos]);
 
+  // The latest `place`, read by the placement effect below (declared first so it is current when that runs).
+  useLayoutEffect(() => {
+    placeRef.current = place;
+  }, [place]);
+
+  // Opt-in measured placement: once the panel is mounted (and on resize) hand its real size to `place`.
+  useLayoutEffect(() => {
+    if (!isOpen || !opted) return;
+    function run() {
+      const panel = panelRef.current;
+      const trigger = triggerRef.current;
+      const place = placeRef.current;
+      if (!panel || !trigger || !place) return;
+      setPanelPos(place(panel, trigger.getBoundingClientRect()));
+      setPlaced(true);
+    }
+    run();
+    window.addEventListener("resize", run);
+    return () => {
+      window.removeEventListener("resize", run);
+      // Closing (or unmounting) un-places the panel, so the next open is hidden again until it is measured.
+      setPlaced(false);
+    };
+  }, [isOpen, opted]);
+
   /** Reads the trigger element's bounding rect, calls computePos to derive
    * panel coordinates, and transitions to the open state. */
-  const handleOpen = useCallback((computePos: (rect: DOMRect) => PortalPopoverPos) => {
+  const handleOpen = useCallback((computePos?: (rect: DOMRect) => PortalPopoverPos) => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      setPanelPos(computePos(rect));
+      // A consumer that opted into `place` may omit `computePos`: placement fills in the position after mount.
+      setPanelPos(computePos ? computePos(rect) : {});
     }
     setIsOpen(true);
   }, []);
@@ -164,5 +205,14 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>() {
     setIsOpen(false);
   }, []);
 
-  return { triggerRef, panelRef, isOpen, panelPos, handleOpen, close };
+  return {
+    triggerRef,
+    panelRef,
+    isOpen,
+    panelPos,
+    /** False until an opted-in `place` has run (always true without `place`). */
+    placed: opted ? placedState && isOpen : true,
+    handleOpen,
+    close,
+  };
 }

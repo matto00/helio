@@ -6,11 +6,14 @@
 // `usePipelineDetailPage()`, the same result the desktop layout reads. The dialogs stay a sibling of this layout
 // (PipelineDetailPage), so crossing the 768px boundary never loses an open one.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { PageStatus } from "../../../../shared/ui/PageStatus";
-import { useAddedStepId } from "../../hooks/useStepSelection";
+import type { StepDeepLink } from "../../hooks/useStepDeepLink";
+import { STEP_PARAM, useAddedStepId } from "../../hooks/useStepSelection";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
+import { resolveStepParam } from "../../state/resolveStepParam";
 import { createInFlightDedupe } from "../../state/inFlightDedupe";
 import { stepRowCount, stepRowCountSource } from "../../state/stepRowCount";
 import { StepSaveContext } from "../../state/stepSaveContext";
@@ -35,7 +38,13 @@ import "./PipelineMobile.css";
 /** Shown in place of the steps when this mount's steps fetch failed (HEL-1501). */
 const STEPS_LOAD_ERROR = "Couldn't load this pipeline's steps.";
 
-export function PipelineMobileLayout({ page }: { page: PipelinePageState }) {
+export function PipelineMobileLayout({
+  page,
+  deepLink,
+}: {
+  page: PipelinePageState;
+  deepLink: StepDeepLink;
+}) {
   const { steps, laneGraph, roots, currentPipeline, stepsLoading, stepsFailed, runStepRowCounts } =
     page;
   const stepsLoaded = !stepsLoading && !stepsFailed;
@@ -69,6 +78,14 @@ export function PipelineMobileLayout({ page }: { page: PipelinePageState }) {
     const added = steps.find((s) => s.id === addedStepId);
     if (added) nextKey = stepRenderKey(added);
   }
+  // HEL-1668 D1: the page's one-shot `?step=` deep link opens its step's sheet (an unknown value opens nothing).
+  const [handledDeepLink, setHandledDeepLink] = useState<string | null>(null);
+  if (deepLink.step !== null && deepLink.step !== handledDeepLink) {
+    setHandledDeepLink(deepLink.step);
+    const deepId = resolveStepParam(steps, deepLink.step);
+    const deepStep = steps.find((s) => s.id === deepId);
+    if (deepStep) nextKey = stepRenderKey(deepStep);
+  }
   if (nextKey !== null && !steps.some((s) => stepRenderKey(s) === nextKey)) nextKey = null;
   if (nextKey !== openKey) setOpenKey(nextKey);
 
@@ -80,6 +97,29 @@ export function PipelineMobileLayout({ page }: { page: PipelinePageState }) {
     }
     return undefined;
   })();
+
+  // The URL is DERIVED from the open step: one replace-sync covers every open/close path (row tap, added step, deep
+  // link, close, swipe, removal close, temp -> server id swap). Gated until the deep link is consumed, so a layout
+  // mounting while the steps load never deletes `?step=` before it is used.
+  const openStepId = open?.step.id ?? null;
+  const { consumed: deepLinkConsumed, step: deepLinkStep, clear: clearDeepLink } = deepLink;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStep = searchParams.get(STEP_PARAM);
+  useEffect(() => {
+    if (deepLinkStep !== null) clearDeepLink();
+  }, [deepLinkStep, clearDeepLink]);
+  useEffect(() => {
+    if (!deepLinkConsumed || urlStep === openStepId) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (openStepId === null) next.delete(STEP_PARAM);
+        else next.set(STEP_PARAM, openStepId);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [deepLinkConsumed, urlStep, openStepId, setSearchParams]);
 
   if (currentPipeline === null) return null;
 

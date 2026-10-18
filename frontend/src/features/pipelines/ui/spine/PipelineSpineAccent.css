@@ -33,12 +33,14 @@
   color: var(--app-text-muted);
 }
 
-:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
-  .pipeline-detail-page__filter-add-btn:hover,
-:is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
-  .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__filter-add-btn:hover,
+  :is(.pipeline-detail-page--spine, .pipeline-detail-page--mobile)
+    .pipeline-detail-page__sort-config-add-btn:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* Schema-diff chips: added = success, dropped = error (already), renamed = warning (already),

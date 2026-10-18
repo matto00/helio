@@ -50,7 +50,7 @@ interface ModalProps {
 // Selector for all keyboard-focusable elements inside the modal — mirrors
 // the manual trap PanelCreationModal hand-rolled before it moved onto this
 // shared primitive (HEL-716).
-const FOCUSABLE_SELECTORS =
+export const FOCUSABLE_SELECTORS =
   'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
