@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.domain.steps.StringBudget
 import spray.json._
 
 import ExpressionEvaluator.DateTimeFunctions
@@ -16,7 +17,7 @@ private[engine] object ExpressionInterpreter {
   private[engine] final case class VBool(b: Boolean) extends Val
   private[engine] case object VNull extends Val
 
-  private[engine] def evalExpr(expr: Expr, row: Map[String, JsValue]): Either[EvaluationError, Val] =
+  private[engine] def evalExpr(expr: Expr, row: Map[String, JsValue], maxChars: Int = Int.MaxValue): Either[EvaluationError, Val] =
     expr match {
       case NumLit(v) => Right(VNum(v))
       case StrLit(s) => Right(VStr(s))
@@ -34,13 +35,13 @@ private[engine] object ExpressionInterpreter {
 
       case BinOp(op, l, r) =>
         for {
-          lv <- evalExpr(l, row)
-          rv <- evalExpr(r, row)
-          res <- applyOp(op, lv, rv, expr.toString)
+          lv <- evalExpr(l, row, maxChars)
+          rv <- evalExpr(r, row, maxChars)
+          res <- applyOp(op, lv, rv, expr.toString, maxChars)
         } yield res
 
       case Neg(e) =>
-        evalExpr(e, row).flatMap {
+        evalExpr(e, row, maxChars).flatMap {
           case VNum(n) => Right(VNum(-n + 0.0)) // + 0.0 turns -0.0 into 0.0
           case VNull   => Right(VNull)
           case other   => Left(EvaluationError.TypeError(s"Operator '-' cannot be applied to ${typeName(other)}"))
@@ -48,42 +49,42 @@ private[engine] object ExpressionInterpreter {
 
       case Cmp(op, l, r) =>
         for {
-          lv  <- evalExpr(l, row)
-          rv  <- evalExpr(r, row)
+          lv  <- evalExpr(l, row, maxChars)
+          rv  <- evalExpr(r, row, maxChars)
           res <- compare(op, lv, rv)
         } yield res
 
       // HEL-1070: SQL three-valued logic. `and` skips its right operand when the left is false, `or` when it is true.
-      case And(l, r) => evalBool(l, row).flatMap {
+      case And(l, r) => evalBool(l, row, maxChars).flatMap {
         case Some(false) => Right(VBool(false))
-        case lb          => evalBool(r, row).map(rb => and3(lb, rb))
+        case lb          => evalBool(r, row, maxChars).map(rb => and3(lb, rb))
       }
-      case Or(l, r) => evalBool(l, row).flatMap {
+      case Or(l, r) => evalBool(l, row, maxChars).flatMap {
         case Some(true) => Right(VBool(true))
-        case lb         => evalBool(r, row).map(rb => or3(lb, rb))
+        case lb         => evalBool(r, row, maxChars).map(rb => or3(lb, rb))
       }
-      case Not(e) => evalBool(e, row).map(_.fold[Val](VNull)(b => VBool(!b)))
+      case Not(e) => evalBool(e, row, maxChars).map(_.fold[Val](VNull)(b => VBool(!b)))
 
       // HEL-1070: lazy -- only the chosen branch is evaluated; a null condition takes the else branch.
       case Call("if", Vector(cond, thenE, elseE)) =>
-        evalBool(cond, row).flatMap(c => evalExpr(if (c.contains(true)) thenE else elseE, row))
+        evalBool(cond, row, maxChars).flatMap(c => evalExpr(if (c.contains(true)) thenE else elseE, row, maxChars))
 
       // HEL-1423: lazy and null-exempt, so it never reaches applyFn's null guard.
       case Call("coalesce", args) =>
-        args.iterator.map(evalExpr(_, row)).collectFirst { case l @ Left(_) => l; case r @ Right(v) if v != VNull => r }
+        args.iterator.map(evalExpr(_, row, maxChars)).collectFirst { case l @ Left(_) => l; case r @ Right(v) if v != VNull => r }
           .getOrElse(Right(VNull))
 
       case Call(name, args) =>
         args
           .foldLeft[Either[EvaluationError, Vector[Val]]](Right(Vector.empty)) { (accE, a) =>
-            accE.flatMap(acc => evalExpr(a, row).map(v => acc :+ v))
+            accE.flatMap(acc => evalExpr(a, row, maxChars).map(v => acc :+ v))
           }
-          .flatMap(vals => applyFn(name, vals))
+          .flatMap(vals => applyFn(name, vals, maxChars))
     }
 
   /** Evaluate a boolean operand: `Some(b)`, `None` for null; any other value is a `TypeError`. */
-  private def evalBool(expr: Expr, row: Map[String, JsValue]): Either[EvaluationError, Option[Boolean]] =
-    evalExpr(expr, row).flatMap {
+  private def evalBool(expr: Expr, row: Map[String, JsValue], maxChars: Int): Either[EvaluationError, Option[Boolean]] =
+    evalExpr(expr, row, maxChars).flatMap {
       case VBool(b) => Right(Some(b))
       case VNull    => Right(None)
       case other    => Left(EvaluationError.TypeError(s"Expected a boolean but got ${typeName(other)}"))
@@ -130,7 +131,7 @@ private[engine] object ExpressionInterpreter {
     }
   }
 
-  private def applyOp(op: Char, l: Val, r: Val, exprStr: String): Either[EvaluationError, Val] =
+  private def applyOp(op: Char, l: Val, r: Val, exprStr: String, maxChars: Int): Either[EvaluationError, Val] =
     (op, l, r) match {
       // Null propagation — if either side is null the result is null
       case (_, VNull, _) | (_, _, VNull) => Right(VNull)
@@ -143,7 +144,10 @@ private[engine] object ExpressionInterpreter {
         else Right(VNum(a / b))
 
       // `+` concatenates when either side is text or a boolean (a boolean contributes `true`/`false`).
-      case ('+', a, b) if isTextual(a) || isTextual(b) => Right(VStr(concatStr(a) + concatStr(b)))
+      case ('+', a, b) if isTextual(a) || isTextual(b) =>
+        val (x, y) = (concatStr(a), concatStr(b))
+        checkLength(x.length.toLong + y.length, maxChars)
+        Right(VStr(x + y))
 
       case _ =>
         Left(EvaluationError.TypeError(
@@ -167,14 +171,16 @@ private[engine] object ExpressionInterpreter {
    *  an error. `substring` clamps out-of-range start/end indices instead of
    *  throwing; a non-string first argument to `substring`/`lower`/`upper`/`length`
    *  is still a `TypeError`. */
-  private def applyFn(name: String, rawArgs: Vector[Val]): Either[EvaluationError, Val] =
+  private def applyFn(name: String, rawArgs: Vector[Val], maxChars: Int): Either[EvaluationError, Val] =
     if (rawArgs.contains(VNull)) Right(VNull)
     else {
       val args =
         if (TextArgFunctions.contains(name)) rawArgs.updated(0, asText(rawArgs(0))) else rawArgs
       name match {
         case "concat" =>
-          Right(VStr(args.map(concatStr).mkString))
+          val parts = args.map(concatStr)
+          checkLength(parts.foldLeft(0L)(_ + _.length), maxChars)
+          Right(VStr(parts.mkString))
 
         case "substring" =>
           (args(0), args(1), args(2)) match {
@@ -258,6 +264,11 @@ private[engine] object ExpressionInterpreter {
   private def roundTo(x: Double, digits: Int): Double =
     if (x.isNaN || x.isInfinite) x
     else BigDecimal.decimal(x).setScale(digits, BigDecimal.RoundingMode.HALF_UP).toDouble
+
+  /** HEL-1630 (C7): a draft preview refuses to build a text longer than `maxChars` (runs pass `Int.MaxValue`, so this never
+   *  fires for them). Checked BEFORE the text is built, so a nested `concat(concat(x, x), concat(x, x))` cannot allocate it. */
+  private def checkLength(length: Long, maxChars: Int): Unit =
+    if (length > maxChars) throw StringBudget.tooLong(maxChars)
 
   private def concatStr(v: Val): String = v match {
     case VNum(n) => numStr(n)

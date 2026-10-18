@@ -1,0 +1,128 @@
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala` — `executeTree` seams (`contextTransform`, `externalLanes`, `onNodeFrame`, `onNodeError`, `shouldContinue`), post-node row-ceiling/frame-guard checks, shared `dependentsClosure`, public `laneDependencyOf`
+- `backend/src/main/scala/com/helio/domain/engine/DraftPreviewCancelled.scala` — the failure `shouldContinue` raises
+- `backend/src/main/scala/com/helio/domain/model/PipelineStep.scala` — execution context gains `resolveSecondarySource`, `maxNodeRows`, `frameGuard` and the `secondaryRows` choke point
+- `backend/src/main/scala/com/helio/domain/steps/{JoinStep,UnionStep,LookupStep}.scala` — secondaries go through `ctx.secondaryRows`; join checks its output size from the right index up front
+- `backend/src/main/scala/com/helio/domain/steps/{UnpivotStep,SplitTextStep,ChunkByTokenCountStep,ExtractHeadingsStep}.scala` — draft row-ceiling checks (up front / while emitting), `maxRows` overload, runs unchanged
+- `backend/src/main/scala/com/helio/domain/steps/RowBudget.scala` — the ceiling, its two messages and the early-stopping `flatMap`
+- `backend/src/main/scala/com/helio/api/http/RateLimitDirective.scala` — `exempt` predicate and a configurable 429 message
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — own limiter, in-flight gate, exemption in the general wrap, injectable `rateLimitConfig`/`draftPreviewConfig`, route mount, test seams
+- `backend/src/main/scala/com/helio/api/routes/pipelines/DraftPreviewRoutes.scala` — `POST /api/pipelines/:id/draft-preview`, shared path matcher, body cap, in-flight slot
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/DraftPreviewProtocol.scala` — request and NDJSON line types
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/*.scala` — service, planner, decoders, cell codec, schema inference, gate, config, limits, stand-ins
+- `backend/src/main/scala/com/helio/services/pipelines/README.md` — lists the new subpackage
+- `schemas/pipelines/draft-preview-request.schema.json`, `schemas/pipelines/draft-preview-line.schema.json` — the committed contracts
+- `scripts/check-schema-drift.mjs` — skips the `oneOf` line schema (no single case class)
+- `shared-test-fixtures/draft-preview/*` — request, real-route response and failed-line fixtures read by both seam specs
+- `CLAUDE.md` — the two new env vars and the endpoint
+- `frontend/src/features/pipelines/types/draftPreview.ts` — wire types
+- `frontend/src/features/pipelines/services/draftPreviewClient.ts` — stream reader, line guards, `postDraftPreview`
+- `frontend/src/features/pipelines/services/draftPreviewScheduler.ts` — debounce / max-wait / floor, single flight, 429 hold
+- `frontend/src/features/pipelines/services/draftPreviewCaps.ts` — request-cap pre-check
+- `frontend/src/features/pipelines/services/draftPreview*.test.ts`, `draftPreviewTestSupport.ts` — client, scheduler, drag and contract tests
+- `frontend/src/features/pipelines/evaluator/wire.ts`, `wire.encode.test.ts` — lossless request encoder (inverse of the decoder)
+- `frontend/src/features/pipelines/README.md` — lists the client
+- `backend/src/test/scala/com/helio/testsupport/{TwoUserRlsApiFixture,DraftPreviewApiFixture}.scala` — overridable wiring hooks; counters for source access and AI calls
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreview{Stream,LimiterAuth,Rls,Caps,Abort,Heap}Spec.scala`, `api/protocols/DraftPreviewSeamSpec.scala` — group 5 proofs
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — pins the new `DraftPreviewService` 403 producer (classified: reached only after the visibility read)
+- `backend/src/test/scala/com/helio/domain/{engine/InProcessPipelineEngineDraftSeamSpec,steps/RowBudgetSpec}.scala`, `services/pipelines/draftpreview/*Spec.scala` — engine seams, per-kind budget, planner, cells, config and gate
+- `openspec/changes/ndjson-draft-preview-endpoint/**` — the change itself: tasks ticked, executor notes in design.md
+- `backend/src/test/scala/com/helio/testsupport/DraftPreviewBoundFixture.scala`, `api/routes/pipelines/DraftPreview{Admission,ReadingPool}Spec.scala` — cycle 2: bound-server fixture (spy, hold hook, raw-socket slow body), admission and reading-pool proofs
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala`, `domain/model/PipelineStep.scala`, `services/pipelines/draftpreview/{DraftPreviewLimits,DraftPreviewStandIns,DraftPreviewConfig}.scala` — cycle 3 (C6): leaf-first draft walk, live-cell budget (`maxLiveCells`), corrected heap comments
+- `backend/src/main/scala/com/helio/api/routes/pipelines/DraftPreviewRoutes.scala` — cycle 3: `busy(ctx)` indented
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewHeapSpec.scala` — cycle 3: four worst shapes, max <= 96 MB, budget-trip and realistic-draft specs, evidence only via `HELIO_HEAP_EVIDENCE_PATH`
+- `CLAUDE.md` — cycle 3: corrected `DRAFT_PREVIEW_MAX_IN_FLIGHT` arithmetic
+- `backend/src/main/scala/com/helio/domain/steps/StringBudget.scala`, `domain/engine/LiveCellTally.scala` — cycle 4 (C7): `CellWeight`/`StringBudget` (text price, per-value cap, per-node running total) and the length-priced live tally
+- `backend/src/main/scala/com/helio/domain/engine/{InProcessPipelineEngine,ExpressionInterpreter,ExpressionEvaluator}.scala`, `domain/steps/{ComputeStep,StringOpsStep}.scala`, `domain/model/PipelineStep.scala`, `services/pipelines/draftpreview/{DraftPreviewLimits,DraftPreviewStandIns,DraftPreviewConfig}.scala` — cycle 4: tally replaces the cell sum, per-node text budget, in-expression cap, `MaxStringChars`, corrected wording
+- `backend/src/test/scala/com/helio/domain/{steps/StringBudgetSpec,engine/LiveCellTallySpec,engine/InProcessPipelineEngineDraftSeamSpec}.scala`, `api/routes/pipelines/DraftPreviewHeapSpec.scala` — cycle 4: text-budget and tally proofs, walk-order pin, eight-shape heap max
+- `CLAUDE.md`, `openspec/changes/ndjson-draft-preview-endpoint/{design,tasks}.md`, `specs/pipeline-draft-preview-api/spec.md` — cycle 4: corrected "structural" statements, text-limit requirement
+- `backend/src/main/scala/com/helio/domain/steps/{SplitTextStep,ExtractHeadingsStep,ChunkByTokenCountStep,ConvertFormatStep,CastStep}.scala` — cycle 5 (C8): charge `ctx.stringBudget` for every emitted segment/title/chunk/converted/cast-to-string text (draft only; `csv -> json` pre-checked)
+- `backend/src/main/scala/com/helio/domain/steps/StringBudget.scala`, `domain/model/PipelineStep.scala`, `services/pipelines/draftpreview/{DraftPreviewLimits,DraftPreviewConfig}.scala`, `CLAUDE.md` — cycle 5: wording lists the charged kinds, 74.5 MB over ten shapes
+- `backend/src/test/scala/com/helio/domain/{steps/StringBudgetSpec,engine/InProcessPipelineEngineDraftSeamSpec}.scala`, `api/routes/pipelines/DraftPreviewHeapSpec.scala` — cycle 5: per-kind charge proofs, headroom pin (MC), split-fan-out and headings-fan-out shapes
+- `openspec/changes/ndjson-draft-preview-endpoint/{design,tasks}.md`, `specs/pipeline-draft-preview-api/spec.md` — cycle 5: Executor notes (cycle 5), group 9, two scenarios
+- `backend/src/main/scala/com/helio/api/routes/pipelines/DraftPreviewRoutes.scala` — release the in-flight permit when the response entity is never materialized (cycle 6)
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewConfig.scala` — `materializeGraceMillis` (default 5000)
+- `backend/src/test/scala/com/helio/testsupport/DraftPreviewBoundFixture.scala` — `accessCheckHold` latch delaying the access check
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewResetLeakSpec.scala` — reset-connection permit-leak regression
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewWalkSlotSpec.scala` — cycle 7: a reset request's walk keeps its slots until it logs (third request 429)
+- `backend/src/main/scala/com/helio/domain/steps/PivotStep.scala` — cycle 7: draft-only charge of output column names against the text budget
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewGate.scala` — cycle 7: `walkStarted` / `releaseUnlessWalking` on the permit
+
+## Declared paths (explicit, one per line; added at Delivery for squash-branch.sh)
+
+- `CLAUDE.md`
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala`
+- `backend/src/main/scala/com/helio/api/http/RateLimitDirective.scala`
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/DraftPreviewProtocol.scala`
+- `backend/src/main/scala/com/helio/api/routes/pipelines/DraftPreviewRoutes.scala`
+- `backend/src/main/scala/com/helio/domain/engine/DraftPreviewCancelled.scala`
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionEvaluator.scala`
+- `backend/src/main/scala/com/helio/domain/engine/ExpressionInterpreter.scala`
+- `backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala`
+- `backend/src/main/scala/com/helio/domain/engine/LiveCellTally.scala`
+- `backend/src/main/scala/com/helio/domain/model/PipelineStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/CastStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/ChunkByTokenCountStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/ComputeStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/ConvertFormatStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/ExtractHeadingsStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/JoinStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/LookupStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/PivotStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/RowBudget.scala`
+- `backend/src/main/scala/com/helio/domain/steps/SplitTextStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/StringBudget.scala`
+- `backend/src/main/scala/com/helio/domain/steps/StringOpsStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/UnionStep.scala`
+- `backend/src/main/scala/com/helio/domain/steps/UnpivotStep.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/README.md`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftIdentityStep.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewCells.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewConfig.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewGate.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewLimits.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewPlanner.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewRequestDecoder.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewSchema.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewService.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewStandIns.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewStepDecoder.scala`
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala`
+- `backend/src/test/scala/com/helio/api/protocols/DraftPreviewSeamSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewAbortSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewAdmissionSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewCapsSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewHeapSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewLimiterAuthSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewReadingPoolSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewResetLeakSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewRlsSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewStreamSpec.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewWalkSlotSpec.scala`
+- `backend/src/test/scala/com/helio/domain/engine/InProcessPipelineEngineDraftSeamSpec.scala`
+- `backend/src/test/scala/com/helio/domain/engine/LiveCellTallySpec.scala`
+- `backend/src/test/scala/com/helio/domain/steps/RowBudgetSpec.scala`
+- `backend/src/test/scala/com/helio/domain/steps/StringBudgetSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/draftpreview/DraftPreviewCellsSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/draftpreview/DraftPreviewConfigAndGateSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/draftpreview/DraftPreviewPlannerSpec.scala`
+- `backend/src/test/scala/com/helio/testsupport/DraftPreviewApiFixture.scala`
+- `backend/src/test/scala/com/helio/testsupport/DraftPreviewBoundFixture.scala`
+- `backend/src/test/scala/com/helio/testsupport/TwoUserRlsApiFixture.scala`
+- `frontend/src/features/pipelines/README.md`
+- `frontend/src/features/pipelines/evaluator/wire.encode.test.ts`
+- `frontend/src/features/pipelines/evaluator/wire.ts`
+- `frontend/src/features/pipelines/services/draftPreview.contract.test.ts`
+- `frontend/src/features/pipelines/services/draftPreviewCaps.ts`
+- `frontend/src/features/pipelines/services/draftPreviewClient.test.ts`
+- `frontend/src/features/pipelines/services/draftPreviewClient.ts`
+- `frontend/src/features/pipelines/services/draftPreviewDrag.test.ts`
+- `frontend/src/features/pipelines/services/draftPreviewScheduler.test.ts`
+- `frontend/src/features/pipelines/services/draftPreviewScheduler.ts`
+- `frontend/src/features/pipelines/services/draftPreviewTestSupport.ts`
+- `frontend/src/features/pipelines/types/draftPreview.ts`
+- `schemas/pipelines/draft-preview-line.schema.json`
+- `schemas/pipelines/draft-preview-request.schema.json`
+- `scripts/check-schema-drift.mjs`
+- `shared-test-fixtures/draft-preview/draft-preview-failed-line.json`
+- `shared-test-fixtures/draft-preview/draft-preview-request.json`
+- `shared-test-fixtures/draft-preview/draft-preview-response.ndjson`

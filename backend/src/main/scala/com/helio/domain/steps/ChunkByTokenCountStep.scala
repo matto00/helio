@@ -82,7 +82,7 @@ final case class ChunkByTokenCountStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(ChunkByTokenCountStep.apply(rows, config))
+    Future.successful(ChunkByTokenCountStep.apply(rows, config, ctx.maxNodeRows, ctx.stringBudget))
 }
 
 object ChunkByTokenCountStep {
@@ -109,18 +109,30 @@ object ChunkByTokenCountStep {
       )
   }
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: ChunkByTokenCountConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ChunkByTokenCountConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ChunkByTokenCountConfig, maxRows: Option[Int]): Seq[PipelineRowJson.Row] =
+    apply(rows, cfg, maxRows, None)
+
+  /** `maxRows` is the draft preview's node ceiling (see [[RowBudget]]); `None` is unbounded. `budget` is the draft preview's cap on the text this step emits (HEL-1630, owner ruling C8); `None` for every run and the saved preview. */
+  def apply(
+      rows: Seq[PipelineRowJson.Row],
+      cfg: ChunkByTokenCountConfig,
+      maxRows: Option[Int],
+      budget: Option[StringBudget]
+  ): Seq[PipelineRowJson.Row] = {
     val field           = cfg.field
     val indexField      = cfg.indexField
     val tokenCountField = cfg.tokenCountField
     val encoding        = encodingFor(cfg.encoding)
     val chunkSize       = math.max(cfg.targetTokenCount, 1)
 
-    rows.flatMap { row =>
+    RowBudget.flatMap(rows, maxRows, Kind) { row =>
       row.get(field) match {
         case None | Some(null) => Seq.empty
         case Some(value) =>
           chunkTokens(encoding, value.toString, chunkSize).zipWithIndex.map { case ((text, tokenCount), idx) =>
+            budget.foreach(_.chargeValue(text))
             row + (field -> text) + (indexField -> idx) + (tokenCountField -> tokenCount)
           }
       }

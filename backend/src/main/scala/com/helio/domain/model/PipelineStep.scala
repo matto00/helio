@@ -134,8 +134,45 @@ final case class PipelineExecutionContext(
      *  gate can key on it. Defaults to `None` so every existing direct construction of this
      *  context (tests, the test-only flat `executeWithStepCounts` path) keeps compiling; a `None`
      *  owner is treated as NOT PERMITTED by the gate, never exempt (D8/3.5c). */
-    ownerUserId: Option[String] = None
-)
+    ownerUserId: Option[String] = None,
+    /** HEL-1630: answers a `source`-kind secondary input (join/union/lookup) from rows the caller already holds,
+     *  so the live draft preview never reads a data source. `None` (every run and the saved preview) keeps today's
+     *  `findByIdInternal` + `loadSource` read; see [[secondaryRows]]. */
+    resolveSecondarySource: Option[String => Future[Seq[Map[String, Any]]]] = None,
+    /** HEL-1630: the draft preview's per-node output ceiling. `None` for runs and the saved preview, which stay
+     *  unbounded; a row-multiplying step fails before or while materialising once past it, and the engine rejects any
+     *  other node over it. */
+    maxNodeRows: Option[Int] = None,
+    /** HEL-1630: a post-node check of every frame the draft preview produces (`Some(reason)` rejects the node as a step
+     *  error). The preview uses it to refuse a cell its wire encoding cannot carry losslessly. `None` for runs. */
+    frameGuard: Option[Seq[Map[String, Any]] => Option[String]] = None,
+    /** HEL-1630 (owner ruling C6): the draft preview's live-cell budget, cells (rows x columns) held across every frame the
+     *  tree walk retains plus the frame a node just produced. A node that would push the total over it fails as that step's
+     *  error. Its presence also selects the draft walk order (leaf children before descending). `None` for runs and the
+     *  saved preview, which keep their order and are unbounded. */
+    maxLiveCells: Option[Long] = None,
+    /** HEL-1630 (owner ruling C7): the draft preview's cap on any one text a text-creating step creates (see `StringBudget`). Set with
+     *  `maxLiveCells`; the engine turns it into the per-node [[stringBudget]]. `None` for runs and the saved preview. */
+    maxStringChars: Option[Int] = None,
+    /** HEL-1630 (owner ruling C7): the budget of the node being evaluated, built by the engine per node (never by a caller):
+     *  the per-value cap plus a running total bounded by the live-cell headroom, so a step stops while it emits, before the
+     *  post-node check could run. `None` for runs and the saved preview. */
+    stringBudget: Option[StringBudget] = None
+) {
+
+  /** Rows of a `source`-kind secondary input for a `join`/`union`/`lookup` (`stepKind`), through the one choke point
+   *  that decides whether a data source is read. */
+  def secondaryRows(dataSourceId: String, stepKind: String)(implicit ec: ExecutionContext): Future[Seq[Map[String, Any]]] =
+    resolveSecondarySource match {
+      case Some(resolve) => resolve(dataSourceId)
+      case None =>
+        // Privileged: the pipeline ACL is the gate; the step may reference a source owned by another user.
+        dataSourceRepo.findByIdInternal(DataSourceId(dataSourceId)).flatMap {
+          case None     => Future.failed(new IllegalArgumentException(s"DataSource not found for $stepKind: $dataSourceId"))
+          case Some(ds) => loadSource(ds)
+        }
+    }
+}
 
 object PipelineStep {
 

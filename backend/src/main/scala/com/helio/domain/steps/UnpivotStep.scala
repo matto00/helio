@@ -67,15 +67,21 @@ final case class UnpivotStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(UnpivotStep.apply(rows, config))
+    Future.successful(UnpivotStep.apply(rows, config, ctx.maxNodeRows))
 }
 
 object UnpivotStep {
   val Kind: String = "unpivot"
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: UnpivotConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: UnpivotConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  /** `maxRows` is the draft preview's node ceiling (see [[RowBudget]]); `None` is unbounded. */
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: UnpivotConfig, maxRows: Option[Int]): Seq[PipelineRowJson.Row] = {
     val idVars    = cfg.idVars
     val valueVars = cfg.valueVars
+
+    // The output size is exactly rows x valueVars, so the draft ceiling is checked before any row is read.
+    maxRows.foreach(max => if (rows.size.toLong * valueVars.length > max) throw RowBudget.exceeded(Kind, max))
 
     rows.flatMap { row =>
       val idMap: PipelineRowJson.Row = idVars.map(name => name -> row.getOrElse(name, null)).toMap

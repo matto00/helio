@@ -3,7 +3,7 @@ package com.helio.domain.engine
 import com.helio.domain.ai.AiStepClient
 import com.helio.domain.connectors.{ConnectorResolveContext, RestApiConnectorDriver, SqlConnectorDriver}
 import com.helio.domain.model.{AssertionSink, CsvSource, DataSource, DatasetSource, ImageSource, PdfSource, PipelineExecutionContext, PipelineRootId, PipelineStep, PipelineStepId, RestSource, SqlSource, TextSource, TruncatedRead, TruncationSink, WriteBackSink}
-import com.helio.domain.steps.{JoinStep, LookupStep, SecondaryInput, StepConfigError, UnionStep}
+import com.helio.domain.steps.{CellWeight, JoinStep, LookupStep, RowBudget, SecondaryInput, StepConfigError, StringBudget, UnionStep}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
@@ -120,11 +120,33 @@ object InProcessPipelineEngine {
    *  `RuntimeGraphPath` (HEL-914) read the identical mapping. On the companion object (pure,
    *  no instance state) so `RuntimeGraphPath` — which has no engine instance to call through —
    *  can call it too. */
-  private[engine] def laneDependencyOf(step: PipelineStep): Option[String] = step match {
+  def laneDependencyOf(step: PipelineStep): Option[String] = step match {
     case j: JoinStep   => j.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
     case u: UnionStep  => u.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
     case l: LookupStep => l.config.secondaryInput match { case SecondaryInput.Lane(id) => Some(id); case _ => None }
     case _             => None
+  }
+
+  /** HEL-1630 (owner ruling C6): the step error a node gets when holding its output on top of the frames still retained would pass
+   *  the draft preview's live-cell budget. */
+  def MemoryLimitMessage(budget: Long): String =
+    s"Draft preview memory limit reached: this step's output, with the frames still needed downstream, would hold more than $budget cells at once. Reduce the rows or columns, or end the branch earlier."
+
+  /** HEL-1630: the ids of every step that depends on one of `seeds` -- through the parent chain (a child) or a lane input
+   *  (a rejoin) -- transitively, excluding the seeds themselves. The ONE closure the draft-preview planner and
+   *  `executeTree`'s `onNodeError` pruning share, so a step marked unavailable before the walk and a step pruned during it
+   *  are the same set by construction. */
+  def dependentsClosure(steps: Seq[PipelineStep], seeds: Set[String]): Set[String] = {
+    val dependentsOf: Map[String, Vector[String]] = steps.toVector
+      .flatMap { s =>
+        s.parentStepId.map(p => p.value -> s.id.value).toVector ++ laneDependencyOf(s).map(_ -> s.id.value).toVector
+      }
+      .groupMap(_._1)(_._2)
+    val reached = mutable.LinkedHashSet.empty[String]
+    val pending = mutable.Queue.from(seeds)
+    while (pending.nonEmpty)
+      dependentsOf.getOrElse(pending.dequeue(), Vector.empty).foreach(d => if (!seeds.contains(d) && reached.add(d)) pending.enqueue(d))
+    reached.toSet
   }
 }
 
@@ -369,7 +391,22 @@ class InProcessPipelineEngine(
       writeBackSink: WriteBackSink = new WriteBackSink,
       // HEL-1108 (design.md D2/C11): the pipeline owner, forwarded into `makeContext` below so
       // every AI step evaluated by this tree walk carries it through to the gate.
-      ownerUserId: Option[String] = None
+      ownerUserId: Option[String] = None,
+      // HEL-1630 (design.md D2): the draft preview's seams, each defaulted to today's behaviour so no existing caller
+      // changes. `contextTransform` rewrites the engine-built context (it keeps the live `resolveLane`); `externalLanes`
+      // are frames for lane references to steps outside `steps`; `onNodeFrame` sees every node's frame as it lands;
+      // `onNodeError`, when set, isolates a node's own evaluation failure (its dependents are pruned and the walk
+      // continues) instead of failing the walk; `shouldContinue` is polled before each node and, when false, fails the
+      // walk with [[DraftPreviewCancelled]].
+      contextTransform: PipelineExecutionContext => PipelineExecutionContext = identity,
+      externalLanes: Map[String, Seq[Row]] = Map.empty,
+      onNodeFrame: (NodeKey, Seq[Row]) => Unit = (_, _) => (),
+      onNodeError: Option[(PipelineStep, Throwable) => Unit] = None,
+      shouldContinue: () => Boolean = () => true,
+      // HEL-1630 (evaluation-1 CR1): when set, a node's frame is dropped from `nodeOutcomes` as soon as no unevaluated child, no
+      // unevaluated lane dependent and no member of this set still needs it, so a long chain holds about two frames instead
+      // of all of them. `None` (every run and the saved preview) keeps every frame, as today.
+      retainOnly: Option[Set[NodeKey]] = None
   ): Future[TreeWalkResult] = {
     require(rootFrames.nonEmpty, "executeTree requires at least one root frame (design.md R1: every pipeline has at least one root)")
     val rootIdOfStepStr: Map[String, String] = rootIdOfStep.map { case (sid, rid) => sid.value -> rid.value }
@@ -404,7 +441,7 @@ class InProcessPipelineEngine(
       laneDep.getOrElse(s.id.value, None).flatMap { dep =>
         if (dep == s.id.value)
           Some(LaneReferenceError(s"Step '${s.id.value}' cannot reference itself as a lane input."))
-        else if (!byId.contains(dep))
+        else if (!byId.contains(dep) && !externalLanes.contains(dep))
           Some(LaneReferenceError(s"Step '${s.id.value}' references lane step '$dep', which does not exist in this pipeline."))
         else if (ancestorIdsOf(s).contains(dep))
           Some(LaneReferenceError(s"Step '${s.id.value}' references lane step '$dep', which is its own ancestor (cycle)."))
@@ -420,11 +457,12 @@ class InProcessPipelineEngine(
     // every recursive call's argument list. HEL-913: seeded with ONE entry per root (RootKey),
     // not a single `None` sentinel.
     var nodeOutcomes: Map[NodeKey, NodeOutcome] =
-      rootFrames.map { case (rid, rows) => (RootKey(rid): NodeKey) -> NodeOutcome(rows, rows.size.toLong) }.toMap
-    var evaluatedIds: Set[NodeKey] = rootIds.map(rid => RootKey(rid): NodeKey).toSet
+      rootFrames.map { case (rid, rows) => (RootKey(rid): NodeKey) -> NodeOutcome(rows, rows.size.toLong) }.toMap ++
+        externalLanes.map { case (sid, rows) => (StepKey(sid): NodeKey) -> NodeOutcome(rows, rows.size.toLong) }
+    var evaluatedIds: Set[NodeKey] = rootIds.map(rid => RootKey(rid): NodeKey).toSet ++ externalLanes.keys.map(sid => StepKey(sid): NodeKey)
     var counts: Map[String, Long] = Map.empty
 
-    val ctx = makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows), writeBackSink, ownerUserId)
+    val ctx = contextTransform(makeContext(dataSourceRepo, assertionSink, truncationSink, stepId => nodeOutcomes.get(StepKey(stepId)).map(_.rows), writeBackSink, ownerUserId))
 
     rootFrames.foreach { case (rid, rows) => onNodeProgress(RootKey(rid), rows.size.toLong) }
 
@@ -435,10 +473,25 @@ class InProcessPipelineEngine(
     val graphPath = RuntimeGraphPath.build(steps, rootIds, rootIdOfStepStr)
     def buildLanePath(step: PipelineStep): String = graphPath.pathOf(step)
 
+    // HEL-1630 (owner ruling C6, C7): what the walk holds, in cells with text priced by length (see [[LiveCellTally]]), kept beside
+    // `nodeOutcomes` and trimmed with it. Only maintained in draft mode (`maxLiveCells` set); runs and the saved preview never touch it.
+    val tally = new LiveCellTally
+    if (ctx.maxLiveCells.isDefined) nodeOutcomes.values.foreach(o => tally.add(o.rows))
+
     // HEL-905 (design.md Decision 7): a disabled node is transparent -- it is never
     // evaluated; its incoming frame passes through unchanged.
     def evalNode(step: PipelineStep, currentRows: Seq[Row]): Future[Seq[Row]] =
-      if (step.enabled) evalOneStep(currentRows, step, ctx, buildLanePath) else Future.successful(currentRows)
+      if (step.enabled) evalOneStep(currentRows, step, nodeContext, buildLanePath) else Future.successful(currentRows)
+
+    // HEL-1630 (owner ruling C7): in a draft, the node's context carries a text budget whose running total is what the request has
+    // left under the live-cell budget (the parent is still retained, so `held` includes it), so a compute/stringops step stops
+    // WHILE it emits instead of after it has allocated the frame. Runs and the saved preview get `ctx` itself.
+    def nodeContext: PipelineExecutionContext =
+      (ctx.maxLiveCells, ctx.maxStringChars) match {
+        case (Some(budget), Some(maxChars)) =>
+          ctx.copy(stringBudget = Some(new StringBudget(maxChars, math.max(0L, budget - tally.held) * CellWeight.BytesPerCell)))
+        case _ => ctx
+      }
 
     // HEL-913 (design.md R4): a parentless step's "parent" is now its OWN root (RootKey), not a
     // single shared `None` sentinel -- resolved via `rootIdOfStepStr`, which is populated for
@@ -452,6 +505,19 @@ class InProcessPipelineEngine(
       evaluatedIds.contains(parentKey(s)) &&
         laneDep.getOrElse(s.id.value, None).forall(dep => evaluatedIds.contains(StepKey(dep)))
 
+    // Draft walk order: a node that nothing depends on (no child, no lane dependent) goes before any node that does, so a node's
+    // leaf children finish before the walk descends and a comb never keeps its whole spine alive. Ties keep `structuralRank`.
+    val hasDependents: Set[String] = steps.flatMap(s => s.parentStepId.map(_.value).toVector ++ laneDep.getOrElse(s.id.value, None).toVector).toSet
+
+    def releaseConsumed(remaining: Vector[PipelineStep]): Unit =
+      retainOnly.foreach { keep =>
+        val needed: Set[NodeKey] =
+          keep ++ remaining.flatMap(s => parentKey(s) +: laneDep.getOrElse(s.id.value, None).map(d => StepKey(d): NodeKey).toVector)
+        val (kept, dropped) = nodeOutcomes.partition { case (k, _) => needed.contains(k) }
+        nodeOutcomes = kept
+        if (ctx.maxLiveCells.isDefined) dropped.values.foreach(o => tally.remove(o.rows))
+      }
+
     def loop(remaining: Vector[PipelineStep]): Future[Unit] =
       if (remaining.isEmpty) Future.successful(())
       else {
@@ -461,19 +527,67 @@ class InProcessPipelineEngine(
             "Cyclic or unresolved lane reference among pipeline steps: " + remaining.map(_.id.value).mkString(", ")
           ))
         else {
-          val next = ready.minBy(s => ranks.getOrElse(StepKey(s.id.value), Int.MaxValue))
+          val next =
+            if (ctx.maxLiveCells.isDefined)
+              ready.minBy(s => (if (hasDependents.contains(s.id.value)) 1 else 0, ranks.getOrElse(StepKey(s.id.value), Int.MaxValue)))
+            else ready.minBy(s => ranks.getOrElse(StepKey(s.id.value), Int.MaxValue))
           val rest = remaining.filterNot(_.id.value == next.id.value)
-          val parentFrame = nodeOutcomes.get(parentKey(next)).map(_.rows).getOrElse(rootFrames.head._2)
-          evalNode(next, parentFrame).flatMap { nextFrame =>
-            val key: NodeKey = StepKey(next.id.value)
-            nodeOutcomes = nodeOutcomes.updated(key, NodeOutcome(nextFrame, nextFrame.size.toLong))
-            evaluatedIds = evaluatedIds + key
-            if (next.enabled) counts = counts.updated(next.id.value, nextFrame.size.toLong)
-            onNodeProgress(key, nextFrame.size.toLong)
-            loop(rest)
+          if (!shouldContinue()) Future.failed(new DraftPreviewCancelled)
+          else {
+            val parentFrame = nodeOutcomes.get(parentKey(next)).map(_.rows).getOrElse(rootFrames.head._2)
+            // The failure arms see ONLY this node's own evaluation: anything thrown by the success arm (the frame
+            // hooks, a poll of `shouldContinue`) fails the walk, never an isolated node.
+            evalNode(next, parentFrame).transformWith {
+              case Success(nextFrame) =>
+                draftViolation(next, nextFrame, ctx) match {
+                  case Some(cause) => if (onNodeError.isDefined) isolate(next, cause, rest) else Future.failed(cause)
+                  case None =>
+                    val key: NodeKey = StepKey(next.id.value)
+                    nodeOutcomes = nodeOutcomes.updated(key, NodeOutcome(nextFrame, nextFrame.size.toLong))
+                    // An enabled node's frame was added by the memory check; a disabled node passes its input through unchecked.
+                    if (ctx.maxLiveCells.isDefined && !next.enabled) tally.add(nextFrame)
+                    evaluatedIds = evaluatedIds + key
+                    if (next.enabled) counts = counts.updated(next.id.value, nextFrame.size.toLong)
+                    onNodeProgress(key, nextFrame.size.toLong)
+                    // The frame hook runs while the parent is still retained, so a measurement taken there sees the true peak.
+                    onNodeFrame(key, nextFrame)
+                    releaseConsumed(rest)
+                    loop(rest)
+                }
+              case Failure(ex) if onNodeError.isDefined => isolate(next, ex, rest)
+              case Failure(ex)                           => Future.failed(ex)
+            }
           }
         }
       }
+
+    // HEL-1630: the draft preview's post-node checks (row ceiling backstop, then the frame guard); both are inert when the
+    // context carries neither, i.e. for every run and the saved preview.
+    def draftViolation(step: PipelineStep, frame: Seq[Row], ctx: PipelineExecutionContext): Option[Throwable] =
+      if (!step.enabled) None
+      else {
+        val tooBig = ctx.maxNodeRows.filter(frame.size > _).map(max => RowBudget.backstop(frame.size, max))
+        val guarded = tooBig.orElse(ctx.frameGuard.flatMap(_(frame)).map(reason => new StepConfigError(reason)))
+        val bad     = guarded.orElse(memoryViolation(frame, ctx))
+        bad.map(e => StepExecutionException.from(step.id.value, step.kind, e, buildLanePath(step)))
+      }
+
+    // HEL-1630 (owner ruling C6): the retained frames plus this node's output must fit the live-cell budget; the parent is still
+    // retained at this point, so the total is the peak the walk is about to hold. A frame that fits stays added to the tally.
+    def memoryViolation(frame: Seq[Row], ctx: PipelineExecutionContext): Option[Throwable] =
+      ctx.maxLiveCells.flatMap { budget =>
+        if (tally.tryAdd(frame, budget)) None
+        else Some(new StepConfigError(InProcessPipelineEngine.MemoryLimitMessage(budget)))
+      }
+
+    // HEL-1630: record `failed`'s error, drop everything that depends on it, and keep walking the rest.
+    def isolate(failed: PipelineStep, ex: Throwable, rest: Vector[PipelineStep]): Future[Unit] = {
+      onNodeError.foreach(_(failed, ex))
+      val pruned = InProcessPipelineEngine.dependentsClosure(steps, Set(failed.id.value))
+      val left = rest.filterNot(s => pruned.contains(s.id.value))
+      releaseConsumed(left)
+      loop(left)
+    }
 
     // HEL-911 evaluation-1.md CR1 (cycle 2), extended by HEL-913 R10: `rows` MUST keep meaning
     // the TRUNK TERMINAL's frame, not "whatever was evaluated last in structuralRank order" --
@@ -490,8 +604,9 @@ class InProcessPipelineEngine(
     loop(steps).map { _ =>
       val trunkRows = trunkTerminalId
         .flatMap(id => nodeOutcomes.get(StepKey(id)))
+        .orElse(nodeOutcomes.get(RootKey(lowestRootId)))
         .map(_.rows)
-        .getOrElse(nodeOutcomes(RootKey(lowestRootId)).rows)
+        .getOrElse(Seq.empty)
       TreeWalkResult(trunkRows, counts, nodeOutcomes)
     }
   }

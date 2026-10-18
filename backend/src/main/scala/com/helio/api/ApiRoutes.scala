@@ -29,6 +29,7 @@ import com.helio.api.routes.sources._
 import com.helio.api.routes.workspace._
 import com.helio.domain.model.{ConnectorId, DashboardId, DataSourceId, PanelId, PipelineId}
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.infrastructure.email.{EmailConfig, EmailSender, HttpResendEmailSender}
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
@@ -46,6 +47,7 @@ import com.helio.infrastructure.persistence.sharing.ShareTokenRepository
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
 import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveService}
+import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewGate, DraftPreviewService}
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -224,7 +226,14 @@ final class ApiRoutes(
     outputHistoryRepo: OutputHistoryRepository = null,
     // HEL-1276: owned by Main (shared with the retention service); derived from `dbContext` when absent.
     nodePayloadHistoryRepo: NodePayloadHistoryRepository = null,
-    payloadHistoryConfig: PayloadHistoryConfig = PayloadHistoryConfig.fromEnv()
+    payloadHistoryConfig: PayloadHistoryConfig = PayloadHistoryConfig.fromEnv(),
+    // HEL-1630: injectable (default `fromEnv()` once), so a spec passes a tiny general limit or a tiny draft-preview one
+    // instead of depending on the process environment.
+    rateLimitConfig: RateLimitConfig = RateLimitConfig.fromEnv(),
+    draftPreviewConfig: DraftPreviewConfig = DraftPreviewConfig.fromEnv(),
+    // HEL-1630: test-only seam, see DraftPreviewService.NodeHook; production never overrides it.
+    draftPreviewAfterNode: DraftPreviewService.NodeHook = DraftPreviewService.NoHook,
+    draftPreviewEngine: Option[InProcessPipelineEngine] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -294,7 +303,6 @@ final class ApiRoutes(
   private val aclDirective   = new AclDirective(permissionRepo, registry, Some(shareTokenValidator))
   // HEL-495: same-instance-once construction as authDirectives/aclDirective above. Config is
   // read from env once here (fromEnv-once-inject-explicitly convention, design.md D6).
-  private val rateLimitConfig    = RateLimitConfig.fromEnv()
   private val rateLimitDirective = new RateLimitDirective(
     new InMemoryRateLimiter(),
     userSessionRepo,
@@ -323,6 +331,17 @@ final class ApiRoutes(
   // HEL-1208: SEPARATE limiter instance (own bucket map), same reasoning as
   // `sourceFetchRateLimitDirective` above: `POST /api/events` is nested inside the general `/api`
   // wrap, so sharing that instance would count one request twice against one bucket.
+  // HEL-1630: the draft-preview endpoint's OWN limiter (own bucket map, own 429 message), exempted from the general `/api`
+  // bucket by path below so a drag spends only this budget.
+  private val draftPreviewRateLimitDirective = new RateLimitDirective(
+    new InMemoryRateLimiter(),
+    userSessionRepo,
+    Option(apiTokenRepo),
+    draftPreviewConfig.requestsPerWindow,
+    rateLimitConfig.windowSeconds,
+    "Draft preview rate limit exceeded"
+  )
+  private val draftPreviewGate = new DraftPreviewGate(draftPreviewConfig.maxInFlight, draftPreviewConfig.maxInFlightPerPrincipal)
   private val productEventsRateLimitDirective = new RateLimitDirective(
     new InMemoryRateLimiter(),
     userSessionRepo,
@@ -529,6 +548,11 @@ final class ApiRoutes(
       dataSourceRepo, dataSourceService, pipelineProposalService, proposalService.apply,
       FirstRunDashboardService.chartTypeVia(panelService)
     )
+  // HEL-1630: the live draft preview. Its engine is used only to walk supplied frames; every source and model path in its
+  // context is replaced by a refusing stand-in, so the loaders this engine is built with are never reached.
+  private val draftPreviewService = new DraftPreviewService(
+    pipelineRepo, pipelineStepRepo, draftPreviewEngine.getOrElse(new InProcessPipelineEngine(fileSystem)), dataSourceRepo, draftPreviewAfterNode
+  )
   // HEL-413: owner-scoped journal repository `PatchSetApplyService`'s successful-apply write and
   // `PatchSetUndoService`'s read both share -- constructed unconditionally (mirrors
   // patchSetApplyService's own always-constructed pattern below).
@@ -816,7 +840,7 @@ final class ApiRoutes(
             // so every request under /api — regardless of which of the three
             // downstream auth branches ultimately handles it — is counted against its
             // rate-limit bucket before any auth-confinement or route logic runs.
-            rateLimitDirective.rateLimit() {
+            rateLimitDirective.rateLimit(exempt = DraftPreviewRoutes.isDraftPreviewRequest) {
             // HEL-369 design.md Decision 2: the single confinement chokepoint
             // for scoped tokens, wrapping the ENTIRE three-way branch split
             // below (pathPrefix("auth") / optionalAuthenticate / authenticate).
@@ -963,6 +987,9 @@ final class ApiRoutes(
                   // HEL-1619: MUST precede PipelineRoutes -- its unconstrained PipelineIdSegment GET would
                   // otherwise swallow the literal "context-details" segment as a pipeline id.
                   new PipelineContextDetailsRoutes(pipelineService, pipelineRunService, authenticatedUser).routes,
+                  // HEL-1630: `POST /api/pipelines/:id/draft-preview`; MUST precede PipelineRoutes for the same shadowing
+                  // reason as above.
+                  new DraftPreviewRoutes(draftPreviewService, authenticatedUser, draftPreviewRateLimitDirective, draftPreviewGate, draftPreviewConfig).routes,
                   new PipelineDraftRoutes(draftSaveService, authenticatedUser).routes,
                   new PipelineRoutes(pipelineService, authenticatedUser, Some(draftSaveService)).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,

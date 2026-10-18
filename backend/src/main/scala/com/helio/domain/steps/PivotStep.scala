@@ -68,7 +68,7 @@ final case class PivotStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(PivotStep.apply(rows, config))
+    Future.successful(PivotStep.apply(rows, config, ctx.stringBudget))
 }
 
 object PivotStep {
@@ -87,7 +87,12 @@ object PivotStep {
   def aggProblem(cfg: PivotConfig): Option[String] =
     if (cfg.agg.nonEmpty && !SupportedAggs.contains(cfg.agg)) Some(unsupportedAggMessage(cfg.agg)) else None
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  /** `budget` is the draft preview's cap on the text this step creates (HEL-1630, owner ruling C9); `None` for every run and the
+   *  saved preview. Each output column name (`<values>_<pivot value>`) is charged as it is built: it is a fresh copy of the pivot
+   *  value's text, so a long text over many groups would otherwise hold one copy per group. */
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: PivotConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] = {
     aggProblem(cfg).foreach(msg => throw new StepConfigError(msg))
     if (cfg.agg.isEmpty) // unconfigured draft: the shared rule above only rejects non-empty values
       throw new StepConfigError(unsupportedAggMessage(cfg.agg))
@@ -114,6 +119,7 @@ object PivotStep {
 
       val valueColumnsMap: PipelineRowJson.Row = byPivotValue.map { case (pivotValue, valueRows) =>
         val colName = s"${values}_$pivotValue"
+        budget.foreach(_.chargeValue(colName))
         val value: Any = cfg.agg match {
           case "sum" =>
             valueRows.flatMap(r => PipelineRowJson.toDouble(r.getOrElse(values, null))).sum

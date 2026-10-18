@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
@@ -93,14 +93,7 @@ final case class UnionStep(
         // what scopes otherDataSourceId to the caller (design.md Decision 9);
         // this runtime lookup stays privileged so already-authored steps keep
         // working, per HEL-278's "pre-flight + runtime internal" model.
-        ctx.dataSourceRepo.findByIdInternal(DataSourceId(otherDsId)).flatMap {
-          case None =>
-            Future.failed(
-              new IllegalArgumentException("DataSource not found for union: " + otherDsId)
-            )
-          case Some(otherDs) =>
-            ctx.loadSource(otherDs).map(apply)
-        }
+        ctx.secondaryRows(otherDsId, "union").map(apply)
     }
   }
 
