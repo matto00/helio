@@ -1,0 +1,11 @@
+- `frontend/src/features/home/ui/HomePage.css` — link expander replaces the grown 44px box, hidden link slot, skeleton foot, per-width opening placeholder
+- `frontend/src/features/home/ui/DashboardShelf.tsx` — hidden link slot while no list; skeleton card foot matches the loaded foot
+- `frontend/src/features/home/ui/PipelineRunsCard.tsx` — legend shown while the summary loads
+- `frontend/src/features/home/ui/HomeOpeningLine.tsx` — class-sized opening placeholder (no inline 28px)
+- `frontend/src/features/home/ui/HomePage.test.tsx` — loading-state unit test (legend, slot, class-sized placeholder)
+- `frontend/src/features/home/ui/DashboardShelf.test.tsx` — skeleton foot and link-slot unit tests
+- `frontend/src/features/home/ui/HomePage.css.test.ts` — new CSS guard (expectTapExpander square, placeholder lines, slot, skeleton foot)
+- `e2e/hel1665-home-phone-stability.spec.ts` — new e2e: per-frame shift probe (4 viewports x 2 themes x 2 orders), bound, desktop pinned (C1), line counts, touch bisection, 375x667 info
+- `e2e/support/homeLoadProbe.ts` — fixture seed, rAF/layout-shift recorder, request holds
+- `DESIGN.md` — Home entry sentence for the load-stable head
+- `openspec/changes/home-phone-timeline-stability/{design,specs/home-page/spec,item2-owner-handoff}.md` — cycle 2: Decision 4 superseded, font-swap bound, 431-604px band
