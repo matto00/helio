@@ -87,7 +87,8 @@ for (const theme of ["light", "dark"] as const) {
           pageLeft: abs(page).left,
           cardCount: cards.length,
           firstCardLeft: cardBoxes[0]?.left,
-          firstCardRightGap: cardBoxes[0] ? view - cardBoxes[0].right : null,
+          // HEL-1642: the shelf is two columns on phones, so the right gutter is the second card's.
+          firstCardRightGap: cardBoxes[1] ? view - cardBoxes[1].right : null,
           shelfTop: cardBoxes[0]?.top,
           shelfBottom: cardBoxes[cardBoxes.length - 1]?.bottom,
           cardHeights: cardBoxes.map((b) => Math.round(b.bottom - b.top)),
