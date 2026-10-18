@@ -7,8 +7,9 @@ import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewLimits, DraftPreviewService}
-import com.helio.testsupport.DraftPreviewApiFixture
+import com.helio.testsupport.{DraftPreviewApiFixture, DraftSaveSeed}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
 import spray.json._
 
 import java.lang.management.ManagementFactory
@@ -16,6 +17,7 @@ import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets
 import java.nio.file.StandardOpenOption
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
@@ -52,6 +54,20 @@ import scala.jdk.CollectionConverters._
  *
  *  Setting `HELIO_HEAP_EVIDENCE_PATH` writes the report there, only after every assertion passed; unset (CI) writes nothing. */
 class DraftPreviewHeapSpec extends DraftPreviewApiFixture {
+
+  /** The heavy shapes (a 10,000-row fan-out, three gc-heavy sampled runs of each) take 10-21 s on a loaded machine and more on a CI
+   *  runner, past the harness's 15 s. This bounds HARNESS latency only; every heap and assertion bound below is unchanged. */
+  override implicit def routeTestTimeout: RouteTestTimeout = RouteTestTimeout(180.seconds)
+
+  /** A request whose walk outlives its timed-out predecessor holds that walk's in-flight slot until the walk ends (by design, C9), so
+   *  it can be refused `429 Draft preview busy`. Wait for the earlier walks to finish and ask again, so one test's slow walk can
+   *  never turn another test into a 429; any other status (and a 429 that outlasts the wait) is returned to the assertion as is. */
+  override protected def previewRaw(seed: DraftSaveSeed, user: String, body: String): Preview = {
+    val deadline = System.nanoTime() + 180.seconds.toNanos
+    var res      = super.previewRaw(seed, user, body)
+    while (res.status == StatusCodes.TooManyRequests && System.nanoTime() < deadline) { Thread.sleep(500); res = super.previewRaw(seed, user, body) }
+    res
+  }
 
   private val memory = ManagementFactory.getMemoryMXBean
   @volatile private var peakInRun: Long                    = 0L
