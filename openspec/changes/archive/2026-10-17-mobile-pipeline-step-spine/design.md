@@ -141,3 +141,20 @@ chevron, no row menu (D4); sheet thresholds and no body path (D6); river deletio
 every added step opens the sheet (D5). Design decisions HEL-1631 builds on: the action-bar slot and clearance variable
 (D7), the sheet API (D6), Preview hosting `StepPreviewTable` (D8). Phone `?step=` deep link opening the sheet is not in
 scope (follow-up candidate FU-2).
+
+## Gate-Chain Implications Checklist
+
+The only gate-chain file touched is `scripts/check-tokens.mjs` (run by the pre-commit hook via `npm run check:tokens`): one
+data entry added to its `ALLOWLIST` object (`--pipeline-mobile-actions-h`, a custom property set from JS by a
+ResizeObserver in `MobilePipelineActions.tsx`). No logic change.
+
+- **What does it execute?** Unchanged: node reads the repo's CSS/TS sources and compares custom-property uses with
+  declarations; the added entry only exempts one JS-set property name from the "used but never declared" check.
+- **What environment does it inherit, and from where?** Unchanged: the hook's environment (Husky pre-commit, cwd = repo
+  root); the change adds no environment reads.
+- **Does it write anything outside its own sandbox?** No; it is read-only and prints a report, before and after.
+- **Does it behave differently from a linked worktree than from a main checkout?** No; it resolves paths relative to the
+  repo root it runs in, and the allowlist entry is a constant. Isolation test: PASS
+  (`.concertino/runs/HEL-1582/evidence/.concertino/gate-chain-isolation-evidence/scripts__check-tokens.mjs.md`).
+- **What happens on its first run?** The same as every run: a full scan with no cache or state; the new entry takes
+  effect immediately and the scan passes on this branch (`check:tokens` OK in every hook run).
