@@ -393,6 +393,13 @@ export function registerHeavySweeps(size: Viewport) {
         page,
         request,
       }) => {
+        // Owner ruling (HEL-1582): the 390 and 768 maximal sweeps run only in the slow lane (HELIO_E2E_SLOW=1), because
+        // each takes about 3 minutes and CI's e2e legs time out at 18. The 375 maximal sweep and every every-kind C8 sweep
+        // stay in PR CI. Follow-up: run the slow lane nightly.
+        test.skip(
+          size.width !== 375 && process.env.HELIO_E2E_SLOW !== "1",
+          "slow lane only (HELIO_E2E_SLOW=1): CI's 18-minute leg timeout; owner ruling, nightly follow-up",
+        );
         test.setTimeout(1_500_000);
         await page.setViewportSize(size);
         await registerAndLogin(page, request, { ...AUTH, label: `maximal${size.width}` });
