@@ -1,0 +1,63 @@
+# Statistical repro: OLD DraftRaceFixture (HEAD 4429d46fd), DraftSaveDeadlockSpec x15
+# profile: nice -n 19, taskset -c 0,1, HEL924_TEST_GROUP_CONCURRENCY=2, HELIO_TEST_JVM_XMX=4g, sbt -batch (project path: /home/matt/Development/helio/.claude/worktrees/bug/draft-save-race-oracle/HEL-1654/backend), each run its own flock acquisition on sbtfull.lock
+# embedded Postgres per spec (zonky, temp dir); no shared 'helio' DB involved
+
+run 1: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 2: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 3: [info] Tests: succeeded 16, failed 1, canceled 0, ignored 0, pending 0 exit=1
+run 4: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 5: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 6: [info] Tests: succeeded 16, failed 1, canceled 0, ignored 0, pending 0 exit=1
+run 7: [info] Tests: succeeded 16, failed 1, canceled 0, ignored 0, pending 0 exit=1
+run 8: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 9: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 10: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 11: [info] Tests: succeeded 16, failed 1, canceled 0, ignored 0, pending 0 exit=1
+run 12: [info] Tests: succeeded 15, failed 2, canceled 0, ignored 0, pending 0 exit=1
+run 13: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+run 14: [info] Tests: succeeded 16, failed 1, canceled 0, ignored 0, pending 0 exit=1
+run 15: [info] Tests: succeeded 17, failed 0, canceled 0, ignored 0, pending 0 exit=0
+DONE
+
+RESULT: 6 of 15 runs red (runs 3,6,7,11,12,14), 9 green; 7 failing test cases in total
+
+## run 3 failing cases and traces
+[info] - should deadlock when the save locks the Outputs before the alert rules *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3717861) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 1 TEST FAILED ***
+## run 6 failing cases and traces
+[info] - should deadlock when the save locks the Outputs before the alert rules *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3723591) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 1 TEST FAILED ***
+## run 7 failing cases and traces
+[info] - should deadlock when the save takes the pipeline row and the Outputs before the panels (the section-8.3 earlier order) *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=PatchSetStale(Vector(StaleTarget(0,pipeline,3f553c39-p)),Nothing was applied: ch, writer=ok, violation=false, deadlock=false, blockedObserved=false)
+[info]     save (backend 3724911) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 1 TEST FAILED ***
+## run 11 failing cases and traces
+[info] - should deadlock when the save locks the Outputs before the alert rules *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3733318) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 1 TEST FAILED ***
+## run 12 failing cases and traces
+[info] - should not deadlock: the save locks the alert rules before the Outputs, the order the evaluator's FK checks take them *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3734716) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] - should deadlock when the save locks the Outputs before the alert rules *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3734777) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 2 TESTS FAILED ***
+## run 14 failing cases and traces
+[info] - should deadlock when the save locks the Outputs before the alert rules *** FAILED ***
+[info]   control: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=false)
+[info]     save (backend 3738948) PARKED past its compare
+[info]     writer COMMITTED while the save was parked
+[info] *** 1 TEST FAILED ***

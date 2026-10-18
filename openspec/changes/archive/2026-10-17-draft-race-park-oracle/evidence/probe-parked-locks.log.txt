@@ -1,0 +1,133 @@
+# 1.3 probe: pg_stat_activity / pg_locks / pg_blocking_pids snapshots (throwaway instrumentation: probe-instrumentation.patch)
+# Snapshot 1 is taken at the instant the harness has declared the save PARKED (before the writer is started);
+# snapshot 2 right after the writer wait ended, i.e. at the writer's commit (completed=true) or while it is waiting (waiting=true).
+# Lock rows are limited to alert_rules/outputs/pipelines/panels/dashboards/alert_events + advisory/transactionid. Embedded Postgres per spec.
+
+############ A. UNPERTURBED, OLD fixture. The save is genuinely parked; the writer blocks (a: refuted)
+# (HEL-1629's own `alert evaluator against the save` cases, parkAfter = SaveRules, then parkAfter = SaveOutputs)
+=== SaveFirst parked-declared (save pid 3600967) @1792273001541
+  ACT 3600967 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT r.id FROM alert_rules r           WHERE r.target_output_id IN (
+  LOCK 3600967 alert_rules RowShareLock granted=true key=
+  LOCK 3600967 dashboards RowShareLock granted=true key=
+  LOCK 3600967 panels RowShareLock granted=true key=
+  LOCK 3600967 pipelines RowShareLock granted=true key=
+  LOCK 3600967 transactionid ExclusiveLock granted=true key=
+=== SaveFirst after writer wait (writer completed=false, waiting=true) @1792273001590
+  ACT 3600967 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT r.id FROM alert_rules r           WHERE r.target_output_id IN (
+  ACT 3600973 app=race-writer state=active wait=Lock/transactionid blocked_by={3600967} q=insert into "alert_events" ("id","alert_rule_id","owner_id","target_ou
+  LOCK 3600967 alert_rules RowShareLock granted=true key=
+  LOCK 3600967 dashboards RowShareLock granted=true key=
+  LOCK 3600967 panels RowShareLock granted=true key=
+  LOCK 3600967 pipelines RowShareLock granted=true key=
+  LOCK 3600967 transactionid ExclusiveLock granted=true key=
+  LOCK 3600973 alert_events RowExclusiveLock granted=true key=
+  LOCK 3600973 alert_rules RowShareLock granted=true key=
+  LOCK 3600973 transactionid ExclusiveLock granted=true key=
+  LOCK 3600973 transactionid ShareLock granted=false key=
+=== SaveFirst parked-declared (save pid 3601032) @1792273001950
+  ACT 3601032 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT id FROM outputs WHERE pipeline_id = $1 ORDER BY position, id FO
+  LOCK 3601032 dashboards RowShareLock granted=true key=
+  LOCK 3601032 outputs RowShareLock granted=true key=
+  LOCK 3601032 panels RowShareLock granted=true key=
+  LOCK 3601032 pipelines RowShareLock granted=true key=
+  LOCK 3601032 transactionid ExclusiveLock granted=true key=
+=== SaveFirst after writer wait (writer completed=false, waiting=true) @1792273001991
+  ACT 3601032 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT id FROM outputs WHERE pipeline_id = $1 ORDER BY position, id FO
+  ACT 3601038 app=race-writer state=active wait=Lock/transactionid blocked_by={3601032} q=insert into "alert_events" ("id","alert_rule_id","owner_id","target_ou
+  LOCK 3601032 dashboards RowShareLock granted=true key=
+  LOCK 3601032 outputs RowShareLock granted=true key=
+  LOCK 3601032 panels RowShareLock granted=true key=
+  LOCK 3601032 pipelines RowShareLock granted=true key=
+  LOCK 3601032 transactionid ExclusiveLock granted=true key=
+  LOCK 3601038 alert_events RowExclusiveLock granted=true key=
+  LOCK 3601038 alert_rules RowShareLock granted=true key=
+  LOCK 3601038 outputs RowShareLock granted=true key=
+  LOCK 3601038 transactionid ShareLock granted=false key=
+  LOCK 3601038 transactionid ExclusiveLock granted=true key=
+
+############ B. FORCED DELAY, OLD fixture (external session holds panels row FOR UPDATE; the save's FIRST protocol lock, hel1498_lock_panels, waits)
+# B1: blocker released right after the writer wait (run-delay-old.log)
+=== SaveFirst parked-declared (save pid 3601969) @1792273018324
+  ACT 3601969 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT pg_backend_pid()
+=== SaveFirst after writer wait (writer completed=true, waiting=false) @1792273018380
+  ACT 3601969 app=race-save state=active wait=Lock/transactionid blocked_by={3601882} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  ACT 3601975 app=race-writer state=idle wait=Client/ClientRead blocked_by={} q=COMMIT
+  LOCK 3601969 panels RowShareLock granted=true key=
+  LOCK 3601969 panels AccessExclusiveLock granted=true key=
+  LOCK 3601969 transactionid ShareLock granted=false key=
+=== SaveFirst parked-declared (save pid 3602037) @1792273018807
+  ACT 3602037 app=race-save state=active wait=Lock/transactionid blocked_by={3601882} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  LOCK 3602037 panels RowShareLock granted=true key=
+  LOCK 3602037 panels AccessExclusiveLock granted=true key=
+  LOCK 3602037 transactionid ShareLock granted=false key=
+=== SaveFirst after writer wait (writer completed=true, waiting=false) @1792273018842
+  ACT 3602037 app=race-save state=active wait=Lock/transactionid blocked_by={3601882} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  ACT 3602043 app=race-writer state=idle wait=Client/ClientRead blocked_by={} q=COMMIT
+  LOCK 3602037 panels RowShareLock granted=true key=
+  LOCK 3602037 panels AccessExclusiveLock granted=true key=
+  LOCK 3602037 transactionid ShareLock granted=false key=
+
+# B2: blocker released 1500 ms after the save starts (run-delay-old-timed.log) -- same verdict
+=== SaveFirst parked-declared (save pid 3603246) @1792273068660
+  ACT 3603246 app=race-save state=active wait=Lock/transactionid blocked_by={3603147} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  LOCK 3603246 panels RowShareLock granted=true key=
+  LOCK 3603246 panels AccessExclusiveLock granted=true key=
+  LOCK 3603246 transactionid ShareLock granted=false key=
+=== SaveFirst after writer wait (writer completed=true, waiting=false) @1792273068704
+  ACT 3603246 app=race-save state=active wait=Lock/transactionid blocked_by={3603147} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  ACT 3603252 app=race-writer state=idle wait=Client/ClientRead blocked_by={} q=COMMIT
+  LOCK 3603246 panels RowShareLock granted=true key=
+  LOCK 3603246 panels AccessExclusiveLock granted=true key=
+  LOCK 3603246 transactionid ShareLock granted=false key=
+=== SaveFirst parked-declared (save pid 3603346) @1792273070373
+  ACT 3603346 app=race-save state=active wait=Lock/transactionid blocked_by={3603147} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  LOCK 3603346 panels RowShareLock granted=true key=
+  LOCK 3603346 panels AccessExclusiveLock granted=true key=
+  LOCK 3603346 transactionid ShareLock granted=false key=
+=== SaveFirst after writer wait (writer completed=true, waiting=false) @1792273070407
+  ACT 3603346 app=race-save state=active wait=Lock/transactionid blocked_by={3603147} q=SELECT hel1498_lock_panels($1, $2, $3, $4, $5, $6)::text
+  ACT 3603352 app=race-writer state=idle wait=Client/ClientRead blocked_by={} q=COMMIT
+  LOCK 3603346 panels RowShareLock granted=true key=
+  LOCK 3603346 panels AccessExclusiveLock granted=true key=
+  LOCK 3603346 transactionid ShareLock granted=false key=
+
+############ C. FORCED DELAY, NEW fixture (same blocker, released after 1500 ms; run-delay-new.log): parked only once the locks are held
+=== SaveFirst parked-declared (save pid 3710472) @1792273923644
+  ACT 3710472 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT r.id FROM alert_rules r           WHERE r.target_output_id IN (
+  LOCK 3710472 alert_rules RowShareLock granted=true key=
+  LOCK 3710472 dashboards RowShareLock granted=true key=
+  LOCK 3710472 panels RowShareLock granted=true key=
+  LOCK 3710472 pipelines RowShareLock granted=true key=
+  LOCK 3710472 transactionid ExclusiveLock granted=true key=
+=== SaveFirst after writer wait (writer completed=false, waiting=true) @1792273923689
+  ACT 3710472 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT r.id FROM alert_rules r           WHERE r.target_output_id IN (
+  ACT 3710482 app=race-writer state=active wait=Lock/transactionid blocked_by={3710472} q=insert into "alert_events" ("id","alert_rule_id","owner_id","target_ou
+  LOCK 3710472 alert_rules RowShareLock granted=true key=
+  LOCK 3710472 dashboards RowShareLock granted=true key=
+  LOCK 3710472 panels RowShareLock granted=true key=
+  LOCK 3710472 pipelines RowShareLock granted=true key=
+  LOCK 3710472 transactionid ExclusiveLock granted=true key=
+  LOCK 3710482 alert_events RowExclusiveLock granted=true key=
+  LOCK 3710482 alert_rules RowShareLock granted=true key=
+  LOCK 3710482 transactionid ShareLock granted=false key=
+  LOCK 3710482 transactionid ExclusiveLock granted=true key=
+=== SaveFirst parked-declared (save pid 3710792) @1792273925526
+  ACT 3710792 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT id FROM outputs WHERE pipeline_id = $1 ORDER BY position, id FO
+  LOCK 3710792 dashboards RowShareLock granted=true key=
+  LOCK 3710792 outputs RowShareLock granted=true key=
+  LOCK 3710792 panels RowShareLock granted=true key=
+  LOCK 3710792 pipelines RowShareLock granted=true key=
+  LOCK 3710792 transactionid ExclusiveLock granted=true key=
+=== SaveFirst after writer wait (writer completed=false, waiting=true) @1792273925561
+  ACT 3710792 app=race-save state=idle in transaction wait=Client/ClientRead blocked_by={} q=SELECT id FROM outputs WHERE pipeline_id = $1 ORDER BY position, id FO
+  ACT 3710798 app=race-writer state=active wait=Lock/transactionid blocked_by={3710792} q=insert into "alert_events" ("id","alert_rule_id","owner_id","target_ou
+  LOCK 3710792 dashboards RowShareLock granted=true key=
+  LOCK 3710792 outputs RowShareLock granted=true key=
+  LOCK 3710792 panels RowShareLock granted=true key=
+  LOCK 3710792 pipelines RowShareLock granted=true key=
+  LOCK 3710792 transactionid ExclusiveLock granted=true key=
+  LOCK 3710798 alert_events RowExclusiveLock granted=true key=
+  LOCK 3710798 alert_rules RowShareLock granted=true key=
+  LOCK 3710798 outputs RowShareLock granted=true key=
+  LOCK 3710798 transactionid ExclusiveLock granted=true key=
+  LOCK 3710798 transactionid ShareLock granted=false key=

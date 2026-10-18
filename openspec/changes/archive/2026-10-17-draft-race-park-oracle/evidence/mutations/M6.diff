@@ -1,0 +1,14 @@
+MUTATION M6
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+index 1de606282..1295a6512 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+@@ -1041,7 +1041,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
+     attempt(1)
+   }
+ 
+-  private val MaxDeleteAttempts = 3
++  private val MaxDeleteAttempts = 1
+ 
+   /** One attempt of [[deleteInternal]]: `Some(result)` when done, `None` when the removal set read under the lock holds a step
+     * whose panels were NOT locked by the (1) call (a racer attached a tail below the target between the pre-lock read and the

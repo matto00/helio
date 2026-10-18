@@ -1,0 +1,50 @@
+#!/bin/bash
+# usage: mut-one.sh <MUT> <logfile> <specs...>   -- runs UNDER the sbtfull flock (called via run-locked.sh)
+W=/home/matt/Development/helio/.claude/worktrees/bug/draft-save-race-oracle/HEL-1654
+M="$1"; LOG="$2"; shift 2
+cd "$W" || exit 99
+P=backend/src/main/scala/com/helio/infrastructure/persistence/pipelines
+S=backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala
+FILES=""
+case "$M" in
+  M4) FILES="$S"; python3 - <<'PY'
+p="backend/src/main/scala/com/helio/services/pipelines/draft/DraftSaveTransaction.scala"
+s=open(p).read()
+a="      locked   <- writes.lockDefinition(pipelineId, preLockPlan.needsAdvisory, site => hooks.at(AfterLock(site)))\n"
+b="      prior    <- definition(pipelineId)\n"
+assert a in s and b in s
+s=s.replace(b,"",1).replace(a,b+a,1)
+open(p,"w").write(s)
+PY
+  ;;
+  M5) FILES="$P/PipelineStepRepository.scala"; sed -i '1092s/deletedRow.parentStepId, deletedRow.rootId, deletedRow.position/preRow.parentStepId, preRow.rootId, preRow.position/' $FILES ;;
+  M6) FILES="$P/PipelineStepRepository.scala"; sed -i 's/private val MaxDeleteAttempts = 3/private val MaxDeleteAttempts = 1/' $FILES ;;
+  M7) FILES="$P/PipelineStepRepository.scala"; sed -i '1067s/if (locks.active(LockSite.StepDeletePanelsFirst))/if (!locks.active(LockSite.StepDeletePanelsFirst))/;1285s/if (locks.active(LockSite.RootRemovePanelsFirst))/if (!locks.active(LockSite.RootRemovePanelsFirst))/' $FILES ;;
+  SK1) FILES="backend/src/main/resources/db/migration/V137__lock_pipelines_for_definition_writes.sql"; sed -i 's/FOR NO KEY UPDATE OF p;/FOR KEY SHARE OF p;/' $FILES ;;
+  SK3) FILES="$P/PipelineStepRepository.scala"; python3 - <<'PY'
+p="backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala"
+s=open(p).read()
+a="""              if (locks.active(LockSite.StepDeletePanelsFirst))
+                PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id)
+                  .andThen(locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId)))
+"""
+b="""              if (locks.active(LockSite.StepDeletePanelsFirst))
+                locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId))
+                  .andThen(PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id))
+"""
+assert a in s
+open(p,"w").write(s.replace(a,b,1))
+PY
+  ;;
+  SK5) FILES="$P/PipelineDraftWrites.scala"; sed -i 's/ORDER BY r.id FOR UPDATE OF r/ORDER BY r.id FOR KEY SHARE OF r/' $FILES ;;
+  BASE) FILES="" ;;
+esac
+{ echo "MUTATION $M"; git diff -- $FILES; } > "$LOG.diff"
+export HEL924_TEST_GROUP_CONCURRENCY=2 HELIO_TEST_JVM_XMX=4g
+cd backend
+CMD="testOnly"; for sp in "$@"; do CMD="$CMD com.helio.api.routes.pipelines.$sp"; done
+sbt -batch -Dsbt.server.autostart=false "$CMD" > "$LOG" 2>&1
+echo "exit=$?" >> "$LOG"
+cd "$W"
+[ -n "$FILES" ] && git checkout -- $FILES
+git status --short | grep -v '^??' >> "$LOG"

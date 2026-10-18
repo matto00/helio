@@ -1,0 +1,23 @@
+MUTATION M7
+diff --git a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+index 1de606282..3d454de82 100644
+--- a/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
++++ b/backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineStepRepository.scala
+@@ -1064,7 +1064,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
+             // HEL-1629: lock (3) after (1), then re-read EVERYTHING under it. (`StepDeletePanelsFirst` inactive is the deadlock
+             // spec's recorded control: (3) before (1), the order the save's panels-then-pipeline order forms a cycle with.)
+             _ <-
+-              if (locks.active(LockSite.StepDeletePanelsFirst))
++              if (!locks.active(LockSite.StepDeletePanelsFirst))
+                 PanelRowLocks.lockForDeletion(steps = preRemoval.tailDescendants + preRow.id)
+                   .andThen(locks.lockPipelines(LockSite.StepDelete, Seq(preRow.pipelineId)))
+               else
+@@ -1282,7 +1282,7 @@ class PipelineStepRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
+       // HEL-1629: lock (3) after (1) and before the reads below, so the step set they derive cannot move under us.
+       // (`RootRemovePanelsFirst` inactive is the deadlock spec's recorded control: (3) before (1).)
+       _    <-
+-        if (locks.active(LockSite.RootRemovePanelsFirst))
++        if (!locks.active(LockSite.RootRemovePanelsFirst))
+           PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)).andThen(locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)))
+         else
+           locks.lockPipelines(LockSite.RootRemove, Seq(pipelineId.value)).andThen(PanelRowLocks.lockForDeletion(roots = Seq(rootId.value)))

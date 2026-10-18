@@ -1,0 +1,177 @@
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/draft-save-race-oracle/HEL-1654/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/draft-save-race-oracle/HEL-1654/backend/)
+[info] DraftSaveRaceSpec:
+[info] DraftSaveSetRaceSpec:
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should never commit inside the save's window, and never deadlock
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should be a violation when the source delete does not lock the source row first (the set-membership race)
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should be a violation when the source delete takes no pipeline lock at all
+[info] - should save-first: be excluded from the save's window
+[info] - should refuse to delete once the root exists (it re-checks after locking the source) and never commit inside the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] - should be a violation when the teardown locks no source row first (it deletes the new root away)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] DraftSaveDeadlockSpec:
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels
+[info] - should save-first control: be a violation without save.panels
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels,save.outputs
+[info] - should save-first control: be a violation without save.panels,save.outputs
+[info] - should not deadlock: the save locks panels and dashboards first, as a create does (dashboard before Output)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.panels
+[info] - should save-first control: be a violation without save.panels
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should deadlock when the save takes the pipeline row and the Outputs before the panels (the section-8.3 earlier order)
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.rules
+[info] - should not deadlock: the delete takes the pipeline row first, as the save does
+[info] - should save-first control: be a violation without save.rules
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.rules
+[info] - should save-first control: be a violation without save.rules
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.outputs
+[info] - should deadlock when the delete holds the Output and cascades into rules the save already holds
+[info] - should save-first control: be a violation without save.outputs
+[info] - should writer-first: be excluded from the save's window
+[info] - should not deadlock: the delete locks the panels before the pipeline row, as the save does
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without save.pipeline
+[info] - should save-first control: be a violation without save.pipeline
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.update
+[info] - should save-first control: be a violation without step.update
+[info] - should deadlock when the delete takes the pipeline row before the panels
+[info] - should writer-first: be excluded from the save's window
+[info] - should not deadlock: the removal locks the panels before the pipeline row, as the save does
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.insert
+[info] - should save-first control: be a violation without step.insert
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.insertAt
+[info] - should save-first control: be a violation without step.insertAt
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.splice
+[info] - should deadlock when the removal takes the pipeline row before the panels
+[info] - should save-first control: be a violation without step.splice
+[info] - should not deadlock: the save locks the alert rules before the Outputs, the order the evaluator's FK checks take them
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.attach
+[info] - should save-first control: be a violation without step.attach
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.reorder
+[info] - should save-first control: be a violation without step.reorder
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should deadlock when the save locks the Outputs before the alert rules
+[info] - should writer-first control: be a violation without step.reorderTrunk
+[info] - should not deadlock: the save locks Outputs by (position, id), the order the snapshot inserts its history points in
+[info] - should save-first control: be a violation without step.reorderTrunk
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without step.delete
+[info] - should save-first control: be a violation without step.delete
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without output.delete,save.outputs
+[info] - should save-first control: be a violation without output.delete,save.outputs
+[info] - should deadlock when the save locks Outputs by id on a node whose position order is the reverse of its id order
+[info] - should writer-first: be excluded from the save's window
+[info] - should not deadlock: the rewrite takes the cycle advisory lock before the step row, as the save does
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without output.create
+[info] - should save-first control: be a violation without output.create
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without root.add
+[info] - should save-first control: be a violation without root.add
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should deadlock when the rewrite locks the step row first and the advisory lock after
+[info] - should not deadlock: the teardown locks its source rows first, as a source delete does
+[info] - should writer-first control: be a violation without root.remove
+[info] - should save-first control: be a violation without root.remove
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without schedule.upsert
+[info] - should save-first control: be a violation without schedule.upsert
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without schedule.delete
+[info] - should deadlock when the teardown takes the panels before the source rows (the order it had)
+[info] - should save-first control: be a violation without schedule.delete
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without rewriteUpsert.pipeline
+[info] - should never raise 40P01
+[info] - should save-first control: be a violation without rewriteUpsert.pipeline
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without source.delete.pipelines
+[info] - should save-first control: be a violation without source.delete.pipelines
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without source.delete.pipelines
+[info] - should save-first control: be a violation without source.delete.pipelines
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window *** FAILED ***
+[info]   protected: RaceOutcome(SaveFirst, save=200, writer=ok, violation=true, deadlock=false, blockedObserved=true)
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should write nothing: step PATCH (PipelineStepRepository.updateInternal)
+[info] - should write nothing: step insert (PipelineStepRepository.insertInternal)
+[info] - should write nothing: step insert at index (PipelineStepRepository.insertAtInternal)
+[info] - should write nothing: step splice (PipelineStepRepository.spliceInsertAtInternal)
+[info] - should write nothing: step attach as tail (PipelineStepRepository.attachTailInternal)
+[info] - should write nothing: step reorder (PipelineStepRepository.reorderInternal)
+[info] - should write nothing: trunk reorder (PipelineStepRepository.reorderTrunkInternal)
+[info] - should write nothing: step delete (PipelineStepRepository.deleteInternal)
+[info] - should write nothing: Output delete (OutputRepository.deleteWithPanelsInternal)
+[info] - should write nothing: Output create (OutputRepository.insertInternal)
+[info] - should write nothing: schedule upsert (PipelineScheduleRepository.upsert)
+[info] - should write nothing: schedule delete (PipelineScheduleRepository.delete)
+[info] Tests: succeeded 167, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+exit=1
