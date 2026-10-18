@@ -608,26 +608,55 @@ function buildSelectionBackground(accent: RgbColor, theme: Theme): string {
   return toHexColor(blendColors(base, accent, SELECTION_TINT_STRENGTH[theme]));
 }
 
+// HEL-1669 D1 -- `--app-accent-strong` (the primary-button hover fill) is derived
+// AWAY from the ink: toward white when the ink is the dark ink, toward black when
+// it is the light ink, at a fixed amount per theme. Mixing away from the ink is
+// monotonic in contrast, so ink-on-hover is never below ink-on-rest. Fixed
+// amounts (no step-up loop): the weakest ink contrast over the sRGB cube at
+// these amounts is 4.96 (light) / 4.86 (dark), above the 4.5 text floor.
+export const ACCENT_STRONG_MIX_PERCENT: Record<Theme, number> = { dark: 22, light: 24 };
+
+function pickAccentInk(rgb: RgbColor): string {
+  const light = parseHexColor(readableLightText);
+  const dark = parseHexColor(readableDarkText);
+  return light !== null &&
+    dark !== null &&
+    getContrastRatio(dark, rgb) >= getContrastRatio(light, rgb)
+    ? readableDarkText
+    : readableLightText;
+}
+
+/** The rendered `--app-accent-strong` for an accent hex (ink chosen exactly as `buildAccentTokens` does). */
+export function deriveAccentStrong(hex: string, theme: Theme): string | null {
+  const rgb = parseHexColor(hex);
+  return rgb === null ? null : buildAccentStrong(rgb, pickAccentInk(rgb), theme);
+}
+
+function buildAccentStrong(accent: RgbColor, ink: string, theme: Theme): string {
+  const percent = ACCENT_STRONG_MIX_PERCENT[theme];
+  return toHexColor(
+    ink === readableDarkText
+      ? lightenTowardWhite(accent, percent)
+      : darkenTowardBlack(accent, percent),
+  );
+}
+
 export function buildAccentTokens(hex: string, theme: Theme): Record<string, string> {
   const rgb = parseHexColor(hex);
   if (rgb === null) {
     return {};
   }
 
-  // Every other accent token (-strong, -surface, -dim, -mid, …) is derived in
-  // theme.css with color-mix, so a two-token write is enough to re-theme the
-  // whole app. Borders and backgrounds are neutral by design and are never
+  // Most other accent tokens (-surface, -dim, -mid, …) are derived in
+  // theme.css with color-mix; -strong is written here because its direction
+  // depends on the ink (HEL-1669). Borders and backgrounds are neutral by design and are never
   // rewritten from the accent.
-  const light = parseHexColor(readableLightText);
-  const dark = parseHexColor(readableDarkText);
-  const ink =
-    light !== null && dark !== null && getContrastRatio(dark, rgb) >= getContrastRatio(light, rgb)
-      ? readableDarkText
-      : readableLightText;
+  const ink = pickAccentInk(rgb);
 
   return {
     "--app-accent": hex,
     "--app-accent-ink": ink,
+    "--app-accent-strong": buildAccentStrong(rgb, ink, theme),
     "--app-focus-ring-color": deriveFocusRingColor(hex) ?? hex,
     "--app-accent-text": deriveAccentTextColor(hex, theme) ?? hex,
     "--app-selection-bg": buildSelectionBackground(rgb, theme),

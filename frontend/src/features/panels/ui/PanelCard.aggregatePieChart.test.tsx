@@ -162,7 +162,7 @@ function mockResolveChartThemeFromLiveDom() {
       fontMono: "mono",
       shadowSoft: isDark ? "DARK_SHADOW" : "LIGHT_SHADOW",
       radiusMd: "9px",
-      accentStrong: "ACCENT",
+      accentEmphasis: "ACCENT",
       accent: "ACCENT_BASE",
       textMuted: "MUTED",
       success: "#4cc38a",

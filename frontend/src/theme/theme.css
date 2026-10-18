@@ -278,7 +278,8 @@
   --app-border-subtle: rgba(242, 239, 233, 0.09);
   --app-border-strong: rgba(242, 239, 233, 0.18);
 
-  /* Runtime-set: --app-accent, --app-accent-ink, --app-focus-ring-color
+  /* Runtime-set: --app-accent, --app-accent-ink, --app-accent-strong (HEL-1669: ink-aware,
+     mixed AWAY from the ink, so the declaration below is a dead pre-effect fallback), --app-focus-ring-color
      (appearance.ts's `applyAccentTokens`, keyed on the user's chosen
      accent). `applyAccentTokens` writes them as INLINE style on `<html>`,
      which outranks this whole `:root[data-theme=...]` block — so the
@@ -370,7 +371,7 @@
 
   /* Same dead-until-first-effect-run situation as the dark block above:
      `applyAccentTokens` writes `--app-accent`/`--app-accent-ink`/
-     `--app-focus-ring-color` inline on `<html>`, which outranks this block.
+     `--app-accent-strong`/`--app-focus-ring-color` inline on `<html>`, which outranks this block.
      Never renders once the effect has run; kept parseable as the
      pre-hydration static fallback only (HEL-1046 D6/D5). HEL-1048 D14
      (cycle 3): no `--app-accent-text`/`--app-selection-bg` pair here,

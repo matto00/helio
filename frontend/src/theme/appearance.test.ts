@@ -2,6 +2,7 @@ import {
   buildAccentTokens,
   buildPanelSurface,
   defaultDashboardAppearance,
+  deriveAccentStrong,
   deriveAccentTextColor,
   deriveFocusRingColor,
   resolveDashboardBackground,
@@ -112,6 +113,7 @@ describe("buildAccentTokens", () => {
       [
         "--app-accent",
         "--app-accent-ink",
+        "--app-accent-strong",
         "--app-accent-text",
         "--app-focus-ring-color",
         "--app-selection-bg",
@@ -320,5 +322,86 @@ describe("deriveFocusRingColor (HEL-1046)", () => {
   // symbol that doesn't exist) turns this red.
   it("the static theme.css value equals deriveFocusRingColor(DefaultAccentColorByTheme.dark)", () => {
     expect(deriveFocusRingColor(DefaultAccentColorByTheme.dark)).toBe("#db6513");
+  });
+});
+
+// HEL-1669 -- the primary-button hover fill (--app-accent-strong) is derived AWAY from the ink, so ink on
+// hover is never below ink on rest and stays >= 4.5:1 in both themes.
+describe("--app-accent-strong derivation (HEL-1669)", () => {
+  const INK_DARK = "#181511";
+  const INK_LIGHT = "#fdfcfa";
+  // Same rule as buildAccentTokens (kept local: calling it 140k times is slow).
+  const inkFor = (hex: string) =>
+    contrastRatio(INK_DARK, hex) >= contrastRatio(INK_LIGHT, hex) ? INK_DARK : INK_LIGHT;
+  const themes = ["light", "dark"] as const;
+
+  it.each(
+    [
+      ...ACCENT_PRESETS.map((p) => p.hex),
+      DefaultAccentColorByTheme.dark,
+      DefaultAccentColorByTheme.light,
+    ].flatMap((hex) => themes.map((theme) => [hex, theme] as const)),
+  )("ink on strong for %s in %s is >= 4.5 and >= rest", (hex, theme) => {
+    const tokens = buildAccentTokens(hex, theme);
+    const strong = tokens["--app-accent-strong"];
+    expect(strong).toMatch(/^#[0-9a-f]{6}$/);
+    const ink = tokens["--app-accent-ink"];
+    expect(contrastRatio(ink, strong)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(ink, strong)).toBeGreaterThanOrEqual(contrastRatio(ink, hex));
+  });
+
+  it("inkFor agrees with buildAccentTokens on the presets", () => {
+    for (const { hex } of ACCENT_PRESETS) {
+      expect(inkFor(hex)).toBe(buildAccentTokens(hex, "light")["--app-accent-ink"]);
+    }
+    expect(inkFor("#1d4ed8")).toBe(buildAccentTokens("#1d4ed8", "light")["--app-accent-ink"]);
+  });
+
+  it("holds over a dense sRGB sweep (every 5th value per channel, plus 255), incl. light-ink accents", () => {
+    const values = [...Array.from({ length: 52 }, (_, i) => i * 5), 255];
+    let sawLightInk = false;
+    let sawDarkInk = false;
+    const h = (n: number) => n.toString(16).padStart(2, "0");
+    for (const r of values) {
+      for (const g of values) {
+        for (const b of values) {
+          const hex = `#${h(r)}${h(g)}${h(b)}`;
+          const ink = inkFor(hex);
+          if (ink === INK_LIGHT) sawLightInk = true;
+          if (ink === INK_DARK) sawDarkInk = true;
+          for (const theme of themes) {
+            const strong = deriveAccentStrong(hex, theme) as string;
+            const strongC = contrastRatio(ink, strong);
+            // 4.5 floor: the weakest point of the cube is 4.96 (light) / 4.86 (dark).
+            if (strongC < 4.5 || strongC < contrastRatio(ink, hex) - 1e-9) {
+              throw new Error(`${hex} ${theme}: ink ${ink} on ${strong} = ${strongC}`);
+            }
+          }
+        }
+      }
+    }
+    expect(sawLightInk).toBe(true);
+    expect(sawDarkInk).toBe(true);
+  });
+
+  it("dark theme matches the previous 22%-toward-white color-mix within 1 per channel for every preset", () => {
+    for (const { hex } of ACCENT_PRESETS) {
+      const a = hexToRgb(hex);
+      const s = hexToRgb(buildAccentTokens(hex, "dark")["--app-accent-strong"]);
+      for (const k of ["r", "g", "b"] as const) {
+        expect(Math.abs(s[k] - (a[k] * 0.78 + 255 * 0.22))).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("light theme under the dark ink lightens (the old toward-black mix put Orange at 3.93:1)", () => {
+    const strong = buildAccentTokens("#f97316", "light")["--app-accent-strong"];
+    expect(relativeLuminance(hexToRgb(strong))).toBeGreaterThan(
+      relativeLuminance(hexToRgb("#f97316")),
+    );
+  });
+
+  it("returns null for an unparseable hex", () => {
+    expect(deriveAccentStrong("nope", "light")).toBeNull();
   });
 });

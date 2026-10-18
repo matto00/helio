@@ -58,7 +58,7 @@ describe("buildChartOption chart-less vs explicitly-defaulted (HEL-1178)", () =>
     fontMono: "ui-monospace, monospace",
     shadowSoft: "0 1px 2px rgba(0,0,0,0.1)",
     radiusMd: "8px",
-    accentStrong: "#ea580c",
+    accentEmphasis: "#ea580c",
     accent: "#ea580c",
     textMuted: "#aaa49c",
     success: "#4cc38a",

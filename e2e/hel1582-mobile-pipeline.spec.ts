@@ -1083,16 +1083,10 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
         verdict: r.verdict,
       })),
     );
-    // The one named exception (spec "Phone touch floor and state contrast", follow-up FU-3): the shared
-    // `--app-accent-ink` on `--app-accent-strong` hover pair is 3.95:1 in light, app-wide (desktop spine header and
-    // `Modal` primary share it). Exactly that pair is exempt from 4.5 and pinned to a floor so a further drop fails.
-    const isKnownAccentHover = (r: StateResult) =>
-      r.theme === "light" && r.state === "hover" && r.control === "Run pipeline pill";
-    const KNOWN_ACCENT_HOVER_FLOOR = 3.9;
     const failures = results.filter(
       (r) =>
         r.verdict === "fail" ||
-        (r.textRatio !== null && r.textRatio < 4.5 && !isKnownAccentHover(r)) ||
+        (r.textRatio !== null && r.textRatio < 4.5) ||
         (r.indicatorRatio !== null && r.indicatorRatio < 3),
     );
     expect(
@@ -1101,15 +1095,12 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
           `${f.theme} ${f.control} ${f.state} surface=${f.surfaceRatio} text=${f.textRatio} ind=${f.indicatorRatio}`,
       ),
     ).toEqual([]);
-    // The exempt pair is still measured and pinned; every other Run-pill state/theme held 4.5 above.
-    const knownPair = results.filter(isKnownAccentHover);
-    expect(knownPair).toHaveLength(1);
-    expect(knownPair[0].textRatio).not.toBeNull();
-    expect(knownPair[0].textRatio ?? 0).toBeGreaterThanOrEqual(KNOWN_ACCENT_HOVER_FLOOR);
-    const otherPillText = results.filter(
-      (r) => r.control === "Run pipeline pill" && r.textRatio !== null && !isKnownAccentHover(r),
+    // HEL-1669: no exception remains -- the Run pill hover (ink on --app-accent-strong) is held to 4.5 by the
+    // generic filter above; make sure that filter actually saw it, in both themes.
+    const runPillHover = results.filter(
+      (r) => r.control === "Run pipeline pill" && r.state === "hover" && r.textRatio !== null,
     );
-    expect(otherPillText.length).toBeGreaterThan(0);
+    expect(runPillHover.map((r) => r.theme).sort()).toEqual([...THEMES].sort());
 
     // Mutation: a hover wash identical to the backdrop must read as "nothing changed" (a failing verdict).
     await openPipeline(page, pipelineId, "dark");
@@ -1127,5 +1118,52 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
       mutated,
     );
     expect(mutated.find((m) => m.state === "hover")?.verdict).toBe("fail");
+  });
+  test("HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in both themes", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    await registerAndLogin(page, request, { ...AUTH, label: "hover-distinct" });
+    const pipelineId = await seedPipeline(page);
+    const bgOf = (locator: Locator) =>
+      locator.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const token = (name: string) =>
+      page.evaluate((n) => {
+        const probe = document.createElement("div");
+        probe.style.background = `var(${n})`;
+        document.body.appendChild(probe);
+        const v = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return v;
+      }, name);
+    const numbers: Record<string, unknown> = {};
+    for (const theme of THEMES) {
+      await openPipeline(page, pipelineId, theme);
+      const dry = page.getByRole("button", { name: "Dry run" });
+      const run = page.getByRole("button", { name: "Run pipeline" });
+
+      const dryRest = await bgOf(dry);
+      await dry.hover({ force: true });
+      await settleTransitions(page);
+      const dryHover = await bgOf(dry);
+      await page.mouse.move(0, 0);
+      await settleTransitions(page);
+      const dryVsRest = contrastRatio(parseColor(dryHover), parseColor(dryRest));
+
+      const runRest = await bgOf(run);
+      await run.hover({ force: true });
+      await settleTransitions(page);
+      const runHover = await bgOf(run);
+      await page.mouse.move(0, 0);
+
+      numbers[theme] = { dryRest, dryHover, dryVsRest, runRest, runHover };
+      expect(dryVsRest, `${theme}: Dry run hover vs rest`).toBeGreaterThanOrEqual(1.1);
+      expect(runRest, `${theme}: Run pill rest is --app-accent`).toBe(await token("--app-accent"));
+      expect(runHover, `${theme}: Run pill hover is --app-accent-strong`).toBe(
+        await token("--app-accent-strong"),
+      );
+    }
+    console.log(JSON.stringify(numbers, null, 2));
   });
 });

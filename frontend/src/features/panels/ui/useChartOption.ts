@@ -85,8 +85,8 @@ export function useChartOption({
     // `resolveChartTheme()` re-reads the live computed CSS custom properties
     // itself rather than deriving from either value, so they're referenced
     // here only to justify their presence in the dependency array below.
-    // HEL-566: `accentStrong` (the hover-emphasis color) is derived from
-    // `--app-accent` via CSS `color-mix`, so an accent-only change — no
+    // HEL-566/HEL-1669: `accentEmphasis` (the hover-emphasis color) is
+    // `--app-focus-ring-color`, derived from `--app-accent` in JS, so an accent-only change — no
     // theme toggle — still needs to force this memo to re-resolve it
     // (design.md Decision 5). `themeSyncTick` is the corrective re-resolve
     // once the DOM is guaranteed to reflect the new theme/accent — see the
