@@ -113,6 +113,12 @@ a.home-card:hover {
   pointer-events: none;
 }
 
+/* The thumbnail placeholder takes the real thumbnail's 16/7 ratio so the timeline does not move when the shelf loads. */
+.home-card--skeleton .home-thumb-skeleton {
+  height: auto;
+  aspect-ratio: 16 / 7;
+}
+
 .home-card__foot {
   display: flex;
   align-items: center;
@@ -727,10 +733,6 @@ a.home-card:hover {
 }
 
 @media (max-width: 430px) {
-  .home-shelf {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .home-opening__sentence {
     font-size: var(--text-xl);
   }

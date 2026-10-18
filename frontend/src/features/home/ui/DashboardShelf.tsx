@@ -46,7 +46,7 @@ export function DashboardShelf({
         <div className="home-shelf" role="status" aria-label="Loading dashboards">
           {[0, 1, 2, 3].map((index) => (
             <div key={index} className="home-card home-card--skeleton">
-              <Skeleton variant="block" height="96px" />
+              <Skeleton variant="block" className="home-thumb-skeleton" />
               <Skeleton variant="line" width="60%" />
             </div>
           ))}
