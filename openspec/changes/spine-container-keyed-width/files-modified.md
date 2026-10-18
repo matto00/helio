@@ -1,0 +1,7 @@
+- `e2e/hel1579-pipeline-spine-layout.spec.ts` — sweep 769-1100px test only: branch seed, 1280 spine-width check, step-title readability + two-end occlusion probe
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.css` — container-keyed spine track (cqi); `spine-column` named container
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.css` — compact-row rules keyed to `spine-column` (select regridded so the count has its own column; overlaid hover/focus-only menu)
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.css` — two stale comments fixed
+- `openspec/changes/archive/2026-10-15-pipeline-detail-step-spine/design.md` — D2 track expression updated
+- `openspec/changes/spine-container-keyed-width/` — red-proof.txt, tasks ticked, spec wording
+- `e2e/hel1608-spine-count-overlap.spec.ts` — new: 12,345-row CSV seed, count/summary no-overlap check in compact rows (red-proof-2.txt)

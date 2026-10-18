@@ -398,7 +398,7 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
   }) => {
     test.setTimeout(240_000);
     await registerAndLogin(page, request, { ...AUTH, label: "sweep" });
-    const { pipelineId } = await seedPipeline(page);
+    const { pipelineId } = await seedPipeline(page, true);
     const put = await page.request.put(`/api/pipelines/${pipelineId}/schedule`, {
       data: { kind: "interval", expression: "15m", timezone: "UTC", enabled: false },
       headers: CSRF,
@@ -418,8 +418,15 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
           await page.keyboard.press("End");
         }
         await page.evaluate(() => document.fonts.ready);
+        if (listWidth === "default") {
+          // HEL-1608: the committed 1280 invariant -- the spine track stays 270-340px with the list at default.
+          const spine = await page.locator(".spine-body__spine").boundingBox();
+          expect(spine!.width, `1280 ${theme}: spine track width`).toBeGreaterThanOrEqual(269.5);
+          expect(spine!.width, `1280 ${theme}: spine track width`).toBeLessThanOrEqual(340.5);
+        }
         for (const width of widths) {
           await page.setViewportSize({ width, height: 900 });
+          await page.mouse.move(0, 0);
           const m = await page.evaluate(() => {
             const vw = window.innerWidth;
             const header = document.querySelector<HTMLElement>(".spine-header")!;
@@ -472,6 +479,42 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
             ).toBeLessThanOrEqual(m.mainRight + 0.5);
           expect(m.docH, `${at}: document must not scroll vertically`).toBeLessThanOrEqual(0);
           expect(m.docW, `${at}: document must not scroll horizontally`).toBeLessThanOrEqual(0);
+          // HEL-1608: every spine step title (trunk and lane rows) is readable: unoccluded at both ends of its
+          // visible part, and either whole or at least 60px visible.
+          const titles = await page.evaluate(() => {
+            const col = document.querySelector<HTMLElement>(".spine-body__spine")!;
+            const cr = col.getBoundingClientRect();
+            const clientRight = cr.left + col.clientWidth;
+            return Array.from(col.querySelectorAll<HTMLElement>(".spine-row__title")).map((el) => {
+              const r = el.getBoundingClientRect();
+              const left = Math.max(r.left, cr.left);
+              const right = Math.min(r.right, clientRight);
+              const visible = Math.max(0, right - left);
+              const cy = r.top + r.height / 2;
+              const hit = (x: number) => {
+                const at = document.elementFromPoint(x, cy);
+                return !!at && (at === el || el.contains(at));
+              };
+              return {
+                label:
+                  el.closest(".spine-row")?.querySelector("button")?.getAttribute("aria-label") ??
+                  el.textContent ??
+                  "",
+                full:
+                  el.scrollWidth <= el.clientWidth + 0.5 &&
+                  r.left >= cr.left &&
+                  r.right <= clientRight + 0.5,
+                visible,
+                unoccluded: visible > 8 && hit(left + 4) && hit(right - 4),
+              };
+            });
+          });
+          expect(titles.length, `${at}: spine step titles found`).toBeGreaterThanOrEqual(4);
+          for (const ti of titles)
+            expect(
+              ti.unoccluded && (ti.full || ti.visible >= 60),
+              `${at}: step title unreadable -- "${ti.label}" visible ${Math.round(ti.visible)}px, full=${ti.full}, unoccluded=${ti.unoccluded}`,
+            ).toBe(true);
           if (sampled.has(width)) {
             await page.getByRole("button", { name: "Pipeline actions" }).click();
             const menu = page.getByRole("menu", { name: "Pipeline actions" });

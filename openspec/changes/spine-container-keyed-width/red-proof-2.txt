@@ -1,0 +1,23 @@
+Running 1 test using 1 worker
+[HEL-1300 e2e] throwaway user: hel1608cnt-count-1792317537899-22528@example.test
+  ✘  1 e2e/hel1608-spine-count-overlap.spec.ts:12:5 › compact spine rows: a 6-character row count never overlaps the summary (3.7s)
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+  1) e2e/hel1608-spine-count-overlap.spec.ts:12:5 › compact spine rows: a 6-character row count never overlaps the summary 
+    Error: 769px list=default "Sort rows" count "12,345": count overlaps the summary by 42px
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+    Expected: [32mfalse[39m
+    Received: [31mtrue[39m
+      93 |           r.sameLine && r.overlap > 0,
+      94 |           `${at}: count overlaps the summary by ${Math.round(r.overlap)}px`,
+    > 95 |         ).toBe(false);
+         |           ^
+      96 |         expect(r.countInside, `${at}: count stays inside the row`).toBe(true);
+      97 |       }
+      98 |     }
+        at /home/matt/Development/helio/.claude/worktrees/bug/pipeline-spine-container-width/HEL-1608/e2e/hel1608-spine-count-overlap.spec.ts:95:11
+    Error Context: test-results/hel1608-spine-count-overla-0cdaf--never-overlaps-the-summary/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1608-spine-count-overla-0cdaf--never-overlaps-the-summary/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1608-spine-count-overla-0cdaf--never-overlaps-the-summary/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
