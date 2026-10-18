@@ -51,28 +51,19 @@ export function editorAction(page: Page, name: string): Locator {
 }
 
 /**
- * Makes the pipeline page's Outputs visible: the phone's "Outputs (N)" tab is clicked; on desktop the spine's
- * OUTPUTS section is already on screen (there are no tabs), so it only waits for it.
+ * Makes the pipeline page's Outputs visible. The spine's OUTPUTS section is on screen at every width (on the phone it
+ * is part of the Steps tab, which is active on load; HEL-1582 retired the phone's separate Outputs tab), so this only
+ * waits for it.
  */
 export async function showOutputs(page: Page): Promise<void> {
-  const tab = page.getByRole("tab", { name: /^Outputs/ });
-  const section = page.getByRole("region", { name: "Outputs" });
-  await expect(tab.or(section)).toBeVisible();
-  if (await tab.isVisible()) await tab.click();
+  await expect(page.getByRole("region", { name: "Outputs" })).toBeVisible();
 }
 
 /**
- * Opens one Output's History view. On the phone the Outputs tab's card has a direct "History for <name>"
- * button; on desktop the spine's OUTPUTS card keeps it in its quiet "Output actions for <name>" menu.
+ * Opens one Output's History view: the Output card's quiet "Output actions for <name>" menu holds "History for
+ * <name>" on desktop and phone alike.
  */
 export async function openOutputHistory(page: Page, outputName: string): Promise<void> {
-  const direct = page.getByRole("button", { name: `History for ${outputName}` });
-  const menuTrigger = page.getByRole("button", { name: `Output actions for ${outputName}` });
-  await expect(direct.or(menuTrigger)).toBeVisible();
-  if (await direct.isVisible()) {
-    await direct.click();
-    return;
-  }
-  await menuTrigger.click();
+  await page.getByRole("button", { name: `Output actions for ${outputName}` }).click();
   await page.getByRole("menuitem", { name: `History for ${outputName}` }).click();
 }

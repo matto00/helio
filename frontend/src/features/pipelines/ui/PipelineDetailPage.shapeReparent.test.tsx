@@ -3,7 +3,15 @@
 // and reports it in each create response's `reparentedStepIds`. The editor must apply that delta
 // right away (no reload). `createPipelineStep` is the REAL service function over a mocked
 // `httpClient`, so the wire-JSON -> `reparentedStepIds` mapping is exercised, not bypassed.
-import { configure, fireEvent, getConfig, render, screen, waitFor } from "@testing-library/react";
+import {
+  configure,
+  fireEvent,
+  getConfig,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
@@ -35,6 +43,16 @@ import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import type { PipelineShapeCatalogEntry } from "../types/pipelineShape";
 import { installPhoneShell } from "./pipelineDetailPageTestUtils";
+import {
+  chooseHeaderAction,
+  chooseStepAction,
+  closeStepSheet,
+  findStepRow,
+  laneParentLabel,
+  openStepSheet,
+  stepSheet,
+  stubDialogMethods,
+} from "./pipelineMobileTestKit";
 
 jest.mock("../../../services/httpClient", () => ({
   httpClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() },
@@ -199,19 +217,9 @@ function renderPage(store = makeStore()) {
   return store;
 }
 
-/** Label of the card whose lane-row (`aria-label="Lanes"`) contains `L`'s card, or null. */
-function laneParentLabel(label: RegExp): string | null {
-  const toggle = screen.getByRole("button", { name: label });
-  const lanes = toggle.closest('[aria-label="Lanes"]');
-  if (!lanes) return null;
-  return (
-    lanes.parentElement?.querySelector(".pipeline-detail-page__step-card-label")?.textContent ??
-    null
-  );
-}
-
 async function applyShape() {
-  fireEvent.click(await screen.findByRole("button", { name: "Add Outputs from a shape" }));
+  await screen.findByRole("button", { name: "Pipeline actions" });
+  chooseHeaderAction("Add Outputs from a shape");
   fireEvent.click(await screen.findByText("Top N"));
   fireEvent.change(screen.getByRole("textbox", { name: "Mode" }), { target: { value: "x" } });
   fireEvent.click(screen.getByRole("button", { name: "Add steps" }));
@@ -224,9 +232,8 @@ const L = () => ps("L", "cast", { parent: "B", position: 1 });
 
 jest.setTimeout(40000);
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -239,12 +246,7 @@ describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)"
   const originalAsyncUtilTimeout = getConfig().asyncUtilTimeout;
   beforeAll(() => {
     configure({ asyncUtilTimeout: 20000 });
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
+    stubDialogMethods();
   });
   afterAll(() => {
     configure({ asyncUtilTimeout: originalAsyncUtilTimeout });
@@ -292,7 +294,7 @@ describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)"
       .mockResolvedValueOnce(wire(ps("S2", "limit", { parent: "S1" }), ["L"]));
     renderPage();
     // Before: L is a lane off B.
-    await screen.findByRole("button", { name: /Cast type/i });
+    await findStepRow(/Cast type/i);
     expect(laneParentLabel(/Cast type/i)).toBe("Filter rows");
 
     await applyShape();
@@ -315,7 +317,7 @@ describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)"
       .mockResolvedValueOnce(wire(ps("S1", "sort", { parent: "B" }), ["L"]))
       .mockRejectedValueOnce(new Error("Request failed with status code 500"));
     const store = renderPage();
-    await screen.findByRole("button", { name: /Cast type/i });
+    await findStepRow(/Cast type/i);
 
     await applyShape();
 
@@ -333,10 +335,13 @@ describe("PipelineDetailPage - shape apply reflects reparented lanes (HEL-1506)"
       .mockResolvedValueOnce(wire(ps("S1", "sort", { parent: "B" }), ["L"]))
       .mockResolvedValueOnce(wire(ps("S2", "limit", { parent: "S1" }), ["L"]));
     renderPage();
-    await screen.findByRole("button", { name: /Cast type/i });
-    // A Generate-text draft between A and B stays local-only until its config is complete.
-    fireEvent.click(screen.getAllByRole("button", { name: "Insert step here" })[1]);
+    await findStepRow(/Cast type/i);
+    // A Generate-text draft between A and B stays local-only until its config is complete. It opens in the sheet.
+    openStepSheet(/Rename column/i);
+    chooseStepAction("Insert step after");
     fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    expect(within(stepSheet()).getAllByText(/draft.*not yet saved/i)).toHaveLength(1);
+    await closeStepSheet();
     expect(screen.getAllByText(/draft.*not yet saved/i)).toHaveLength(1);
 
     await applyShape();

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import "./ActionsMenu.css";
 import "./Popover.css";
@@ -35,6 +35,9 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
   const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
     usePortalPopover<HTMLButtonElement>();
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // Inside an open <dialog> (e.g. a bottom sheet) the panel portals into that dialog, or it would render behind the
+  // modal's top layer (HEL-1582); `Select` does the same. Elsewhere it is the body, as before.
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
 
   const enabledIndices = items
     .map((item, index) => (item.disabled ? -1 : index))
@@ -63,6 +66,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
       close();
       return;
     }
+    setPortalTarget(triggerRef.current?.closest("dialog[open]") ?? document.body);
     if (align === "above") {
       handleOpen((rect) => ({
         bottom: window.innerHeight - rect.top + 8,
@@ -148,7 +152,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
               ))}
             </ul>
           </>,
-          document.body,
+          portalTarget ?? document.body,
         )
       : null;
 

@@ -198,7 +198,7 @@ test.describe("HEL-1628 source sample store and label (live)", () => {
     }
   });
 
-  test("phone viewport: the chip carries the label and refresh, one capture on open", async ({
+  test("phone viewport: the source card carries the label and refresh, one capture on open", async ({
     page,
     request,
   }) => {
@@ -210,10 +210,11 @@ test.describe("HEL-1628 source sample store and label (live)", () => {
     for (const theme of ["dark", "light"] as const) {
       await setTheme(page, theme);
       await page.goto(`/pipelines/${pipelineId}`);
-      const label = page.locator(".pipeline-detail-header__source-chip-group .source-sample-label");
+      // HEL-1582: the phone's Steps tab shows the same source card as the desktop spine.
+      const label = page.locator(".spine-source-card .source-sample-label");
       await expect(label).toContainText("Static · 30 rows");
       await expect(label.getByRole("button", { name: /^Refresh sample of / })).toBeVisible();
-      await page.screenshot({ path: evidencePath("HEL-1628", `phone-chip-${theme}.png`) });
+      await page.screenshot({ path: evidencePath("HEL-1628", `phone-card-${theme}.png`) });
     }
     // Two page loads (one per theme), one capture each.
     expect(sampleRequests.count()).toBe(2);

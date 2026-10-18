@@ -154,12 +154,43 @@ function RunRow({ run }: { run: PipelineRunRecord }) {
   );
 }
 
-interface RunHistoryModalProps {
+interface RunHistoryListProps {
   runs: PipelineRunRecord[];
   /** HEL-1354: `fresh` = `runs` was loaded for this page open; otherwise the fetch is in flight
    *  (`loading`) or has failed (`failed`) — neither may claim "No runs recorded yet". */
   view: RunHistoryView;
   onRetry: () => void;
+}
+
+/** The run rows with their loading / failed / empty states. Shared by the desktop Run history modal and the
+ *  phone's inline Runs tab (HEL-1582), so both show the same list. */
+export function RunHistoryList({ runs, view, onRetry }: RunHistoryListProps) {
+  return (
+    <div className="run-history-modal__list">
+      {view === "loading" ? (
+        <PageStatus status="loading" size="section" loadingLabel="Loading run history" />
+      ) : view === "failed" ? (
+        <PageStatus
+          status="failed"
+          size="section"
+          message="Couldn't load run history."
+          onRetry={onRetry}
+        />
+      ) : runs.length === 0 ? (
+        <EmptyState
+          variant="sidebar"
+          icon={<RotateCcwClock />}
+          title="No runs recorded yet"
+          description="Run or dry-run this pipeline to see its history here."
+        />
+      ) : (
+        runs.map((run) => <RunRow key={run.id} run={run} />)
+      )}
+    </div>
+  );
+}
+
+interface RunHistoryModalProps extends RunHistoryListProps {
   onClose: () => void;
 }
 
@@ -172,27 +203,7 @@ export function RunHistoryModal({ runs, view, onRetry, onClose }: RunHistoryModa
       ariaLabel="Run history"
       onClose={onClose}
     >
-      <div className="run-history-modal__list">
-        {view === "loading" ? (
-          <PageStatus status="loading" size="section" loadingLabel="Loading run history" />
-        ) : view === "failed" ? (
-          <PageStatus
-            status="failed"
-            size="section"
-            message="Couldn't load run history."
-            onRetry={onRetry}
-          />
-        ) : runs.length === 0 ? (
-          <EmptyState
-            variant="sidebar"
-            icon={<RotateCcwClock />}
-            title="No runs recorded yet"
-            description="Run or dry-run this pipeline to see its history here."
-          />
-        ) : (
-          runs.map((run) => <RunRow key={run.id} run={run} />)
-        )}
-      </div>
+      <RunHistoryList runs={runs} view={view} onRetry={onRetry} />
     </Modal>
   );
 }

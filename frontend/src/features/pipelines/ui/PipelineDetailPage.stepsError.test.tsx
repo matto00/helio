@@ -125,12 +125,13 @@ function renderPage() {
   );
 }
 
-const cardButtons = () => screen.queryAllByRole("button", { name: /Rename column/i });
-const footerStats = () => document.querySelector(".pipeline-detail-page__footer-stats");
+/** The phone Steps tab's step rows. */
+const cardButtons = () => screen.queryAllByRole("button", { name: /^Step \d+:/ });
+/** The visible "N steps" count line of the Steps tab. */
+const stepCount = () => document.querySelector(".spine-section__count");
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -183,8 +184,8 @@ describe("PipelineDetailPage -- steps fetch failure (HEL-1501)", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByText("No steps yet")).toBeNull();
     expect(screen.queryByRole("button", { name: "+ Add step" })).toBeNull();
-    // Inside the river frame, so it gets the same inset as the skeleton and the cards.
-    expect(screen.getByRole("alert").closest(".pipeline-detail-page__river")).not.toBeNull();
+    // Inside the phone body, so it gets the same inset as the skeleton and the step rows.
+    expect(screen.getByRole("alert").closest(".mobile-body")).not.toBeNull();
     // The raw rejection text is not user copy.
     expect(screen.queryByText(/boom/)).toBeNull();
   });
@@ -194,8 +195,8 @@ describe("PipelineDetailPage -- steps fetch failure (HEL-1501)", () => {
     await settled(renderPage());
 
     await screen.findByText(STEPS_ERROR);
-    expect(footerStats()).toBeNull();
-    expect(screen.queryByText(/\b0 steps\b/)).toBeNull();
+    expect(stepCount()).toBeNull();
+    expect(screen.queryByText(/\b\d+ steps?\b/)).toBeNull();
   });
 
   it("Retry shows the steps skeleton while in flight, then the persisted step cards", async () => {
@@ -220,7 +221,7 @@ describe("PipelineDetailPage -- steps fetch failure (HEL-1501)", () => {
     await waitFor(() => expect(cardButtons()).toHaveLength(2));
     expect(screen.queryByText(STEPS_ERROR)).toBeNull();
     expect(screen.queryByRole("status", { name: "Loading steps" })).toBeNull();
-    expect(footerStats()).toHaveTextContent("2 steps");
+    expect(stepCount()).toHaveTextContent("2 steps");
     expect(getPipelineStepsMock).toHaveBeenCalledTimes(2);
   });
 

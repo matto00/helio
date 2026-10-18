@@ -88,6 +88,30 @@
   cursor: pointer;
 }
 
+.run-history-modal__row-toggle:hover {
+  background: var(--app-surface-raised);
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+/* Touch floor (tapTarget.css): the toggle stays compact, its hit area grows to 44px (HEL-1582, the Runs tab). */
+@media (max-width: 768px), (pointer: coarse) {
+  .run-history-modal__row-toggle {
+    position: relative;
+  }
+
+  .run-history-modal__row-toggle::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
 .run-history-modal__row-error {
   margin: var(--space-2) 0 0;
   /* HEL-830: 10px -> 12px, standalone error banner carries more visual weight than a dense row */

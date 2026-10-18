@@ -22,6 +22,13 @@ import { OverlayProvider } from "../../../shared/chrome/OverlayProvider";
 import { PipelineDetailPage } from "./PipelineDetailPage";
 import { installPhoneShell, settled } from "./pipelineDetailPageTestUtils";
 import {
+  chooseStepAction,
+  stepRow,
+  stepRows,
+  stepSheet,
+  stubDialogMethods,
+} from "./pipelineMobileTestKit";
+import {
   analyzePipeline,
   createPipelineStep,
   duplicatePipelineStep,
@@ -236,19 +243,23 @@ function deferredCreate() {
 }
 
 function chooseSelectOption(comboboxName: RegExp, optionLabel: string) {
-  fireEvent.click(screen.getByRole("combobox", { name: comboboxName }));
+  fireEvent.click(within(stepSheet()).getByRole("combobox", { name: comboboxName }));
   fireEvent.click(screen.getByRole("option", { name: optionLabel }));
 }
 
-const instructionBox = () => screen.getByRole("textbox", { name: /instruction for the model/i });
-const generateToggle = () => screen.getByRole("button", { name: /Generate text/i });
+// The AI draft opens in the phone's step sheet as soon as it is added (HEL-1582), so every query for its editor
+// is scoped to that sheet.
+const instructionBox = () =>
+  within(stepSheet()).getByRole("textbox", { name: /instruction for the model/i });
+/** The open sheet's focused editor for the Generate-text step. */
+const generateEditor = () => within(stepSheet()).getByLabelText(/^Step \d+ Generate text$/);
+const draftMarkerInSheet = () => within(stepSheet()).queryByText(/draft.*not yet saved/i);
 
-/** Opens the Generate-text draft and completes its config (create fires). */
+/** Completes the open Generate-text draft's config (create fires). */
 async function completeDraft(field = "notes") {
-  fireEvent.click(await screen.findByRole("button", { name: /Generate text/i, expanded: false }));
   chooseSelectOption(/input field to generate from/i, field);
   fireEvent.change(instructionBox(), { target: { value: "Summarize" } });
-  fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+  fireEvent.change(within(stepSheet()).getByRole("textbox", { name: /destination field/i }), {
     target: { value: "summary" },
   });
   await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
@@ -259,15 +270,16 @@ async function addTrunkDraft() {
   fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
 }
 
-async function addLaneDraft() {
-  await screen.findByRole("button", { name: /Rename column/i, expanded: false });
-  fireEvent.click(screen.getByRole("button", { name: /Branch this step into a new lane/i }));
+/** Opens the `anchorIndex`-th step's sheet and branches a Generate-text lane draft from it. */
+async function addLaneDraft(anchorIndex = 0) {
+  await waitFor(() => expect(stepRows().length).toBeGreaterThan(anchorIndex));
+  fireEvent.click(stepRows()[anchorIndex]);
+  chooseStepAction("Branch from here");
   fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
 }
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582). jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -278,12 +290,7 @@ afterEach(() => {
 
 describe("PipelineDetailPage — an AI draft's card survives its own create (HEL-1321)", () => {
   beforeAll(() => {
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
+    stubDialogMethods();
   });
 
   beforeEach(() => {
@@ -316,37 +323,38 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     jest.clearAllMocks();
   });
 
-  it("keeps the open trunk draft expanded when its create resolves", async () => {
+  it("keeps the open trunk draft's sheet open when its create resolves", async () => {
     const create = deferredCreate();
     await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    const sheet = stepSheet();
+    const editor = generateEditor();
 
     await create.resolve(aiPersisted("ai-1", 0));
 
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
+    // The same sheet, and the same editor node (an AI draft's render key survives the id swap).
+    expect(stepSheet()).toBe(sheet);
+    expect(sheet).toHaveAttribute("open");
+    expect(generateEditor()).toBe(editor);
     expect(instructionBox()).toBeInTheDocument();
   });
 
-  it("keeps a lane-add draft on a childless anchor expanded and as its own lane head", async () => {
+  it("keeps a lane-add draft on a childless anchor open in its sheet and as its own lane head", async () => {
     getPipelineStepsMock.mockResolvedValue([persisted("anchor-1", "rename", 0)]);
     const create = deferredCreate();
     await renderPageSettled();
     await addLaneDraft();
-    const laneOf = () => generateToggle().closest(".pipeline-detail-page__lane");
+    const laneOf = () => stepRow(/Generate text/i).closest(".spine-lane--sub");
     const laneBefore = laneOf();
+    expect(laneBefore).not.toBeNull();
     await completeDraft();
 
     await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
 
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
+    expect(stepSheet()).toHaveAttribute("open");
     expect(instructionBox()).toBeInTheDocument();
     expect(laneOf()).toBe(laneBefore);
   });
@@ -375,9 +383,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 
@@ -387,9 +393,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
 
     fireEvent.change(instructionBox(), { target: { value: "Summarize later" } });
     await waitFor(() =>
@@ -416,19 +420,17 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     fireEvent.change(instructionBox(), { target: { value: "Summarize briefly" } });
     await create.resolve(aiPersisted("ai-1", 0));
 
-    expect(await screen.findByText(/instruction is too long/)).toBeInTheDocument();
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(await within(stepSheet()).findByText(/instruction is too long/)).toBeInTheDocument();
+    expect(stepSheet()).toHaveAttribute("open");
   });
 
-  it("a later full resync keeps the created draft's card open", async () => {
+  it("a later full resync keeps the created draft, and the sheet follows the step it added", async () => {
     const create = deferredCreate();
     await renderPageSettled();
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
 
     // HEL-1345 D5 — a create-immediately add no longer resyncs (it applies the response delta), so
     // the full-list replace is triggered by a caller that still uses `syncStepsFromServer`:
@@ -436,20 +438,23 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     // exercised.
     jest.mocked(duplicatePipelineStep).mockResolvedValue(aiPersisted("ai-2", 1));
     getPipelineStepsMock.mockResolvedValue([aiPersisted("ai-1", 0), aiPersisted("ai-2", 1)]);
-    const draftCard = generateToggle().closest(".pipeline-detail-page__step-card") as HTMLElement;
-    fireEvent.click(within(draftCard).getByRole("button", { name: "Duplicate step" }));
-    await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: /Generate text/i })).toHaveLength(2),
-    );
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Duplicate step" }));
+    await waitFor(() => expect(stepRows()).toHaveLength(2));
     await act(async () => {});
 
-    // WHICH card: the created draft (ai-1, first) stays open, the duplicate (ai-2) is collapsed.
-    const toggles = screen.getAllByRole("button", { name: /Generate text/i });
-    expect(toggles[0]).toHaveAttribute("aria-expanded", "true");
-    expect(toggles[1]).toHaveAttribute("aria-expanded", "false");
+    // WHICH step: the created draft (ai-1) stays first and keeps its place; the step the duplicate added
+    // (ai-2, second) opens in the one sheet, as a step added on the desktop is selected.
+    expect(stepRows()[0]).toHaveAccessibleName(/^Step 1: Generate text/);
+    expect(stepRows()[1]).toHaveAccessibleName(/^Step 2: Generate text/);
+    expect(stepSheet()).toHaveAttribute("open");
+    expect(within(stepSheet()).getByLabelText("Step 2 Generate text")).toBeInTheDocument();
+    // Reopening the created draft shows its own, persisted editor (not lost by the full replace).
+    fireEvent.click(stepRows()[0]);
+    expect(within(stepSheet()).getByLabelText("Step 1 Generate text")).toBeInTheDocument();
+    expect(instructionBox()).toHaveValue("Summarize");
   });
 
-  it("an enable toggle on a created draft keeps its card open", async () => {
+  it("an enable toggle on a created draft keeps its sheet open", async () => {
     jest.mocked(updatePipelineStepEnabled).mockResolvedValue({
       ...aiPersisted("ai-1", 0),
       enabled: false,
@@ -459,18 +464,18 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     await addTrunkDraft();
     await completeDraft();
     await create.resolve(aiPersisted("ai-1", 0));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
+    const sheet = stepSheet();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
     await waitFor(() => expect(updatePipelineStepEnabled).toHaveBeenCalledWith("ai-1", false));
-    await screen.findByRole("button", { name: "Enable step" });
+    await within(sheet).findByRole("button", { name: "Enable step" });
 
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(stepSheet()).toBe(sheet);
+    expect(sheet).toHaveAttribute("open");
   });
 
-  it("a non-head reorder keeps a created draft's card open", async () => {
+  it("a non-head reorder keeps a created draft's sheet open", async () => {
     // Server-realistic (HEL-1345): a gap insert after `anchor-1` splices directly after it, so
     // the created step sits between `anchor-1` and `f-1` and `f-1` hangs under it. Any later full
     // resync lists them in that order, and it must never make `ai-1` vanish.
@@ -485,18 +490,17 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     ]);
     const create = deferredCreate();
     await renderPageSettled();
-    await screen.findByRole("button", { name: /Filter rows/i, expanded: false });
-    const gaps = screen.getAllByRole("button", { name: "Insert step here" });
-    fireEvent.click(gaps[gaps.length - 1]);
+    await waitFor(() => expect(stepRows()).toHaveLength(2));
+    // Insert after the anchor (the first of the two rows) from its sheet.
+    fireEvent.click(stepRows()[0]);
+    chooseStepAction("Insert step after");
     fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
     await completeDraft();
     await create.resolve({
       ...aiPersisted("ai-1", 0, "anchor-1"),
       reparentedStepIds: ["f-1"],
     } as unknown as PipelineStep);
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
 
     jest
       .mocked(reorderPipelineSteps)
@@ -505,18 +509,20 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
         aiPersisted("ai-1", 1),
         persisted("f-1", "filter", 2),
       ]);
-    const card = generateToggle().closest(".pipeline-detail-page__step-card") as HTMLElement;
-    fireEvent.click(within(card).getByRole("button", { name: /Move step up/i }));
+    const sheet = stepSheet();
+    chooseStepAction(/Move step up/i);
     await waitFor(() => expect(reorderPipelineSteps).toHaveBeenCalled());
     await act(async () => {});
 
-    expect(generateToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(stepSheet()).toBe(sheet);
+    expect(sheet).toHaveAttribute("open");
+    expect(generateEditor()).toBeInTheDocument();
   });
 
   // HEL-1340 item 3 — between the create being sent and the step's own analyze entry arriving, the
   // draft has neither an analyze entry nor pending meta; its field picker must still resolve.
   const inputFieldSelect = () =>
-    screen.getByRole("combobox", { name: /input field to generate from/i });
+    within(stepSheet()).getByRole("combobox", { name: /input field to generate from/i });
 
   it("keeps the chosen input field shown while the draft's create is in flight", async () => {
     const create = deferredCreate();
@@ -538,9 +544,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
     const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
     await create.resolve(aiPersisted("ai-1", 0));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
     // Assert only once the post-swap /analyze has actually been issued (debounced) and is held.
     await waitFor(() =>
       expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
@@ -549,7 +553,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     expect(inputFieldSelect()).toHaveTextContent("notes");
     // The fallback input has no matching output schema yet: no false "dropped" diff chips.
     expect(
-      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+      stepSheet().querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
     ).toBeNull();
   });
 
@@ -579,16 +583,11 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     });
     const create = deferredCreate();
     await renderPageSettled();
-    await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: /Rename column/i })).toHaveLength(2),
-    );
-    const branchButtons = screen.getAllByRole("button", {
-      name: /Branch this step into a new lane/i,
-    });
-    fireEvent.click(branchButtons[branchButtons.length - 1]);
-    fireEvent.click(await screen.findByRole("option", { name: /Generate text/i }));
+    await waitFor(() => expect(stepRows()).toHaveLength(2));
+    // Branch from the second (the anchor's own) step.
+    await addLaneDraft(1);
     await completeDraft("other");
-    const inLanesGroup = () => generateToggle().closest('[aria-label="Lanes"]') !== null;
+    const inLanesGroup = () => stepRow(/Generate text/i).closest(".spine-lane--sub") !== null;
 
     expect(inLanesGroup()).toBe(true);
     expect(inputFieldSelect()).toHaveTextContent("other");
@@ -597,9 +596,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     analyzePipelineMock.mockReturnValue(new Promise<PipelineAnalyzeResponse>(() => {}));
     const analyzeCallsBefore = analyzePipelineMock.mock.calls.length;
     await create.resolve(aiPersisted("ai-1", 1, "anchor-1"));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(draftMarkerInSheet()).not.toBeInTheDocument());
     await waitFor(() =>
       expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(analyzeCallsBefore),
     );
@@ -607,7 +604,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     expect(inLanesGroup()).toBe(true);
     expect(inputFieldSelect()).toHaveTextContent("other");
     expect(
-      document.querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
+      stepSheet().querySelector(".pipeline-detail-page__step-card-diff-chip--removed"),
     ).toBeNull();
   });
 });

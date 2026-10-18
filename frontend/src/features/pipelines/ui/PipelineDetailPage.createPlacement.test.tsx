@@ -43,6 +43,19 @@ import { defaultConfigFor } from "../state/stepNarrowing";
 import type { PipelineStepCatalog } from "../types/pipelineStepCatalog";
 import type { PipelineAnalyzeResponse, PipelineStep, PipelineSummary } from "../types/pipelineStep";
 import { installPhoneShell } from "./pipelineDetailPageTestUtils";
+import {
+  chooseStepAction,
+  closeStepSheet,
+  findStepRow,
+  laneParentLabel,
+  openStepSheet,
+  queryStepRow,
+  queryStepSheet,
+  stepRow,
+  stepRows,
+  stepSheet,
+  stubDialogMethods,
+} from "./pipelineMobileTestKit";
 
 jest.mock("../../sources/services/dataSourceService", () => ({
   ...jest.requireActual("../../sources/services/dataSourceService"),
@@ -240,54 +253,63 @@ function deferredCreate(): Deferred {
   };
 }
 
+/** The step rows' labels in document order. */
 const labelsInOrder = () =>
-  Array.from(document.querySelectorAll(".pipeline-detail-page__step-card-label")).map(
-    (el) => el.textContent ?? "",
-  );
+  Array.from(document.querySelectorAll(".spine-row__title")).map((el) => el.textContent ?? "");
 
-/** The label of the step whose lane `toggle`'s card sits in as a CHILD lane, or null when the card
- *  is on a root lane (i.e. its lane hangs off no parent card). */
-function laneParentLabel(label: RegExp): string | null {
-  const toggle = screen.getByRole("button", { name: label });
-  const lanes = toggle.closest('[aria-label="Lanes"]');
-  if (!lanes) return null;
-  return (
-    lanes.parentElement?.querySelector(".pipeline-detail-page__step-card-label")?.textContent ??
-    null
-  );
+/** Closes the step sheet when one is open (a user dismisses it before tapping another row). */
+async function ensureSheetClosed() {
+  if (queryStepSheet() !== null) await closeStepSheet();
 }
 
-const gaps = () => screen.getAllByRole("button", { name: "Insert step here" });
-const addBottom = () => screen.getByRole("button", { name: /\+ Add (transformation )?step/ });
-
-async function insertAt(gapIndex: number, option: RegExp) {
-  fireEvent.click(gaps()[gapIndex]);
+/** Inserts a step before / after the row labelled `label`, through that row's sheet's "Step actions" menu. */
+async function insertRelativeTo(
+  position: "before" | "after",
+  label: RegExp | string,
+  option: RegExp,
+) {
+  await ensureSheetClosed();
+  openStepSheet(label);
+  chooseStepAction(position === "before" ? "Insert step before" : "Insert step after");
   fireEvent.click(await screen.findByRole("option", { name: option }));
 }
+const insertAfter = (label: RegExp | string, option: RegExp) =>
+  insertRelativeTo("after", label, option);
+const insertBefore = (label: RegExp | string, option: RegExp) =>
+  insertRelativeTo("before", label, option);
+
+const addBottom = () => screen.getByRole("button", { name: /\+ Add (transformation )?step/ });
+
 async function appendBottom(option: RegExp) {
+  await ensureSheetClosed();
   fireEvent.click(addBottom());
   fireEvent.click(await screen.findByRole("option", { name: option }));
 }
 
 function chooseSelectOption(comboboxName: RegExp, optionLabel: string) {
-  fireEvent.click(screen.getByRole("combobox", { name: comboboxName }));
+  fireEvent.click(within(stepSheet()).getByRole("combobox", { name: comboboxName }));
   fireEvent.click(screen.getByRole("option", { name: optionLabel }));
 }
 
-/** Completes the open (first collapsed) Generate-text draft's config so its create fires. */
+/** Opens the first Generate-text draft's sheet and completes its config so its create fires. */
 async function completeFirstDraft(expectedCalls: number) {
+  await ensureSheetClosed();
   fireEvent.click(
-    (await screen.findAllByRole("button", { name: /Generate text/i, expanded: false }))[0],
+    (await screen.findAllByRole("button", { name: /Generate text.*draft, not yet saved/i }))[0],
   );
   chooseSelectOption(/input field to generate from/i, "notes");
-  fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
+  const sheet = stepSheet();
+  fireEvent.change(within(sheet).getByRole("textbox", { name: /instruction for the model/i }), {
     target: { value: "Summarize" },
   });
-  fireEvent.change(screen.getByRole("textbox", { name: /destination field/i }), {
+  fireEvent.change(within(sheet).getByRole("textbox", { name: /destination field/i }), {
     target: { value: "summary" },
   });
   await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(expectedCalls));
 }
+
+/** No Generate-text row is still a local draft. */
+const noDraftRows = () => expect(screen.queryAllByText(/draft.*not yet saved/i)).toHaveLength(0);
 
 const A = () => ps("A", "rename");
 const B = () => ps("B", "filter", { parent: "A" });
@@ -311,9 +333,9 @@ jest.setTimeout(LOADED_CASE_TIMEOUT_MS);
 // hang still reports the unmet assertion rather than a bare jest timeout.
 const LOADED_ASYNC_UTIL_TIMEOUT_MS = 20000;
 
-// HEL-1579: the legacy page tests assert the phone layout (river view, cards, tabs, footer) and layout-independent
-// page logic reached through the phone's card DOM; jsdom has no `matchMedia`, so stub the phone shell. The desktop
-// step spine has its own tests (`PipelineDetailPage.spine*.test.tsx`).
+// The page logic under test is layout-independent; this file runs it through the phone layout (HEL-1582): a row's
+// "Step actions" menu in its sheet is where insert / branch live, and a created step opens in that sheet. jsdom has
+// no `matchMedia`, so stub the phone shell.
 let restorePhoneShell: () => void = () => {};
 beforeEach(() => {
   restorePhoneShell = installPhoneShell();
@@ -326,12 +348,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
   const originalAsyncUtilTimeout = getConfig().asyncUtilTimeout;
   beforeAll(() => {
     configure({ asyncUtilTimeout: LOADED_ASYNC_UTIL_TIMEOUT_MS });
-    HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {
-      this.setAttribute("open", "");
-    });
-    HTMLDialogElement.prototype.close = jest.fn(function (this: HTMLDialogElement) {
-      this.removeAttribute("open");
-    });
+    stubDialogMethods();
   });
 
   afterAll(() => {
@@ -364,11 +381,11 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
   });
 
   // (a)
-  it("a draft inserted between A and B: B is re-parented under the created step without a reload, a second local draft survives, and the created card stays expanded with its in-flight edit", async () => {
+  it("a draft inserted between A and B: B is re-parented under the created step without a reload, a second local draft survives, and the created step's sheet stays open with its in-flight edit", async () => {
     const create = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(1, /Generate text/i);
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Rename column/i, /Generate text/i);
     await completeFirstDraft(1);
     // D11: anchored on the persisted step before the gap, never on the index.
     expect(createPipelineStepMock).toHaveBeenLastCalledWith(
@@ -382,10 +399,16 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     );
     // A second, never-completed local draft at the bottom.
     await appendBottom(/Generate text/i);
-    // An edit made while the create is in flight.
-    fireEvent.change(screen.getByRole("textbox", { name: /instruction for the model/i }), {
-      target: { value: "Summarize briefly" },
-    });
+    // An edit made to the created step while its create is in flight.
+    await ensureSheetClosed();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /Generate text.*draft, not yet saved/i })[0],
+    );
+    fireEvent.change(
+      within(stepSheet()).getByRole("textbox", { name: /instruction for the model/i }),
+      { target: { value: "Summarize briefly" } },
+    );
+    const sheet = stepSheet();
 
     await create.resolve(createdResp(ps("N", "generatetext", { parent: "A" }), ["B"]));
 
@@ -397,10 +420,10 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       "Limit rows",
       "Generate text",
     ]);
-    expect(screen.getAllByRole("button", { name: /Generate text/i, expanded: true })).toHaveLength(
-      1,
-    );
-    expect(screen.getByRole("textbox", { name: /instruction for the model/i })).toHaveValue(
+    // The same sheet stays open on the created step, with its in-flight edit.
+    expect(stepSheet()).toBe(sheet);
+    expect(within(sheet).getByLabelText("Step 2 Generate text")).toBeInTheDocument();
+    expect(within(sheet).getByRole("textbox", { name: /instruction for the model/i })).toHaveValue(
       "Summarize briefly",
     );
     expect(getPipelineStepsMock).toHaveBeenCalledTimes(1);
@@ -411,17 +434,16 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     [0, ["Cast type", "Rename column", "Filter rows", "Limit rows"], undefined, "A"],
     [1, ["Rename column", "Cast type", "Filter rows", "Limit rows"], "A", "B"],
   ])(
-    "an immediate insert at gap %i yields exactly one card for the created step, keeps an open card open, and applies the reparent",
+    "an immediate insert at gap %i yields exactly one row for the created step, keeps its sheet open through the create, and applies the reparent",
     async (gap, order, createdParent, reparented) => {
       const create = deferredCreate();
       renderPage();
-      fireEvent.click(await screen.findByRole("button", { name: /Limit rows/i, expanded: false }));
-      expect(screen.getByRole("button", { name: /Limit rows/i })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
-      await insertAt(gap, /Cast type/i);
+      await findStepRow(/Limit rows/i);
+      if (gap === 0) await insertBefore(/Rename column/i, /Cast type/i);
+      else await insertAfter(/Rename column/i, /Cast type/i);
       await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
+      // The step just added opens in the sheet while its create is in flight.
+      const sheet = stepSheet();
 
       await create.resolve(
         createdResp(createdParent ? ps("N", "cast", { parent: createdParent }) : ps("N", "cast"), [
@@ -429,13 +451,18 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
         ]),
       );
 
-      await waitFor(() => expect(screen.getByRole("button", { name: /Cast type/i })).toBeEnabled());
-      expect(screen.getAllByRole("button", { name: /Cast type/i })).toHaveLength(1);
-      expect(labelsInOrder()).toEqual(order);
-      expect(screen.getByRole("button", { name: /Limit rows/i })).toHaveAttribute(
-        "aria-expanded",
-        "true",
+      await waitFor(() =>
+        expect(within(sheet).getByRole("button", { name: "Remove step" })).toBeEnabled(),
       );
+      await waitFor(() => expect(sheet.querySelector("fieldset")).toBeEnabled());
+      expect(
+        stepRows().filter((r) => /Cast type/i.test(r.getAttribute("aria-label") ?? "")),
+      ).toHaveLength(1);
+      expect(labelsInOrder()).toEqual(order);
+      // The temp -> server swap re-keys the sheet in place: still the one open sheet, on the created step.
+      expect(stepSheet()).toBe(sheet);
+      expect(sheet).toHaveAttribute("open");
+      expect(within(sheet).getByLabelText(/^Step \d+ Cast type$/)).toBeInTheDocument();
       expect(getPipelineStepsMock).toHaveBeenCalledTimes(1);
     },
   );
@@ -444,10 +471,10 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
   it("two inserts at the same gap whose responses arrive in reverse commit order end with the server's A, Y, X, B", async () => {
     const createX = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(1, /Cast type/i); // X
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Rename column/i, /Cast type/i); // X
     const createY = deferredCreate();
-    await insertAt(1, /Sort rows/i); // Y, same gap
+    await insertAfter(/Rename column/i, /Sort rows/i); // Y, same gap
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(2));
     // Both anchored on A.
     expect(createPipelineStepMock.mock.calls.map((c) => c[4])).toEqual(["A", "A"]);
@@ -475,10 +502,10 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     async (arrival) => {
       const createX = deferredCreate();
       renderPage();
-      await screen.findByRole("button", { name: /Limit rows/i });
-      await insertAt(1, /Cast type/i); // X after A
+      await findStepRow(/Limit rows/i);
+      await insertAfter(/Rename column/i, /Cast type/i); // X after A
       const createY = deferredCreate();
-      await insertAt(2, /Sort rows/i); // Y after B (X still in flight)
+      await insertAfter(/Filter rows/i, /Sort rows/i); // Y after B (X still in flight)
       await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(2));
       expect(createPipelineStepMock.mock.calls.map((c) => c[4])).toEqual(["A", "B"]);
 
@@ -509,16 +536,12 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     deletePipelineStepMock.mockReturnValue(new Promise(() => {})); // the delete never settles
     const create = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(2, /Generate text/i); // after B
-    fireEvent.click(screen.getByRole("button", { name: /Filter rows/i, expanded: false }));
-    fireEvent.click(
-      within(
-        screen
-          .getByRole("button", { name: /Filter rows/i })
-          .closest(".pipeline-detail-page__step-card") as HTMLElement,
-      ).getByRole("button", { name: "Remove step" }),
-    );
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Filter rows/i, /Generate text/i); // after B
+    await ensureSheetClosed();
+    openStepSheet(/Filter rows/i);
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Remove step" }));
+    await waitFor(() => expect(queryStepRow(/Filter rows/i)).not.toBeInTheDocument());
     await completeFirstDraft(1);
 
     expect(createPipelineStepMock).toHaveBeenLastCalledWith(
@@ -531,10 +554,8 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       "root-1",
     );
     await create.resolve(createdResp(ps("N", "generatetext", { parent: "C" }), []));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
-    expect(screen.getByRole("button", { name: /Generate text/i })).toBeInTheDocument();
+    await waitFor(noDraftRows);
+    expect(stepRow(/Generate text/i)).toBeInTheDocument();
   });
 
   // (f)
@@ -542,8 +563,8 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     duplicatePipelineStepMock.mockResolvedValue(ps("A2", "rename", { parent: "A" }));
     const create = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(2, /Cast type/i);
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Filter rows/i, /Cast type/i);
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
     // The duplicate's sync returns the server list WITHOUT the in-flight step.
     getPipelineStepsMock.mockResolvedValue([
@@ -552,21 +573,17 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       B(),
       C(),
     ]);
-    fireEvent.click(
-      within(
-        screen
-          .getByRole("button", { name: /Rename column/i })
-          .closest(".pipeline-detail-page__step-card") as HTMLElement,
-      ).getByRole("button", { name: "Duplicate step" }),
-    );
+    await ensureSheetClosed();
+    openStepSheet(/Rename column/i);
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Duplicate step" }));
     await waitFor(() => expect(getPipelineStepsMock).toHaveBeenCalledTimes(2));
     await act(async () => {});
-    expect(screen.queryByRole("button", { name: /Cast type/i })).not.toBeInTheDocument();
+    expect(queryStepRow(/Cast type/i)).not.toBeInTheDocument();
 
     await create.resolve(createdResp(ps("N", "cast", { parent: "B" }), ["C"]));
 
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: /Cast type/i })).toHaveLength(1),
+      expect(screen.getAllByRole("button", { name: /Step \d+: Cast type/i })).toHaveLength(1),
     );
   });
 
@@ -574,8 +591,8 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     duplicatePipelineStepMock.mockResolvedValue(ps("A2", "rename", { parent: "A" }));
     const create = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(2, /Cast type/i);
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Filter rows/i, /Cast type/i);
     await waitFor(() => expect(createPipelineStepMock).toHaveBeenCalledTimes(1));
     getPipelineStepsMock.mockResolvedValue([
       A(),
@@ -583,22 +600,22 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       ps("N", "cast", { parent: "B" }),
       ps("C", "limit", { parent: "N" }),
     ]);
-    fireEvent.click(
-      within(
-        screen
-          .getByRole("button", { name: /Rename column/i })
-          .closest(".pipeline-detail-page__step-card") as HTMLElement,
-      ).getByRole("button", { name: "Duplicate step" }),
-    );
+    await ensureSheetClosed();
+    openStepSheet(/Rename column/i);
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Duplicate step" }));
     await waitFor(() => expect(getPipelineStepsMock).toHaveBeenCalledTimes(2));
     await act(async () => {});
 
     await create.resolve(createdResp(ps("N", "cast", { parent: "B" }), ["C"]));
 
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: /Cast type/i })).toHaveLength(1),
+      expect(screen.getAllByRole("button", { name: /Step \d+: Cast type/i })).toHaveLength(1),
     );
     expect(labelsInOrder()).toEqual(["Rename column", "Filter rows", "Cast type", "Limit rows"]);
+    // The wholesale sync brought the server's step in BEFORE the create's own response: the sheet moved to that
+    // step when it appeared and stays on it once the temp is dropped (never closed, never on a stale temp).
+    expect(stepSheet()).toHaveAttribute("open");
+    expect(within(stepSheet()).getByLabelText(/^Step \d+ Cast type$/)).toBeInTheDocument();
   });
 
   // (h)
@@ -610,7 +627,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     ]);
     const createP1 = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
+    await findStepRow(/Limit rows/i);
     await appendBottom(/Cast type/i); // P1
     const createP2 = deferredCreate();
     await appendBottom(/Sort rows/i); // P2
@@ -636,7 +653,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
   it("a trunk-append AI draft stays on screen after its create and after a later full sync", async () => {
     const create = deferredCreate();
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
+    await findStepRow(/Limit rows/i);
     await appendBottom(/Generate text/i);
     await completeFirstDraft(1);
     // The append is a root-level request: rootId, no position, no parent.
@@ -651,9 +668,7 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     );
 
     await create.resolve(createdResp(ps("N", "generatetext", { parent: "C" }), []));
-    await waitFor(() =>
-      expect(screen.queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
-    );
+    await waitFor(noDraftRows);
     expect(labelsInOrder()).toEqual([
       "Rename column",
       "Filter rows",
@@ -670,28 +685,23 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
       C(),
       ps("N", "generatetext", { parent: "C" }),
     ]);
-    fireEvent.click(
-      within(
-        screen
-          .getByRole("button", { name: /Rename column/i })
-          .closest(".pipeline-detail-page__step-card") as HTMLElement,
-      ).getByRole("button", { name: "Duplicate step" }),
-    );
+    await ensureSheetClosed();
+    openStepSheet(/Rename column/i);
+    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Duplicate step" }));
     await waitFor(() => expect(getPipelineStepsMock).toHaveBeenCalledTimes(2));
     await act(async () => {});
-    expect(screen.getAllByRole("button", { name: /Generate text/i })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Step \d+: Generate text/i })).toHaveLength(1);
   });
 
   // (g)
   it("a trunk draft's schema fallback is unchanged by the insert anchor (it is not read as a lane draft)", async () => {
     // Only the root source exposes `notes`; the draft sits mid-trunk with an insert anchor.
     renderPage();
-    await screen.findByRole("button", { name: /Limit rows/i });
-    await insertAt(1, /Generate text/i);
+    await findStepRow(/Limit rows/i);
+    await insertAfter(/Rename column/i, /Generate text/i);
     fireEvent.click(
-      (await screen.findAllByRole("button", { name: /Generate text/i, expanded: false }))[0],
+      within(stepSheet()).getByRole("combobox", { name: /input field to generate from/i }),
     );
-    fireEvent.click(screen.getByRole("combobox", { name: /input field to generate from/i }));
     expect(screen.getByRole("option", { name: "notes" })).toBeInTheDocument();
   });
 });

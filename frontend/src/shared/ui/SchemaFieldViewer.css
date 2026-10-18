@@ -110,3 +110,11 @@
   color: var(--app-text-muted);
   font-size: var(--text-sm);
 }
+
+/* HEL-1582: the filter field is a text input, painted at the 44px touch floor like every other one (tapTarget.css). */
+@media (max-width: 768px), (pointer: coarse) {
+  .schema-field-viewer__filter {
+    height: auto;
+    min-height: 44px;
+  }
+}

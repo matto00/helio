@@ -274,6 +274,17 @@ describe("spine editing: adding, inserting and branching", () => {
     await waitFor(() => expect(rowButton(4, "Limit rows")).toHaveAttribute("aria-current", "true"));
   });
 
+  it("a failed create on the desktop spine shows the inline error in the new step's focused editor (recordCreateError)", async () => {
+    createMock.mockRejectedValueOnce(new Error("Request failed with status code 500"));
+    await renderSpinePageSettled();
+    await screen.findByRole("region", { name: "Step 1 Filter rows" });
+    fireEvent.click(
+      within(openRowMenu("Compute column")).getByRole("menuitem", { name: "Insert step after" }),
+    );
+    await pickFromPalette(/Limit rows/i);
+    expect(await screen.findByText("Failed to add step.")).toBeVisible();
+  });
+
   it("offers Insert items only on root 0's trunk rows", async () => {
     await renderSpinePageSettled();
     await screen.findByRole("region", { name: "Step 1 Filter rows" });

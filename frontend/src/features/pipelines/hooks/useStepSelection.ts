@@ -47,6 +47,28 @@ export function selectAfterRemoval(
   return laneGraph.lanes.flatMap((l) => l.steps).find((s) => s.id !== removedId)?.id;
 }
 
+/** Which step appeared since the previous committed step list (HEL-1582 extracted this from `useStepSelection` so the
+ *  phone's step sheet and the desktop selection share one detector). Tracked in state, adjusted during render, so the
+ *  very render that swaps a created step's temp id for its server id already knows the new id (no transient
+ *  fallback to the default step, which would remount the editor and fetch the wrong preview).
+ *
+ *  `addedStepId` is the last id added by the latest list change (`null` when that change added none, or while the
+ *  steps are not loaded); `change` is a stable object identity per list change, for an effect to key on. */
+export function useAddedStepId(steps: Step[], stepsLoaded: boolean) {
+  const idsKey = steps.map((s) => s.id).join("|");
+  const [seen, setSeen] = useState<{ key: string; ids: Set<string>; added: string[] } | null>(null);
+  if (stepsLoaded && (seen === null || seen.key !== idsKey)) {
+    setSeen({
+      key: idsKey,
+      ids: new Set(steps.map((s) => s.id)),
+      // The first loaded list is the baseline, never "created".
+      added: seen === null ? [] : steps.filter((s) => !seen.ids.has(s.id)).map((s) => s.id),
+    });
+  }
+  const addedStepId = seen !== null && seen.key === idsKey ? (seen.added.at(-1) ?? null) : null;
+  return { addedStepId, change: seen };
+}
+
 export function useStepSelection(args: {
   steps: Step[];
   laneGraph: LaneGraph;
@@ -58,20 +80,7 @@ export function useStepSelection(args: {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlStep = searchParams.get(STEP_PARAM);
 
-  // Which ids appeared since the previous committed step list. Tracked in state, adjusted during render, so the
-  // very render that swaps a created step's temp id for its server id already knows the new id (no transient
-  // fallback to the default step, which would remount the editor and fetch the wrong preview).
-  const idsKey = steps.map((s) => s.id).join("|");
-  const [seen, setSeen] = useState<{ key: string; ids: Set<string>; added: string[] } | null>(null);
-  if (stepsLoaded && (seen === null || seen.key !== idsKey)) {
-    setSeen({
-      key: idsKey,
-      ids: new Set(steps.map((s) => s.id)),
-      // The first loaded list is the baseline, never "created".
-      added: seen === null ? [] : steps.filter((s) => !seen.ids.has(s.id)).map((s) => s.id),
-    });
-  }
-  const lastAdded = seen !== null && seen.key === idsKey ? (seen.added.at(-1) ?? null) : null;
+  const { addedStepId: lastAdded, change: seen } = useAddedStepId(steps, stepsLoaded);
 
   const defaultId = defaultSelectedStepId(laneGraph, firstRootId);
   // A created step keeps its temp id as its `renderKey` through an AI draft's swap, so a URL still naming that

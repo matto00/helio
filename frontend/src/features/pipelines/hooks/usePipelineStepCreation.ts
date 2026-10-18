@@ -69,6 +69,11 @@ export function usePipelineStepCreation({
   // surfaced inline on the draft's own card rather than swallowed; cleared
   // once the draft either creates successfully or is edited again.
   const [draftCreateErrors, setDraftCreateErrors] = useState<Record<string, string>>({});
+  // HEL-1582: a failed immediate create keeps its temp step (it still needs Remove) and shows the message inline on
+  // that step's editor too, because the phone's step sheet is a modal dialog that covers the toast viewport.
+  const recordCreateError = useCallback((tempId: string, message: string) => {
+    setDraftCreateErrors((prev) => ({ ...prev, [tempId]: message }));
+  }, []);
   // HEL-1294 — temp ids whose optimistic create (POST + resync) is in flight. The resync replaces
   // the temp step with the persisted one under a new id, which remounts the keyed card collapsed;
   // a card in this set therefore cannot be expanded (StepCard `isCreating`). Cleared in a `finally`
@@ -200,6 +205,7 @@ export function usePipelineStepCreation({
           variant: "error",
           message: `Failed to add ${opType.label.toLowerCase()} step: ${message}`,
         });
+        recordCreateError(tempStep.id, message);
       } finally {
         markCreating(tempStep.id, false);
       }
@@ -209,6 +215,7 @@ export function usePipelineStepCreation({
       pushToast,
       roots,
       markCreating,
+      recordCreateError,
       applyCreated,
       stepsRef,
       setSteps,
@@ -229,6 +236,7 @@ export function usePipelineStepCreation({
     id,
     pushToast,
     markCreating,
+    recordCreateError,
     applyCreated,
     stepsRef,
     setSteps,
