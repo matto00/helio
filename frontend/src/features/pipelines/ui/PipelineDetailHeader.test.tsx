@@ -3,7 +3,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { sourceSamplesReducer } from "../../sources/state/sourceSamplesSlice";
 import { sourcesReducer } from "../../sources/state/sourcesSlice";
+import { pipelinesReducer } from "../state/pipelinesSlice";
 import { PipelineDetailHeader } from "./PipelineDetailHeader";
+import { ownedSource } from "../../sources/test/sampleFixtures";
 import type { DataSource } from "../../sources/types/dataSource";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { PipelineSchedule } from "../types/pipelineSchedule";
@@ -68,9 +70,13 @@ interface OverrideProps {
   onOpenShare?: () => void;
 }
 
-function makeHeaderStore(preloaded?: { sourceSamples: unknown }) {
+function makeHeaderStore(preloaded?: { sourceSamples: unknown; sources?: unknown }) {
   return configureStore({
-    reducer: { sources: sourcesReducer, sourceSamples: sourceSamplesReducer },
+    reducer: {
+      sources: sourcesReducer,
+      sourceSamples: sourceSamplesReducer,
+      pipelines: pipelinesReducer,
+    },
     preloadedState: {
       sources: {
         items: [],
@@ -92,6 +98,7 @@ function renderHeader(overrides: OverrideProps = {}, store = makeHeaderStore()) 
     <Provider store={store}>
       <PipelineDetailHeader
         roots={overrides.roots ?? oneRoot}
+        pipelineId="pipe-1"
         sourceByRootId={overrides.sourceByRootId ?? { "root-1": sqlSource }}
         onEditSource={overrides.onEditSource ?? jest.fn()}
         onAddRoot={overrides.onAddRoot ?? jest.fn()}
@@ -466,6 +473,17 @@ describe("PipelineDetailHeader — sample label under each source chip (HEL-1628
 
   it("renders a label with a refresh button under every chip", () => {
     const store = makeHeaderStore({
+      // src-1 is in the caller's own list (so it may be sampled); src-2 is not and analyze has not answered.
+      sources: {
+        items: [ownedSource("src-1")],
+        status: "succeeded" as const,
+        error: null,
+        errorKind: null,
+        selectedSourceId: null,
+        addModalOpen: false,
+        references: {},
+        referencesStatus: "idle" as const,
+      },
       sourceSamples: {
         epoch: 0,
         entries: {
@@ -489,11 +507,11 @@ describe("PipelineDetailHeader — sample label under each source chip (HEL-1628
     );
     expect(screen.getByText("Static · 30 rows")).toBeInTheDocument();
     expect(container.querySelectorAll(".source-sample-label")).toHaveLength(2);
-    // The resolvable root can be refreshed; the unresolvable one reads unavailable with no control.
+    // The owned root can be refreshed; the not-owned one waits for analyze's role (HEL-1648), with no control.
     expect(
       screen.getByRole("button", { name: "Refresh sample of Test Source" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Sample unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Loading sample…")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh sample of Other" })).toBeNull();
   });
 });

@@ -1,0 +1,3 @@
+{
+  "template": "/api/data-sources/{sourceId}/sample?pipelineId={pipelineId}"
+}

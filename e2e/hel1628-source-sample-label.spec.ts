@@ -15,7 +15,8 @@ import { evidencePath } from "./support/evidencePath";
 
 const CSRF = { "X-Helio-Requested-With": "1" };
 const AUTH = { prefix: "hel1628", displayName: "HEL-1628", domain: "example.test" } as const;
-const SAMPLE_URL = /\/api\/data-sources\/[^/]+\/sample$/;
+// HEL-1648: a request now carries the page's `?pipelineId=` scope, so the route/URL match allows a query string.
+const SAMPLE_URL = /\/api\/data-sources\/[^/]+\/sample(\?.*)?$/;
 
 const requireFromFrontend = createRequire(resolve(__dirname, "../frontend/package.json"));
 const Ajv2020 = requireFromFrontend("ajv/dist/2020").default;

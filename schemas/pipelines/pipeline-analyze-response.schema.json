@@ -3,7 +3,7 @@
   "$id": "https://helio.local/schemas/pipelines/pipeline-analyze-response.schema.json",
   "title": "PipelineAnalyzeResponse",
   "type": "object",
-  "required": ["id", "name", "sourceSchemas", "steps", "costVerdict", "warnings"],
+  "required": ["id", "name", "sourceSchemas", "steps", "costVerdict", "warnings", "callerRole"],
   "properties": {
     "id": {
       "type": "string",
@@ -31,6 +31,11 @@
     },
     "costVerdict": {
       "$ref": "#/$defs/CostVerdict"
+    },
+    "callerRole": {
+      "description": "HEL-1648: the caller's PERMISSION on this pipeline and nothing else -- `owner`, or the role of their grant (`editor` | `viewer`). Unlike costVerdict.canRun it does not go false when a step is invalid. Full response only (not concise, not proposal mode).",
+      "type": "string",
+      "enum": ["owner", "editor", "viewer"]
     },
     "warnings": {
       "description": "HEL-1235: schema-only, NON-BLOCKING pre-run findings, computed from the inferred schemas with no row reads. Always present (empty when none). Never sets a step's validationError, never affects costVerdict (canRun/autoRunnable/reasons), never blocks a write or an auto-run. Wording states the evidence base (the stored inferred schema can be stale). Distinct from propose_pipeline's `warnings: string[]` (which drives applyReady) and from run warnings.",

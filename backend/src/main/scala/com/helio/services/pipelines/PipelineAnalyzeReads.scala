@@ -145,17 +145,17 @@ private[pipelines] final class PipelineAnalyzeReads(
             ).flatMap { costInput =>
             val costVerdict = PipelineCostEstimator.estimate(costInput)
 
-            // HEL-1096 design.md D1: `canRun` mirrors `PipelineRunService.submit`'s own
-            // owner-or-editor-grantee check, computed regardless of `autoRunnable` -- see
-            // `CostVerdictResponse`'s own doc.
-            val canRunF: Future[Boolean] =
-              if (pipeline.ownerId.value == user.id.value) Future.successful(true)
-              else pipelineRepo.findGrantRole(pipelineId, user).map(_.contains("editor"))
+            // HEL-1648: the caller's permission role (owner | editor | viewer), computed once and before the
+            // config-validity AND. HEL-1096 design.md D1: `canRun` mirrors `PipelineRunService.submit`'s own
+            // owner-or-editor-grantee check, computed regardless of `autoRunnable` -- see `CostVerdictResponse`'s own doc.
+            val callerRoleF: Future[String] =
+              if (pipeline.ownerId.value == user.id.value) Future.successful("owner")
+              else pipelineRepo.findGrantRole(pipelineId, user).map(r => if (r.contains("editor")) "editor" else "viewer")
 
             // HEL-462: compare the current (primary-root) source schema against the baseline
             // captured on the pipeline's last successful (non-dry) run.
             for {
-              canRun        <- canRunF
+              callerRole    <- callerRoleF
               // HEL-1516 D1: keyed by the id `findByIdShared` authorized, so a grantee reads the owner's baseline.
               baselineJson  <- pipelineRepo.findLastSourceSchemaInternal(pipelineId)
               primarySchema <- primaryOwnerViewF
@@ -171,8 +171,9 @@ private[pipelines] final class PipelineAnalyzeReads(
                                     },
                 steps             = analyzed.map(toAnalyzeStepResponse),
                 sourceSchemaDrift = drift.map(toDriftResponse),
-                costVerdict       = toCostVerdictResponse(costVerdict, canRun, analyzed),
-                warnings          = warnings
+                costVerdict       = toCostVerdictResponse(costVerdict, callerRole != "viewer", analyzed),
+                warnings          = warnings,
+                callerRole        = callerRole
               ))
             }
             }

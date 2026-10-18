@@ -77,6 +77,8 @@ interface PipelineDetailHeaderProps {
   /** HEL-1022 — every root feeding this pipeline, in `position` order; the
    *  source group renders one chip per entry instead of only `roots[0]`. */
   roots: PipelineRoot[];
+  /** The pipeline this header is on: scopes each source's sample (HEL-1648). */
+  pipelineId: string;
   /** HEL-1022 — the matching `DataSource`, keyed by ROOT id (not source id,
    *  since two roots can't share a `dataSourceId` but the lookup always
    *  starts from the root). `undefined` means the source isn't resolvable in
@@ -120,6 +122,7 @@ interface PipelineDetailHeaderProps {
 
 export function PipelineDetailHeader({
   roots,
+  pipelineId,
   sourceByRootId,
   onEditSource,
   onAddRoot,
@@ -239,7 +242,7 @@ export function PipelineDetailHeader({
         <SourceSampleLabel
           sourceId={root.dataSourceId}
           sourceName={root.dataSourceName}
-          resolvable={source !== undefined}
+          pipelineId={pipelineId}
         />
       </span>
     );

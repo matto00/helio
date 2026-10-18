@@ -700,7 +700,8 @@ class PipelineAnalyzeRoutesSpec
           removedColumns     = Vector(SchemaFieldResponse("created_at", "string")),
           typeChangedColumns = Vector(TypeChangedColumnResponse("amount", previousType = "float", currentType = "integer"))
         )),
-        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = Some(10L), stepCount = 0, reasons = Vector.empty, canRun = true)
+        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = Some(10L), stepCount = 0, reasons = Vector.empty, canRun = true),
+        callerRole        = "owner"
       )
 
       val schema = JsonSchemaValidation.compile("pipelines/pipeline-analyze-response.schema.json")
@@ -715,7 +716,8 @@ class PipelineAnalyzeRoutesSpec
         sourceSchemas     = Vector.empty,
         steps             = Vector.empty,
         sourceSchemaDrift = None,
-        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = None, stepCount = 0, reasons = Vector.empty, canRun = true)
+        costVerdict       = CostVerdictResponse(autoRunnable = true, estimatedRows = None, stepCount = 0, reasons = Vector.empty, canRun = true),
+        callerRole        = "owner"
       )
 
       val json = response.toJson.compactPrint

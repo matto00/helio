@@ -669,6 +669,9 @@ export interface PipelineAnalyzeResponse {
   costVerdict: CostVerdictResponse;
   /** HEL-1235: always present (empty when none). */
   warnings: AnalyzeWarning[];
+  /** HEL-1648: the caller's permission on the pipeline and nothing else (unlike `costVerdict.canRun` it does not
+   *  go false on an invalid step). Full analyze response only. */
+  callerRole: "owner" | "editor" | "viewer";
 }
 
 /** `GET /api/pipelines/:id/analyze?concise=true` — HEL-914's opt-in per-node projection, reachable

@@ -101,6 +101,7 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
     renderWithStore(
       <PipelineDetailHeader
         roots={[]}
+        pipelineId="pipe-1"
         sourceByRootId={{}}
         onEditSource={jest.fn()}
         onAddRoot={jest.fn()}

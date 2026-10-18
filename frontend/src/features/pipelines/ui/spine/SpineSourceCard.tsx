@@ -11,6 +11,8 @@ import type { PipelineRoot } from "../../types/pipelineStep";
 
 interface SpineSourceCardProps {
   root: PipelineRoot;
+  /** The pipeline page this card is on: scopes the source's sample (HEL-1648). */
+  pipelineId: string;
   /** `undefined` when the source is not resolvable in the caller's own list: no Edit item, no kind. */
   source: DataSource | undefined;
   /** 1-based ordinal, shown only when the pipeline has more than one source. */
@@ -22,6 +24,7 @@ interface SpineSourceCardProps {
 
 export function SpineSourceCard({
   root,
+  pipelineId,
   source,
   ordinal,
   canRemove,
@@ -56,7 +59,7 @@ export function SpineSourceCard({
         <SourceSampleLabel
           sourceId={root.dataSourceId}
           sourceName={root.dataSourceName}
-          resolvable={source !== undefined}
+          pipelineId={pipelineId}
         />
       </div>
       <div className="spine-card__menu">

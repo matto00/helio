@@ -175,6 +175,7 @@ beforeEach(() => {
     sourceSchemas: [{ rootId: "root-1", sourceSchema: [] }],
     steps: [],
     costVerdict: { autoRunnable: true, stepCount: 0, reasons: [], canRun: true },
+    callerRole: "owner",
     warnings: [],
   } as PipelineAnalyzeResponse);
   jest.mocked(getPipelineSteps).mockResolvedValue([]);
