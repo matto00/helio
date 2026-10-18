@@ -1,3 +1,0 @@
-- `e2e/hel1584-motion-surfaces.spec.ts` — :562 polls the motion log for the pop; :487 waits on the zrender clock edges and samples click..finish; first-visit and add-panel pop logs polled
-- `e2e/hel1260-orphan-owner-repair.spec.ts` — settledGridItemBox helper (non-null, stable across a frame) replaces fixed wait + single boundingBox read
-- `e2e/hel1573-motion-grid-chart.spec.ts` — chart entrance span polled instead of read once
