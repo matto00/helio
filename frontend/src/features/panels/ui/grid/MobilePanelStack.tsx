@@ -16,10 +16,20 @@
 // `orderPanelsForMobileStack`). Heights come from `mobilePanelHeights`
 // (per-kind policy) — never the desktop `h × rowHeight` formula (W4.2/W4.3).
 
-import { useCallback, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 
 import { resolveDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { useTheme } from "../../../../theme/ThemeProvider";
+import { useIsPhoneShell } from "../../../../app/shell/useIsPhoneShell";
+import { usePullToRefresh } from "../../../../shared/motion/usePullToRefresh";
 import { entranceClassProps, useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
 import { getOutputId } from "../../state/panelNarrowing";
 import { usePanelData } from "../../hooks/usePanelData";
@@ -30,6 +40,12 @@ import { getPanelCardStyle } from "../PanelCard";
 import { PanelCardBody } from "../PanelCardBody";
 import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
+import { PullRefreshIndicator } from "./PullRefreshIndicator";
+import {
+  PullRefreshContext,
+  PullRefreshRegistry,
+  usePullRefreshRegistration,
+} from "./pullRefreshRegistry";
 import { computeMobilePanelHeight, resolveStackContentWidth } from "./mobilePanelHeights";
 import { orderPanelsForMobileStack } from "./panelGridConfig";
 import "./PanelGrid.css";
@@ -52,6 +68,13 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
   useOutputRetention(outputId);
   const mountOwnership = useRef(false);
   const panelData = usePanelData(panel, [], null, { mountOwnership });
+  // HEL-1656: only output-bound panels join the pull-to-refresh fan-out; every other kind has nothing to re-request.
+  usePullRefreshRegistration(
+    panel.id,
+    outputId !== null,
+    panelData.refresh,
+    panelData.isRefreshing === true,
+  );
   // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own
   // `useOutputMeta` fetch for cross-filtering: an earlier version of this
   // ticket added one here specifically to resolve the Output for
@@ -141,80 +164,119 @@ export function MobilePanelStack({
 
   const detailPanel = detailPanelId !== null ? panels.find((p) => p.id === detailPanelId) : null;
 
+  // HEL-1656 pull-to-refresh: the registry fans one pull out to each output-bound panel's own refresh and reports when
+  // they have all settled.
+  const [registry] = useState(() => new PullRefreshRegistry());
+  const [busy, setBusy] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [wrapperEl, setWrapperEl] = useState<HTMLDivElement | null>(null);
+  const [stackEl, setStackEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const unsubscribe = registry.subscribe((next) => {
+      setBusy(next);
+      setAnnouncement(next ? "Refreshing" : "Refreshed");
+    });
+    return () => {
+      unsubscribe();
+      registry.dispose();
+    };
+  }, [registry]);
+  const handleRefresh = useCallback(() => registry.start(), [registry]);
+  const isPhoneShell = useIsPhoneShell();
+  const pull = usePullToRefresh({
+    root: stackEl,
+    target: stackEl,
+    wrapper: wrapperEl,
+    onRefresh: handleRefresh,
+    enabled: isPhoneShell,
+    busy,
+  });
   return (
-    <div className="mobile-panel-stack">
-      {orderedPanels.map((panel) => {
-        if (panel.type === "divider") {
-          // W4.3: "no card chrome at all" — bare hairline, no header, no tap
-          // target (a divider has no meaningful "details" to view).
-          //
-          // A stored `vertical` orientation is meaningless in a
-          // single-column stack: `DividerPanel` sets an *inline*
-          // `style={{ height: "100%" }}` for vertical dividers, which
-          // resolves to 0px against the stack's auto-height flex item and
-          // cannot be won back by any CSS override. Force horizontal here
-          // instead of passing the panel's stored orientation straight
-          // through — the intrinsic hairline W4.3 calls for.
-          const stackPanel =
-            panel.config.orientation === "vertical"
-              ? { ...panel, config: { ...panel.config, orientation: "horizontal" } }
-              : panel;
-          const dividerEntrance = entranceClassProps(entranceOf(panel.id), { emphasized: true });
-          return (
-            <div
-              key={panel.id}
-              className={`mobile-panel-stack__item mobile-panel-stack__item--divider${dividerEntrance.className ? ` ${dividerEntrance.className}` : ""}`}
-              style={dividerEntrance.style}
-            >
-              <MobileStackPanelBody panel={stackPanel} />
-            </div>
-          );
-        }
+    <PullRefreshContext.Provider value={registry}>
+      <div className="mobile-panel-pull" ref={setWrapperEl}>
+        <div className="mobile-panel-stack" ref={setStackEl}>
+          {pull.active || busy ? (
+            <PullRefreshIndicator phase={pull.phase} busy={busy} follows={pull.follows} />
+          ) : null}
+          {orderedPanels.map((panel) => {
+            if (panel.type === "divider") {
+              // W4.3: "no card chrome at all" — bare hairline, no header, no tap
+              // target (a divider has no meaningful "details" to view).
+              //
+              // A stored `vertical` orientation is meaningless in a
+              // single-column stack: `DividerPanel` sets an *inline*
+              // `style={{ height: "100%" }}` for vertical dividers, which
+              // resolves to 0px against the stack's auto-height flex item and
+              // cannot be won back by any CSS override. Force horizontal here
+              // instead of passing the panel's stored orientation straight
+              // through — the intrinsic hairline W4.3 calls for.
+              const stackPanel =
+                panel.config.orientation === "vertical"
+                  ? { ...panel, config: { ...panel.config, orientation: "horizontal" } }
+                  : panel;
+              const dividerEntrance = entranceClassProps(entranceOf(panel.id), {
+                emphasized: true,
+              });
+              return (
+                <div
+                  key={panel.id}
+                  className={`mobile-panel-stack__item mobile-panel-stack__item--divider${dividerEntrance.className ? ` ${dividerEntrance.className}` : ""}`}
+                  style={dividerEntrance.style}
+                >
+                  <MobileStackPanelBody panel={stackPanel} />
+                </div>
+              );
+            }
 
-        const heightPolicy = heightByPanelId.get(panel.id);
-        const entrance = entranceClassProps(entranceOf(panel.id), { emphasized: true });
-        const style: CSSProperties = {
-          ...getPanelCardStyle(panel.appearance, theme),
-          ...entrance.style,
-          ...(heightPolicy?.height != null
-            ? ({ "--mobile-panel-height": `${heightPolicy.height}px` } as CSSProperties)
-            : {}),
-        };
+            const heightPolicy = heightByPanelId.get(panel.id);
+            const entrance = entranceClassProps(entranceOf(panel.id), { emphasized: true });
+            const style: CSSProperties = {
+              ...getPanelCardStyle(panel.appearance, theme),
+              ...entrance.style,
+              ...(heightPolicy?.height != null
+                ? ({ "--mobile-panel-height": `${heightPolicy.height}px` } as CSSProperties)
+                : {}),
+            };
 
-        return (
-          <article
-            key={panel.id}
-            className={`panel-grid-card mobile-panel-stack__item mobile-panel-stack__item--${panel.type}${entrance.className ? ` ${entrance.className}` : ""}`}
-            style={style}
-            onClick={(e) => handleItemClick(panel.id, e)}
-          >
-            <div className="mobile-panel-stack__header mobile-panel-stack__header--with-actions">
-              <h3 className="panel-grid-card__title">{panel.title}</h3>
-              {/* HEL-1207 A1: the stack has no footer, so provenance sits beside the title. */}
-              {getOutputId(panel) ? (
-                <ProvenanceTrigger
-                  panelId={panel.id}
-                  panelTitle={panel.title}
-                  outputId={getOutputId(panel) as string}
-                  variant="authenticated"
-                />
-              ) : null}
-            </div>
-            <MobileStackPanelBody panel={panel} compact />
-          </article>
-        );
-      })}
-      {detailPanel ? (
-        // HEL-307: key by panel id so a direct switch between panels remounts
-        // the modal subtree, re-seeding every `useState(initial*)` form field
-        // from the target panel (see DesktopPanelGrid for the full rationale).
-        <PanelDetailModal
-          key={detailPanel.id}
-          panel={detailPanel}
-          onClose={() => setDetailPanelId(null)}
-          expandFrom={detailOrigin}
-        />
-      ) : null}
-    </div>
+            return (
+              <article
+                key={panel.id}
+                className={`panel-grid-card mobile-panel-stack__item mobile-panel-stack__item--${panel.type}${entrance.className ? ` ${entrance.className}` : ""}`}
+                style={style}
+                onClick={(e) => handleItemClick(panel.id, e)}
+              >
+                <div className="mobile-panel-stack__header mobile-panel-stack__header--with-actions">
+                  <h3 className="panel-grid-card__title">{panel.title}</h3>
+                  {/* HEL-1207 A1: the stack has no footer, so provenance sits beside the title. */}
+                  {getOutputId(panel) ? (
+                    <ProvenanceTrigger
+                      panelId={panel.id}
+                      panelTitle={panel.title}
+                      outputId={getOutputId(panel) as string}
+                      variant="authenticated"
+                    />
+                  ) : null}
+                </div>
+                <MobileStackPanelBody panel={panel} compact />
+              </article>
+            );
+          })}
+          {detailPanel ? (
+            // HEL-307: key by panel id so a direct switch between panels remounts
+            // the modal subtree, re-seeding every `useState(initial*)` form field
+            // from the target panel (see DesktopPanelGrid for the full rationale).
+            <PanelDetailModal
+              key={detailPanel.id}
+              panel={detailPanel}
+              onClose={() => setDetailPanelId(null)}
+              expandFrom={detailOrigin}
+            />
+          ) : null}
+        </div>
+        <div className="sr-only mobile-panel-pull__status" role="status" aria-live="polite">
+          {announcement}
+        </div>
+      </div>
+    </PullRefreshContext.Provider>
   );
 }

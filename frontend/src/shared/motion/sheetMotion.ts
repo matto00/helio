@@ -19,7 +19,7 @@ export function clearSheetMotion(sheet: HTMLElement): void {
 
 /** Run `done` once `property` finishes transitioning on `sheet`; a timer sized from the token covers a transition
  *  that never starts (no change in value, or a hidden element). Returns a cancel function. */
-function afterTransition(
+export function afterTransition(
   sheet: HTMLElement,
   property: string,
   durationMs: number,
@@ -46,28 +46,41 @@ function afterTransition(
   };
 }
 
-/** Slide the sheet to `offsetPx` below its rest position. `toRest` removes the inline transform afterwards (the
- *  contract: no transform at rest). `done` runs after the slide, or at once when the move token is instant. */
+/** Slide `element` to `offsetPx` below its rest position over `--motion-duration-move`, marking it with `attribute`
+ *  while the slide runs (the stylesheet gives that attribute the move transition). `toRest` removes the inline
+ *  transform afterwards (the contract: no transform at rest). `done` runs after the slide, or at once when the move
+ *  token is instant. */
+export function settleOffset(
+  element: HTMLElement,
+  offsetPx: number,
+  toRest: boolean,
+  attribute: string,
+  done?: () => void,
+): void {
+  const duration = readMotionDuration("--motion-duration-move", element);
+  const finish = () => {
+    element.removeAttribute(attribute);
+    if (toRest) element.style.removeProperty("transform");
+    done?.();
+  };
+  if (isInstant(duration)) {
+    if (!toRest) element.style.transform = `translateY(${offsetPx}px)`;
+    finish();
+    return;
+  }
+  element.setAttribute(attribute, "");
+  element.style.transform = `translateY(${offsetPx}px)`;
+  afterTransition(element, "transform", duration, finish);
+}
+
+/** Slide the sheet to `offsetPx` below its rest position (see `settleOffset`). */
 export function settleSheet(
   sheet: HTMLElement,
   offsetPx: number,
   toRest: boolean,
   done?: () => void,
 ): void {
-  const duration = readMotionDuration("--motion-duration-move", sheet);
-  const finish = () => {
-    sheet.removeAttribute(SHEET_SETTLING_ATTRIBUTE);
-    if (toRest) sheet.style.removeProperty("transform");
-    done?.();
-  };
-  if (isInstant(duration)) {
-    if (!toRest) sheet.style.transform = `translateY(${offsetPx}px)`;
-    finish();
-    return;
-  }
-  sheet.setAttribute(SHEET_SETTLING_ATTRIBUTE, "");
-  sheet.style.transform = `translateY(${offsetPx}px)`;
-  afterTransition(sheet, "transform", duration, finish);
+  settleOffset(sheet, offsetPx, toRest, SHEET_SETTLING_ATTRIBUTE, done);
 }
 
 /** Fade the sheet out (the Subtle exit): opacity only, the sheet keeps whatever offset the finger left it at. */

@@ -20,6 +20,8 @@ export const PRIMITIVE_FILES = [
   "shared/motion/useIndicatorSlide.ts",
   "shared/motion/sheetMotion.ts",
   "shared/motion/useSheetSwipe.ts",
+  "shared/motion/dragVelocity.ts",
+  "shared/motion/usePullToRefresh.ts",
   "shared/motion/BottomSheet.tsx",
   "shared/motion/BottomSheet.css",
   "shared/ui/Crossfade.tsx",
