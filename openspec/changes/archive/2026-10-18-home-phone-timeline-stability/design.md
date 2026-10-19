@@ -142,13 +142,11 @@ Grotesk): 40ch resolves to 600px and the ghost and real default sentence have id
 and the e2e asserts the real sentence's computed cap equals whatever `40ch` resolves to (environment-independent; red
 when the cap is changed, e.g. 24em gives 576px). With "Serif headings" the real sentence's box is back to base.
 The cold-load swap depends on the platform's fallback font, so it is recorded (evidence JSON `fontSwapSpread`, log) and not
-asserted. Cycle 6: CI (ubuntu, DejaVu-like fallback) measured 8px at 375-540 and 22-26px at 620/1024/1280 with a 25em ghost
-that could still wrap; the ghost is now `white-space: nowrap` above 768px (existing breakpoint) and holds the link's own
-glyphs in the shelf-head slot. Measured with the Playwright 1.55.1 noble image (browser in docker, specs on the host),
-runs card top spread before the web fonts arrive (px), base 647734111 versus this change: see the table in
-`item2-owner-handoff.md`. With DejaVu Sans as the fallback this change is 6-8px at 375-540/1024/1280 (base 4) and 24px at
-620 (base 4): at 605-768px the ghost can still wrap in a wide fallback. Only a `size-adjust` fallback (outside Home)
-would remove it.
+asserted. CI (ubuntu, DejaVu-like fallback) measured 8px at 375-540 and 22-26px at 620/1024/1280. A ghost `white-space: nowrap`
+(cycle 6) and then a `--heading-sentence-wrap` theme token (cycle 7) were tried and removed by owner ruling (drop-nowrap):
+they needed a type-style token and still left 605-768px. Final measured numbers are in the table in
+`item2-owner-handoff.md` (docker + DejaVu: 8px at 375-540, 22-24px at 620-1280; base 4px; local 3-4px). Only a `size-adjust`
+fallback (outside Home) would remove it.
 
 ## Implementation note (executor, cycle 5): the placeholder is its own class
 
@@ -160,13 +158,8 @@ element returned "" (reproduced 4/8 on 837363bfa, 8/8 green on base 647734111). 
 sentence only, `25em` and `visibility: hidden` on the ghost), so `.home-opening__sentence` matches only the real
 sentence. No measured HEL-1665 guarantee changes.
 
-## Implementation note (executor, cycle 8): the type style changes the default sentence's wrap
+## Implementation note (executor, cycle 8)
 
-The cycle-6 `white-space: nowrap` on the ghost above 768px assumed a one-line default sentence there. Under the Mono type
-style it is two lines at 1280, so the nowrap ghost was one line and the timeline moved 30px with fonts already loaded
-(measured on e1b5c1046; red e2e `Home load (mono 1280x900 ...)`). The ghost now reads `white-space: var(--heading-sentence-wrap)`;
-theme.css defaults the token to `nowrap` and the existing Mono block sets it to `normal` (DESIGN.md: a type style is a
-token override, never a component branch; no type-style selector remains in Home CSS). Measured after the fix, held load, fonts loaded (px spread of runs card top / content
-start / shelf top): Mono 1280 (two lines) 0/0/0, Mono 375x667 (three lines) 0/0/0, Serif 1280 (one line) 0/0/0, Serif
-375x667 (two lines) 0/0/0. Sans, Serif and Mono at the other widths are covered by the line-count parity of the ghost
-being the default sentence itself.
+The cycle-6 `nowrap` ghost shifted the timeline 30px under the Mono type style (red e2e, 30px at 1280). The cycle-7 token fix
+was then dropped by owner ruling together with nowrap: the ghost wraps like the real sentence in every style again, and the
+Mono, Serif and Sans held-load cases stay asserted at 0px.

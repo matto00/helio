@@ -44,12 +44,9 @@ describe("HomePage.css — load stability (HEL-1665)", () => {
       /\.home-opening__sentence,\s*\.home-opening__ghost\s*\{[^}]*font-family:\s*var\(--font-heading\)/,
     );
     expect(ghostRule).toMatch(/max-width:\s*25em\s*;/);
-    // Nowrap above 768px comes from a theme token (Mono overrides it in theme.css), never a type-style selector here.
-    expect(ghostRule).toMatch(/white-space:\s*var\(--heading-sentence-wrap\)\s*;/);
+    // The ghost wraps like the real sentence in every type style; no nowrap, no type-style selector in Home CSS.
+    expect(ghostRule).not.toMatch(/white-space/);
     expect(css).not.toMatch(/data-type-style/);
-    expect(findRuleBody(findMediaBlock(css, "max-width: 768px"), ".home-opening__ghost")).toMatch(
-      /white-space:\s*normal\s*;/,
-    );
   });
 
   it("hides the shelf's reserved link slot without removing its line", () => {

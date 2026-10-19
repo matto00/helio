@@ -43,22 +43,22 @@ its heading to 44px (the touch floor moved to the sized `::after` expander).
 - Legend for zero pipelines: the runs head shows the legend while loading, so a user whose summary has no pipelines
   sees it disappear.
 - Web-font swap (cold load): depends on the platform's fallback font; recorded, not asserted. Runs card top spread before the
-  web fonts arrive, px. Base is 647734111; "docker" = the Playwright 1.55.1 noble image's browser driven by the host specs
-  against the local servers; the DejaVu column installs fonts-dejavu so the fallback matches CI's (it reproduced CI's 8px).
-  Light theme, dashboards-first order, the shift spec's own fixture in every column.
+  web fonts arrive, px (light theme, dashboards-first, the shift spec's own fixture). Base is 647734111; "docker" = the
+  Playwright 1.55.1 noble image's browser driven by the host specs, with fonts-dejavu installed so the fallback matches CI's.
 
-| width | base local | HEAD local | base docker (WenQuanYi fb) | HEAD docker (WenQuanYi fb) | base docker+DejaVu fb (CI-like) | HEAD docker+DejaVu fb (CI-like) |
-|---|---|---|---|---|---|---|
-| 375 | 2 | 4 | 2 | 0 | 4 | 8 |
-| 430 | 2 | 4 | 2 | 1 | 4 | 8 |
-| 480 | 2 | 4 | 2 | 1 | 4 | 8 |
-| 540 | 2 | 4 | 2 | 1 | 4 | 8 |
-| 620 | 2 | 4 | 2 | 1 | 4 | 24 |
-| 1024 | 2 | 4 | 2 | 0 | 4 | 8 |
-| 1280 | 2 | 3 | 2 | 0 | 4 | 6 |
+| width | base local | HEAD local | base docker + DejaVu fallback (CI-like) | HEAD docker + DejaVu fallback (CI-like) |
+|---|---|---|---|---|
+| 375 | 2 | 4 | 4 | 8 |
+| 430 | 2 | 4 | 4 | 8 |
+| 480 | 2 | 4 | 4 | 8 |
+| 540 | 2 | 4 | 4 | 8 |
+| 620 | 2 | 4 | 4 | 24 |
+| 1024 | 2 | 4 | 4 | 22 |
+| 1280 | 2 | 3 | 4 | 24 |
 
-  Only a `size-adjust` fallback (outside Home) would remove it; at 605-768px the hidden sentence can still wrap in a wide
-  fallback (620px: 24px with DejaVu).
+  A wide fallback wraps the hidden default sentence, so this change is worse than base there (8px at phone widths, 22-24px
+  at 620-1280). The owner chose not to add a nowrap/token workaround (it was tried and removed: it needed a type-style
+  token and still left 605-768px). Only a `size-adjust` fallback (outside Home) would remove it.
 - Opening placeholder: now the hidden default sentence (cycle 2), exact at every width including 431-604px.
 - Zero-dashboard (first-run) shelf head is up to the link's line (~5px) taller than on base.
 - "Serif headings" cold load: the evaluator's approximation measured a swap of about 30px at 540px (settled layout unchanged). The owner should confirm with the real font loading.
