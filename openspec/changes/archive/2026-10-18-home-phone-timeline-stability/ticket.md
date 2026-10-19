@@ -23,7 +23,7 @@ Parent: HEL-1570 (redesign epic). Related: HEL-1642.
 - Out of scope: HEL-1666 (HomePage.css split/tidy); pipeline-page files (HEL-1668) and accent hover tokens (HEL-1669).
 - Reversible UI decisions are listed in the PR body under "UI decisions taken overnight".
 
-## Scope for this run (orchestrator, overnight — pending owner ruling on item 2)
+## Scope for this run (orchestrator; item 2 resolved by owner ruling C3)
 
 - **Item 1 (load shift): in scope.** Every content-independent mover is removed: the shelf head reserves the "All N" link's line, the skeleton cards match the loaded cards, the runs card head shows the legend while loading, and the opening line's placeholder is as many sentence lines as the default "All quiet: nothing has changed, failed or been missed." takes at that width (two lines at ≤430px, one line above — measured first). Bound: a loaded sentence with a different line count from the default still moves the timeline by the line difference (e.g. on phones a one-failed-run sentence is one line, so that common state still shifts by one line) (its length depends on the summary counts and cannot be known while loading). Recorded as a residual for the owner.
 - **Item 2 (short phones): accepted as is (owner ruling).** AC2 is relaxed to: at 375×667 the timeline heading and the top of the first row are visible above the nav; scroll for the rest (light and dark). No short-phone layout change is built.

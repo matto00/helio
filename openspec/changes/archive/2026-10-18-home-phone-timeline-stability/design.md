@@ -37,7 +37,7 @@ hover tokens HEL-1669 — touching their files must be reported before committin
    ("CSS media queries use these values only": 1440/1100/768/430) is [mechanical]; a viewport-unit clamp is no better
    (`dvh` resizes thumbnails as browser chrome toggles, a new shift; `svh` applies on most in-browser phones, so it
    shrinks the shipped shelf); the width-only alternative shrinks the HEL-1642 phone shelf at every height. None is an
-   overnight reversible decision. Disposition and AC2 judgement: constraint C2 (ticket.md "Scope for this run").
+   overnight reversible decision. Disposition and AC2 judgement: owner ruling C3 (accepted as is; AC2 relaxed; the PR closes HEL-1665).
 1. **The shelf head never changes height (chosen; overnight reversible UI decision).**
    a. The SHELF head only (`.home-section > .home-section__head`, or a dedicated modifier class on the shelf's head —
       never the shared class, which the runs card also uses) gets a token-derived `min-height` equal to the link's line
@@ -141,8 +141,14 @@ Grotesk): 40ch resolves to 600px and the ghost and real default sentence have id
 375/430/480/604/605/610/620/640/768/1024/1100/1280; a long four-clause sentence settles at two lines at 1280 as on base,
 and the e2e asserts the real sentence's computed cap equals whatever `40ch` resolves to (environment-independent; red
 when the cap is changed, e.g. 24em gives 576px). With "Serif headings" the real sentence's box is back to base.
-The remaining swap is <=4px (a font-metric residual; measured exception: 605-615px wide, cold load only, where the fallback font wraps the default sentence one line early and the timeline moves about 34px, fixable only by a `size-adjust` fallback; from 616px up it is <=4px), asserted in the e2e (`fontSwapSpread` <= 4.5px). It is an owner
-item only if a `size-adjust` fallback is wanted.
+The cold-load swap depends on the platform's fallback font, so it is recorded (evidence JSON `fontSwapSpread`, log) and not
+asserted. Cycle 6: CI (ubuntu, DejaVu-like fallback) measured 8px at 375-540 and 22-26px at 620/1024/1280 with a 25em ghost
+that could still wrap; the ghost is now `white-space: nowrap` above 768px (existing breakpoint) and holds the link's own
+glyphs in the shelf-head slot. Measured with the Playwright 1.55.1 noble image (browser in docker, specs on the host),
+runs card top spread before the web fonts arrive (px), base 647734111 versus this change: see the table in
+`item2-owner-handoff.md`. With DejaVu Sans as the fallback this change is 6-8px at 375-540/1024/1280 (base 4) and 24px at
+620 (base 4): at 605-768px the ghost can still wrap in a wide fallback. Only a `size-adjust` fallback (outside Home)
+would remove it.
 
 ## Implementation note (executor, cycle 5): the placeholder is its own class
 

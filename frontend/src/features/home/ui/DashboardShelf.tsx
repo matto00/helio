@@ -39,9 +39,10 @@ export function DashboardShelf({
             All {dashboards.length} <span aria-hidden="true">→</span>
           </Link>
         ) : (
-          // Reserves the link's line so the heading is the same height before the list arrives (HEL-1665).
+          // Reserves the link's line so the heading is the same height before the list arrives (HEL-1665). It holds the
+          // link's own glyphs (hidden), so a fallback font's arrow metrics match the real link's.
           <span className="home-section__link-slot" aria-hidden="true">
-            &nbsp;
+            All 0 <span aria-hidden="true">→</span>
           </span>
         )}
       </div>

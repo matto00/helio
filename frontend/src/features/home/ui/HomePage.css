@@ -54,6 +54,9 @@
    * sentence is narrower than both caps, so the ghost and the real sentence break identically. The real sentence
    * keeps 40ch, so a settled sentence is exactly as on base (HEL-1665). */
   max-width: 25em;
+  /* Above 768px the default sentence is one line with the web font; a fallback font's metrics must not wrap the
+   * hidden copy. At 768px and below it wraps freely (two lines up to 604px). */
+  white-space: nowrap;
 }
 
 .home-opening__loading .home-opening__skeleton-line {
@@ -776,6 +779,10 @@ a.home-card:hover {
 }
 
 @media (max-width: 768px) {
+  .home-opening__ghost {
+    white-space: normal;
+  }
+
   .home-page {
     gap: var(--space-6);
     padding: var(--space-4) var(--space-3) var(--space-8);

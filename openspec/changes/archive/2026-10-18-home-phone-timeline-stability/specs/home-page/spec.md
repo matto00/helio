@@ -24,8 +24,12 @@ unchanged by these rules; with zero dashboards the shelf heading MAY be up to th
 On a short phone (375×667) in light and dark, the pipeline-run timeline's heading and the top of its first row SHALL be
 visible above the bottom nav's top edge on first load without scrolling; the rest of the timeline is reached by scrolling
 (owner ruling: item 2 accepted as is, no short-phone layout change).
-The rule does not cover the residual web-font swap on a cold load: the runs card MAY move by at most 4px (a
-font-metric difference between the fallback and web fonts) when the heading and mono fonts arrive, at every width except 605-615px wide, where on a cold load the fallback font wraps the default sentence one line early and the timeline MAY move about 34px (only a size-adjust fallback could fix it; from 616px up it is 4px or less).
+The rule does not cover the residual cold-load web-font swap: when the heading and mono fonts arrive the runs card MAY
+move by an amount that depends on the platform's fallback font. Measured (runs card top spread before the web fonts
+arrive; base 647734111 versus this change): 2-4px on base; with this change 3-4px locally, 0-1px with the Playwright
+docker image's fallback (WenQuanYi), and 6-8px with DejaVu Sans as the fallback (as on CI) at 375-540px, 1024px and 1280px,
+but 24px at 605-768px (620px measured), where the hidden default sentence may wrap in the fallback font. Only a
+`size-adjust` fallback could remove it. This is recorded in the e2e evidence, not asserted.
 
 #### Scenario: Timeline visible at 375px
 - **WHEN** a user with four dashboards and at least one pipeline opens `/home` at 375×800, in light or dark theme

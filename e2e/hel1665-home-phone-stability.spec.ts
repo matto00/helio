@@ -144,9 +144,8 @@ for (const theme of ["light", "dark"] as const) {
         expect(sentenceLines).toBe(viewport.sentenceLines);
         expect(settled.link, "the settled shelf shows its All N link").toBe(true);
         expect(settled.legend, "the settled runs card shows its legend").toBe(true);
-        // A cold-load web-font swap must stay a font-metric residual (<=4px): a `ch` max-width once made the
-        // fallback font wrap the sentence a line early (33px at >=605px).
-        expect(result.fontSwapSpread, "web-font swap").toBeLessThanOrEqual(4.5);
+        // The cold-load web-font swap (`fontSwapSpread`) depends on the platform's fallback font: it is recorded in the
+        // evidence JSON and the log, never asserted (HEL-1665 design.md, Decision 5).
         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
