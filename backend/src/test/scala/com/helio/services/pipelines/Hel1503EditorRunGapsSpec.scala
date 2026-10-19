@@ -100,11 +100,11 @@ class Hel1503EditorRunGapsSpec extends AnyWordSpec with Matchers with BeforeAndA
     override def supportsWriteBack: Boolean = real.supportsWriteBack
     override def execute(
         pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
-        assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit,
+        assertionSink: AssertionSink, truncationSink: TruncationSink, retain: Set[NodeKey], onNodeProgress: (NodeKey, Long) => Unit,
         writeBackSink: WriteBackSink, ownerUserId: Option[String]
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       executions.incrementAndGet()
-      real.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+      real.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId)
     }
   }
 

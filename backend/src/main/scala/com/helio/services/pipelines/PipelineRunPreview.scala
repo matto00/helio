@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{OutputPreviewEntry, PipelinePreviewResponse, RunResultResponse}
 import com.helio.domain.model.{AssertionSink, AuthenticatedUser, OutputId, PipelineId, TruncationSink}
-import com.helio.domain.engine.{NodeDependencyClosure, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, StepKey}
+import com.helio.domain.engine.{NodeDependencyClosure, PipelineCostEstimator, PipelineExecutionBackend, PipelineRowJson, RootKey, StepKey}
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import spray.json._
@@ -196,7 +196,7 @@ private[pipelines] final class PipelineRunPreview(
                 guardedExecution(pipelineId, user, requireEditor = false) {
                 backend
                   .execute(pipeline, Vector(selectedRoot), Vector.empty, dataSourceRepo, new AssertionSink, truncationSink,
-                    ownerUserId = Some(pipeline.ownerId.value))
+                    retain = Set(RootKey(selectedRoot._1)), ownerUserId = Some(pipeline.ownerId.value))
                   .map { outcome =>
                     val allJsRows = outcome.rows.map { rowMap =>
                       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
@@ -278,7 +278,7 @@ private[pipelines] final class PipelineRunPreview(
                       // run path's sink.
                       backend
                         .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, truncationSink,
-                          ownerUserId = Some(pipeline.ownerId.value))
+                          retain = Set(StepKey(target.id.value)), ownerUserId = Some(pipeline.ownerId.value))
                         .map { outcome =>
                           // HEL-905 (evaluation-1.md CR1): `outcome.rows` is always the TRUNK's
                           // terminal frame -- for a target step on a tail, the tail's own rows live

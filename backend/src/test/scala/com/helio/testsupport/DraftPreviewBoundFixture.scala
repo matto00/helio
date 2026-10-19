@@ -91,10 +91,10 @@ abstract class DraftPreviewBoundFixture extends DraftPreviewApiFixture {
         truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit, writeBackSink: WriteBackSink, ownerUserId: Option[String],
         contextTransform: PipelineExecutionContext => PipelineExecutionContext, externalLanes: Map[String, Seq[Row]],
         onNodeFrame: (NodeKey, Seq[Row]) => Unit, onNodeError: Option[(PipelineStep, Throwable) => Unit], shouldContinue: () => Boolean,
-        retainOnly: Option[Set[NodeKey]]
+        retainOnly: Option[Set[NodeKey]], leafFirst: Boolean, runRetention: Boolean
     ): Future[TreeWalkResult] =
       super.executeTree(rootFrames, steps.map(s => new CountingStep(s)), stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink,
-        onNodeProgress, writeBackSink, ownerUserId, contextTransform, externalLanes, onNodeFrame, onNodeError, shouldContinue, retainOnly)
+        onNodeProgress, writeBackSink, ownerUserId, contextTransform, externalLanes, onNodeFrame, onNodeError, shouldContinue, retainOnly, leafFirst, runRetention)
   }
 
   override protected def draftPreviewEngine(implicit ec: ExecutionContext): Option[InProcessPipelineEngine] = Some(new SpyEngine)

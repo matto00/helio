@@ -21,8 +21,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import slick.jdbc.PostgresProfile.api._
 import java.nio.file.Paths
 import java.time.Instant
+import java.util.{Set => JavaSet}
 import java.util.UUID
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -44,17 +45,22 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
   @volatile protected var beforeNodeFold: () => Future[Unit] = () => Future.unit
   @volatile protected var beforeOutputList: () => Future[Unit] = () => Future.unit
 
+  /** HEL-1660: the run lists the pipeline's Outputs once BEFORE the engine walk (to name the nodes whose frames it retains) and once
+   *  in the success chain after it. The seams below target the success chain's list, so `HookOutputRepo` leaves a pipeline's
+   *  listings alone until the engine has returned for that pipeline. */
+  protected val engineReturned: JavaSet[String] = ConcurrentHashMap.newKeySet[String]()
+
   protected final class HookBackend(delegate: PipelineExecutionBackend) extends PipelineExecutionBackend {
     override def supportsWriteBack: Boolean = delegate.supportsWriteBack
     override def execute(
         pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
-        assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+        assertionSink: AssertionSink, truncationSink: TruncationSink, retain: Set[NodeKey], onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink, ownerUserId: Option[String] = None
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       // HEL-1565: bind the hook at call start -- a call outliving its test must not run the NEXT test's hook.
       val hook = afterEngine
-      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
-        .flatMap(outcome => hook().map(_ => outcome))
+      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId)
+        .flatMap { outcome => Option(pipeline).foreach(p => engineReturned.add(p.id.value)); hook().map(_ => outcome) }
     }
   }
 
@@ -63,7 +69,10 @@ abstract class LateFinisherSpecBase extends AnyWordSpec with Matchers with Befor
    *  list (after the early open-check, before the first node's write), so a pipeline deleted there still has its
    *  stale Output list and the node guard is what catches it. */
   protected final class HookOutputRepo(c: DbContext) extends OutputRepository(c) {
-    override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] = {
+    override def listByPipelineInternal(pipelineId: PipelineId): Future[Vector[Output]] =
+      if (!engineReturned.contains(pipelineId.value)) super.listByPipelineInternal(pipelineId) else listAfterEngine(pipelineId)
+
+    private def listAfterEngine(pipelineId: PipelineId): Future[Vector[Output]] = {
       val before = beforeOutputList
       beforeOutputList = () => Future.unit
       val hook = beforeNodeFold

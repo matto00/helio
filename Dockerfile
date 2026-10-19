@@ -45,6 +45,7 @@ ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \
   "-XX:InitialRAMPercentage=50.0", \
+  "-XX:+ExitOnOutOfMemoryError", \
   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED", \
   "--add-opens=java.base/java.lang=ALL-UNNAMED", \
   "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED", \

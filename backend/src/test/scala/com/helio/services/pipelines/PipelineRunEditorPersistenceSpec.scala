@@ -110,6 +110,7 @@ class PipelineRunEditorPersistenceSpec extends AnyWordSpec with Matchers with Be
         dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
+        retain: Set[NodeKey],
         onNodeProgress: (NodeKey, Long) => Unit,
         writeBackSink: WriteBackSink,
         ownerUserId: Option[String]
@@ -120,7 +121,7 @@ class PipelineRunEditorPersistenceSpec extends AnyWordSpec with Matchers with Be
       waited.flatMap { _ =>
         failWith match {
           case Some(ex) => Future.failed(ex)
-          case None     => real.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+          case None     => real.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId)
         }
       }
     }

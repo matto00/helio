@@ -7,7 +7,7 @@ import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser
 import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SourceReadStats, StepKey}
 import com.helio.domain.util.Clock
-import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.RunState
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
@@ -32,7 +32,9 @@ private[pipelines] final class PipelineRunExecutor(
     support: PipelineRunSupport,
     terminal: PipelineRunTerminalWrites,
     succeeded: PipelineRunSucceededWrites,
-    liveRunTracker: LiveRunTracker
+    liveRunTracker: LiveRunTracker,
+    // HEL-1660 (design.md D3): lists the pipeline's Outputs before the walk so their node frames are retained.
+    outputRepo: OutputRepository
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -241,18 +243,27 @@ private[pipelines] final class PipelineRunExecutor(
       publish(pidStr, RunStatusEvent("node-progress", nodeId = Some(nodeId), nodeKind = Some(nodeKind), rowCount = Some(rowCount.toInt), runId = Some(runId.value)))
     }
 
-    val runFuture = backend
-      .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
-        ownerUserId = Some(pipeline.ownerId.value))
-      .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes))
+    // HEL-1660 (design.md D3): the walk releases a frame as soon as nothing needs it, so the nodes the success path reads back
+    // (every Output's node) are named up front. Privileged: the run is already authorized and the keys leave this method only as
+    // node ids. A failed listing fails the run like any pre-walk failure, rather than running with no Outputs retained. A dry run
+    // writes no snapshot and reads no Output frame, so it retains none.
+    val retainF: Future[Set[NodeKey]] =
+      if (isDry) Future.successful(Set.empty)
+      else outputRepo.listByPipelineInternal(pipelineId).map(_.flatMap(OutputNodeKeys.of(_)).toSet[NodeKey])
+    val runFuture = retainF.flatMap { retain =>
+      backend
+        .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink,
+          ownerUserId = Some(pipeline.ownerId.value))
+        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes, retain))
+    }
 
     runFuture.transformWith {
       case Failure(ex) =>
         executeRunFailure(pipelineId, runId, pidStr, isDry, user, ownerRun, assertionSink, ex)
-      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes)) =>
+      case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain)) =>
         executeRunSuccess(
           pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
-          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes
+          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain
         )
     }
   }
@@ -277,7 +288,8 @@ private[pipelines] final class PipelineRunExecutor(
       stepCounts: Map[String, Long],
       sourceCount: Long,
       primaryStats: SourceReadStats,
-      nodeOutcomes: Map[NodeKey, NodeOutcome]
+      nodeOutcomes: Map[NodeKey, NodeOutcome],
+      retain: Set[NodeKey]
   ): Future[Either[ServiceError, RunResultResponse]] = {
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
@@ -303,7 +315,7 @@ private[pipelines] final class PipelineRunExecutor(
           else
             onRunSuccess(
               roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource,
-              assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId
+              assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId, retain
             )
         followUp.map {
           case Left(err) => Left(err)
@@ -349,7 +361,8 @@ private[pipelines] final class PipelineRunExecutor(
       // never the triggering caller -- a grantee-triggered or scheduler-fired run still writes
       // under the owner's identity/RLS context).
       writeBackSink:      WriteBackSink,
-      pipelineOwnerId:    UserId
+      pipelineOwnerId:    UserId,
+      retain:             Set[NodeKey]
   ): Future[Either[ServiceError, Option[String]]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty)
@@ -359,7 +372,7 @@ private[pipelines] final class PipelineRunExecutor(
     else runState(runId).flatMap {
       // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
       // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
-      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId)
+      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId, retain)
         // HEL-1518 (design.md D3/D4): a guard trip inside a node's snapshot transaction means the run was finalized
         // or deleted after the early check; it maps exactly like the early check does.
         .recoverWith { case PipelineRunRepository.RunNoLongerOpen(state) => lateFinisher(pipelineId, runId, state) }
@@ -412,7 +425,8 @@ private[pipelines] final class PipelineRunExecutor(
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse],
       writeBackSink:      WriteBackSink,
-      pipelineOwnerId:    UserId
+      pipelineOwnerId:    UserId,
+      retain:             Set[NodeKey]
   ): Future[Either[ServiceError, Option[String]]] = {
     Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
@@ -427,7 +441,7 @@ private[pipelines] final class PipelineRunExecutor(
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId, retain).map(Right(_))
     }
   }
 

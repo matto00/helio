@@ -49,13 +49,13 @@ class LateFinisherSeamIsolationSpec extends LateFinisherSpecBase {
       val stub = new PipelineExecutionBackend {
         override def execute(
             pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
-            assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit,
+            assertionSink: AssertionSink, truncationSink: TruncationSink, retain: Set[NodeKey], onNodeProgress: (NodeKey, Long) => Unit,
             writeBackSink: WriteBackSink, ownerUserId: Option[String]
         )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = held.future
       }
       val oldHook = Promise[Unit]()
       afterEngine = () => { oldHook.trySuccess(()); Future.unit }
-      val call = new HookBackend(stub).execute(null, Vector.empty, Vector.empty, null, null, null)
+      val call = new HookBackend(stub).execute(null, Vector.empty, Vector.empty, null, null, null, Set.empty)
       resetSeams()
       val newHook = Promise[Unit]()
       afterEngine = () => { newHook.trySuccess(()); Future.unit }

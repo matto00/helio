@@ -214,6 +214,7 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
         dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
+        retain: Set[NodeKey],
         onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink,
         ownerUserId: Option[String] = None
@@ -222,7 +223,7 @@ class PipelineRunServiceTerminalOrderingSpec extends AnyWordSpec with Matchers w
       gate.flatMap { _ =>
         failWith match {
           case Some(ex) => Future.failed(ex)
-          case None     => delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+          case None     => delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId)
         }
       }
     }

@@ -61,8 +61,8 @@ object ComputeStep {
    *  `column`, exactly as before this change. That fallback is unreachable
    *  from run/preview/analyze once the `companion` gates below reject the
    *  step first, but a direct caller of this pure function sees no behavior
-   *  change either way. `budget` is the draft preview's cap on the text this step creates (HEL-1630, owner ruling C7); `None`
-   *  for every run and the saved preview. */
+   *  change either way. `budget` is the cap on the text this step creates (HEL-1630, owner ruling C7; runs HEL-1660); `None`
+   *  is unbounded. */
   def apply(rows: Seq[PipelineRowJson.Row], cfg: ComputeConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
 
   def apply(rows: Seq[PipelineRowJson.Row], cfg: ComputeConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] = {
@@ -71,7 +71,7 @@ object ComputeStep {
       case Right(compiled) =>
         rows.map { row =>
           val jsRow = PipelineRowJson.rowToJsMap(row)
-          val value = compiled.eval(jsRow, budget.fold(Int.MaxValue)(_.maxChars)) match {
+          val value = compiled.eval(jsRow, budget.fold(Int.MaxValue)(_.maxChars), budget.fold(LimitLabel.Draft)(_.label)) match {
             case Right(v) => PipelineRowJson.jsValueToAny(v)
             case Left(_)  => null
           }

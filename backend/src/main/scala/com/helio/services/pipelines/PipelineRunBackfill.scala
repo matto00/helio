@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataFieldType, PipelineId, PipelineRootId, PipelineStepId, TruncationSink}
-import com.helio.domain.engine.{NodeDependencyClosure, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, StepKey}
+import com.helio.domain.engine.{NodeDependencyClosure, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, NodeKey, RootKey, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -119,7 +119,7 @@ private[pipelines] final class PipelineRunBackfill(
               // HEL-1108 (C11): threaded for uniformity only -- this arm executes with
               // Vector.empty steps (no step, hence no AI step, ever evaluates here).
               .execute(pipeline, roots, Vector.empty, dataSourceRepo, new AssertionSink, new TruncationSink,
-                ownerUserId = Some(pipeline.ownerId.value))
+                retain = roots.map(r => RootKey(r._1): NodeKey).toSet, ownerUserId = Some(pipeline.ownerId.value))
               .flatMap(outcome => persistBackfilledRows(pipelineId, None, outcome.rows, explicitRootId))
               .recover { case ex =>
                 logExecutionFailure(s"HEL-947: backfill source-level evaluation failed for pipeline ${pipelineId.value}", ex)
@@ -136,7 +136,7 @@ private[pipelines] final class PipelineRunBackfill(
                   val slicedSteps = NodeDependencyClosure.closureOf(allSteps.toVector, target)
                   backend
                     .execute(pipeline, roots, slicedSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink,
-                      ownerUserId = Some(pipeline.ownerId.value))
+                      retain = Set(StepKey(target.id.value)), ownerUserId = Some(pipeline.ownerId.value))
                     .flatMap { outcome =>
                       val targetRows = outcome.nodeOutcomes.get(StepKey(target.id.value)).map(_.rows).getOrElse(outcome.rows)
                       // Step-bound write (`nodeKey = Some(stepId)`) -- `explicitRootId` only

@@ -1,0 +1,21 @@
+# filtered from the raw sbt transcript (15 MB, not committed): superseded/testfull-first-4-latefinisher-failures.log
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should write every node's snapshots, history and payload, publish succeeded and finish succeeded *** FAILED ***
+[info] - should answer success and publish succeeded when the delete also landed before the Output list was read, so no node guard runs *** FAILED ***
+[info] - should answer success and publish succeeded when the delete landed after the Output list was read, although a node guard then sees the run Missing (HEL-1564) *** FAILED ***
+[info] - should not answer before that sibling settles, then answer success with exactly one succeeded *** FAILED ***
+[info] - should add no more than 500 ms (median of 20) to the rows service path !!! CANCELED !!!
+[info] - should reports p50/p95 before vs. after (report-only; HELIO_MEASURE=1) !!! CANCELED !!!
+[info] - should reports p50/p95 before vs. after (report-only; HELIO_MEASURE=1) !!! CANCELED !!!
+[info] - should reports p50/p95 before vs. after (report-only; HELIO_MEASURE=1) !!! CANCELED !!!
+[info] [hel1468-guard] ScalaTest summary: failed=4 aborted=0 unreadable=0
+[info] Suites: completed 668, aborted 0
+[info] Tests: succeeded 9361, failed 4, canceled 4, ignored 0, pending 0
+[info] *** 4 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.LateFinisherDeleteAfterWonSpec
+[error] 	com.helio.services.pipelines.LateFinisherRunSpec
+[error] (Test / testFull) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 1141 s (0:19:01.0), cache 35%, 245 disk cache hits, 450 onsite tasks
+exit 1

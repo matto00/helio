@@ -165,7 +165,7 @@ class SparkJobSubmitterSpec extends AnyWordSpec with Matchers with BeforeAndAfte
       val fakePipelineRepo = new PipelineRepository(null, null)
       val submitterForExecute = new SparkJobSubmitter("local[*]", mockDsRepo, fakePipelineRepo)
       val outcome = Await.result(
-        submitterForExecute.execute(pip, Vector((pip.id.value, ds)), Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink),
+        submitterForExecute.execute(pip, Vector((pip.id.value, ds)), Vector.empty, mockDsRepo, new AssertionSink, new TruncationSink, Set.empty),
         30.seconds
       )
       outcome.rows should have size 2

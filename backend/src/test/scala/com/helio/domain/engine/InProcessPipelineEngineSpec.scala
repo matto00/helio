@@ -2797,7 +2797,7 @@ class InProcessPipelineEngineSpec extends AnyWordSpec with Matchers with HelioRo
       val stepRepo = new PipelineStepRepository(null)(ec)
       val backend = new InProcessExecutionBackend(engine, stepRepo)
       val backendOutcome = Await.result(
-        backend.execute(pipeline, Vector((pipeline.id.value, ds)), Vector(step), mockRepo, new AssertionSink, new TruncationSink),
+        backend.execute(pipeline, Vector((pipeline.id.value, ds)), Vector(step), mockRepo, new AssertionSink, new TruncationSink, Set.empty),
         5.seconds
       )
 

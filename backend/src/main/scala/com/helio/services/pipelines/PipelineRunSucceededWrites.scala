@@ -67,7 +67,9 @@ private[pipelines] final class PipelineRunSucceededWrites(
       assertionResults:   Vector[AssertionResult],
       primaryAvailableRowCount: Option[Long],
       truncatedReads:     Vector[TruncatedReadResponse],
-      pipelineOwnerId:    UserId
+      pipelineOwnerId:    UserId,
+      // HEL-1660: the nodes the run kept frames for; an Output outside it was created mid-run (design.md D3).
+      retain:             Set[NodeKey]
   ): Future[Option[String]] = {
     def writesChain(): Future[Option[String]] = {
       val now = Instant.now()
@@ -94,22 +96,20 @@ private[pipelines] final class PipelineRunSucceededWrites(
             // An Output somehow missing BOTH `stepId` and `rootId` (pre-V98 legacy shape) is
             // skipped rather than guessed at.
             val outputsByNodeKey: Map[NodeKey, Vector[Output]] =
-              outputs.flatMap { o =>
-                val keyOpt: Option[NodeKey] = o.node.stepId match {
-                  case Some(sid) => Some(StepKey(sid.value))
-                  case None      => o.node.rootId.map(rid => RootKey(rid.value))
-                }
-                keyOpt.map(k => k -> o)
-              }.groupBy(_._1).view.mapValues(_.map(_._2).toVector).toMap
+              outputs.flatMap(o => OutputNodeKeys.of(o).map(k => k -> o)).groupBy(_._1).view.mapValues(_.map(_._2).toVector).toMap
             val materializedNodeKeys = outputsByNodeKey.keySet.intersect(nodeOutcomes.keySet)
             // Sequenced (not parallel) so a later node's failure never races an earlier node's
             // write -- matches design.md's "sequenced only after... completed successfully".
             materializedNodeKeys.foldLeft(Future.successful(())) { (accF, nodeKey) =>
               accF.flatMap { _ =>
                 val outcome = nodeOutcomes(nodeKey)
-                val nodeJsRows = outcome.rows.map { rowMap =>
-                  JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
-                }.toVector
+                // The trunk terminal's rows were already converted once for the run's own response (`jsRows`); converting them again
+                // for the Output on that node would hold a second full copy while both are alive.
+                val nodeJsRows =
+                  if (outcome.rows eq resultRows) jsRows
+                  else outcome.rows.map { rowMap =>
+                    JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
+                  }.toVector
                 val (nodeStepIdOpt, explicitRootIdOpt) = nodeKey match {
                   case StepKey(sid) => (Some(sid), None)
                   case RootKey(rid) => (None, Some(rid))
@@ -210,15 +210,20 @@ private[pipelines] final class PipelineRunSucceededWrites(
               .sequence(outputs.map { output =>
                 // HEL-913 (design.md R12): a root-bound Output (`stepId = None`) keys on its OWN
                 // `RootKey(rootId)` -- never a bare `None` that would ambiguously match any root.
-                val nodeKeyOpt: Option[NodeKey] = output.node.stepId match {
-                  case Some(sid) => Some(StepKey(sid.value))
-                  case None      => output.node.rootId.map(rid => RootKey(rid.value))
-                }
+                val nodeKeyOpt: Option[NodeKey] = OutputNodeKeys.of(output)
                 nodeKeyOpt.flatMap(nodeOutcomes.get) match {
-                  case None =>
+                  case None if nodeKeyOpt.exists(retain.contains) =>
                     log.error(
                       s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
                         s"run ${runId.value}: no NodeOutcome for node key $nodeKeyOpt (never evaluated by the tree walk)"
+                    )
+                    Future.successful(())
+                  case None =>
+                    // HEL-1660 (design.md D3): the walk released every frame outside the pre-run `retain` set, so an Output created
+                    // after this run listed its Outputs has no frame here. Expected, not a bug: it is evaluated from the next run.
+                    log.warn(
+                      s"AlertEvaluationService.evaluateForOutput skipped for output ${output.id.value}, " +
+                        s"run ${runId.value}: the output was created after this run started and is evaluated from the next run"
                     )
                     Future.successful(())
                   case Some(nodeOutcome) =>

@@ -1,5 +1,6 @@
 package com.helio.domain.engine
 
+import com.helio.domain.steps.LimitLabel
 import spray.json._
 import ExpressionInterpreter.{evalExpr, valToJs}
 import ExpressionParser.{And, BinOp, BoolLit, Call, Cmp, Expr, FieldRef, Neg, Not, NumLit, Or, StrLit, isDollarPrefixError, parse, parseLegacy}
@@ -223,9 +224,9 @@ object ExpressionEvaluator {
    *  is intentionally not exposed — callers get a compiled unit of behavior,
    *  not the grammar's internals. */
   final class CompiledExpression private[engine] (private val ast: Expr) {
-    /** `maxChars` is the draft preview's cap on any text the expression builds (HEL-1630); the default leaves runs unbounded. */
-    def eval(row: Map[String, JsValue], maxChars: Int = Int.MaxValue): Either[EvaluationError, JsValue] =
-      evalExpr(ast, row, maxChars).map(valToJs)
+    /** `maxChars` is the cap on any text the expression builds (HEL-1630, HEL-1660), worded by `label`; the default leaves a direct call unbounded. */
+    def eval(row: Map[String, JsValue], maxChars: Int = Int.MaxValue, label: LimitLabel = LimitLabel.Draft): Either[EvaluationError, JsValue] =
+      evalExpr(ast, row, maxChars, label).map(valToJs)
   }
 
   /**
