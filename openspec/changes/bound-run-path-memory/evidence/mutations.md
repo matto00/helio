@@ -58,3 +58,5 @@
 ## Cycle 2-3 edits
 - `guard-budget-below-ac6`: `MaxLiveCells = 2600000L` -> `2300000L`; `guard-budget-above-ceiling`: -> `4000000L`; `guard-row-cap`: `MaxStringChars = 1048576` -> `2097152`
 - `postwalk-limit-unbounded`: `MaxPostWalkCells = 3900000L` -> `Long.MaxValue`; `postwalk-check-not-called`: `if (!isDry) refuseOverPostWalkBudget(` -> `if (false) refuseOverPostWalkBudget(`; `postwalk-drop-json-copies`: `held + cost(terminalRows) + others...max` -> `held`
+- `snapshot-write-unbatched` (backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala): RED -- 1 failing: should build at most 200 rows' JSON text per batch
+- `snapshot-write-unbatched`: `SnapshotInsertBatchSize = 200` -> `100000`

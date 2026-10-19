@@ -37,5 +37,7 @@
 
 - Cycle 3: `RunLimits.postWalkCells`/`MaxPostWalkCells` (3,900,000) and `PipelineRunExecutor.refuseOverPostWalkBudget` price the post-walk JSON copies; `RunLimitsGuardSpec`, `PipelineRunLimitsServiceSpec` and `RunPathHeapSpec` (post-walk shapes) extended.
 
+- Cycle 4: `NodeSnapshotRepository.overwriteRowsAction` builds the insert JSON in batches of 200 inside the one transaction; new `NodeSnapshotBatchedWriteSpec`; `RunPathHeapSpec` gains `heavy-utf16` and `heavy-utf16-2out`.
+
 ## Change record
 - `openspec/changes/bound-run-path-memory/{design.md,tasks.md,files-modified.md}` and `evidence/` (red-*, green-*, mutation-* logs; `mutations.md` is the index).

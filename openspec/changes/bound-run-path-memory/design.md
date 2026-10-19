@@ -91,7 +91,7 @@ step and limit, and no snapshot is written because the success path is never rea
 chunkbytokencount, extractheadings, doubling concat, a text-copying fan-out, pivot over long text, a fresh-string chain,
 a 300,000-cell CSV root then a fan-out, an upsertsource of a large frame followed by more steps (D3a), two
 **succeeds-just-under-budget** shapes with an Output on the trunk terminal: a text-light, many-cell variant, which is the
-a worst case for the per-cell JSON copies (but not the worst: see "Cycle 3"), and a text-heavy variant. Each runs as both a real run and a dry run, and the
+a worst case for the per-cell JSON copies (but not the worst: see "Cycle 3"), and a text-heavy variant (cycle 4: in Latin-1 AND UTF-16; the Latin-1 shape alone halved the real text cost). Each runs as both a real run and a dry run, and the
 worst post-walk peak is the max of the four (retained frames plus `jsRows` plus `nodeJsRows`), and the AC6 ordinary shape. The service-level
 shapes use real `nodeSnapshotRepo` and `outputHistoryRepo`; with a null repo the snapshot writes are skipped
 (`PipelineRunSucceededWrites.scala:88`), and the measurement would be hollow. AC6 is the widest CSV the run path accepts,
@@ -235,3 +235,30 @@ Capacity disclosure (replaces the earlier one): at the largest accepted CSV (50,
 a terminal-only Output up to the walk's own limit (about 23 columns), an AC6-sized middle Output beside a 16-column terminal, but not two Outputs of
 23 and 22 columns (the skeptic's shape, 5.8M, refused); several large non-terminal Outputs are refused once their frames plus the largest
 copy pass the limit (for example, three 11-column Outputs beside a 16-column terminal cost 5.6M).
+
+### Cycle 4: the snapshot write no longer copies a node's text (skeptic-final-2)
+
+A 7,000 x 2 CSV of 1,000-character text with 3 `concat($a, $b, "ж")` steps (UTF-16 text, `CellWeight`'s own 2 bytes a character) and an Output on
+the terminal was accepted and peaked at 211 MB, because `NodeSnapshotRepository.overwriteRowsAction` ran `compactPrint` on every row eagerly: a
+second full copy of the node's text that the cell-based post-walk accounting cannot see. The Latin-1 `just-under-heavy` shape had hidden it by
+halving the text.
+
+Fix (the batched write, not text pricing): the inserts' JSON text is now built 200 rows at a time, when each batch runs, inside the same
+transaction (one `transactionally`, the same SQL and rows, the delete still first). `PipelineRunBackfill.persistBackfilledRows` and every other
+`overwriteRows`/`overwriteRowsWith` caller write through this method, so backfill is covered by the same change. Pinned by
+`NodeSnapshotBatchedWriteSpec` (batch size <= 200; the same rows, in order, replace the earlier snapshot at 0/1/199/200/201/450 rows);
+mutation `snapshot-write-unbatched` turns it red.
+
+Measured (3 repeats, `-Xmx768m`, MB, real; `evidence/red-utf16-heap.summary.txt`, `evidence/green-utf16-heap.summary.txt`):
+
+| Shape | before | after |
+| --- | --- | --- |
+| heavy-utf16 (terminal Output) | 210.1, 210.2, 210.2 | 102.4, 102.3, 102.2 |
+| heavy-utf16-2out (plus parent Output) | 210.2, 210.3, 210.2 | 102.4, 102.3, 102.3 |
+| just-under-heavy (Latin-1) | 115.9, 115.3, 115.2 | 59.5, 59.5, 59.4 |
+| just-under-light @ 2,600,000 | 158.5 | 150.0, 150.1, 150.1 |
+| terminal + parent Output @ 3,900,000 | 164.3, 133.1, 164.4 | 132.7, 130.2, 132.6 |
+| AC6 | 150.4, 149.8, 149.7 | 142.2, 141.4, 139.3 |
+
+Largest swing now 2.9 MB; the worst shape is 150.1 MB, so the margin rule (worst <= 192 - swing) holds with room, restating the cycle-3 shortfall
+as resolved. `MaxLiveCells` (2,600,000) and `MaxPostWalkCells` (3,900,000) are unchanged.

@@ -32,7 +32,7 @@ import scala.jdk.CollectionConverters._
  *  too: the refusal must come BEFORE the heap does.
  *
  *  The two "just under budget" shapes are sized from [[RunLimits.MaxLiveCells]] so the walk's held cells end just below it, text-light
- *  (many cells: the worst case for the per-cell JSON copies) and text-heavy (long text). The assertion is on the maximum over all shapes:
+ *  (many cells: the worst case for the per-cell JSON copies) and text-heavy in BOTH storage widths: Latin-1 (`just-under-heavy`, one byte a character) and UTF-16 (`heavy-utf16`, `heavy-utf16-2out`, two bytes a character, which is what `CellWeight` prices; a Latin-1-only shape halves the real cost). The assertion is on the maximum over all shapes:
  *  at most 25% of the 768 MB production heap, 192 MB. Setting `HELIO_HEAP_EVIDENCE_PATH` writes the report there after the assertions pass. */
 class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
 
@@ -122,6 +122,15 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     terminalOutput(pid, chain(pid, None, steps, "concat($a, $b)"))
   }
 
+  /** The same text-heavy chain with one Cyrillic character per step, so the new text is UTF-16 (two bytes a character, what `CellWeight`
+   *  prices) instead of Latin-1 (one): the case a Latin-1-only measurement misses. `parentOutput` adds an Output on the terminal's parent. */
+  private def textHeavyUtf16(steps: Int, parentOutput: Boolean): (PipelineId, Vector[PipelineStep]) = {
+    val pid = seedPipeline(seedCsvSource(7000, 2, (r, c) => ("t" * 998) + f"$c%d$r%03d".takeRight(2)))
+    val c   = chain(pid, None, steps, "concat($a, $b, \"ж\")")
+    if (parentOutput) addOutput(pid, c(steps - 2), "parent")
+    terminalOutput(pid, c)
+  }
+
   /** One root row carrying `text` in `pad`, joined to a 10,000-row lane: 10,000 rows that all SHARE the text (cheap), then `last`. */
   private def fanOutPipeline(text: String, last: PipelineId => Option[PipelineStep] => PipelineStep): (PipelineId, Vector[PipelineStep]) = {
     val root = seedDatasetSource(Vector("k", "i", "pad"), Vector(Vector("x", "0", text)))
@@ -202,6 +211,8 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     sweep.foreach { budget =>
       measure(s"just-under-light@$budget", { val pid = seedPipeline(sixColumns(50000)); terminalOutput(pid, chain(pid, None, textLightSteps(budget), "concat($a, $f)")) })
       measure(s"just-under-heavy@$budget", textHeavy(textHeavySteps(budget)))
+      measure(s"heavy-utf16@$budget", textHeavyUtf16(textHeavySteps(budget), parentOutput = false))
+      measure(s"heavy-utf16-2out@$budget", textHeavyUtf16(textHeavySteps(budget), parentOutput = true))
     }
     results.toSeq
   }
@@ -229,6 +240,8 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       maxPeak should be <= 192.0
       all.find(m => m.name == "ac6-ordinary" && m.mode == "real").foreach(_.outcome should startWith("succeeded"))
       all.filter(_.name.startsWith("just-under")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should startWith("succeeded")))
+      // UTF-16 text shapes are either accepted or refused by a limit, never by an exhausted heap.
+      all.filter(_.name.startsWith("heavy-utf16")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should not include "step execution failed"))
       // A post-walk shape sized to the limit may be refused (by the walk's budget or the post-walk check), but never by an exhausted heap.
       all.filter(_.name.startsWith("post-")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should not include "step execution failed"))
       sys.env.get("HELIO_HEAP_EVIDENCE_PATH").foreach { path =>
