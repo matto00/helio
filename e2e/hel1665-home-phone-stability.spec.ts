@@ -465,14 +465,14 @@ for (const theme of ["light", "dark"] as const) {
 
 // Type styles change the default sentence's wrap (Mono: two lines at 1280), so the hidden placeholder, which is the
 // default sentence itself, must wrap like the real one under every style. Held load, fonts loaded, 0px series.
-const STYLE_CASES: { style: TypeStyle; width: number; height: number; asserted: boolean }[] = [
-  { style: "mono", width: 1280, height: 900, asserted: true },
-  { style: "mono", width: 375, height: 667, asserted: true },
-  { style: "serif", width: 1280, height: 900, asserted: true },
-  { style: "serif", width: 375, height: 667, asserted: true },
+const STYLE_CASES: { style: TypeStyle; width: number; height: number }[] = [
+  { style: "mono", width: 1280, height: 900 },
+  { style: "mono", width: 375, height: 667 },
+  { style: "serif", width: 1280, height: 900 },
+  { style: "serif", width: 375, height: 667 },
 ];
-for (const { style, width, height, asserted } of STYLE_CASES) {
-  test(`Home load (${style} ${width}x${height} light dashboards-first): the timeline and the shelf do not move${asserted ? "" : " (measured only)"}`, async ({
+for (const { style, width, height } of STYLE_CASES) {
+  test(`Home load (${style} ${width}x${height} light dashboards-first): the timeline and the shelf do not move`, async ({
     page,
     request,
   }) => {
@@ -501,7 +501,6 @@ for (const { style, width, height, asserted } of STYLE_CASES) {
       evidencePath("HEL-1665", `style-${style}-${width}x${height}.json`),
       JSON.stringify(result, null, 2),
     );
-    if (!asserted) return;
     expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
     expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
     expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);

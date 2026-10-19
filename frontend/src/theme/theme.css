@@ -29,6 +29,10 @@
   /* The heading face. Defaults to sans; one token switches the style, so no
      consumer hardcodes a family (DESIGN.md §3). */
   --font-heading: var(--font-sans);
+  /* Whether Home's hidden opening-sentence placeholder may wrap above 768px (HEL-1665): nowrap where the default
+     sentence is one line in the style's face (Sans, Serif); the Mono type style sets it to normal because its
+     default sentence is two lines at desktop widths. */
+  --heading-sentence-wrap: nowrap;
   --font-mono: var(--font-face-mono);
   font-family: var(--font-sans);
 
@@ -196,6 +200,7 @@
 
 :root[data-type-style="mono"] {
   --font-sans: var(--font-mono);
+  --heading-sentence-wrap: normal;
 }
 
 /* Density. Compact is strictly tighter than Comfortable in each token. */

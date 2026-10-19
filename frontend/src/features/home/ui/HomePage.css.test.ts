@@ -44,12 +44,9 @@ describe("HomePage.css — load stability (HEL-1665)", () => {
       /\.home-opening__sentence,\s*\.home-opening__ghost\s*\{[^}]*font-family:\s*var\(--font-heading\)/,
     );
     expect(ghostRule).toMatch(/max-width:\s*25em\s*;/);
-    // One line above 768px whatever the fallback font's metrics; free wrapping inside the 768px block.
-    expect(ghostRule).toMatch(/white-space:\s*nowrap\s*;/);
-    // Mono's default sentence wraps to two lines at 1280, so the ghost must wrap there (a nowrap ghost shifted 30px).
-    expect(findRuleBody(css, ':root[data-type-style="mono"] .home-opening__ghost')).toMatch(
-      /white-space:\s*normal\s*;/,
-    );
+    // Nowrap above 768px comes from a theme token (Mono overrides it in theme.css), never a type-style selector here.
+    expect(ghostRule).toMatch(/white-space:\s*var\(--heading-sentence-wrap\)\s*;/);
+    expect(css).not.toMatch(/data-type-style/);
     expect(findRuleBody(findMediaBlock(css, "max-width: 768px"), ".home-opening__ghost")).toMatch(
       /white-space:\s*normal\s*;/,
     );

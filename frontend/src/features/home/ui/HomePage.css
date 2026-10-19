@@ -55,13 +55,10 @@
    * keeps 40ch, so a settled sentence is exactly as on base (HEL-1665). */
   max-width: 25em;
   /* Above 768px the default sentence is one line with the web font in Sans and Serif, so a fallback font's metrics
-   * must not wrap the hidden copy. At 768px and below it wraps freely (two lines up to 604px), and under the Mono
-   * type style it is two lines at 1280, so the ghost wraps normally there too (see the Mono rule below). */
-  white-space: nowrap;
-}
-
-:root[data-type-style="mono"] .home-opening__ghost {
-  white-space: normal;
+   * must not wrap the hidden copy; the Mono type style, where it is two lines, sets the token to normal in theme.css
+   * (DESIGN.md: a type style is a token override, never a component branch). At 768px and below it wraps freely
+   * (two lines up to 604px). */
+  white-space: var(--heading-sentence-wrap);
 }
 
 .home-opening__loading .home-opening__skeleton-line {

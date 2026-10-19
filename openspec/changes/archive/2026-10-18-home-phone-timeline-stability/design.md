@@ -164,8 +164,9 @@ sentence. No measured HEL-1665 guarantee changes.
 
 The cycle-6 `white-space: nowrap` on the ghost above 768px assumed a one-line default sentence there. Under the Mono type
 style it is two lines at 1280, so the nowrap ghost was one line and the timeline moved 30px with fonts already loaded
-(measured on e1b5c1046; red e2e `Home load (mono 1280x900 ...)`). The ghost now wraps normally under
-`:root[data-type-style="mono"]`. Measured after the fix, held load, fonts loaded (px spread of runs card top / content
+(measured on e1b5c1046; red e2e `Home load (mono 1280x900 ...)`). The ghost now reads `white-space: var(--heading-sentence-wrap)`;
+theme.css defaults the token to `nowrap` and the existing Mono block sets it to `normal` (DESIGN.md: a type style is a
+token override, never a component branch; no type-style selector remains in Home CSS). Measured after the fix, held load, fonts loaded (px spread of runs card top / content
 start / shelf top): Mono 1280 (two lines) 0/0/0, Mono 375x667 (three lines) 0/0/0, Serif 1280 (one line) 0/0/0, Serif
 375x667 (two lines) 0/0/0. Sans, Serif and Mono at the other widths are covered by the line-count parity of the ghost
 being the default sentence itself.

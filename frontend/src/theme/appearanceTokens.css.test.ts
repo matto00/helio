@@ -71,9 +71,19 @@ describe("type-style tokens (font tokens only)", () => {
     expect(body.trim()).toBe("--font-heading: var(--font-display);");
   });
 
-  it("Mono rebinds the sans face to mono for the whole UI, and nothing else", () => {
+  it("Mono rebinds the sans face to mono for the whole UI, plus the sentence-wrap token, and nothing else", () => {
     const body = rule(':root[data-type-style="mono"]');
-    expect(body.trim()).toBe("--font-sans: var(--font-mono);");
+    expect(
+      body
+        .trim()
+        .split(/\s*;\s*/)
+        .filter(Boolean),
+    ).toEqual(["--font-sans: var(--font-mono)", "--heading-sentence-wrap: normal"]);
+  });
+
+  it("the sentence-wrap token defaults to nowrap, and only Mono overrides it (HEL-1665)", () => {
+    expect(decl(rule(":root"), "--heading-sentence-wrap")).toBe("nowrap");
+    expect(rule(':root[data-type-style="serif"]')).not.toMatch(/--heading-sentence-wrap/);
   });
 
   it("raw face tokens are declared once and are never rebound by a style", () => {
