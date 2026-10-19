@@ -177,7 +177,8 @@ desktop width, in light and dark themes, in either order in which the dashboards
 for a user with dashboards, pipelines and the default opening sentence ("All quiet: …"): the shelf heading SHALL be the same height in
 every state, the shelf's skeleton cards SHALL be the same height as the loaded cards, the timeline card's heading SHALL
 show the status legend while loading, and the opening line's placeholder SHALL be the default opening sentence itself, hidden, so it is the height of that
-sentence at every width. When the loaded opening sentence has a different number
+sentence at every width and under every type style (under Mono the default sentence is two lines at 1280
+and the placeholder wraps likewise; measured 0px in Sans, Serif and Mono at 375×667 and 1280×900). When the loaded opening sentence has a different number
 of lines from the default at that width, the timeline MAY move by the
 height of the line difference only; when the loaded summary has no pipelines, the legend MAY disappear. Every Home
 section-head link SHALL keep a touch target of at least 44×44px on a coarse pointer or at ≤768px, without growing its

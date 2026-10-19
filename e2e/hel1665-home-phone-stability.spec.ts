@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 
 import { expect, test, type Page } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
+import { assertTypeStyleActive, seedTypeStyle, type TypeStyle } from "./support/typeStyle";
 import { bisectHitExtent, measureBox } from "./support/touchTargetProbe";
 import {
   framesWithRunsCard,
@@ -459,5 +460,50 @@ for (const theme of ["light", "dark"] as const) {
     // Environment-independent: the settled cap is whatever 40ch resolves to in this font, as on base.
     expect(m.settledMax).toBe(m.ch40);
     expect(m.lines).toBe(2);
+  });
+}
+
+// Type styles change the default sentence's wrap (Mono: two lines at 1280), so the hidden placeholder, which is the
+// default sentence itself, must wrap like the real one under every style. Held load, fonts loaded, 0px series.
+const STYLE_CASES: { style: TypeStyle; width: number; height: number; asserted: boolean }[] = [
+  { style: "mono", width: 1280, height: 900, asserted: true },
+  { style: "mono", width: 375, height: 667, asserted: true },
+  { style: "serif", width: 1280, height: 900, asserted: true },
+  { style: "serif", width: 375, height: 667, asserted: true },
+];
+for (const { style, width, height, asserted } of STYLE_CASES) {
+  test(`Home load (${style} ${width}x${height} light dashboards-first): the timeline and the shelf do not move${asserted ? "" : " (measured only)"}`, async ({
+    page,
+    request,
+  }) => {
+    await setup(page, "light", { width, height });
+    await seedHome(page, request, `${style}${width}`);
+    await seedTypeStyle(page.request, style);
+    const { samples, start } = await loadHome(page, "dashboards-first");
+    await assertTypeStyleActive(page, style);
+    const frames = samples.slice(start);
+    const settled = lastSettled(frames);
+    const lineHeight = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.querySelector(".home-opening__sentence")!).lineHeight),
+    );
+    const result = {
+      style,
+      width,
+      height,
+      settledSentenceLines: Math.round(settled.sentenceH! / lineHeight),
+      runsTopSpread: spread(frames.map((s) => s.runsTop)),
+      contentTopSpread: spread(frames.map((s) => s.contentTop)),
+      shelfTopSpread: spread(frames.map((s) => s.shelfTop)),
+      openingHeightSpread: spread(frames.map((s) => s.openingH)),
+    };
+    console.log(`HEL1665-STYLE ${JSON.stringify(result)}`);
+    writeFileSync(
+      evidencePath("HEL-1665", `style-${style}-${width}x${height}.json`),
+      JSON.stringify(result, null, 2),
+    );
+    if (!asserted) return;
+    expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+    expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+    expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
   });
 }
