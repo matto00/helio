@@ -114,7 +114,7 @@ const NSF = 'sql" AND node_step_id IS NULL"';
 export const KNOWN_EXEMPTIONS = [
   {
     file: NODE_SNAPSHOT_REPO,
-    scope: "overwriteRowsAction",
+    scope: "overwriteRowsActionRendering",
     arm: ARM,
     text: 'sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id IS NULL"',
     count: 1,
