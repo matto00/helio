@@ -1291,6 +1291,26 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   the consumer flips `open`. Following the finger is direct manipulation and
   works at every Motion level. Consumers: the phone pipeline step editor;
   HEL-1584's split and the mobile nav sheet (HEL-565) can adopt it.
+- **Pull to refresh (phone dashboard, HEL-1656).** `usePullToRefresh`
+  (`shared/motion`) is the gesture for a **scrolling** surface, where the sheet's
+  pointer capture cannot work (the browser claims the touch for panning and
+  cancels the pointer stream). It listens to **touch events** on `.app-content`,
+  decides after 6px of travel, and engages only for a single-finger,
+  downward, vertical-dominant drag that began with the scroller at scrollTop 0
+  and outside any nested scroller scrolled away from its own top; it never
+  starts on a form control, and only an engaged `touchmove` is
+  `preventDefault`ed. It shares the velocity window (`dragVelocity`) and the
+  token-timed settle (`settleOffset`) with the sheet. Under Full the stack follows
+  the finger damped by half (capped at 112px; release past 64px, or a flick from
+  48px, refreshes) and settles over `--motion-duration-move`; under Subtle, Off
+  and OS reduced motion **nothing translates**: a small indicator pill snaps
+  between "Pull to refresh", "Release to refresh" and "Refreshing". The
+  Full-motion indicator is clipped at the stack's rest top edge so it never draws over
+  the content above. While the gesture is attached (phone viewport, stack mounted)
+  `.app-content` carries `overscroll-behavior-y: contain` so the browser's own
+  pull-to-refresh never fires alongside; no other page or width gets it. The
+  refresh calls each output-bound panel's existing `refresh` once (its in-flight
+  guard still applies) and never runs a pipeline.
 - **Pop.** A small overshoot (`--motion-ease-overshoot`) on a confirmed action
   or an added item: the "give". Full only. No primitive yet.
 - **Changed-row flash.** See §11; it is the one motion that survives Subtle.
@@ -1431,6 +1451,8 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   defect this replaces. **[mechanical]**
 - **Dashboard chips.** The dashboard switcher on a phone is a row of chips, not
   the desktop context list. **[judgment]**
+- **Pull to refresh (HEL-1656).** The phone dashboard refreshes by pulling down
+  from the top; the mechanics and motion levels are in §10. **[judgment]**
 - **Pipeline detail (HEL-1582).** At or below 768px `/pipelines/:id` is a compact header (back, mono
   name on one truncated line, one status line, actions menu), **Steps / Preview / Runs** tabs (ARIA tabs, an
   accent indicator that slides on `--motion-duration-move`), and a scrolling body of the spine pieces as a touch

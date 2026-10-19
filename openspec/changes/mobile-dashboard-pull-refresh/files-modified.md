@@ -1,0 +1,16 @@
+- `frontend/src/shared/motion/dragVelocity.ts` (+test) — velocity window + `velocityOf` extracted from useSheetSwipe
+- `frontend/src/shared/motion/useSheetSwipe.ts` — uses dragVelocity (behaviour-preserving)
+- `frontend/src/shared/motion/sheetMotion.ts` — exports `afterTransition` and `settleOffset`; `settleSheet` delegates
+- `frontend/src/shared/motion/usePullToRefresh.ts` (+test) — touch-event pull gesture hook
+- `frontend/src/shared/motion/motionPrimitiveLiterals.test.ts` — registers the two new shared/motion files
+- `frontend/src/features/panels/ui/grid/pullRefreshRegistry.ts` (+test) — fan-out registry, busy tracking, safety ceiling
+- `frontend/src/features/panels/ui/grid/PullRefreshIndicator.tsx` — decorative indicator
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.tsx` (+ `.pullRefresh.test.tsx`) — wrapper, registration, status region, hook wiring
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — scoped containment, clip, settle transition, indicator styles
+- `e2e/hel1656-pull-to-refresh.spec.ts` — CDP touch e2e at 375/390/430
+- `DESIGN.md` — §10 and §12 entries
+- `openspec/changes/mobile-dashboard-pull-refresh/` — spec wording fix, tasks ticked
+- `frontend/src/shared/motion/dragVelocity.test.ts`
+- `frontend/src/shared/motion/usePullToRefresh.test.tsx`
+- `frontend/src/features/panels/ui/grid/pullRefreshRegistry.test.ts`
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.pullRefresh.test.tsx`

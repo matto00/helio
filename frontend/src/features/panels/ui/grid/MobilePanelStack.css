@@ -181,3 +181,78 @@
     padding-inline: 0;
   }
 }
+
+/* HEL-1656 pull-to-refresh (DESIGN.md §10). `.app-content` is marked `data-pull-refresh` by the gesture hook only while
+   it is attached (the authenticated phone dashboard below 769px), so overscroll is contained there and nowhere else:
+   the browser's own pull-to-refresh and glow never fire alongside the pull. Home, other pages and desktop widths keep
+   the default. */
+@media (max-width: 768px) {
+  .app-content[data-pull-refresh] {
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* While a pull is engaged or held, clip at the stack's REST top edge (sides and bottom stay open for the translated
+   cards). The Full-motion indicator rides just above the stack and is revealed by the translate; without the clip it
+   would draw over whatever sits above the stack (the refreshed line, the chip row) early in the pull. */
+.mobile-panel-pull[data-pull-active] {
+  clip-path: inset(0 -100vmax -100vmax -100vmax);
+}
+
+/* The settle back to rest or to the held position; the duration and easing are the §10 move tokens. */
+.mobile-panel-stack {
+  /* Set inline by the gesture hook while a pull is engaged; declared so the var guard sees a default. */
+  --pull-progress: 0;
+}
+
+.mobile-panel-stack[data-pull-settling] {
+  transition: transform var(--motion-duration-move) var(--motion-ease-out);
+}
+
+/* The indicator's containing block, only while one is rendered (the stack is otherwise untouched). */
+.mobile-panel-stack:has(> .pull-refresh-indicator) {
+  position: relative;
+}
+
+.pull-refresh-indicator {
+  /* Must equal `PULL_HOLD_PX` in shared/motion/usePullToRefresh.ts (the held height). */
+  --pull-indicator-height: 48px;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--app-text-muted);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+/* Full motion: sits directly above the stack and rides in with it. */
+.pull-refresh-indicator--follow {
+  inset-inline: 0;
+  bottom: 100%;
+  height: var(--pull-indicator-height);
+}
+
+.pull-refresh-indicator--follow .pull-refresh-indicator__arrow {
+  transform: rotate(calc(var(--pull-progress) * 180deg));
+}
+
+/* Subtle / Off / reduced motion: a compact pill centred on the first card's top edge (no layout shift, no transform;
+   never clipped, since the wrapper clip applies only under Full). Placement, measured at 375 and 430: the gap between
+   the chip row's controls and the first card is about 14px, too small for the pill, so it straddles the card edge:
+   its top sits 8px into the gap (clear of the chips), its bottom a few px inside the card, above the title text
+   (the card's own padding leaves the title lower) and centred, clear of the title's left edge and the info button. */
+.pull-refresh-indicator--snap {
+  inset-inline: 0;
+  top: calc(-1 * var(--space-2));
+  z-index: 1;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--app-border-strong);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-card);
+  font-size: var(--text-xs);
+}

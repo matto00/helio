@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
 
+import { pushDragSample, velocityOf, type DragSample } from "./dragVelocity";
 import { clearSheetMotion, settleSheet } from "./sheetMotion";
 
 /** Release past this fraction of the sheet's height requests a close. */
 export const SHEET_DISMISS_DISTANCE = 0.25;
 /** Release faster than this many px/ms (downward) requests a close. */
 export const SHEET_DISMISS_VELOCITY = 0.5;
-/** Velocity is measured over the last this-many ms of the drag. */
-const VELOCITY_WINDOW_MS = 100;
 
 /** Controls that must keep their own taps and focus: a drag never starts on one. */
 const INTERACTIVE = 'button, a, input, select, textarea, [role="button"], [contenteditable="true"]';
@@ -15,16 +14,11 @@ const INTERACTIVE = 'button, a, input, select, textarea, [role="button"], [conte
 /** The sheet's own drag surfaces: the Modal header (which carries the grab handle). The body is never one. */
 export const SHEET_SURFACE_SELECTOR = ".ui-modal__header";
 
-interface Sample {
-  t: number;
-  y: number;
-}
-
 interface Drag {
   pointerId: number;
   startY: number;
   surface: HTMLElement;
-  samples: Sample[];
+  samples: DragSample[];
   dy: number;
 }
 
@@ -74,20 +68,9 @@ export function useSheetSwipe({ sheet, onDismiss }: UseSheetSwipeOptions): void 
     function onPointerMove(event: PointerEvent) {
       if (drag === null || event.pointerId !== drag.pointerId) return;
       drag.dy = Math.max(0, event.clientY - drag.startY);
-      const now = performance.now();
-      drag.samples.push({ t: now, y: event.clientY });
-      while (drag.samples.length > 2 && now - drag.samples[0].t > VELOCITY_WINDOW_MS) {
-        drag.samples.shift();
-      }
+      pushDragSample(drag.samples, { t: performance.now(), y: event.clientY });
       if (drag.dy > 0) target.style.transform = `translateY(${drag.dy}px)`;
       else target.style.removeProperty("transform");
-    }
-
-    function velocityOf(d: Drag): number {
-      const first = d.samples[0];
-      const last = d.samples[d.samples.length - 1];
-      const dt = last.t - first.t;
-      return dt > 0 ? (last.y - first.y) / dt : 0;
     }
 
     function end(event: PointerEvent, cancelled: boolean) {
@@ -103,7 +86,7 @@ export function useSheetSwipe({ sheet, onDismiss }: UseSheetSwipeOptions): void 
         !cancelled &&
         finished.dy > 0 &&
         (finished.dy > SHEET_DISMISS_DISTANCE * height ||
-          velocityOf(finished) > SHEET_DISMISS_VELOCITY);
+          velocityOf(finished.samples) > SHEET_DISMISS_VELOCITY);
       if (past && onDismissRef.current(finished.dy)) return;
       if (finished.dy > 0) settleSheet(target, 0, true);
       else clearSheetMotion(target);
