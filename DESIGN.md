@@ -1116,7 +1116,11 @@ DESIGN.md edit".
   On a coarse pointer (any width) or the phone shell the timeline becomes one
   disclosure row per pipeline (>=44px) that expands to a list of runs (§3's
   touch gate). On phones (<=430px) the shelf stays two columns so the timeline
-  starts in the first viewport (HEL-1642). **[judgment]**
+  starts in the first viewport (HEL-1642). Home does not move while it loads
+  (HEL-1665): section-head links take §3's sized expander rather than a 44px
+  box, the shelf head holds the "All N" link's line before the list arrives,
+  skeleton cards and the opening placeholder match the loaded sizes, and the
+  runs head shows its legend while loading. **[judgment]**
 - **Accent discipline in the shell.** The accent appears on the active rail
   item, the active tab indicator, the single primary action and focus — and
   nothing else (§0). A view with five accent-coloured secondary controls is the

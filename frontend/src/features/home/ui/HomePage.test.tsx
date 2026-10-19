@@ -120,6 +120,27 @@ describe("HomePage", () => {
     expect(screen.getByRole("status", { name: "Loading summary" })).toBeInTheDocument();
   });
 
+  it("keeps the runs head and the shelf head the same while loading (HEL-1665)", () => {
+    fetchMock.mockReturnValue(new Promise(() => {}));
+    const { container } = renderHome(<HomePage />, { dashboards: [], dashboardsStatus: "loading" });
+    // The legend is in the runs head before the summary arrives, so the head does not change height when it does.
+    expect(screen.getByRole("list", { name: "Legend" })).toBeInTheDocument();
+    // The shelf head holds the All N link's line (hidden, not a link) until the list arrives.
+    expect(screen.queryByRole("link", { name: /All/ })).not.toBeInTheDocument();
+    expect(container.querySelector(".home-section__link-slot")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    // The placeholder holds the default sentence, hidden from assistive tech, under the skeleton bar.
+    const status = screen.getByRole("status", { name: "Loading summary" });
+    expect(status.querySelector(".home-opening__skeleton-line")).not.toBeNull();
+    const ghost = status.querySelector(".home-opening__ghost");
+    expect(ghost).toHaveAttribute("aria-hidden", "true");
+    // Nothing selecting the real sentence may match the placeholder (HEL-1572's no-flash probe reads it by class).
+    expect(container.querySelector(".home-opening__sentence")).toBeNull();
+    expect(ghost).toHaveTextContent("All quiet: nothing has changed, failed or been missed.");
+  });
+
   it("never claims nothing needs attention or nothing is scheduled while the summary is pending", () => {
     fetchMock.mockReturnValue(new Promise(() => {}));
     renderHome(<HomePage />, { dashboards });
@@ -152,8 +173,11 @@ describe("HomePage", () => {
     it("sees the first-run drop zone and the three empty states with no error", async () => {
       fetchMock.mockResolvedValue(summary());
       renderHome(<HomePage />, { dashboards: [] });
+      await waitFor(() =>
+        expect(screen.queryByRole("status", { name: "Loading summary" })).not.toBeInTheDocument(),
+      );
       expect(
-        await screen.findByText("All quiet: nothing has changed, failed or been missed."),
+        screen.getByText("All quiet: nothing has changed, failed or been missed."),
       ).toBeInTheDocument();
       expect(screen.getByText("Drop zone")).toBeInTheDocument();
       expect(screen.getByText("No pipeline runs yet")).toBeInTheDocument();

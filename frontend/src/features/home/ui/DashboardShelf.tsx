@@ -38,7 +38,13 @@ export function DashboardShelf({
           <Link to="/dashboards" className="home-section__link">
             All {dashboards.length} <span aria-hidden="true">→</span>
           </Link>
-        ) : null}
+        ) : (
+          // Reserves the link's line so the heading is the same height before the list arrives (HEL-1665). It holds the
+          // link's own glyphs (hidden), so a fallback font's arrow metrics match the real link's.
+          <span className="home-section__link-slot" aria-hidden="true">
+            All 0 <span aria-hidden="true">→</span>
+          </span>
+        )}
       </div>
       {empty ? (
         <FirstRunDropZone onStepByStep={onStepByStep} />
@@ -47,7 +53,13 @@ export function DashboardShelf({
           {[0, 1, 2, 3].map((index) => (
             <div key={index} className="home-card home-card--skeleton">
               <Skeleton variant="block" className="home-thumb-skeleton" />
-              <Skeleton variant="line" width="60%" />
+              <span className="home-card__foot" aria-hidden="true">
+                <span className="home-card__name home-card__name--skeleton">
+                  &nbsp;
+                  <Skeleton variant="line" width="60%" />
+                </span>
+                <span className="home-card__time mono">&nbsp;</span>
+              </span>
             </div>
           ))}
         </div>

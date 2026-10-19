@@ -24,6 +24,8 @@ export function PipelineRunsCard({ summary, status, error, now, onRetry }: Pipel
   const coarse = useCoarsePointer();
   const phone = useIsPhoneShell();
   const more = summary === null ? 0 : summary.pipelinesWithActivity - summary.pipelines.length;
+  // The legend shows while the summary loads too, so the head does not change height when it arrives (HEL-1665).
+  const showLegend = summary === null ? status !== "failed" : summary.pipelines.length > 0;
 
   return (
     <section className="home-card-panel home-runs" aria-labelledby="home-runs-heading">
@@ -31,7 +33,7 @@ export function PipelineRunsCard({ summary, status, error, now, onRetry }: Pipel
         <h2 id="home-runs-heading" className="eyebrow home-section__title">
           Pipeline runs · last 24h
         </h2>
-        {summary !== null && summary.pipelines.length > 0 ? <TimelineLegend /> : null}
+        {showLegend ? <TimelineLegend /> : null}
       </div>
       {summary === null && status !== "failed" ? (
         <div role="status" aria-label="Loading pipeline runs" className="home-runs__skeleton">
