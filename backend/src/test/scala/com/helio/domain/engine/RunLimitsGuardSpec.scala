@@ -61,7 +61,7 @@ class RunLimitsGuardSpec extends AnyWordSpec with Matchers {
       cost(16, Seq(11, 11, 11)) should be > cost(16, Seq(11))
     }
 
-    "hold the post-walk limit at or under the measured ceiling (design.md Measured Budget)" in {
+    "trip when the post-walk limit is raised past the measured ceiling (a tripwire on the constant, not a proof of memory)" in {
       RunLimits.MaxPostWalkCells should be <= 3900000L
     }
   }

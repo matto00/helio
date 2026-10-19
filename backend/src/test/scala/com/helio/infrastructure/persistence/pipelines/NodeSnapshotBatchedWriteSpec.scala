@@ -33,4 +33,34 @@ class NodeSnapshotBatchedWriteSpec extends AnyWordSpec with Matchers with RunSer
       }
     }
   }
+
+  "the snapshot write's rendering" should {
+    // A trigger bumps a (non-transactional) sequence per inserted row, so a render callback can read, from another connection, how many rows
+    // the open transaction has inserted so far. Eager rendering renders every row before the first insert; lazy batches never get
+    // more than one batch ahead.
+    "never render more than one batch ahead of the inserts (450 rows)" in {
+      import slick.jdbc.PostgresProfile.api._
+      val bumpFunction = "CREATE OR REPLACE FUNCTION snapshot_probe_bump() RETURNS trigger AS $body$ BEGIN PERFORM nextval('snapshot_probe_seq'); RETURN NEW; END $body$ LANGUAGE plpgsql"
+      awaitDb(db.run(DBIO.seq(
+        sqlu"CREATE SEQUENCE IF NOT EXISTS snapshot_probe_seq",
+        sqlu"#$bumpFunction",
+        sqlu"DROP TRIGGER IF EXISTS snapshot_probe ON node_snapshots",
+        sqlu"CREATE TRIGGER snapshot_probe AFTER INSERT ON node_snapshots FOR EACH ROW EXECUTE FUNCTION snapshot_probe_bump()",
+        sql"SELECT setval('snapshot_probe_seq', 1, false)".as[Long].map(_ => ())
+      )))
+      def inserted: Int = awaitDb(db.run(sql"SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM snapshot_probe_seq".as[Int].head))
+      val pid  = seedPipeline(seedCsvSource(1, 1, (_, _) => "x"))
+      val step = addStep(pid, ComputeStep.Kind, ComputeConfig("c", "1", None))
+      var rendered = 0
+      var maxAhead = 0
+      val action = repo.overwriteRowsActionRendering(pid.value, Some(step.id.value), rows(450, "ahead"), None, None, { row =>
+        rendered += 1
+        maxAhead = math.max(maxAhead, rendered - inserted)
+        row.compactPrint
+      })
+      awaitDb(new DbContext(db, db).withSystemContext(action))
+      rendered shouldBe 450
+      withClue(s"rows rendered but not yet inserted, at most: $maxAhead; ")(maxAhead should be <= repo.SnapshotInsertBatchSize)
+    }
+  }
 }

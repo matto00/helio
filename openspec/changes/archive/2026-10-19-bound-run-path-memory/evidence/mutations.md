@@ -60,3 +60,5 @@
 - `postwalk-limit-unbounded`: `MaxPostWalkCells = 3900000L` -> `Long.MaxValue`; `postwalk-check-not-called`: `if (!isDry) refuseOverPostWalkBudget(` -> `if (false) refuseOverPostWalkBudget(`; `postwalk-drop-json-copies`: `held + cost(terminalRows) + others...max` -> `held`
 - `snapshot-write-unbatched` (backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala): RED -- 1 failing: should build at most 200 rows' JSON text per batch
 - `snapshot-write-unbatched`: `SnapshotInsertBatchSize = 200` -> `100000`
+- `snapshot-write-eager` (backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/NodeSnapshotRepository.scala): RED -- 1 failing: should never render more than one batch ahead of the inserts (450 rows)
+- `snapshot-write-eager`: `acc.andThen(DBIO.successful(()).flatMap(_ => insertBatch(batch)))` -> `acc.andThen(insertBatch(batch))` (red = the new "never render more than one batch ahead" spec; code restored)
