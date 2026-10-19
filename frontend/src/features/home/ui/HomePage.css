@@ -23,15 +23,46 @@
   color: var(--app-text-muted);
 }
 
+/* The real sentence's measure. The hidden placeholder (`.home-opening__ghost`) is a separate class so nothing that
+ * selects the sentence (tests, `querySelector`) can land on the placeholder (HEL-1665). */
 .home-opening__sentence {
-  margin: 0;
   max-width: 40ch;
+}
+
+.home-opening__sentence,
+.home-opening__ghost {
+  margin: 0;
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
   font-weight: var(--weight-regular);
   line-height: 1.25;
   color: var(--app-text);
   letter-spacing: -0.01em;
+}
+
+/* The loading placeholder holds the default sentence (hidden), so it is as tall as it at every width and the timeline
+ * does not move when it resolves (HEL-1665); the skeleton bar is laid over it. */
+.home-opening__loading {
+  position: relative;
+}
+
+.home-opening__ghost {
+  visibility: hidden;
+  /* Only the placeholder takes an em cap: `ch` follows the rendered font, so in the fallback font 40ch is narrower
+   * than the default sentence and the hidden ghost would wrap a line early before the web font arrives (a cold-load
+   * swap). 25em (600px at 24px) holds the fallback-font default sentence, and once the web font loads the default
+   * sentence is narrower than both caps, so the ghost and the real sentence break identically. The real sentence
+   * keeps 40ch, so a settled sentence is exactly as on base (HEL-1665). */
+  max-width: 25em;
+}
+
+.home-opening__loading .home-opening__skeleton-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: min(520px, 80%);
+  height: var(--text-xl);
+  transform: translateY(-50%);
 }
 
 .home-opening__danger {
@@ -66,6 +97,12 @@
 
 .home-section__link:hover {
   color: var(--app-text);
+}
+
+/* Holds the "All N" link's line while the list loads, so the shelf heading is one height in every state (HEL-1665). */
+.home-section__link-slot {
+  font-size: var(--text-sm);
+  visibility: hidden;
 }
 
 .home-note {
@@ -125,6 +162,19 @@ a.home-card:hover {
   gap: var(--space-2);
   min-width: 0;
   padding: 0 var(--space-1);
+}
+
+/* The skeleton foot is the loaded foot's own boxes (a hidden text line each) with the bar laid over the name's, so a
+ * skeleton card is exactly as tall as a loaded one (HEL-1665). */
+.home-card__name--skeleton {
+  position: relative;
+}
+
+.home-card__name--skeleton .ui-skeleton {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
 }
 
 .home-card__name {
@@ -733,7 +783,8 @@ a.home-card:hover {
 }
 
 @media (max-width: 430px) {
-  .home-opening__sentence {
+  .home-opening__sentence,
+  .home-opening__ghost {
     font-size: var(--text-xl);
   }
 }
@@ -754,14 +805,25 @@ a.home-card:hover {
     gap: var(--space-5);
   }
 
-  .home-section__link,
-  .home-upnext__row {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
+  /* A section-head text link is a compact painted control, not a full-width row: it takes the sized expander so
+   * the heading does not grow to 44px when it mounts (HEL-1665). */
+  .home-section__link {
+    position: relative;
+  }
+
+  .home-section__link::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 
   .home-upnext__row {
     display: flex;
+    min-height: 44px;
+    align-items: center;
   }
 }

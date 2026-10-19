@@ -68,6 +68,52 @@ describe("DashboardShelf", () => {
   });
 });
 
+describe("DashboardShelf loading skeleton (HEL-1665)", () => {
+  it("builds each skeleton card from the loaded card's own foot boxes, with a hidden text line each", () => {
+    const { container } = renderHome(
+      <DashboardShelf
+        dashboards={[]}
+        status="loading"
+        changedIds={new Set()}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    const cards = container.querySelectorAll(".home-card--skeleton");
+    expect(cards).toHaveLength(4);
+    for (const card of Array.from(cards)) {
+      expect(card.querySelector(".home-card__foot .home-card__name")).not.toBeNull();
+      expect(card.querySelector(".home-card__foot .home-card__time")).not.toBeNull();
+    }
+  });
+
+  it("holds the link's line with a hidden slot while loading, and renders no slot once the link is there", () => {
+    const loading = renderHome(
+      <DashboardShelf
+        dashboards={[]}
+        status="loading"
+        changedIds={new Set()}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(loading.container.querySelector(".home-section__link-slot")).not.toBeNull();
+    expect(screen.queryByRole("link", { name: /All/ })).not.toBeInTheDocument();
+    loading.unmount();
+    const loaded = renderHome(
+      <DashboardShelf
+        dashboards={[dashboard("a", "Dash a", new Date(NOW).toISOString())]}
+        status="succeeded"
+        changedIds={new Set()}
+        now={NOW}
+        onStepByStep={jest.fn()}
+      />,
+    );
+    expect(loaded.container.querySelector(".home-section__link-slot")).toBeNull();
+    expect(screen.getByRole("link", { name: /All 1/ })).toBeInTheDocument();
+  });
+});
+
 describe("LayoutThumbnail", () => {
   it("draws one box per panel in the saved large layout, at relative positions", () => {
     const layout = {
