@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
@@ -182,32 +183,43 @@ interface RenderAppOptions {
   sources?: Partial<ReturnType<typeof sourcesReducer>>;
   panels?: Partial<ReturnType<typeof panelsReducer>>;
   dashboards?: Partial<ReturnType<typeof dashboardsReducer>>;
+  /** HEL-1620 — start with the session unresolved (`idle`), as a real page load does. */
+  idleAuth?: boolean;
+  /** HEL-1620 — wrap in `React.StrictMode`, as `main.tsx` does (dev double-invokes mount effects). */
+  strictMode?: boolean;
 }
 
 function renderApp(options: RenderAppOptions = {}) {
   const { initialPath = "/dashboards", authenticated = true } = options;
 
   const preloadedState = {
-    auth: authenticated
+    auth: options.idleAuth
       ? {
-          currentUser: {
-            id: "test-user",
-            email: "test@example.com",
-            displayName: null,
-            avatarUrl: null,
-            createdAt: "2026-01-01T00:00:00Z",
-            tier: "owner" as const,
-          },
-          status: "authenticated" as const,
+          currentUser: null,
+          status: "idle" as const,
           submitStatus: "idle" as const,
           mfaChallenge: null,
         }
-      : {
-          currentUser: null,
-          status: "unauthenticated" as const,
-          submitStatus: "idle" as const,
-          mfaChallenge: null,
-        },
+      : authenticated
+        ? {
+            currentUser: {
+              id: "test-user",
+              email: "test@example.com",
+              displayName: null,
+              avatarUrl: null,
+              createdAt: "2026-01-01T00:00:00Z",
+              tier: "owner" as const,
+            },
+            status: "authenticated" as const,
+            submitStatus: "idle" as const,
+            mfaChallenge: null,
+          }
+        : {
+            currentUser: null,
+            status: "unauthenticated" as const,
+            submitStatus: "idle" as const,
+            mfaChallenge: null,
+          },
     // Always fully materialized (default slice state merged with the caller's overrides) rather
     // than conditionally spread: a conditional spread's inferred type includes the "key absent"
     // branch, which `configureStore`'s `preloadedState` can't reconcile against a reducer whose
@@ -241,20 +253,18 @@ function renderApp(options: RenderAppOptions = {}) {
     preloadedState,
   });
 
-  return {
-    store,
-    ...render(
-      <MemoryRouter initialEntries={[initialPath]}>
-        <ThemeProvider>
-          <Provider store={store}>
-            <OverlayProvider>
-              <App />
-            </OverlayProvider>
-          </Provider>
-        </ThemeProvider>
-      </MemoryRouter>,
-    ),
-  };
+  const tree = (
+    <MemoryRouter initialEntries={[initialPath]}>
+      <ThemeProvider>
+        <Provider store={store}>
+          <OverlayProvider>
+            <App />
+          </OverlayProvider>
+        </Provider>
+      </ThemeProvider>
+    </MemoryRouter>
+  );
+  return { store, ...render(options.strictMode ? <StrictMode>{tree}</StrictMode> : tree) };
 }
 
 describe("App", () => {
@@ -277,6 +287,17 @@ describe("App", () => {
     HTMLDialogElement.prototype.close = jest.fn(function () {
       this.removeAttribute("open");
     });
+  });
+
+  // HEL-1620: StrictMode (dev build) runs App's mount effect twice with the same stale `idle` closure,
+  // so the status gate alone issued two identical GET /api/auth/me per full page load.
+  it("issues exactly one session rehydrate (GET /api/auth/me) per mount under StrictMode", async () => {
+    getMeRequestMock.mockClear();
+    fetchDashboardsMock.mockResolvedValue([]);
+    getPipelinesMock.mockResolvedValue([]);
+    renderApp({ idleAuth: true, strictMode: true, initialPath: "/dashboards" });
+    await waitFor(() => expect(getMeRequestMock).toHaveBeenCalled());
+    expect(getMeRequestMock).toHaveBeenCalledTimes(1);
   });
 
   it("auto-selects the most recently updated dashboard and loads its panels", async () => {

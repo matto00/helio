@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { resolveStepParam } from "../state/resolveStepParam";
 import type { LaneGraph } from "../state/stepTree";
 import type { Step } from "../types/step";
 
@@ -83,13 +84,7 @@ export function useStepSelection(args: {
   const { addedStepId: lastAdded, change: seen } = useAddedStepId(steps, stepsLoaded);
 
   const defaultId = defaultSelectedStepId(laneGraph, firstRootId);
-  // A created step keeps its temp id as its `renderKey` through an AI draft's swap, so a URL still naming that
-  // temp id resolves to the step too.
-  const urlStepId =
-    urlStep === null
-      ? null
-      : ((steps.find((s) => s.id === urlStep) ?? steps.find((s) => s.renderKey === urlStep))?.id ??
-        null);
+  const urlStepId = resolveStepParam(steps, urlStep);
   const selectedStepId = urlStepId ?? lastAdded ?? defaultId ?? null;
 
   const selectStep = useCallback(

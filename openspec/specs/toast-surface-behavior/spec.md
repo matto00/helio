@@ -2,7 +2,9 @@
 
 ## Purpose
 Defines the toast surface's runtime behaviour: a bounded concurrent-toast stack with an eviction exemption for sticky actions, duplicate coalescing, one auto-dismiss default, per-intent live-region announcement, and the token, motion and mobile contract for the card itself.
+
 ## Requirements
+
 ### Requirement: Concurrent toasts are capped with oldest-first eviction
 Toast state SHALL hold at most a fixed maximum number of concurrent toasts, except where the requirement below exempts
 an entry from eviction. When a push would exceed that maximum, the oldest evictable toast SHALL be evicted so that the
@@ -70,6 +72,10 @@ on a live region being created together with its content. The toast viewport SHA
 render. An `error` toast's message SHALL be rendered into the assertive region and every other intent's into the polite
 region. The visible toast element SHALL NOT itself carry a live-region role, so that no message is announced twice.
 Every toast SHALL expose a dismiss control with an accessible name, and SHALL be reachable and operable by keyboard.
+When the viewport moves into or out of an open modal dialog, the live regions at the new location SHALL be connected
+and exposed, empty, before any message is inserted into them; a toast whose message was committed just before the
+modal opened (and so could not be announced) SHALL then be inserted into the new region, and a toast already
+announced SHALL NOT be inserted again.
 
 #### Scenario: Both live regions exist before any toast
 - **WHEN** the toast viewport is rendered with no toasts present
@@ -95,6 +101,12 @@ Every toast SHALL expose a dismiss control with an accessible name, and SHALL be
 #### Scenario: A coalesced repeat does not silently drop its announcement
 - **WHEN** an identical `variant` and `message` is pushed while the earlier one is still present
 - **THEN** the surviving toast's message is still present in its intent's live region
+
+#### Scenario: A toast racing a modal open is announced after its region exists
+- **WHEN** a step delete fails in the phone step sheet, so the sheet reopens and an error toast is pushed in the same update
+- **THEN** the assertive region inside the open sheet is connected, empty, and has no inert or aria-hidden ancestor
+  for at least one completed rendered frame before the error message is inserted into it, and the message is
+  inserted exactly once
 
 ### Requirement: The toast surface follows the design token and motion contract
 The toast surface SHALL be rendered bottom-right on an opaque strong surface token, with its intent accent drawn from
@@ -136,3 +148,14 @@ tap-target floor at those breakpoints.
 - **WHEN** a toast is displayed at a mobile viewport width
 - **THEN** its dismiss control meets the mobile minimum tap-target size
 
+### Requirement: Toasts stay visible above an open modal dialog
+While a modal dialog (including the phone step sheet) is open, a toast SHALL render above it, be dismissable by its
+close control, and still be announced through the toast live regions. Moving into or out of a modal SHALL NOT restart a visible toast's auto-dismiss time or replay its entrance. When
+several modal dialogs are open the toasts
+render in the most recently opened one. Toast controls inside a modal join its keyboard focus cycle; if a focused toast
+is removed, focus moves to the dialog's first focusable element. When no modal is open, toasts render as before.
+
+#### Scenario: Failed delete inside the sheet
+- **WHEN** removing a step from the phone step sheet fails and the sheet reopens
+- **THEN** the error toast is visible above the sheet, its dismiss control is clickable, and its message is in the
+  assertive live region exposed to assistive technology

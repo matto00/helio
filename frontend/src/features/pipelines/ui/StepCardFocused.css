@@ -69,14 +69,18 @@
   cursor: pointer;
 }
 
-.step-focused__action:hover:not(:disabled) {
-  /* The editor is a `--app-surface` card: the surface rung is soft in light, strong in dark (HEL-866). */
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .step-focused__action:hover:not(:disabled) {
+    /* The editor is a `--app-surface` card: the surface rung is soft in light, strong in dark (HEL-866). */
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
-:root[data-theme="dark"] .step-focused__action:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .step-focused__action:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 .step-focused__action:disabled {
@@ -84,9 +88,11 @@
   cursor: not-allowed;
 }
 
-.step-focused__action--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .step-focused__action--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 .step-focused--disabled .step-focused__body {

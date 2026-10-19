@@ -73,11 +73,16 @@ export function SpineLastRunMeta({
     lastRunTruncated === true && lastRunRowCount != null ? " · Partial (row cap reached)" : ""
   }`;
   return (
-    // The text ellipsizes in a narrow header (phone); the full figures stay in the title.
+    // In a narrow header the row-count part drops out whole (never cut); the full figures stay in the title.
     <span className="spine-header__meta" aria-label="Last run metadata" title={full}>
+      {/* The row count is shown whole or not at all; the relative time never shrinks away (HEL-1668). */}
       <span className="spine-header__meta-text">
-        {lastRunRowCount != null && `${lastRunRowCount.toLocaleString()} rows written · `}
-        {formatRelativeTime(lastRunAt)}
+        {lastRunRowCount != null && (
+          <>
+            <span className="spine-header__meta-count">{`${lastRunRowCount.toLocaleString()} rows written ·`}</span>{" "}
+          </>
+        )}
+        <span className="spine-header__meta-time">{formatRelativeTime(lastRunAt)}</span>
       </span>
       {/* HEL-873: icon + text, never colour alone; complete and not-recorded both render nothing. */}
       {lastRunTruncated === true && lastRunRowCount != null && <TruncatedRowCountBadge />}

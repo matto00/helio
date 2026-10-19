@@ -40,9 +40,11 @@
   color: var(--app-text-muted);
 }
 
-.mobile-header__back:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .mobile-header__back:hover {
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .mobile-header__name {
@@ -63,8 +65,10 @@
   font-family: var(--font-mono);
 }
 
-.mobile-header .popover__trigger:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .mobile-header .popover__trigger:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
 .mobile-header__edit {
@@ -126,7 +130,8 @@
 
 .mobile-header__status .spine-header__meta {
   display: inline-flex;
-  flex: 0 1 auto;
+  /* Grows into the run line's free space, so the count shows only when it fits (HEL-1668). */
+  flex: 1 1 auto;
 }
 
 .mobile-header__status .spine-header__chip {
@@ -155,8 +160,10 @@
   clip: auto;
 }
 
-.mobile-header__status .spine-header__chip:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .mobile-header__status .spine-header__chip:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
 /* Secondary text button (Save, Cancel, Discard, Keep editing). */
@@ -177,10 +184,12 @@
   cursor: pointer;
 }
 
-.mobile-btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .mobile-btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .mobile-btn:disabled {
@@ -193,9 +202,11 @@
   color: var(--app-error);
 }
 
-.mobile-btn--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .mobile-btn--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 /* ── Tabs ── */
@@ -221,9 +232,11 @@
   cursor: pointer;
 }
 
-.mobile-tabs__tab:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .mobile-tabs__tab:hover {
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .mobile-tabs__tab--active {
@@ -305,14 +318,18 @@
   border-radius: var(--app-radius-sm);
 }
 
-.pipeline-spine--phone .spine-card__open:hover,
-.pipeline-spine--phone .spine-card__name-btn:hover {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .pipeline-spine--phone .spine-card__open:hover,
+  .pipeline-spine--phone .spine-card__name-btn:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
-:root[data-theme="dark"] .pipeline-spine--phone .spine-card__open:hover,
-:root[data-theme="dark"] .pipeline-spine--phone .spine-card__name-btn:hover {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="dark"] .pipeline-spine--phone .spine-card__open:hover,
+  :root[data-theme="dark"] .pipeline-spine--phone .spine-card__name-btn:hover {
+    background: var(--app-surface-strong);
+  }
 }
 
 .pipeline-spine--phone .spine-card__open {
@@ -360,9 +377,11 @@
   cursor: pointer;
 }
 
-.spine-add-row:hover {
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .spine-add-row:hover {
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .pipeline-spine--phone .spine-actions {
@@ -410,8 +429,10 @@
   cursor: pointer;
 }
 
-.mobile-pill:hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  .mobile-pill:hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
 /* HEL-1669 D2: in light, --app-surface (#fdfcfa) is nearly white, so the white hover rung was only
@@ -422,19 +443,30 @@
   background: var(--app-surface-soft);
 }
 
-:root[data-theme="light"] .mobile-pill:not(.mobile-pill--primary):hover:not(:disabled) {
-  background: var(--app-surface-strong);
+@media (hover: hover) {
+  :root[data-theme="light"] .mobile-pill:not(.mobile-pill--primary):hover:not(:disabled) {
+    background: var(--app-surface-strong);
+  }
 }
 
-.mobile-pill--primary,
-.mobile-pill--primary:hover:not(:disabled) {
+.mobile-pill--primary {
   border-color: transparent;
   background: var(--app-accent);
   color: var(--app-accent-ink);
 }
 
-.mobile-pill--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .mobile-pill--primary:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--app-accent);
+    color: var(--app-accent-ink);
+  }
+}
+
+@media (hover: hover) {
+  .mobile-pill--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .mobile-pill:disabled {
@@ -506,6 +538,15 @@
   /* The rename field is a text field: painted at the 44px floor like every other one (the row is already 44px). */
   .mobile-header .mobile-header__name-input {
     min-height: 44px;
+  }
+}
+
+/* Expander tiling (DESIGN.md §3): the source name button's 44px expander reaches about 12px below its painted box and
+   the sample refresh button's reaches 10px above its own. The kind meta line used to sit between them; a static source
+   no longer shows it (its sample label already says "Static", HEL-1668), so the label takes that clearance itself. */
+@media (max-width: 768px), (pointer: coarse) {
+  .pipeline-spine--phone .spine-card__name-btn + .source-sample-label {
+    margin-top: calc(var(--space-4) + var(--space-1));
   }
 }
 
