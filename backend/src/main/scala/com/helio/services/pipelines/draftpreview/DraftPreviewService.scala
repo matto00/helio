@@ -196,7 +196,8 @@ final class DraftPreviewService(
             onNodeFrame = onFrame,
             onNodeError = Some(onError),
             shouldContinue = () => !cancelled.get(),
-            retainOnly = Some(Set(plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_))))
+            retainOnly = Some(Set(plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_)))),
+            leafFirst = true
           )
           .map(_.nodeOutcomes)
       } catch { case NonFatal(e) => Future.failed(e) }

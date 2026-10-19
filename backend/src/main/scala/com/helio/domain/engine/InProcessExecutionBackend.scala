@@ -32,6 +32,7 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
+      retain: Set[NodeKey],
       onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
       writeBackSink: WriteBackSink = new WriteBackSink,
       ownerUserId: Option[String] = None
@@ -58,7 +59,10 @@ final class InProcessExecutionBackend(engine: InProcessPipelineEngine, stepRepo:
       // is position-ordered by the caller) -- the same tiebreak `TreeWalkResult.rows` uses, so a
       // single-root pipeline's behavior is byte-identical to before this ticket.
       (_, primaryRows, primaryStats) = loaded.head
-      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+      // HEL-1660 (design.md D1): the ONE place the run limits are applied -- every run trigger, the saved preview and backfill come
+      // through here. `runRetention` keeps the trunk terminal and the frames a run holds by another route charged (design.md D3a).
+      result       <- engine.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId,
+                        contextTransform = RunLimits.contextTransform, retainOnly = Some(retain), runRetention = true)
     } yield PipelineExecutionOutcome(result.rows, result.stepCounts, primaryRows.size.toLong, primaryStats, result.nodeOutcomes)
   }
 }

@@ -165,6 +165,7 @@ class PipelineRunGuardIntegrationSpec extends AnyWordSpec with Matchers with Bef
         dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
+        retain: Set[NodeKey],
         onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink,
         ownerUserId: Option[String] = None

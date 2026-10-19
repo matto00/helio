@@ -1,0 +1,42 @@
+HEL-1660 task 3.3 heap measurement (RunPathHeapSpec)
+method: System.gc() x2, used heap before the run; again at every node boundary and before every node snapshot write; delta = max sample - before
+live-cell budget (RunLimits.MaxLiveCells): 4000000; just-under budgets swept: 2000000, 2400000
+shape ac6-ordinary               real delta MB   173.2  succeeded, 50000 rows
+shape ac6-ordinary               dry  delta MB    83.6  succeeded, 50000 rows
+shape join-fan-out               real delta MB   100.4  succeeded, 90000 rows
+shape join-fan-out               dry  delta MB    67.6  succeeded, 90000 rows
+shape unpivot                    real delta MB    70.5  succeeded, 100000 rows
+shape unpivot                    dry  delta MB    25.9  succeeded, 100000 rows
+shape splittext                  real delta MB    65.6  succeeded, 100000 rows
+shape splittext                  dry  delta MB     9.4  succeeded, 100000 rows
+shape chunkbytokencount          real delta MB    70.1  succeeded, 100000 rows
+shape chunkbytokencount          dry  delta MB    10.1  succeeded, 100000 rows
+shape extractheadings            real delta MB    70.5  succeeded, 100000 rows
+shape extractheadings            dry  delta MB    15.7  succeeded, 100000 rows
+shape doubling-concat            real delta MB     2.0  refused: Pipeline execution failed at step c9324c08-7dc5-4a82-8e8c-116598ca17a0 (compute) [path: root:de3fbda1-d4cf-45b
+shape doubling-concat            dry  delta MB     2.0  refused: Pipeline execution failed at step 13474899-1843-4920-be37-4cfc4613722a (compute) [path: root:cc3d2c4e-8601-4cb
+shape text-copying-fan-out       real delta MB     1.1  refused: Pipeline execution failed at step d00db8b4-69ea-4f02-b99b-e492ddd34fa0 (compute) [path: root:f7526c76-de87-492
+shape text-copying-fan-out       dry  delta MB     1.5  refused: Pipeline execution failed at step 76b6bcc1-8804-4b91-b451-9717508d4dcb (compute) [path: root:1684475c-3ae1-402
+shape splittext-fan-out          real delta MB    54.7  refused: Pipeline execution failed at step dd4a52db-f600-4e47-b7e4-6541450dd4d9 (splittext) [path: root:062995ad-b64b-4
+shape splittext-fan-out          dry  delta MB    58.7  refused: Pipeline execution failed at step 716cb2af-8389-4bf3-8e1f-8ecb50d32c09 (splittext) [path: root:b3e9c908-1d79-4
+shape extractheadings-fan-out    real delta MB    21.0  refused: Pipeline execution failed at step 55e73427-26f9-4735-9b9c-90819102a602 (extractheadings) [path: root:b5cd916a-
+shape extractheadings-fan-out    dry  delta MB    60.1  refused: Pipeline execution failed at step 110807b8-6a22-4461-a0cb-ce31e9ec550a (extractheadings) [path: root:de9dc298-
+shape pivot-fan-out              real delta MB     1.1  refused: Pipeline execution failed at step eb2c89a7-5a82-4493-9739-44c0d0287021 (pivot) [path: root:540b8846-fcd3-4402-
+shape pivot-fan-out              dry  delta MB     1.8  refused: Pipeline execution failed at step 00959630-fcdb-41ac-a294-f15f073e1515 (pivot) [path: root:bb0652b8-b9cc-4e24-
+shape fresh-string-chain         real delta MB   181.0  refused: Pipeline execution failed at step db4fac89-859f-4c3f-88ae-7776b040235d (compute) [path: root:c6a0fc72-c09c-42f
+shape fresh-string-chain         dry  delta MB   181.0  refused: Pipeline execution failed at step dd8e4bc8-b34e-40c8-a6cd-dd140470caf1 (compute) [path: root:cd0c7066-f001-46d
+shape csv-root-then-fan-out      real delta MB   150.4  succeeded, 100000 rows
+shape csv-root-then-fan-out      dry  delta MB   101.9  succeeded, 100000 rows
+shape upsertsource-then-steps    real delta MB   132.3  succeeded, 50000 rows
+shape upsertsource-then-steps    dry  delta MB    69.0  succeeded, 50000 rows
+shape just-under-light@2000000   real delta MB   124.8  succeeded, 50000 rows
+shape just-under-light@2000000   dry  delta MB    90.8  succeeded, 50000 rows
+shape just-under-heavy@2000000   real delta MB    86.6  succeeded, 7000 rows
+shape just-under-heavy@2000000   dry  delta MB    43.0  succeeded, 7000 rows
+shape just-under-light@2400000   real delta MB   148.6  succeeded, 50000 rows
+shape just-under-light@2400000   dry  delta MB   108.1  succeeded, 50000 rows
+shape just-under-heavy@2400000   real delta MB    86.6  succeeded, 7000 rows
+shape just-under-heavy@2400000   dry  delta MB    43.0  succeeded, 7000 rows
+max over shapes MB: 181.0 (bound 192.0)
+JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+maxMemory MB: 768

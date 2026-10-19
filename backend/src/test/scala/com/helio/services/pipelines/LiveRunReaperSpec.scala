@@ -62,11 +62,11 @@ class LiveRunReaperSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
     override def supportsWriteBack: Boolean = delegate.supportsWriteBack
     override def execute(
         pipeline: Pipeline, roots: Vector[(String, DataSource)], steps: Vector[PipelineStep], dataSourceRepo: DataSourceRepository,
-        assertionSink: AssertionSink, truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
+        assertionSink: AssertionSink, truncationSink: TruncationSink, retain: Set[NodeKey], onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink, ownerUserId: Option[String] = None
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       entered.trySuccess(())
-      gate.future.flatMap(_ => delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId))
+      gate.future.flatMap(_ => delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId))
     }
   }
 

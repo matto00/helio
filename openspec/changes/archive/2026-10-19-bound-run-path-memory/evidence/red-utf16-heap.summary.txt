@@ -1,0 +1,9 @@
+# RED: heavy-utf16 shapes on code with the eager compactPrint write (3 repeats, -Xmx768m)
+[info] max over shapes MB: 210.3 (bound 192.0); largest swing between repeats of one shape: 0.7 MB (repeats: 3)
+[info] repeats heavy-utf16-2out@2600000   dry  MB 98.5, 98.5, 98.5
+[info] repeats heavy-utf16-2out@2600000   real MB 210.2, 210.3, 210.2
+[info] repeats heavy-utf16@2600000        dry  MB 98.5, 98.4, 98.5
+[info] repeats heavy-utf16@2600000        real MB 210.1, 210.2, 210.2
+[info] repeats just-under-heavy@2600000   dry  MB 57.7, 57.7, 57.7
+[info] repeats just-under-heavy@2600000   real MB 115.9, 115.3, 115.2
+[info] maxMemory MB: 768

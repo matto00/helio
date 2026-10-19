@@ -38,6 +38,11 @@ trait PipelineExecutionBackend {
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
+      // HEL-1660 (design.md D3): the nodes whose frames the caller reads from `PipelineExecutionOutcome.nodeOutcomes` after the walk
+      // (a run's Output nodes, a preview's or backfill's target). REQUIRED, with no default: the walk releases every other frame
+      // as soon as nothing needs it, so an empty default would silently drop an Output's frame and the run would write a stale snapshot.
+      // The trunk terminal is always kept in addition (it is `PipelineExecutionOutcome.rows`).
+      retain: Set[NodeKey],
       // HEL-905 (design.md Decision 6): invoked once per node completed by a tree-walk
       // implementation, defaulted to a no-op so every existing call site (and every
       // implementation with no per-node concept, e.g. SparkJobSubmitter) keeps compiling

@@ -86,11 +86,11 @@ class DraftPreviewHeapSpec extends DraftPreviewApiFixture {
         truncationSink: TruncationSink, onNodeProgress: (NodeKey, Long) => Unit, writeBackSink: WriteBackSink, ownerUserId: Option[String],
         contextTransform: PipelineExecutionContext => PipelineExecutionContext, externalLanes: Map[String, Seq[Row]],
         onNodeFrame: (NodeKey, Seq[Row]) => Unit, onNodeError: Option[(PipelineStep, Throwable) => Unit], shouldContinue: () => Boolean,
-        retainOnly: Option[Set[NodeKey]]
+        retainOnly: Option[Set[NodeKey]], leafFirst: Boolean, runRetention: Boolean
     ): Future[TreeWalkResult] =
       super.executeTree(rootFrames, steps, stepRepo, rootIdOfStep, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink,
         ownerUserId, ctx => { val c = contextTransform(ctx); liveCellsOverride.fold(c)(b => c.copy(maxLiveCells = Some(b))) }, externalLanes, onNodeFrame,
-        onNodeError, shouldContinue, retainOnly)
+        onNodeError, shouldContinue, retainOnly, leafFirst, runRetention)
   }
 
   override protected def draftPreviewEngine(implicit ec: ExecutionContext): Option[InProcessPipelineEngine] = Some(new BudgetOverridingEngine)

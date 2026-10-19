@@ -1,0 +1,7 @@
+# filtered from green-run-limits-fatal-xmx768m.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should stop a doubling concat before it builds a text past 1,048,576 characters *** FAILED ***
+[info]   failed with: Pipeline execution failed at step d11 (compute) [path: root:root > d1 > d2 > d3 > d4 > d5 > d6 > d7 > d8 > d9 > d10 > d11]: Pipeline run text limit reached: this step would create a text value of more than 1048576 characters. Shorten the expression or the text it joins.; cause 
+[info] Tests: succeeded 59, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

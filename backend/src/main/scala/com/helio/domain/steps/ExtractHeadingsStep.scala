@@ -63,7 +63,7 @@ final case class ExtractHeadingsStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(ExtractHeadingsStep.apply(rows, config, ctx.maxNodeRows, ctx.stringBudget))
+    Future.successful(ExtractHeadingsStep.apply(rows, config, ctx.maxNodeRows, ctx.stringBudget, ctx.limitLabel))
 }
 
 object ExtractHeadingsStep {
@@ -82,12 +82,20 @@ object ExtractHeadingsStep {
       cfg: ExtractHeadingsConfig,
       maxRows: Option[Int],
       budget: Option[StringBudget]
+  ): Seq[PipelineRowJson.Row] = apply(rows, cfg, maxRows, budget, LimitLabel.Draft)
+
+  def apply(
+      rows: Seq[PipelineRowJson.Row],
+      cfg: ExtractHeadingsConfig,
+      maxRows: Option[Int],
+      budget: Option[StringBudget],
+      label: LimitLabel
   ): Seq[PipelineRowJson.Row] = {
     val field      = cfg.field
     val indexField = cfg.indexField
     val levelField = cfg.levelField
 
-    RowBudget.flatMap(rows, maxRows, Kind) { row =>
+    RowBudget.flatMap(rows, maxRows, Kind, label) { row =>
       row.get(field) match {
         case None | Some(null) => Seq.empty
         case Some(value) =>

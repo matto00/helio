@@ -71,7 +71,7 @@ final case class JoinStep(
         throw new StepConfigError(
           "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
         )
-      ctx.maxNodeRows.foreach(max => checkOutputSize(rows, rightIndex, normalizedType, max))
+      ctx.maxNodeRows.foreach(max => checkOutputSize(rows, rightIndex, normalizedType, max, ctx.limitLabel))
       normalizedType match {
         case "inner" =>
           rows.flatMap { leftRow =>
@@ -90,13 +90,13 @@ final case class JoinStep(
     }
 
     /** The merged size is known from the right index alone, so a fan-out past `max` is refused before any pair is merged. */
-    def checkOutputSize(left: Seq[Map[String, Any]], index: Map[Any, Seq[PipelineRowJson.Row]], joinKind: String, max: Int): Unit = {
+    def checkOutputSize(left: Seq[Map[String, Any]], index: Map[Any, Seq[PipelineRowJson.Row]], joinKind: String, max: Int, label: LimitLabel): Unit = {
       var total = 0L
       val it    = left.iterator
       while (it.hasNext) {
         val matches = index.get(it.next().getOrElse(joinKey, null)).fold(0)(_.size)
         total += (if (joinKind == "left") math.max(matches, 1) else matches)
-        if (total > max) throw RowBudget.exceeded(JoinStep.Kind, max)
+        if (total > max) throw RowBudget.exceeded(JoinStep.Kind, max, label)
       }
     }
 

@@ -131,12 +131,25 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   /** The replace as a composable `DBIO` (unchanged SQL); runs nothing by itself. HEL-1518: `guard` (the success
    *  chain's run guard) runs as the transaction's FIRST action, so a failing guard rolls back having written nothing;
    *  `None` (backfill, other callers) leaves the replace exactly as before. */
+  private[persistence] val SnapshotInsertBatchSize = 200
+
   def overwriteRowsAction(
       pipelineId: String,
       nodeStepId: Option[String],
       rows: Seq[JsObject],
       explicitRootId: Option[String],
       guard: Option[DBIO[Unit]] = None
+  ): DBIO[Unit] = overwriteRowsActionRendering(pipelineId, nodeStepId, rows, explicitRootId, guard, _.compactPrint)
+
+  /** [[overwriteRowsAction]] with the row-to-JSON-text step injectable, so a spec can observe WHEN each row is rendered (design.md cycle 4:
+   *  the text of a node must be built one batch at a time, never all at once). Production always passes `_.compactPrint`. */
+  private[persistence] def overwriteRowsActionRendering(
+      pipelineId: String,
+      nodeStepId: Option[String],
+      rows: Seq[JsObject],
+      explicitRootId: Option[String],
+      guard: Option[DBIO[Unit]],
+      render: JsObject => String
   ): DBIO[Unit] = {
     val deleteAction = (nodeStepId, explicitRootId) match {
       case (Some(stepId), _) =>
@@ -154,8 +167,10 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
       case (None, None)      => sql"SELECT id FROM pipeline_roots WHERE pipeline_id = $pipelineId ORDER BY position LIMIT 1".as[String].headOption
     }
     val action = rootIdAction.flatMap { rootIdOpt =>
-      val insertActions = rows.zipWithIndex.map { case (row, idx) =>
-        val jsonStr = row.compactPrint
+      // HEL-1660: each batch's JSON text is built only when the batch runs, inside the same transaction, so the write holds one batch of
+      // `compactPrint` strings at a time instead of a second full copy of the node's text (which the post-walk accounting cannot price).
+      def insertBatch(batch: Seq[(JsObject, Int)]): DBIO[Unit] = DBIO.seq(batch.map { case (row, idx) =>
+        val jsonStr = render(row)
         (nodeStepId, rootIdOpt) match {
           case (Some(stepId), _) =>
             sqlu"INSERT INTO node_snapshots (pipeline_id, node_step_id, row_index, data) VALUES ($pipelineId, $stepId, $idx, $jsonStr::jsonb)"
@@ -164,8 +179,10 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
           case (None, None) =>
             sqlu"INSERT INTO node_snapshots (pipeline_id, node_step_id, row_index, data) VALUES ($pipelineId, NULL, $idx, $jsonStr::jsonb)"
         }
+      }: _*)
+      rows.zipWithIndex.grouped(SnapshotInsertBatchSize).foldLeft(deleteAction.map(_ => ()): DBIO[Unit]) { (acc, batch) =>
+        acc.andThen(DBIO.successful(()).flatMap(_ => insertBatch(batch)))
       }
-      DBIO.seq((deleteAction +: insertActions): _*)
     }
     guard.fold[DBIO[Unit]](action)(g => g.andThen(action)).transactionally
   }

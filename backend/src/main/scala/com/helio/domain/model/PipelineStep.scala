@@ -139,7 +139,7 @@ final case class PipelineExecutionContext(
      *  so the live draft preview never reads a data source. `None` (every run and the saved preview) keeps today's
      *  `findByIdInternal` + `loadSource` read; see [[secondaryRows]]. */
     resolveSecondarySource: Option[String => Future[Seq[Map[String, Any]]]] = None,
-    /** HEL-1630: the draft preview's per-node output ceiling. `None` for runs and the saved preview, which stay
+    /** HEL-1630: the draft preview's per-node output ceiling; HEL-1660 sets it for every run and the saved preview too. `None` stays
      *  unbounded; a row-multiplying step fails before or while materialising once past it, and the engine rejects any
      *  other node over it. */
     maxNodeRows: Option[Int] = None,
@@ -157,7 +157,10 @@ final case class PipelineExecutionContext(
     /** HEL-1630 (owner ruling C7): the budget of the node being evaluated, built by the engine per node (never by a caller):
      *  the per-value cap plus a running total bounded by the live-cell headroom, so a step stops while it emits, before the
      *  post-node check could run. `None` for runs and the saved preview. */
-    stringBudget: Option[StringBudget] = None
+    stringBudget: Option[StringBudget] = None,
+    /** HEL-1660 (design.md D2): how the row and text guards word a breach. The draft preview keeps its own wording; the run backend sets
+     *  [[LimitLabel.Run]]. */
+    limitLabel: LimitLabel = LimitLabel.Draft
 ) {
 
   /** Rows of a `source`-kind secondary input for a `join`/`union`/`lookup` (`stepKind`), through the one choke point

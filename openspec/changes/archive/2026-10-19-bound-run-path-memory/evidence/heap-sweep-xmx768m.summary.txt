@@ -1,0 +1,56 @@
+# filtered from heap-sweep-xmx768m.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should stay at or under 192 MB (25% of the 768 MB production heap), real and dry *** FAILED ***
+[info]   362.2144241333008 was not less than or equal to 192.0 (RunPathHeapSpec.scala:190)
+[info] shape ac6-ordinary               real delta MB   150.3  succeeded, 50000 rows
+[info] shape ac6-ordinary               dry  delta MB    83.5  succeeded, 50000 rows
+[info] shape join-fan-out               real delta MB   112.7  succeeded, 90000 rows
+[info] shape join-fan-out               dry  delta MB    26.7  succeeded, 90000 rows
+[info] shape unpivot                    real delta MB    31.9  succeeded, 100000 rows
+[info] shape unpivot                    dry  delta MB    25.8  succeeded, 100000 rows
+[info] shape splittext                  real delta MB    25.0  succeeded, 100000 rows
+[info] shape splittext                  dry  delta MB     9.4  succeeded, 100000 rows
+[info] shape chunkbytokencount          real delta MB    30.4  succeeded, 100000 rows
+[info] shape chunkbytokencount          dry  delta MB    10.1  succeeded, 100000 rows
+[info] shape extractheadings            real delta MB    31.3  succeeded, 100000 rows
+[info] shape extractheadings            dry  delta MB    11.7  succeeded, 100000 rows
+[info] shape doubling-concat            real delta MB     2.0  refused: Pipeline execution failed at step 12a8c4a0-57f8-401b-a3a7-278e89f1adc3 (compute) [path: root:317b8e2a-4627-4c8
+[info] shape doubling-concat            dry  delta MB     2.0  refused: Pipeline execution failed at step 25a7917f-9b3d-4a55-a501-874e79d77b4f (compute) [path: root:659860cb-7057-4c2
+[info] shape text-copying-fan-out       real delta MB     1.1  refused: Pipeline execution failed at step 2de0c320-f3a8-4bdb-a0f9-5d71a0adcc84 (compute) [path: root:c40bb21f-997b-488
+[info] shape text-copying-fan-out       dry  delta MB     1.1  refused: Pipeline execution failed at step 020d7439-6ca8-4017-a7f0-a6a1651572cd (compute) [path: root:65c38fa0-630e-438
+[info] shape splittext-fan-out          real delta MB     1.1  refused: Pipeline execution failed at step 7ba46c1d-79f7-4f4a-96d7-7e633346cafd (splittext) [path: root:552770eb-602f-4
+[info] shape splittext-fan-out          dry  delta MB     1.1  refused: Pipeline execution failed at step c64fb515-839a-4846-ac5d-b4ec7e540d01 (splittext) [path: root:911ecfad-c438-4
+[info] shape extractheadings-fan-out    real delta MB     1.1  refused: Pipeline execution failed at step eaacae9c-1008-4fe2-ba4f-b9eb60a7ffbc (extractheadings) [path: root:1be7260d-
+[info] shape extractheadings-fan-out    dry  delta MB     1.1  refused: Pipeline execution failed at step 19e9ef76-8d56-4bdc-9b10-084a598c770b (extractheadings) [path: root:f0f8f0de-
+[info] shape pivot-fan-out              real delta MB     1.1  refused: Pipeline execution failed at step aa40d1b8-1828-4a3c-bbd8-badfccf1f6ca (pivot) [path: root:9eb038de-5246-4f7f-
+[info] shape pivot-fan-out              dry  delta MB     1.1  refused: Pipeline execution failed at step adb142a0-d503-465a-9de8-a29745faa655 (pivot) [path: root:20bd82a1-6087-4be6-
+[info] shape fresh-string-chain         real delta MB   176.4  refused: Pipeline execution failed at step 19ea68d9-e834-43a6-be0f-1fa3b5f5f922 (compute) [path: root:5eee527d-0720-407
+[info] shape fresh-string-chain         dry  delta MB   176.2  refused: Pipeline execution failed at step 08709ab7-336e-4770-b2fe-f1a98e4692a4 (compute) [path: root:39b21a40-a07a-4fb
+[info] shape csv-root-then-fan-out      real delta MB   181.3  succeeded, 100000 rows
+[info] shape csv-root-then-fan-out      dry  delta MB   101.8  succeeded, 100000 rows
+[info] shape upsertsource-then-steps    real delta MB   116.9  succeeded, 50000 rows
+[info] shape upsertsource-then-steps    dry  delta MB    69.1  succeeded, 50000 rows
+[info] shape just-under-light@2400000   real delta MB   192.3  succeeded, 50000 rows
+[info] shape just-under-light@2400000   dry  delta MB   108.3  succeeded, 50000 rows
+[info] shape just-under-heavy@2400000   real delta MB    43.8  succeeded, 7000 rows
+[info] shape just-under-heavy@2400000   dry  delta MB    43.1  succeeded, 7000 rows
+[info] shape just-under-light@2600000   real delta MB   204.2  succeeded, 50000 rows
+[info] shape just-under-light@2600000   dry  delta MB   115.6  succeeded, 50000 rows
+[info] shape just-under-heavy@2600000   real delta MB    60.1  succeeded, 7000 rows
+[info] shape just-under-heavy@2600000   dry  delta MB    57.9  succeeded, 7000 rows
+[info] shape just-under-light@2800000   real delta MB   237.7  succeeded, 50000 rows
+[info] shape just-under-light@2800000   dry  delta MB   129.6  succeeded, 50000 rows
+[info] shape just-under-heavy@2800000   real delta MB    60.1  succeeded, 7000 rows
+[info] shape just-under-heavy@2800000   dry  delta MB    57.8  succeeded, 7000 rows
+[info] shape just-under-light@3200000   real delta MB   261.5  succeeded, 50000 rows
+[info] shape just-under-light@3200000   dry  delta MB   145.3  succeeded, 50000 rows
+[info] shape just-under-heavy@3200000   real delta MB    76.0  succeeded, 7000 rows
+[info] shape just-under-heavy@3200000   dry  delta MB    73.0  succeeded, 7000 rows
+[info] shape just-under-light@4000000   real delta MB   362.2  succeeded, 50000 rows
+[info] shape just-under-light@4000000   dry  delta MB   188.7  succeeded, 50000 rows
+[info] shape just-under-heavy@4000000   real delta MB    91.5  succeeded, 7000 rows
+[info] shape just-under-heavy@4000000   dry  delta MB    88.3  succeeded, 7000 rows
+[info] max over shapes MB: 362.2 (bound 192.0)
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

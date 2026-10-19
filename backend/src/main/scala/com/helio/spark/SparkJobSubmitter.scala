@@ -148,6 +148,8 @@ class SparkJobSubmitter(
       dataSourceRepo: DataSourceRepository,
       assertionSink: AssertionSink,
       truncationSink: TruncationSink,
+      // HEL-1660 (design.md D3): this backend keeps no per-node frames -- accepted per the trait contract and never read.
+      retain: Set[NodeKey],
       // HEL-905 (design.md Decision 6): no per-node concept in the Spark path -- accepted per
       // the trait contract and never invoked, same "leave untouched" convention as
       // assertionSink/truncationSink above.

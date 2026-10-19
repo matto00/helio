@@ -49,12 +49,13 @@ class InProcessPipelineEngineDraftSeamSpec extends AnyWordSpec with Matchers {
       onNodeFrame: (NodeKey, Seq[Map[String, Any]]) => Unit = (_, _) => (),
       shouldContinue: () => Boolean = () => true,
       contextTransform: PipelineExecutionContext => PipelineExecutionContext = identity,
-      rootRows: Seq[Map[String, Any]] = frame
+      rootRows: Seq[Map[String, Any]] = frame,
+      leafFirst: Boolean = false
   ) = {
     val rootIdOfStep = steps.filter(_.parentStepId.isEmpty).map(_.id -> rootId).toMap
     engine.executeTree(
       Vector((rootId.value, rootRows)), steps, stepRepo, rootIdOfStep, dsRepo, new AssertionSink, new TruncationSink,
-      contextTransform = contextTransform, externalLanes = externalLanes, onNodeFrame = onNodeFrame, onNodeError = onNodeError, shouldContinue = shouldContinue
+      contextTransform = contextTransform, externalLanes = externalLanes, onNodeFrame = onNodeFrame, onNodeError = onNodeError, shouldContinue = shouldContinue, leafFirst = leafFirst
     )
   }
   private def await[A](f: Future[A]): A = Await.result(f, 10.seconds)
@@ -94,18 +95,23 @@ class InProcessPipelineEngineDraftSeamSpec extends AnyWordSpec with Matchers {
       RenameStep(PipelineStepId("a1"), pipelineId, 0, RenameConfig(Map("n2" -> "n3")), now, now, Some(PipelineStepId("a"))),
       RenameStep(PipelineStepId("b"), pipelineId, 0, RenameConfig(Map("name" -> "n2")), now, now, None)
     )
-    def orderOf(contextTransform: PipelineExecutionContext => PipelineExecutionContext): Vector[String] = {
+    def orderOf(contextTransform: PipelineExecutionContext => PipelineExecutionContext, leafFirst: Boolean = false): Vector[String] = {
       val seen = ArrayBuffer.empty[String]
-      await(walk(branching, onNodeFrame = (k, _) => seen += k.toString, contextTransform = contextTransform))
+      await(walk(branching, onNodeFrame = (k, _) => seen += k.toString, contextTransform = contextTransform, leafFirst = leafFirst))
       seen.toVector
     }
 
-    "stay structuralRank for a run and the saved preview (no live-cell budget): leaf-first is draft-only" in {
+    "stay structuralRank by default: leaf-first is the draft preview's explicit choice" in {
       orderOf(identity) shouldBe Vector("StepKey(a)", "StepKey(a1)", "StepKey(b)")
     }
 
-    "finish a leaf before descending for a draft (a live-cell budget set)" in {
-      orderOf(_.copy(maxLiveCells = Some(1000000L))) shouldBe Vector("StepKey(b)", "StepKey(a)", "StepKey(a1)")
+    "stay structuralRank for a run, which sets a live-cell budget but never leafFirst (run limits do not reorder side effects)" in {
+      orderOf(RunLimits.contextTransform) shouldBe Vector("StepKey(a)", "StepKey(a1)", "StepKey(b)")
+    }
+
+    "finish a leaf before descending when leafFirst is set, with or without a live-cell budget" in {
+      orderOf(_.copy(maxLiveCells = Some(1000000L)), leafFirst = true) shouldBe Vector("StepKey(b)", "StepKey(a)", "StepKey(a1)")
+      orderOf(identity, leafFirst = true) shouldBe Vector("StepKey(b)", "StepKey(a)", "StepKey(a1)")
     }
   }
 

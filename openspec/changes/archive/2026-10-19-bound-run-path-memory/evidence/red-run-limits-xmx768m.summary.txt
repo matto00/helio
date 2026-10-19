@@ -1,0 +1,27 @@
+# filtered from red-run-limits-xmx768m.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should refuse a 400 x 400 one-key fan-out (160,000 rows) before merging a single pair, naming the run limit *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(j -> 160000), trunk rows 160000, heap in use 96 MB (RunLimitsSpec.scala:32)
+[info] - should refuse 20,001 rows x 5 value columns (100,005 rows) up front *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(u -> 100005), trunk rows 100005, heap in use 97 MB (RunLimitsSpec.scala:32)
+[info] - should refuse a split past 100,000 rows while emitting *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(s -> 160000), trunk rows 160000, heap in use 105 MB (RunLimitsSpec.scala:32)
+[info] - should refuse chunking past 100,000 rows while emitting *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(c -> 160000), trunk rows 160000, heap in use 106 MB (RunLimitsSpec.scala:32)
+[info] - should refuse headings past 100,000 rows while emitting *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(h -> 160000), trunk rows 160000, heap in use 109 MB (RunLimitsSpec.scala:32)
+[info] - should refuse a union that stacks 50,000 + 100,000 rows, a kind with no emit-time check of its own *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts Map(lane -> 100000, u -> 150000), trunk rows 100000, heap in use 97 MB (RunLimitsSpec.scala:32)
+[info] - should stop a doubling concat before it builds a text past 1,048,576 characters *** FAILED ***
+[info]   NO LIMIT FIRED: the run succeeded; step counts HashMap(d5 -> 1, d10 -> 1, d4 -> 1, d9 -> 1, d3 -> 1, d6 -> 1, d12 -> 1, d7 -> 1, d2 -> 1, d8 -> 1, d1 -> 1, d11 -> 1), trunk rows 1, heap in use 98 MB (RunLimitsSpec.scala:32)
+[info] - should stop a compute that copies a 100,000-character text across a 10,000-row fan-out inside the node (4 GB unbounded) *** FAILED ***
+[info]   failed with: Pipeline execution failed at step t1 (compute) [path: root:root > s0 > t1]: step execution failed; cause java.util.concurrent.ExecutionException: Boxed Exception; "Pipeline execution failed at step t1 (compute) [path: root:root > s0 > t1]: step execution failed" did not include
+[info] - should stop splittext over the same fan-out inside the node *** FAILED ***
+[info]   failed with: Pipeline execution failed at step t1 (splittext) [path: root:root > s0 > t1]: step execution failed; cause java.util.concurrent.ExecutionException: Boxed Exception; "Pipeline execution failed at step t1 (splittext) [path: root:root > s0 > t1]: step execution failed" did not inc
+[info] - should stop extractheadings over the same fan-out inside the node *** FAILED ***
+[info]   failed with: Pipeline execution failed at step t1 (extractheadings) [path: root:root > s0 > t1]: step execution failed; cause java.util.concurrent.ExecutionException: Boxed Exception; "Pipeline execution failed at step t1 (extractheadings) [path: root:root > s0 > t1]: step execution failed"
+[info] - should stop pivot column names (a fresh copy of the pivot value per group) inside the node *** FAILED ***
+[info]   failed with: Pipeline execution failed at step t1 (pivot) [path: root:root > s0 > t1]: step execution failed; cause java.util.concurrent.ExecutionException: Boxed Exception; "Pipeline execution failed at step t1 (pivot) [path: root:root > s0 > t1]: step execution failed" did not include sub
+[info] Tests: succeeded 3, failed 11, canceled 0, ignored 0, pending 0
+[info] *** 11 TESTS FAILED ***

@@ -2321,7 +2321,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val engine      = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")))
       val oracleBackend = new InProcessExecutionBackend(engine, stepRepo)
       val oracleOutcome = await(oracleBackend.execute(
-        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink
+        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink, Set(StepKey(s4.id.value))
       ))
       val oracleRows = oracleOutcome.nodeOutcomes(StepKey(s4.id.value)).rows
 
@@ -2449,7 +2449,7 @@ class PipelineRunServiceSpec extends AnyWordSpec with Matchers with BeforeAndAft
       val engine        = new InProcessPipelineEngine(new LocalFileSystem(Paths.get("/")))
       val oracleBackend = new InProcessExecutionBackend(engine, stepRepo)
       val oracleOutcome = await(oracleBackend.execute(
-        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink
+        pipeline, dataSources, allSteps.toVector, dataSourceRepo, new AssertionSink, new TruncationSink, Set(StepKey(rejoin.id.value))
       ))
       val oracleRows = oracleOutcome.nodeOutcomes(StepKey(rejoin.id.value)).rows.map(r => JsString(String.valueOf(r("value"))))
       oracleRows shouldBe Vector(JsString("rootB-value"), JsString("rootA-value"))
@@ -2687,12 +2687,13 @@ object PipelineRunServiceSpec {
         dataSourceRepo: DataSourceRepository,
         assertionSink: AssertionSink,
         truncationSink: TruncationSink,
+        retain: Set[NodeKey],
         onNodeProgress: (NodeKey, Long) => Unit = (_, _) => (),
         writeBackSink: WriteBackSink = new WriteBackSink,
         ownerUserId: Option[String] = None
     )(implicit ec: ExecutionContext): Future[PipelineExecutionOutcome] = {
       capturedSteps = Some(steps)
-      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, onNodeProgress, writeBackSink, ownerUserId)
+      delegate.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink, ownerUserId)
     }
   }
 
