@@ -38,3 +38,24 @@ export function decodeRow(json: unknown): Row {
   for (const [k, v] of Object.entries(json as Record<string, unknown>)) put(out, k, decodeValue(v));
   return out;
 }
+
+/** The inverse of [[decodeValue]] (HEL-1630): the lossless request encoding, so a frame the client holds reaches the
+ *  draft-preview endpoint with every Int, Long and non-finite or negative-zero double intact. */
+export function encodeValue(v: Value): unknown {
+  if (v === null || typeof v === "boolean" || typeof v === "string") return v;
+  if (typeof v === "number") {
+    if (Number.isNaN(v)) return { $double: "NaN" };
+    if (v === Infinity) return { $double: "Infinity" };
+    if (v === -Infinity) return { $double: "-Infinity" };
+    if (Object.is(v, -0)) return { $double: "-0.0" };
+    return v;
+  }
+  return v.kind === "int" ? { $int: v.value } : { $long: String(v.value) };
+}
+
+export function encodeRow(row: Row): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(row))
+    put(out as Record<string, Value>, k, encodeValue(row[k]) as Value);
+  return out;
+}

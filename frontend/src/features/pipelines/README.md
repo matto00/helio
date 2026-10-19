@@ -11,6 +11,7 @@ and proposal review (`proposalReview/`). `evaluator/` is a pure, synchronous Typ
 port of the server's step engine for the live draft preview (`evaluateStep`,
 `evaluatePipeline`, `clientEvaluable`); it declines anything it cannot reproduce
 exactly, and `shared-test-fixtures/pipeline-step-parity/` holds it to the Scala engine.
+`services/draftPreview*.ts` is the client of `POST /api/pipelines/:id/draft-preview` (HEL-1630): an NDJSON stream reader, a paced single-flight scheduler (350 ms debounce, 600 ms max wait and send floor) and the request-cap pre-check; the draft editor that drives it is HEL-1631.
 
 **Belongs here:** pipeline step/shape authoring, run history, and scheduling.
 **Does not belong here:** the data sources a pipeline reads from, which live

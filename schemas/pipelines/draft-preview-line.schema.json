@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/pipelines/draft-preview-line.schema.json",
+  "title": "DraftPreviewLine",
+  "description": "One NDJSON line of the POST /api/pipelines/:id/draft-preview response (HEL-1630), discriminated by `type`. Order: every `unavailable` line decided before evaluation, then a `step` or `error` line per evaluated enabled step in evaluation order (each `error` immediately followed by `downstreamOfError` `unavailable` lines for the subtree it pruned), then exactly one `rows` line. A `failed` line replaces `rows` only on an internal failure after the 200 was committed. `rows.count` is the full size of the step's frame; `rows.rows` holds at most 1,000 (`truncated` is true when more existed); `available: false` carries no rows. Row cells use the same lossless encoding as the request.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "step", "count", "schema"],
+      "properties": {
+        "type": {
+          "const": "step"
+        },
+        "step": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "enum": ["int", "long", "double", "string", "boolean", "null", "mixed"]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "step", "reason"],
+      "properties": {
+        "type": {
+          "const": "unavailable"
+        },
+        "step": {
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "aiStep",
+            "downstreamOfAiStep",
+            "sourceNotSupplied",
+            "laneNotSupplied",
+            "downstreamOfUnavailable",
+            "downstreamOfError"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "step", "message"],
+      "properties": {
+        "type": {
+          "const": "error"
+        },
+        "step": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "step", "available", "rows", "count", "truncated"],
+      "properties": {
+        "type": {
+          "const": "rows"
+        },
+        "step": {
+          "type": ["string", "null"]
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/cell"
+            }
+          }
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["type", "message"],
+      "properties": {
+        "type": {
+          "const": "failed"
+        },
+        "message": {
+          "const": "Draft preview failed"
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "cell": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "object",
+          "required": ["$int"],
+          "properties": {
+            "$int": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["$long"],
+          "properties": {
+            "$long": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["$double"],
+          "properties": {
+            "$double": {
+              "enum": ["NaN", "Infinity", "-Infinity", "-0.0"]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -223,8 +223,9 @@ object ExpressionEvaluator {
    *  is intentionally not exposed — callers get a compiled unit of behavior,
    *  not the grammar's internals. */
   final class CompiledExpression private[engine] (private val ast: Expr) {
-    def eval(row: Map[String, JsValue]): Either[EvaluationError, JsValue] =
-      evalExpr(ast, row).map(valToJs)
+    /** `maxChars` is the draft preview's cap on any text the expression builds (HEL-1630); the default leaves runs unbounded. */
+    def eval(row: Map[String, JsValue], maxChars: Int = Int.MaxValue): Either[EvaluationError, JsValue] =
+      evalExpr(ast, row, maxChars).map(valToJs)
   }
 
   /**

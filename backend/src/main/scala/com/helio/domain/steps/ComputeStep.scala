@@ -49,7 +49,7 @@ final case class ComputeStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(ComputeStep.apply(rows, config))
+    Future.successful(ComputeStep.apply(rows, config, ctx.stringBudget))
 }
 
 object ComputeStep {
@@ -61,17 +61,21 @@ object ComputeStep {
    *  `column`, exactly as before this change. That fallback is unreachable
    *  from run/preview/analyze once the `companion` gates below reject the
    *  step first, but a direct caller of this pure function sees no behavior
-   *  change either way. */
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: ComputeConfig): Seq[PipelineRowJson.Row] = {
+   *  change either way. `budget` is the draft preview's cap on the text this step creates (HEL-1630, owner ruling C7); `None`
+   *  for every run and the saved preview. */
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ComputeConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ComputeConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] = {
     val column = cfg.column
     ExpressionEvaluator.compile(cfg.expression) match {
       case Right(compiled) =>
         rows.map { row =>
           val jsRow = PipelineRowJson.rowToJsMap(row)
-          val value = compiled.eval(jsRow) match {
+          val value = compiled.eval(jsRow, budget.fold(Int.MaxValue)(_.maxChars)) match {
             case Right(v) => PipelineRowJson.jsValueToAny(v)
             case Left(_)  => null
           }
+          budget.foreach(_.chargeValue(value))
           row + (column -> value)
         }
       case Left(_) =>

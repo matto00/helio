@@ -1,0 +1,89 @@
+{
+  "roots": [
+    {
+      "id": "r",
+      "rows": [
+        {
+          "k": {
+            "$int": 1
+          },
+          "name": "a"
+        },
+        {
+          "k": {
+            "$long": "9007199254740993"
+          },
+          "name": "b"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "enabled": true,
+      "config": {
+        "count": 9
+      },
+      "id": "a",
+      "rootId": "r",
+      "position": 0,
+      "kind": "limit"
+    },
+    {
+      "enabled": true,
+      "config": {
+        "field": "absent",
+        "from": "csv",
+        "to": "json",
+        "outputField": "o"
+      },
+      "id": "b",
+      "parentStepId": "a",
+      "position": 0,
+      "kind": "convertformat"
+    },
+    {
+      "enabled": true,
+      "config": {
+        "count": 9
+      },
+      "id": "c",
+      "parentStepId": "b",
+      "position": 0,
+      "kind": "limit"
+    },
+    {
+      "enabled": true,
+      "config": {
+        "inputField": "name",
+        "instruction": "shout",
+        "outputField": "out"
+      },
+      "id": "d",
+      "rootId": "r",
+      "position": 1,
+      "kind": "generatetext"
+    },
+    {
+      "enabled": true,
+      "config": {
+        "count": 9
+      },
+      "id": "e",
+      "parentStepId": "d",
+      "position": 0,
+      "kind": "limit"
+    },
+    {
+      "enabled": true,
+      "config": {
+        "count": 9
+      },
+      "id": "f",
+      "parentStepId": "a",
+      "position": 1,
+      "kind": "limit"
+    }
+  ],
+  "rowsStepId": "f"
+}

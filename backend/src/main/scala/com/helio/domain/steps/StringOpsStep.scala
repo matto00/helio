@@ -84,7 +84,7 @@ final case class StringOpsStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(StringOpsStep.apply(rows, config))
+    Future.successful(StringOpsStep.apply(rows, config, ctx.stringBudget))
 }
 
 object StringOpsStep {
@@ -95,7 +95,9 @@ object StringOpsStep {
   // and the analyze-time check can never drift apart.
   val SupportedOperations: Vector[String] = Vector("trim", "upper", "lower", "split", "extractRegex", "concat")
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: StringOpsConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: StringOpsConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: StringOpsConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] = {
     if (!SupportedOperations.contains(cfg.operation))
       throw new StepConfigError(
         s"Unsupported stringops operation: '${cfg.operation}'. Supported: ${SupportedOperations.mkString(", ")}"
@@ -119,10 +121,14 @@ object StringOpsStep {
         )
         extractRegexFn(cfg.field, patternStr)
       case "concat" =>
-        concatFn(cfg.fields.getOrElse(Vector.empty), cfg.separator.getOrElse(""))
+        concatFn(cfg.fields.getOrElse(Vector.empty), cfg.separator.getOrElse(""), budget)
     }
 
-    rows.map(row => row + (cfg.outputColumn -> valueFn(row)))
+    rows.map { row =>
+      val value = valueFn(row)
+      budget.foreach(_.chargeValue(value))
+      row + (cfg.outputColumn -> value)
+    }
   }
 
   /** Shared null-on-missing wrapper for the four single-field operations that
@@ -182,14 +188,16 @@ object StringOpsStep {
    *  propagation, scoped to `concat` because it spans multiple fields rather
    *  than transforming one value). An empty/absent `fields` list yields `""`
    *  for every row — a valid, if degenerate, configuration. */
-  private def concatFn(fields: Vector[String], separator: String): PipelineRowJson.Row => Any =
-    row =>
-      fields
-        .map { f =>
-          val v = row.getOrElse(f, null)
-          if (v == null) "" else v.toString
-        }
-        .mkString(separator)
+  private def concatFn(fields: Vector[String], separator: String, budget: Option[StringBudget]): PipelineRowJson.Row => Any =
+    row => {
+      val parts = fields.map { f =>
+        val v = row.getOrElse(f, null)
+        if (v == null) "" else v.toString
+      }
+      // Draft preview (HEL-1630): refuse before joining, so the joined text is never built over the cap.
+      budget.foreach(_.checkLength(parts.foldLeft(0L)(_ + _.length) + separator.length.toLong * math.max(0, parts.size - 1)))
+      parts.mkString(separator)
+    }
 
   val companion: PipelineStep.Companion = new PipelineStep.Companion {
     val kind: String                      = Kind

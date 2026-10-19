@@ -3,14 +3,17 @@ package com.helio.testsupport
 import com.helio.api._
 import com.helio.api.http.{AuthDirectives, SessionCookies}
 import com.helio.domain.connectors.RestApiConnectorDriver
+import com.helio.domain.engine.InProcessPipelineEngine
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
-import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.services.pipelines.PipelineRunGuardConfig
+import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewService}
+import com.helio.services.ratelimit.RateLimitConfig
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -97,6 +100,15 @@ abstract class TwoUserRlsApiFixture
   protected def pipelineRunGuardRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): PipelineRunGuardRepository = null
   protected def pipelineRunGuardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
 
+  /** HEL-1630: a spec that exercises the draft-preview endpoint overrides these; the defaults are the pre-existing wiring. */
+  protected def rateLimitConfig: RateLimitConfig = RateLimitConfig.fromEnv()
+  protected def draftPreviewConfig: DraftPreviewConfig = DraftPreviewConfig(DraftPreviewConfig.DefaultRequestsPerWindow, maxInFlight = 8, maxInFlightPerPrincipal = 2)
+  protected def draftPreviewAfterNode: DraftPreviewService.NodeHook = DraftPreviewService.NoHook
+  protected def draftPreviewEngine(implicit ec: ExecutionContext): Option[InProcessPipelineEngine] = None
+  protected def dataSourceRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): DataSourceRepository = new DataSourceRepository(ctx)(ec)
+  protected def pipelineRepoFor(ctx: DbContext, dataSourceRepo: DataSourceRepository)(implicit ec: ExecutionContext): PipelineRepository = new PipelineRepository(ctx, dataSourceRepo)(ec)
+  protected def apiTokenRepoFor(ctx: DbContext)(implicit ec: ExecutionContext): ApiTokenRepository = null
+
   override def beforeAll(): Unit = {
     embeddedPostgres = VerifiedEmbeddedPostgres.start(
       EmbeddedPostgres.builder().setConnectConfig("stringtype", "unspecified").setServerConfig("track_functions", "pl")
@@ -135,8 +147,8 @@ abstract class TwoUserRlsApiFixture
     val ec             = typedSystem.executionContext
     val dashboardRepo  = new DashboardRepository(ctx)(ec)
     val panelRepo      = new PanelRepository(ctx)(ec)
-    val dataSourceRepo = new DataSourceRepository(ctx)(ec)
-    val pipelineRepo   = new PipelineRepository(ctx, dataSourceRepo)(ec)
+    val dataSourceRepo = dataSourceRepoFor(ctx)(ec)
+    val pipelineRepo   = pipelineRepoFor(ctx, dataSourceRepo)(ec)
     // The preference repository runs on the plain handle exactly as in production (`users` has no RLS).
     val prefRepo       = new UserPreferenceRepository(appDb)(ec)
 
@@ -150,6 +162,11 @@ abstract class TwoUserRlsApiFixture
       auditEventRepo = auditEventRepoFor(ctx)(ec),
       pipelineRunGuardRepo = pipelineRunGuardRepoFor(ctx)(ec),
       pipelineRunGuardConfig = pipelineRunGuardConfig,
+      apiTokenRepo = apiTokenRepoFor(ctx)(ec),
+      rateLimitConfig = rateLimitConfig,
+      draftPreviewConfig = draftPreviewConfig,
+      draftPreviewAfterNode = draftPreviewAfterNode,
+      draftPreviewEngine = draftPreviewEngine(ec),
       dbContext = ctx
     ).routes
 

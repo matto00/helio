@@ -63,7 +63,7 @@ final case class ExtractHeadingsStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(ExtractHeadingsStep.apply(rows, config))
+    Future.successful(ExtractHeadingsStep.apply(rows, config, ctx.maxNodeRows, ctx.stringBudget))
 }
 
 object ExtractHeadingsStep {
@@ -71,16 +71,28 @@ object ExtractHeadingsStep {
 
   private val HeadingPattern = "^(#{1,6})\\s+(.*)$".r
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: ExtractHeadingsConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ExtractHeadingsConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ExtractHeadingsConfig, maxRows: Option[Int]): Seq[PipelineRowJson.Row] =
+    apply(rows, cfg, maxRows, None)
+
+  /** `maxRows` is the draft preview's node ceiling (see [[RowBudget]]); `None` is unbounded. `budget` is the draft preview's cap on the text this step emits (HEL-1630, owner ruling C8); `None` for every run and the saved preview. */
+  def apply(
+      rows: Seq[PipelineRowJson.Row],
+      cfg: ExtractHeadingsConfig,
+      maxRows: Option[Int],
+      budget: Option[StringBudget]
+  ): Seq[PipelineRowJson.Row] = {
     val field      = cfg.field
     val indexField = cfg.indexField
     val levelField = cfg.levelField
 
-    rows.flatMap { row =>
+    RowBudget.flatMap(rows, maxRows, Kind) { row =>
       row.get(field) match {
         case None | Some(null) => Seq.empty
         case Some(value) =>
           extractHeadings(value.toString).zipWithIndex.map { case ((title, level), idx) =>
+            budget.foreach(_.chargeValue(title))
             row + (field -> title) + (indexField -> idx) + (levelField -> level)
           }
       }

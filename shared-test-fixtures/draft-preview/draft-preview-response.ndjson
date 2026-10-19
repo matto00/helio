@@ -1,0 +1,7 @@
+{"reason":"aiStep","step":"d","type":"unavailable"}
+{"reason":"downstreamOfAiStep","step":"e","type":"unavailable"}
+{"count":2,"schema":[{"name":"k","type":"mixed"},{"name":"name","type":"string"}],"step":"a","type":"step"}
+{"count":2,"schema":[{"name":"k","type":"mixed"},{"name":"name","type":"string"}],"step":"f","type":"step"}
+{"message":"convertformat field-missing: field 'absent' is missing","step":"b","type":"error"}
+{"reason":"downstreamOfError","step":"c","type":"unavailable"}
+{"available":true,"count":2,"rows":[{"k":{"$int":1},"name":"a"},{"k":{"$long":"9007199254740993"},"name":"b"}],"step":"f","truncated":false,"type":"rows"}
