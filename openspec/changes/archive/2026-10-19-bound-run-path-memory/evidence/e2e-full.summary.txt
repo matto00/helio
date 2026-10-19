@@ -1,0 +1,4 @@
+# full e2e, HEAD d7be12a12, DEV_PORT=7092, 2 workers, nice 19, e2e.lock
+exit=0
+  3 skipped
+  618 passed (38.3m)
