@@ -180,9 +180,10 @@ const SPACING_BASELINE: BaselineEntry[] = [
   // HEL-1582 retired the river view's rules from PipelineDetailPage.css: three off-scale literals survive, all <=4px
   // optical tweaks of the step editors, re-found at their new lines (each line is byte-identical to its pre-change
   // counterpart: `gap: 4px`).
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 178 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 236 },
-  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 386 },
+  // HEL-1668 wrapped the file's :hover rules in @media (hover: hover), shifting these three down by 4, 4 and 10.
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 182 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 240 },
+  { file: "features/pipelines/ui/PipelineDetailPage.css", line: 396 },
   { file: "features/pipelines/ui/RunHistoryModal.css", line: 160 },
   { file: "features/sources/ui/AddSourceModal.css", line: 144 },
   { file: "features/sources/ui/AddSourceModal.css", line: 254 },

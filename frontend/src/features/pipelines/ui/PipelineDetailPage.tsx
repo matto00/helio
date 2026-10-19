@@ -11,6 +11,7 @@ import { PipelineSpineLayout } from "./spine/PipelineSpineLayout";
 
 import "./PipelineDetailPage.css";
 import { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
+import { useStepDeepLink } from "../hooks/useStepDeepLink";
 
 // HEL-682 — this component is now a pure page shell: all state, effects, and
 // mutation handlers live in `usePipelineDetailPage` (frontend/src/features/
@@ -36,6 +37,8 @@ function PipelineDetailPageContent() {
   // the phone layout (HEL-1582: header, Steps / Preview / Runs tabs, step list and sheet, floating run pills).
   const isPhoneShell = useIsPhoneShell();
   const page = usePipelineDetailPage();
+  // HEL-1668 D1: the initial `?step=` is consumed once, at the first steps load, whichever layout is showing.
+  const deepLink = useStepDeepLink(!page.stepsLoading && !page.stepsFailed, isPhoneShell);
   const { id, currentPipeline, currentPipelineStatus, currentPipelineError } = page;
 
   // ── Loading / Error guards ──
@@ -79,7 +82,11 @@ function PipelineDetailPageContent() {
   // crossing the 768px boundary while one is open does not remount it and lose its state (HEL-1579).
   return (
     <>
-      {isPhoneShell ? <PipelineMobileLayout page={page} /> : <PipelineSpineLayout page={page} />}
+      {isPhoneShell ? (
+        <PipelineMobileLayout page={page} deepLink={deepLink} />
+      ) : (
+        <PipelineSpineLayout page={page} />
+      )}
       <PipelineDetailDialogs page={page} />
     </>
   );

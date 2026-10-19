@@ -26,8 +26,10 @@
   text-decoration: none;
 }
 
-.spine-header__crumb-link:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .spine-header__crumb-link:hover {
+    color: var(--app-text);
+  }
 }
 
 .spine-header__crumb-sep {
@@ -54,14 +56,18 @@
   cursor: pointer;
 }
 
-.spine-header__name:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .spine-header__name:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
 /* The header sits on the page canvas (`--app-bg`), so its hover rung is `--app-surface-raised`
    (DESIGN.md §3, HEL-866), for the chip, the secondary buttons and the actions-menu trigger alike. */
-.spine-header .popover__trigger:hover {
-  background: var(--app-surface-raised);
+@media (hover: hover) {
+  .spine-header .popover__trigger:hover {
+    background: var(--app-surface-raised);
+  }
 }
 
 .spine-header__name-input {
@@ -120,9 +126,13 @@
 }
 
 .spine-header__meta {
-  flex: 0 10 auto;
+  /* The line is sized from the relative time alone (see `.spine-header__meta-text`) and then GROWS into whatever space
+     the header genuinely has free, so the row count appears only when it really fits and never reserves width. */
+  flex: 1 10 auto;
   overflow: hidden;
-  min-width: 0;
+  /* The relative time is never squeezed out (HEL-1668): the line keeps room for the longest relative time
+     ("11 months ago", 13 characters of the mono face) before the rest of the header gives way. Below the container query further down the whole line is hidden instead. */
+  min-width: 15ch;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -131,11 +141,35 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-1668: the relative time is never cut, and neither is the figure. The line is a single-line-high wrapping flex
+   row laid out right to left in FORMATION order (the time forms first, the count second) but kept left to right
+   visually and in the DOM: when the time plus the whole "N rows written ·" do not fit, the count wraps onto a second
+   line that the fixed one-line height clips away. The count is therefore either complete or absent, never a fragment
+   (the full text stays in the line's title). */
 .spine-header__meta-text {
+  /* `contain: inline-size` takes the (possibly wrapped-away) count out of the box's intrinsic width: the box starts at
+     the time's room and grows into free space, so a hidden count gives its width back to the header. */
+  contain: inline-size;
+  flex: 1 1 15ch;
   min-width: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  height: 1lh;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* One mono space between the count and the time, as the single text run had. */
+  column-gap: 1ch;
   white-space: nowrap;
+}
+
+.spine-header__meta-count {
+  flex: none;
+}
+
+.spine-header__meta-time {
+  flex: none;
+  order: -1;
 }
 
 .spine-header__trailing {
@@ -163,10 +197,12 @@
   cursor: pointer;
 }
 
-.spine-header__chip:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .spine-header__chip:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .spine-header__chip-text {
@@ -205,10 +241,12 @@
     border-color var(--app-transition);
 }
 
-.spine-header__btn:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-raised);
-  color: var(--app-text);
+@media (hover: hover) {
+  .spine-header__btn:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-raised);
+    color: var(--app-text);
+  }
 }
 
 .spine-header__btn:disabled {
@@ -225,21 +263,32 @@
   color: var(--app-error);
 }
 
-.spine-header__btn--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .spine-header__btn--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 /* Primary (the one accent control on the page). */
-.spine-header__btn--primary,
-.spine-header__btn--primary:hover:not(:disabled) {
+.spine-header__btn--primary {
   border-color: transparent;
   background: var(--app-accent);
   color: var(--app-accent-ink);
 }
 
-.spine-header__btn--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .spine-header__btn--primary:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--app-accent);
+    color: var(--app-accent-ink);
+  }
+}
+
+@media (hover: hover) {
+  .spine-header__btn--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 .spine-header__run-short {
@@ -252,13 +301,16 @@
   flex: none;
 }
 
-@container (max-width: 600px) {
-  /* "rows written" would truncate to nothing here, so the meta group is hidden cleanly (the figures stay in Run
-     history); the status chip still says how the last run went. */
+/* "rows written" would truncate to nothing here, so the meta group is hidden cleanly (the figures stay in Run
+   history); the status chip still says how the last run went. It is hidden while the header has no room left for the
+   relative time (the line keeps `min-width: 15ch`, HEL-1668), a little above the compact-header threshold below. */
+@container (max-width: 685px) {
   .spine-header__meta {
     display: none;
   }
+}
 
+@container (max-width: 600px) {
   /* If even the compact chip cannot fit beside the name, it collapses to its icon plus the Paused marker; the
      full state stays in its title and the schedule menu items. */
   .spine-header__chip-icon,

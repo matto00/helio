@@ -427,7 +427,7 @@ describe("PipelineDetailPage desktop spine: outputs section", () => {
     expect(section.getByText("runs_trend")).toBeInTheDocument();
     expect(section.getByText("Chart · used in 1 panel")).toBeInTheDocument();
     expect(section.getByText("Table · used in 3 panels")).toBeInTheDocument();
-    expect(section.getAllByText("off Compute column")).toHaveLength(2);
+    expect(section.getAllByText("from Compute column")).toHaveLength(2);
     expect(section.getByRole("button", { name: "New output" })).toBeInTheDocument();
   });
 
