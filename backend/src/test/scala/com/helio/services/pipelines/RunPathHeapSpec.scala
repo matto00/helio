@@ -71,7 +71,15 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
   private final case class Measured(name: String, mode: String, deltaMb: Double, outcome: String)
   private val results = ArrayBuffer.empty[Measured]
 
+  /** `HELIO_RUN_HEAP_REPEATS` repeats every measurement (the peak swings by tens of MB between runs of the same shape);
+   *  `HELIO_RUN_HEAP_ONLY` is a comma list of shape-name prefixes to run. */
+  private val repeats = sys.env.get("HELIO_RUN_HEAP_REPEATS").map(_.toInt).getOrElse(1)
+  private val only    = sys.env.get("HELIO_RUN_HEAP_ONLY").map(_.split(",").toSeq.map(_.trim)).getOrElse(Seq.empty)
+
   private def measure(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean = true): Unit =
+    if (only.isEmpty || only.exists(name.startsWith)) (1 to repeats).foreach(_ => measureOnce(name, build, real))
+
+  private def measureOnce(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean): Unit =
     Seq(true, false).filter(isReal => real || !isReal).foreach { isReal =>
       val (pid, _) = build
       peak = 0L
@@ -177,8 +185,12 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     results.toSeq
   }
 
+  private def swing(all: Seq[Measured]): Double =
+    all.groupBy(m => (m.name, m.mode)).values.map(ms => ms.map(_.deltaMb).max - ms.map(_.deltaMb).min).maxOption.getOrElse(0.0)
+
   "the worst run shapes, end to end through the service" should {
     "stay at or under 192 MB (25% of the 768 MB production heap), real and dry" in {
+      assume(sys.env.get("HELIO_MEASURE").contains("1"), "opt-in measurement: set HELIO_MEASURE=1 and run under HELIO_TEST_JVM_XMX=768m; the deterministic CI guard is RunLimitsGuardSpec")
       val all     = measured
       val maxPeak = all.map(_.deltaMb).max
       val flags   = ManagementFactory.getRuntimeMXBean.getInputArguments.asScala.mkString(" ")
@@ -187,13 +199,14 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
            |method: System.gc() x2, used heap before the run; again at every node boundary and before every node snapshot write; delta = max sample - before
            |live-cell budget (RunLimits.MaxLiveCells): ${RunLimits.MaxLiveCells}; just-under budgets swept: ${sweep.mkString(", ")}
            |${all.map(m => f"shape ${m.name}%-26s ${m.mode}%-4s delta MB ${m.deltaMb}%7.1f  ${m.outcome}").mkString("\n")}
-           |max over shapes MB: $maxPeak%.1f (bound 192.0)
+           |max over shapes MB: $maxPeak%.1f (bound 192.0); largest swing between repeats of one shape: ${swing(all)}%.1f MB (repeats: $repeats)
+           |${all.groupBy(m => (m.name, m.mode)).toSeq.sortBy(_._1).map { case ((n, md), ms) => f"repeats $n%-26s $md%-4s MB ${ms.map(m => f"${m.deltaMb}%.1f").mkString(", ")}" }.mkString("\n")}
            |JVM flags: $flags
            |maxMemory MB: ${Runtime.getRuntime.maxMemory / 1048576}
            |""".stripMargin
       info(report)
       maxPeak should be <= 192.0
-      all.find(m => m.name == "ac6-ordinary" && m.mode == "real").get.outcome should startWith("succeeded")
+      all.find(m => m.name == "ac6-ordinary" && m.mode == "real").foreach(_.outcome should startWith("succeeded"))
       all.filter(_.name.startsWith("just-under")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should startWith("succeeded")))
       sys.env.get("HELIO_HEAP_EVIDENCE_PATH").foreach { path =>
         val target = Paths.get(path)

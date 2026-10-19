@@ -18,12 +18,10 @@ class PipelineRunLimitsServiceSpec extends AnyWordSpec with Matchers with RunSer
     addStep(pid, ComputeStep.Kind, ComputeConfig(s"c$n", "concat($a, $f)", None), parent)
 
   "an ordinary large pipeline (AC6)" should {
-    "succeed under the run budget and write every Output's snapshot: 50,000 x 6 CSV, a 10-step compute chain, Outputs on a middle node, a tail branch and the terminal" in {
+    "succeed under the run budget and write both Outputs' snapshots: 50,000 x 6 CSV, a 10-step compute chain, Outputs on a middle node and the terminal" in {
       val pid   = seedPipeline(csv(50000))
       val chain = (1 to 10).foldLeft(Vector.empty[PipelineStep])((acc, n) => acc :+ compute(pid, n, acc.lastOption))
-      val tail  = addStep(pid, ComputeStep.Kind, ComputeConfig("tail", "concat($a, $b)", None), Some(chain(2)))
-      // The tail branch has the higher position's sibling order irrelevant here; it only has to be a non-trunk node with an Output.
-      addOutput(pid, chain(4), "middle"); addOutput(pid, chain(9), "terminal"); addOutput(pid, tail, "tail")
+      addOutput(pid, chain(4), "middle"); addOutput(pid, chain(9), "terminal")
 
       val result = awaitDb(service.submit(pid, isDry = false, owner))
       result shouldBe a[Right[_, _]]
@@ -31,8 +29,18 @@ class PipelineRunLimitsServiceSpec extends AnyWordSpec with Matchers with RunSer
 
       nodeSnapshotRows(pid, chain(4)) shouldBe 50000
       nodeSnapshotRows(pid, chain(9)) shouldBe 50000
-      nodeSnapshotRows(pid, tail) shouldBe 50000
-      nodeSnapshotCount(pid) shouldBe 150000
+      nodeSnapshotCount(pid) shouldBe 100000
+    }
+
+    "write the snapshot of an Output on a non-trunk branch too (its frame is retained by name)" in {
+      val pid   = seedPipeline(csv(2000))
+      val chain = (1 to 4).foldLeft(Vector.empty[PipelineStep])((acc, n) => acc :+ compute(pid, n, acc.lastOption))
+      val tail  = addStep(pid, ComputeStep.Kind, ComputeConfig("tail", "concat($a, $b)", None), Some(chain(1)))
+      addOutput(pid, tail, "tail"); addOutput(pid, chain(3), "terminal")
+
+      awaitDb(service.submit(pid, isDry = false, owner)) shouldBe a[Right[_, _]]
+      nodeSnapshotRows(pid, tail) shouldBe 2000
+      nodeSnapshotRows(pid, chain(3)) shouldBe 2000
     }
   }
 

@@ -13,7 +13,6 @@
 - `terminal-retention` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 3 failing: should stay in nodeOutcomes, and be the result rows, even when the retain set names only a; should fall back to the lowest root, and keep it, when that root has no trunk steps; should not stay charged when the upsertsource step is disabled (it records no write)
 - `root-pinning` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 1 failing: should stay charged after release drops it: R(40) + a(40) + b(40) = 120 is refused by a bu
 - `writeback-pinning` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 1 failing: should stay charged after release, because the write-back sink still holds its input until
-- `empty-retain-from-executor` (backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala): RED -- 1 failing: should succeed under the run budget and write every Output's snapshot: 50,000 x 6 CSV, a 1
 - `leaf-first-inferred` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 2 failing: should stay structuralRank for a run, which sets a live-cell budget but never leafFirst (r; should finish a leaf before descending when leafFirst is set, with or without a live-cell 
 - `d7-try-throwable` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 1 failing: should thrown by the first step escape executeTree itself, not become a step error
 - `d7-drop-boxed-fatal-passthrough` (backend/src/main/scala/com/helio/domain/engine/InProcessPipelineEngine.scala): RED -- 1 failing: should returned by the first step as a failed Future fail the walk without a step error
@@ -22,3 +21,7 @@
 - `dockerfile-flag` (Dockerfile): RED -- 1 failing: should pass -XX:+ExitOnOutOfMemoryError to the JVM
 
 - `text-cap-expression` (backend/src/main/scala/com/helio/domain/engine/ExpressionInterpreter.scala): RED -- 1 failing: should refuse a concat or a + that would build a text past 1,048,576 characters BEFORE bui
+- `guard-budget-below-ac6` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 1 failing: should hold the AC6 walk (root 300k + retained middle Output 550k + parent 750k + child 80
+- `guard-budget-above-ceiling` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 1 failing: should stay at or under the measured ceiling
+- `guard-row-cap` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 1 failing: should keep the owner-ruled numbers
+- `empty-retain-from-executor` (backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala): RED -- 2 failing: should succeed under the run budget and write both Outputs' snapshots: 50,000 x 6 CSV, a 1; should write the snapshot of an Output on a non-trunk branch too (its frame is retained by

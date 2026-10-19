@@ -1,0 +1,4 @@
+# filtered from green-retention.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] Tests: succeeded 21, failed 0, canceled 0, ignored 0, pending 0

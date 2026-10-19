@@ -1,0 +1,13 @@
+# filtered from red-fatal-errors-xmx768m.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should thrown by the first step escape executeTree itself, not become a step error *** FAILED ***
+[info] - should returned by the first step as a failed Future fail the walk without a step error *** FAILED ***
+[info] - should thrown by a step stay a step error naming the step, with the overflow as its cause *** FAILED ***
+[info]   java.util.concurrent.ExecutionException: Boxed Exception was not an instance of java.lang.StackOverflowError, but an instance of java.util.concurrent.ExecutionException (FatalErrorHandlingSpec.scala:74)
+[info] - should returned by a step as a failed Future (boxed by Scala) be unwrapped and stay the same step error *** FAILED ***
+[info]   java.util.concurrent.ExecutionException: Boxed Exception was not an instance of java.lang.StackOverflowError, but an instance of java.util.concurrent.ExecutionException (FatalErrorHandlingSpec.scala:81)
+[info] - should raised by a user regex in a real stringops step stay a step error on the run path *** FAILED ***
+[info]   java.util.concurrent.ExecutionException: Boxed Exception was not an instance of java.lang.StackOverflowError, but an instance of java.util.concurrent.ExecutionException (FatalErrorHandlingSpec.scala:89)
+[info] Tests: succeeded 1, failed 5, canceled 0, ignored 0, pending 0
+[info] *** 5 TESTS FAILED ***

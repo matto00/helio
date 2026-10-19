@@ -1,0 +1,40 @@
+# filtered from heap-run-4000000-xmx768m.log (raw .log is gitignored)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/bug/run-path-memory-bounds/HEL-1660/backend/)
+[info] - should stay at or under 192 MB (25% of the 768 MB production heap), real and dry *** FAILED ***
+[info]   362.78955841064453 was not less than or equal to 192.0 (RunPathHeapSpec.scala:179)
+[info] shape ac6-ordinary               real delta MB   150.1  succeeded, 50000 rows
+[info] shape ac6-ordinary               dry  delta MB    83.6  succeeded, 50000 rows
+[info] shape join-fan-out               real delta MB   112.8  succeeded, 90000 rows
+[info] shape join-fan-out               dry  delta MB    26.7  succeeded, 90000 rows
+[info] shape unpivot                    real delta MB    31.9  succeeded, 100000 rows
+[info] shape unpivot                    dry  delta MB    25.8  succeeded, 100000 rows
+[info] shape splittext                  real delta MB   -93.5  refused: Pipeline execution failed
+[info] shape splittext                  dry  delta MB   -93.6  refused: Pipeline execution failed
+[info] shape chunkbytokencount          real delta MB    30.5  succeeded, 100000 rows
+[info] shape chunkbytokencount          dry  delta MB    10.1  succeeded, 100000 rows
+[info] shape extractheadings            real delta MB   -93.7  refused: Pipeline execution failed
+[info] shape extractheadings            dry  delta MB   -93.7  refused: Pipeline execution failed
+[info] shape doubling-concat            real delta MB     2.0  refused: Pipeline execution failed at step fc2453ba-bfae-4e08-8eef-e09bbad3173f (compute) [path: root:a0be8934-0dc5-4b1
+[info] shape doubling-concat            dry  delta MB     2.0  refused: Pipeline execution failed at step b16bd083-fc77-4f96-b75d-7667e2af964c (compute) [path: root:5ee368a4-2e03-402
+[info] shape text-copying-fan-out       real delta MB     1.0  refused: Pipeline execution failed at step 584463e8-9f9a-4413-b70a-5bf93d92c338 (compute) [path: root:65c313ac-3c99-422
+[info] shape text-copying-fan-out       dry  delta MB     1.0  refused: Pipeline execution failed at step e60d0be5-03b5-4c29-b285-e3e71d70aa76 (compute) [path: root:f3e86b41-98ed-413
+[info] shape splittext-fan-out          real delta MB     1.0  refused: Pipeline execution failed at step 75306e18-e669-46c3-a6e1-aba0a55e6d01 (splittext) [path: root:11689bb9-4da2-4
+[info] shape splittext-fan-out          dry  delta MB     1.0  refused: Pipeline execution failed at step 3655d0f5-ccb2-442a-85a3-85f51ea46e7a (splittext) [path: root:64c19c90-4b14-4
+[info] shape extractheadings-fan-out    real delta MB     1.0  succeeded, 0 rows
+[info] shape extractheadings-fan-out    dry  delta MB     1.0  succeeded, 0 rows
+[info] shape pivot-fan-out              real delta MB     1.1  succeeded, 1 rows
+[info] shape pivot-fan-out              dry  delta MB     1.1  succeeded, 1 rows
+[info] shape fresh-string-chain         real delta MB   176.4  refused: Pipeline execution failed at step 401f95ec-1e99-47e2-a961-3b066c95b310 (compute) [path: root:7e88cf7e-8d25-477
+[info] shape fresh-string-chain         dry  delta MB   175.9  refused: Pipeline execution failed at step 4f9826bb-d5b1-4fd2-810b-5acd059a4b94 (compute) [path: root:56dab445-d166-4bd
+[info] shape csv-root-then-fan-out      real delta MB   181.5  succeeded, 100000 rows
+[info] shape csv-root-then-fan-out      dry  delta MB   101.9  succeeded, 100000 rows
+[info] shape upsertsource-then-steps    real delta MB   116.8  succeeded, 50000 rows
+[info] shape upsertsource-then-steps    dry  delta MB    69.0  succeeded, 50000 rows
+[info] shape just-under-text-light      real delta MB   362.8  succeeded, 50000 rows
+[info] shape just-under-text-light      dry  delta MB   188.4  succeeded, 50000 rows
+[info] shape just-under-text-heavy      real delta MB    75.9  succeeded, 7000 rows
+[info] shape just-under-text-heavy      dry  delta MB    73.0  succeeded, 7000 rows
+[info] max over shapes MB: 362.8 (bound 192.0)
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

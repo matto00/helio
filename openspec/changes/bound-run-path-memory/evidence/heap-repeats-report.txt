@@ -1,0 +1,46 @@
+HEL-1660 task 3.3 heap measurement (RunPathHeapSpec)
+method: System.gc() x2, used heap before the run; again at every node boundary and before every node snapshot write; delta = max sample - before
+live-cell budget (RunLimits.MaxLiveCells): 3000000; just-under budgets swept: 2600000, 2800000
+shape ac6-ordinary               real delta MB   173.4  succeeded, 50000 rows
+shape ac6-ordinary               dry  delta MB    83.5  succeeded, 50000 rows
+shape ac6-ordinary               real delta MB   149.8  succeeded, 50000 rows
+shape ac6-ordinary               dry  delta MB    83.6  succeeded, 50000 rows
+shape ac6-ordinary               real delta MB   172.4  succeeded, 50000 rows
+shape ac6-ordinary               dry  delta MB    83.5  succeeded, 50000 rows
+shape just-under-light@2600000   real delta MB   158.5  succeeded, 50000 rows
+shape just-under-light@2600000   dry  delta MB   115.6  succeeded, 50000 rows
+shape just-under-light@2600000   real delta MB   158.5  succeeded, 50000 rows
+shape just-under-light@2600000   dry  delta MB   116.0  succeeded, 50000 rows
+shape just-under-light@2600000   real delta MB   158.5  succeeded, 50000 rows
+shape just-under-light@2600000   dry  delta MB   115.7  succeeded, 50000 rows
+shape just-under-heavy@2600000   real delta MB   114.9  succeeded, 7000 rows
+shape just-under-heavy@2600000   dry  delta MB    57.7  succeeded, 7000 rows
+shape just-under-heavy@2600000   real delta MB   115.5  succeeded, 7000 rows
+shape just-under-heavy@2600000   dry  delta MB    57.7  succeeded, 7000 rows
+shape just-under-heavy@2600000   real delta MB   115.2  succeeded, 7000 rows
+shape just-under-heavy@2600000   dry  delta MB    57.7  succeeded, 7000 rows
+shape just-under-light@2800000   real delta MB   175.7  succeeded, 50000 rows
+shape just-under-light@2800000   dry  delta MB   129.5  succeeded, 50000 rows
+shape just-under-light@2800000   real delta MB   175.5  succeeded, 50000 rows
+shape just-under-light@2800000   dry  delta MB   129.5  succeeded, 50000 rows
+shape just-under-light@2800000   real delta MB   175.6  succeeded, 50000 rows
+shape just-under-light@2800000   dry  delta MB   129.7  succeeded, 50000 rows
+shape just-under-heavy@2800000   real delta MB   115.0  succeeded, 7000 rows
+shape just-under-heavy@2800000   dry  delta MB    57.7  succeeded, 7000 rows
+shape just-under-heavy@2800000   real delta MB   115.5  succeeded, 7000 rows
+shape just-under-heavy@2800000   dry  delta MB    57.7  succeeded, 7000 rows
+shape just-under-heavy@2800000   real delta MB   115.4  succeeded, 7000 rows
+shape just-under-heavy@2800000   dry  delta MB    57.7  succeeded, 7000 rows
+max over shapes MB: 175.7 (bound 192.0); largest swing between repeats of one shape: 23.6 MB (repeats: 3)
+repeats ac6-ordinary               dry  MB 83.5, 83.6, 83.5
+repeats ac6-ordinary               real MB 173.4, 149.8, 172.4
+repeats just-under-heavy@2600000   dry  MB 57.7, 57.7, 57.7
+repeats just-under-heavy@2600000   real MB 114.9, 115.5, 115.2
+repeats just-under-heavy@2800000   dry  MB 57.7, 57.7, 57.7
+repeats just-under-heavy@2800000   real MB 115.0, 115.5, 115.4
+repeats just-under-light@2600000   dry  MB 115.6, 116.0, 115.7
+repeats just-under-light@2600000   real MB 158.5, 158.5, 158.5
+repeats just-under-light@2800000   dry  MB 129.5, 129.5, 129.7
+repeats just-under-light@2800000   real MB 175.7, 175.5, 175.6
+JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+maxMemory MB: 768

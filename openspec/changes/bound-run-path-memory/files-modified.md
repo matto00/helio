@@ -33,5 +33,7 @@
 
 - `backend/src/test/scala/com/helio/services/pipelines/LateFinisherSpecBase.scala` — takes `retain`, and `HookOutputRepo` leaves a pipeline's Output listings alone until the engine has returned for it: the run now lists Outputs once BEFORE the walk (design D3), and the late-finisher seams target the success chain's list.
 
+- `backend/src/test/scala/com/helio/domain/engine/RunLimitsGuardSpec.scala` — cycle 2: the deterministic CI guard (constants, measured ceiling, AC6 tally walk). `RunPathHeapSpec` is now opt-in (`HELIO_MEASURE=1`); `PipelineRunLimitsServiceSpec` splits the tail-Output case from AC6.
+
 ## Change record
 - `openspec/changes/bound-run-path-memory/{design.md,tasks.md,files-modified.md}` and `evidence/` (red-*, green-*, mutation-* logs; `mutations.md` is the index).

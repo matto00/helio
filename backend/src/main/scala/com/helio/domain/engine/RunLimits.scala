@@ -17,7 +17,7 @@ object RunLimits {
   /** Owner ruling 3: cells (rows x columns, plus the length-priced text they hold, see `CellWeight`) held across every frame the walk
    *  retains plus the frame a node just produced. Sized by `RunPathHeapSpec` so the worst measured run stays at or under 25% of the
    *  768 MB production heap (192 MB); the measurement is recorded in this change's design.md (D6). */
-  val MaxLiveCells: Long = 3000000L
+  val MaxLiveCells: Long = 2600000L
 
   /** The context the run backend hands the engine: the limits above, worded as a pipeline run limit. */
   val contextTransform: PipelineExecutionContext => PipelineExecutionContext =

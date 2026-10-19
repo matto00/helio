@@ -177,3 +177,27 @@ price, and no budget fits both that shape and AC6, so `PipelineRunSucceededWrite
 terminal (`outcome.rows eq resultRows`). The persisted rows are identical; the shape fell to 150 MB and the text-light worst case from 200 MB to
 149 MB at 2,400,000 cells. This is a memory optimisation, not a bound, so it carries no mutation; AC6's service spec asserts the terminal
 Output's snapshot row count.
+
+### Cycle 2: re-sized with margin, heap spec made opt-in
+
+The evaluator saw the same shapes swing by up to about 22 MB between runs, so 3,000,000 cells (6.5 MB of headroom) was not safe. Repeat table
+(`evidence/heap-repeats-report.txt`; 3 runs each, forked `-Xmx768m`, one shape at a time, MB, real / dry):
+
+| Shape | 2,600,000 cells | 2,800,000 cells |
+| --- | --- | --- |
+| just-under text-light, real | 158.5, 158.5, 158.5 | 175.7, 175.5, 175.6 |
+| just-under text-light, dry | 115.6, 116.0, 115.7 | 129.5, 129.5, 129.7 |
+| just-under text-heavy, real | 114.9, 115.5, 115.2 | 115.0, 115.5, 115.4 |
+| just-under text-heavy, dry | 57.7, 57.7, 57.7 | 57.7, 57.7, 57.7 |
+| AC6 (2.4M cells, budget-independent), real | 173.4, 149.8, 172.4 | same shape |
+| AC6, dry | 83.5, 83.6, 83.5 | same shape |
+
+The largest swing is 23.6 MB (AC6 real, bimodal 150/173). The rule: the worst budget-dependent shape must stay at or under 192 - 23.6 = 168.4 MB.
+2,600,000 gives 158.5 MB (swing 0); 2,800,000 gives 175.7 MB, so **`MaxLiveCells` = 2,600,000**. AC6 holds 2,400,000 cells and still succeeds
+(`PipelineRunLimitsServiceSpec`; its tail-Output case moved to a separate 2,000-row test, since a tail Output retained 500,000 more cells than
+the ticket's AC6 shape). AC6's own peak (173.4 MB at worst) does not depend on the budget and stays under 192 MB.
+
+`RunPathHeapSpec` is now opt-in (`HELIO_MEASURE=1`, run under `HELIO_TEST_JVM_XMX=768m`; `HELIO_RUN_HEAP_REPEATS` and `HELIO_RUN_HEAP_ONLY`
+select repeats and shapes), so CI never asserts a heap number. `RunLimitsGuardSpec` is the deterministic guard in `testFull`: it pins the ruled
+constants, requires `MaxLiveCells` at or under the measured ceiling (2,600,000), and runs the AC6 walk through `LiveCellTally` (fits; refused one
+column wider). Mutations `guard-budget-below-ac6`, `guard-budget-above-ceiling` and `guard-row-cap` turn it red (`evidence/mutations.md`).
