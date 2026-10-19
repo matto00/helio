@@ -3,7 +3,7 @@ package com.helio.api.http
 import com.helio.api.ErrorResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken, `Retry-After`}
-import org.apache.pekko.http.scaladsl.server.{Directive0, Directive1}
+import org.apache.pekko.http.scaladsl.server.{Directive0, Directive1, RequestContext}
 import org.apache.pekko.http.scaladsl.server.Directives._
 import com.helio.api.protocols.ResourceProtocol
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, UserSessionRepository}
@@ -54,7 +54,9 @@ class RateLimitDirective(
     userSessionRepo: UserSessionRepository,
     apiTokenRepo: Option[ApiTokenRepository],
     defaultLimit: Int,
-    windowSeconds: Int
+    windowSeconds: Int,
+    // HEL-1630: the 429 body, so a route with its own limiter can say which budget it exhausted.
+    exceededMessage: String = "Rate limit exceeded"
 )(implicit ec: ExecutionContext)
     extends ResourceProtocol {
 
@@ -86,16 +88,24 @@ class RateLimitDirective(
    *  the resolved bucket key. On exceed, completes 429 with a `Retry-After` header and a JSON
    *  `ErrorResponse` body (design.md D5); the inner route is never invoked for a rejected request.
    *  A request with no resolvable key (see [[resolveKey]]) passes through unconditionally -- there
-   *  is nothing to key it on yet (HEL-837 scope). */
-  def rateLimit(limit: Int = defaultLimit): Directive0 =
-    resolveKey.flatMap {
-      case None => pass
-      case Some(key) =>
-        limiter.tryAcquire(key, limit, windowSeconds) match {
-          case RateLimitResult.Allowed => pass
-          case RateLimitResult.Exceeded(retryAfterSeconds) =>
-            respondWithHeader(`Retry-After`(retryAfterSeconds)) &
-              complete(StatusCodes.TooManyRequests, ErrorResponse("Rate limit exceeded"))
+   *  is nothing to key it on yet (HEL-837 scope).
+   *
+   *  HEL-1630: a request for which `exempt` holds passes without touching this bucket -- used by the general `/api` wrap for
+   *  the one route that carries its own limiter, so a draft-preview drag spends only its own budget. Exemption skips
+   *  nothing else: CSRF and scoped-token confinement wrap this directive from outside and inside respectively. */
+  def rateLimit(limit: Int = defaultLimit, exempt: RequestContext => Boolean = _ => false): Directive0 =
+    extractRequestContext.flatMap { requestContext =>
+      if (exempt(requestContext)) pass
+      else
+        resolveKey.flatMap {
+          case None => pass
+          case Some(key) =>
+            limiter.tryAcquire(key, limit, windowSeconds) match {
+              case RateLimitResult.Allowed => pass
+              case RateLimitResult.Exceeded(retryAfterSeconds) =>
+                respondWithHeader(`Retry-After`(retryAfterSeconds)) &
+                  complete(StatusCodes.TooManyRequests, ErrorResponse(exceededMessage))
+            }
         }
     }
 }

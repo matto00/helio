@@ -47,7 +47,7 @@ final case class CastStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(CastStep.apply(rows, config))
+    Future.successful(CastStep.apply(rows, config, ctx.stringBudget))
 }
 
 object CastStep {
@@ -57,12 +57,18 @@ object CastStep {
    *  validator and the strict decoder so one edit changes both. */
   val CastsShape: String = "field name to type name"
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: CastConfig): Seq[PipelineRowJson.Row] = {
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: CastConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  /** `budget` is the draft preview's cap on the text this step creates (HEL-1630, owner ruling C8); `None` for every run and the
+   *  saved preview. Only a cast that builds a NEW string is charged: a String cast to "string" is the same object. */
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: CastConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] = {
     val casts = cfg.casts
     rows.map { row =>
       casts.foldLeft(row) { case (r, (field, targetType)) =>
         val rawValue = r.getOrElse(field, null)
-        r + (field -> castValue(rawValue, targetType))
+        val cast     = castValue(rawValue, targetType)
+        if (!rawValue.isInstanceOf[String]) budget.foreach(_.chargeValue(cast))
+        r + (field -> cast)
       }
     }
   }

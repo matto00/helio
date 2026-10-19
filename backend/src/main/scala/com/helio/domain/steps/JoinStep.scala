@@ -1,6 +1,6 @@
 package com.helio.domain.steps
 
-import com.helio.domain.model.{DataSourceId, PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
+import com.helio.domain.model.{PipelineExecutionContext, PipelineId, PipelineStep, PipelineStepId, StepGroup}
 import com.helio.domain.engine.PipelineRowJson
 import spray.json._
 import spray.json.DefaultJsonProtocol._
@@ -71,6 +71,7 @@ final case class JoinStep(
         throw new StepConfigError(
           "Unsupported join type: " + normalizedType + ". Supported: " + JoinStep.SupportedJoinTypes.mkString(", ")
         )
+      ctx.maxNodeRows.foreach(max => checkOutputSize(rows, rightIndex, normalizedType, max))
       normalizedType match {
         case "inner" =>
           rows.flatMap { leftRow =>
@@ -88,6 +89,17 @@ final case class JoinStep(
       }
     }
 
+    /** The merged size is known from the right index alone, so a fan-out past `max` is refused before any pair is merged. */
+    def checkOutputSize(left: Seq[Map[String, Any]], index: Map[Any, Seq[PipelineRowJson.Row]], joinKind: String, max: Int): Unit = {
+      var total = 0L
+      val it    = left.iterator
+      while (it.hasNext) {
+        val matches = index.get(it.next().getOrElse(joinKey, null)).fold(0)(_.size)
+        total += (if (joinKind == "left") math.max(matches, 1) else matches)
+        if (total > max) throw RowBudget.exceeded(JoinStep.Kind, max)
+      }
+    }
+
     config.secondaryInput match {
       case SecondaryInput.Lane(stepId) =>
         ctx.resolveLane(stepId) match {
@@ -98,14 +110,7 @@ final case class JoinStep(
       case SecondaryInput.Source(rightDsId) =>
         // Privileged: the pipeline ACL is the gate; JoinStep resolves the right-side
         // source (which may belong to a different user per design.md Q1 spinoff).
-        ctx.dataSourceRepo.findByIdInternal(DataSourceId(rightDsId)).flatMap {
-          case None =>
-            Future.failed(
-              new IllegalArgumentException("DataSource not found for join: " + rightDsId)
-            )
-          case Some(rightDs) =>
-            ctx.loadSource(rightDs).map(apply)
-        }
+        ctx.secondaryRows(rightDsId, "join").map(apply)
     }
   }
 }

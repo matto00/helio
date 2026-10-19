@@ -146,6 +146,8 @@ const SKIP = new Set([
   // (an explicit unknown-key check; spray-json would ignore unknown fields), so no case class exists.
   "MoveDashboardFolderRequest", // HEL-1574: PUT /api/dashboards/:id/folder reads raw JSON because the
   // `folderId` key must be present (null unfiles), which an Option field cannot express.
+  "DraftPreviewLine", // HEL-1630: a `oneOf` over five NDJSON line types (no single case class); the
+  // five DraftPreview*Line case classes are checked field-by-field by DraftPreviewSeamSpec.
   "DataSourceResponse", // HEL-933: response composed across the sealed trait's 7 case-class
   // subtypes (Csv/Rest/Sql/Static/Text/Pdf/Image), each with its own field list.
 ]);

@@ -32,7 +32,7 @@ final case class ConvertFormatStep(
   def evaluate(rows: Seq[Map[String, Any]], ctx: PipelineExecutionContext)(implicit
       ec: ExecutionContext
   ): Future[Seq[Map[String, Any]]] =
-    Future.successful(ConvertFormatStep.apply(rows, config))
+    Future.successful(ConvertFormatStep.apply(rows, config, ctx.stringBudget))
 }
 
 object ConvertFormatStep {
@@ -51,7 +51,12 @@ object ConvertFormatStep {
   private def fail(code: String, detail: String): Nothing =
     throw new IllegalArgumentException(s"convertformat $code: $detail")
 
-  def apply(rows: Seq[PipelineRowJson.Row], cfg: ConvertFormatConfig): Seq[PipelineRowJson.Row] =
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ConvertFormatConfig): Seq[PipelineRowJson.Row] = apply(rows, cfg, None)
+
+  /** `budget` is the draft preview's cap on the text this step creates (HEL-1630, owner ruling C8); `None` for every run and the
+   *  saved preview. Each converted text is charged as it lands, and a `csv -> json` expansion is checked against the per-value cap
+   *  (a lower bound of its length) before its tree is built. */
+  def apply(rows: Seq[PipelineRowJson.Row], cfg: ConvertFormatConfig, budget: Option[StringBudget]): Seq[PipelineRowJson.Row] =
     rows.map { row =>
       val value = row.get(cfg.field) match {
         case None               => fail("field-missing", s"field '${cfg.field}' is missing")
@@ -60,12 +65,13 @@ object ConvertFormatStep {
         case Some(s: String)    => s
         case Some(_)            => fail("field-not-string", s"field '${cfg.field}' is not a string")
       }
-      val converted = convert(value, cfg.from, cfg.to)
+      val converted = convert(value, cfg.from, cfg.to, budget)
+      budget.foreach(_.chargeValue(converted))
       row + (cfg.outputField -> converted)
     }
 
-  private def convert(value: String, from: String, to: String): String = (from, to) match {
-    case ("csv", "json")      => csvToJson(value)
+  private def convert(value: String, from: String, to: String, budget: Option[StringBudget]): String = (from, to) match {
+    case ("csv", "json")      => csvToJson(value, budget)
     case ("json", "csv")      => jsonToCsv(value)
     case ("text", "markdown") => textToMarkdown(value)
     case ("markdown", "text") => markdownToText(value)
@@ -141,12 +147,21 @@ object ConvertFormatStep {
     rows.result()
   }
 
-  private def csvToJson(text: String): String = {
+  /** A lower bound on the JSON `csvToJson` writes for `rows` under `header`, before any of it is built: per data row the braces and
+   *  every `"key":"value",` (quotes, colon, comma), ignoring escapes and the array's own commas. Cheap (one pass over the cells). */
+  private def jsonLengthLowerBound(header: Vector[String], dataRows: Seq[Vector[String]]): Long = {
+    val perRow = 2L + header.iterator.map(k => k.length.toLong + 6L).sum
+    dataRows.iterator.map(r => perRow + r.iterator.map(_.length.toLong).sum).sum
+  }
+
+  private def csvToJson(text: String, budget: Option[StringBudget]): String = {
     val rows = parseCsvRows(text)
     if (rows.isEmpty) return "[]"
     val header = rows.head
     if (header.exists(_.isEmpty)) fail("csv-malformed", "header contains an empty column name")
     if (header.distinct.length != header.length) fail("csv-malformed", "header contains a duplicate column name")
+    // Draft preview: refuse an expansion over the per-value cap before the tree is built, not after the whole text exists.
+    budget.foreach(_.checkLength(jsonLengthLowerBound(header, rows.tail)))
     val arr = jsonMapper.createArrayNode()
     rows.tail.foreach { r =>
       if (r.length != header.length)
