@@ -5,7 +5,8 @@ import com.helio.api.protocols.pipelines.{RunResultResponse, TruncatedReadRespon
 import com.helio.api.routes.pipelines.RunStatusEvent
 import com.helio.domain.model.{AssertionResult, AssertionSink, AuthenticatedUser, DataSource, DataSourceId, Pipeline, PipelineId, PipelineRunId, PipelineStep, PipelineStepKind, TruncationSink, UserId, WriteBackSink}
 import com.helio.services.sources.DataSourceService
-import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, SourceReadStats, StepKey}
+import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, RunLimits, SourceReadStats, StepExecutionException, StepKey}
+import com.helio.domain.steps.StepConfigError
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.RunState
@@ -254,7 +255,10 @@ private[pipelines] final class PipelineRunExecutor(
       backend
         .execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress, writeBackSink,
           ownerUserId = Some(pipeline.ownerId.value))
-        .map(outcome => (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes, retain))
+        .map { outcome =>
+          if (!isDry) refuseOverPostWalkBudget(outcome.rows, outcome.nodeOutcomes, retain, steps)
+          (outcome.rows, outcome.stepCounts, outcome.sourceRowCount, outcome.primaryStats, outcome.nodeOutcomes, retain)
+        }
     }
 
     runFuture.transformWith {
@@ -265,6 +269,17 @@ private[pipelines] final class PipelineRunExecutor(
           pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
           resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain
         )
+    }
+  }
+
+  /** HEL-1660 (owner ruling 3): the walk's live-cell budget cannot see the JSON copies the success path makes, so a real run whose retained
+   *  frames plus those copies pass `RunLimits.MaxPostWalkCells` fails here, as its terminal step's error, before any write. */
+  private def refuseOverPostWalkBudget(terminalRows: Seq[Map[String, Any]], nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], steps: Vector[PipelineStep]): Unit = {
+    val cells = RunLimits.postWalkCells(nodeOutcomes, retain, terminalRows)
+    if (cells > RunLimits.MaxPostWalkCells) {
+      val terminal = nodeOutcomes.collectFirst { case (StepKey(id), o) if o.rows eq terminalRows => id }.flatMap(id => steps.find(_.id.value == id))
+      val message  = s"Pipeline run memory limit reached: the finished run would hold about $cells cells (its Outputs' rows and their copies), more than ${RunLimits.MaxPostWalkCells}. Reduce the rows or columns, or keep fewer large Outputs."
+      throw new StepExecutionException(terminal.fold("root")(_.id.value), terminal.fold("root")(_.kind), message, new StepConfigError(message))
     }
   }
 

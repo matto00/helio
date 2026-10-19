@@ -25,3 +25,36 @@
 - `guard-budget-above-ceiling` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 1 failing: should stay at or under the measured ceiling
 - `guard-row-cap` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 1 failing: should keep the owner-ruled numbers
 - `empty-retain-from-executor` (backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala): RED -- 2 failing: should succeed under the run budget and write both Outputs' snapshots: 50,000 x 6 CSV, a 1; should write the snapshot of an Output on a non-trunk branch too (its frame is retained by
+- `postwalk-limit-unbounded` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 3 failing: should refuse the skeptic's adjacent-Outputs shape (23-column terminal plus its 22-column ; should hold the post-walk limit at or under the measured ceiling (design.md Measured Budge; should fail cleanly with the run memory-limit error and write no snapshot: 17 concat steps
+- `postwalk-check-not-called` (backend/src/main/scala/com/helio/services/pipelines/PipelineRunExecutor.scala): RED -- 1 failing: should fail cleanly with the run memory-limit error and write no snapshot: 17 concat steps
+- `postwalk-drop-json-copies` (backend/src/main/scala/com/helio/domain/engine/RunLimits.scala): RED -- 2 failing: should pin the AC6 shape (Outputs on a 16-column terminal and an 11-column middle node) at; should refuse the skeptic's adjacent-Outputs shape (23-column terminal plus its 22-column 
+
+
+## One-line edits (old -> new) of the cycle-1 mutations
+- `join-row-check`: `ctx.maxNodeRows.foreach(max => checkOutputSize(rows, rightIndex, normalizedType, max, ctx.limitLabel))` -> `()`
+- `unpivot-row-check`: `rows.size.toLong * valueVars.length > max)` -> `rows.size.toLong * valueVars.length > Int.MaxValue)`
+- `splittext-emit-check`: `RowBudget.flatMap(rows, maxRows, Kind, label)` -> `RowBudget.flatMap(rows, None, Kind, label)`
+- `chunk-emit-check`: `RowBudget.flatMap(rows, maxRows, Kind, label)` -> `RowBudget.flatMap(rows, None, Kind, label)`
+- `headings-emit-check`: `RowBudget.flatMap(rows, maxRows, Kind, label)` -> `RowBudget.flatMap(rows, None, Kind, label)`
+- `engine-backstop`: `ctx.maxNodeRows.filter(frame.size > _)` -> `ctx.maxNodeRows.filter(_ => false)`
+- `text-cap-expression`: `if (length > maxChars) throw StringBudget.tooLong(maxChars, label)` -> `if (false) throw StringBudget.tooLong(maxChars, label)`
+- `text-cap-per-value`: `    if (length > maxChars) throw StringBudget.tooLong(maxChars, label)     usedBytes` -> `    usedBytes`
+- `text-running-budget`: `if (usedBytes > limitBytes) throw` -> `if (false) throw`
+- `memory-budget`: `if (tally.tryAdd(frame, budget)) None` -> `if (true) None`
+- `run-label`: `limitLabel = LimitLabel.Run` -> `limitLabel = LimitLabel.Draft`
+- `backend-wiring`: `contextTransform = RunLimits.contextTransform, ` -> `(removed)`
+- `terminal-retention`: `val kept0 = if (runRetention) keep + terminalKey else keep` -> `val kept0 = keep`
+- `root-pinning`: `var heldElsewhere: Set[NodeKey] = if (runRetention) rootIds.map(rid => RootKey(rid): NodeKey).toSet else Set.empty` -> `var heldElsewhere: Set[NodeKey] = Set.empty`
+- `writeback-pinning`: `if (runRetention && next.enabled && next.kind == PipelineStepKind.UpsertSource) heldElsewhere = heldElsewhere + key + parentKey(next)` -> `()`
+- `empty-retain-from-executor`: `.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, retain, onNodeProgress` -> `.execute(pipeline, roots, steps, dataSourceRepo, assertionSink, truncationSink, Set.empty[NodeKey], onNodeProgress`
+- `leaf-first-inferred`: `if (leafFirst)` -> `if (ctx.maxLiveCells.isDefined)`
+- `draft-wording`: `LimitLabel("Draft preview", "draft preview", "request")` -> `LimitLabel("Draft preview", "pipeline run", "request")`
+- `d7-try-throwable`: `case so: StackOverflowError => Future.failed(StepExecutionException.from(step.id.value, step.kind, so, pathOf(step)))         case NonFatal(ex)           => Future.failed(ex)` -> `case ex: Throwable => Future.failed(ex)`
+- `d7-drop-boxed-fatal-passthrough`: `case ex if InProcessPipelineEngine.isBoxedFatal(ex) => Future.failed(ex)` -> `case ex if false => Future.failed(ex)`
+- `d7-drop-soe-arm`: `case so: StackOverflowError => Future.failed(StepExecutionException.from(step.id.value, step.kind, so, pathOf(step)))         case NonFatal(ex)` -> `case NonFatal(ex)`
+- `d7-drop-soe-exemption`: `cause != null && !NonFatal(cause) && !cause.isInstanceOf[StackOverflowError]` -> `cause != null && !NonFatal(cause)`
+- `dockerfile-flag`: `  "-XX:+ExitOnOutOfMemoryError", \ ` -> `(removed)`
+
+## Cycle 2-3 edits
+- `guard-budget-below-ac6`: `MaxLiveCells = 2600000L` -> `2300000L`; `guard-budget-above-ceiling`: -> `4000000L`; `guard-row-cap`: `MaxStringChars = 1048576` -> `2097152`
+- `postwalk-limit-unbounded`: `MaxPostWalkCells = 3900000L` -> `Long.MaxValue`; `postwalk-check-not-called`: `if (!isDry) refuseOverPostWalkBudget(` -> `if (false) refuseOverPostWalkBudget(`; `postwalk-drop-json-copies`: `held + cost(terminalRows) + others...max` -> `held`

@@ -137,6 +137,9 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
   private val sweep: Seq[Long] =
     sys.env.get("HELIO_RUN_HEAP_SWEEP").map(_.split(",").toSeq.map(_.trim.toLong)).getOrElse(Seq(RunLimits.MaxLiveCells))
 
+  private val postSweep: Seq[Long] =
+    sys.env.get("HELIO_RUN_POST_SWEEP").map(_.split(",").toSeq.map(_.trim.toLong)).getOrElse(Seq(RunLimits.MaxPostWalkCells))
+
   private lazy val measured: Seq[Measured] = {
     measure("ac6-ordinary", { val pid = seedPipeline(sixColumns(50000)); val c = chain(pid, None, 10, "concat($a, $f)"); addOutput(pid, c(4), "middle"); terminalOutput(pid, c) })
     measure("join-fan-out", {
@@ -178,6 +181,24 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       val up  = addStep(pid, UpsertSourceStep.Kind, UpsertSourceConfig(UpsertTarget.NewSource("heap-probe"), UpsertMode.Append))
       terminalOutput(pid, up +: chain(pid, Some(up), 6, "concat($a, $b)"))
     })
+    // The post-walk shapes (HEL-1660 cycle 3): a run holds its retained frames AND their JSON copies, which the walk's tally cannot see.
+    // Each is sized to cost just under `limit` in `RunLimits.postWalkCells` units: `copies` = frames held + JSON copies (2 = terminal Output
+    // only, 4 = plus the terminal's parent, 5 = plus two parents), over a 50,000 x 6 CSV or, for "tall", 100,000 rows from an unpivot.
+    postSweep.foreach { limit =>
+      Seq(2, 4, 5).foreach { copies =>
+        measure(s"post-wide-$copies@$limit", {
+          val steps = math.max(1, (limit / (copies * 50000L)).toInt - 12)
+          val pid = seedPipeline(sixColumns(50000)); val c = chain(pid, None, steps, "concat($a, $f)")
+          c.takeRight((if (copies == 2) 0 else copies - 3) + 1).dropRight(1).foreach(n => addOutput(pid, n, s"parent-${n.id.value}"))
+          terminalOutput(pid, c)
+        })
+      }
+      measure(s"post-tall-2@$limit", {
+        val steps = math.max(1, (limit / (2 * 100000L)).toInt - 9)
+        val pid = seedPipeline(sixColumns(50000)); val u = addStep(pid, UnpivotStep.Kind, UnpivotConfig(Vector("a"), Vector("b", "c"), "var", "val"))
+        terminalOutput(pid, u +: chain(pid, Some(u), steps, "concat($a, $val)"))
+      })
+    }
     sweep.foreach { budget =>
       measure(s"just-under-light@$budget", { val pid = seedPipeline(sixColumns(50000)); terminalOutput(pid, chain(pid, None, textLightSteps(budget), "concat($a, $f)")) })
       measure(s"just-under-heavy@$budget", textHeavy(textHeavySteps(budget)))
@@ -208,6 +229,8 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       maxPeak should be <= 192.0
       all.find(m => m.name == "ac6-ordinary" && m.mode == "real").foreach(_.outcome should startWith("succeeded"))
       all.filter(_.name.startsWith("just-under")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should startWith("succeeded")))
+      // A post-walk shape sized to the limit may be refused (by the walk's budget or the post-walk check), but never by an exhausted heap.
+      all.filter(_.name.startsWith("post-")).foreach(m => withClue(s"${m.name} ${m.mode}: ")(m.outcome should not include "step execution failed"))
       sys.env.get("HELIO_HEAP_EVIDENCE_PATH").foreach { path =>
         val target = Paths.get(path)
         Option(target.getParent).foreach(Files.createDirectories(_))

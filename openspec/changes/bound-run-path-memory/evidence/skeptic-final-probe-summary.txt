@@ -1,0 +1,16 @@
+[info] shape just-under-light@2600000   real delta MB   159.1  succeeded, 50000 rows
+[info] shape just-under-light@2600000   dry  delta MB   116.0  succeeded, 50000 rows
+[info] shape just-under-light@2600000   real delta MB   158.6  succeeded, 50000 rows
+[info] shape just-under-light@2600000   dry  delta MB   115.7  succeeded, 50000 rows
+[info] shape adjacent-outputs@2600000   real delta MB   258.9  succeeded, 50000 rows
+[info] shape adjacent-outputs@2600000   dry  delta MB   115.6  succeeded, 50000 rows
+[info] shape adjacent-outputs@2600000   real delta MB   259.0  succeeded, 50000 rows
+[info] shape adjacent-outputs@2600000   dry  delta MB   115.6  succeeded, 50000 rows
+[info] max over shapes MB: 259.0 (bound 192.0); largest swing between repeats of one shape: 0.5 MB (repeats: 2)
+[info] repeats adjacent-outputs@2600000   dry  MB 115.6, 115.6
+[info] repeats adjacent-outputs@2600000   real MB 258.9, 259.0
+[info] repeats just-under-light@2600000   dry  MB 116.0, 115.7
+[info] repeats just-under-light@2600000   real MB 159.1, 158.6
+[info] JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+[info] maxMemory MB: 768
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0

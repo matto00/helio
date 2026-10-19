@@ -44,6 +44,21 @@ class PipelineRunLimitsServiceSpec extends AnyWordSpec with Matchers with RunSer
     }
   }
 
+  "a pipeline the walk accepts but whose finished run would hold too much (skeptic-final-1 CR1)" should {
+    "fail cleanly with the run memory-limit error and write no snapshot: 17 concat steps over 50,000 x 6 with Outputs on the terminal and its parent (259 MB when it was accepted)" in {
+      val pid   = seedPipeline(csv(50000))
+      val chain = (1 to 17).foldLeft(Vector.empty[PipelineStep])((acc, n) => acc :+ compute(pid, n, acc.lastOption))
+      addOutput(pid, chain(15), "parent"); addOutput(pid, chain(16), "terminal")
+
+      awaitDb(service.submit(pid, isDry = false, owner)).isLeft shouldBe true
+      val run = awaitDb(pipelineRunRepo.listByPipeline(pid, owner)).head
+      run.status shouldBe "failed"
+      run.errorLog.get should include(chain(16).id.value)
+      run.errorLog.get should include("Pipeline run memory limit reached")
+      nodeSnapshotCount(pid) shouldBe 0
+    }
+  }
+
   "a run over a limit (AC5)" should {
     def unpivotOverTheLimit(): (PipelineId, PipelineStep) = {
       val pid = seedPipeline(csv(50000))

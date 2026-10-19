@@ -35,5 +35,7 @@
 
 - `backend/src/test/scala/com/helio/domain/engine/RunLimitsGuardSpec.scala` — cycle 2: the deterministic CI guard (constants, measured ceiling, AC6 tally walk). `RunPathHeapSpec` is now opt-in (`HELIO_MEASURE=1`); `PipelineRunLimitsServiceSpec` splits the tail-Output case from AC6.
 
+- Cycle 3: `RunLimits.postWalkCells`/`MaxPostWalkCells` (3,900,000) and `PipelineRunExecutor.refuseOverPostWalkBudget` price the post-walk JSON copies; `RunLimitsGuardSpec`, `PipelineRunLimitsServiceSpec` and `RunPathHeapSpec` (post-walk shapes) extended.
+
 ## Change record
 - `openspec/changes/bound-run-path-memory/{design.md,tasks.md,files-modified.md}` and `evidence/` (red-*, green-*, mutation-* logs; `mutations.md` is the index).

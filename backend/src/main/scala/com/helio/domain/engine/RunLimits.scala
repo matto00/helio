@@ -19,6 +19,27 @@ object RunLimits {
    *  768 MB production heap (192 MB); the measurement is recorded in this change's design.md (D6). */
   val MaxLiveCells: Long = 2600000L
 
+  /** Cells one row costs beyond its own values, for pricing a frame (and its JSON copy) in `postWalkCells`: the row map and the JSON object
+   *  wrapper, measured at about 6 cells' worth of heap, so a tall frame is priced above a wide one of equal cells. */
+  val RowCostCells: Long = 6L
+
+  /** Owner ruling 3, the part the walk's tally cannot see: after the walk a real run holds the frames it retained (each Output's node and
+   *  the trunk terminal) AND builds JSON copies of them (the terminal's for the response, one Output node's at a time for its snapshot).
+   *  A run whose retained frames plus those copies cost more than this is refused before it writes anything. Sized by `RunPathHeapSpec`. */
+  val MaxPostWalkCells: Long = 3900000L
+
+  private def cost(rows: Seq[Map[String, Any]]): Long = rows.iterator.map(_.size.toLong + RowCostCells).sum
+
+  /** What a real run holds once the walk is done: every retained frame once (by identity) plus the JSON copies the success path makes of
+   *  them: the terminal's, and the largest other retained Output frame (those are converted one at a time). */
+  def postWalkCells(nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], terminalRows: Seq[Map[String, Any]]): Long = {
+    val frames = nodeOutcomes.collect { case (k, o) if retain.contains(k) || (o.rows eq terminalRows) => o.rows }.toVector
+    val distinct = frames.foldLeft(Vector.empty[Seq[Map[String, Any]]])((acc, f) => if (acc.exists(_ eq f)) acc else acc :+ f)
+    val others   = distinct.filterNot(_ eq terminalRows)
+    val held     = (terminalRows +: others).map(cost).sum
+    held + cost(terminalRows) + others.map(cost).maxOption.getOrElse(0L)
+  }
+
   /** The context the run backend hands the engine: the limits above, worded as a pipeline run limit. */
   val contextTransform: PipelineExecutionContext => PipelineExecutionContext =
     _.copy(maxNodeRows = Some(MaxNodeRows), maxLiveCells = Some(MaxLiveCells), maxStringChars = Some(MaxStringChars), limitLabel = LimitLabel.Run)

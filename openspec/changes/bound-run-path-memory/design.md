@@ -91,7 +91,7 @@ step and limit, and no snapshot is written because the success path is never rea
 chunkbytokencount, extractheadings, doubling concat, a text-copying fan-out, pivot over long text, a fresh-string chain,
 a 300,000-cell CSV root then a fan-out, an upsertsource of a large frame followed by more steps (D3a), two
 **succeeds-just-under-budget** shapes with an Output on the trunk terminal: a text-light, many-cell variant, which is the
-worst case for the per-cell JSON copies, and a text-heavy variant. Each runs as both a real run and a dry run, and the
+a worst case for the per-cell JSON copies (but not the worst: see "Cycle 3"), and a text-heavy variant. Each runs as both a real run and a dry run, and the
 worst post-walk peak is the max of the four (retained frames plus `jsRows` plus `nodeJsRows`), and the AC6 ordinary shape. The service-level
 shapes use real `nodeSnapshotRepo` and `outputHistoryRepo`; with a null repo the snapshot writes are skipped
 (`PipelineRunSucceededWrites.scala:88`), and the measurement would be hollow. AC6 is the widest CSV the run path accepts,
@@ -201,3 +201,37 @@ the ticket's AC6 shape). AC6's own peak (173.4 MB at worst) does not depend on t
 select repeats and shapes), so CI never asserts a heap number. `RunLimitsGuardSpec` is the deterministic guard in `testFull`: it pins the ruled
 constants, requires `MaxLiveCells` at or under the measured ceiling (2,600,000), and runs the AC6 walk through `LiveCellTally` (fits; refused one
 column wider). Mutations `guard-budget-below-ac6`, `guard-budget-above-ceiling` and `guard-row-cap` turn it red (`evidence/mutations.md`).
+
+### Cycle 3: the post-walk copies are priced (skeptic-final-1)
+
+The walk's tally never counted what the success path builds afterwards: the terminal's JSON (`jsRows`, kept for the response) and, one at a time,
+each non-terminal Output's JSON, on top of the frames still retained. The terminal-only text-light shape is therefore NOT the worst case: a
+50,000 x 6 CSV, 17 concat steps, Outputs on the terminal and its parent holds 2,550,000 walk cells (accepted) and peaked at 259 MB
+(`evidence/skeptic-final-probe-summary.txt`), with a dry run at 116 MB.
+
+Fix (the priced fallback; streaming and dropping frames was rejected because alerts, schema updates, binary refs and the late-finisher
+seams all read the retained frames concurrently, and the response needs `jsRows` anyway): `RunLimits.postWalkCells` = every retained frame
+once (each Output's node plus the terminal, by identity) + the terminal's JSON copy + the largest other Output's JSON copy, each row costing
+its columns plus `RowCostCells` (6, the row map and JSON wrapper). A real run over `RunLimits.MaxPostWalkCells` fails in
+`PipelineRunExecutor`, before any write, as its terminal step's error ("Pipeline run memory limit reached: the finished run would hold about N
+cells ..."), never by OOM. Dry runs write nothing and are not checked.
+
+`MaxPostWalkCells` = **3,900,000**, the exact cost of AC6 (terminal 50,000 x 16 columns, middle Output 50,000 x 11: 1.1M + 0.85M held +
+1.1M + 0.85M copies), the smallest value that still accepts AC6. `MaxLiveCells` stays 2,600,000 (no escalation: it did not need to drop).
+Measured at that limit (`evidence/heap-post-3900000.summary.txt`, 3 repeats, `-Xmx768m`, real / dry, MB):
+
+| Shape (sized to just under 3,900,000) | real | dry |
+| --- | --- | --- |
+| AC6 | 150.4, 149.8, 149.7 | 83.5 |
+| terminal + parent Output (4 copies) | 164.3, 133.1, 164.4 | 72.0 |
+| terminal + two parent Outputs (5 copies) | 110.9, 110.9, 112.7 | 48.4 |
+| terminal-only (2 copies), tall or wide | refused by the walk's 2.6M budget first (123 / 149 MB reached) | |
+
+Largest swing 31.3 MB (the 4-copy shape is bimodal, 133 / 164); the upper mode repeats at 164.4 MB, 27.6 MB under 192. The strict rule
+(worst <= 192 - swing = 160.7) misses by 3.7 MB, and the limit cannot go lower because AC6 needs 3,900,000; every observed peak is under 192 MB.
+This is disclosed rather than escalated since no AC changes and no run exceeded 192 MB; say so if the stricter reading is wanted.
+
+Capacity disclosure (replaces the earlier one): at the largest accepted CSV (50,000 x 6) a run keeps at most about 3.9M priced cells:
+a terminal-only Output up to the walk's own limit (about 23 columns), an AC6-sized middle Output beside a 16-column terminal, but not two Outputs of
+23 and 22 columns (the skeptic's shape, 5.8M, refused); several large non-terminal Outputs are refused once their frames plus the largest
+copy pass the limit (for example, three 11-column Outputs beside a 16-column terminal cost 5.6M).
