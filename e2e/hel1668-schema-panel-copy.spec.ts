@@ -29,8 +29,12 @@ async function openSchemaPanel(page: Page) {
   return { trigger: t as DOMRect, panel: p };
 }
 
+// HEL-1632: at 1280 the live Output column takes a third column, so the centre column is ~363px wide (was ~660px) and the
+// filter editor's rows stack (267px tall, 163px at 1700 where they do not). The "N fields" trigger therefore sits ~12px
+// lower and the pinned fixture's "below is roomier" premise (trigger centre above the viewport's midline) needs 40px more
+// height; the placement logic under test is unchanged.
 for (const viewport of [
-  { width: 1280, height: 800 },
+  { width: 1280, height: 840 },
   { width: 1000, height: 800 },
 ]) {
   const at = `${viewport.width}x${viewport.height}`;

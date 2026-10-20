@@ -6,7 +6,8 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  /* The live-output track's width: zero until HEL-1581 sets it (about 340-380px) and renders into the slot. */
+  /* The live-output track's width: zero (the Output is a section under the preview) until the page is wide enough
+     for three columns, see `[data-live-layout="column"]` below. */
   --pipeline-live-output-width: 0px;
   /* The header's narrow-width rules key off the page's own width (viewport minus rail and context list, which
      can be 200 to 400px), not the viewport: a container query, not a media query. */
@@ -71,6 +72,38 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+/* HEL-1632 (design.md D7): three columns once the page is wide enough (`THREE_COLUMN_MIN_WIDTH`, measured on the body).
+   The live track is 340-380px, own scroll, with the spine narrowed so the centre column keeps about 320px or more. */
+.spine-body[data-live-layout="column"] {
+  --pipeline-live-output-width: clamp(340px, 28cqi, 380px);
+  grid-template-columns:
+    clamp(220px, 28cqi, 340px)
+    minmax(0, 1fr)
+    var(--pipeline-live-output-width);
+}
+
+.spine-body[data-live-layout="column"] .spine-body__live-output {
+  overflow-y: auto;
+  padding: var(--space-4);
+  border-left: 1px solid var(--app-border-subtle);
+}
+
+/* Narrower: the track is gone and the Output is a collapsed "Output" row under the centre column; opened, it is capped
+   (about 40% of the body) and scrolls inside itself. */
+.spine-body[data-live-layout="disclosure"] {
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "spine main"
+    "spine live-output";
+}
+
+.spine-body[data-live-layout="disclosure"] .spine-body__live-output {
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  border-top: 1px solid var(--app-border-subtle);
 }
 
 .spine-body__placeholder {

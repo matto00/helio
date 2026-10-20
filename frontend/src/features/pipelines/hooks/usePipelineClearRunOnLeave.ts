@@ -7,6 +7,7 @@ import { clearRunState } from "../state/pipelinesSlice";
 // the run-scoped pipeline state -- see `outputsSlice.ts`'s doc comment on the
 // reducer itself for the full unification rationale.
 import { resetRunScopedState } from "../state/outputsSlice";
+import { clearSavedOutputRows } from "./useSavedOutputRows";
 
 /**
  * The run-state reset on pipeline change / unmount extracted from `usePipelineDetailPage`
@@ -27,6 +28,8 @@ export function usePipelineClearRunOnLeave({
       // -- otherwise a stale preview from pipeline A's last run can leak into
       // pipeline B's rail if B's Outputs happen to share a `stepId`-shaped key.
       dispatch(resetRunScopedState());
+      // HEL-1632: the live Output column's saved-rows reads are page-scoped too.
+      clearSavedOutputRows();
     };
   }, [dispatch, id]);
 }

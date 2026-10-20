@@ -12,6 +12,7 @@ import type { LaneGraph } from "../../state/stepTree";
 import type { PipelineRoot } from "../../types/pipelineStep";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { StepPreviewTable } from "../spine/StepPreviewTable";
+import { LiveOutputColumn } from "../liveOutput/LiveOutputColumn";
 
 /** The step the tab previews until the user picks another: the last step of the first source's trunk, else the first step. */
 export function defaultPreviewStepId(laneGraph: LaneGraph, roots: PipelineRoot[]): string | null {
@@ -89,6 +90,12 @@ export function MobilePreviewTab({
         dedupe={dedupe}
         beforeFetch={beforeFetch}
         draft={presentation.previewDraftFor(chosen.step.id)}
+      />
+      <LiveOutputColumn
+        page={page}
+        presentation={presentation}
+        selectedStepId={chosen.step.id}
+        layout="phone"
       />
     </div>
   );

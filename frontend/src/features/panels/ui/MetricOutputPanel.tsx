@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import type { MappedPanelData } from "../types/panel";
 import type { FilteredMetric } from "../../pipelines/services/outputService";
 import { readMetricConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
-import { computeAggregate } from "../../../utils/aggregate";
+import { metricLoadedValue } from "./outputRenderInputs";
 import { MetricRenderer, metricBaselineText } from "./renderers/MetricRenderer";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
 import {
@@ -66,25 +66,10 @@ export function MetricOutputPanel({
     [history, config, filterActive],
   );
 
-  const firstRow =
-    rawRows && headers && rawRows.length > 0
-      ? Object.fromEntries(headers.map((h, i) => [h, rawRows[0][i]]))
-      : null;
   // The server's own selection rule (also reads `aggregation.value`, where the editor stores an
   // aggregated metric's field), so a filtered panel aggregates the same column the headline does.
   const resolvedMetric = resolveServerMetricField(config);
-  const valueColumn = resolvedMetric?.field;
-  const rowsAsRecords =
-    records ??
-    (rawRows && headers
-      ? rawRows.map((row) => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
-      : []);
-  const loadedValue =
-    valueColumn && cfg.aggregation?.agg
-      ? String(computeAggregate(rowsAsRecords, valueColumn, cfg.aggregation.agg) ?? "")
-      : valueColumn && firstRow
-        ? String(firstRow[valueColumn] ?? "")
-        : "";
+  const loadedValue = metricLoadedValue(config, records, rawRows, headers);
   // HEL-1326 design D6 — under a server-applied filter the headline is the full-filtered-set value,
   // never the loaded page's aggregate; it only counts when it was computed from the field/agg the
   // CURRENT config resolves to (`metric: null` agrees with a config that resolves to no field).

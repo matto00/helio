@@ -20,6 +20,7 @@ import type {
   OutputRowsFilterOp,
   OutputRowsSort,
 } from "../../pipelines/services/outputService";
+import { recordsToPanelRows } from "../ui/outputRenderInputs";
 
 export interface PanelDataResult {
   data: MappedPanelData | null;
@@ -318,20 +319,7 @@ export function usePanelData(
 
   const rows = useMemo(() => paginationEntry?.rows ?? [], [paginationEntry]);
 
-  const headers = useMemo(
-    () => (rows.length > 0 ? Object.keys(rows[0]).map(String) : null),
-    [rows],
-  );
-
-  const rawRows = useMemo(
-    () =>
-      rows.length > 0
-        ? rows.map((row) =>
-            Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
-          )
-        : null,
-    [rows],
-  );
+  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows), [rows]);
 
   if (!currentFetchKey) {
     return {
