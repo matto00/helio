@@ -1,8 +1,9 @@
 // HEL-958 seam test, frontend half. `shared-test-fixtures/join-step-config.json` holds the exact
-// config object the join editor persists; the backend half (`JoinStepConfigSeamSpec`) decodes and
+// config object the join editor reports; the backend half (`JoinStepConfigSeamSpec`) decodes and
 // round-trips the SAME file. This drives the real editor (`StepOpEditor` + `useStepCardState`) with
-// `updatePipelineStep` mocked and asserts the PATCH body equals each fixture case with an exact key
-// set, so a key renamed in the persist payload fails here.
+// `updatePipelineStep` mocked (it must never be called: since HEL-1631 an edit goes to the draft) and asserts the config the
+// editor reports to `onConfigChange` equals each fixture case with an exact key set, so a key renamed in the reported
+// payload fails here.
 
 import { act, fireEvent, screen } from "@testing-library/react";
 import fs from "node:fs";
@@ -12,7 +13,6 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { updatePipelineStep } from "../../services/pipelineService";
 import { useStepCardState } from "../../hooks/useStepCardState";
 import { OP_TYPES } from "../../state/stepNarrowing";
-import type { PipelineStep } from "../../types/pipelineStep";
 import type { Step } from "../../types/step";
 import { StepOpEditor } from "../StepOpEditor";
 
@@ -29,6 +29,7 @@ jest.mock("../../services/pipelineService", () => ({
   updatePipelineStep: jest.fn(),
 }));
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
+const onConfigChangeMock = jest.fn();
 
 interface JoinFixtureConfig {
   secondaryInput: { kind: "source"; dataSourceId: string } | { kind: "lane"; stepId: string };
@@ -74,7 +75,7 @@ const laneStep: Step = {
 };
 
 function Harness() {
-  const state = useStepCardState(joinStep, jest.fn());
+  const state = useStepCardState(joinStep, onConfigChangeMock);
   return (
     <StepOpEditor
       step={joinStep}
@@ -99,7 +100,8 @@ async function lastPersistedBody(): Promise<unknown> {
   await act(async () => {
     jest.runAllTimers();
   });
-  const calls = updatePipelineStepMock.mock.calls;
+  expect(updatePipelineStepMock).not.toHaveBeenCalled();
+  const calls = onConfigChangeMock.mock.calls;
   return calls[calls.length - 1][1];
 }
 
@@ -107,13 +109,13 @@ describe("join step config seam (shared fixture)", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     updatePipelineStepMock.mockReset();
-    updatePipelineStepMock.mockResolvedValue({} as PipelineStep);
+    onConfigChangeMock.mockReset();
   });
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it("persists exactly the source-kind fixture config", async () => {
+  it("reports exactly the source-kind fixture config", async () => {
     renderWithStore(<Harness />, {
       sources: {
         items: [
@@ -144,7 +146,7 @@ describe("join step config seam (shared fixture)", () => {
     expect(Object.keys(body).sort()).toEqual(Object.keys(fixture.cases.source).sort());
   });
 
-  it("persists exactly the lane-kind fixture config", async () => {
+  it("reports exactly the lane-kind fixture config", async () => {
     renderWithStore(<Harness />);
     choose("Right source", "Lane node: Other lane");
     choose("Join key", fixture.cases.lane.joinKey);

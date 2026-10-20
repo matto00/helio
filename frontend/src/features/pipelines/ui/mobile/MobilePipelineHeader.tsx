@@ -41,9 +41,16 @@ export function MobilePipelineHeader({
     ...(onlyRootSource
       ? [{ label: "Edit source", onClick: () => page.handleEditSource(onlyRootSource.id) }]
       : []),
-    { label: "Add source", onClick: actions.openAddRoot },
+    {
+      label: "Add source",
+      disabled: page.draftBlockReason !== null,
+      reason: page.draftBlockReason ?? undefined,
+      onClick: actions.openAddRoot,
+    },
     {
       label: "Add Outputs from a shape",
+      disabled: page.draftBlockReason !== null,
+      reason: page.draftBlockReason ?? undefined,
       onClick: () => actions.openShapePicker(lastTrunkStepId),
     },
     {

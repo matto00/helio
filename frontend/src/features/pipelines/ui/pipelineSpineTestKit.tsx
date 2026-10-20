@@ -13,7 +13,7 @@ import { authReducer } from "../../auth/state/authSlice";
 import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
 import { layoutHistoryReducer } from "../../layout/state/layoutHistorySlice";
 import { panelsReducer } from "../../panels/state/panelsSlice";
-import type { DataSource } from "../../sources/types/dataSource";
+import type { DataSource, SourceSample } from "../../sources/types/dataSource";
 import { sourcesReducer } from "../../sources/state/sourcesSlice";
 import { sourceSamplesReducer } from "../../sources/state/sourceSamplesSlice";
 import { toastsReducer } from "../../toasts/state/toastsSlice";
@@ -61,6 +61,8 @@ export interface SpineStoreOptions {
   currentUserId?: string;
   updateStatus?: "idle" | "loading" | "succeeded" | "failed";
   updateError?: string | null;
+  /** HEL-1631: cached source samples by data source id, as the page's sample store holds them (the draft preview reads them). */
+  samples?: Record<string, SourceSample>;
 }
 
 export function makeSpineStore(options: SpineStoreOptions = {}) {
@@ -100,6 +102,19 @@ export function makeSpineStore(options: SpineStoreOptions = {}) {
         status: "succeeded" as const,
         error: null,
       },
+      ...(options.samples !== undefined
+        ? {
+            sourceSamples: {
+              entries: Object.fromEntries(
+                Object.entries(options.samples).map(([id, sample]) => [
+                  id,
+                  { status: "ready" as const, sample, requestedAt: 0 },
+                ]),
+              ),
+              epoch: 0,
+            },
+          }
+        : {}),
       ...(options.outputs !== undefined
         ? {
             outputs: {

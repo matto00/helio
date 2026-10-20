@@ -1,9 +1,10 @@
 // HEL-1316 seam test, frontend half. `shared-test-fixtures/window-rolling-seam.json` holds the exact
-// config the window editor persists for a rolling frame; the backend half (`WindowRollingSeamSpec`)
+// config the window editor reports for a rolling frame; the backend half (`WindowRollingSeamSpec`)
 // creates a step from the SAME config through the real routes, analyzes it and previews it over the
 // fixture's input. This drives the real editor (`StepOpEditor` + `useStepCardState`) with
-// `updatePipelineStep` mocked and asserts the outgoing PATCH body equals the fixture config with an
-// EXACT key set (never editor-local state), so a key renamed or leaked in the persist payload fails here.
+// `updatePipelineStep` mocked (it must never be called: since HEL-1631 an edit goes to the draft) and asserts the config the
+// editor reports to `onConfigChange` equals the fixture config with an EXACT key set (never editor-local state), so a key
+// renamed or leaked in the reported payload fails here.
 
 import { act, fireEvent, screen } from "@testing-library/react";
 import fs from "node:fs";
@@ -13,7 +14,6 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { updatePipelineStep } from "../../services/pipelineService";
 import { useStepCardState } from "../../hooks/useStepCardState";
 import { OP_TYPES } from "../../state/stepNarrowing";
-import type { PipelineStep } from "../../types/pipelineStep";
 import type { Step } from "../../types/step";
 import { StepOpEditor } from "../StepOpEditor";
 
@@ -21,6 +21,7 @@ jest.mock("../../services/pipelineService", () => ({
   updatePipelineStep: jest.fn(),
 }));
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
+const onConfigChangeMock = jest.fn();
 
 function findRepoRoot(dir: string): string {
   return fs.existsSync(path.join(dir, "shared-test-fixtures"))
@@ -52,7 +53,7 @@ const windowStep: Step = {
 };
 
 function Harness() {
-  const state = useStepCardState(windowStep, jest.fn());
+  const state = useStepCardState(windowStep, onConfigChangeMock);
   return (
     <StepOpEditor
       step={windowStep}
@@ -78,7 +79,8 @@ async function lastPersistedBody(): Promise<Record<string, unknown>> {
   await act(async () => {
     jest.runAllTimers();
   });
-  const calls = updatePipelineStepMock.mock.calls;
+  expect(updatePipelineStepMock).not.toHaveBeenCalled();
+  const calls = onConfigChangeMock.mock.calls;
   return calls[calls.length - 1][1] as unknown as Record<string, unknown>;
 }
 
@@ -86,13 +88,13 @@ describe("window rolling step config seam (shared fixture)", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     updatePipelineStepMock.mockReset();
-    updatePipelineStepMock.mockResolvedValue({} as PipelineStep);
+    onConfigChangeMock.mockReset();
   });
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it("persists exactly the fixture config", async () => {
+  it("reports exactly the fixture config", async () => {
     renderWithStore(<Harness />);
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
     choose("Window function", fixture.config.function as string);
@@ -106,7 +108,7 @@ describe("window rolling step config seam (shared fixture)", () => {
     expect(Object.keys(body).sort()).toEqual(Object.keys(fixture.config).sort());
   });
 
-  it("persists the chosen source field for a rolling function (the old hard-coded field list dropped it)", async () => {
+  it("reports the chosen source field for a rolling function (the old hard-coded field list dropped it)", async () => {
     renderWithStore(<Harness />);
     choose("Window function", "rolling_avg");
     choose("Source field", "v");

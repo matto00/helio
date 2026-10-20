@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
+import { StatusChip } from "../../../../shared/ui/StatusChip";
 import { TextField } from "../../../../shared/ui/TextField";
 import type { PipelineSchedule } from "../../types/pipelineSchedule";
 import { SpineLastRunMeta, SpineRunStatus } from "./SpineRunStatus";
@@ -48,6 +49,8 @@ export interface SpineHeaderProps {
   onEditOnlySource: (() => void) | null;
   onDryRun: () => void;
   onRun: () => void;
+  /** HEL-1631: the client-only draft. While `hasDraft`, Discard replaces Dry run and Save & run replaces Run. */
+  draft: { hasDraft: boolean; saving: boolean; onDiscard: () => void; onSaveAndRun: () => void };
 }
 
 export function PipelineSpineHeader(props: SpineHeaderProps) {
@@ -102,6 +105,18 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
           </button>
         )}
       </nav>
+
+      {props.draft.hasDraft && (
+        // DESIGN.md §11: the chip carries an accent dot (the CSS paints it); the words are also its title for the dot-only width.
+        <StatusChip
+          intent="neutral"
+          dot
+          className="spine-header__draft"
+          title="Draft · unsaved changes"
+        >
+          <span className="spine-header__draft-text">Draft · unsaved changes</span>
+        </StatusChip>
+      )}
 
       {props.isDirty && props.updateError && (
         <span className="spine-header__error" role="alert" aria-label="Save error">
@@ -171,29 +186,58 @@ export function PipelineSpineHeader(props: SpineHeaderProps) {
 
       <div className="spine-header__trailing">
         <SpineScheduleChip schedule={schedule} onOpen={props.onEditSchedule} />
-        <button
-          type="button"
-          className="spine-header__btn"
-          onClick={props.onDryRun}
-          disabled={runBusy}
-          aria-label="Dry run"
-          title="Dry run"
-        >
-          <FlaskConical className="spine-header__dry-icon" aria-hidden="true" size={ICON_SIZE.sm} />
-          <span className="spine-header__dry-label">Dry run</span>
-        </button>
-        <button
-          type="button"
-          className="spine-header__btn spine-header__btn--primary"
-          onClick={props.onRun}
-          aria-label="Run pipeline"
-          disabled={runBusy}
-        >
-          <span className="spine-header__run-long">Run pipeline</span>
-          <span className="spine-header__run-short" aria-hidden="true">
-            Run
-          </span>
-        </button>
+        {props.draft.hasDraft ? (
+          <>
+            <button
+              type="button"
+              className="spine-header__btn"
+              onClick={props.draft.onDiscard}
+              disabled={props.draft.saving}
+              aria-label="Discard draft"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              className="spine-header__btn spine-header__btn--primary"
+              onClick={props.draft.onSaveAndRun}
+              disabled={props.draft.saving || runBusy}
+              aria-label="Save and run"
+            >
+              {props.draft.saving ? "Saving…" : "Save & run"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="spine-header__btn"
+              onClick={props.onDryRun}
+              disabled={runBusy}
+              aria-label="Dry run"
+              title="Dry run"
+            >
+              <FlaskConical
+                className="spine-header__dry-icon"
+                aria-hidden="true"
+                size={ICON_SIZE.sm}
+              />
+              <span className="spine-header__dry-label">Dry run</span>
+            </button>
+            <button
+              type="button"
+              className="spine-header__btn spine-header__btn--primary"
+              onClick={props.onRun}
+              aria-label="Run pipeline"
+              disabled={runBusy}
+            >
+              <span className="spine-header__run-long">Run pipeline</span>
+              <span className="spine-header__run-short" aria-hidden="true">
+                Run
+              </span>
+            </button>
+          </>
+        )}
         <ActionsMenu label="Pipeline actions" items={items} />
       </div>
     </header>

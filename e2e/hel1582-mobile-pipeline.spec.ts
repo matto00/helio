@@ -156,7 +156,7 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
     await expect(sheet(page)).toBeHidden();
     await expect(page.locator("dialog[open]")).toHaveCount(0);
 
-    // The pending-edit flush on dismiss: an edit made, then a swipe, is saved.
+    // HEL-1631: an edit made, then a swipe, stays in the unsaved draft (no request); the action bar shows it.
     await open(1);
     const stepConfigPatches: string[] = [];
     page.on("request", (r) => {
@@ -169,7 +169,9 @@ test.describe("HEL-1582 phone pipeline page (live)", () => {
     await sortSelect.tap();
     await touchDrag(handleX, handleY, handleY + 400, 16);
     await expect(sheet(page)).toBeHidden();
-    await expect.poll(() => stepConfigPatches.length).toBeGreaterThan(0);
+    await expect(page.locator('[data-slot="draft-status"]')).toHaveText("Draft · unsaved changes");
+    await page.waitForTimeout(1200);
+    expect(stepConfigPatches).toEqual([]);
   });
 
   test("AC2: the sheet's Step actions menu opens above the modal, Move step down works from it, and focus stays in the sheet", async ({

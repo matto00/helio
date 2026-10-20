@@ -130,3 +130,59 @@
     transform: translate(-50%, -50%);
   }
 }
+
+/* HEL-1631 (DESIGN.md §11): "live" is a success-intent dot plus lowercase mono text, only on a surface recomputed from the
+   draft; never the accent. "updating" and "stale" are the same mono caption in muted text. */
+.step-preview__state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.step-preview__state--live {
+  color: var(--app-success);
+}
+
+.step-preview__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-success);
+}
+
+.step-preview__grid--stale {
+  opacity: 0.6;
+}
+
+/* The changed-row flash: a tint fading to transparent over the highlight duration (Full and Subtle). Off, and the OS's
+   reduced-motion preference when no choice is saved, show a static tint until the next change instead. The tint is the
+   accent at 22% via color-mix (DESIGN.md §11, amended by owner ruling accent-22-amend-design: 22% is an already-scored
+   accent-text tint strength). */
+@keyframes step-preview-flash {
+  from {
+    background-color: color-mix(in srgb, var(--app-accent) 22%, transparent);
+  }
+
+  to {
+    background-color: transparent;
+  }
+}
+
+.step-preview .ui-data-grid td.step-preview__cell--changed {
+  animation: step-preview-flash var(--motion-duration-highlight) var(--motion-ease-out) 1 both;
+}
+
+:root[data-motion="off"] .step-preview .ui-data-grid td.step-preview__cell--changed {
+  animation: none;
+  background-color: color-mix(in srgb, var(--app-accent) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) .step-preview .ui-data-grid td.step-preview__cell--changed {
+    animation: none;
+    background-color: color-mix(in srgb, var(--app-accent) 22%, transparent);
+  }
+}

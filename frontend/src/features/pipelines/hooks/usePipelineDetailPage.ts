@@ -13,8 +13,10 @@ import { usePipelineDebouncedAnalyze } from "./usePipelineDebouncedAnalyze";
 import { usePipelineRootAndToggleActions } from "./usePipelineRootAndToggleActions";
 import { usePipelineStepMutations } from "./usePipelineStepMutations";
 import { usePipelineStepStructure } from "./usePipelineStepStructure";
+import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
+import { usePipelineDraftSave } from "./usePipelineDraftSave";
 import { useRunHistory } from "./useRunHistory";
-import { pipelineStepToStep } from "../state/stepNarrowing";
+import { isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineOutputSheets } from "./usePipelineOutputSheets";
@@ -25,7 +27,7 @@ import { usePipelineSourceScheduleActions } from "./usePipelineSourceScheduleAct
 import { useToast } from "../../toasts/hooks/useToast";
 import { canSampleShared } from "../../sources/hooks/useSourceSampleAccess";
 import { useSourceSamples } from "../../sources/hooks/useSourceSamples";
-import type { PipelineRoot } from "../types/pipelineStep";
+import type { PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
 
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
@@ -100,6 +102,14 @@ export function usePipelineDetailPage() {
     deferWatchdogHandleRef,
     stepsFingerprintRef,
   } = usePipelineEditorState();
+  // HEL-1631: the client-only draft overlays the saved `steps`; everything the layouts render reads the draft steps.
+  const draft = usePipelineDraft({
+    baseSteps: steps,
+    baseStepsRef: stepsRef,
+    pipelineId: id,
+    ready: stepsInitialized && !stepsLoading && !stepsFailed,
+  });
+  const draftSteps = draft.draftSteps;
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
   // HEL-1354: run history is loaded on demand (modal open, truncated-banner boot, post-run
@@ -180,7 +190,7 @@ export function usePipelineDetailPage() {
   // `roots` is now required: it's what lets a root with zero steps still
   // render as an empty lane, which `steps` alone could never reveal.
   const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
-  const laneGraph = useMemo(() => buildLaneGraph(steps, roots), [steps, roots]);
+  const laneGraph = useMemo(() => buildLaneGraph(draftSteps, roots), [draftSteps, roots]);
   // HEL-1628: one sample capture per root source when the page opens with nothing cached (both layouts); the
   // label's refresh button is the only other fetch. Never from a step editor, so edits do not re-fetch.
   const rootSourceIds = useMemo(() => roots.map((r) => r.dataSourceId), [roots]);
@@ -218,6 +228,7 @@ export function usePipelineDetailPage() {
     pendingAnalyzeRef,
     pendingSinceRef,
     deferWatchdogHandleRef,
+    suspended: draft.hasDraft,
   });
 
   usePipelineClearRunOnLeave({ dispatch, id });
@@ -291,24 +302,26 @@ export function usePipelineDetailPage() {
     draftFallbackMetaRef,
   });
 
-  const { handleStepConfigChange, handleRemoveStep, handleReorderSteps } = usePipelineStepMutations(
-    {
-      id,
-      roots,
-      stepsRef,
-      setSteps,
-      pushToast,
-      clearDraftCreateError,
-      createDraftIfComplete,
-      markTempRemoved,
-      syncStepsFromServer,
-    },
-  );
+  const {
+    handleStepConfigChange: handleTempStepConfigChange,
+    handleRemoveStep: handleRemoveSavedStep,
+    handleReorderSteps,
+  } = usePipelineStepMutations({
+    id,
+    roots,
+    stepsRef,
+    setSteps,
+    pushToast,
+    clearDraftCreateError,
+    createDraftIfComplete,
+    markTempRemoved,
+    syncStepsFromServer,
+  });
 
   const {
     handleAddRoot,
     handleRemoveRoot,
-    handleToggleStepEnabled,
+    handleToggleStepEnabled: handleToggleTempStepEnabled,
     handleDuplicateStep,
     duplicatingStepIds,
   } = usePipelineRootAndToggleActions({
@@ -320,6 +333,32 @@ export function usePipelineDetailPage() {
     syncStepsFromServer,
   });
 
+  // HEL-1631 (design.md D6): a config edit, an enabled toggle or a delete of a saved step changes only the draft; a step
+  // that is still a not-yet-created AI draft (temp id) keeps its existing local create flow.
+  const { setConfig, setEnabled, deleteStep } = draft;
+  const handleStepConfigChange = useCallback(
+    (stepId: string, config: PipelineStepConfig) => {
+      if (isTempStepId(stepId)) handleTempStepConfigChange(stepId, config);
+      else setConfig(stepId, config);
+    },
+    [handleTempStepConfigChange, setConfig],
+  );
+  const handleRemoveStep = useCallback(
+    (stepId: string) => {
+      if (isTempStepId(stepId)) handleRemoveSavedStep(stepId);
+      else deleteStep(stepId);
+    },
+    [handleRemoveSavedStep, deleteStep],
+  );
+  const handleToggleStepEnabled = useCallback(
+    (stepId: string, enabled: boolean): Promise<void> => {
+      if (isTempStepId(stepId)) return handleToggleTempStepEnabled(stepId, enabled);
+      setEnabled(stepId, enabled);
+      return Promise.resolve();
+    },
+    [handleToggleTempStepEnabled, setEnabled],
+  );
+
   const {
     handleRunPipeline,
     handleDryRun,
@@ -328,6 +367,7 @@ export function usePipelineDetailPage() {
     handleCancel,
     confirmCancelDiscard,
     dismissCancelConfirm,
+    refreshVisibleOutputPreviews,
   } = usePipelineRunAndSaveActions({
     id,
     dispatch,
@@ -340,13 +380,38 @@ export function usePipelineDetailPage() {
     setIsConfirmingCancel,
   });
 
+  const outputsLoaded = useAppSelector(
+    (state) => id !== undefined && state.outputs.listStatus[id] === "succeeded",
+  );
+  const draftSave = usePipelineDraftSave({
+    id,
+    dispatch,
+    pushToast,
+    draft,
+    stepsRef,
+    setSteps,
+    roots,
+    allOutputsRef,
+    outputsLoaded,
+    setSseActive,
+    refreshRunHistoryAfterRun,
+    refreshVisibleOutputPreviews,
+    onRunNow: () => void handleRunPipeline(),
+  });
+
   return {
     stepsLoading,
     stepsFailed,
     retryStepsLoad,
     id,
     dispatch,
-    steps,
+    // The steps the page shows: the saved ones, with the draft (if any) laid over them (design.md D1).
+    steps: draftSteps,
+    baseSteps: steps,
+    draft,
+    draftSave,
+    /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
+    draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,
     dropdownOpenAt,
     setDropdownOpenAt,
     sseActive,

@@ -12,12 +12,14 @@ import { useSearchParams } from "react-router-dom";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
 import type { StepDeepLink } from "../../hooks/useStepDeepLink";
 import { STEP_PARAM, useAddedStepId } from "../../hooks/useStepSelection";
+import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import { resolveStepParam } from "../../state/resolveStepParam";
 import { createInFlightDedupe } from "../../state/inFlightDedupe";
 import { stepRowCount, stepRowCountSource } from "../../state/stepRowCount";
 import { StepSaveContext } from "../../state/stepSaveContext";
 import { stepRenderKey } from "../../state/stepTree";
+import { PipelineDraftNotices } from "../PipelineDraftNotices";
 import { PipelineRiverSkeleton } from "../PipelineRiverSkeleton";
 import { PipelineSpine } from "../spine/PipelineSpine";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
@@ -27,7 +29,7 @@ import { MobilePipelineActions } from "./MobilePipelineActions";
 import { MobilePipelineHeader } from "./MobilePipelineHeader";
 import { MobilePipelineTabs, tabId, tabPanelId } from "./MobilePipelineTabs";
 import type { MobileTab } from "./MobilePipelineTabs";
-import { MobilePreviewTab } from "./MobilePreviewTab";
+import { MobilePreviewTab, defaultPreviewStepId } from "./MobilePreviewTab";
 import { MobileRunsTab } from "./MobileRunsTab";
 import { MobileStepSheet } from "./MobileStepSheet";
 import type { OpenStep } from "./MobileStepSheet";
@@ -62,7 +64,10 @@ export function PipelineMobileLayout({
     onAddRoot: (sourceId) => void page.handleAddRoot(sourceId),
     onInstantiateShape: page.handleInstantiateShape,
     onReorderSteps: page.handleReorderSteps,
+    structuralBlockedReason: page.draftBlockReason,
   });
+  // The Preview tab's chosen step lives here so the draft transport knows which step's rows to ask the server for.
+  const [previewChosenId, setPreviewChosenId] = useState<string | null>(null);
 
   // The open step is held as its RENDER key, which survives an AI draft's temp -> server id swap. An ordinary create
   // carries no render key, so its temp step vanishes as the server step appears: in that same commit the key moves
@@ -121,6 +126,12 @@ export function PipelineMobileLayout({
     );
   }, [deepLinkConsumed, urlStep, openStepId, setSearchParams]);
 
+  const focusStepId =
+    tab === "preview"
+      ? (previewChosenId ?? defaultPreviewStepId(laneGraph, roots))
+      : (open?.step.id ?? null);
+  const presentation = usePipelineDraftPresentation(page, focusStepId);
+
   if (currentPipeline === null) return null;
 
   // Counts: the in-session run's, else the persisted latest run's. Truncation context follows whichever shows.
@@ -152,6 +163,7 @@ export function PipelineMobileLayout({
     <StepSaveContext.Provider value={contextValue}>
       <div className="pipeline-detail-page pipeline-detail-page--mobile">
         <MobilePipelineHeader page={page} actions={actions} />
+        <PipelineDraftNotices page={page} />
         <MobilePipelineTabs active={tab} onChange={setTab} />
         <SpineStatusStrip
           costVerdict={page.costVerdict}
@@ -188,6 +200,9 @@ export function PipelineMobileLayout({
                 selectedStepId={open?.step.id ?? null}
                 stepCount={steps.length}
                 rowCountFor={(stepId) => stepRowCount(stepId, runStepRowCounts, persistedCounts)}
+                draftFor={presentation.draftFor}
+                draftCountsOverSample={presentation.draftCountsOverSample}
+                structuralBlockedReason={presentation.structuralBlockedReason}
                 countsPartial={countsPartial}
                 getAnalyzeValidationError={page.getAnalyzeValidationError}
                 getAnalyzeWarnings={page.getAnalyzeWarnings}
@@ -206,7 +221,14 @@ export function PipelineMobileLayout({
             ))}
           {tab === "preview" &&
             (stepsLoaded ? (
-              <MobilePreviewTab page={page} dedupe={dedupe} beforeFetch={tracker.whenIdle} />
+              <MobilePreviewTab
+                page={page}
+                dedupe={dedupe}
+                beforeFetch={tracker.whenIdle}
+                presentation={presentation}
+                chosenId={previewChosenId}
+                onChoose={setPreviewChosenId}
+              />
             ) : stepsLoading ? (
               <PipelineRiverSkeleton ariaLabel="Loading steps" />
             ) : (
@@ -224,6 +246,12 @@ export function PipelineMobileLayout({
           busy={runBusy}
           onDryRun={() => void page.handleDryRun()}
           onRun={() => void page.handleRunPipeline()}
+          draft={{
+            hasDraft: page.draft.hasDraft,
+            saving: page.draftSave.saving,
+            onDiscard: page.draft.discard,
+            onSaveAndRun: () => void page.draftSave.saveAndRun(),
+          }}
         />
 
         <MobileStepSheet
@@ -235,6 +263,7 @@ export function PipelineMobileLayout({
           beforeFetch={tracker.whenIdle}
           stepSaveErrors={stepSaveErrors}
           onToggleEnabled={handleToggleEnabled}
+          presentation={presentation}
         />
         {actions.dialogs}
       </div>

@@ -140,7 +140,7 @@ function findHits(absPath: string, relPath: string, rawText: string): Hit[] {
 describe("motion token guard (HEL-441)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 149)", () => {
+  it("walks every CSS file in frontend/src (currently 150)", () => {
     // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
     // no motion/transition/animation, so no new pin was needed.
     // HEL-572 added `PanelInspectView.css` (118 -> 119); it declares no
@@ -168,7 +168,8 @@ describe("motion token guard (HEL-441)", () => {
     // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 1 (HEL-1578: features/home/ui/HomePage.css) + 2 (HEL-1573: motion.css, Crossfade.css) + 1 (HEL-1628: features/sources/ui/SourceSampleLabel.css) = 150, recounted with find, not carried from any side.
     // HEL-1583 added `features/dashboards/ui/DashboardChipRow.css` (150 -> 151), recounted with find after merging HEL-1628; tokens only.
     // HEL-1582 added shared/motion/BottomSheet.css and features/pipelines/ui/mobile/PipelineMobile.css and deleted OutputsRail.css, OutputsGalleryTab.css, OutputGalleryCard.css and PipelineDetailHeader.css (151 -> 149), recounted with find.
-    expect(files.length).toBe(149);
+    // HEL-1631 added `features/pipelines/ui/PipelineDraftNotices.css` (149 -> 150), recounted with find; tokens only.
+    expect(files.length).toBe(150);
   });
 
   it("has zero declarations in a file with no motion declarations at all", () => {

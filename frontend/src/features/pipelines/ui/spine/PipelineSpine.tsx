@@ -22,6 +22,7 @@ import type { Step } from "../../types/step";
 import { TruncatedRowCountBadge } from "../TruncatedRowCountBadge";
 import { SpineLane } from "./SpineLane";
 import type { SpineLaneContext } from "./SpineLane";
+import type { SpineRowDraft } from "./SpineStepRow";
 import { SpineOutputs } from "./SpineOutputs";
 import { SpineSourceCard } from "./SpineSourceCard";
 import type { SpineStepActions } from "./useSpineStepActions";
@@ -42,6 +43,12 @@ interface PipelineSpineProps {
   /** `null` while the steps are loading or failed: no "N steps" text then. */
   stepCount: number | null;
   rowCountFor: (stepId: string) => number | null;
+  /** HEL-1631: while a draft exists, the per-step draft view (the count as "saved -> draft", the status). */
+  draftFor?: (stepId: string) => SpineRowDraft | undefined;
+  /** HEL-1631: the draft's counts are over the first 1,000 rows of a larger source. */
+  draftCountsOverSample?: boolean;
+  /** HEL-1631 (design.md D2): while a draft exists, the structural controls are disabled with this reason. */
+  structuralBlockedReason?: string | null;
   countsPartial: boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   getAnalyzeWarnings: (stepId: string) => AnalyzeWarning[];
@@ -67,6 +74,9 @@ export function PipelineSpine({
   selectedStepId,
   stepCount,
   rowCountFor,
+  draftFor,
+  draftCountsOverSample = false,
+  structuralBlockedReason = null,
   countsPartial,
   getAnalyzeValidationError,
   getAnalyzeWarnings,
@@ -97,6 +107,7 @@ export function PipelineSpine({
     laneGraph,
     selectedStepId,
     rowCountFor,
+    draftFor,
     countsPartial,
     hasValidationError: (id) => getAnalyzeValidationError(id) !== undefined,
     warningCountFor: (id) => getAnalyzeWarnings(id).length,
@@ -107,7 +118,7 @@ export function PipelineSpine({
     menuItemsFor,
     phone,
     reorderFor: (lane, index) =>
-      lane.parentStepId === undefined
+      lane.parentStepId === undefined && structuralBlockedReason === null
         ? {
             index,
             onDragStart: reorder.onStepDragStart,
@@ -140,7 +151,8 @@ export function PipelineSpine({
             pipelineId={pipelineId}
             source={sourceByRootId[root.id]}
             ordinal={multiRoot ? index + 1 : null}
-            canRemove={multiRoot}
+            canRemove={multiRoot && structuralBlockedReason === null}
+            removeBlockedReason={structuralBlockedReason}
             onEditSource={onEditSource}
             onRemoveRoot={onRemoveRoot}
           />
@@ -150,6 +162,8 @@ export function PipelineSpine({
             type="button"
             className="spine-ghost-btn"
             aria-label="Add source"
+            disabled={structuralBlockedReason !== null}
+            title={structuralBlockedReason ?? undefined}
             onClick={actions.openAddRoot}
           >
             + Add source
@@ -166,6 +180,14 @@ export function PipelineSpine({
             </span>
           )}
           {countsPartial && <TruncatedRowCountBadge />}
+          {draftCountsOverSample && (
+            <span
+              className="spine-section__sample-note"
+              title="Draft counts are over the first 1,000 rows of the source; Save & run runs the whole source."
+            >
+              sample
+            </span>
+          )}
         </div>
 
         {!hasSteps ? (
@@ -200,6 +222,8 @@ export function PipelineSpine({
             type="button"
             className={phone ? "spine-add-row" : "spine-ghost-btn"}
             aria-label={hasSteps ? "+ Add transformation step" : "+ Add step"}
+            disabled={structuralBlockedReason !== null}
+            title={structuralBlockedReason ?? undefined}
             onClick={actions.openAppendPalette}
           >
             + Add step
@@ -208,6 +232,8 @@ export function PipelineSpine({
             <button
               type="button"
               className="spine-ghost-btn"
+              disabled={structuralBlockedReason !== null}
+              title={structuralBlockedReason ?? undefined}
               onClick={() =>
                 actions.openShapePicker(
                   hasSteps ? rootZeroSteps[rootZeroSteps.length - 1]?.id : undefined,
@@ -228,6 +254,7 @@ export function PipelineSpine({
         onOpenOutput={onOpenOutput}
         onOpenHistory={onOpenOutputHistory}
         onAddOutput={() => onAddOutput()}
+        blockedReason={structuralBlockedReason}
       />
     </div>
   );

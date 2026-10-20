@@ -252,7 +252,7 @@ describe("PipelineDetailPage — a step is not editable while its create is in f
     jest.clearAllMocks();
   });
 
-  it("disables the sheet's editor until the create lands, keeps the same sheet open, then edits PATCH the real id", async () => {
+  it("disables the sheet's editor until the create lands, keeps the same sheet open, then edits go into the draft for the real id", async () => {
     getPipelineStepsMock.mockResolvedValue([]);
     const create = holdCreate();
     await renderPageSettled();
@@ -270,7 +270,7 @@ describe("PipelineDetailPage — a step is not editable while its create is in f
     await create.release(persisted("real-1", "rename", 0));
 
     // Settled: the SAME sheet stays open on the confirmed step (no close and reopen), its editor enabled; an
-    // edit PATCHes the real id.
+    // edit goes into the client-only draft for the real id (HEL-1631), not a PATCH.
     const field = await within(stepSheet()).findByRole("textbox", { name: "New name for dept" });
     await waitFor(() => expect(field).toBeEnabled());
     expect(stepSheet()).toBe(sheet);
@@ -278,11 +278,11 @@ describe("PipelineDetailPage — a step is not editable while its create is in f
     expect(within(sheet).queryByText("Saving step…")).not.toBeInTheDocument();
     fireEvent.change(field, { target: { value: "department" } });
     await waitFor(() =>
-      expect(updatePipelineStepMock).toHaveBeenCalledWith(
-        "real-1",
-        expect.objectContaining({ renames: expect.objectContaining({ dept: "department" }) }),
+      expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+        "Draft · unsaved changes",
       ),
     );
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 
   it("a failed create keeps the sheet on the local step, shows the error inside it and re-enables the editor", async () => {

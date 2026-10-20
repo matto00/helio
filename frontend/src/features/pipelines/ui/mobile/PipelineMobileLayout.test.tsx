@@ -329,17 +329,35 @@ describe("phone step sheet", () => {
     expect(queryStepSheet()).toBeNull();
   });
 
-  it("sends a pending edit when the sheet closes (the editor flushes on unmount)", async () => {
-    jest.mocked(updatePipelineStep).mockResolvedValue(threeSteps()[0]);
+  it("keeps an edit in the draft when the sheet closes: no request, the action bar shows the draft and its pills", async () => {
     await renderSpinePageSettled();
     await findStepRow(/Filter rows/);
     const sheet = openStepSheet(/Filter rows/);
     const value = within(sheet).getByDisplayValue("180");
     fireEvent.change(value, { target: { value: "200" } });
-    expect(updatePipelineStep).not.toHaveBeenCalled();
     await closeStepSheet();
-    await waitFor(() => expect(updatePipelineStep).toHaveBeenCalledTimes(1));
-    expect(jest.mocked(updatePipelineStep).mock.calls[0][0]).toBe("s1");
+
+    expect(updatePipelineStep).not.toHaveBeenCalled();
+    const slot = document.querySelector('[data-slot="draft-status"]');
+    expect(slot).toHaveTextContent("Draft · unsaved changes");
+    expect(screen.getByRole("button", { name: "Discard draft" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save and run" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Dry run" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Run pipeline" })).toBeNull();
+  });
+
+  it("Discard on a phone drops the draft: the pills and the status slot go back", async () => {
+    await renderSpinePageSettled();
+    await findStepRow(/Filter rows/);
+    const sheet = openStepSheet(/Filter rows/);
+    fireEvent.change(within(sheet).getByDisplayValue("180"), { target: { value: "200" } });
+    await closeStepSheet();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+
+    expect(document.querySelector('[data-slot="draft-status"]')).toBeEmptyDOMElement();
+    expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
+    expect(updatePipelineStep).not.toHaveBeenCalled();
   });
 
   it("keeps focus inside the sheet, on its Step actions trigger, after Move down from the sheet's menu", async () => {

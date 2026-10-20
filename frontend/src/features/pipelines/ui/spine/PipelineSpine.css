@@ -315,6 +315,11 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-1631: a count that is not the draft's current one (waiting on the server, or behind an earlier error). */
+.spine-row__count--stale {
+  opacity: 0.6;
+}
+
 /* Disabled step: dimmed, number struck through, count slot reads "off". */
 .spine-row--disabled .spine-row__title,
 .spine-row--disabled .spine-row__summary {
@@ -512,4 +517,19 @@
   .spine-row--selected:hover .spine-row__menu {
     background: linear-gradient(var(--app-accent-mid), var(--app-accent-mid)), var(--app-bg);
   }
+}
+
+/* HEL-1631: the quiet "sample" marker beside the step count while the draft's counts are over a source sample. */
+.spine-section__sample-note {
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+/* HEL-1631: structural controls are unavailable while a draft exists ("Save or discard your draft first"). */
+.spine-ghost-btn:disabled,
+.spine-card__open:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

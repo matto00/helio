@@ -1,4 +1,4 @@
-/* HEL-1579 (design.md D3): the one-row header. Run is the only accent-filled control; every other control
+/* HEL-1579 (design.md D3): the one-row header. Run (Save & run while a draft exists) is the only accent-filled control; every other control
    is secondary or ghost (DESIGN.md §5). Below ~1100px the meta text truncates with an ellipsis before
    anything wraps; the controls never wrap below the name. */
 .spine-header {
@@ -401,5 +401,38 @@
   .spine-header {
     gap: var(--space-1);
     padding-inline: var(--space-2);
+  }
+}
+
+/* HEL-1631: the "Draft · unsaved changes" chip after the name. Neutral chip with an `--app-accent` dot (DESIGN.md §11); it ellipsizes before the controls
+   give way, and below the compact breakpoint keeps only its dot (the words stay as its accessible name and title). */
+.spine-header__draft {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 26ch;
+  white-space: nowrap;
+}
+
+.spine-header__draft .ui-status-chip__dot {
+  background: var(--app-accent);
+}
+
+.spine-header__draft-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@container (max-width: 600px) {
+  .spine-header__draft {
+    position: relative;
+    padding-inline: var(--space-2);
+  }
+
+  .spine-header__draft-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
   }
 }

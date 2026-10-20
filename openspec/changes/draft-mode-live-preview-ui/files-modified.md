@@ -1,0 +1,135 @@
+# Files modified (HEL-1631)
+
+- `e2e/hel1579-pipeline-spine-layout.spec.ts` — updated: per-edit PATCH / failing-delete assumptions replaced by draft behaviour
+- `e2e/hel1582-mobile-pipeline.spec.ts` — updated: per-edit PATCH / failing-delete assumptions replaced by draft behaviour
+- `e2e/hel1631-draft-mode.spec.ts` — new live e2e for draft mode (zero-request network log, Discard, Save & run/Undo, server-only pacing, stale reload, run-refused, structural block, phone 375)
+- `e2e/hel1668-phone-sheet.spec.ts` — updated: per-edit PATCH / failing-delete assumptions replaced by draft behaviour
+- `e2e/hel958-join-step-editor.spec.ts` — updated: per-edit PATCH / failing-delete assumptions replaced by draft behaviour
+- `frontend/src/features/pipelines/hooks/stepCardFieldHandlers.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/stepCardOpHandlers.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/useDraftLeaveGuard.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/useDraftPreviewTransport.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/usePipelineDebouncedAnalyze.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.analyze.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/usePipelineDraftPresentation.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts` — draft hooks: overlay state, frames, presentation, save/undo/stale/cascade flow, transport, leave guard
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/useStepCardPersist.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/useStepCardState.characterization.test.ts` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/hooks/useStepCardState.test.ts` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/hooks/useStepCardState.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/useStepPreviewFetch.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/hooks/useStepSelection.test.tsx` — new test: the appeared step is selected once and a later user choice sticks (red without the guard)
+- `frontend/src/features/pipelines/hooks/useStepSelection.ts` — a step that appears is selected ONCE per list change (the effect re-ran on every URL change and put a created or draft-restored step back over the user's click)
+- `frontend/src/features/pipelines/state/draftEvaluation.test.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/draftEvaluation.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/draftPreviewRequest.test.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/draftPreviewRequest.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/draftStepView.test.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/draftStepView.ts` — pure draft evaluation, status mapping, step view or preview-request builder (and unit tests)
+- `frontend/src/features/pipelines/state/outputsSlice.ts` — store/types: draftSaveRunPending/Settled reducers and run-guard handling, draft save types
+- `frontend/src/features/pipelines/state/pipelineDraft.test.ts` — pure draft overlay model, delete emulation, definition comparison, save-request builder (and its unit tests)
+- `frontend/src/features/pipelines/state/pipelineDraft.ts` — pure draft overlay model, delete emulation, definition comparison, save-request builder (and its unit tests)
+- `frontend/src/features/pipelines/state/pipelinesSlice.exports.test.ts` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/state/pipelinesSlice.test.ts` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/state/pipelinesSlice.ts` — store/types: draftSaveRunPending/Settled reducers and run-guard handling, draft save types
+- `frontend/src/features/pipelines/types/output.ts` — store/types: draftSaveRunPending/Settled reducers and run-guard handling, draft save types
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineActions.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/MobilePreviewTab.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/MobileStepSheet.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.test.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.tsx` — phone layout: draft status slot, Discard / Save & run pills, draft-aware step list, preview tab and sheet
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.createPlacement.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.creatingStep.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftCreate.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftMode.test.tsx` — new component tests for draft mode and draft editor edits
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.skeletonDom.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.spineEditing.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.switch.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.tsx` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/ui/PipelineDraftDialogs.tsx` — draft notices (stale, run refused, errors), cascade confirmation dialog and their styles
+- `frontend/src/features/pipelines/ui/PipelineDraftNotices.css` — draft notices (stale, run refused, errors), cascade confirmation dialog and their styles
+- `frontend/src/features/pipelines/ui/PipelineDraftNotices.tsx` — draft notices (stale, run refused, errors), cascade confirmation dialog and their styles
+- `frontend/src/features/pipelines/ui/PipelinesPage.delete.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/pipelineSpineTestKit.tsx` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.css` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.css` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/SpineLane.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/SpineOutputs.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/SpineRunStatus.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/SpineSourceCard.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/SpineStepRow.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.css` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/spine/useSpineStepActions.tsx` — desktop spine: draft chip and header actions, draft counts/status on rows, draft preview table, blocked structural actions
+- `frontend/src/features/pipelines/ui/StepCardFocused.blurNoRepatch.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/StepCardFocused.draftEdits.test.tsx` — new component tests for draft mode and draft editor edits
+- `frontend/src/features/pipelines/ui/StepCardFocused.tsx` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/ui/stepCardTypes.ts` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/features/pipelines/ui/stepConfigs/JoinConfig.seam.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/features/pipelines/ui/stepConfigs/WindowConfig.seam.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/shared/chrome/ActionsMenu.tsx` — wired to the draft overlay (editing, toggling, deleting, analyze suspension, save/run actions) per design.md
+- `frontend/src/test/rawElementGuardHel440.test.tsx` — test updated for draft behaviour (no per-edit PATCH; draft assertions)
+- `frontend/src/theme/elevationTokenGuard.css.test.ts` — CSS file count 149 -> 150 (PipelineDraftNotices.css, tokens only)
+- `frontend/src/theme/motionTokenGuard.css.test.ts` — CSS file count 149 -> 150 (PipelineDraftNotices.css, tokens only)
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.flash.test.tsx` — new: changed-row flash tests (new rows marked, first frame vs saved rows, step switch, 200-row cap)
+- `frontend/src/features/pipelines/hooks/useDraftLeaveGuard.test.tsx` — new: leave-guard tests (interception, Keep editing, Discard, pass-through, beforeunload)
+- `DESIGN.md` — §11 "Changed rows flash" bullet amended 30% -> 22% (owner ruling accent-22-amend-design)
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.css` — flash wash is the accent at 22% via color-mix (static 22% under Off)
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts` — cycle 3: draft kept per tab in sessionStorage and re-applied on open (Back/palette/Settings)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — cycle 3: passes pipelineId and ready to the draft hook
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts` — cycle 3: Saved toast dismissed on undo/new save, one undo per application, previews from the saved definition's Outputs
+- `frontend/src/features/pipelines/hooks/usePipelineRunAndSaveActions.ts` — cycle 3: refreshVisibleOutputPreviews takes the Output ids
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobile.css` — cycle 3: `.spine-add-row:disabled` treatment
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineHeader.tsx` — cycle 3: chip title, comment reworded
+- `frontend/src/shared/ui/StatusChip.tsx` — cycle 3: optional title prop
+- `frontend/src/test/jest.setup.ts` — cycle 3: clears sessionStorage between tests
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftMode.test.tsx` — cycle 3: tests for kept draft, undo toast, saved-Output refresh
+- `frontend/src/features/pipelines/ui/spine/StepPreviewTable.flash.test.tsx` — cycle 3: 150-new-rows case
+- `e2e/hel1631-draft-mode.spec.ts` — cycle 3: Back test; Discard-after-first-open test (fixme, escalated)
+- `openspec/changes/draft-mode-live-preview-ui/specs/pipeline-draft-mode-ui/spec.md` — leave sentence reflects kept-on-unholdable-leave
+- `openspec/changes/draft-mode-live-preview-ui/skeptic-final-1.md` — skeptic report
+- `openspec/changes/draft-mode-live-preview-ui/ticket.md` — Discard AC amended per owner ruling amend-ac-fetch-on-view
+- `openspec/changes/draft-mode-live-preview-ui/specs/pipeline-detail-spine-layout/spec.md` — chip dot and flash wash named as the §11 accent exceptions
+- `openspec/changes/draft-mode-live-preview-ui/tasks.md` — standing constraint C8
+- `frontend/src/features/pipelines/state/keptDraft.ts` — new: kept-draft storage (overlay + saved-steps base), clearKeptDrafts
+- `frontend/src/features/pipelines/state/pipelineDraft.ts` — baseSignature
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts` — restore flags a draft stale when its base differs (staleRestored)
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts` — stale-restored draft: notice shown, save refused until Reload
+- `frontend/src/features/auth/state/authSlice.ts` — logout clears kept drafts
+- `frontend/src/features/auth/state/authSlice.test.ts` — test: logout removes kept drafts only
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftMode.test.tsx` — test: stale-restored draft refuses to save until Reload
+- `e2e/hel1631-draft-mode.spec.ts` — e2e: Back, external PATCH, Forward takes the stale path
+- `openspec/changes/draft-mode-live-preview-ui/skeptic-final-2.md` — skeptic report
+- `openspec/changes/draft-mode-live-preview-ui/evaluation-3.md` — evaluator report
+
+## OpenSpec change files
+
+- `openspec/changes/draft-mode-live-preview-ui/design.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/.openspec.yaml` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/proposal.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/skeptic-design-1.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/skeptic-design-2.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/specs/pipeline-detail-mobile-layout/spec.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/specs/pipeline-detail-spine-layout/spec.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/specs/pipeline-draft-mode-ui/spec.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/tasks.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/ticket.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/workflow-state.md` — change artifact
+- `openspec/changes/draft-mode-live-preview-ui/evaluation-1.md` — evaluator report (cycle 1)
+- `openspec/changes/draft-mode-live-preview-ui/files-modified.md` — this handoff
+
+## Deleted
+
+- `frontend/src/features/pipelines/hooks/useStepCardPreview.ts` — deleted: the per-edit saved-config preview hook is replaced by the draft frames (design D6)
+- `frontend/src/features/pipelines/ui/StepCardFocused.castSaveError.test.tsx` — deleted: asserted a rejected per-edit PATCH 422, which no longer exists; replaced by `StepCardFocused.draftEdits.test.tsx` and the Save & run 400 tests
+- `frontend/src/features/pipelines/ui/StepCardFocused.enumSaveError.test.tsx` — deleted: same reason as above

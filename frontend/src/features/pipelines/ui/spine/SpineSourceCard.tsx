@@ -22,6 +22,8 @@ interface SpineSourceCardProps {
   /** 1-based ordinal, shown only when the pipeline has more than one source. */
   ordinal: number | null;
   canRemove: boolean;
+  /** HEL-1631: set while a draft exists; why "Remove from pipeline" is unavailable. */
+  removeBlockedReason?: string | null;
   onEditSource: (sourceId: string) => void;
   onRemoveRoot: (rootId: string) => void;
 }
@@ -33,6 +35,7 @@ export function SpineSourceCard({
   source,
   ordinal,
   canRemove,
+  removeBlockedReason = null,
   onEditSource,
   onRemoveRoot,
 }: SpineSourceCardProps) {
@@ -61,6 +64,7 @@ export function SpineSourceCard({
       label: "Remove from pipeline",
       ariaLabel: `Remove source ${root.dataSourceName} from this pipeline`,
       disabled: !canRemove,
+      reason: removeBlockedReason ?? undefined,
       onClick: () => onRemoveRoot(root.id),
     },
   ];

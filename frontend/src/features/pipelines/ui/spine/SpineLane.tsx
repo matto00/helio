@@ -12,13 +12,15 @@ import type { Lane, LaneGraph } from "../../state/stepTree";
 import { childLanesOf, laneRenderKey, stepRenderKey } from "../../state/stepTree";
 import type { Step } from "../../types/step";
 import { SpineStepRow } from "./SpineStepRow";
-import type { SpineRowReorder } from "./SpineStepRow";
+import type { SpineRowDraft, SpineRowReorder } from "./SpineStepRow";
 
 /** Everything a lane needs from the spine that does not vary by lane. */
 export interface SpineLaneContext {
   laneGraph: LaneGraph;
   selectedStepId: string | null;
   rowCountFor: (stepId: string) => number | null;
+  /** HEL-1631: the draft view of a step; `undefined` while no draft exists. */
+  draftFor?: (stepId: string) => SpineRowDraft | undefined;
   countsPartial: boolean;
   hasValidationError: (stepId: string) => boolean;
   warningCountFor: (stepId: string) => number;
@@ -65,6 +67,7 @@ export function SpineLane({ lane, context, label }: SpineLaneProps) {
                   number={index + 1}
                   selected={context.selectedStepId === step.id}
                   rowCount={context.rowCountFor(step.id)}
+                  draft={context.draftFor?.(step.id)}
                   partial={context.countsPartial}
                   hasValidationError={context.hasValidationError(step.id)}
                   warningCount={context.warningCountFor(step.id)}

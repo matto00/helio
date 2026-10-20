@@ -35,6 +35,8 @@ export interface SpineStepActionsArgs {
     anchorStepId?: string,
   ) => Promise<void>;
   onReorderSteps: (newOrder: Step[]) => void | Promise<void>;
+  /** HEL-1631 (design.md D2): while a draft exists the structural menu items are disabled with this reason. */
+  structuralBlockedReason?: string | null;
 }
 
 export interface SpineStepActions {
@@ -67,7 +69,10 @@ export function useSpineStepActions({
   onAddRoot,
   onInstantiateShape,
   onReorderSteps,
+  structuralBlockedReason = null,
 }: SpineStepActionsArgs): SpineStepActions {
+  const blocked = structuralBlockedReason !== null;
+  const reason = structuralBlockedReason ?? undefined;
   const [palette, setPalette] = useState<PaletteTarget | null>(null);
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const [shapeAnchorStepId, setShapeAnchorStepId] = useState<string | undefined>(undefined);
@@ -126,7 +131,8 @@ export function useSpineStepActions({
         {
           label: "Move up",
           ariaLabel: `Move step up in ${laneLabel}`,
-          disabled: index === 0,
+          disabled: blocked || index === 0,
+          reason,
           onClick: () => {
             if (restoreFocus) restoreFocus();
             else focusRowAfterMoveRef.current = step.id;
@@ -136,7 +142,8 @@ export function useSpineStepActions({
         {
           label: "Move down",
           ariaLabel: `Move step down in ${laneLabel}`,
-          disabled: index === lane.steps.length - 1,
+          disabled: blocked || index === lane.steps.length - 1,
+          reason,
           onClick: () => {
             if (restoreFocus) restoreFocus();
             else focusRowAfterMoveRef.current = step.id;
@@ -152,11 +159,15 @@ export function useSpineStepActions({
       if (index === 0) {
         items.push({
           label: "Insert step before",
+          disabled: blocked,
+          reason,
           onClick: () => setPalette({ kind: "insert", index: 0 }),
         });
       }
       items.push({
         label: "Insert step after",
+        disabled: blocked,
+        reason,
         onClick: () =>
           setPalette(
             index === lane.steps.length - 1
@@ -168,9 +179,11 @@ export function useSpineStepActions({
     items.push(
       {
         label: "Branch from here",
+        disabled: blocked,
+        reason,
         onClick: () => setPalette({ kind: "branch", parentStepId: step.id }),
       },
-      { label: "Add output", onClick: () => onAddOutput(step.id) },
+      { label: "Add output", disabled: blocked, reason, onClick: () => onAddOutput(step.id) },
     );
     return items;
   }

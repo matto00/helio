@@ -1,11 +1,12 @@
 // MobileStepSheet -- HEL-1582 (design.md D5): a step's focused editor in a full-height bottom sheet, above that
 // step's preview table, with a "Step actions" menu. The editor is keyed by the step's RENDER key (stable through an
 // AI draft's temp -> server id swap), so a re-key never replays the sheet's entrance: only the editor remounts. Every
-// step kind is editable through the same `StepCardFocused` the desktop uses; closing unmounts it, which sends a
-// pending debounced edit (`flushOnUnmount`).
+// step kind is editable through the same `StepCardFocused` the desktop uses; an edit goes into the page's client-only
+// draft (HEL-1631), so closing the sheet loses nothing.
 
 import { ActionsMenu } from "../../../../shared/chrome/ActionsMenu";
 import { BottomSheet } from "../../../../shared/motion/BottomSheet";
+import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import type { InFlightDedupe } from "../../state/inFlightDedupe";
 import { stepRenderKey } from "../../state/stepTree";
 import type { Lane } from "../../state/stepTree";
@@ -41,6 +42,7 @@ export function MobileStepSheet({
   beforeFetch,
   stepSaveErrors,
   onToggleEnabled,
+  presentation,
 }: {
   /** The open step, or `undefined` when closed. */
   open: OpenStep | undefined;
@@ -51,9 +53,10 @@ export function MobileStepSheet({
   beforeFetch: () => Promise<void>;
   stepSaveErrors: Record<string, string>;
   onToggleEnabled: (stepId: string, enabled: boolean) => void;
+  presentation: ReturnType<typeof usePipelineDraftPresentation>;
 }) {
-  const enabledBits = page.steps.map((s) => (s.enabled ? "1" : "0")).join("");
   const step = open?.step;
+  const draftSchema = step ? presentation.inputSchemaFor(step) : null;
   return (
     <BottomSheet
       open={open !== undefined}
@@ -79,8 +82,8 @@ export function MobileStepSheet({
             isOwner={page.isOwner}
             stepNumber={open.index + 1}
             onRemove={page.handleRemoveStep}
-            analyzeColumns={page.getAnalyzeColumns(step.id)}
-            analyzeSchema={page.getAnalyzeSchema(step.id)}
+            analyzeColumns={draftSchema?.map((f) => f.name) ?? page.getAnalyzeColumns(step.id)}
+            analyzeSchema={draftSchema ?? page.getAnalyzeSchema(step.id)}
             validationError={page.getAnalyzeValidationError(step.id)}
             warnings={page.getAnalyzeWarnings(step.id)}
             onConfigChange={page.handleStepConfigChange}
@@ -91,6 +94,8 @@ export function MobileStepSheet({
             draftError={page.draftCreateErrors[step.id]}
             isCreating={page.creatingStepIds.has(step.id)}
             savedError={stepSaveErrors[step.id]}
+            structuralBlockedReason={presentation.structuralBlockedReason}
+            draftPreviewError={presentation.previewErrorFor(step.id)}
           />
           <StepPreviewTable
             key={`preview:${step.id}`}
@@ -98,13 +103,14 @@ export function MobileStepSheet({
             step={step}
             stepNumber={open.index + 1}
             stepIndex={open.index}
-            enabledBits={enabledBits}
-            analyzeSchema={page.getAnalyzeSchema(step.id)}
+            enabledBits={presentation.savedEnabledBits}
+            analyzeSchema={draftSchema ?? page.getAnalyzeSchema(step.id)}
             analyzeOutputSchema={page.getAnalyzeOutputSchema(step.id)}
             hasOwnAnalyze={page.hasOwnAnalyzeEntry(step.id)}
             isCreating={page.creatingStepIds.has(step.id)}
             dedupe={dedupe}
             beforeFetch={beforeFetch}
+            draft={presentation.previewDraftFor(step.id)}
           />
         </div>
       )}

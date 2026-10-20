@@ -76,7 +76,7 @@ export function buildStepCardFieldHandlers({
     if (targetType) next[field] = targetType;
     else delete next[field];
     setCasts(next);
-    persist({ casts: next }, true);
+    persist({ casts: next });
   }
 
   function onFilterChange(newConfig: FilterConfigValue) {
@@ -136,7 +136,7 @@ export function buildStepCardFieldHandlers({
 
   function onPivotChange(newConfig: PivotConfigValue) {
     setPivotConfig(newConfig);
-    persist(newConfig, true);
+    persist(newConfig);
   }
 
   function onWindowChange(newConfig: WindowConfigValue) {
@@ -149,23 +149,20 @@ export function buildStepCardFieldHandlers({
     const usesField = FIELD_REQUIRED_FUNCTIONS.includes(fn);
     const usesOffset = fn === "lag" || fn === "lead";
     const usesFrame = ROLLING_FUNCTIONS.includes(fn);
-    persist(
-      {
-        partitionBy: newConfig.partitionBy,
-        orderBy: newConfig.orderBy,
-        function: fn,
-        ...(usesField && newConfig.field ? { field: newConfig.field } : {}),
-        outputColumn: newConfig.outputColumn,
-        ...(usesOffset ? { offset: newConfig.offset } : {}),
-        ...(usesFrame
-          ? {
-              ...(newConfig.frameSize !== null ? { frameSize: newConfig.frameSize } : {}),
-              frameUnit: newConfig.frameUnit,
-            }
-          : {}),
-      },
-      true,
-    );
+    persist({
+      partitionBy: newConfig.partitionBy,
+      orderBy: newConfig.orderBy,
+      function: fn,
+      ...(usesField && newConfig.field ? { field: newConfig.field } : {}),
+      outputColumn: newConfig.outputColumn,
+      ...(usesOffset ? { offset: newConfig.offset } : {}),
+      ...(usesFrame
+        ? {
+            ...(newConfig.frameSize !== null ? { frameSize: newConfig.frameSize } : {}),
+            frameUnit: newConfig.frameUnit,
+          }
+        : {}),
+    });
   }
 
   return {
