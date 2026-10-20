@@ -107,6 +107,19 @@ export function PipelineScheduleDialog({
   const [timezoneError, setTimezoneError] = useState<string | null>(null);
 
   const timezoneOptions = useMemo(() => supportedTimezones(), []);
+  // The datalist (several hundred <option>s) is built once. The dialog stays mounted while closed, so without this every
+  // render of the pipeline page (each draft edit, HEL-1631) re-created all of them: ~40 ms of a 100 ms edit at 4x CPU.
+  const timezoneDatalist = useMemo(
+    () =>
+      timezoneOptions.length > 0 ? (
+        <datalist id={TIMEZONE_OPTIONS_ID}>
+          {timezoneOptions.map((tz) => (
+            <option key={tz} value={tz} />
+          ))}
+        </datalist>
+      ) : null,
+    [timezoneOptions],
+  );
 
   // Initialize local form fields from the (already-loaded) schedule whenever
   // the dialog opens — not on every render, so mid-edit keystrokes aren't
@@ -377,13 +390,7 @@ export function PipelineScheduleDialog({
             }}
             aria-label="Timezone"
           />
-          {timezoneOptions.length > 0 && (
-            <datalist id={TIMEZONE_OPTIONS_ID}>
-              {timezoneOptions.map((tz) => (
-                <option key={tz} value={tz} />
-              ))}
-            </datalist>
-          )}
+          {timezoneDatalist}
           <InlineError error={timezoneError} />
         </div>
 
