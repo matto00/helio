@@ -255,4 +255,46 @@ describe("LiveOutputColumn", () => {
     });
     expect(screen.getByRole("combobox", { name: "Displayed Output" })).toHaveTextContent("Second");
   });
+
+  it("coalesces a burst of draft edits to one render of the latest frame, shown once the edits go quiet; a step selection shows at once", async () => {
+    jest.useFakeTimers();
+    try {
+      const two = output({ id: "o2", name: "Second", nodeStepId: "s2" });
+      const outputs = [output({}), two];
+      const edit = (n: number) =>
+        column({
+          outputs,
+          hasDraft: true,
+          views: new Map([["s1", view({ rows: BASE.slice(0, n), count: n })]]),
+        });
+      const { rerender } = renderWithStore(column({ outputs }));
+      expect(getValue("60")).toBeInTheDocument();
+      for (const n of [1, 2, 1, 2]) {
+        rerender(edit(n));
+        await act(async () => {
+          jest.advanceTimersByTime(30);
+        });
+      }
+      // Still the first render: nothing between the edits.
+      expect(getValue("60")).toBeInTheDocument();
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(getValue("30")).toBeInTheDocument(); // rows 10 + 20 = 30: the latest frame (BASE.slice(0, 2))
+      // A selection change is not coalesced.
+      rerender(
+        column({
+          outputs,
+          hasDraft: true,
+          views: new Map([["s1", view({ rows: BASE.slice(0, 2), count: 2 })]]),
+          selectedStepId: "s2",
+        }),
+      );
+      expect(screen.getByRole("combobox", { name: "Displayed Output" })).toHaveTextContent(
+        "Second",
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

@@ -21,8 +21,8 @@
 
 .spine-body {
   display: grid;
-  /* The `live-output` track is reserved but empty and zero-width until HEL-1581 sets the variable (about
-     340-380px) and renders into it, so no width is spent on an empty column. */
+  /* The `live-output` track holds the live Output column (HEL-1632). It is zero-width unless the body is wide enough
+     for three columns (`[data-live-layout="column"]`, below), so no width is spent on it otherwise. */
   /* HEL-1608: the spine track follows the PAGE container (`cqi`, the `.pipeline-detail-page--spine` container this
      grid is a direct child of), not the viewport. It stays 180px until the page is wide enough to give the spine
      240px and still leave the centre column about 320px, then grows with the page to a 340px cap (about 330px at

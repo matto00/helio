@@ -3,10 +3,11 @@
 // a caption, two summary tiles and the one-time last-run baseline. It writes nothing and reads nothing per edit.
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Select } from "../../../../shared/ui/Select";
 import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
+import { useIdleCoalesced } from "../../hooks/useIdleCoalesced";
 import { useLiveOutputBaseline } from "../../hooks/useLiveOutputBaseline";
 import { useLiveSampleState } from "../../hooks/useLiveSampleState";
 import { clearSavedOutputRows, useSavedOutputRows } from "../../hooks/useSavedOutputRows";
@@ -40,7 +41,40 @@ function Marker({ marker }: { marker: LiveMarker }) {
  *  full width in the Preview tab. */
 export type LiveOutputLayout = "column" | "disclosure" | "phone";
 
-export function LiveOutputColumn({
+interface LiveOutputColumnProps {
+  page: PipelinePageState;
+  presentation: ReturnType<typeof usePipelineDraftPresentation>;
+  selectedStepId: string | null;
+  layout?: LiveOutputLayout;
+  /** `disclosure` only: whether the body is open. */
+  expanded?: boolean;
+  onToggle?: () => void;
+}
+
+export function LiveOutputColumn(props: LiveOutputColumnProps) {
+  const { page, presentation, selectedStepId, layout, expanded, onToggle } = props;
+  const fresh = useMemo(
+    () => ({ page, presentation, selectedStepId }),
+    [page, presentation, selectedStepId],
+  );
+  // Per-edit changes (the page state, the walk's frames) reach the column at an idle moment, so the column's own render
+  // (its hooks, source resolution, the chart) never sits between one edit and the next one's handler. A change of the
+  // selected step shows at once.
+  const coalesced = useIdleCoalesced(fresh);
+  const shown = coalesced.selectedStepId === selectedStepId ? coalesced : fresh;
+  return (
+    <LiveOutputColumnView
+      page={shown.page}
+      presentation={shown.presentation}
+      selectedStepId={shown.selectedStepId}
+      layout={layout}
+      expanded={expanded}
+      onToggle={onToggle}
+    />
+  );
+}
+
+function LiveOutputColumnView({
   page,
   presentation,
   selectedStepId,
@@ -103,12 +137,12 @@ export function LiveOutputColumn({
     if (settled) clearSavedOutputRows();
   }, [settled, page.runStatus]);
 
-  // Render inputs go through a deferred value: the step count and preview table commit first.
+  // One value for the memoised body, so it re-renders only when what it draws changes. (This view itself is re-rendered only
+  // at an idle moment per edit: `LiveOutputColumn` coalesces its inputs.)
   const model = useMemo(
     () => ({ output, source, saved, history, sampleTruncated: frames.sampleTruncated }),
     [output, source, saved, history, frames.sampleTruncated],
   );
-  const deferred = useDeferredValue(model);
 
   const collapsible = layout === "disclosure";
   const open = !collapsible || expanded;
@@ -143,7 +177,7 @@ export function LiveOutputColumn({
     <section className={`live-output live-output--${layout}`} aria-label="Live Output">
       <header className="live-output__header">
         {eyebrow}
-        <Marker marker={deferred.source?.kind === "loading" ? "none" : markerOf(deferred.source)} />
+        <Marker marker={model.source?.kind === "loading" ? "none" : markerOf(model.source)} />
       </header>
       {!open ? null : outputs.length >= 2 ? (
         <Select
@@ -156,21 +190,19 @@ export function LiveOutputColumn({
       ) : (
         <p className="live-output__name">{output.name}</p>
       )}
-      {open && deferred.output !== undefined && deferred.source !== null && (
+      {open && model.output !== undefined && model.source !== null && (
         <LiveOutputBody
-          output={deferred.output}
-          source={deferred.source}
-          saved={deferred.saved}
-          history={deferred.history}
-          sampleTruncated={deferred.sampleTruncated}
+          output={model.output}
+          source={model.source}
+          saved={model.saved}
+          history={model.history}
+          sampleTruncated={model.sampleTruncated}
         />
       )}
-      {open && deferred.source !== null && deferred.source.kind !== "loading" && (
+      {open && model.source !== null && model.source.kind !== "loading" && (
         <>
-          <p className="live-output__caption">{deferred.source.caption}</p>
-          {deferred.source.note !== null && (
-            <p className="live-output__note">{deferred.source.note}</p>
-          )}
+          <p className="live-output__caption">{model.source.caption}</p>
+          {model.source.note !== null && <p className="live-output__note">{model.source.note}</p>}
         </>
       )}
     </section>

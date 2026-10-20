@@ -6,7 +6,7 @@ import { AUTH, THEMES, openPipeline, seedPipeline } from "./support/hel1582Phone
 import { realTap, seedTallSchemaPipeline, stubLastRun } from "./support/hel1668";
 
 // HEL-1668 items 4, 5 (compact spine on a touch tablet) and 6: the output schema panel is placed by its real height
-// (desktop 1280x800 and 1000x800, phone below-placement clearing the bottom nav), the spine copy is unambiguous, and
+// (desktop 1280x840 (800 tall before the HEL-1632 live column narrowed the centre) and 1000x800, phone below-placement clearing the bottom nav), the spine copy is unambiguous, and
 // the last-run time survives an 8-digit row count. Light and dark.
 
 const fieldsTrigger = (page: Page) => page.getByRole("button", { name: /\d+ fields/ }).first();
