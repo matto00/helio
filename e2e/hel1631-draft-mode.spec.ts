@@ -174,7 +174,7 @@ test.describe("HEL-1631 draft mode (live)", () => {
     ).toBeLessThanOrEqual(MAX_WINDOW_TARGET);
   });
 
-  test("a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each", async ({
+  test("a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms)", async ({
     page,
     request,
   }) => {
@@ -200,7 +200,9 @@ test.describe("HEL-1631 draft mode (live)", () => {
     console.log(
       `[HEL-1631 e2e] per-edit latency ms: ${latencies.map((n) => n.toFixed(1)).join(", ")}`,
     );
-    expect(Math.max(...latencies), `latencies: ${latencies}`).toBeLessThan(50);
+    // The first edit runs cold JS (lazy V8 compile, ~20-25 ms at 4x CPU, see design.md); owner ruling `relax-cold-first-edit`.
+    expect(latencies[0], `first edit: ${latencies}`).toBeLessThan(100);
+    expect(Math.max(...latencies.slice(1)), `edits 2-10: ${latencies}`).toBeLessThan(50);
 
     await expect(stepCount(page, 0)).toHaveText("14 → 4");
     await expect(page.getByText("Draft · unsaved changes")).toBeVisible();

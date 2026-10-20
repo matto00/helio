@@ -26,7 +26,7 @@ On phones, "Draft · unsaved changes" goes in the floating action bar's `data-sl
 
 ## Acceptance criteria
 
-- [ ] Editing a client-evaluable step updates counts and preview with no network request (a network-log e2e asserting zero requests over a burst of edits, including no PATCH), within the spike's budget of < 50 ms per edit.
+- [ ] Editing a client-evaluable step updates counts and preview with no network request (a network-log e2e asserting zero requests over a burst of edits, including no PATCH), the first edit after load within 100 ms (cold first execution) and every later edit within 50 ms (owner ruling `relax-cold-first-edit`).
 - [ ] A server-only step updates through HEL-1630's transport, debounced, with a pending state, and never fires more than the draft-preview limiter allows. It never consumes the HEL-505 run guard.
 - [ ] Discard restores the saved pipeline exactly: deep-equal steps, configs, order, enabled flags, Output config and fingerprint. Discard sends no request of its own; a step preview not yet loaded is fetched on view, as for any step first opened (owner ruling `amend-ac-fetch-on-view`, escalation HEL-1631-1792470998080-9a4d45).
 - [ ] Save & run persists the draft and starts a run, and undo and patch-set history stay consistent (one journal row).

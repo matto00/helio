@@ -21,11 +21,11 @@ On the pipeline detail page (desktop and phone), editing a step's config, toggli
 - **THEN** add, duplicate and reorder actions are disabled and state "Save or discard your draft first"
 
 ### Requirement: Client-evaluable edits recompute locally with no request
-Per-step rows, counts and schema SHALL be computed in the browser from the cached source samples by the client evaluator, recomputed from the edited step down. Editing a client-evaluable step SHALL send no network request of any kind (no step PATCH, no analyze, no preview), and SHALL update the spine counts and the preview table within 50 ms per edit. A step's spine count SHALL show the draft count, and "saved → draft" (for example "104 → 92") when they differ. The preview table SHALL show the selected step's draft rows and a live/updating/stale state; the live indicator SHALL not use the accent.
+Per-step rows, counts and schema SHALL be computed in the browser from the cached source samples by the client evaluator, recomputed from the edited step down. Editing a client-evaluable step SHALL send no network request of any kind (no step PATCH, no analyze, no preview), and SHALL update the spine counts and the preview table the first edit after load within 100 ms (cold first execution) and every later edit within 50 ms (owner ruling `relax-cold-first-edit`). A step's spine count SHALL show the draft count, and "saved → draft" (for example "104 → 92") when they differ. The preview table SHALL show the selected step's draft rows and a live/updating/stale state; the live indicator SHALL not use the accent.
 
 #### Scenario: Burst of edits
 - **WHEN** a user makes ten edits in a row to a filter step over a sampled source
-- **THEN** zero requests are sent during the burst, each edit updates the spine count and preview within 50 ms, and the step's count reads "<saved> → <draft>"
+- **THEN** zero requests are sent during the burst, the first edit updates the spine count and preview within 100 ms (cold first execution) and each later edit within 50 ms, and the step's count reads "<saved> → <draft>"
 
 ### Requirement: Changed rows flash once
 When the selected step's preview rows change because of an edit, rows that were not in that step's previous frame SHALL be highlighted: a brief tint fading over the motion system's highlight duration under the Full and Subtle motion settings, and a static tint until the next change under Off or an OS reduced-motion preference. Selecting a different step SHALL not highlight rows.
