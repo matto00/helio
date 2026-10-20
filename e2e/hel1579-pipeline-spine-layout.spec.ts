@@ -378,7 +378,7 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     await expect(page.getByRole("region", { name: "Rows after step 1" })).toBeVisible();
   });
 
-  test("an edit made just before selecting another step is saved (no edit is lost)", async ({
+  test("an edit made just before selecting another step stays in the draft (no edit is lost, no request)", async ({
     page,
     request,
   }) => {
@@ -387,13 +387,20 @@ test.describe("HEL-1579 pipeline detail step spine (live)", () => {
     await registerAndLogin(page, request, { ...AUTH, label: "flush" });
     const { pipelineId, stepIds } = await seedPipeline(page);
     await page.goto(`/pipelines/${pipelineId}`);
-    const patched = page.waitForRequest(
-      (req) => req.url().includes(`/api/pipeline-steps/${stepIds[0]}`) && req.method() === "PATCH",
-    );
+    const patches: string[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes(`/api/pipeline-steps/${stepIds[0]}`) && req.method() === "PATCH")
+        patches.push(req.url());
+    });
     await page.locator(".pipeline-detail-page__filter-condition-row input").last().fill("270");
     await page.getByRole("button", { name: /^Step 2: Sort rows/ }).click();
-    const req = await patched;
-    expect(req.postData()).toContain("270");
+    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
+    await page.getByRole("button", { name: /^Step 1: / }).click();
+    await expect(
+      page.locator(".pipeline-detail-page__filter-condition-row input").last(),
+    ).toHaveValue("270");
+    await page.waitForTimeout(1200);
+    expect(patches).toEqual([]);
   });
 
   // One test (one fresh user) per theme, to stay inside the per-user rate budget (HEL-1620).

@@ -1,4 +1,6 @@
-// HEL-1507: leaving a step-config text field must not re-save the config it already committed per keystroke.
+// HEL-1507: leaving a step-config text field must not re-report the config it already committed per keystroke. (Since
+// HEL-1631 a committed edit goes into the page's draft through `onConfigChange` instead of a debounced PATCH; the old
+// "exactly one save" assertions are now "exactly one reported edit and no request".)
 
 import { act, fireEvent, screen } from "@testing-library/react";
 
@@ -24,7 +26,7 @@ jest.mock("../services/pipelineService", () => ({
 
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 
-function baseProps(step: Step) {
+function baseProps(step: Step, onConfigChange = jest.fn()) {
   return {
     step,
     stepNumber: 1,
@@ -34,7 +36,7 @@ function baseProps(step: Step) {
       { name: "amount", type: "number" },
       { name: "region", type: "string" },
     ],
-    onConfigChange: jest.fn(),
+    onConfigChange,
     onToggleEnabled: jest.fn(),
     onDuplicate: jest.fn(),
     isDuplicating: false,
@@ -78,7 +80,8 @@ const CASES: {
   },
 ];
 
-async function openCard(c: (typeof CASES)[number]) {
+function openCard(c: (typeof CASES)[number]) {
+  const onConfigChange = jest.fn();
   const opType = OP_TYPES.find((op) => op.id === c.id)!;
   const step: Step = {
     id: "persisted-step-1",
@@ -87,7 +90,8 @@ async function openCard(c: (typeof CASES)[number]) {
     config: c.config,
     enabled: true,
   };
-  renderWithStore(<StepCardFocused {...baseProps(step)} />);
+  renderWithStore(<StepCardFocused {...baseProps(step, onConfigChange)} />);
+  return onConfigChange;
 }
 
 async function settle() {
@@ -107,27 +111,32 @@ describe("StepCardFocused — blurring a text field does not re-save (HEL-1507)"
     jest.useRealTimers();
   });
 
-  it.each(CASES)("$id / $field: change, debounce, blur sends exactly one save", async (c) => {
-    await openCard(c);
-    const input = screen.getByRole("textbox", { name: c.field });
+  it.each(CASES)(
+    "$id / $field: change then blur reports exactly one edit and sends no request",
+    async (c) => {
+      const onConfigChange = openCard(c);
+      const input = screen.getByRole("textbox", { name: c.field });
 
-    fireEvent.change(input, { target: { value: c.typed } });
-    await settle();
-    fireEvent.blur(input);
-    await settle();
+      fireEvent.change(input, { target: { value: c.typed } });
+      await settle();
+      fireEvent.blur(input);
+      await settle();
 
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock).toHaveBeenCalledWith("persisted-step-1", c.expectedConfig);
-  });
+      expect(onConfigChange).toHaveBeenCalledTimes(1);
+      expect(onConfigChange).toHaveBeenCalledWith("persisted-step-1", c.expectedConfig);
+      expect(updatePipelineStepMock).not.toHaveBeenCalled();
+    },
+  );
 
-  it.each(CASES)("$id / $field: focus then blur with no edit sends no save", async (c) => {
-    await openCard(c);
+  it.each(CASES)("$id / $field: focus then blur with no edit reports nothing", async (c) => {
+    const onConfigChange = openCard(c);
     const input = screen.getByRole("textbox", { name: c.field });
 
     fireEvent.focus(input);
     fireEvent.blur(input);
     await settle();
 
+    expect(onConfigChange).not.toHaveBeenCalled();
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 });

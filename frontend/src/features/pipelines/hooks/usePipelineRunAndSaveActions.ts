@@ -52,9 +52,11 @@ export function usePipelineRunAndSaveActions({
   // that was already in flight when the page mounted, submitted from
   // elsewhere).
   const refreshVisibleOutputPreviews = useCallback(
-    (targetPipelineId: string) => {
-      for (const output of allOutputsRef.current) {
-        void dispatch(previewOutput({ pipelineId: targetPipelineId, outputId: output.id }));
+    (targetPipelineId: string, outputIds?: readonly string[]) => {
+      // `outputIds` is the just-saved definition's Outputs: `allOutputsRef` still holds the pre-save list on that tick.
+      const ids = outputIds ?? allOutputsRef.current.map((o) => o.id);
+      for (const outputId of ids) {
+        void dispatch(previewOutput({ pipelineId: targetPipelineId, outputId }));
       }
     },
     [dispatch, allOutputsRef],
@@ -133,5 +135,6 @@ export function usePipelineRunAndSaveActions({
     handleCancel,
     confirmCancelDiscard,
     dismissCancelConfirm,
+    refreshVisibleOutputPreviews,
   };
 }

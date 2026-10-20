@@ -34,6 +34,9 @@ type UsePipelineDebouncedAnalyzeArgs = {
   pendingAnalyzeRef: MutableRefObject<boolean>;
   pendingSinceRef: MutableRefObject<number | null>;
   deferWatchdogHandleRef: MutableRefObject<number | null>;
+  /** HEL-1631: while a draft exists the editor computes locally and the saved schema cannot change, so no analyze is
+   *  dispatched; when the draft ends the effect re-runs and dispatches only if the saved steps changed meanwhile. */
+  suspended: boolean;
 };
 
 /**
@@ -58,9 +61,10 @@ export function usePipelineDebouncedAnalyze({
   pendingAnalyzeRef,
   pendingSinceRef,
   deferWatchdogHandleRef,
+  suspended,
 }: UsePipelineDebouncedAnalyzeArgs) {
   useEffect(() => {
-    if (!id || steps.length === 0) return;
+    if (!id || steps.length === 0 || suspended) return;
     if (consumedSeedTokenRef.current !== seedToken) {
       consumedSeedTokenRef.current = seedToken;
       lastAnalyzedFingerprintRef.current = stepsFingerprint;
@@ -129,6 +133,7 @@ export function usePipelineDebouncedAnalyze({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     id,
+    suspended,
     stepsFingerprint,
     seedToken,
     dispatch,

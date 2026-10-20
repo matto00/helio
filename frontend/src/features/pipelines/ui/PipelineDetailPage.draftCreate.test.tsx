@@ -387,7 +387,7 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 
-  it("an edit after the swap PATCHes the persisted id, with the card still open", async () => {
+  it("an edit after the swap goes into the draft for the persisted id, with the card still open", async () => {
     const create = deferredCreate();
     await renderPageSettled();
     await addTrunkDraft();
@@ -397,11 +397,12 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
     fireEvent.change(instructionBox(), { target: { value: "Summarize later" } });
     await waitFor(() =>
-      expect(updatePipelineStepMock).toHaveBeenCalledWith(
-        "ai-1",
-        expect.objectContaining({ instruction: "Summarize later" }),
+      expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+        "Draft · unsaved changes",
       ),
     );
+    expect(instructionBox()).toHaveValue("Summarize later");
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
     expect(createPipelineStepMock).toHaveBeenCalledTimes(1);
   });
 
@@ -468,8 +469,8 @@ describe("PipelineDetailPage — an AI draft's card survives its own create (HEL
 
     const sheet = stepSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
-    await waitFor(() => expect(updatePipelineStepEnabled).toHaveBeenCalledWith("ai-1", false));
     await within(sheet).findByRole("button", { name: "Enable step" });
+    expect(updatePipelineStepEnabled).not.toHaveBeenCalled();
 
     expect(stepSheet()).toBe(sheet);
     expect(sheet).toHaveAttribute("open");

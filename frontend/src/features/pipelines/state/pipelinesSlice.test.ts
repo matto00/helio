@@ -6,12 +6,15 @@ import {
   clearRunState,
   createPipeline,
   deletePipelineSchedule,
+  draftSaveRunPending,
+  draftSaveRunSettled,
   fetchPipelineById,
   fetchPipelines,
   fetchPipelineRunHistory,
   fetchPipelineSchedule,
   fetchPipelineSteps,
   pipelinesReducer,
+  pipelineStepsReplaced,
   savePipelineSchedule,
   submitPipelineRun,
   updatePipeline,
@@ -1413,5 +1416,71 @@ describe("pipeline-switch guards (HEL-1483)", () => {
       updatePipeline.fulfilled(summary("A"), "u", { id: "A", name: "x" }),
     );
     expect(state.currentPipeline?.id).toBe("B");
+  });
+});
+
+// HEL-1631 (design.md D9): Save & run's run is synchronous inside the save request, so the run state is set before the POST and
+// settled after it; both reducers carry the HEL-1483 `runPipelineId` ownership guard.
+describe("draft save run state", () => {
+  it("pending sets the same run fields submitPipelineRun.pending sets, as a real (non-dry) run owned by the pipeline", () => {
+    const withError = {
+      ...pipelinesReducer(undefined, { type: "@@init" }),
+      runError: "old",
+      runSourceTruncated: true,
+    };
+    const state = pipelinesReducer(withError, draftSaveRunPending({ pipelineId: "A" }));
+    expect(state).toMatchObject({
+      runStatus: "queued",
+      runIsDry: false,
+      runError: null,
+      runPipelineId: "A",
+      runSourceTruncated: false,
+      runTruncationNotice: null,
+    });
+  });
+
+  it("a settled run clears the in-session counts and rows so the spine falls back to the persisted ones", () => {
+    let state = pipelinesReducer(undefined, draftSaveRunPending({ pipelineId: "A" }));
+    state = { ...state, runStepRowCounts: { s1: 3 }, runResult: [{ a: 1 }] };
+    state = pipelinesReducer(state, draftSaveRunSettled({ pipelineId: "A", outcome: "succeeded" }));
+    expect(state).toMatchObject({
+      runStatus: "succeeded",
+      runError: null,
+      runResult: null,
+      runStepRowCounts: {},
+    });
+  });
+
+  it("a blocked run reads as failed with the assertion copy", () => {
+    let state = pipelinesReducer(undefined, draftSaveRunPending({ pipelineId: "A" }));
+    state = pipelinesReducer(state, draftSaveRunSettled({ pipelineId: "A", outcome: "blocked" }));
+    expect(state).toMatchObject({ runStatus: "failed", runError: "Run blocked by an assertion" });
+  });
+
+  it("a refused run, and a failed save, put the run state back and leave runError null", () => {
+    for (const outcome of ["refused", "failed"] as const) {
+      let state = pipelinesReducer(undefined, draftSaveRunPending({ pipelineId: "A" }));
+      state = pipelinesReducer(state, draftSaveRunSettled({ pipelineId: "A", outcome }));
+      expect(state).toMatchObject({ runStatus: null, runIsDry: null, runError: null });
+    }
+  });
+
+  it("a settle for a pipeline that no longer owns the run state is ignored", () => {
+    let state = pipelinesReducer(undefined, draftSaveRunPending({ pipelineId: "A" }));
+    state = pipelinesReducer(state, clearRunState());
+    state = pipelinesReducer(state, draftSaveRunPending({ pipelineId: "B" }));
+    const after = pipelinesReducer(
+      state,
+      draftSaveRunSettled({ pipelineId: "A", outcome: "succeeded" }),
+    );
+    expect(after).toEqual(state);
+  });
+
+  it("pipelineStepsReplaced stores the saved definition's steps for that pipeline only", () => {
+    const steps = [{ id: "s1" }] as unknown as PipelineStep[];
+    const state = pipelinesReducer(undefined, pipelineStepsReplaced({ pipelineId: "A", steps }));
+    expect(state.steps.A).toBe(steps);
+    expect(state.stepsStatus.A).toBe("succeeded");
+    expect(state.steps.B).toBeUndefined();
   });
 });

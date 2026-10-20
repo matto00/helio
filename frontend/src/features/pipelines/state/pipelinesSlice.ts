@@ -1,6 +1,6 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import type { RunStatus } from "../types/pipelineStep";
+import type { PipelineStep, RunStatus } from "../types/pipelineStep";
 import {
   analyzePipeline,
   createPipeline,
@@ -74,6 +74,54 @@ const pipelinesSlice = createSlice({
       state.runSourceTruncated = false;
       state.runSourceAvailableRowCount = null;
       state.runTruncationNotice = null;
+    },
+    /** HEL-1631 (design.md D9): Save & run's run is synchronous inside `POST .../draft/save`, so the run state `submitPipelineRun.pending`
+     *  would set is set here, before the request goes out: the header's run chip shows the run while the save is open. */
+    draftSaveRunPending(state, action: PayloadAction<{ pipelineId: string }>) {
+      state.runId = null;
+      state.runStatus = "queued";
+      state.runError = null;
+      state.runIsDry = false;
+      state.runPipelineId = action.payload.pipelineId;
+      state.runSourceTruncated = false;
+      state.runSourceAvailableRowCount = null;
+      state.runTruncationNotice = null;
+    },
+    /** The save's run settled. `succeeded` and `blocked` clear the in-session counts and rows (the save response carries
+     *  none), so the spine falls back to the persisted counts the follow-up pipeline read brings. `refused` (the HEL-505 guard
+     *  turned the run away after the save committed) and `failed` (the save itself did not commit) put the run state back, and
+     *  leave `runError` null: the page explains a refused run itself, and a failed save is shown as a draft notice. */
+    draftSaveRunSettled(
+      state,
+      action: PayloadAction<{
+        pipelineId: string;
+        outcome: "succeeded" | "blocked" | "refused" | "failed";
+      }>,
+    ) {
+      // HEL-1483: a settle for a pipeline that no longer owns the run state is ignored.
+      if (state.runPipelineId !== action.payload.pipelineId) return;
+      const { outcome } = action.payload;
+      state.runId = null;
+      if (outcome === "succeeded" || outcome === "blocked") {
+        state.runStatus = outcome === "succeeded" ? "succeeded" : "failed";
+        state.runError = outcome === "blocked" ? "Run blocked by an assertion" : null;
+        state.runResult = null;
+        state.runStepRowCounts = {};
+        state.runSourceRowCount = null;
+      } else {
+        state.runStatus = null;
+        state.runIsDry = null;
+        state.runError = null;
+      }
+    },
+    /** HEL-1631: the saved definition a draft save returned becomes the stored steps. */
+    pipelineStepsReplaced(
+      state,
+      action: PayloadAction<{ pipelineId: string; steps: PipelineStep[] }>,
+    ) {
+      state.steps[action.payload.pipelineId] = action.payload.steps;
+      state.stepsStatus[action.payload.pipelineId] = "succeeded";
+      state.stepsError[action.payload.pipelineId] = null;
     },
     setCreatePipelineModalOpen(state, action: { payload: boolean }) {
       state.createModalOpen = action.payload;
@@ -330,6 +378,13 @@ const pipelinesSlice = createSlice({
   },
 });
 
-export const { clearRunState, setRunStatus, setCreatePipelineModalOpen } = pipelinesSlice.actions;
+export const {
+  clearRunState,
+  setRunStatus,
+  setCreatePipelineModalOpen,
+  draftSaveRunPending,
+  draftSaveRunSettled,
+  pipelineStepsReplaced,
+} = pipelinesSlice.actions;
 export type { PipelinesState };
 export const pipelinesReducer = pipelinesSlice.reducer;

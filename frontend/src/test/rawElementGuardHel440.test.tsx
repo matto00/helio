@@ -100,6 +100,7 @@ const pipelineHeaderNoopProps = {
   onOpenShare: jest.fn(),
   onEditOnlySource: null,
   onDryRun: jest.fn(),
+  draft: { hasDraft: false, saving: false, onDiscard: jest.fn(), onSaveAndRun: jest.fn() },
   onRun: jest.fn(),
 };
 

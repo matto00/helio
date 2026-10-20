@@ -10,6 +10,8 @@ installNetworkGuard();
 // never inherit another test's retained Outputs or cached metadata.
 beforeEach(() => {
   resetOutputFreshness();
+  // HEL-1631 -- a pipeline draft is kept per tab in sessionStorage; a test must never inherit another test's kept draft.
+  window.sessionStorage.clear();
 });
 
 // react-router-dom (v7) uses the Node.js web APIs which jsdom doesn't polyfill.

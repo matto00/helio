@@ -4,25 +4,42 @@
 // preview request (HEL-1620).
 
 import { GitBranch } from "lucide-react";
-import { useState } from "react";
-
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { Select, type SelectOption } from "../../../../shared/ui/Select";
+import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import type { InFlightDedupe } from "../../state/inFlightDedupe";
+import type { LaneGraph } from "../../state/stepTree";
+import type { PipelineRoot } from "../../types/pipelineStep";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { StepPreviewTable } from "../spine/StepPreviewTable";
+
+/** The step the tab previews until the user picks another: the last step of the first source's trunk, else the first step. */
+export function defaultPreviewStepId(laneGraph: LaneGraph, roots: PipelineRoot[]): string | null {
+  const trunk = laneGraph.lanes.find(
+    (l) => l.parentStepId === undefined && l.rootId === roots[0]?.id,
+  );
+  return (
+    trunk?.steps.at(-1)?.id ?? laneGraph.lanes.find((l) => l.steps.length > 0)?.steps[0].id ?? null
+  );
+}
 
 export function MobilePreviewTab({
   page,
   dedupe,
   beforeFetch,
+  presentation,
+  chosenId,
+  onChoose,
 }: {
   page: PipelinePageState;
   dedupe: InFlightDedupe;
   beforeFetch: () => Promise<void>;
+  presentation: ReturnType<typeof usePipelineDraftPresentation>;
+  /** The user's pick, or `null` for the default step. Held by the layout, which needs it for the draft transport. */
+  chosenId: string | null;
+  onChoose: (stepId: string) => void;
 }) {
-  const { steps, laneGraph, roots } = page;
-  const [chosenId, setChosenId] = useState<string | null>(null);
+  const { laneGraph, roots } = page;
 
   const entries = laneGraph.lanes.flatMap((lane) =>
     lane.steps.map((step, index) => ({ step, lane, index })),
@@ -38,10 +55,7 @@ export function MobilePreviewTab({
     );
   }
 
-  const trunk = laneGraph.lanes.find(
-    (l) => l.parentStepId === undefined && l.rootId === roots[0]?.id,
-  );
-  const defaultId = trunk?.steps.at(-1)?.id ?? entries[0].step.id;
+  const defaultId = defaultPreviewStepId(laneGraph, roots) ?? entries[0].step.id;
   const chosen =
     entries.find((e) => e.step.id === chosenId) ??
     entries.find((e) => e.step.id === defaultId) ??
@@ -50,7 +64,7 @@ export function MobilePreviewTab({
     value: e.step.id,
     label: `Step ${e.index + 1} · ${e.step.label}`,
   }));
-  const enabledBits = steps.map((s) => (s.enabled ? "1" : "0")).join("");
+  const draftSchema = presentation.inputSchemaFor(chosen.step);
 
   return (
     <div className="mobile-preview">
@@ -59,7 +73,7 @@ export function MobilePreviewTab({
         ariaLabel="Previewed step"
         value={chosen.step.id}
         options={options}
-        onChange={setChosenId}
+        onChange={onChoose}
       />
       <StepPreviewTable
         key={chosen.step.id}
@@ -67,13 +81,14 @@ export function MobilePreviewTab({
         step={chosen.step}
         stepNumber={chosen.index + 1}
         stepIndex={chosen.index}
-        enabledBits={enabledBits}
-        analyzeSchema={page.getAnalyzeSchema(chosen.step.id)}
+        enabledBits={presentation.savedEnabledBits}
+        analyzeSchema={draftSchema ?? page.getAnalyzeSchema(chosen.step.id)}
         analyzeOutputSchema={page.getAnalyzeOutputSchema(chosen.step.id)}
         hasOwnAnalyze={page.hasOwnAnalyzeEntry(chosen.step.id)}
         isCreating={page.creatingStepIds.has(chosen.step.id)}
         dedupe={dedupe}
         beforeFetch={beforeFetch}
+        draft={presentation.previewDraftFor(chosen.step.id)}
       />
     </div>
   );

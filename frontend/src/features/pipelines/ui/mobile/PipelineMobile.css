@@ -377,8 +377,14 @@
   cursor: pointer;
 }
 
+/* HEL-1631: blocked while a draft exists; the same dimmed treatment as the desktop `.spine-ghost-btn:disabled`. */
+.spine-add-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (hover: hover) {
-  .spine-add-row:hover {
+  .spine-add-row:hover:not(:disabled) {
     background: var(--app-surface-raised);
     color: var(--app-text);
   }
@@ -399,9 +405,16 @@
   align-items: flex-end;
 }
 
-/* HEL-1631's draft status slot: collapses to nothing while empty. */
+/* The draft status slot: collapses to nothing while empty (no draft), else "Draft · unsaved changes" on an opaque pill so it
+   stays legible over the scrolling list behind the floating bar. */
 .mobile-actions__slot:empty {
   display: none;
+}
+
+.mobile-actions__slot {
+  margin-bottom: var(--space-2);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
 }
 
 .mobile-actions__pills {
@@ -634,4 +647,9 @@
     height: 44px;
     transform: translate(-50%, -50%);
   }
+}
+
+/* HEL-1631: the draft chip's dot is the accent (DESIGN.md §11), in the action bar's status slot too. */
+.mobile-actions__slot .ui-status-chip__dot {
+  background: var(--app-accent);
 }

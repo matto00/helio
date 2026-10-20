@@ -3,11 +3,12 @@
 // Disable/Enable, Duplicate and Remove, the warnings region, validation/draft errors, and the same
 // `StepOpEditor` if-ladder every step kind already uses (so every kind stays editable).
 //
-// Persistence: `flushOnUnmount` is set here only -- selecting another step unmounts this editor
-// (it is keyed by the step), and a pending debounced edit is sent rather than lost. Remove cancels
-// the pending edit first, so no PATCH goes to a row that is being deleted.
+// Persistence (HEL-1631): an edit goes into the page's client-only draft synchronously and nothing is sent to the
+// server until Save & run, so selecting another step (which unmounts this editor, keyed by the step) never loses an
+// edit and there is nothing to flush or cancel. Disable/Enable and Remove are draft edits too; Duplicate is a
+// structural operation, unavailable while a draft exists.
 
-import { useId, useRef } from "react";
+import { useId } from "react";
 import { TriangleAlert } from "lucide-react";
 
 import { InlineError } from "../../../shared/chrome/InlineError";
@@ -40,12 +41,10 @@ export function StepCardFocused({
   draftError,
   isCreating = false,
   savedError,
+  structuralBlockedReason = null,
+  draftPreviewError = null,
 }: FocusedStepCardProps) {
-  const cancelPendingRef = useRef<(() => void) | null>(null);
-  const stepCardState = useStepCardState(step, onConfigChange, {
-    flushOnUnmount: true,
-    cancelPendingRef,
-  });
+  const stepCardState = useStepCardState(step, onConfigChange);
   const warningsHeadingId = useId();
   const warningCount = warnings?.length ?? 0;
   const isDraft = isTempStepId(step.id);
@@ -98,7 +97,8 @@ export function StepCardFocused({
             type="button"
             className="step-focused__action"
             aria-label="Duplicate step"
-            disabled={isDuplicating}
+            disabled={isDuplicating || structuralBlockedReason !== null}
+            title={structuralBlockedReason ?? undefined}
             onClick={() => onDuplicate(step.id)}
           >
             Duplicate
@@ -107,10 +107,7 @@ export function StepCardFocused({
             type="button"
             className="step-focused__action step-focused__action--danger"
             aria-label="Remove step"
-            onClick={() => {
-              cancelPendingRef.current?.();
-              onRemove(step.id);
-            }}
+            onClick={() => onRemove(step.id)}
           >
             Remove
           </button>
@@ -125,6 +122,7 @@ export function StepCardFocused({
         {step.opType.id !== "compute" && <InlineError error={validationError ?? null} />}
         <InlineError error={draftError ?? null} />
         <InlineError error={savedError ?? null} />
+        <InlineError error={draftPreviewError} />
         {isCreating && (
           <p className="step-focused__saving" role="status">
             Saving step…

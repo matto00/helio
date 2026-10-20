@@ -2,12 +2,12 @@
 // `useStepCardState` (return shape, every change handler's wire payload and error capture, the
 // emitOrPersist temp-id path, the during-render resync of all 26 editor states, the three
 // state-reading accumulating handlers) so a behaviour-preserving split of the hook can be proven
-// against it. Written and committed green on the pre-split base; the existing
-// `useStepCardState.test.ts` (debounce, stale-token, cleanup, unsupported-op, temp-id guard,
-// saveError staleness) keeps guarding the persist path itself.
+// against it. Written and committed green on the pre-split base. HEL-1631 moved every edit from a debounced PATCH to the
+// page's client-only draft: the payload each handler produces is unchanged and is still pinned here, now as the argument of a
+// synchronous `onConfigChange`; the debounce/PATCH/saveError tests that pinned the old transport were replaced by tests that
+// the editor sends no request at all (the `updatePipelineStep` mock is the guard).
 
 import { act, renderHook } from "@testing-library/react";
-import { AxiosError, AxiosHeaders } from "axios";
 
 import { useStepCardState } from "./useStepCardState";
 import { updatePipelineStep } from "../services/pipelineService";
@@ -29,22 +29,6 @@ jest.mock("../services/pipelineService", () => ({
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 
 const DEBOUNCE_MS = 400;
-
-function makeAxiosError(data: unknown, status: number): AxiosError {
-  return new AxiosError(
-    `Request failed with status code ${status}`,
-    "ERR_BAD_REQUEST",
-    undefined,
-    undefined,
-    {
-      status,
-      statusText: "Unprocessable",
-      headers: {},
-      config: { headers: new AxiosHeaders() },
-      data,
-    },
-  );
-}
 
 function opType(id: string) {
   return OP_TYPES.find((op) => op.id === id)!;
@@ -113,81 +97,45 @@ describe("useStepCardState characterization — handler wire payloads (group 2)"
     expect(new Set(ALL_CASES.map((c) => c.handler)).size).toBe(26);
   });
 
-  it.each(ALL_CASES)("$name: one debounced PATCH with the exact payload", (c) => {
-    const onConfigChange = jest.fn();
-    const { result } = renderStateHook(stepOf("limit", { count: 5 }), onConfigChange);
+  it.each(ALL_CASES)(
+    "$name: hands the exact payload to onConfigChange at once, with no request",
+    (c) => {
+      const onConfigChange = jest.fn();
+      const { result } = renderStateHook(stepOf("limit", { count: 5 }), onConfigChange);
 
-    act(() => {
-      call(result, c.handler, ...c.args);
-    });
-    expect(updatePipelineStepMock).not.toHaveBeenCalled();
-    act(() => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
+      act(() => {
+        call(result, c.handler, ...c.args);
+      });
 
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock.mock.calls[0][0]).toBe("persisted-step-1");
-    expect(updatePipelineStepMock.mock.calls[0][1]).toStrictEqual(c.payload);
-  });
+      expect(onConfigChange).toHaveBeenCalledTimes(1);
+      expect(onConfigChange.mock.calls[0][0]).toBe("persisted-step-1");
+      expect(onConfigChange.mock.calls[0][1]).toStrictEqual(c.payload);
+      act(() => {
+        jest.advanceTimersByTime(DEBOUNCE_MS * 2);
+      });
+      expect(updatePipelineStepMock).not.toHaveBeenCalled();
+      expect(onConfigChange).toHaveBeenCalledTimes(1);
+    },
+  );
 
-  it.each(ALL_CASES)("$name: saveError captured only where the handler opts in", async (c) => {
-    updatePipelineStepMock.mockRejectedValue(makeAxiosError({ message: "nope" }, 422));
+  it.each(ALL_CASES)("$name: never populates saveError (there is no server round trip)", (c) => {
     const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
 
     act(() => {
       call(result, c.handler, ...c.args);
     });
-    await act(async () => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
 
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    if (c.captures) {
-      expect(result.current.saveError).toBe("nope");
-      expect(result.current.saveErrorIsValidation).toBe(true);
-    } else {
-      expect(result.current.saveError).toBeNull();
-      expect(result.current.saveErrorIsValidation).toBe(false);
-    }
-  });
-
-  it("captures exactly pivot/window/fillnull/cast/upsertsource/union/lookup/join", () => {
-    const capturing = new Set(ALL_CASES.filter((c) => c.captures).map((c) => c.handler));
-    expect(capturing).toEqual(
-      new Set([
-        "onPivotChange",
-        "onWindowChange",
-        "onFillNullChange",
-        "onCastChange",
-        "onUpsertSourceChange",
-        "onUnionChange",
-        "onLookupChange",
-        "onJoinChange",
-      ]),
-    );
-  });
-
-  it("a non-422 rejection on a capturing handler sets saveError but not saveErrorIsValidation", async () => {
-    updatePipelineStepMock.mockRejectedValue(makeAxiosError({ error: "boom" }, 500));
-    const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
-    act(() => {
-      call(result, "onFillNullChange", { columns: [], strategy: "constant", value: null });
-    });
-    await act(async () => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
-    expect(result.current.saveError).toBe("boom");
+    expect(result.current.saveError).toBeNull();
     expect(result.current.saveErrorIsValidation).toBe(false);
   });
 });
 
 describe("useStepCardState characterization — local echo (group 6)", () => {
-  it.each(ALL_CASES)("$name: the returned value reflects the edit before the debounce", (c) => {
+  it.each(ALL_CASES)("$name: the returned value reflects the edit at once", (c) => {
     const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
     act(() => {
       call(result, c.handler, ...c.args);
     });
-    expect(updatePipelineStepMock).not.toHaveBeenCalled();
     expect(api(result)[c.valueKey]).toEqual(c.local);
   });
 });
@@ -197,7 +145,7 @@ describe("useStepCardState characterization — local echo (group 6)", () => {
 // ---------------------------------------------------------------------------------------------
 
 describe("useStepCardState characterization — emitOrPersist (group 3)", () => {
-  it.each(EMIT_CASES)("$name: a temp-id step emits synchronously and never PATCHes", (c) => {
+  it.each(EMIT_CASES)("$name: a temp-id step emits synchronously and sends no request", (c) => {
     const onConfigChange = jest.fn();
     const { result } = renderStateHook(stepOf("limit", { count: 5 }, "step-1"), onConfigChange);
     act(() => {
@@ -214,25 +162,24 @@ describe("useStepCardState characterization — emitOrPersist (group 3)", () => 
   });
 
   it.each(EMIT_CASES)(
-    "$name: a persisted step PATCHes (debounced) and reports only after success",
-    async (c) => {
+    "$name: a persisted step reports to the draft synchronously and sends no request",
+    (c) => {
       const onConfigChange = jest.fn();
       const { result } = renderStateHook(stepOf("limit", { count: 5 }), onConfigChange);
       act(() => {
         call(result, c.handler, ...c.args);
       });
-      expect(onConfigChange).not.toHaveBeenCalled();
-      await act(async () => {
-        jest.advanceTimersByTime(DEBOUNCE_MS);
-      });
-      expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
       expect(onConfigChange).toHaveBeenCalledTimes(1);
       expect(onConfigChange.mock.calls[0][1]).toStrictEqual(c.payload);
+      act(() => {
+        jest.advanceTimersByTime(DEBOUNCE_MS * 2);
+      });
+      expect(updatePipelineStepMock).not.toHaveBeenCalled();
     },
   );
 
   it.each(HANDLER_CASES)(
-    "$name: a temp-id step never PATCHes and never calls onConfigChange",
+    "$name: a temp-id step sends no request and never calls onConfigChange",
     (c) => {
       const onConfigChange = jest.fn();
       const { result } = renderStateHook(stepOf("limit", { count: 5 }, "step-1"), onConfigChange);
@@ -311,8 +258,11 @@ describe("useStepCardState characterization — during-render resync (group 4)",
 // ---------------------------------------------------------------------------------------------
 
 describe("useStepCardState characterization — accumulating handlers (group 5)", () => {
+  const lastReported = (fn: jest.Mock) => fn.mock.calls.at(-1)?.[1];
+
   it("onFieldToggle accumulates across calls and removes on uncheck", () => {
-    const { result } = renderStateHook(stepOf("select", { fields: ["x"] }), jest.fn());
+    const onConfigChange = jest.fn();
+    const { result } = renderStateHook(stepOf("select", { fields: ["x"] }), onConfigChange);
     act(() => {
       result.current.onFieldToggle("a", true);
     });
@@ -325,30 +275,26 @@ describe("useStepCardState characterization — accumulating handlers (group 5)"
       result.current.onFieldToggle("a", false);
     });
     expect(result.current.selectedFields).toEqual(["x", "b"]);
-    act(() => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock.mock.calls[0][1]).toStrictEqual({ fields: ["x", "b"] });
+    expect(lastReported(onConfigChange)).toStrictEqual({ fields: ["x", "b"] });
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 
-  it("onFieldToggle: two edits inside one debounce window both reach the single PATCH", () => {
-    const { result } = renderStateHook(stepOf("select", { fields: ["x"] }), jest.fn());
+  it("onFieldToggle: two edits in a row both reach the draft, each with everything before it", () => {
+    const onConfigChange = jest.fn();
+    const { result } = renderStateHook(stepOf("select", { fields: ["x"] }), onConfigChange);
     act(() => {
       result.current.onFieldToggle("a", true);
     });
     act(() => {
       result.current.onFieldToggle("b", true);
     });
-    act(() => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock.mock.calls[0][1]).toStrictEqual({ fields: ["x", "a", "b"] });
+    expect(onConfigChange).toHaveBeenCalledTimes(2);
+    expect(lastReported(onConfigChange)).toStrictEqual({ fields: ["x", "a", "b"] });
   });
 
   it("onRenameChange accumulates across calls and an empty name deletes the key", () => {
-    const { result } = renderStateHook(stepOf("rename", { renames: {} }), jest.fn());
+    const onConfigChange = jest.fn();
+    const { result } = renderStateHook(stepOf("rename", { renames: {} }), onConfigChange);
     act(() => {
       result.current.onRenameChange("x", "1");
     });
@@ -360,15 +306,12 @@ describe("useStepCardState characterization — accumulating handlers (group 5)"
       result.current.onRenameChange("x", "");
     });
     expect(result.current.renames).toEqual({ y: "2" });
-    act(() => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock.mock.calls[0][1]).toStrictEqual({ renames: { y: "2" } });
+    expect(lastReported(onConfigChange)).toStrictEqual({ renames: { y: "2" } });
   });
 
   it("onCastChange accumulates across calls and an empty type deletes the key", () => {
-    const { result } = renderStateHook(stepOf("cast", { casts: {} }), jest.fn());
+    const onConfigChange = jest.fn();
+    const { result } = renderStateHook(stepOf("cast", { casts: {} }), onConfigChange);
     act(() => {
       result.current.onCastChange("x", "int");
     });
@@ -380,10 +323,6 @@ describe("useStepCardState characterization — accumulating handlers (group 5)"
       result.current.onCastChange("x", "");
     });
     expect(result.current.casts).toEqual({ y: "float" });
-    act(() => {
-      jest.advanceTimersByTime(DEBOUNCE_MS);
-    });
-    expect(updatePipelineStepMock).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStepMock.mock.calls[0][1]).toStrictEqual({ casts: { y: "float" } });
+    expect(lastReported(onConfigChange)).toStrictEqual({ casts: { y: "float" } });
   });
 });

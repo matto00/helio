@@ -27,6 +27,7 @@ import { usePipelineDetailPage } from "./usePipelineDetailPage";
 import {
   analyzePipeline,
   createPipelineStep,
+  duplicatePipelineStep,
   fetchRunHistory,
   getPipelineById,
   getPipelineSchedule,
@@ -45,6 +46,7 @@ jest.mock("../services/pipelineService", () => ({
   getPipelineSteps: jest.fn(),
   analyzePipeline: jest.fn(),
   createPipelineStep: jest.fn(),
+  duplicatePipelineStep: jest.fn(),
   runPipeline: jest.fn(),
   getPipelineSchedule: jest.fn(),
   getPipelineStepCatalog: jest.fn(),
@@ -170,9 +172,11 @@ async function advance(ms: number) {
 // right after the edit's synchronous act; `settled` includes the analyze dispatch's own status renders.
 // HEL-1483: +1 from the render that records "this mount's steps fetch fulfilled" (the seed gate), and
 // +1 from the render-phase update that keeps this mount's own pipeline when the fetch replaces it.
+// HEL-1631: an edit is a draft entry and dispatches no analyze, so `settled` no longer includes the analyze status renders
+// (10 -> 8); the open and the edit's own render counts are unchanged.
 const RENDERS_AFTER_OPEN = 7;
 const RENDERS_AFTER_EDIT = 8;
-const RENDERS_SETTLED = 10;
+const RENDERS_SETTLED = 8;
 
 const generateText = OP_TYPES.find((op) => op.id === "generatetext")!;
 const completeAiConfig = { inputField: "a", instruction: "Summarize", outputField: "summary" };
@@ -212,22 +216,26 @@ describe("usePipelineDetailPage analyze dispatch / render count / run-completion
   });
 
   // The debounce: nothing before 300ms, exactly one at 300ms, nothing more after.
-  it("T2 edit: a config edit dispatches exactly one more analyze, 300ms later (not before)", async () => {
+  // HEL-1631: this used to pin "a config edit dispatches exactly one more analyze, 300ms later". An edit is now a draft entry:
+  // the saved schema cannot change, so analyze is suspended while the draft exists and Discard (which restores the saved
+  // steps exactly) does not re-analyze either.
+  it("T2 edit: a config edit goes into the draft and dispatches no analyze, nor does Discard", async () => {
     const { result } = renderPage({ preloadSteps: true });
     await advance(1000);
     expect(analyzeMock).toHaveBeenCalledTimes(1);
     act(() => result.current.handleStepConfigChange("s1", { renames: { a: "b" } }));
-    await advance(299);
-    expect(analyzeMock).toHaveBeenCalledTimes(1);
-    await advance(1);
-    expect(analyzeMock).toHaveBeenCalledTimes(2);
+    expect(result.current.draft.hasDraft).toBe(true);
     await advance(2000);
-    expect(analyzeMock).toHaveBeenCalledTimes(2);
+    expect(analyzeMock).toHaveBeenCalledTimes(1);
+    act(() => result.current.draft.discard());
+    await advance(2000);
+    expect(result.current.draft.hasDraft).toBe(false);
+    expect(analyzeMock).toHaveBeenCalledTimes(1);
   });
 
   // The guard: an edit while a run is in flight defers; the run settling (here: failing, which
   // clears `sseActive` the ordinary way) releases exactly one dispatch.
-  it("T2 defer: an edit during a run is deferred, then dispatched exactly once when the run settles", async () => {
+  it("T2 defer: a structural change during a run is deferred, then dispatched exactly once when the run settles", async () => {
     let rejectRun: (e: Error) => void = () => {};
     runMock.mockReturnValue(
       new Promise((_, reject) => {
@@ -241,8 +249,15 @@ describe("usePipelineDetailPage analyze dispatch / render count / run-completion
       void result.current.handleRunPipeline();
     });
     expect(result.current.sseActive).toBe(true);
-    act(() => result.current.handleStepConfigChange("s1", { renames: { a: "b" } }));
+    // The saved steps change (a duplicate's server resync brings in a new step): a config edit no longer does.
+    const withClone = [...persisted(), wireStep("s3", { parentStepId: "s2", position: 0 })];
+    jest.mocked(getPipelineSteps).mockResolvedValue(withClone);
+    jest.mocked(duplicatePipelineStep).mockResolvedValue(withClone[2]);
+    await act(async () => {
+      result.current.handleDuplicateStep("s2");
+    });
     await advance(1000);
+    expect(result.current.steps).toHaveLength(3);
     expect(analyzeMock).toHaveBeenCalledTimes(1);
     await act(async () => rejectRun(new Error("boom")));
     await advance(400);

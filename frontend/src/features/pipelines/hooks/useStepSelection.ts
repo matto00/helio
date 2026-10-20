@@ -9,7 +9,7 @@
 // removing the selected step selects its predecessor in the same lane, else the parent step, else
 // the first step (`selectAfterRemoval`).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { resolveStepParam } from "../state/resolveStepParam";
@@ -103,8 +103,13 @@ export function useStepSelection(args: {
   );
 
   // A step that appears after the first load is a created one: write it to the URL once its id exists.
+  // Once per list change: `selectStep` changes identity with the URL, and re-running this on the user's own click would put the
+  // created (or draft-restored) step back over their choice.
+  const handledChange = useRef<typeof seen>(null);
   useEffect(() => {
-    if (seen !== null && seen.added.length > 0) selectStep(seen.added[seen.added.length - 1]);
+    if (seen === null || seen.added.length === 0 || handledChange.current === seen) return;
+    handledChange.current = seen;
+    selectStep(seen.added[seen.added.length - 1]);
   }, [seen, selectStep]);
 
   return { selectedStepId, selectStep };

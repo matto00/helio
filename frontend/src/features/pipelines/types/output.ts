@@ -39,6 +39,8 @@ export interface Output {
   id: string;
   pipelineId: string;
   nodeStepId?: string;
+  /** Names the root an Output on the pipeline root is bound to; absent when `nodeStepId` is set. */
+  rootId?: string;
   ownerId: string;
   name: string;
   kind: string;

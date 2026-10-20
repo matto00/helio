@@ -24,6 +24,8 @@ interface SpineOutputsProps {
   onOpenOutput: (output: Output) => void;
   onOpenHistory: (output: Output) => void;
   onAddOutput: () => void;
+  /** HEL-1631: set while a draft exists; Outputs cannot be created or edited until it is saved or discarded. */
+  blockedReason?: string | null;
 }
 
 export function SpineOutputs({
@@ -34,6 +36,7 @@ export function SpineOutputs({
   onOpenOutput,
   onOpenHistory,
   onAddOutput,
+  blockedReason = null,
 }: SpineOutputsProps) {
   const phone = variant === "phone";
   const stepLabelById = new Map(steps.map((s) => [s.id, s.label]));
@@ -47,6 +50,8 @@ export function SpineOutputs({
               type="button"
               className="spine-card__open"
               aria-label={`Open ${output.name} output`}
+              disabled={blockedReason !== null}
+              title={blockedReason ?? undefined}
               onClick={() => onOpenOutput(output)}
             >
               <span className="spine-card__name">{output.name}</span>
@@ -88,6 +93,8 @@ export function SpineOutputs({
         type="button"
         className="spine-ghost-btn"
         aria-label="New output"
+        disabled={blockedReason !== null}
+        title={blockedReason ?? undefined}
         onClick={onAddOutput}
       >
         + Output

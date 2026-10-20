@@ -31,4 +31,9 @@ export interface FocusedStepCardProps {
   /** HEL-1579 (design.md D7): the message of a flushed save that failed after this editor had
    *  unmounted (page-level `stepSaveErrors`), shown in the `InlineError` position on re-select. */
   savedError?: string;
+  /** HEL-1631 (design.md D2): set while a draft exists. Duplicate (a structural operation the draft does not carry) is
+   *  disabled and this is its reason. */
+  structuralBlockedReason?: string | null;
+  /** HEL-1631: the draft preview's error for this step (the evaluator's own message), shown with the step's other errors. */
+  draftPreviewError?: string | null;
 }

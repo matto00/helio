@@ -5,10 +5,11 @@
 // `usePipelineDetailPage()` (the same result the phone layout reads, so no handler is duplicated).
 
 import { GitBranch } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
+import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import type { usePipelineDetailPage } from "../../hooks/usePipelineDetailPage";
 import { selectAfterRemoval, useStepSelection } from "../../hooks/useStepSelection";
@@ -16,6 +17,7 @@ import { createInFlightDedupe } from "../../state/inFlightDedupe";
 import { StepSaveContext } from "../../state/stepSaveContext";
 import { stepRowCount, stepRowCountSource } from "../../state/stepRowCount";
 import { stepRenderKey } from "../../state/stepTree";
+import { PipelineDraftNotices } from "../PipelineDraftNotices";
 import { PipelineRiverSkeleton } from "../PipelineRiverSkeleton";
 import { StepCardFocused } from "../StepCardFocused";
 import { PipelineSpine } from "./PipelineSpine";
@@ -67,10 +69,13 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     onAddRoot: (sourceId) => void page.handleAddRoot(sourceId),
     onInstantiateShape: page.handleInstantiateShape,
     onReorderSteps: page.handleReorderSteps,
+    structuralBlockedReason: page.draftBlockReason,
   });
+  const presentation = usePipelineDraftPresentation(page, selectedStepId);
 
   const selectedStep =
     selectedStepId !== null ? steps.find((s) => s.id === selectedStepId) : undefined;
+  const selectedDraftSchema = selectedStep ? presentation.inputSchemaFor(selectedStep) : null;
   const selectedLane = selectedStep
     ? laneGraph.lanes.find((l) => l.id === laneGraph.laneOfStepId[selectedStep.id])
     : undefined;
@@ -78,7 +83,8 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     ? selectedLane.steps.findIndex((s) => s.id === selectedStepId)
     : -1;
 
-  const enabledBits = useMemo(() => steps.map((s) => (s.enabled ? "1" : "0")).join(""), [steps]);
+  // The saved-preview fetch follows the SAVED enabled flags, so a draft toggle never refetches (design.md D7a).
+  const enabledBits = presentation.savedEnabledBits;
 
   // Counts: the in-session run's, else the persisted latest run's (design.md D9). Truncation context
   // follows whichever source is shown (`pipeline-run-truncation-reporting`).
@@ -154,7 +160,14 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           onEditOnlySource={onlyRootSource ? () => page.handleEditSource(onlyRootSource.id) : null}
           onDryRun={() => void page.handleDryRun()}
           onRun={() => void page.handleRunPipeline()}
+          draft={{
+            hasDraft: page.draft.hasDraft,
+            saving: page.draftSave.saving,
+            onDiscard: page.draft.discard,
+            onSaveAndRun: () => void page.draftSave.saveAndRun(),
+          }}
         />
+        <PipelineDraftNotices page={page} />
         <div className="spine-strip-slot">
           <SpineStatusStrip
             costVerdict={page.costVerdict}
@@ -186,6 +199,9 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 selectedStepId={selectedStepId}
                 stepCount={steps.length}
                 rowCountFor={(stepId) => stepRowCount(stepId, runStepRowCounts, persistedCounts)}
+                draftFor={presentation.draftFor}
+                draftCountsOverSample={presentation.draftCountsOverSample}
+                structuralBlockedReason={presentation.structuralBlockedReason}
                 countsPartial={countsPartial}
                 getAnalyzeValidationError={page.getAnalyzeValidationError}
                 getAnalyzeWarnings={page.getAnalyzeWarnings}
@@ -212,8 +228,11 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                     isOwner={page.isOwner}
                     stepNumber={selectedIndex + 1}
                     onRemove={handleRemoveStep}
-                    analyzeColumns={page.getAnalyzeColumns(selectedStep.id)}
-                    analyzeSchema={page.getAnalyzeSchema(selectedStep.id)}
+                    analyzeColumns={
+                      selectedDraftSchema?.map((f) => f.name) ??
+                      page.getAnalyzeColumns(selectedStep.id)
+                    }
+                    analyzeSchema={selectedDraftSchema ?? page.getAnalyzeSchema(selectedStep.id)}
                     validationError={page.getAnalyzeValidationError(selectedStep.id)}
                     warnings={page.getAnalyzeWarnings(selectedStep.id)}
                     onConfigChange={page.handleStepConfigChange}
@@ -224,6 +243,8 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                     draftError={page.draftCreateErrors[selectedStep.id]}
                     isCreating={page.creatingStepIds.has(selectedStep.id)}
                     savedError={stepSaveErrors[selectedStep.id]}
+                    structuralBlockedReason={presentation.structuralBlockedReason}
+                    draftPreviewError={presentation.previewErrorFor(selectedStep.id)}
                   />
                 </div>
                 <StepPreviewTable
@@ -239,6 +260,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                   isCreating={page.creatingStepIds.has(selectedStep.id)}
                   dedupe={dedupe}
                   beforeFetch={tracker.whenIdle}
+                  draft={presentation.previewDraftFor(selectedStep.id)}
                 />
               </>
             ) : (

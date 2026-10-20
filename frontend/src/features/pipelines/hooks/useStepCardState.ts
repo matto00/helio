@@ -8,8 +8,6 @@
 // local state and PATCH in lockstep. StepCard.tsx becomes a presentational
 // shell over this hook.
 
-import type { MutableRefObject } from "react";
-
 import type { PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { StepCardStateHandlers } from "./stepCardStateTypes";
@@ -22,14 +20,8 @@ export type { StepCardStateHandlers } from "./stepCardStateTypes";
 
 export function useStepCardState(
   step: Step,
-  /** Called after a successful PATCH so the parent can keep step.config in sync. */
+  /** Called for every edit; on the pipeline page it writes the edit into the client-only draft (HEL-1631). */
   onConfigChange: (stepId: string, config: PipelineStepConfig) => void,
-  /** HEL-1579: desktop focused-editor persistence options (see `useStepCardPersist`); the phone
-   *  card passes none and keeps its clear-on-unmount behaviour. */
-  persistOptions?: {
-    flushOnUnmount?: boolean;
-    cancelPendingRef?: MutableRefObject<(() => void) | null>;
-  },
 ): StepCardStateHandlers {
   const {
     selectedFields,
@@ -85,18 +77,9 @@ export function useStepCardState(
     generateTextConfig,
     setGenerateTextConfig,
     saveError,
-    setSaveError,
     saveErrorIsValidation,
-    setSaveErrorIsValidation,
   } = useStepCardEditorState(step);
-  const { persist, emitOrPersist } = useStepCardPersist({
-    step,
-    onConfigChange,
-    setSaveError,
-    setSaveErrorIsValidation,
-    flushOnUnmount: persistOptions?.flushOnUnmount,
-    cancelPendingRef: persistOptions?.cancelPendingRef,
-  });
+  const { persist, emitOrPersist } = useStepCardPersist({ step, onConfigChange });
   const {
     onFieldToggle,
     onRenameChange,
