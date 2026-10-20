@@ -31,6 +31,7 @@ import {
   removePipelineRoot,
   runPipeline,
   updatePipelineStep,
+  deletePipelineStep,
 } from "../services/pipelineService";
 import { httpClient } from "../../../services/httpClient";
 import type { PipelineStep, PipelineSummary } from "../types/pipelineStep";
@@ -263,15 +264,20 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     await waitFor(() => expect(stepButtons()).toHaveLength(2));
   });
 
-  it("does not issue a request carrying one of A's step ids once B is showing", async () => {
+  it("does not issue a request carrying one of A's step ids once B is showing (an edit on B is B's own draft)", async () => {
     await openAThenSwitchToB();
     await waitFor(() => expect(stepButtons()).toHaveLength(1));
     fireEvent.click(stepButtons()[0]);
     const input = await screen.findByRole("spinbutton", { name: /row limit/i });
     fireEvent.change(input, { target: { value: "99" } });
-    await waitFor(() => expect(updatePipelineStep).toHaveBeenCalled());
-    const ids = jest.mocked(updatePipelineStep).mock.calls.map((c) => c[0]);
-    expect(ids).toEqual(["b1"]);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    });
+    expect(input).toHaveValue(99);
+    expect(updatePipelineStep).not.toHaveBeenCalled();
+    expect(
+      jest.mocked(deletePipelineStep).mock.calls.every(([stepId]) => !stepId.startsWith("a")),
+    ).toBe(true);
   });
 
   it("every analyze request after the switch is for B (AC4)", async () => {
@@ -284,14 +290,16 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     fireEvent.change(await screen.findByRole("spinbutton", { name: /row limit/i }), {
       target: { value: "98" },
     });
-    // The edit is PATCHed after 400ms, then the debounced re-analyze fires 300ms later.
-    await waitFor(() => expect(analyzePipeline).toHaveBeenCalledTimes(before + 2), {
+    // HEL-1631: the edit is a draft entry and dispatches no analyze, so the only analyze after the switch is B's open.
+    await waitFor(() => expect(analyzePipeline).toHaveBeenCalledTimes(before + 1), {
       timeout: 4000,
     });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    });
     const after = jest.mocked(analyzePipeline).mock.calls.slice(before);
-    // the open's own analyze plus the debounced re-analyze after the edit
-    expect(after.length).toBeGreaterThanOrEqual(2);
-    expect(after.map((c) => c[0])).toEqual(after.map(() => "B"));
+    expect(after).toHaveLength(1);
+    expect(after.map((c) => c[0])).toEqual(["B"]);
   });
 
   it("shows the steps loading skeleton, not 'No steps yet', while B's steps fetch is pending (D2a)", async () => {
@@ -330,26 +338,23 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(screen.queryByText("No steps yet")).toBeNull();
   });
 
-  // HEL-1582: the step editor (the sheet's, like the desktop's) FLUSHES a pending debounced edit when it unmounts
-  // instead of dropping it, so leaving A with an edit in flight saves it to A's own step (never lost) and nothing
-  // is ever sent against B. (The river's cards used to drop it; this test pinned that.)
-  it("sends a pending debounced step save for A, to A's own step only, when the page switches to B", async () => {
+  // HEL-1631: leaving A with an unsaved draft drops it (the page is keyed by the route id, so B is a fresh mount with its own
+  // empty draft) and sends nothing against A or B. (HEL-1582 pinned the opposite for the old transport: the editor flushed a
+  // pending debounced PATCH to A's own step when it unmounted.)
+  it("drops A's unsaved draft when the page switches to B and sends nothing for either pipeline", async () => {
     renderAt("/pipelines/A");
     await waitFor(() => expect(stepButtons()).toHaveLength(3));
     fireEvent.click(stepButtons()[0]);
     const input = await screen.findByRole("spinbutton", { name: /row limit/i });
     fireEvent.change(input, { target: { value: "77" } });
-    // Within the 400ms debounce window: leave A.
+    expect(screen.getByText("Draft · unsaved changes")).toBeInTheDocument();
     act(() => navigateTo("/pipelines/B"));
     await act(async () => {
       await new Promise((r) => setTimeout(r, 700));
     });
-    expect(updatePipelineStep).toHaveBeenCalledTimes(1);
-    expect(updatePipelineStep).toHaveBeenCalledWith("a1", { count: 77 });
     await waitFor(() => expect(stepButtons()).toHaveLength(1));
-    expect(
-      jest.mocked(updatePipelineStep).mock.calls.every(([stepId]) => stepId.startsWith("a")),
-    ).toBe(true);
+    expect(screen.queryByText("Draft · unsaved changes")).toBeNull();
+    expect(updatePipelineStep).not.toHaveBeenCalled();
   });
 
   it("does not let a late fetchPipelineById(A) overwrite B's page", async () => {
@@ -506,7 +511,7 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
 
   // Evaluator cycle 3 CR1: B fully loaded, then A's root continuation resolves after the switch. A's
   // page is unmounted, so it issues no refetch of A (which would supersede the singleton); B's
-  // editor must stay mounted (no page skeleton), so a pending debounced edit on B still lands.
+  // editor must stay mounted (no page skeleton), so B's unsaved edit survives in its draft.
   it.each(["add-root", "remove-root"])(
     "keeps B's editor (and its pending edit) when A's %s continuation resolves after the switch, with no refetch of A",
     async (name) => {
@@ -530,21 +535,21 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
       fireEvent.change(await screen.findByRole("spinbutton", { name: /row limit/i }), {
         target: { value: "55" },
       });
-      // Inside the 400ms debounce window: A's continuation resolves (and, unmounted, refetches nothing).
+      // With B's draft open: A's continuation resolves (and, unmounted, refetches nothing).
       await act(async () => {
         resolveRoot({ removedStepCount: 0, removedOutputCount: 0 });
       });
       expect(getPipelineByIdIdsSince(callsAtSwitch)).not.toContain("A");
       expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
-      await waitFor(() => expect(updatePipelineStep).toHaveBeenCalledWith("b1", { count: 55 }));
-      expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
-      expect(screen.getByRole("spinbutton", { name: /row limit/i })).toBeInTheDocument();
+      expect(screen.getByRole("spinbutton", { name: /row limit/i })).toHaveValue(55);
+      expect(screen.getByText("Draft · unsaved changes")).toBeInTheDocument();
+      expect(updatePipelineStep).not.toHaveBeenCalled();
     },
   );
 
   // Pins the per-mount `ownPipeline` keep on its own (no root continuation involved): a foreign
   // fetchPipelineById(A) landing on the store while B is loaded and mid-edit must not swap B's editor
-  // for the page skeleton, show A, or drop B's pending debounced edit.
+  // for the page skeleton, show A, or drop B's unsaved edit.
   it("keeps B's editor and pending edit when a foreign fetchPipelineById(A) resolves on the store", async () => {
     const store = renderAt("/pipelines/A");
     await waitFor(() => expect(stepButtons()).toHaveLength(3));
@@ -560,7 +565,7 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
       .mockImplementation((id: string) =>
         id === "B" ? new Promise<PipelineSummary>(() => {}) : Promise.resolve(pipelineOf(id)),
       );
-    // Inside the 400ms debounce window: another request for A lands on the shared store.
+    // With B's draft open: another request for A lands on the shared store.
     await act(async () => {
       await store.dispatch(fetchPipelineById("A") as never);
     });
@@ -568,8 +573,9 @@ describe("PipelineDetailPage -- in-app pipeline switch (HEL-1483)", () => {
     expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
     expect(screen.queryByText("Pipeline A")).toBeNull();
     expect(screen.getByText("Pipeline B")).toBeInTheDocument();
-    await waitFor(() => expect(updatePipelineStep).toHaveBeenCalledWith("b1", { count: 66 }));
     expect(screen.queryByLabelText("Loading pipeline")).toBeNull();
-    expect(screen.getByRole("spinbutton", { name: /row limit/i })).toBeInTheDocument();
+    expect(screen.getByRole("spinbutton", { name: /row limit/i })).toHaveValue(66);
+    expect(screen.getByText("Draft · unsaved changes")).toBeInTheDocument();
+    expect(updatePipelineStep).not.toHaveBeenCalled();
   });
 });

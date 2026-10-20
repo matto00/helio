@@ -6,6 +6,7 @@ import { PageStatus } from "../../../shared/ui/PageStatus";
 import { ERROR_KIND_ICON } from "../../../shared/chrome/InlineError";
 import { useIsPhoneShell } from "../../../app/shell/useIsPhoneShell";
 import { PipelineDetailDialogs } from "./PipelineDetailDialogs";
+import { PipelineDraftDialogs } from "./PipelineDraftDialogs";
 import { PipelineMobileLayout } from "./mobile/PipelineMobileLayout";
 import { PipelineSpineLayout } from "./spine/PipelineSpineLayout";
 
@@ -88,6 +89,7 @@ function PipelineDetailPageContent() {
         <PipelineSpineLayout page={page} />
       )}
       <PipelineDetailDialogs page={page} />
+      <PipelineDraftDialogs page={page} />
     </>
   );
 }

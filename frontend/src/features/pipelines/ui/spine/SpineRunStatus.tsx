@@ -26,8 +26,13 @@ export function SpineRunStatus({
 }) {
   const displayStatus = run.sseStatus ?? run.runStatus;
   if (displayStatus !== null) {
+    // A Save & run settles with no rows in hand (`runResult` stays null): the count is then not claimed.
     const displayRowCount =
-      run.sseRowCount !== null ? run.sseRowCount : (run.runResult ?? []).length;
+      run.sseRowCount !== null
+        ? run.sseRowCount
+        : run.runResult === null
+          ? null
+          : run.runResult.length;
     const displayErrorLog = run.sseErrorLog ?? run.runError;
     return (
       <span
@@ -40,9 +45,11 @@ export function SpineRunStatus({
         {displayStatus === "running" && "Running…"}
         {displayStatus === "succeeded" &&
           (run.runIsDry
-            ? `Preview: ${displayRowCount} rows`
-            : `Snapshot replaced: ${displayRowCount} rows`)}
-        {displayStatus === "dry_run" && `Preview: ${displayRowCount} rows`}
+            ? `Preview: ${displayRowCount ?? 0} rows`
+            : displayRowCount === null
+              ? "Snapshot replaced"
+              : `Snapshot replaced: ${displayRowCount} rows`)}
+        {displayStatus === "dry_run" && `Preview: ${displayRowCount ?? 0} rows`}
         {displayStatus === "failed" && `Failed${displayErrorLog ? `: ${displayErrorLog}` : ""}`}
       </span>
     );

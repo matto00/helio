@@ -30,7 +30,6 @@ import { PipelineDetailPage } from "./PipelineDetailPage";
 import {
   analyzePipeline,
   createPipelineStep,
-  deletePipelineStep,
   duplicatePipelineStep,
   fetchRunHistory,
   getPipelineById,
@@ -51,7 +50,6 @@ import {
   openStepSheet,
   queryStepRow,
   queryStepSheet,
-  stepRow,
   stepRows,
   stepSheet,
   stubDialogMethods,
@@ -102,7 +100,6 @@ const getPipelineStepsMock = jest.mocked(getPipelineSteps);
 const updatePipelineStepMock = jest.mocked(updatePipelineStep);
 const analyzePipelineMock = jest.mocked(analyzePipeline);
 const duplicatePipelineStepMock = jest.mocked(duplicatePipelineStep);
-const deletePipelineStepMock = jest.mocked(deletePipelineStep);
 
 const catalog: PipelineStepCatalog = {
   groups: [
@@ -531,32 +528,9 @@ describe("PipelineDetailPage - step-create placement and the response delta (HEL
     },
   );
 
-  // (e)
-  it("a draft inserted after B whose anchor B is then deleted is sent as an append (rootId, no position) and succeeds", async () => {
-    deletePipelineStepMock.mockReturnValue(new Promise(() => {})); // the delete never settles
-    const create = deferredCreate();
-    renderPage();
-    await findStepRow(/Limit rows/i);
-    await insertAfter(/Filter rows/i, /Generate text/i); // after B
-    await ensureSheetClosed();
-    openStepSheet(/Filter rows/i);
-    fireEvent.click(within(stepSheet()).getByRole("button", { name: "Remove step" }));
-    await waitFor(() => expect(queryStepRow(/Filter rows/i)).not.toBeInTheDocument());
-    await completeFirstDraft(1);
-
-    expect(createPipelineStepMock).toHaveBeenLastCalledWith(
-      "pipe-1",
-      "generatetext",
-      expect.anything(),
-      undefined,
-      undefined,
-      undefined,
-      "root-1",
-    );
-    await create.resolve(createdResp(ps("N", "generatetext", { parent: "C" }), []));
-    await waitFor(noDraftRows);
-    expect(stepRow(/Generate text/i)).toBeInTheDocument();
-  });
+  // (e) A draft inserted after B whose anchor B is then deleted (sent as an append: rootId, no position) was pinned here
+  // through a Remove click. HEL-1631 made a delete a draft change that waits for Save & run and blocks structural operations
+  // meanwhile, so the anchor can no longer disappear mid-insert from the page; the case was removed, not re-expressed.
 
   // (f)
   it("an insert in flight while a duplicate's full sync drops its temp: the created step appears exactly once", async () => {

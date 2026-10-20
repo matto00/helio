@@ -373,14 +373,14 @@ describe("spine editing: reorder, remove, disable and duplicate", () => {
     expect(store.getState().toasts.items.at(-1)?.message).toMatch(/failed to reorder/i);
   });
 
-  it("Remove deletes the step, selects its predecessor and shows the remaining rows", async () => {
+  it("Remove drops the step into the draft, selects its predecessor and shows the remaining rows (no DELETE)", async () => {
     await renderSpinePageSettled();
     fireEvent.click(rowButton(3, "Compute column"));
     await screen.findByRole("region", { name: "Step 3 Compute column" });
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
     expect(rowTitles()).toEqual(["Filter rows", "Sort rows"]);
     expect(await screen.findByRole("region", { name: "Step 2 Sort rows" })).toBeInTheDocument();
-    expect(deleteMock).toHaveBeenCalledWith("s3");
+    expect(deleteMock).not.toHaveBeenCalled();
     expect(rowButton(2, "Sort rows")).toHaveAttribute("aria-current", "true");
   });
 
@@ -391,30 +391,16 @@ describe("spine editing: reorder, remove, disable and duplicate", () => {
     expect(await screen.findByRole("region", { name: "Step 1 Sort rows" })).toBeInTheDocument();
   });
 
-  it("a failed delete restores the step and emits exactly one error toast with the full message", async () => {
-    deleteMock.mockRejectedValueOnce(new Error("Conflict"));
-    const store = makeSpineStore();
-    await renderSpinePageSettled(store);
-    await screen.findByRole("region", { name: "Step 1 Filter rows" });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
-    });
-    await waitFor(() => expect(rowTitles()).toHaveLength(3));
-    const toasts = store.getState().toasts.items;
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0].message).toBe("Failed to delete step: the request could not be completed.");
-  });
+  // The "a failed delete restores the step and emits exactly one error toast" case (HEL-535) is gone: a delete sends nothing
+  // until Save & run (PipelineDetailPage.draftMode.test.tsx covers a refused save).
 
-  it("Disable persists via updatePipelineStepEnabled, mutes the row ('off') and flips the action to Enable", async () => {
-    enabledMock.mockResolvedValueOnce(
-      wireStep("s1", "filter", { combinator: "and", conditions: [] }, { enabled: false }),
-    );
+  it("Disable is a draft change: no request, mutes the row ('off') and flips the action to Enable", async () => {
     await renderSpinePageSettled();
     await screen.findByRole("region", { name: "Step 1 Filter rows" });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
     });
-    expect(enabledMock).toHaveBeenCalledWith("s1", false);
+    expect(enabledMock).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Enable step" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -424,19 +410,7 @@ describe("spine editing: reorder, remove, disable and duplicate", () => {
     expect(
       screen.getByText("This step is off, so rows pass through unchanged."),
     ).toBeInTheDocument();
-  });
-
-  it("a failed toggle reverts the optimistic flip and surfaces an error toast", async () => {
-    enabledMock.mockRejectedValueOnce(new Error("Conflict"));
-    const store = makeSpineStore();
-    await renderSpinePageSettled(store);
-    await screen.findByRole("region", { name: "Step 1 Filter rows" });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
-    });
-    expect(screen.getByRole("button", { name: "Disable step" })).toBeInTheDocument();
-    expect(within(rowButton(1, "Filter rows")).queryByText("off")).not.toBeInTheDocument();
-    expect(store.getState().toasts.items.at(-1)?.message).toMatch(/failed to disable step/i);
+    expect(screen.getByText("Draft · unsaved changes")).toBeInTheDocument();
   });
 
   it("Duplicate resyncs from the server with the clone directly after the original, and selects it", async () => {
@@ -481,7 +455,11 @@ describe("spine editing: reorder, remove, disable and duplicate", () => {
   });
 });
 
-describe("spine editing: save on selection change (design.md D7)", () => {
+// HEL-1631: this group pinned the HEL-1579 D7 save-on-selection-change rules (a pending debounced PATCH is flushed when the
+// editor unmounts, a flushed save that fails marks the row, the debounced save still fires on its own). Edits now live in the
+// client-only draft, so there is nothing to flush or reject: what must still hold is that an edit is never lost when the
+// selection changes, that it shows in the editor and the spine summary, and that no request is ever made for it.
+describe("spine editing: edits survive selection changes (HEL-1631, replaces design.md D7)", () => {
   beforeEach(() => {
     jest.useFakeTimers();
   });
@@ -501,45 +479,37 @@ describe("spine editing: save on selection change (design.md D7)", () => {
     });
   }
 
-  it("selecting another step right after an edit sends the pending PATCH with the edited config (nothing is lost)", async () => {
+  it("selecting another step right after an edit loses nothing and sends nothing", async () => {
     await renderSpinePageSettled();
     await editFilterValue("240");
-    expect(updateStepMock).not.toHaveBeenCalled(); // still inside the 400ms debounce window
     fireEvent.click(rowButton(2, "Sort rows"));
     await settle();
-    expect(updateStepMock).toHaveBeenCalledTimes(1);
-    expect(updateStepMock).toHaveBeenCalledWith(
-      "s1",
-      expect.objectContaining({
-        conditions: [expect.objectContaining({ field: "duration_s", value: "240" })],
-      }),
-    );
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(updateStepMock).not.toHaveBeenCalled();
+    fireEvent.click(rowButton(1, "Filter rows"));
+    expect(await screen.findByDisplayValue("240")).toBeInTheDocument();
   });
 
-  it("re-selecting the edited step shows the saved value (editor and spine summary), and a later edit keeps it", async () => {
+  it("re-selecting the edited step shows the draft value (editor and spine summary), and a later edit keeps it", async () => {
     await renderSpinePageSettled();
     await editFilterValue("240");
     fireEvent.click(rowButton(2, "Sort rows"));
     await settle();
-    await settle();
-    expect(updateStepMock).toHaveBeenCalledTimes(1);
     fireEvent.click(rowButton(1, "Filter rows"));
     expect(await screen.findByDisplayValue("240")).toBeInTheDocument();
     expect(within(spine()).getByText("duration_s ≥ 240")).toBeInTheDocument();
-    // A later edit (the combinator) must carry the flushed value, not revert it to the pre-edit config.
+    // A later edit (the combinator) must carry the earlier value, not revert it to the saved config.
     fireEvent.click(screen.getByRole("button", { name: /ANY/ }));
     await act(async () => {
-      jest.advanceTimersByTime(450);
+      jest.advanceTimersByTime(2000);
     });
-    expect(updateStepMock).toHaveBeenCalledTimes(2);
-    expect(updateStepMock.mock.calls[1][1]).toEqual(
-      expect.objectContaining({
-        conditions: [expect.objectContaining({ value: "240" })],
-      }),
-    );
+    expect(screen.getByDisplayValue("240")).toBeInTheDocument();
+    expect(updateStepMock).not.toHaveBeenCalled();
   });
 
-  it("an edit followed by Remove sends no PATCH for the removed step", async () => {
+  it("an edit followed by Remove sends neither a PATCH nor a DELETE; Discard brings the step and its saved value back", async () => {
     await renderSpinePageSettled();
     await editFilterValue("240");
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
@@ -548,81 +518,40 @@ describe("spine editing: save on selection change (design.md D7)", () => {
       jest.advanceTimersByTime(1000);
     });
     expect(updateStepMock).not.toHaveBeenCalled();
-    expect(deleteMock).toHaveBeenCalledWith("s1");
+    expect(deleteMock).not.toHaveBeenCalled();
+    expect(rowTitles()).toEqual(["Sort rows", "Compute column"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(rowTitles()).toEqual(["Filter rows", "Sort rows", "Compute column"]);
+    expect(await screen.findByDisplayValue("180")).toBeInTheDocument();
   });
 
-  it("a flushed save that is rejected marks the row and shows the message when the step is selected again", async () => {
-    updateStepMock.mockRejectedValueOnce({
-      isAxiosError: true,
-      response: { status: 422, data: { message: "Operator not allowed" } },
-    });
-    await renderSpinePageSettled();
-    await editFilterValue("240");
-    fireEvent.click(rowButton(2, "Sort rows"));
-    await settle();
-    await settle();
-    expect(
-      within(spine()).getByRole("img", { name: "Couldn't save the last change to this step" }),
-    ).toBeInTheDocument();
-    // The marker sits inside the row button, whose aria-label overrides its content: the state is in the NAME too.
-    expect(rowButton(1, "Filter rows")).toHaveAccessibleName(
-      /couldn't save the last change to this step$/,
-    );
-    fireEvent.click(rowButton(1, "Filter rows"));
-    expect(await screen.findByText("Operator not allowed")).toBeInTheDocument();
-  });
-
-  it("the debounced save itself still fires on its own after 400ms when the selection does not change", async () => {
+  it("no request fires on its own, however long the user waits after an edit", async () => {
     await renderSpinePageSettled();
     await editFilterValue("300");
     await act(async () => {
-      jest.advanceTimersByTime(450);
+      jest.advanceTimersByTime(5000);
     });
-    expect(updateStepMock).toHaveBeenCalledTimes(1);
-    expect(updateStepMock.mock.calls[0][0]).toBe("s1");
+    expect(updateStepMock).not.toHaveBeenCalled();
+    expect(previewMock).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("spine editing: preview freshness and ordering (design.md D8)", () => {
-  it("re-selecting a step after an upstream edit fetches its preview again (no settled reuse)", async () => {
+  it("re-selecting a step after an upstream edit sends no step-preview request (the draft computes it)", async () => {
     await renderSpinePageSettled();
     fireEvent.click(rowButton(3, "Compute column"));
     await waitFor(() => expect(previewMock).toHaveBeenCalledWith("pipe-1", "s3"));
-    const before = previewMock.mock.calls.filter(([, id]) => id === "s3").length;
     fireEvent.click(rowButton(1, "Filter rows"));
-    fireEvent.change(await screen.findByDisplayValue("180"), { target: { value: "181" } });
-    await waitFor(() => expect(updateStepMock).toHaveBeenCalledWith("s1", expect.anything()), {
-      timeout: 2000,
-    });
-    fireEvent.click(rowButton(3, "Compute column"));
-    await waitFor(() =>
-      expect(previewMock.mock.calls.filter(([, id]) => id === "s3").length).toBeGreaterThan(before),
-    );
-  });
-
-  it("the new selection's GET waits until the flushed PATCH of the previous step has resolved", async () => {
-    let resolvePatch!: (s: PipelineStep) => void;
-    updateStepMock.mockReturnValueOnce(
-      new Promise<PipelineStep>((resolve) => {
-        resolvePatch = resolve;
-      }),
-    );
-    await renderSpinePageSettled();
     await waitFor(() => expect(previewMock).toHaveBeenCalledWith("pipe-1", "s1"));
-    previewMock.mockClear();
     fireEvent.change(await screen.findByDisplayValue("180"), { target: { value: "181" } });
-    fireEvent.click(rowButton(2, "Sort rows")); // unmounts the editor: the pending edit is flushed immediately
-    await waitFor(() => expect(updateStepMock).toHaveBeenCalledWith("s1", expect.anything()));
-    // Give the table's own effect every chance to fetch early.
+    const before = previewMock.mock.calls.length;
+    fireEvent.click(rowButton(3, "Compute column"));
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 700));
     });
-    expect(previewMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("status", { name: "Loading preview" })).toBeInTheDocument();
-    await act(async () => {
-      resolvePatch(wireStep("s1", "filter", { combinator: "and", conditions: [] }));
-    });
-    await waitFor(() => expect(previewMock).toHaveBeenCalledWith("pipe-1", "s2"));
+    expect(previewMock.mock.calls.length).toBe(before);
+    expect(updateStepMock).not.toHaveBeenCalled();
   });
 
   it("issues exactly one step-preview GET for the initially selected step on open, also under StrictMode", async () => {
@@ -754,29 +683,26 @@ describe("spine editing: step config editors through the focused editor", () => 
     });
   });
 
-  it("hydrates a rename editor's inputs from the persisted config and PATCHes a changed name after the debounce", async () => {
+  it("hydrates a rename editor's inputs from the persisted config and keeps a changed name in the draft", async () => {
     await renderSpinePageSettled();
     const box = await screen.findByRole("textbox", { name: "New name for name" });
     expect(box).toHaveValue("full_name");
     fireEvent.change(screen.getByRole("textbox", { name: "New name for dept" }), {
       target: { value: "department" },
     });
-    await waitFor(() =>
-      expect(updateStepMock).toHaveBeenCalledWith(
-        "r1",
-        expect.objectContaining({ renames: expect.objectContaining({ dept: "department" }) }),
-      ),
-    );
+    expect(await screen.findByText("Draft · unsaved changes")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "New name for dept" })).toHaveValue("department");
+    expect(updateStepMock).not.toHaveBeenCalled();
   });
 
-  it("clearing a rename input removes the field key from the persisted config", async () => {
+  it("clearing a rename input removes the field key from the draft config", async () => {
     await renderSpinePageSettled();
     fireEvent.change(await screen.findByRole("textbox", { name: "New name for name" }), {
       target: { value: "" },
     });
-    await waitFor(() => expect(updateStepMock).toHaveBeenCalled());
-    const config = updateStepMock.mock.calls.at(-1)![1] as { renames: Record<string, string> };
-    expect(config.renames).not.toHaveProperty("name");
+    expect(await screen.findByText("Draft · unsaved changes")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "New name for name" })).toHaveValue("");
+    expect(updateStepMock).not.toHaveBeenCalled();
   });
 
   it("restores a select step's previously selected fields when its row is selected", async () => {
@@ -813,9 +739,8 @@ describe("spine editing: step config editors through the focused editor", () => 
 });
 
 describe("spine editing: structural changes re-run the debounced analyze", () => {
-  it("a reorder, an enable toggle and an insert each change the steps fingerprint and re-dispatch analyze", async () => {
+  it("a reorder changes the steps fingerprint and re-dispatches analyze; an enable toggle is a draft change and does not", async () => {
     reorderMock.mockResolvedValue([]);
-    enabledMock.mockResolvedValue(wireStep("s1", "filter", { combinator: "and", conditions: [] }));
     await renderSpinePageSettled();
     await screen.findByRole("region", { name: "Step 1 Filter rows" });
     await act(async () => {
@@ -834,6 +759,9 @@ describe("spine editing: structural changes re-run the debounced analyze", () =>
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
     });
-    await waitFor(() => expect(dispatched()).toBeGreaterThan(afterReorder), { timeout: 2000 });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    expect(dispatched()).toBe(afterReorder);
   });
 });

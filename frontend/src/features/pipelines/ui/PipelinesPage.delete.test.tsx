@@ -134,6 +134,7 @@ describe("Data Pipelines overview: Delete row action (HEL-1574, owner ruling 202
         onOpenShare={jest.fn()}
         onEditOnlySource={null}
         onDryRun={jest.fn()}
+        draft={{ hasDraft: false, saving: false, onDiscard: jest.fn(), onSaveAndRun: jest.fn() }}
         onRun={jest.fn()}
       />,
     );

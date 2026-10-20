@@ -8,6 +8,16 @@ import { previewErrorMessage } from "../services/stepConfigError";
  *  config-PATCH burst settle first (HEL-404 design.md Decision 2). */
 export const PREVIEW_REFRESH_DEBOUNCE_MS = 500;
 
+/** HEL-1631: saved-config previews already fetched on this page, so a step first shown while a draft exists (the draft pauses
+ *  every saved-preview request) can still show its saved rows, and Discard then has nothing to fetch. `key` names the saved
+ *  step on the current saved pipeline; the owner drops the store's entries when the saved pipeline changes. */
+export interface SavedPreviewCache {
+  store: Map<string, StepPreviewResponse>;
+  key: string;
+  /** Keys whose rows were remembered when a draft started: a table mounting for one starts from them (once), draft or not. */
+  held?: Set<string>;
+}
+
 export type StepPreviewFetcher = (
   pipelineId: string,
   stepId: string,
@@ -20,6 +30,11 @@ interface UseStepPreviewFetchArgs {
   /** Whether the preview is wanted right now: the card's `expanded && previewOpen` on the phone,
    *  "this step is selected and not still being created" for the desktop table. */
   active: boolean;
+  /** HEL-1631: a draft exists, so no request is sent. Unlike `active: false`, pausing leaves the remembered fingerprint alone:
+   *  when the draft ends (Discard) the fingerprint still matches the saved config and nothing is fetched again. */
+  paused?: boolean;
+  /** HEL-1631: where fetched rows are remembered; with `paused` at mount the hook starts from the remembered rows. */
+  cache?: SavedPreviewCache;
   /** `${stepIndex}:${enabledBits}:${JSON.stringify(step.config)}` -- see `StepCard`
    *  (HEL-407 design.md Decision 9 / HEL-412 Decision 8) for why index and enabled bits are folded in. */
   configFingerprint: string;
@@ -43,12 +58,20 @@ export function useStepPreviewFetch({
   stepId,
   stepEnabled,
   active: wanted,
+  paused = false,
+  cache,
   configFingerprint,
   fetcher = fetchStepPreview,
   beforeFetch,
 }: UseStepPreviewFetchArgs) {
-  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
-  const [previewRowCount, setPreviewRowCount] = useState<number | null>(null);
+  // Mounted while a draft exists: start from the rows this page already fetched for the saved step, if any.
+  const [seeded] = useState(() =>
+    paused || cache?.held?.has(cache.key) ? cache?.store.get(cache.key) : undefined,
+  );
+  const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>(seeded?.rows ?? []);
+  const [previewRowCount, setPreviewRowCount] = useState<number | null>(
+    seeded ? (seeded.rowCount ?? seeded.rows.length) : null,
+  );
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
@@ -58,7 +81,7 @@ export function useStepPreviewFetch({
   // re-fetch. Reset to `null` whenever the preview deactivates by the USER's own action, so
   // reopening always fetches fresh. Deliberately NOT reset when a step is merely disabled
   // (HEL-412 evaluation-1.md CR1).
-  const lastFetchedFingerprint = useRef<string | null>(null);
+  const lastFetchedFingerprint = useRef<string | null>(seeded ? configFingerprint : null);
   // HEL-412 evaluation-1.md CR1 -- whether the step was enabled on the previous run of the
   // effect, so a false->true transition goes through the debounced path.
   const wasEnabledRef = useRef(stepEnabled);
@@ -66,9 +89,11 @@ export function useStepPreviewFetch({
   // Latest callbacks without re-running the effect on their identity.
   const fetcherRef = useRef(fetcher);
   const beforeFetchRef = useRef(beforeFetch);
+  const cacheRef = useRef(cache);
   useEffect(() => {
     fetcherRef.current = fetcher;
     beforeFetchRef.current = beforeFetch;
+    cacheRef.current = cache;
   });
 
   useEffect(() => {
@@ -78,6 +103,10 @@ export function useStepPreviewFetch({
     // A disabled step's preview is unavailable -- skip the fetch rather than hit the backend's
     // defensive 422. Does NOT touch `lastFetchedFingerprint` (HEL-412 evaluation-1.md CR1).
     if (!stepEnabled) return;
+
+    if (paused) return;
+    // The held rows served this mount; from here the entry follows the normal rules again.
+    cacheRef.current?.held?.delete(cacheRef.current.key);
 
     if (!wanted) {
       lastFetchedFingerprint.current = null;
@@ -92,6 +121,7 @@ export function useStepPreviewFetch({
         await beforeFetchRef.current?.();
         const result: StepPreviewResponse = await fetcherRef.current(pipelineId, stepId);
         if (token !== requestToken.current) return;
+        if (cacheRef.current) cacheRef.current.store.set(cacheRef.current.key, result);
         setPreviewRows(result.rows);
         setPreviewRowCount(result.rowCount ?? result.rows.length);
       } catch (err: unknown) {
@@ -132,7 +162,7 @@ export function useStepPreviewFetch({
       void runFetch();
     }, PREVIEW_REFRESH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [wanted, stepEnabled, pipelineId, stepId, configFingerprint]);
+  }, [wanted, paused, stepEnabled, pipelineId, stepId, configFingerprint]);
 
   return { previewRows, previewRowCount, previewLoading, previewError };
 }

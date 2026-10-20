@@ -23,7 +23,7 @@ import {
 // requiring every dispatch call site to remember a second dispatch. One-way
 // dependency (pipelinesSlice does not import outputsSlice), so no cycle.
 import { extractStepConfigError } from "../services/stepConfigError";
-import { submitPipelineRun } from "./pipelinesSlice";
+import { draftSaveRunPending, submitPipelineRun } from "./pipelinesSlice";
 import type {
   CreateOutputPayload,
   NodeCapabilities,
@@ -255,6 +255,12 @@ const outputsSlice = createSlice({
       state.previewError = {};
       state.previewRequestToken = {};
     },
+    /** HEL-1631: the saved definition a draft save returned becomes the pipeline's stored Outputs. */
+    outputsReplaced(state, action: PayloadAction<{ pipelineId: string; outputs: Output[] }>) {
+      state.byPipeline[action.payload.pipelineId] = action.payload.outputs;
+      state.listStatus[action.payload.pipelineId] = "succeeded";
+      state.listError[action.payload.pipelineId] = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -263,6 +269,12 @@ const outputsSlice = createSlice({
       // is the thunk-lifecycle half of the single-reset-path unification (the
       // other half is the SSE terminal handler in `usePipelineDetailPage.ts`).
       .addCase(submitPipelineRun.pending, (state) => {
+        state.previewByKey = {};
+        state.previewStatus = {};
+        state.previewError = {};
+        state.previewRequestToken = {};
+      })
+      .addCase(draftSaveRunPending, (state) => {
         state.previewByKey = {};
         state.previewStatus = {};
         state.previewError = {};
@@ -362,7 +374,7 @@ const outputsSlice = createSlice({
   },
 });
 
-export const { resetRunScopedState } = outputsSlice.actions;
+export const { resetRunScopedState, outputsReplaced } = outputsSlice.actions;
 export type { OutputsState };
 export const outputsReducer = outputsSlice.reducer;
 

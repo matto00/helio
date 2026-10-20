@@ -51,6 +51,16 @@ describe("useStepSelection", () => {
     expect(render("/p", []).result.current.selectedStepId).toBeNull();
   });
 
+  it("selects a step that appears once, and does not put it back over the user's later choice (HEL-1631)", () => {
+    const { result, rerender } = render("/p", THREE);
+    rerender({ steps: [...THREE, step("d", "c", 0)], loaded: true });
+    expect(result.current.selectedStepId).toBe("d");
+    act(() => result.current.selectStep("a"));
+    expect(result.current.selectedStepId).toBe("a");
+    act(() => result.current.selectStep("b"));
+    expect(result.current.selectedStepId).toBe("b");
+  });
+
   it("reads ?step= and falls back to the default for an unknown id", () => {
     expect(render("/p?step=c", THREE).result.current.selectedStepId).toBe("c");
     expect(render("/p?step=nope", THREE).result.current.selectedStepId).toBe("a");

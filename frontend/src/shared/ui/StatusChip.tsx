@@ -12,6 +12,8 @@ interface StatusChipProps {
   /** Dashed-border, transparent-background treatment for "no data yet" states. */
   dashed?: boolean;
   className?: string;
+  /** Native tooltip (e.g. the words of a chip collapsed to its dot). */
+  title?: string;
   children: ReactNode;
 }
 
@@ -27,6 +29,7 @@ export function StatusChip({
   dot = false,
   dashed = false,
   className,
+  title,
   children,
 }: StatusChipProps) {
   const classes = [
@@ -39,7 +42,7 @@ export function StatusChip({
     .join(" ");
 
   return (
-    <span className={classes}>
+    <span className={classes} title={title}>
       {dot ? <span className="ui-status-chip__dot" aria-hidden="true" /> : null}
       {children}
     </span>

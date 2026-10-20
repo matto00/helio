@@ -83,7 +83,7 @@ for (const size of PHONE_SIZES) {
       await expect.poll(() => new URL(page.url()).searchParams.get("step")).toBeNull();
     });
 
-    test(`item 2: a failed step delete's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (${at})`, async ({
+    test(`item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (${at})`, async ({
       page,
       request,
     }) => {
@@ -92,22 +92,27 @@ for (const size of PHONE_SIZES) {
       await registerAndLogin(page, request, { ...AUTH, label: `toast-${size.width}` });
       const pipelineId = await seedPipeline(page, false, false, true);
       for (const theme of THEMES) {
-        await page.route(/\/api\/pipeline-steps\/[^/]+$/, (route) =>
-          route.request().method() === "DELETE"
-            ? route.fulfill({ status: 500, json: { message: "Could not delete step" } })
+        // HEL-1631: Remove is a draft edit now (no request to fail), so the failing action is Move up (a PUT of the order).
+        await page.route(/\/api\/pipelines\/[^/]+\/steps\/order$/, (route) =>
+          route.request().method() === "PUT"
+            ? route.fulfill({ status: 500, json: { message: "Could not reorder steps" } })
             : route.continue(),
         );
         await openPipeline(page, pipelineId, theme);
+        // The sheet stays open through the failed move, so its in-dialog region is connected when it opens: log from before that.
+        const before = (await readAlertLog(page)).length;
         await page.locator(".spine-row__select").nth(2).tap();
         await expect(sheet(page)).toBeVisible();
         await sheet(page).evaluate((el) =>
           Promise.all(el.getAnimations().map((a) => a.finished.catch(() => undefined))),
         );
-        const before = (await readAlertLog(page)).length;
-        await sheet(page).getByRole("button", { name: "Remove step" }).tap();
+        await sheet(page)
+          .getByRole("button", { name: /^Step actions for/ })
+          .tap();
+        await page.getByRole("menuitem", { name: /^Move step up in/ }).tap();
         const toast = page.locator(".toast--error");
         await expect(toast).toBeVisible();
-        // The sheet reopened after the failed delete and the toast lives inside it.
+        // The sheet is still open after the failed move and the toast lives inside it.
         await expect(sheet(page)).toBeVisible();
         expect(await toast.evaluate((el) => el.closest("dialog") !== null)).toBe(true);
         await toast.evaluate((el) =>
@@ -151,7 +156,7 @@ for (const size of PHONE_SIZES) {
         });
         expect(overlaps, "toast overlaps no sheet control").toEqual([]);
         // Announced: an assertive region inside the open dialog holds the message, exposed to AT.
-        await expect(page.getByRole("alert")).toContainText(/delete|failed|could not/i);
+        await expect(page.getByRole("alert")).toContainText(/reorder|failed|could not/i);
         const log = (await readAlertLog(page)).slice(before) as AlertLogEntry[];
         const region = log.find((e) => e.kind === "region" && e.inDialog);
         const message = log.filter((e) => e.kind === "message" && e.inDialog);
@@ -172,7 +177,7 @@ for (const size of PHONE_SIZES) {
         await expect(sheet(page)).toBeVisible();
         await sheet(page).getByRole("button", { name: "Close" }).tap();
         await expect(sheet(page)).toHaveCount(0);
-        await page.unroute(/\/api\/pipeline-steps\/[^/]+$/);
+        await page.unroute(/\/api\/pipelines\/[^/]+\/steps\/order$/);
       }
     });
 

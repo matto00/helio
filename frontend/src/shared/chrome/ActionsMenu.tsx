@@ -12,6 +12,8 @@ export interface ActionsMenuItem {
   /** Accessible name when it must differ from the visible `label` (e.g. a short visible "Move up"
    *  whose accessible name names the thing it moves). Absent: the visible label is the name. */
   ariaLabel?: string;
+  /** Why the item is unavailable: the item's title, which is also its accessible description. */
+  reason?: string;
 }
 
 interface ActionsMenuProps {
@@ -144,6 +146,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
                     tabIndex={-1}
                     className={`actions-menu__item${item.danger ? " actions-menu__item--danger" : ""}`}
                     disabled={item.disabled}
+                    title={item.reason}
                     onClick={() => handleItemClick(item)}
                   >
                     {item.label}

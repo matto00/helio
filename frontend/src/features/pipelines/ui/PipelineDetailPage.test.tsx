@@ -743,7 +743,7 @@ describe("PipelineDetailPage", () => {
         "root-1",
       );
 
-      // A further edit after the create resolved must PATCH, not re-create.
+      // A further edit after the create resolved goes into the client-only draft (HEL-1631), not a PATCH and not a re-create.
       // (HEL-1321: the editor keeps its stable render key across the id swap, so the sheet stays open.)
       await waitFor(() =>
         expect(within(stepSheet()).queryByText(/draft.*not yet saved/i)).not.toBeInTheDocument(),
@@ -753,8 +753,11 @@ describe("PipelineDetailPage", () => {
         { target: { value: "Summarize briefly" } },
       );
       await waitFor(() =>
-        expect(updatePipelineStepMock).toHaveBeenCalledWith("ai-1", expect.anything()),
+        expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+          "Draft · unsaved changes",
+        ),
       );
+      expect(updatePipelineStepMock).not.toHaveBeenCalled();
       expect(createPipelineStepMock).toHaveBeenCalledTimes(1);
     });
 
@@ -958,7 +961,7 @@ describe("PipelineDetailPage", () => {
     });
   });
 
-  it("removing a persisted step deletes it on the backend", async () => {
+  it("removing a persisted step is a draft change: the row goes, no DELETE is sent, Discard brings it back", async () => {
     getPipelineStepsMock.mockResolvedValue([
       {
         id: "abc-123-def",
@@ -979,90 +982,19 @@ describe("PipelineDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
 
     expect(screen.queryByText("Rename column")).not.toBeInTheDocument();
-    await waitFor(() => expect(deletePipelineStepMock).toHaveBeenCalledWith("abc-123-def"));
-  });
-
-  // HEL-535 D5/5.12 — `handleRemoveStep` used to swallow a rejected DELETE
-  // with `.catch(() => {})`: no toast, and (unlike its reorder/enable/
-  // duplicate siblings) it never restored the optimistically-removed step,
-  // so the view said the step was gone while it still existed server-side.
-  it("a failed step delete restores the step to the view and emits exactly one error toast", async () => {
-    getPipelineStepsMock.mockResolvedValue([
-      {
-        id: "abc-123-def",
-        pipelineId: "pipe-1",
-        position: 0,
-        type: "rename",
-        config: { renames: {} },
-        createdAt: "",
-        updatedAt: "",
-      },
-    ]);
-    // A plain (non-axios) Error — `extractErrorMessage` can pull no
-    // server-supplied reason out of this, so it takes the FALLBACK branch.
-    // This is deliberate: skeptic-final-1.md CR2 found that this exact path
-    // used to render "Failed to delete step: Failed to delete step." (the
-    // fallback restated the prefix). The `toBe` below (not `toMatch`) pins
-    // the full string, so a regression to the doubled sentence fails this
-    // test — `toMatch(/failed to delete step/i)` alone would NOT have
-    // caught it, since that pattern matches the doubled string too.
-    deletePipelineStepMock.mockRejectedValueOnce(new Error("Conflict"));
-
-    const store = makeStore();
-    renderDetailPage("pipe-1", store);
-
-    await findStepRow(/Rename column/i);
-    openStepSheet(/Rename column/i);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
-    });
-
-    // Restored — the failure and the visible state agree.
-    expect(stepRow(/Rename column/i)).toBeInTheDocument();
-    const toasts = store.getState().toasts.items;
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0].variant).toBe("error");
-    expect(toasts[0].message).toBe("Failed to delete step: the request could not be completed.");
-    expect(toasts[0].message).not.toMatch(/failed to delete step: failed to delete step\.$/i);
-  });
-
-  // skeptic-final-1.md CR2 — companion to the fallback-path test above: with
-  // a server-supplied reason, the message reads correctly either way, so
-  // this pins that arm doesn't regress alongside the fallback-copy fix.
-  it("a failed step delete with a server-supplied reason names it, undoubled", async () => {
-    getPipelineStepsMock.mockResolvedValue([
-      {
-        id: "abc-123-def",
-        pipelineId: "pipe-1",
-        position: 0,
-        type: "rename",
-        config: { renames: {} },
-        createdAt: "",
-        updatedAt: "",
-      },
-    ]);
-    deletePipelineStepMock.mockRejectedValueOnce({
-      isAxiosError: true,
-      response: { data: { message: "Step is referenced by a downstream binding." } },
-    });
-
-    const store = makeStore();
-    renderDetailPage("pipe-1", store);
-
-    await findStepRow(/Rename column/i);
-    openStepSheet(/Rename column/i);
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Remove step" }));
-    });
-
-    const toasts = store.getState().toasts.items;
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0].message).toBe(
-      "Failed to delete step: Step is referenced by a downstream binding.",
+    expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+      "Draft · unsaved changes",
     );
+    expect(deletePipelineStepMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+    expect(await findStepRow(/Rename column/i)).toBeInTheDocument();
+    expect(deletePipelineStepMock).not.toHaveBeenCalled();
   });
+
+  // HEL-535 D5/5.12 pinned a rejected immediate DELETE (restore the step, one error toast, never a doubled "Failed to delete
+  // step: Failed to delete step."). A delete is now a draft change with no request of its own; a server refusal arrives with
+  // Save & run, and PipelineDetailPage.draftMode.test.tsx covers that notice.
 
   // HEL-407 (design.md Decision 7) — page-local `handleReorderSteps`: snapshot
   // → optimistic reorder → persisted-ids-only PUT → reconcile by id on
@@ -1709,14 +1641,7 @@ describe("PipelineDetailPage", () => {
       getPipelineStepsMock.mockResolvedValue([persistedRename, persistedFilter]);
     });
 
-    it("toggling disable mutes the step optimistically, persists via updatePipelineStepEnabled, and replaces its preview with the 'step is off' note", async () => {
-      let resolveToggle!: (step: PipelineStep) => void;
-      updatePipelineStepEnabledMock.mockReturnValueOnce(
-        new Promise<PipelineStep>((resolve) => {
-          resolveToggle = resolve;
-        }),
-      );
-
+    it("toggling disable mutes the step at once as a draft change, sends no PATCH, and replaces its preview with the 'step is off' note", async () => {
       const { container } = renderDetailPage();
       await findStepRow(/Rename column/i);
 
@@ -1727,40 +1652,27 @@ describe("PipelineDetailPage", () => {
 
       fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
 
-      // Optimistic — muted immediately, before the PATCH resolves.
       expect(container.querySelector(".spine-row--disabled")).toBeInTheDocument();
-      expect(updatePipelineStepEnabledMock).toHaveBeenCalledWith("x1", false);
+      expect(updatePipelineStepEnabledMock).not.toHaveBeenCalled();
       expect(within(sheet).getByRole("button", { name: "Enable step" })).toBeInTheDocument();
       // The muted step's preview is hidden: the note replaces the table (the sibling's, not open, is unaffected).
       expect(within(sheet).getByText(/This step is off/)).toBeInTheDocument();
       expect(container.querySelectorAll(".spine-row--disabled")).toHaveLength(1);
-
-      await act(async () => {
-        resolveToggle({ ...persistedRename, enabled: false });
-      });
-
-      expect(container.querySelector(".spine-row--disabled")).toBeInTheDocument();
-      expect(within(sheet).getByText(/This step is off/)).toBeInTheDocument();
+      expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+        "Draft · unsaved changes",
+      );
     });
 
-    it("a failed toggle reverts the optimistic flip and surfaces an error toast", async () => {
-      updatePipelineStepEnabledMock.mockRejectedValueOnce(new Error("Conflict"));
-      const store = makeStore();
-      const { container } = renderDetailPage("pipe-1", store);
+    it("toggling a step back to its saved state leaves no draft", async () => {
+      renderDetailPage();
       await findStepRow(/Rename column/i);
       const sheet = openStepSheet(/Rename column/i);
 
-      await act(async () => {
-        fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
-      });
+      fireEvent.click(within(sheet).getByRole("button", { name: "Disable step" }));
+      fireEvent.click(within(sheet).getByRole("button", { name: "Enable step" }));
 
-      expect(container.querySelector(".spine-row--disabled")).not.toBeInTheDocument();
-      expect(within(sheet).getByRole("button", { name: "Disable step" })).toBeInTheDocument();
-      expect(within(sheet).queryByText(/This step is off/)).not.toBeInTheDocument();
-      const toasts = store.getState().toasts.items;
-      expect(toasts).toHaveLength(1);
-      expect(toasts[0].variant).toBe("error");
-      expect(toasts[0].message).toMatch(/failed to disable step/i);
+      expect(document.querySelector('[data-slot="draft-status"]')).toBeEmptyDOMElement();
+      expect(screen.getByRole("button", { name: "Run pipeline" })).toBeInTheDocument();
     });
 
     it("duplicate resyncs from the server with the clone directly after the original", async () => {
@@ -1932,8 +1844,7 @@ describe("PipelineDetailPage", () => {
       expect(toasts[0].message).toMatch(/failed to duplicate step/i);
     });
 
-    it("toggling a step changes stepsFingerprint and the existing debounced analyze re-dispatches", async () => {
-      updatePipelineStepEnabledMock.mockResolvedValueOnce({ ...persistedRename, enabled: false });
+    it("toggling a step is a draft change: no PATCH and no analyze, however long it waits", async () => {
       renderDetailPage();
       await findStepRow(/Rename column/i);
 
@@ -1946,10 +1857,12 @@ describe("PipelineDetailPage", () => {
       const callsBeforeToggle = analyzePipelineMock.mock.calls.length;
 
       fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      });
 
-      await waitFor(() =>
-        expect(analyzePipelineMock.mock.calls.length).toBeGreaterThan(callsBeforeToggle),
-      );
+      expect(analyzePipelineMock.mock.calls.length).toBe(callsBeforeToggle);
+      expect(updatePipelineStepEnabledMock).not.toHaveBeenCalled();
     });
   });
 
@@ -3003,7 +2916,7 @@ describe("PipelineDetailPage rename step config", () => {
     });
   });
 
-  it("text input change PATCHes config via updatePipelineStep", async () => {
+  it("text input change goes into the draft and is not PATCHed", async () => {
     getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
     renderDetailPage("pipe-1");
 
@@ -3022,16 +2935,18 @@ describe("PipelineDetailPage rename step config", () => {
     });
 
     await waitFor(() => {
-      expect(updatePipelineStepMock).toHaveBeenCalledWith(
-        "step-rename-1",
-        expect.objectContaining({
-          renames: expect.objectContaining({ dept: "department" }),
-        }),
+      expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+        "Draft · unsaved changes",
       );
     });
+    expect(screen.getByRole("textbox", { name: "New name for dept" })).toHaveValue("department");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 
-  it("clearing a rename input removes the field key from the persisted config", async () => {
+  it("clearing a rename input removes the field key from the draft config", async () => {
     getPipelineStepsMock.mockResolvedValue([persistedRenameStep]);
     renderDetailPage("pipe-1");
 
@@ -3050,14 +2965,14 @@ describe("PipelineDetailPage rename step config", () => {
       target: { value: "" },
     });
 
-    // Config sent to the backend must NOT contain the "name" key
+    // The summary the spine row shows for the DRAFT config no longer lists the cleared rename, and nothing is sent.
     await waitFor(() => {
-      const lastCall =
-        updatePipelineStepMock.mock.calls[updatePipelineStepMock.mock.calls.length - 1];
-      expect(lastCall[0]).toBe("step-rename-1");
-      const cfg = lastCall[1] as { renames: Record<string, string> };
-      expect(cfg.renames).not.toHaveProperty("name");
+      expect(document.querySelector('[data-slot="draft-status"]')).toHaveTextContent(
+        "Draft · unsaved changes",
+      );
     });
+    expect(screen.getByRole("textbox", { name: "New name for name" })).toHaveValue("");
+    expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
 });
 
@@ -3284,7 +3199,7 @@ describe("PipelineDetailPage step preview", () => {
   // deferred PATCH promise so this actually exercises wire-timing ordering
   // rather than jsdom's synchronous mock resolution (which can't see the
   // race — see evaluation-1.md Phase 1 AC4 note).
-  it("re-enabling a step with its preview open debounces the refetch instead of racing the enable PATCH", async () => {
+  it("toggling a step off and on with its preview open sends no preview request and no PATCH", async () => {
     renderDetailPage("pipe-1");
 
     await findStepRow(/Select fields/i);
@@ -3293,54 +3208,15 @@ describe("PipelineDetailPage step preview", () => {
     openStepSheet(/Select fields/i);
     await waitFor(() => expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1));
 
-    // Disable the step first — fully settled, not the case under test.
-    updatePipelineStepEnabledMock.mockResolvedValueOnce({
-      ...persistedPreviewStep,
-      enabled: false,
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Disable step" }));
     expect(screen.getByRole("button", { name: "Enable step" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Enable step" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
 
-    // Switch to fake timers to control the debounce window precisely for
-    // the re-enable step under test.
-    jest.useFakeTimers();
-    try {
-      let resolveEnable!: (step: PipelineStep) => void;
-      updatePipelineStepEnabledMock.mockReturnValueOnce(
-        new Promise<PipelineStep>((resolve) => {
-          resolveEnable = resolve;
-        }),
-      );
-      const fetchCallsBeforeReEnable = fetchStepPreviewMock.mock.calls.length;
-
-      fireEvent.click(screen.getByRole("button", { name: "Enable step" }));
-
-      // The optimistic flip has already happened (StepCard re-renders with
-      // step.enabled: true) but the fix must NOT dispatch a preview fetch
-      // immediately — before the debounce window and before the PATCH
-      // resolves. This is exactly the race the evaluator reproduced live
-      // (2/2): a naive immediate GET reaches the backend before the PATCH
-      // commits and gets 422'd.
-      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable);
-
-      // Resolve the enable PATCH only now, well after the click — mirrors
-      // the live repro's ordering.
-      await act(async () => {
-        resolveEnable({ ...persistedPreviewStep, enabled: true });
-      });
-      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable);
-
-      // Only once the full debounce window elapses does the refresh fire —
-      // by which point any real PATCH has long since committed.
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-      expect(fetchStepPreviewMock.mock.calls.length).toBe(fetchCallsBeforeReEnable + 1);
-    } finally {
-      jest.useRealTimers();
-    }
+    expect(fetchStepPreviewMock).toHaveBeenCalledTimes(1);
+    expect(updatePipelineStepEnabledMock).not.toHaveBeenCalled();
   });
 });
 

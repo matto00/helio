@@ -1,0 +1,159 @@
+import { useMemo, useState } from "react";
+
+import { useAppSelector } from "../../../hooks/reduxHooks";
+import { selectRootFrames, selectSourceFrames } from "../../sources/state/sourceSamplesSlice";
+import { evaluatePipeline, type Frame } from "../evaluator";
+import {
+  createIncrementalWalker,
+  schemaFromFrame,
+  secondarySourceIds,
+  toStepDefinitions,
+} from "../state/draftEvaluation";
+import { buildDraftPreviewRequest } from "../state/draftPreviewRequest";
+import { createViewTracker, type DraftStepView } from "../state/draftStepView";
+import type { PipelineRoot, SchemaField } from "../types/pipelineStep";
+import type { Step } from "../types/step";
+import { useDraftPreviewTransport } from "./useDraftPreviewTransport";
+
+export interface DraftFrames {
+  /** Every step's displayed view; `null` while no draft exists (nothing displayed changes from the saved pipeline). */
+  views: ReadonlyMap<string, DraftStepView> | null;
+  /** The saved pipeline's per-step count over the SAME sample, for the "saved -> draft" display. */
+  baseCounts: ReadonlyMap<string, number> | null;
+  /** A root's sample is the first 1,000 rows of a larger source: the counts are over the sample. */
+  sampleTruncated: boolean;
+  /** The saved pipeline's frame per step over the same sample: what a first edit is compared with for the changed-row flash. */
+  baseRows: ReadonlyMap<string, Frame> | null;
+  /** Some step is waiting on the server. */
+  pending: boolean;
+  /** The columns (with types) a step receives as input in the draft, when its parent has a current frame; `null` falls back to
+   *  the last analyze result (design.md D5). `saved` is that analyze result's input schema, which supplies the types. */
+  inputSchemaOf: (step: Step, saved: readonly SchemaField[]) => SchemaField[] | null;
+}
+
+const NONE: DraftFrames = {
+  views: null,
+  baseCounts: null,
+  baseRows: null,
+  sampleTruncated: false,
+  pending: false,
+  inputSchemaOf: () => null,
+};
+
+/**
+ * HEL-1631 (design.md D3/D4): the draft's per-step frames. The client evaluator walks the saved steps (the "saved" side of a
+ * count) and the draft steps (the "draft" side) over the cached source samples; a step the client cannot evaluate goes through
+ * the HEL-1630 transport. Called by the layout (desktop or phone), which knows the focused step; the draft itself lives on the
+ * page hook. With no draft nothing is walked and nothing is requested.
+ */
+export function usePipelineDraftFrames({
+  pipelineId,
+  roots,
+  baseSteps,
+  draftSteps,
+  hasDraft,
+  focusStepId,
+}: {
+  pipelineId: string;
+  roots: PipelineRoot[];
+  baseSteps: Step[];
+  draftSteps: Step[];
+  hasDraft: boolean;
+  focusStepId: string | null;
+}): DraftFrames {
+  const rootFrames = useAppSelector((state) => selectRootFrames(state, roots));
+  const secondaryKey = useMemo(() => secondarySourceIds(draftSteps).join(","), [draftSteps]);
+  const secondaryIds = useMemo(
+    () => (secondaryKey === "" ? [] : secondaryKey.split(",")),
+    [secondaryKey],
+  );
+  const sources = useAppSelector((state) => selectSourceFrames(state, secondaryIds));
+  const sampleLoading = useAppSelector((state) =>
+    roots.some((r) => {
+      const entry = state.sourceSamples.entries[r.dataSourceId];
+      return entry === undefined || entry.status === "loading";
+    }),
+  );
+  const sampleTruncated = useAppSelector((state) =>
+    roots.some((r) => state.sourceSamples.entries[r.dataSourceId]?.sample?.truncated === true),
+  );
+
+  const baseDefs = useMemo(
+    () => (hasDraft ? toStepDefinitions(baseSteps) : null),
+    [baseSteps, hasDraft],
+  );
+  const draftDefs = useMemo(
+    () => (hasDraft ? toStepDefinitions(draftSteps) : null),
+    [draftSteps, hasDraft],
+  );
+  const baseWalk = useMemo(
+    () => (baseDefs === null ? null : evaluatePipeline(baseDefs, rootFrames, { sources })),
+    [baseDefs, rootFrames, sources],
+  );
+  const [walker] = useState(createIncrementalWalker);
+  const draftWalk = useMemo(
+    () => (draftDefs === null ? null : walker.walk(draftDefs, rootFrames, sources)),
+    [walker, draftDefs, rootFrames, sources],
+  );
+
+  const built = useMemo(
+    () =>
+      draftDefs === null || draftWalk === null
+        ? null
+        : buildDraftPreviewRequest({
+            defs: draftDefs,
+            walk: draftWalk,
+            rootFrames,
+            sources,
+            focusStepId,
+          }),
+    [draftDefs, draftWalk, rootFrames, sources, focusStepId],
+  );
+  const transport = useDraftPreviewTransport({ pipelineId, enabled: hasDraft, built });
+
+  const [tracker] = useState(createViewTracker);
+  const views = useMemo(() => {
+    if (draftWalk === null) {
+      tracker.reset();
+      return null;
+    }
+    return tracker.derive(draftWalk, baseWalk, transport, sampleLoading);
+  }, [tracker, draftWalk, baseWalk, transport, sampleLoading]);
+
+  const base = useMemo(() => {
+    if (baseWalk === null) return null;
+    const counts = new Map<string, number>();
+    const rows = new Map<string, Frame>();
+    for (const [id, node] of baseWalk.nodes) {
+      if (node.status === "ok" || node.status === "disabled") {
+        counts.set(id, node.count);
+        rows.set(id, node.rows);
+      }
+    }
+    return { counts, rows };
+  }, [baseWalk]);
+
+  return useMemo(() => {
+    if (views === null) return NONE;
+    const inputSchemaOf = (step: Step, saved: readonly SchemaField[]): SchemaField[] | null => {
+      if (draftWalk === null) return null;
+      const parent = step.parentStepId ?? null;
+      let frame: Frame | undefined;
+      if (parent !== null) {
+        const node = draftWalk.nodes.get(parent);
+        frame = node?.status === "ok" || node?.status === "disabled" ? node.rows : undefined;
+      } else {
+        frame = rootFrames.find((r) => r.rootId === (step.rootId ?? rootFrames[0]?.rootId))?.rows;
+      }
+      return frame === undefined ? null : schemaFromFrame(frame, saved);
+    };
+    return {
+      views,
+      baseCounts: base?.counts ?? null,
+      baseRows: base?.rows ?? null,
+      sampleTruncated,
+      pending: [...views.values()].some((v) => v.status === "pending"),
+      inputSchemaOf,
+    };
+  }, [views, base, sampleTruncated, draftWalk, rootFrames]);
+}

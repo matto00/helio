@@ -279,6 +279,17 @@ describe("clearAuth (MFA challenge)", () => {
 });
 
 describe("logout thunk", () => {
+  it("removes every kept pipeline draft and nothing else from sessionStorage (HEL-1631)", async () => {
+    mockedAuthService.logoutRequest.mockResolvedValue(undefined);
+    window.sessionStorage.setItem("helio.pipelineDraft.p1", "{}");
+    window.sessionStorage.setItem("helio.pipelineDraft.p2", "{}");
+    window.sessionStorage.setItem("unrelated", "keep");
+    await makeStore().dispatch(logout());
+    expect(window.sessionStorage.getItem("helio.pipelineDraft.p1")).toBeNull();
+    expect(window.sessionStorage.getItem("helio.pipelineDraft.p2")).toBeNull();
+    expect(window.sessionStorage.getItem("unrelated")).toBe("keep");
+  });
+
   it("clears auth state regardless of logoutRequest outcome", async () => {
     mockedAuthService.loginRequest.mockResolvedValue(testAuthResponse);
     mockedAuthService.logoutRequest.mockResolvedValue(undefined);

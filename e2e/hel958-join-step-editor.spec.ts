@@ -88,22 +88,19 @@ test.describe("HEL-958 join step editor", () => {
     // (disabled until the create lands); there is no card to expand.
     await expect(page.getByRole("region", { name: /Join tables$/ })).toBeVisible();
     await expect(page.locator(".step-focused__fieldset")).toBeEnabled();
-    const patched = (n: number) =>
-      page.waitForResponse(
-        (res) => res.url().includes("/pipeline-steps/") && res.request().method() === "PATCH",
-        { timeout: 5000 + n },
-      );
-    let pending = patched(0);
+    // HEL-1631: the edits accumulate in the client-only draft; Save & run writes them in one request.
     await page.getByRole("combobox", { name: "Right source" }).click();
     await page.getByRole("option", { name: "Data source: HEL-958 Right" }).click();
-    await pending;
-    pending = patched(1);
     await page.getByRole("combobox", { name: "Join key" }).click();
     await page.getByRole("option", { name: "id", exact: true }).click();
-    await pending;
-    pending = patched(2);
     await page.getByRole("button", { name: "INNER" }).click();
-    await pending;
+    await expect(page.getByText("Draft · unsaved changes")).toBeVisible();
+    const saved = page.waitForResponse(
+      (res) => res.url().includes("/draft/save") && res.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Save and run" }).click();
+    expect((await saved).status()).toBe(200);
+    await expect(page.getByText("Draft · unsaved changes")).toHaveCount(0);
 
     // ── An Output on the join step itself (the UI-built step, found by type), then run. ──
     const stepsRes = await page.request.get(`/api/pipelines/${pipeline.id}/steps`);

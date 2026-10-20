@@ -9,7 +9,9 @@ import * as pipelinesSliceModule from "./pipelinesSlice";
 import type { FetchRunHistoryArg, PipelinesState } from "./pipelinesSlice";
 
 describe("pipelinesSlice public export surface", () => {
-  it("exports exactly the runtime names the slice exported before the split", () => {
+  // HEL-1631 added the three draft-save actions (draftSaveRunPending, draftSaveRunSettled, pipelineStepsReplaced); the rest
+  // is the surface the split must preserve.
+  it("exports exactly the runtime names the slice exported before the split, plus the draft-save actions", () => {
     expect(Object.keys(pipelinesSliceModule).sort()).toEqual([
       "analyzePipeline",
       "applyPipelineProposal",
@@ -17,11 +19,14 @@ describe("pipelinesSlice public export surface", () => {
       "createPipeline",
       "deletePipeline",
       "deletePipelineSchedule",
+      "draftSaveRunPending",
+      "draftSaveRunSettled",
       "fetchPipelineById",
       "fetchPipelineRunHistory",
       "fetchPipelineSchedule",
       "fetchPipelineSteps",
       "fetchPipelines",
+      "pipelineStepsReplaced",
       "pipelinesReducer",
       "savePipelineSchedule",
       "setCreatePipelineModalOpen",

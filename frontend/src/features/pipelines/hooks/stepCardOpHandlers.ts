@@ -60,7 +60,7 @@ export function buildStepCardOpHandlers({
 
   function onFillNullChange(newConfig: FillNullConfigValue) {
     setFillNullConfig(newConfig);
-    persist(newConfig, true);
+    persist(newConfig);
   }
 
   function onStringOpsChange(newConfig: StringOpsConfigValue) {
@@ -90,42 +90,32 @@ export function buildStepCardOpHandlers({
     // straight through to the wire's `secondaryInput` -- the HEL-911
     // unconditional `{kind:"source"}` this replaced would silently
     // overwrite a stored lane reference on any subsequent edit.
-    // HEL-1515: opts into `saveError` -- the backend now rejects a lane reference to a step that
-    // depends on this one (400), and swallowing it would silently lose the edit.
-    persist(
-      {
-        secondaryInput: newConfig.secondary,
-        mode: newConfig.mode,
-      },
-      true,
-    );
+    // HEL-1515: the backend rejects a lane reference to a step that depends on this one; Save & run reports it (400).
+    persist({
+      secondaryInput: newConfig.secondary,
+      mode: newConfig.mode,
+    });
   }
 
   function onLookupChange(newConfig: LookupConfigValue) {
     setLookupConfig(newConfig);
     // HEL-912: same straight-through widening as onUnionChange above.
-    persist(
-      {
-        secondaryInput: newConfig.secondary,
-        sourceKey: newConfig.sourceKey,
-        lookupKey: newConfig.lookupKey,
-        columns: newConfig.columns,
-      },
-      true,
-    );
+    persist({
+      secondaryInput: newConfig.secondary,
+      sourceKey: newConfig.sourceKey,
+      lookupKey: newConfig.lookupKey,
+      columns: newConfig.columns,
+    });
   }
 
   function onJoinChange(newConfig: JoinConfigValue) {
     setJoinConfig(newConfig);
     // Exactly the wire key set {secondaryInput, joinKey, joinType} (HEL-958 D4).
-    persist(
-      {
-        secondaryInput: newConfig.secondary,
-        joinKey: newConfig.joinKey,
-        joinType: newConfig.joinType,
-      },
-      true,
-    );
+    persist({
+      secondaryInput: newConfig.secondary,
+      joinKey: newConfig.joinKey,
+      joinType: newConfig.joinType,
+    });
   }
 
   function onAssertChange(newConfig: AssertConfigValue) {
@@ -135,7 +125,7 @@ export function buildStepCardOpHandlers({
 
   function onUpsertSourceChange(newConfig: UpsertSourceConfigValue) {
     setUpsertSourceConfig(newConfig);
-    persist({ target: newConfig.target, mode: newConfig.mode }, true);
+    persist({ target: newConfig.target, mode: newConfig.mode });
   }
 
   function onConvertFormatChange(newConfig: ConvertFormatConfigValue) {

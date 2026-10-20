@@ -1424,7 +1424,7 @@ running app yet.
   appears **only** on a surface recomputed from the current draft, and nowhere
   else; used elsewhere it stops meaning anything. **[judgment]**
 - **Changed rows flash.** When a draft edit changes rows, those rows flash an
-  `--app-accent` wash at 30% that fades to transparent over
+  `--app-accent` wash at 22% that fades to transparent over
   `--motion-duration-highlight` on `--motion-ease-out`. Under Subtle the flash
   stays (it is a fade); under Off there is no flash and a static changed marker
   is enough (§10). Colour comes from the accent token via `color-mix`, never a
