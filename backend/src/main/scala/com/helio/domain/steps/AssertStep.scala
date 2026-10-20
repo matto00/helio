@@ -135,13 +135,19 @@ object AssertStep {
    *  one per row). `stepId` is left empty here — the caller (`evaluate`)
    *  stamps the real step id, keeping this pure function callable
    *  independent of a live `AssertStep` instance for direct unit testing
-   *  (design.md Decision 3). Never throws: a malformed rule (missing a
-   *  required `params` key, or an unknown `kind`/`severity`) produces a
-   *  failed result naming the malformed shape instead. */
-  def evaluateRules(rows: Seq[PipelineRowJson.Row], rules: Vector[AssertRule]): Vector[AssertionResult] =
-    rules.map(evaluateRule(rows, _))
+   *  (design.md Decision 3). A malformed rule (missing a required `params`
+   *  key, or an unknown `kind`/`severity`) produces a failed result naming
+   *  the malformed shape instead of throwing. The one exception (HEL-1676):
+   *  a `regex` rule that spends the step's regex time budget throws
+   *  [[RegexTimeBudgetExceeded]], which is deliberately NOT turned into a
+   *  rule result, so the engine reports it as a step error. */
+  def evaluateRules(rows: Seq[PipelineRowJson.Row], rules: Vector[AssertRule]): Vector[AssertionResult] = {
+    // One deadline per step evaluation, shared by every `regex` rule and every row (HEL-1676 D2).
+    val deadline = RegexTimeBox.deadline()
+    rules.map(evaluateRule(rows, _, deadline))
+  }
 
-  private def evaluateRule(rows: Seq[PipelineRowJson.Row], rule: AssertRule): AssertionResult =
+  private def evaluateRule(rows: Seq[PipelineRowJson.Row], rule: AssertRule, deadline: RegexTimeBox.Deadline): AssertionResult =
     if (!SupportedSeverities.contains(rule.severity))
       malformed(rule, s"Invalid severity '${rule.severity}'. Valid values: ${SupportedSeverities.mkString(", ")}")
     else
@@ -151,7 +157,7 @@ object AssertStep {
         case "range"       => evalRange(rows, rule)
         case "rowCountMin" => evalRowCount(rows, rule, isMin = true)
         case "rowCountMax" => evalRowCount(rows, rule, isMin = false)
-        case "regex"       => evalRegex(rows, rule)
+        case "regex"       => evalRegex(rows, rule, deadline)
         case other =>
           malformed(rule, s"Unknown assertion kind: '$other'. Valid values: ${SupportedKinds.mkString(", ")}")
       }
@@ -242,16 +248,19 @@ object AssertStep {
    *  calling `.toString` (`.toString` on a null `Any` throws
    *  `NullPointerException` in Scala) and treated as a rule failure — never
    *  an uncaught exception. */
-  private def evalRegex(rows: Seq[PipelineRowJson.Row], rule: AssertRule): AssertionResult =
+  private def evalRegex(rows: Seq[PipelineRowJson.Row], rule: AssertRule, deadline: RegexTimeBox.Deadline): AssertionResult =
     requireField(rule) { field =>
       rule.params.fields.get("pattern") match {
         case Some(JsString(patternStr)) =>
           try {
             val compiled = Pattern.compile(patternStr)
+            lazy val what = s"Rule kind 'regex' pattern '$patternStr'"
             val failingCount = rows.count { row =>
               val v = row.getOrElse(field, null)
               val s = if (v == null) null else v.toString
-              s == null || !compiled.matcher(s).find()
+              // HEL-1676: a RegexTimeBudgetExceeded is not caught below (only PatternSyntaxException is): it ends the step as a step error.
+              if (s != null) deadline.check(what)
+              s == null || !compiled.matcher(deadline.input(s, what)).find()
             }
             result(rule, Some(field), passed = failingCount == 0, observed = s"$failingCount row(s) not matching pattern",
               failureMessage = s"Field '$field' has $failingCount row(s) not matching pattern '$patternStr'")

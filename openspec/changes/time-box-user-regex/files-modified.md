@@ -1,0 +1,8 @@
+- `backend/src/main/scala/com/helio/domain/steps/RegexTimeBox.scala` — new: fixed 2 s per-step deadline, deadline-checking CharSequence, RegexTimeBudgetExceeded
+- `backend/src/main/scala/com/helio/domain/steps/StringOpsStep.scala` — extractRegex matches through one step-level deadline
+- `backend/src/main/scala/com/helio/domain/steps/AssertStep.scala` — regex rules share one step-level deadline; timeout propagates; "Never throws" doc updated
+- `backend/src/test/scala/com/helio/domain/engine/UserRegexTimeBoxSpec.scala` — new: end-to-end stringops/assert timeout, accumulation, normal-regex tests
+- `backend/src/test/scala/com/helio/domain/steps/RegexTimeBoxCorpusSpec.scala` — new: wrapped vs plain result corpus and short-budget expiry
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewRegexTimeBoxSpec.scala` — new: slots free after two catastrophic draft previews
+- `openspec/changes/time-box-user-regex/tasks.md` — tasks ticked
+- `openspec/changes/time-box-user-regex/design.md` — overhead wording and counter scope
