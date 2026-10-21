@@ -28,16 +28,39 @@ object RunLimits {
    *  A run whose retained frames plus those copies cost more than this is refused before it writes anything. Sized by `RunPathHeapSpec`. */
   val MaxPostWalkCells: Long = 3900000L
 
+  /** HEL-1679 (owner ruling 3, design.md D3): the widest single row, in characters of its `compactPrint` text, a real run (or backfill) may write. A
+   *  snapshot write renders a batch of rows at a time but can never split a row, so a row wider than this would take the write past the per-run
+   *  share; it is refused up front instead. Sized by `RunPathHeapSpec` at the joint worst the other limits allow (see design.md D3 and
+   *  `evidence/`). It sits above the 1,048,584-character render of a row holding one ruling-4 value, so such a row is always writable. */
+  val MaxRowRenderChars: Long = 2000000L
+
   private def cost(rows: Seq[Map[String, Any]]): Long = rows.iterator.map(_.size.toLong + RowCostCells).sum
+
+  /** The frames a finished run holds, once each by identity, the terminal first: the trunk terminal and every retained Output frame. The one place
+   *  that selects them, for `postWalkCells` (cells) and `widestRetainedRowChars` (row width). */
+  private def retainedFrames(nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], terminalRows: Seq[Map[String, Any]]): Vector[Seq[Map[String, Any]]] = {
+    val frames = nodeOutcomes.collect { case (k, o) if retain.contains(k) || (o.rows eq terminalRows) => o.rows }.toVector
+    frames.foldLeft(Vector[Seq[Map[String, Any]]](terminalRows))((acc, f) => if (acc.exists(_ eq f)) acc else acc :+ f)
+  }
 
   /** What a real run holds once the walk is done: every retained frame once (by identity) plus the JSON copies the success path makes of
    *  them: the terminal's, and the largest other retained Output frame (those are converted one at a time). */
   def postWalkCells(nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], terminalRows: Seq[Map[String, Any]]): Long = {
-    val frames = nodeOutcomes.collect { case (k, o) if retain.contains(k) || (o.rows eq terminalRows) => o.rows }.toVector
-    val distinct = frames.foldLeft(Vector.empty[Seq[Map[String, Any]]])((acc, f) => if (acc.exists(_ eq f)) acc else acc :+ f)
+    val distinct = retainedFrames(nodeOutcomes, retain, terminalRows)
     val others   = distinct.filterNot(_ eq terminalRows)
     val held     = (terminalRows +: others).map(cost).sum
     held + cost(terminalRows) + others.map(cost).maxOption.getOrElse(0L)
+  }
+
+  /** Whether a row of `chars` rendered characters is wider than a real run (or backfill) may write. Exactly the limit is accepted. */
+  def rowTooWide(chars: Long): Boolean = chars > MaxRowRenderChars
+
+  /** The widest row, in `compactPrint` characters, among `rows` (0 when empty); computed without rendering (`JsonTextLength.ofRow`). */
+  def widestRowChars(rows: Iterable[Map[String, Any]]): Long = rows.iterator.map(JsonTextLength.ofRow).maxOption.getOrElse(0L)
+
+  /** The widest row of every frame the success path renders: the trunk terminal and each retained Output frame (the frames `postWalkCells` prices, selected by the same `retainedFrames`). */
+  def widestRetainedRowChars(nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], terminalRows: Seq[Map[String, Any]]): Long = {
+    retainedFrames(nodeOutcomes, retain, terminalRows).map(widestRowChars(_)).max
   }
 
   /** The context the run backend hands the engine: the limits above, worded as a pipeline run limit. */
