@@ -1,15 +1,43 @@
+import { RotateCw } from "lucide-react";
+
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import { feedingOutputIds } from "../../features/panels/state/dashboardMeta";
 import { panelsKnownFor } from "../../features/panels/state/panelsSettled";
 import type { Panel } from "../../features/panels/types/panel";
+import { usePullRefreshControl } from "../../features/panels/ui/grid/pullRefreshRegistry";
 import { useAppSelector } from "../../hooks/reduxHooks";
 import { useNow } from "../../hooks/useNow";
+import { ICON_SIZE } from "../../shared/ui/iconSize";
+import { Spinner } from "../../shared/ui/Spinner";
 import { RefreshFact, refreshFactOf } from "./RefreshFact";
 import "./DashboardMetaRow.css";
 
 const NO_PANELS: Panel[] = [];
 /** Relative-time copy is re-rendered at most once a minute (same cadence as the desktop meta row). */
 const RELATIVE_TIME_TICK_MS = 60_000;
+
+/** The "Refresh dashboard" button (HEL-1681): the visible single-pointer / keyboard alternative to the pull (WCAG 2.5.1).
+ *  It shares the pull's registry, so it fans out the same once-per-output-bound-panel refresh, runs no pipeline and shares
+ *  the busy state. Rendered only while an output-bound panel is registered. `aria-disabled`, not `disabled`, while busy so
+ *  keyboard focus survives the round. Hand-rolled icon-only control under DESIGN.md §5's documented sub-24px exception:
+ *  `IconButton`'s smallest size (24px) is taller than this line's fixed slot and would push the cards down (HEL-1646); it
+ *  still carries both `aria-label` and `title`, and reaches the 44px floor by a hit expander (`DashboardMetaRow.css`). */
+function RefreshButton() {
+  const control = usePullRefreshControl();
+  if (control === null || !control.available) return null;
+  return (
+    <button
+      type="button"
+      className="dashboard-refresh-line__button"
+      aria-label="Refresh dashboard"
+      title="Refresh dashboard"
+      aria-disabled={control.busy ? "true" : undefined}
+      onClick={control.refresh}
+    >
+      {control.busy ? <Spinner size="sm" /> : <RotateCw size={ICON_SIZE.sm} aria-hidden="true" />}
+    </button>
+  );
+}
 
 /** The phone "refreshed" caption (HEL-1583 D11): the first child of `.panel-list`, above the dashboard chip row. It
  *  says exactly what the desktop meta row's refresh fact says, from the same `useDashboardMeta` inputs and the same
@@ -48,13 +76,20 @@ export function DashboardRefreshLine() {
   if (selectedDashboardId === null) return null;
   if (fact === null) {
     const pipelineFed = panelsKnown ? feedingOutputIds(panels).length > 0 : listedPipelineFed;
+    // The empty text span is the `aria-hidden` part (not the whole line), so the button stays exposed.
     return pipelineFed ? (
-      <p className="dashboard-refresh-line" aria-hidden="true" data-reserved="true" />
+      <p className="dashboard-refresh-line" data-reserved="true">
+        <span className="dashboard-refresh-line__text" aria-hidden="true" />
+        <RefreshButton />
+      </p>
     ) : null;
   }
   return (
     <p className="dashboard-refresh-line">
-      <RefreshFact fact={fact} intent={meta.refreshIntent} />
+      <span className="dashboard-refresh-line__text">
+        <RefreshFact fact={fact} intent={meta.refreshIntent} />
+      </span>
+      <RefreshButton />
     </p>
   );
 }

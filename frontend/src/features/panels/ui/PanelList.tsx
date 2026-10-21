@@ -26,6 +26,7 @@ import { usePipelineFedFlagSync } from "../hooks/usePipelineFedFlagSync";
 import { fetchPanels, panelsMatchDashboard, setPanelCreationModalOpen } from "../state/panelsSlice";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { StatusMessage } from "../../../shared/chrome/StatusMessage";
+import { PhoneDashboardRefreshProvider } from "./grid/pullRefreshRegistry";
 import { Crossfade } from "../../../shared/ui/Crossfade";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { resolveDashboardGridBackground } from "../../../theme/appearance";
@@ -295,86 +296,89 @@ export function PanelList() {
 
   const effectiveDashboardAppearance = previewAppearance ?? selectedDashboard?.appearance;
 
+  // HEL-1681: the provider is DOM-less and wraps the section at every width, so the zoom container never remounts
+  // across 768px; it shares one refresh registry between the refreshed line's button and the phone stack's panels.
   return (
-    <section
-      className="panel-list"
-      aria-label="panels"
-      style={
-        effectiveDashboardAppearance?.gridBackground &&
-        effectiveDashboardAppearance.gridBackground !== "transparent"
-          ? ({
-              "--dashboard-grid-background-override": resolveDashboardGridBackground(
-                theme,
-                effectiveDashboardAppearance,
-              ),
-            } as CSSProperties)
-          : undefined
-      }
-    >
-      {isPhoneShell ? (
-        <>
-          {selectedDashboardId ? <DashboardRefreshLine /> : null}
-          <DashboardChipRow />
-        </>
-      ) : null}
-      {selectedDashboardId && !isPhoneShell ? (
-        <div role="group" aria-label="Zoom controls" className="panel-list__zoom-widget">
-          <button
-            type="button"
-            className="panel-list__zoom-button"
-            aria-label="Zoom out"
-            title="Zoom out"
-            onClick={() => handleZoomChange(-0.1)}
-            disabled={zoomLevel <= 0.5}
-          >
-            −
-          </button>
-          <span className="panel-list__zoom-level">{Math.round(zoomLevel * 100)}%</span>
-          <button
-            type="button"
-            className="panel-list__zoom-button"
-            aria-label="Zoom in"
-            title="Zoom in"
-            onClick={() => handleZoomChange(0.1)}
-            disabled={zoomLevel >= 2.0}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            className="panel-list__zoom-reset"
-            aria-label="Reset zoom"
-            title="Reset zoom"
-            onClick={handleZoomReset}
-            disabled={zoomLevel === 1.0}
-          >
-            Reset
-          </button>
-        </div>
-      ) : null}
-      {panelCreationModalOpen && selectedDashboardId ? (
-        <OutputPicker
-          dashboardId={selectedDashboardId}
-          currentDashboardPanels={items}
-          onClose={() => dispatch(setPanelCreationModalOpen(false))}
-        />
-      ) : null}
-      <StatusMessage
-        status={status === "failed" ? "failed" : "idle"}
-        message={error ?? undefined}
-        onRetry={
-          selectedDashboardId !== null
-            ? () => {
-                setIsRetryingPanels(true);
-                void dispatch(fetchPanels(selectedDashboardId)).finally(() =>
-                  setIsRetryingPanels(false),
-                );
-              }
+    <PhoneDashboardRefreshProvider>
+      <section
+        className="panel-list"
+        aria-label="panels"
+        style={
+          effectiveDashboardAppearance?.gridBackground &&
+          effectiveDashboardAppearance.gridBackground !== "transparent"
+            ? ({
+                "--dashboard-grid-background-override": resolveDashboardGridBackground(
+                  theme,
+                  effectiveDashboardAppearance,
+                ),
+              } as CSSProperties)
             : undefined
         }
-        retrying={isRetryingPanels}
-      />
-      {/* HEL-554 D1/D4.1 — mounted OUTSIDE line ~413's skeleton gate below (and
+      >
+        {isPhoneShell ? (
+          <>
+            {selectedDashboardId ? <DashboardRefreshLine /> : null}
+            <DashboardChipRow />
+          </>
+        ) : null}
+        {selectedDashboardId && !isPhoneShell ? (
+          <div role="group" aria-label="Zoom controls" className="panel-list__zoom-widget">
+            <button
+              type="button"
+              className="panel-list__zoom-button"
+              aria-label="Zoom out"
+              title="Zoom out"
+              onClick={() => handleZoomChange(-0.1)}
+              disabled={zoomLevel <= 0.5}
+            >
+              −
+            </button>
+            <span className="panel-list__zoom-level">{Math.round(zoomLevel * 100)}%</span>
+            <button
+              type="button"
+              className="panel-list__zoom-button"
+              aria-label="Zoom in"
+              title="Zoom in"
+              onClick={() => handleZoomChange(0.1)}
+              disabled={zoomLevel >= 2.0}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="panel-list__zoom-reset"
+              aria-label="Reset zoom"
+              title="Reset zoom"
+              onClick={handleZoomReset}
+              disabled={zoomLevel === 1.0}
+            >
+              Reset
+            </button>
+          </div>
+        ) : null}
+        {panelCreationModalOpen && selectedDashboardId ? (
+          <OutputPicker
+            dashboardId={selectedDashboardId}
+            currentDashboardPanels={items}
+            onClose={() => dispatch(setPanelCreationModalOpen(false))}
+          />
+        ) : null}
+        <StatusMessage
+          status={status === "failed" ? "failed" : "idle"}
+          message={error ?? undefined}
+          onRetry={
+            selectedDashboardId !== null
+              ? () => {
+                  setIsRetryingPanels(true);
+                  void dispatch(fetchPanels(selectedDashboardId)).finally(() =>
+                    setIsRetryingPanels(false),
+                  );
+                }
+              : undefined
+          }
+          retrying={isRetryingPanels}
+        />
+        {/* HEL-554 D1/D4.1 — mounted OUTSIDE line ~413's skeleton gate below (and
           outside the zero-content gate further down), so it does not blink
           out during the `fetchPanels` round trip after step 3 auto-selects a
           newly-created dashboard. Renders BEFORE the zoom-container so it
@@ -382,26 +386,26 @@ export function PanelList() {
           (D6's "above the grid" placement, e.g. the all-four-complete state,
           where real panels render beneath the still-visible completed
           chain). */}
-      {showFirstRunDropZone ? (
-        <FirstRunDropZone
-          onStepByStep={() => {
-            setStepByStep(true);
-            dispatch(reopenOnboarding());
-          }}
-        />
-      ) : null}
-      {onboardingVisible && !showFirstRunDropZone ? (
-        <OnboardingChecklist
-          createDashboardAction={createDashboardAction}
-          emphasisVariant={onboardingSupersedesEmptyState ? "primary" : "secondary"}
-        />
-      ) : null}
-      {/* HEL-588 tasks.md 4.3 — mounted unconditionally; self-gates on
+        {showFirstRunDropZone ? (
+          <FirstRunDropZone
+            onStepByStep={() => {
+              setStepByStep(true);
+              dispatch(reopenOnboarding());
+            }}
+          />
+        ) : null}
+        {onboardingVisible && !showFirstRunDropZone ? (
+          <OnboardingChecklist
+            createDashboardAction={createDashboardAction}
+            emphasisVariant={onboardingSupersedesEmptyState ? "primary" : "secondary"}
+          />
+        ) : null}
+        {/* HEL-588 tasks.md 4.3 — mounted unconditionally; self-gates on
           `crossFilter !== null` (renders nothing otherwise). Placed above the
           grid, alongside the onboarding checklist, so the active filter is
           visible before scrolling into the narrowed panels themselves. */}
-      <CrossFilterIndicator />
-      {/* HEL-528 design.md D10/D11/D12 — the same `.panel-list__zoom-container`
+        <CrossFilterIndicator />
+        {/* HEL-528 design.md D10/D11/D12 — the same `.panel-list__zoom-container`
           wrapper the resolved grid renders into, so a saved zoom level other
           than 1 does not displace the swap when real panels arrive.
 
@@ -425,95 +429,95 @@ export function PanelList() {
           `PanelList`'s entire lifetime — with its content, not its own
           presence, driven by which branch is active — gives the hook a
           stable target for its whole one-time effect. */}
-      <div
-        ref={setZoomContainerRef}
-        className="panel-list__zoom-container"
-        style={zoomContainerStyle}
-      >
-        {/* HEL-1584 D5: the skeleton grid fades out in place as the real grid appears. The cards bring their own
+        <div
+          ref={setZoomContainerRef}
+          className="panel-list__zoom-container"
+          style={zoomContainerStyle}
+        >
+          {/* HEL-1584 D5: the skeleton grid fades out in place as the real grid appears. The cards bring their own
             entrance (`contentFade={false}`, no layer fade on top), and `block` keeps the grid root and the phone stack
             at the zoom container's full width (neither has a width of its own). Both react-grid-layout instances keep
             their dashboard-id keys and share `gridContainerWidth`; the keyed `PanelGrid` still unmounts while loading,
             exactly as the ternary this replaced did. */}
-        <Crossfade
-          loading={showPanelGridSkeleton || showBootstrapSkeleton}
-          skeleton={
-            <PanelGridSkeleton
-              dashboardId={selectedDashboardId}
-              layout={selectedDashboard?.layout ?? defaultDashboardLayout}
-              width={gridContainerWidth}
-            />
-          }
-          contentFade={false}
-          block
-        >
-          {items.length > 0 &&
-          selectedDashboardId !== null &&
-          items[0].dashboardId === selectedDashboardId ? (
-            <PanelGrid
-              key={selectedDashboardId}
-              dashboardId={selectedDashboardId}
-              layout={selectedDashboard?.layout ?? defaultDashboardLayout}
-              layoutVersion={selectedDashboard?.layoutVersion}
-              panels={items}
-              zoomLevel={zoomLevel}
-              width={gridContainerWidth}
-            />
-          ) : null}
-        </Crossfade>
-      </div>
-      {contentGateOpen ? (
-        <>
-          {wouldShowZeroDashboardEmptyState && !onboardingVisible && !showFirstRunDropZone
-            ? // HEL-548 D6/D6a/task 3.3 (HEL-770 absorbed) — conditional
-              // error intent, applied within this ONE branch: a failed
-              // create renders the error-title/-icon/role="alert" treatment
-              // (parity with HEL-539's five `intent="error"` siblings),
-              // carrying the thunk's own (now-specific, D6) rejection
-              // message. With no failure present the ordinary first-run
-              // empty state stays exactly as neutral as before — unchanged,
-              // no role="alert". The CTA is the same `New dashboard` /
-              // `Creating…` action either way, so a failed attempt can be
-              // retried from the same surface.
-              //
-              // HEL-554 D5 — suppressed (the `!onboardingVisible` guard above)
-              // whenever the checklist supersedes this region; the checklist
-              // carries the same "never blank"/CTA/announced-error guarantees
-              // itself (`frontend-panel-empty-state`'s modified requirement).
-              (() => {
-                const createDashboardError = createDashboardAction.error;
-                return createDashboardError !== null ? (
-                  <EmptyState
-                    intent="error"
-                    icon={<TriangleAlert />}
-                    title="Couldn't create dashboard"
-                    description={createDashboardError}
-                    cta={createDashboardAction.cta}
-                  />
-                ) : (
-                  <EmptyState
-                    icon={<LayoutDashboard />}
-                    title="No dashboards yet"
-                    description="Create your first dashboard to start adding panels."
-                    cta={createDashboardAction.cta}
-                  />
-                );
-              })()
-            : null}
-          {/* D5 — NOT suppressed by `onboardingVisible`: dashboards exist
+          <Crossfade
+            loading={showPanelGridSkeleton || showBootstrapSkeleton}
+            skeleton={
+              <PanelGridSkeleton
+                dashboardId={selectedDashboardId}
+                layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+                width={gridContainerWidth}
+              />
+            }
+            contentFade={false}
+            block
+          >
+            {items.length > 0 &&
+            selectedDashboardId !== null &&
+            items[0].dashboardId === selectedDashboardId ? (
+              <PanelGrid
+                key={selectedDashboardId}
+                dashboardId={selectedDashboardId}
+                layout={selectedDashboard?.layout ?? defaultDashboardLayout}
+                layoutVersion={selectedDashboard?.layoutVersion}
+                panels={items}
+                zoomLevel={zoomLevel}
+                width={gridContainerWidth}
+              />
+            ) : null}
+          </Crossfade>
+        </div>
+        {contentGateOpen ? (
+          <>
+            {wouldShowZeroDashboardEmptyState && !onboardingVisible && !showFirstRunDropZone
+              ? // HEL-548 D6/D6a/task 3.3 (HEL-770 absorbed) — conditional
+                // error intent, applied within this ONE branch: a failed
+                // create renders the error-title/-icon/role="alert" treatment
+                // (parity with HEL-539's five `intent="error"` siblings),
+                // carrying the thunk's own (now-specific, D6) rejection
+                // message. With no failure present the ordinary first-run
+                // empty state stays exactly as neutral as before — unchanged,
+                // no role="alert". The CTA is the same `New dashboard` /
+                // `Creating…` action either way, so a failed attempt can be
+                // retried from the same surface.
+                //
+                // HEL-554 D5 — suppressed (the `!onboardingVisible` guard above)
+                // whenever the checklist supersedes this region; the checklist
+                // carries the same "never blank"/CTA/announced-error guarantees
+                // itself (`frontend-panel-empty-state`'s modified requirement).
+                (() => {
+                  const createDashboardError = createDashboardAction.error;
+                  return createDashboardError !== null ? (
+                    <EmptyState
+                      intent="error"
+                      icon={<TriangleAlert />}
+                      title="Couldn't create dashboard"
+                      description={createDashboardError}
+                      cta={createDashboardAction.cta}
+                    />
+                  ) : (
+                    <EmptyState
+                      icon={<LayoutDashboard />}
+                      title="No dashboards yet"
+                      description="Create your first dashboard to start adding panels."
+                      cta={createDashboardAction.cta}
+                    />
+                  );
+                })()
+              : null}
+            {/* D5 — NOT suppressed by `onboardingVisible`: dashboards exist
               once this branch can render, so it is never a first-run state
               and has no CTA of its own to double up with the checklist. */}
-          {status !== "loading" &&
-          status !== "failed" &&
-          selectedDashboardId === null &&
-          dashboards.length > 0 ? (
-            <EmptyState
-              icon={<LayoutDashboard />}
-              title="No dashboard open"
-              description="Choose a dashboard from the list, or press ⌘K."
-            />
-          ) : null}
-          {/* HEL-548 D1/D2/task 2.3 — admits the terminal (post-delete)
+            {status !== "loading" &&
+            status !== "failed" &&
+            selectedDashboardId === null &&
+            dashboards.length > 0 ? (
+              <EmptyState
+                icon={<LayoutDashboard />}
+                title="No dashboard open"
+                description="Choose a dashboard from the list, or press ⌘K."
+              />
+            ) : null}
+            {/* HEL-548 D1/D2/task 2.3 — admits the terminal (post-delete)
               state alongside the resolved-succeeded one:
               `staleDashboardId === selectedDashboardId` means
               `markDashboardPanelsStale` invalidated THIS dashboard with no
@@ -528,16 +532,17 @@ export function PanelList() {
               HEL-554 D5 — suppressed while the checklist supersedes this
               region too (including this exact post-delete state — the
               modified `frontend-panel-empty-state` spec's own scenario). */}
-          {wouldShowZeroPanelEmptyState && !onboardingVisible ? (
-            <EmptyState
-              icon={<LayoutGrid />}
-              title="No panels yet"
-              description="Add a panel to start building your dashboard."
-              cta={createPanelAction.cta}
-            />
-          ) : null}
-        </>
-      ) : null}
-    </section>
+            {wouldShowZeroPanelEmptyState && !onboardingVisible ? (
+              <EmptyState
+                icon={<LayoutGrid />}
+                title="No panels yet"
+                description="Add a panel to start building your dashboard."
+                cta={createPanelAction.cta}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </section>
+    </PhoneDashboardRefreshProvider>
   );
 }

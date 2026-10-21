@@ -111,4 +111,47 @@ describe("PullRefreshRegistry", () => {
     expect(registry.start()).toBe(false);
     expect(a.refresh).toHaveBeenCalledTimes(1);
   });
+
+  // mutation: notify on every register/unregister, or never -> the call-count assertions go red
+  it("notifies entry subscribers only when the registry flips between empty and non-empty", () => {
+    const registry = new PullRefreshRegistry();
+    const listener = jest.fn();
+    registry.subscribeEntries(listener);
+    expect(registry.hasEntries).toBe(false);
+    const offA = registry.register("a", entry());
+    expect(listener).toHaveBeenLastCalledWith(true);
+    const offB = registry.register("b", entry());
+    expect(listener).toHaveBeenCalledTimes(1);
+    offA();
+    expect(listener).toHaveBeenCalledTimes(1);
+    offB();
+    expect(listener).toHaveBeenLastCalledWith(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(registry.hasEntries).toBe(false);
+  });
+
+  // mutation: never record the source, or leave it set after the round ends -> red
+  it("records what started the round and clears it when the round ends", () => {
+    const registry = new PullRefreshRegistry();
+    registry.register("a", entry());
+    const seen: Array<string | null> = [];
+    registry.subscribe(() => seen.push(registry.source));
+    expect(registry.source).toBeNull();
+    expect(registry.start("button")).toBe(true);
+    expect(registry.source).toBe("button");
+    // a pull (or a second button press) during the round starts nothing and keeps the source
+    expect(registry.start("pull")).toBe(false);
+    expect(registry.source).toBe("button");
+    registry.setRefreshing("a", true);
+    registry.setRefreshing("a", false);
+    expect(registry.source).toBeNull();
+    expect(seen).toEqual(["button", null]);
+  });
+
+  it("defaults the source to a pull", () => {
+    const registry = new PullRefreshRegistry();
+    registry.register("a", entry());
+    registry.start();
+    expect(registry.source).toBe("pull");
+  });
 });

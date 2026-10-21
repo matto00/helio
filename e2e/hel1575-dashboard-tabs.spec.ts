@@ -614,6 +614,20 @@ test.describe("HEL-1575 dashboard tabs", () => {
     await expectTableRendered(page, "Tabs B");
     await tabNamed(page, "Tabs A").click();
     await expectTableRendered(page, "Tabs A");
+    // HEL-1681 item 5: the app measures its server-clock offset as `serverNow - Date.now()` on every change-signals response
+    // (HEL-1575 D4/D7). `fastForward` jumps only the CLIENT clock and also fires the signals poll; a response that lands
+    // after the jump would measure an offset of -16 minutes and cancel it, so the tab would no longer be expired by the
+    // time of the click (the request-after-click race made this test fail about 1 run in 8 under 2 workers). Real time
+    // passing would move the server's clock too: shift `serverNow` by the same 16 minutes once the jump has happened.
+    let jumped = false;
+    await page.route("**/api/dashboard-changes**", async (route) => {
+      const response = await route.fetch();
+      if (!jumped) return route.fulfill({ response });
+      const body = await response.json();
+      body.serverNow = new Date(Date.parse(body.serverNow) + 16 * 60_000).toISOString();
+      return route.fulfill({ response, json: body });
+    });
+    jumped = true;
     await page.clock.fastForward("16:00");
     from = net.mark();
     await tabNamed(page, "Tabs B").click();

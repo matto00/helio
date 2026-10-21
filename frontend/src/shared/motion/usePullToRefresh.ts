@@ -32,10 +32,12 @@ const PULL_FLICK_SHARE = 0.75;
 /** A touch that starts on one of these keeps its own behaviour (text selection, caret, picker). */
 const FORM_CONTROL = 'input, select, textarea, [contenteditable="true"]';
 
-export type PullPhase = "idle" | "pulling" | "ready";
+export type PullPhase = "idle" | "pulling" | "ready" | "done";
 
 export interface PullState {
-  /** `pulling` below the threshold, `ready` at or past it, `idle` otherwise (including while a refresh round runs). */
+  /** `pulling` below the threshold, `ready` at or past it, `done` from the release that started a Full-motion refresh
+   *  round until the content is back at rest (the held and settling stretches, so the label never falls back to
+   *  "pull" while the stack settles), `idle` otherwise. */
   phase: PullPhase;
   /** True from engagement until the content is back at rest (including the held and settling stretches). */
   active: boolean;
@@ -225,10 +227,11 @@ export function usePullToRefresh({
             g.pull >= PULL_THRESHOLD_PX * PULL_FLICK_SHARE));
       if (past && onRefreshRef.current()) {
         holdingRef.current = true;
-        setPhaseOnce("idle");
         if (follows()) {
+          setPhaseOnce("done");
           settleOffset(moving, PULL_HOLD_PX, false, PULL_SETTLING_ATTRIBUTE);
         } else {
+          setPhaseOnce("idle");
           clearMotion();
         }
         return;

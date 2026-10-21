@@ -1,4 +1,4 @@
-import { RotateCw } from "lucide-react";
+import { Check, RotateCw } from "lucide-react";
 
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 import { Spinner } from "../../../../shared/ui/Spinner";
@@ -16,13 +16,16 @@ const LABELS = {
   pulling: "Pull to refresh",
   ready: "Release to refresh",
   busy: "Refreshing",
+  // HEL-1681: while the stack settles back after a pull-started round the indicator is still visible; it must not
+  // invite another pull.
+  done: "Refreshed",
 } as const;
 
 /** The visual half of the phone pull-to-refresh (HEL-1656). Purely decorative (`aria-hidden`): the announcement lives
  *  in the stack's always-mounted status region, so unmounting this at rest never drops "Refreshed". The caller renders
  *  it only while a pull is engaged or a refresh is running. */
 export function PullRefreshIndicator({ phase, busy, follows }: PullRefreshIndicatorProps) {
-  const state = busy ? "busy" : phase === "ready" ? "ready" : "pulling";
+  const state = busy ? "busy" : phase === "done" ? "done" : phase === "ready" ? "ready" : "pulling";
   return (
     <div
       className={`pull-refresh-indicator pull-refresh-indicator--${follows ? "follow" : "snap"}`}
@@ -31,6 +34,8 @@ export function PullRefreshIndicator({ phase, busy, follows }: PullRefreshIndica
     >
       {state === "busy" ? (
         <Spinner size="md" />
+      ) : state === "done" ? (
+        <Check className="pull-refresh-indicator__check" size={ICON_SIZE.md} />
       ) : (
         <RotateCw className="pull-refresh-indicator__arrow" size={ICON_SIZE.md} />
       )}
