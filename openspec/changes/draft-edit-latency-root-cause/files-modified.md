@@ -1,0 +1,24 @@
+- `.github/workflows/ci.yml` — frontend job runs the prod-build partition check and its selftest; new `e2e-prod-build` job (build, vite preview, `@prod-build` tests, artifact `playwright-json-prod-build`); `ci-complete.needs` gains it
+- `CONTRIBUTING.md` — section on the `@prod-build` tag, the env rule and `npm run e2e:prod-build`
+- `e2e/README.md` — `@prod-build` / guard project / `e2e-prod-build` paragraph; shard legs run `--project=dev`
+- `e2e/hel1631-draft-mode.spec.ts` — burst test tagged `@prod-build` (title in `BURST_TITLE`), D1 breakdown logged before the first expect; assertion lines unchanged
+- `e2e/prod-build.guard.ts` — new setup-project guard: fails closed unless baseURL serves a production build
+- `e2e/support/hel1691Breakdown.ts` — trimmed to the D1 CDP Performance.getMetrics breakdown (trace, throttle, profile switches removed)
+- `package.json` — scripts `check:e2e-prod-build-projects`, `check:e2e-prod-build-projects:selftest`, `e2e:prod-build`
+- `playwright.config.ts` — env-exclusive projects (`dev` vs `prod-build-guard` + `prod-build`), service workers blocked in `prod-build`
+- `scripts/check-e2e-prod-build-projects.mjs` — real `--list` partition check counted by projectName
+- `scripts/check-e2e-prod-build-projects.selftest.mjs` — failable selftest with fixtures shaped from real `--list` output
+- `scripts/e2e-prod-build.mjs` — local runner: build, vite preview, tagged tests, always stops its own preview
+- `scripts/e2e-shard.mjs` — shard legs list and run with `--project=dev`
+- `openspec/changes/draft-edit-latency-root-cause/design.md` — Revision 2 (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/proposal.md` — revised (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/ticket.md` — owner ruling and revised acceptance criteria (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/tasks.md` — group 3 ticked
+- `openspec/changes/draft-edit-latency-root-cause/evidence.md` — diagnosis evidence plus group 3 verification and D9 measurements
+- `openspec/changes/draft-edit-latency-root-cause/skeptic-design-3.md` — design-gate report (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/skeptic-design-4.md` — design-gate report (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/skeptic-design-5.md` — design-gate report (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/files-modified.md` — this list
+- `openspec/changes/draft-edit-latency-root-cause/evaluation-1.md` — evaluator report (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/evaluation-2.md` — evaluator report, cycle 2 (orchestrator)
+- `openspec/changes/draft-edit-latency-root-cause/skeptic-final-1.md` — final-gate report (orchestrator)

@@ -86,9 +86,19 @@ Always confirm `git status --short` is clean after a run — each case wraps
 its mutation in `try/finally` so the revert runs even if an assertion
 fails mid-case, but this is the final belt-and-suspenders check.
 
+## Production-build latency tests: `@prod-build` (HEL-1691)
+
+A test that asserts a latency budget opts in to a production build with `test(title, { tag: "@prod-build" }, ...)` and
+nothing else. `HELIO_E2E_PROD_BUILD` picks the projects (`playwright.config.ts`): unset, the only project is `dev` (every
+untagged test, against the Vite dev server); set to `1`, the only projects are `prod-build-guard` (`prod-build.guard.ts`,
+fails closed unless `baseURL` serves a production build, not the dev server) and `prod-build` (only the tagged tests, service
+workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job (build, `vite preview`, same backend setup),
+not in a shard leg. `npm run check:e2e-prod-build-projects` keeps the partition honest; locally run `npm run e2e:prod-build`.
+See CONTRIBUTING.md.
+
 ## CI runtime: sharding and parallel-mode files (HEL-1288)
 
-The CI `e2e` job runs `node scripts/e2e-shard.mjs run <i> <N>` on a matrix of runners (`strategy.job-total` is N,
+The CI `e2e` job runs `node scripts/e2e-shard.mjs run <i> <N>` (the legs run only `--project=dev`; `@prod-build` tests run in `e2e-prod-build`) on a matrix of runners (`strategy.job-total` is N,
 so the matrix is the single source). Discovery is still Playwright's own (HEL-951): the script calls
 `playwright test --list` over this config's glob + `testIgnore`, then partitions the discovered **spec files** with a
 deterministic longest-processing-time-first assignment weighted by `e2e/shard-weights.tsv` (seconds per file, taken

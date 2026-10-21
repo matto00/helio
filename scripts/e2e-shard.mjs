@@ -197,11 +197,18 @@ function findReports(runDir) {
   return out.map((r) => r.doc);
 }
 
+// HEL-1691: the shard legs run the `dev` project only; `@prod-build` tests belong to the dedicated `e2e-prod-build` job.
+export const SHARD_PROJECT_ARG = "--project=dev";
+
 function playwrightJson(args) {
-  const r = spawnSync("npx", ["playwright", "test", "--list", "--reporter=json", ...args], {
-    encoding: "utf8",
-    maxBuffer: 256 * 1024 * 1024,
-  });
+  const r = spawnSync(
+    "npx",
+    ["playwright", "test", "--list", "--reporter=json", SHARD_PROJECT_ARG, ...args],
+    {
+      encoding: "utf8",
+      maxBuffer: 256 * 1024 * 1024,
+    },
+  );
   if (r.status !== 0) throw new Error(`playwright --list failed (exit ${r.status}): ${r.stderr}`);
   return JSON.parse(r.stdout);
 }
@@ -251,7 +258,9 @@ async function run(index, count) {
   const args = mine.map(fileArg);
   verifySelection(mine, filesFromList(playwrightJson(args)));
   const code = await new Promise((resolve) => {
-    const child = spawn("npx", ["playwright", "test", ...args], { stdio: "inherit" });
+    const child = spawn("npx", ["playwright", "test", SHARD_PROJECT_ARG, ...args], {
+      stdio: "inherit",
+    });
     child.on("error", () => resolve(1));
     child.on("close", (c, s) => resolve(exitCodeOf(c, s)));
   });
