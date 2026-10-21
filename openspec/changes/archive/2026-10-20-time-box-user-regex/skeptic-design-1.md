@@ -1,0 +1,19 @@
+## Skeptic Report — design gate (round 1, skeptic-design-1.md)
+
+### What I verified (with evidence)
+- **Owner rulings match the design.** `events.jsonl` escalation `HEL-1676-1792518291055-95c8d3`: the raised question explicitly framed the budget as "one wall-clock budget per step (shared by all rows...)", covering both sites, draft preview and real runs, expiry = step error (assert too). Answers: `time-box (recommended)`, `2s fixed, no env var`. D2/D3/C1 and the spec requirement match this. Not reopened.
+- **Exactly two user-regex sites.** I grepped `backend/src/main/scala` for `Pattern.compile`, `.matcher(`, `.r`, `replaceAll`, `split(`. The only user-supplied patterns are `StringOpsStep.scala:165/179` (`extractRegexFn`) and `AssertStep.scala:250/254` (`evalRegex`). Every other regex is a constant, or (`SplitTextStep.scala:126`) is built from an Int heading level. The expression engine has no regex functions. Nothing is missing from scope.
+- **Error path claims hold.** `InProcessPipelineEngine.scala` `evalOneStep` wraps `step.evaluate` in a try/catch (NonFatal → `Future.failed`, attributed by `StepExecutionException.from`). `from` surfaces an `IllegalArgumentException`'s message verbatim with the step id and kind (lines 56-60). `StringOpsStep.evaluate` is `Future.successful(StringOpsStep.apply(...))`, which is synchronous and eager (`rows.map`), so a throw from the wrapper lands in that catch. `AssertStep.evalRegex` catches only `PatternSyntaxException`, and `evaluateRules`/`evaluate` (lines 107-142) have no catch. A `RegexTimeBudgetExceeded extends IllegalArgumentException` therefore propagates as a step error and is never recorded as a rule result. D3 is sound.
+- **Same path for every mode.** The only callers of `evaluateRules` and `StringOpsStep.apply` are the step `evaluate` methods. Draft preview, saved preview and runs all go through `evalOneStep`.
+- **Measurements back the mechanism.** Growth is about x2.4 per 2 chars (4.7 s at 32 chars), so the 40+ char test input gives minutes unfixed, which is a valid red. The boxed run stopped at 250 ms on a 250 ms budget. The wrapped and plain results were identical across 200k rows. The RE2/J semantic differences are recorded, which justifies the non-goal.
+- **AC coverage.** AC1 (bounded time + step error naming the step) maps to tasks 1.1, 1.2 and 2.1-2.3. AC2 (slots free) maps to 1.4. AC3 (red first; normal regexes identical) maps to 1.1-1.3, 3.1 and 3.3. There is no scope drift and no API or schema contract change (none needed).
+- No TODO/TBD placeholders. The proposal, design, tasks and spec do not contradict each other.
+
+### Verdict: CONFIRM
+
+### Non-blocking notes
+1. **Clock-check counter scope is unspecified.** D1 says `charAt` checks the clock "every 1024 calls" but does not say whether the counter is per-wrapper (one per row) or shared on the step deadline. Either one satisfies the ACs and the 1.3 test. The executor should pick one and state it in a code comment.
+2. **Overhead wording is inconsistent.** D1 says "no measurable steady-state overhead". The escalation text said "~5-10%", and the measurements show 19-20 ms plain vs 21-22 ms boxed. Change D1 to match the measured numbers.
+3. **`AssertStep.evaluateRules` scaladoc says "Never throws"** (AssertStep.scala:132-140). After this change that is false for a regex timeout. Update the comment in the same change.
+4. **Red-run hygiene.** In the red run for 1.1/1.2, the unfixed match keeps burning a core after the test's bounded `Await` times out, until the forked JVM exits. Run the red tests alone, in a bounded forked JVM, under `nice -n 19`, and do not run other heavy probes at the same time (per the binding resource caps).
+5. **Out-of-scope gaps for the follow-up list:** the client-side `javaRegex.ts` evaluator can hang the browser on the same pattern (frontend is out of scope here). The worst case per walk is 2 s x regex steps (design Risks).
