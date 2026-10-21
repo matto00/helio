@@ -172,11 +172,15 @@ object StringOpsStep {
         s"stringops operation 'extractRegex' pattern '$patternStr' requires at least one capturing group"
       )
 
+    // HEL-1676: one deadline for the whole step (created when matching starts), shared by every row, so N slow rows cannot add up to N budgets.
+    val deadline = RegexTimeBox.deadline()
+    lazy val what = s"stringops operation 'extractRegex' pattern '$patternStr'"
     row => {
       val v = row.getOrElse(field, null)
       if (v == null) null
       else {
-        val matcher = compiled.matcher(v.toString)
+        deadline.check(what)
+        val matcher = compiled.matcher(deadline.input(v.toString, what))
         if (matcher.find()) matcher.group(1) else null
       }
     }
