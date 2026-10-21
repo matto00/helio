@@ -1311,6 +1311,12 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   pull-to-refresh never fires alongside; no other page or width gets it. The
   refresh calls each output-bound panel's existing `refresh` once (its in-flight
   guard still applies) and never runs a pipeline.
+  Once a Full-motion pull's round ends and the stack settles back, the indicator
+  reads "Refreshed" (a static check glyph) and never "Pull to refresh" (HEL-1681).
+  The "Refresh dashboard" button (§12) is the pull's single-pointer alternative
+  and shares its busy state; a round it starts shows its busy cue on the button
+  only (no indicator, no translate). `--pull-indicator-height` must equal
+  `PULL_HOLD_PX`; `MobilePanelStack.css.test.ts` fails if either moves alone.
 - **Pop.** A small overshoot (`--motion-ease-overshoot`) on a confirmed action
   or an added item: the "give". Full only. No primitive yet.
 - **Changed-row flash.** See §11; it is the one motion that survives Subtle.
@@ -1453,6 +1459,17 @@ remove it). Binding target for HEL-1582 (pipelines on mobile) and HEL-1583
   the desktop context list. **[judgment]**
 - **Pull to refresh (HEL-1656).** The phone dashboard refreshes by pulling down
   from the top; the mechanics and motion levels are in §10. **[judgment]**
+- **Refresh dashboard button (HEL-1681).** The pull is a path gesture, so WCAG
+  2.5.1 needs a single-pointer alternative: the refreshed line carries an
+  icon-only "Refresh dashboard" button at its trailing edge (lucide `RotateCw`
+  at `ICON_SIZE.sm`; the shared `Spinner` while a round runs, `aria-disabled`
+  rather than `disabled` so focus survives). It renders only while at least one
+  output-bound panel is mounted, shares the pull's registry and busy state, and
+  never runs a pipeline. It is hand-rolled under §5's sub-24px exception
+  (`IconButton`'s 24px is taller than the line's fixed slot and would push the
+  cards down) and reaches the 44px floor by a hit expander anchored to the top
+  and inline-end of `.panel-list`'s padding box, measured with
+  `elementFromPoint`, never read from CSS text. **[mechanical]**
 - **Pipeline detail (HEL-1582).** At or below 768px `/pipelines/:id` is a compact header (back, mono
   name on one truncated line, one status line, actions menu), **Steps / Preview / Runs** tabs (ARIA tabs, an
   accent indicator that slides on `--motion-duration-move`), and a scrolling body of the spine pieces as a touch

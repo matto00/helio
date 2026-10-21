@@ -82,6 +82,18 @@
   flex-shrink: 0;
 }
 
+/* HEL-1681 item 2: a chart in the stack gets a DEFINITE canvas height. The card is auto-height, so before this the
+ * chart's height came from whatever was in the layout when ECharts first measured its container, and it then
+ * sustained itself (ECharts' own inner div carries the size, so the container is content-sized by it afterwards):
+ *  - Probe-confirmed, 10 of 24 cold loads under Full motion: the data-loading skeleton layer was still leaving
+ *    (Crossfade stacks both layers in one grid cell) and its 24px spinner pinned the row, so the chart initialised
+ *    at 24px (axis labels only, no bars) and stayed there;
+ *  - the "good" 100px was an accident too: with a 0px container zrender falls back to parseInt("100%"), i.e. 100.
+ * The value is that accidental 100, now stated, so the card looks exactly as it did on the happy path. */
+.mobile-panel-stack__item--output .chart-panel__canvas {
+  height: 100px;
+}
+
 /* Table: capped at min(60dvh, intrinsic) and the only stack kind with a
    nested scroll container (W4.3/W5). Horizontal scroll is delegated
    entirely to DataGrid's own `.ui-data-grid { overflow: auto }` — hiding
@@ -215,7 +227,8 @@
 }
 
 .pull-refresh-indicator {
-  /* Must equal `PULL_HOLD_PX` in shared/motion/usePullToRefresh.ts (the held height). */
+  /* Must equal `PULL_HOLD_PX` in shared/motion/usePullToRefresh.ts (the held height); the guard in
+     MobilePanelStack.css.test.ts fails if either moves alone. */
   --pull-indicator-height: 48px;
   position: absolute;
   display: flex;

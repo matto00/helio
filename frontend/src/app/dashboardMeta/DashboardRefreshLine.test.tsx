@@ -1,12 +1,18 @@
 import fs from "fs";
 import path from "path";
-import { screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import type { DashboardMeta } from "../../features/panels/state/dashboardMeta";
 import { resetUseNowForTests } from "../../hooks/useNow";
 import { makeMarkdownPanel, makeOutputPanel } from "../../test/panelFixtures";
 import { renderWithStore } from "../../test/renderWithStore";
+import {
+  PhoneDashboardRefreshProvider,
+  PullRefreshContext,
+  type PullRefreshRegistry,
+} from "../../features/panels/ui/grid/pullRefreshRegistry";
+import { useContext, useEffect } from "react";
 import { DashboardMetaFacts } from "./DashboardMetaFacts";
 import { DashboardRefreshLine } from "./DashboardRefreshLine";
 
@@ -145,7 +151,12 @@ describe("DashboardRefreshLine (HEL-1583 D11)", () => {
       const { container } = renderWith(fed);
       const slot = container.querySelector(".dashboard-refresh-line");
       expect(slot).not.toBeNull();
-      expect(slot).toHaveAttribute("aria-hidden", "true");
+      // The empty text span is hidden, not the whole line (the refresh button must stay exposed, HEL-1681).
+      expect(slot).not.toHaveAttribute("aria-hidden");
+      expect(slot?.querySelector(".dashboard-refresh-line__text")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
       expect(slot).toHaveAttribute("data-reserved", "true");
       expect(slot?.textContent).toBe("");
     });
@@ -268,5 +279,119 @@ describe("DashboardRefreshLine (HEL-1583 D11)", () => {
       expect(rule).toMatch(/margin:\s*0 0 var\(--space-2\)\s*;/);
       expect(rule).not.toMatch(/\d+px/);
     });
+  });
+});
+
+// HEL-1681: the "Refresh dashboard" button. Each guard carries its recorded red mutation in the comment above it.
+describe("DashboardRefreshLine refresh button (HEL-1681)", () => {
+  const held: { current: PullRefreshRegistry | null } = { current: null };
+  function Spy() {
+    const found = useContext(PullRefreshContext);
+    useEffect(() => {
+      held.current = found;
+    });
+    return null;
+  }
+  function renderWithProvider() {
+    return renderWithStore(
+      <PhoneDashboardRefreshProvider>
+        <Spy />
+        <DashboardRefreshLine />
+      </PhoneDashboardRefreshProvider>,
+      {
+        dashboards: { items: [{ id: "d1", name: "Ops" }], selectedDashboardId: "d1" },
+        panels: {
+          items: [makeOutputPanel({ id: "p1", dashboardId: "d1", config: { outputId: "o1" } })],
+          loadedDashboardId: "d1",
+          status: "succeeded",
+        },
+      } as never,
+      "/dashboards",
+    );
+  }
+  const button = () => screen.queryByRole("button", { name: "Refresh dashboard" });
+  const entry = () => ({ refresh: jest.fn(), isRefreshing: false });
+
+  beforeEach(() => {
+    metaMock.mockReturnValue({ ...baseMeta, refreshState: "never" });
+  });
+
+  // mutation: render the button unconditionally -> red
+  it("renders no button until an output-bound panel is registered, and again none once it unmounts", () => {
+    renderWithProvider();
+    expect(button()).toBeNull();
+    let off = () => {};
+    act(() => {
+      off = held.current!.register("p1", entry());
+    });
+    expect(button()).not.toBeNull();
+    act(() => off());
+    expect(button()).toBeNull();
+  });
+
+  // mutation: drop the title or the aria-label -> red
+  it("is an icon-only button with both an accessible name and a tooltip", () => {
+    renderWithProvider();
+    act(() => {
+      held.current!.register("p1", entry());
+    });
+    expect(button()).toHaveAttribute("title", "Refresh dashboard");
+    expect(button()).toHaveAttribute("type", "button");
+    expect(button()).not.toHaveAttribute("aria-disabled");
+  });
+
+  // mutation: call start with source "pull", or call each refresh twice -> red
+  it("a click starts one button round: each registered refresh once", () => {
+    renderWithProvider();
+    const e = entry();
+    act(() => {
+      held.current!.register("p1", e);
+    });
+    const starts = jest.spyOn(held.current!, "start");
+    fireEvent.click(button()!);
+    expect(starts).toHaveBeenCalledWith("button");
+    expect(e.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  // mutation: use `disabled` instead of aria-disabled (focus lost), or ignore busy -> red
+  it("shows a busy cue with aria-disabled while a round runs, keeps focus, and a second activation does nothing", () => {
+    renderWithProvider();
+    const e = entry();
+    act(() => {
+      held.current!.register("p1", e);
+    });
+    act(() => button()!.focus());
+    fireEvent.click(button()!);
+    expect(button()).toHaveAttribute("aria-disabled", "true");
+    expect(button()!.querySelector(".ui-spinner")).not.toBeNull();
+    expect(button()).toHaveFocus();
+    fireEvent.click(button()!);
+    fireEvent.click(button()!);
+    expect(e.refresh).toHaveBeenCalledTimes(1);
+    act(() => {
+      held.current!.setRefreshing("p1", true);
+      held.current!.setRefreshing("p1", false);
+    });
+    expect(button()).not.toHaveAttribute("aria-disabled");
+    expect(button()!.querySelector(".ui-spinner")).toBeNull();
+  });
+
+  // mutation: aria-hide the whole reserved line again -> red
+  it("keeps the button exposed in the reserved (no facts yet) state", () => {
+    metaMock.mockReturnValue(baseMeta);
+    renderWithProvider();
+    act(() => {
+      held.current!.register("p1", entry());
+    });
+    expect(document.querySelector(".dashboard-refresh-line")).toHaveAttribute(
+      "data-reserved",
+      "true",
+    );
+    expect(button()).not.toBeNull();
+  });
+
+  it("renders no button with no provider above", () => {
+    renderLine();
+    expect(button()).toBeNull();
   });
 });

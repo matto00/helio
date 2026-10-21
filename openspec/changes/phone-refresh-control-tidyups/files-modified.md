@@ -1,0 +1,16 @@
+- `e2e/hel1681-refresh-control.spec.ts` — new e2e (red first on base): button tap/keyboard/busy/no-button/desktop, measured 44px tap area, stack top stability, 768px crossing, settle label, chart-card regression
+- `e2e/hel1575-dashboard-tabs.spec.ts` — item 5: test-only fix, shift the change-signals `serverNow` by the same 16 minutes as the client clock jump
+- `DESIGN.md` — §10 pull entry (Refreshed settle state, guard) and §12 (Refresh dashboard button)
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.css` — refreshed line: inner clipped text span, button, 44px hit expander
+- `frontend/src/app/dashboardMeta/DashboardRefreshLine.tsx` — the "Refresh dashboard" button on the refreshed line
+- `frontend/src/app/dashboardMeta/DashboardRefreshLine.test.tsx` — reserved-slot aria-hidden moved to the text span; button tests
+- `frontend/src/features/panels/ui/PanelList.tsx` — wraps the whole section in the DOM-less PhoneDashboardRefreshProvider
+- `frontend/src/features/panels/ui/grid/pullRefreshRegistry.ts` — entry-count subscription, round source, provider, usePullRefreshControl
+- `frontend/src/features/panels/ui/grid/pullRefreshRegistry.test.ts` — entry notification and source tests
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.tsx` — uses the shared registry (fallback own), pull indicator for pull rounds only
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.pullRefresh.test.tsx` — shared-registry button round, disposal ownership
+- `frontend/src/features/panels/ui/grid/PullRefreshIndicator.tsx` — "Refreshed" done state with check glyph
+- `frontend/src/features/panels/ui/grid/PullRefreshIndicator.test.tsx` — new, label tests
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — guard comment for the indicator height; definite chart canvas height (item 2)
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css.test.ts` — item 3 CSS/JS guard, item 2 chart-height guard
+- `frontend/src/shared/motion/usePullToRefresh.ts` — `done` phase from the release that starts a Full-motion round
