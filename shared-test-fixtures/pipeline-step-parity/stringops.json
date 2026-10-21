@@ -964,6 +964,128 @@
       },
       "inputRows": [{ "s": "a" }],
       "expect": { "clientDeclines": "unsafeRegex", "scalaError": true }
+    },
+    {
+      "name": "regex declines: stacked unbounded quantifiers (backtracking-prone)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "^(a*a*a*a*a*a*a*a*a*a*)$"
+      },
+      "inputRows": [{ "s": "aaa" }, { "s": "ab" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "aaa", "s": "aaa" },
+          { "o": null, "s": "ab" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: stacked optional atoms (backtracking-prone)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "^(a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?)$"
+      },
+      "inputRows": [{ "s": "aaa" }, { "s": "b" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "aaa", "s": "aaa" },
+          { "o": null, "s": "b" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: stacked alternation groups (backtracking-prone)",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "^((a|a)(a|a)(a|a)(a|a)(a|a)(a|a)(a|a)(a|a))$"
+      },
+      "inputRows": [{ "s": "aaaaaaaa" }, { "s": "aab" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "aaaaaaaa", "s": "aaaaaaaa" },
+          { "o": null, "s": "aab" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: an unfenced wide pair around a nullable separator",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(\\d+)\\s*items"
+      },
+      "inputRows": [{ "s": "12  items" }, { "s": "x" }, { "s": "7items" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "12", "s": "12  items" },
+          { "o": null, "s": "x" },
+          { "o": "7", "s": "7items" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: a wide quantifier multiplied by optional atoms",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a*)a?a?a?a?a?a?b"
+      },
+      "inputRows": [{ "s": "aaab" }, { "s": "b" }, { "s": "ac" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "aaa", "s": "aaab" },
+          { "o": "", "s": "b" },
+          { "o": null, "s": "ac" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: a wide quantifier with a counted tail it can re-match",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "(a*)a{20}b"
+      },
+      "inputRows": [{ "s": "aaaaaaaaaaaaaaaaaaaaaaaaab" }, { "s": "aaaaaaaaaab" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "aaaaa", "s": "aaaaaaaaaaaaaaaaaaaaaaaaab" },
+          { "o": null, "s": "aaaaaaaaaab" }
+        ]
+      }
+    },
+    {
+      "name": "regex declines: optional atoms before a wide quantifier and a $ tail",
+      "config": {
+        "operation": "extractRegex",
+        "field": "s",
+        "outputColumn": "o",
+        "pattern": "\\d?\\d?(\\d+)$"
+      },
+      "inputRows": [{ "s": "123" }, { "s": "12" }, { "s": "1a" }],
+      "expect": {
+        "clientDeclines": "unsafeRegex",
+        "scalaRows": [
+          { "o": "3", "s": "123" },
+          { "o": "2", "s": "12" },
+          { "o": null, "s": "1a" }
+        ]
+      }
     }
   ]
 }
