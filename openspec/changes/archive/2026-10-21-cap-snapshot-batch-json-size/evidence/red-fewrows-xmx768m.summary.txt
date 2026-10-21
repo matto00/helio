@@ -1,0 +1,28 @@
+[info] - should stay at or under 192 MB (25% of the 768 MB production heap), real and dry *** FAILED ***
+[info] shape fewrows-utf16-200          real delta MB   294.8  succeeded, 200 rows
+[info] shape fewrows-utf16-200          dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-utf16-200          real delta MB   294.8  succeeded, 200 rows
+[info] shape fewrows-utf16-200          dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-utf16-20           real delta MB   256.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           dry  delta MB   133.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           real delta MB   256.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           dry  delta MB   133.4  succeeded, 20 rows
+[info] shape fewrows-utf16-1            real delta MB    14.0  refused: Pipeline execution failed at step 629da28a-9390-4adf-a40c-0fc5d2459f78 (compute) [path: root:1b2c702c-5fe9-4f5
+[info] shape fewrows-utf16-1            dry  delta MB    28.0  refused: Pipeline execution failed at step b954d36e-a57c-4516-bcde-26776ccf8610 (compute) [path: root:1e75b113-4cc8-4bb
+[info] shape fewrows-utf16-1            real delta MB    14.0  refused: Pipeline execution failed at step 62d1d7d0-7cbf-456c-8c4a-7b7870f5db34 (compute) [path: root:4e0a5794-fde9-456
+[info] shape fewrows-utf16-1            dry  delta MB    28.0  refused: Pipeline execution failed at step 68c09170-7648-412f-9160-bd43befc89cc (compute) [path: root:7ceda8d2-b68e-4ae
+[info] max over shapes MB: 294.8 (bound 192.0); largest swing between repeats of one shape: 0.0 MB (repeats: 2)
+[info] repeats fewrows-utf16-1            dry  MB 28.0, 28.0
+[info] repeats fewrows-utf16-1            real MB 14.0, 14.0
+[info] repeats fewrows-utf16-20           dry  MB 133.4, 133.4
+[info] repeats fewrows-utf16-20           real MB 256.4, 256.4
+[info] repeats fewrows-utf16-200          dry  MB 93.6, 93.6
+[info] repeats fewrows-utf16-200          real MB 294.8, 294.8
+[info] JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+[info] maxMemory MB: 768
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.RunPathHeapSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 15 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+exit 1

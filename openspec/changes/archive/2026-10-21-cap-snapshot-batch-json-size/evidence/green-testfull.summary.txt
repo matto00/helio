@@ -1,0 +1,5 @@
+[info] Suites: completed 674, aborted 0
+[info] Tests: succeeded 9406, failed 0, canceled 5, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 960 s (0:16:00.0), cache 52%, 366 disk cache hits, 337 onsite tasks
+exit 0

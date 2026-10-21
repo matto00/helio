@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.model.{AssertionSink, AuthenticatedUser, DataFieldType, PipelineId, PipelineRootId, PipelineStepId, TruncationSink}
-import com.helio.domain.engine.{NodeDependencyClosure, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, NodeKey, RootKey, StepKey}
+import com.helio.domain.engine.{JsonTextLength, NodeDependencyClosure, RunLimits, PipelineExecutionBackend, PipelineRowJson, SchemaField, SchemaInferenceEngine, NodeKey, RootKey, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -153,6 +153,13 @@ private[pipelines] final class PipelineRunBackfill(
     }
 
   private def persistBackfilledRows(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId]): Future[Unit] = {
+    // HEL-1679 (design.md D3): the same wide-row limit a run applies; a refused backfill writes nothing and fails through the callers' logged `.recover`.
+    if (rows.exists(row => RunLimits.rowTooWide(JsonTextLength.ofRow(row))))
+      Future.failed(new IllegalStateException(s"HEL-1679: backfill for pipeline ${pipelineId.value} not written: a row is wider than ${RunLimits.MaxRowRenderChars} characters as JSON"))
+    else persistBackfilledRowsWithinLimit(pipelineId, nodeKey, rows, explicitRootId)
+  }
+
+  private def persistBackfilledRowsWithinLimit(pipelineId: PipelineId, nodeKey: Option[PipelineStepId], rows: Seq[Map[String, Any]], explicitRootId: Option[PipelineRootId]): Future[Unit] = {
     val nodeJsRows = rows.map { rowMap =>
       JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
     }.toVector
