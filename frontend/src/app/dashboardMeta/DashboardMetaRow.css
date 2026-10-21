@@ -96,9 +96,64 @@
   align-items: center;
   height: calc(var(--text-xs) * 1.6);
   margin: 0 0 var(--space-2);
-  overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1;
   color: var(--app-text-muted);
+}
+
+/* HEL-1681: the text clips (not the line), so the button's hit expander can extend past the 19.2px slot without a
+ * long fact ever growing the line. */
+.dashboard-refresh-line__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The "Refresh dashboard" button: a square the line's height (token-derived like the line), glyph centred, Ghost recipe
+ * colours (DESIGN.md §5). The 44px tap area is the ::after below. */
+.dashboard-refresh-line__button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--text-xs) * 1.6);
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+.dashboard-refresh-line__button:hover {
+  background: var(--app-surface-soft);
+  color: var(--app-text);
+}
+
+.dashboard-refresh-line__button[aria-disabled="true"] {
+  cursor: progress;
+}
+
+/* Hit expander (shared/ui/tapTarget.css): exactly 44x44, inside `.panel-list`'s padding box. Its TOP sits at the top of
+ * the panel list's padding (the line is the list's first child, 20px down: --space-5), so it spans y 0..44 against the
+ * chip row starting at about y 47.2 (3.2px spare; this assumes a root font size of about 14.9px or more, since the line
+ * height and the 8px gap both scale with it). Its INLINE-END edge is the button's, so nothing crosses the list's right
+ * edge. Measured with elementFromPoint in e2e/hel1681-refresh-control.spec.ts. */
+@media (max-width: 768px), (pointer: coarse) {
+  .dashboard-refresh-line__button::after {
+    content: "";
+    position: absolute;
+    top: calc(-1 * var(--space-5));
+    right: 0;
+    width: 44px;
+    height: 44px;
+  }
 }

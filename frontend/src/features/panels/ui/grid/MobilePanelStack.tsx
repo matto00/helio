@@ -18,6 +18,7 @@
 
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -166,22 +167,30 @@ export function MobilePanelStack({
 
   // HEL-1656 pull-to-refresh: the registry fans one pull out to each output-bound panel's own refresh and reports when
   // they have all settled.
-  const [registry] = useState(() => new PullRefreshRegistry());
-  const [busy, setBusy] = useState(false);
+  // HEL-1681: with a `PhoneDashboardRefreshProvider` above (PanelList mounts one) the registry is the dashboard's, shared
+  // with the refreshed line's button, and is disposed by the provider. With none above (unit tests, any other mount) the
+  // stack creates and disposes its own, exactly as before.
+  const sharedRegistry = useContext(PullRefreshContext);
+  const [ownRegistry] = useState(() => new PullRefreshRegistry());
+  const registry = sharedRegistry ?? ownRegistry;
+  const [busy, setBusy] = useState(registry.busy);
+  // The pull indicator belongs to pull-started rounds; a button round shows its busy cue on the button only (D4).
+  const [pullRound, setPullRound] = useState(registry.source === "pull");
   const [announcement, setAnnouncement] = useState("");
   const [wrapperEl, setWrapperEl] = useState<HTMLDivElement | null>(null);
   const [stackEl, setStackEl] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
     const unsubscribe = registry.subscribe((next) => {
+      if (next) setPullRound(registry.source === "pull");
       setBusy(next);
       setAnnouncement(next ? "Refreshing" : "Refreshed");
     });
     return () => {
       unsubscribe();
-      registry.dispose();
+      if (registry === ownRegistry) ownRegistry.dispose();
     };
-  }, [registry]);
-  const handleRefresh = useCallback(() => registry.start(), [registry]);
+  }, [registry, ownRegistry]);
+  const handleRefresh = useCallback(() => registry.start("pull"), [registry]);
   const isPhoneShell = useIsPhoneShell();
   const pull = usePullToRefresh({
     root: stackEl,
@@ -195,8 +204,12 @@ export function MobilePanelStack({
     <PullRefreshContext.Provider value={registry}>
       <div className="mobile-panel-pull" ref={setWrapperEl}>
         <div className="mobile-panel-stack" ref={setStackEl}>
-          {pull.active || busy ? (
-            <PullRefreshIndicator phase={pull.phase} busy={busy} follows={pull.follows} />
+          {pull.active || (busy && pullRound) ? (
+            <PullRefreshIndicator
+              phase={pull.phase}
+              busy={busy && pullRound}
+              follows={pull.follows}
+            />
           ) : null}
           {orderedPanels.map((panel) => {
             if (panel.type === "divider") {
