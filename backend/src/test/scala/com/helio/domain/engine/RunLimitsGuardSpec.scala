@@ -14,6 +14,9 @@ class RunLimitsGuardSpec extends AnyWordSpec with Matchers {
 
   private val MeasuredCeiling = 2600000L
 
+  /** The widest-row limit the HEL-1679 measurement certified (`evidence/`); raise `MaxRowRenderChars` past it only by re-measuring. */
+  private val MeasuredRowRenderChars = 2000000L
+
   private def cells(n: Long): Seq[Row] = Vector.tabulate(n.toInt)(i => Map[String, Any]("v" -> i))
 
   "the run limits" should {
@@ -63,6 +66,54 @@ class RunLimitsGuardSpec extends AnyWordSpec with Matchers {
 
     "trip when the post-walk limit is raised past the measured ceiling (a tripwire on the constant, not a proof of memory)" in {
       RunLimits.MaxPostWalkCells should be <= 3900000L
+    }
+  }
+
+  "the widest-row render limit (HEL-1679, design.md D3)" should {
+    // A one-column row whose compactPrint is exactly `n` characters: {"v":"<n - 8 x>"}.
+    def rowOf(n: Long): Map[String, Any] = Map("v" -> ("x" * (n - 8).toInt))
+    def outcomes(terminal: Seq[Row], retained: Seq[Row]): (Map[NodeKey, NodeOutcome], Set[NodeKey]) =
+      (Map[NodeKey, NodeOutcome](StepKey("t") -> NodeOutcome(terminal, terminal.size.toLong), StepKey("o") -> NodeOutcome(retained, retained.size.toLong)), Set[NodeKey](StepKey("o")))
+    val narrow: Seq[Row] = Vector(rowOf(100))
+
+    "stay at or above the ruling-4 floor (a row holding one 1,048,576-character value renders 1,048,584 characters) and at or below the certified value" in {
+      JsonTextLength.ofRow(rowOf(1048584L)) shouldBe 1048584L
+      RunLimits.MaxRowRenderChars should be >= 1048584L
+      RunLimits.MaxRowRenderChars should be <= MeasuredRowRenderChars
+    }
+
+    "accept a row of exactly the limit and refuse one character over (terminal frame)" in {
+      val (o, retain) = outcomes(Vector(rowOf(RunLimits.MaxRowRenderChars)), narrow)
+      val terminal    = o(StepKey("t")).rows
+      RunLimits.widestRetainedRowChars(o, retain, terminal) shouldBe RunLimits.MaxRowRenderChars
+      RunLimits.widestRetainedRowChars(o, retain, terminal) should be <= RunLimits.MaxRowRenderChars
+      val (o2, retain2) = outcomes(Vector(rowOf(RunLimits.MaxRowRenderChars + 1)), narrow)
+      RunLimits.widestRetainedRowChars(o2, retain2, o2(StepKey("t")).rows) should be > RunLimits.MaxRowRenderChars
+    }
+
+    "treat exactly the limit as writable and one character more as too wide" in {
+      RunLimits.rowTooWide(RunLimits.MaxRowRenderChars) shouldBe false
+      RunLimits.rowTooWide(RunLimits.MaxRowRenderChars + 1) shouldBe true
+      RunLimits.rowTooWide(0L) shouldBe false
+    }
+
+    "see a too-wide row in a retained Output frame even when the terminal is narrow, and ignore a wide frame nobody retains" in {
+      val wide        = Vector(rowOf(RunLimits.MaxRowRenderChars + 1))
+      val (o, retain) = outcomes(narrow, wide)
+      RunLimits.widestRetainedRowChars(o, retain, o(StepKey("t")).rows) should be > RunLimits.MaxRowRenderChars
+      RunLimits.widestRetainedRowChars(o, Set.empty, o(StepKey("t")).rows) should be <= 100L
+    }
+
+    "measure the widest of many rows, and 0 for no rows" in {
+      RunLimits.widestRowChars(Vector(rowOf(50), rowOf(500), rowOf(70))) shouldBe 500L
+      RunLimits.widestRowChars(Vector.empty) shouldBe 0L
+    }
+
+    "leave the AC6 post-walk pin and the walk constants unchanged" in {
+      RunLimits.MaxPostWalkCells shouldBe 3900000L
+      RunLimits.MaxLiveCells shouldBe 2600000L
+      RunLimits.MaxStringChars shouldBe 1048576
+      RunLimits.MaxNodeRows shouldBe 100000
     }
   }
 }

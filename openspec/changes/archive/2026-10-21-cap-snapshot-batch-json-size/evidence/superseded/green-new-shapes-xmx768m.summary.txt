@@ -1,0 +1,78 @@
+[info] shape fewrows-utf16-200          real delta MB    97.7  succeeded, 200 rows
+[info] shape fewrows-utf16-200          dry  delta MB    93.7  succeeded, 200 rows
+[info] shape fewrows-utf16-200          real delta MB    96.9  succeeded, 200 rows
+[info] shape fewrows-utf16-200          dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-utf16-200          real delta MB    96.9  succeeded, 200 rows
+[info] shape fewrows-utf16-200          dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-utf16-20           real delta MB   142.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           dry  delta MB   133.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           real delta MB   142.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           dry  delta MB   133.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           real delta MB   142.4  succeeded, 20 rows
+[info] shape fewrows-utf16-20           dry  delta MB   133.4  succeeded, 20 rows
+[info] shape fewrows-utf16-1            real delta MB    14.0  refused: Pipeline execution failed at step b031367a-ea2b-4047-9d15-fa6430d79268 (compute) [path: root:8333eb11-ef76-464
+[info] shape fewrows-utf16-1            dry  delta MB    28.0  refused: Pipeline execution failed at step c99f6c5b-383e-493e-9b74-b26adb02a077 (compute) [path: root:57a08668-8999-424
+[info] shape fewrows-utf16-1            real delta MB    14.0  refused: Pipeline execution failed at step cb90bb5d-c271-48b1-8446-f57b40d47ad3 (compute) [path: root:f970cdda-ca70-4ae
+[info] shape fewrows-utf16-1            dry  delta MB    28.0  refused: Pipeline execution failed at step 83a496c8-7910-4b2e-9561-dea75938b202 (compute) [path: root:e507c6b3-e210-4b6
+[info] shape fewrows-utf16-1            real delta MB    28.0  refused: Pipeline execution failed at step b623e0fa-fb33-4acc-880b-82c57f3332b1 (compute) [path: root:655a89b5-dea5-4e6
+[info] shape fewrows-utf16-1            dry  delta MB    28.0  refused: Pipeline execution failed at step 7166a007-341f-4a69-875f-9d4a93c2d132 (compute) [path: root:5a659c50-2cfb-460
+[info] shape fewrows-utf16-1w           real delta MB     7.0  refused: Pipeline execution failed at step 72f46476-fb5a-4bd5-a912-ec33b8640119 (compute): Pipeline run memory limit re
+[info] shape fewrows-utf16-1w           dry  delta MB     7.0  succeeded, 1 rows
+[info] shape fewrows-utf16-1w           real delta MB     7.0  refused: Pipeline execution failed at step 9d26f827-98b0-45a6-9aa0-2a2bfd55fc08 (compute): Pipeline run memory limit re
+[info] shape fewrows-utf16-1w           dry  delta MB     7.0  succeeded, 1 rows
+[info] shape fewrows-utf16-1w           real delta MB     7.0  refused: Pipeline execution failed at step 88d10cdb-9db3-4a30-ac7e-92a3730abcbd (compute): Pipeline run memory limit re
+[info] shape fewrows-utf16-1w           dry  delta MB     7.0  succeeded, 1 rows
+[info] shape fewrows-payload-200        real delta MB    96.9  succeeded, 200 rows
+[info] shape fewrows-payload-200        dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-payload-200        real delta MB    96.9  succeeded, 200 rows
+[info] shape fewrows-payload-200        dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-payload-200        real delta MB    96.9  succeeded, 200 rows
+[info] shape fewrows-payload-200        dry  delta MB    93.6  succeeded, 200 rows
+[info] shape post-wide-4@3900000        real delta MB   130.6  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.6  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.2  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   130.5  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   132.8  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.2  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.3  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.8  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   140.7  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.8  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.0  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   140.6  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.0  succeeded, 50000 rows
+[info] shape rowwidth-over              real delta MB    80.0  refused: Pipeline execution failed at step 8b2f6e5f-04c3-4922-8ea1-7ba31e833741 (compute): Pipeline run memory limit re
+[info] shape rowwidth-over              dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-over              real delta MB    80.1  refused: Pipeline execution failed at step 92e84370-f950-47bc-a150-9928701a9c98 (compute): Pipeline run memory limit re
+[info] shape rowwidth-over              dry  delta MB    80.4  succeeded, 50000 rows
+[info] shape rowwidth-over              real delta MB    80.2  refused: Pipeline execution failed at step d269c6d1-2bd2-4d4c-a5ce-cc321cf162a6 (compute): Pipeline run memory limit re
+[info] shape rowwidth-over              dry  delta MB    80.2  succeeded, 50000 rows
+[info] max over shapes MB: 142.4 (bound 192.0); largest swing between repeats of one shape: 14.0 MB (repeats: 3)
+[info] repeats fewrows-payload-200        dry  MB 93.6, 93.6, 93.6
+[info] repeats fewrows-payload-200        real MB 96.9, 96.9, 96.9
+[info] repeats fewrows-utf16-1            dry  MB 28.0, 28.0, 28.0
+[info] repeats fewrows-utf16-1            real MB 14.0, 14.0, 28.0
+[info] repeats fewrows-utf16-1w           dry  MB 7.0, 7.0, 7.0
+[info] repeats fewrows-utf16-1w           real MB 7.0, 7.0, 7.0
+[info] repeats fewrows-utf16-20           dry  MB 133.4, 133.4, 133.4
+[info] repeats fewrows-utf16-20           real MB 142.4, 142.4, 142.4
+[info] repeats fewrows-utf16-200          dry  MB 93.7, 93.6, 93.6
+[info] repeats fewrows-utf16-200          real MB 97.7, 96.9, 96.9
+[info] repeats post-wide-4@3900000        dry  MB 72.0, 72.2, 72.0
+[info] repeats post-wide-4@3900000        real MB 130.6, 132.6, 130.5
+[info] repeats rowwidth-at-limit          dry  MB 80.1, 80.0, 80.0
+[info] repeats rowwidth-at-limit          real MB 140.7, 138.8, 140.6
+[info] repeats rowwidth-base              dry  MB 72.2, 72.0, 72.1
+[info] repeats rowwidth-base              real MB 132.8, 130.3, 130.8
+[info] repeats rowwidth-over              dry  MB 80.1, 80.4, 80.2
+[info] repeats rowwidth-over              real MB 80.0, 80.1, 80.2
+[info] JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+[info] maxMemory MB: 768
+01:43:13.962 INFO  [postgres:pid(350246)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-21 01:43:13.962 PDT [350249] LOG:  background worker "logical replication launcher" (PID 350256) exited with exit code 1
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+exit 0

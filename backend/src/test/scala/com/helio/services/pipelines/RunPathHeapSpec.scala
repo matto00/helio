@@ -1,18 +1,19 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.engine.PipelineRowJson.Row
-import com.helio.domain.engine.{InProcessPipelineEngine, NodeKey, RunLimits, TreeWalkResult}
+import com.helio.domain.engine.{InProcessExecutionBackend, InProcessPipelineEngine, JsonTextLength, NodeKey, RunLimits, TreeWalkResult}
 import com.helio.domain.model._
 import com.helio.domain.steps._
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
+import com.helio.spark.PipelineRunCache
 import com.helio.testsupport.RunServiceHarness
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.dbio.DBIO
-import spray.json.JsObject
+import spray.json.{JsBoolean, JsObject}
 
 import java.lang.management.ManagementFactory
 import java.nio.charset.StandardCharsets
@@ -76,10 +77,20 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
   private val repeats = sys.env.get("HELIO_RUN_HEAP_REPEATS").map(_.toInt).getOrElse(1)
   private val only    = sys.env.get("HELIO_RUN_HEAP_ONLY").map(_.split(",").toSeq.map(_.trim)).getOrElse(Seq.empty)
 
-  private def measure(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean = true): Unit =
-    if (only.isEmpty || only.exists(name.startsWith)) (1 to repeats).foreach(_ => measureOnce(name, build, real))
+  private def measure(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean = true, runner: => PipelineRunService = service): Unit =
+    if (only.isEmpty || only.exists(name.startsWith)) (1 to repeats).foreach(_ => measureOnce(name, build, real, runner))
 
-  private def measureOnce(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean): Unit =
+  /** The same service as the harness's, plus the history-payload repository (HEL-1276), for the opted-in payload shape (HEL-1679 D4). */
+  private lazy val payloadService: PipelineRunService = {
+    val ctx = new DbContext(db, db)
+    new PipelineRunService(
+      pipelineRepo, stepRepo, dataSourceRepo, pipelineRunRepo, new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
+      executionBackend = new InProcessExecutionBackend(engineOver(new LocalFileSystem(Paths.get("/"))), stepRepo), outputRepo = outputRepo,
+      nodeSnapshotRepo = snapshotRepoOver(ctx), outputHistoryRepo = new OutputHistoryRepository(ctx), nodePayloadRepo = new NodePayloadHistoryRepository(ctx)
+    )
+  }
+
+  private def measureOnce(name: String, build: => (PipelineId, Vector[PipelineStep]), real: Boolean, runner: => PipelineRunService): Unit =
     Seq(true, false).filter(isReal => real || !isReal).foreach { isReal =>
       val (pid, _) = build
       peak = 0L
@@ -90,7 +101,7 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       val sampler = new Thread(() => while (sampling) { sample(); Thread.sleep(150) }, "heap-sampler")
       sampler.setDaemon(true); sampler.start()
       val outcome =
-        try awaitDb(service.submit(pid, isDry = !isReal, owner)) match {
+        try awaitDb(runner.submit(pid, isDry = !isReal, owner)) match {
           case Right(r) => s"succeeded, ${r.rowCount} rows"
           case Left(e)  => "refused: " + e.message.take(110)
         } finally { sampling = false; sampler.join() }
@@ -131,6 +142,43 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     terminalOutput(pid, c)
   }
 
+  /** HEL-1679: `rows` x 2 CSV of `cellChars`-character text (the same total text however it is split across rows), then 3 UTF-16 concat steps and an
+   *  Output on the terminal: the shapes whose snapshot write is bounded by row WIDTH, not by row count. `fewrows-utf16-200` is skeptic-final-3's. */
+  private def fewRowsUtf16(rows: Int, cellChars: Int): (PipelineId, Vector[PipelineStep]) = {
+    val pid = seedPipeline(seedCsvSource(rows, 2, (r, c) => ("t" * (cellChars - 2)) + f"$c%d$r%03d".takeRight(2)))
+    terminalOutput(pid, chain(pid, None, textHeavySteps(RunLimits.MaxLiveCells), "concat($a, $b, \"ж\")"))
+  }
+
+  /** `fewrows-utf16-200` with a history payload opted in on the terminal Output and the owner on the `owner` tier (HEL-1276): the node's payload is far over
+   *  `PAYLOAD_HISTORY_MAX_BYTES`, so it is measured and not stored; before HEL-1679 it was rendered whole first. */
+  private def fewRowsPayload(rows: Int, cellChars: Int): (PipelineId, Vector[PipelineStep]) = {
+    import slick.jdbc.PostgresProfile.api._
+    awaitDb(db.run(sqlu"UPDATE users SET tier = 'owner' WHERE id = $ownerId::uuid"))
+    val pid   = seedPipeline(seedCsvSource(rows, 2, (r, c) => ("t" * (cellChars - 2)) + f"$c%d$r%03d".takeRight(2)))
+    val steps = chain(pid, None, textHeavySteps(RunLimits.MaxLiveCells), "concat($a, $b, \"ж\")")
+    awaitDb(outputRepo.insertInternal(pid, Some(steps.last.id), UserId(ownerId), "payload", OutputKind.Table, JsObject("historyPayloads" -> JsBoolean(true)), explicitRootId = None))
+    (pid, steps)
+  }
+
+  /** HEL-1679 (design.md D3): `post-wide-4@3.9M`'s retained state (a 7-step chain over a 50,000 x 6 CSV, Outputs on the terminal and its parent: HEL-1660's
+   *  heaviest, 164.4 MB) plus ONE wide row. The row is row 0 of the source, its column `b` (a column the chain never touches) holding `wideChars` three-byte
+   *  UTF-8 characters (`中`, so the driver's UTF-8 encode cost is measured; CSV cells are not capped by `MaxStringChars`). `rowChars` is the terminal row's
+   *  exact rendered JSON length; `None` builds the BASELINE (the same shape with a one-character cell in `b`). */
+  private val RowWidthSteps = 7
+  private def wideRowOverhead: Long = {
+    val values = Seq("a" -> "a0", "b" -> "", "c" -> "c0", "d" -> "d0", "e" -> "e0", "f" -> "f0") ++ (1 to RowWidthSteps).map(n => s"c$n" -> "a0f0")
+    JsonTextLength.ofRow(values.toMap)
+  }
+  private def wideRowPipeline(rowChars: Option[Long]): (PipelineId, Vector[PipelineStep]) = {
+    val width = rowChars.fold(1L)(_ - wideRowOverhead)
+    require(width >= 1, s"row width $rowChars is below the row's own overhead")
+    val wide  = "中" * width.toInt
+    val pid   = seedPipeline(seedCsvSource(50000, 6, (r, c) => if (r == 0 && c == 1) wide else s"${('a' + c).toChar}$r"))
+    val c     = chain(pid, None, RowWidthSteps, "concat($a, $f)")
+    addOutput(pid, c(RowWidthSteps - 2), "parent")
+    terminalOutput(pid, c)
+  }
+
   /** One root row carrying `text` in `pad`, joined to a 10,000-row lane: 10,000 rows that all SHARE the text (cheap), then `last`. */
   private def fanOutPipeline(text: String, last: PipelineId => Option[PipelineStep] => PipelineStep): (PipelineId, Vector[PipelineStep]) = {
     val root = seedDatasetSource(Vector("k", "i", "pad"), Vector(Vector("x", "0", text)))
@@ -150,6 +198,12 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
     sys.env.get("HELIO_RUN_POST_SWEEP").map(_.split(",").toSeq.map(_.trim.toLong)).getOrElse(Seq(RunLimits.MaxPostWalkCells))
 
   private lazy val measured: Seq[Measured] = {
+    // HEL-1679: long-text shapes of few rows (the same ~14M characters of source text split 200, 20 and 1 ways).
+    measure("fewrows-utf16-200", fewRowsUtf16(200, 35000))
+    measure("fewrows-utf16-20", fewRowsUtf16(20, 350000))
+    measure("fewrows-utf16-1", fewRowsUtf16(1, 7000000))
+    measure("fewrows-utf16-1w", fewRowsUtf16(1, 500000))
+    measure("fewrows-payload-200", fewRowsPayload(200, 35000), runner = payloadService)
     measure("ac6-ordinary", { val pid = seedPipeline(sixColumns(50000)); val c = chain(pid, None, 10, "concat($a, $f)"); addOutput(pid, c(4), "middle"); terminalOutput(pid, c) })
     measure("join-fan-out", {
       val pid = seedPipeline(seedCsvSource(300, 6, (r, c) => if (c == 0) "k" else s"l$r"))
@@ -208,6 +262,13 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
         terminalOutput(pid, u +: chain(pid, Some(u), steps, "concat($a, $val)"))
       })
     }
+    // HEL-1679 D3: the joint worst. `rowwidth-base` has no wide cell; `rowwidth-at-limit` has one row of exactly the limit (HELIO_RUN_ROW_CHARS
+    // overrides it for a sweep); `rowwidth-over` is one character past it and must be refused with the run-limit step error.
+    Seq(sys.env.get("HELIO_RUN_ROW_CHARS").map(_.toLong).getOrElse(RunLimits.MaxRowRenderChars)).foreach { limit =>
+      measure("rowwidth-base", wideRowPipeline(None))
+      measure("rowwidth-at-limit", wideRowPipeline(Some(limit)))
+      measure("rowwidth-over", wideRowPipeline(Some(limit + 1)))
+    }
     sweep.foreach { budget =>
       measure(s"just-under-light@$budget", { val pid = seedPipeline(sixColumns(50000)); terminalOutput(pid, chain(pid, None, textLightSteps(budget), "concat($a, $f)")) })
       measure(s"just-under-heavy@$budget", textHeavy(textHeavySteps(budget)))
@@ -226,6 +287,9 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       val all     = measured
       val maxPeak = all.map(_.deltaMb).max
       val flags   = ManagementFactory.getRuntimeMXBean.getInputArguments.asScala.mkString(" ")
+      // HEL-1679: the per-row width check's own cost on the largest shape (50,000 rows x 13 columns, the `post-wide-4` terminal's size).
+      val scanRows = Vector.tabulate(50000)(r => (0 until 13).map(c => s"c$c" -> (s"v$c-$r": Any)).toMap)
+      val scanNs   = (1 to 5).map { _ => val t0 = System.nanoTime(); RunLimits.widestRowChars(scanRows); System.nanoTime() - t0 }.min
       val report =
         f"""HEL-1660 task 3.3 heap measurement (RunPathHeapSpec)
            |method: System.gc() x2, used heap before the run; again at every node boundary and before every node snapshot write; delta = max sample - before
@@ -233,6 +297,7 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
            |${all.map(m => f"shape ${m.name}%-26s ${m.mode}%-4s delta MB ${m.deltaMb}%7.1f  ${m.outcome}").mkString("\n")}
            |max over shapes MB: $maxPeak%.1f (bound 192.0); largest swing between repeats of one shape: ${swing(all)}%.1f MB (repeats: $repeats)
            |${all.groupBy(m => (m.name, m.mode)).toSeq.sortBy(_._1).map { case ((n, md), ms) => f"repeats $n%-26s $md%-4s MB ${ms.map(m => f"${m.deltaMb}%.1f").mkString(", ")}" }.mkString("\n")}
+           |HEL-1679 row-width scan (RunLimits.widestRowChars over 50,000 rows x 13 columns, best of 5): ${scanNs / 1000000.0}%.1f ms
            |JVM flags: $flags
            |maxMemory MB: ${Runtime.getRuntime.maxMemory / 1048576}
            |""".stripMargin

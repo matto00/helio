@@ -156,6 +156,30 @@ class NodePayloadHistoryWriteSpec extends AnyWordSpec with Matchers with BeforeA
       (size - 1) should be >= chars
     }
 
+    // HEL-1679 (design.md D4): the node's size is measured before its text is built, so an over-cap node is never rendered.
+    "never render an over-cap node's payload text, and render an under-cap node exactly once" in {
+      val owner = seedUser("owner")
+      val rows  = Seq("é€é" -> "1", "ünï" -> "2")
+      val probe = seedPayloadPipeline(owner, rows = rows)
+      run(owner, probe) shouldBe a[Right[_, _]]
+      val size = awaitDb(db.run(sql"SELECT byte_size FROM node_payload_history WHERE pipeline_id = ${probe.pid.value}".as[Int].head))
+
+      def renderCount(fx: PayloadFx, config: PayloadHistoryConfig): (Int, Boolean) = {
+        var renders = 0
+        val counting = new NodePayloadHistoryRepository(ctx) {
+          override protected[helio] def render(rows: Vector[JsObject]): String = { renders += 1; super.render(rows) }
+        }
+        val svc = new PipelineRunService(
+          pipelineRepo, stepRepo, dataSourceRepo, runRepo, new PipelineRunCache(), registry = null, new LocalFileSystem(Paths.get("/")),
+          outputRepo = outputRepo, nodeSnapshotRepo = snapshotRepo, outputHistoryRepo = historyRepo, nodePayloadRepo = counting, payloadConfig = config
+        )
+        awaitDb(svc.submit(fx.pid, isDry = false, user(owner))) shouldBe a[Right[_, _]]
+        (renders, payloadCount(fx.pid.value) == 1)
+      }
+      renderCount(seedPayloadPipeline(owner, rows = rows), cfg(bytes = size - 1)) shouldBe ((0, false))
+      renderCount(seedPayloadPipeline(owner, rows = rows), cfg(bytes = size)) shouldBe ((1, true))
+    }
+
     "log NO over-cap WARN for a free-tier opted-in node that is over both caps" in {
       val owner = seedUser("free")
       val fx    = seedPayloadPipeline(owner)

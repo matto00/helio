@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.domain.engine.{JsonTextLength, RunLimits}
 import com.helio.domain.model.{DataFieldType, Page, PagedResult}
 import com.helio.infrastructure.persistence.DbContext
 import slick.jdbc.PostgresProfile.api._
@@ -128,11 +129,33 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
   ): Future[Unit] =
     ctx.withSystemContext(overwriteRowsAction(pipelineId, nodeStepId, rows, explicitRootId, guard).andThen(andThen))
 
+  private[persistence] val SnapshotInsertBatchSize = 200
+
+  /** HEL-1679 (design.md D2): a batch also closes once its rendered JSON text would pass this many characters (at least one row per batch), so a
+   *  node of few, very wide rows is not rendered in one go. Never more than a row the run limit lets through (`RunLimits.MaxRowRenderChars`). */
+  private[persistence] val SnapshotBatchMaxChars: Long = math.min(1048576L, RunLimits.MaxRowRenderChars)
+
+  /** Split `rows` into insert batches without rendering anything: a batch closes at `SnapshotInsertBatchSize` rows, or when the next row
+   *  would take its exact rendered length past `maxChars`; a batch always holds at least one row. Each entry keeps the row's index. */
+  private[persistence] def batchesOf(rows: Seq[JsObject], maxChars: Long): Iterator[Vector[(JsObject, Int)]] = {
+    val out     = Vector.newBuilder[Vector[(JsObject, Int)]]
+    var current = Vector.newBuilder[(JsObject, Int)]
+    var count   = 0
+    var chars   = 0L
+    rows.iterator.zipWithIndex.foreach { case (row, idx) =>
+      val len = JsonTextLength.chars(row)
+      if (count > 0 && (count >= SnapshotInsertBatchSize || chars + len > maxChars)) {
+        out += current.result(); current = Vector.newBuilder; count = 0; chars = 0L
+      }
+      current += ((row, idx)); count += 1; chars += len
+    }
+    if (count > 0) out += current.result()
+    out.result().iterator
+  }
+
   /** The replace as a composable `DBIO` (unchanged SQL); runs nothing by itself. HEL-1518: `guard` (the success
    *  chain's run guard) runs as the transaction's FIRST action, so a failing guard rolls back having written nothing;
    *  `None` (backfill, other callers) leaves the replace exactly as before. */
-  private[persistence] val SnapshotInsertBatchSize = 200
-
   def overwriteRowsAction(
       pipelineId: String,
       nodeStepId: Option[String],
@@ -180,7 +203,7 @@ class NodeSnapshotRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
             sqlu"INSERT INTO node_snapshots (pipeline_id, node_step_id, row_index, data) VALUES ($pipelineId, NULL, $idx, $jsonStr::jsonb)"
         }
       }: _*)
-      rows.zipWithIndex.grouped(SnapshotInsertBatchSize).foldLeft(deleteAction.map(_ => ()): DBIO[Unit]) { (acc, batch) =>
+      batchesOf(rows, SnapshotBatchMaxChars).foldLeft(deleteAction.map(_ => ()): DBIO[Unit]) { (acc, batch) =>
         acc.andThen(DBIO.successful(()).flatMap(_ => insertBatch(batch)))
       }
     }

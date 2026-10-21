@@ -273,14 +273,20 @@ private[pipelines] final class PipelineRunExecutor(
   }
 
   /** HEL-1660 (owner ruling 3): the walk's live-cell budget cannot see the JSON copies the success path makes, so a real run whose retained
-   *  frames plus those copies pass `RunLimits.MaxPostWalkCells` fails here, as its terminal step's error, before any write. */
+   *  frames plus those copies pass `RunLimits.MaxPostWalkCells` (or that holds a row wider than `RunLimits.MaxRowRenderChars` as JSON) fails
+   *  here, as its terminal step's error, before any write. */
   private def refuseOverPostWalkBudget(terminalRows: Seq[Map[String, Any]], nodeOutcomes: Map[NodeKey, NodeOutcome], retain: Set[NodeKey], steps: Vector[PipelineStep]): Unit = {
-    val cells = RunLimits.postWalkCells(nodeOutcomes, retain, terminalRows)
-    if (cells > RunLimits.MaxPostWalkCells) {
+    def fail(message: String): Nothing = {
       val terminal = nodeOutcomes.collectFirst { case (StepKey(id), o) if o.rows eq terminalRows => id }.flatMap(id => steps.find(_.id.value == id))
-      val message  = s"Pipeline run memory limit reached: the finished run would hold about $cells cells (its Outputs' rows and their copies), more than ${RunLimits.MaxPostWalkCells}. Reduce the rows or columns, or keep fewer large Outputs."
       throw new StepExecutionException(terminal.fold("root")(_.id.value), terminal.fold("root")(_.kind), message, new StepConfigError(message))
     }
+    val cells = RunLimits.postWalkCells(nodeOutcomes, retain, terminalRows)
+    if (cells > RunLimits.MaxPostWalkCells)
+      fail(s"Pipeline run memory limit reached: the finished run would hold about $cells cells (its Outputs' rows and their copies), more than ${RunLimits.MaxPostWalkCells}. Reduce the rows or columns, or keep fewer large Outputs.")
+    // HEL-1679 (design.md D3): the snapshot write renders a batch of rows at a time but cannot split a row, so one row's rendered JSON is bounded too.
+    val widest = RunLimits.widestRetainedRowChars(nodeOutcomes, retain, terminalRows)
+    if (RunLimits.rowTooWide(widest))
+      fail(s"Pipeline run memory limit reached: a finished row would be $widest characters wide as JSON, more than ${RunLimits.MaxRowRenderChars}. Shorten the text in the row, or drop its widest columns.")
   }
 
   /** The `Success(...)` branch of `executeRun`'s original inline `transformWith` (HEL-505:
