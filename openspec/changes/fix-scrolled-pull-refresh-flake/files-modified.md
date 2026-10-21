@@ -1,0 +1,10 @@
+- `e2e/hel1656-pull-to-refresh.spec.ts` — scrolled-page test waits on settled layout/scroll, starts the drag on a Notes card, guards the touch point (touch-action, nested scrollers)
+- `openspec/changes/fix-scrolled-pull-refresh-flake/ticket.md` — change artifact
+- `openspec/changes/fix-scrolled-pull-refresh-flake/proposal.md` — change artifact
+- `openspec/changes/fix-scrolled-pull-refresh-flake/design.md` — change artifact
+- `openspec/changes/fix-scrolled-pull-refresh-flake/tasks.md` — tasks marked done
+- `openspec/changes/fix-scrolled-pull-refresh-flake/skeptic-design-1.md` — design-gate report
+- `openspec/changes/fix-scrolled-pull-refresh-flake/files-modified.md` — this handoff
+- `openspec/changes/fix-scrolled-pull-refresh-flake/.openspec.yaml` — change metadata
+- `openspec/changes/fix-scrolled-pull-refresh-flake/evaluation-1.md` — evaluator report
+- `openspec/changes/fix-scrolled-pull-refresh-flake/skeptic-final-1.md` — final-gate report
