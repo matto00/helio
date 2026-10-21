@@ -1,6 +1,6 @@
 package com.helio.api.routes.pipelines
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, StatusCodes}
 import spray.json._
 
 /** Route-level coverage for `POST /api/pipelines/apply-proposal` (HEL-383)
@@ -30,6 +30,10 @@ class PipelineApplyProposalSpec extends PipelineApplyProposalSpecBase {
           |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
+        // HEL-1693 G2: the body embeds the run result and is streamed (chunked) compact JSON, byte-identical to spray's compact rendering.
+        chunks should not be empty
+        contentType shouldBe ContentTypes.`application/json`
+        responseAs[String] shouldBe responseAs[String].parseJson.compactPrint
         val obj = responseAs[String].parseJson.asJsObject
         obj.fields("sources").convertTo[Vector[JsValue]].head.asJsObject.fields("type").convertTo[String] shouldBe "dataset"
         obj.fields("pipeline").asJsObject.fields("name").convertTo[String] shouldBe "Static Pipeline"

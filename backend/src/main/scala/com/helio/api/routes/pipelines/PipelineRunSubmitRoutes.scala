@@ -1,6 +1,6 @@
 package com.helio.api.routes.pipelines
 
-import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.{RunResponseMarshalling, ServiceResponse}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.server.Route
@@ -26,7 +26,7 @@ final class PipelineRunSubmitRoutes(runService: PipelineRunService, user: Authen
           parameter("dry".?) { dryParam =>
             val isDry = dryParam.contains("true")
             ServiceResponse.run(runService.submit(pipelineId, isDry, user)) { result =>
-              StatusCodes.OK -> result
+              RunResponseMarshalling.chunkedJson(StatusCodes.OK, result)
             }
           }
         }
