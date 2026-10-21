@@ -1,0 +1,10 @@
+- `e2e/hel516-palette-quick-create.spec.ts` — section-order test: one page load per boot (API register + cookie into a fresh browser context), comment states the budget reason
+- `openspec/changes/palette-order-test-boot-budget/tasks.md` — tasks marked done
+- `openspec/changes/palette-order-test-boot-budget/files-modified.md` — this handoff
+- `openspec/changes/palette-order-test-boot-budget/.openspec.yaml` — change metadata (`skip_specs: true`; orchestrator)
+- `openspec/changes/palette-order-test-boot-budget/ticket.md` — ticket context (orchestrator)
+- `openspec/changes/palette-order-test-boot-budget/proposal.md` — proposal (orchestrator)
+- `openspec/changes/palette-order-test-boot-budget/design.md` — design (orchestrator)
+- `openspec/changes/palette-order-test-boot-budget/skeptic-design-1.md` — design-gate report (skeptic)
+- `openspec/changes/palette-order-test-boot-budget/evaluation-1.md` — evaluation report (evaluator)
+- `openspec/changes/palette-order-test-boot-budget/skeptic-final-1.md` — final-gate report (skeptic)

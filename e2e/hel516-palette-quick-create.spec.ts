@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { recordRegisteredUser } from "./support/userCleanup";
 import { isolateLivePage } from "./support/isolateLivePage";
-import { registerAndLogin } from "./support/auth";
+import { registerAndLogin, registerUser } from "./support/auth";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -237,19 +237,34 @@ test.describe("HEL-516 design.md D3a — the StrictMode-masked production defect
 // user-visible symptom, repeatedly, in a real browser.
 test.describe("HEL-516 palette quick-create — section order determinism", () => {
   test("section order is identical across 5 independent fresh page loads", async ({
-    page,
+    browser,
     request,
+    baseURL,
   }) => {
+    // HEL-1689 — a time-budget fix, not a readiness fix. Five boots through `registerAndLogin({ waitForShell })`
+    // cost three page loads each (`/login`, `/home`, `/dashboards`), about 5.5-6.5 s per boot on CI, so the test
+    // sat at 22-28 s of its 30 s budget and a slow runner tipped the fifth `openPalette` over. Each boot is now
+    // ONE page load: register over the API, hand that user's session cookie to a brand-new browser context
+    // (empty origin storage, so the boots are independent), open `/dashboards`, wait for the shell, open the
+    // palette. The timeouts are untouched.
     const orders: string[][] = [];
     for (let i = 0; i < 5; i++) {
-      // Each iteration is a genuinely fresh boot: an already-authenticated session left over
-      // from the PREVIOUS iteration makes `PublicOnlyRoute` redirect `/login` straight back to
-      // `/home`, unmounting the login form mid-interaction.
-      await page.context().clearCookies();
-      await registerAndLogin(page, request, { ...AUTH, label: `order-${i}` });
-      await openPalette(page);
-      const order = await page.locator(".command-palette__group-label").allTextContents();
-      orders.push(order);
+      await registerUser(request, { ...AUTH, label: `order-${i}` });
+      const { cookies } = await request.storageState();
+      const context = await browser.newContext({
+        baseURL,
+        storageState: { cookies, origins: [] },
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto("/dashboards");
+        await expect(page.getByRole("button", { name: "Add dashboard" })).toBeVisible();
+        await openPalette(page);
+        const order = await page.locator(".command-palette__group-label").allTextContents();
+        orders.push(order);
+      } finally {
+        await context.close();
+      }
     }
 
     // skeptic-final-1.md CR1 — assert the DECLARED order (`SECTION_DISPLAY_ORDER`,
