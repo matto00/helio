@@ -57,6 +57,7 @@ export function LiveOutputRender({ kind, config, schema, records }: LiveOutputRe
         referenceMarks={chart.referenceMarks}
         fieldTypes={chart.fieldTypes}
         compact
+        noAnimation
       />
     );
   }

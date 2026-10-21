@@ -6,7 +6,7 @@
 // `usePipelineDetailPage()` (the same result the phone layout reads, so no handler is duplicated).
 
 import { GitBranch } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
@@ -79,6 +79,8 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
   const threeColumns = useThreeColumnLayout(bodyRef);
   // The narrow-desktop Output section is collapsed until opened, per page session.
   const [outputOpen, setOutputOpen] = useState(false);
+  // Stable, so the memoised Output view is not re-rendered by a new function identity on every edit.
+  const toggleOutput = useCallback(() => setOutputOpen((open) => !open), []);
 
   const selectedStep =
     selectedStepId !== null ? steps.find((s) => s.id === selectedStepId) : undefined;
@@ -299,7 +301,7 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
               selectedStepId={selectedStepId}
               layout={threeColumns ? "column" : "disclosure"}
               expanded={outputOpen}
-              onToggle={() => setOutputOpen((open) => !open)}
+              onToggle={toggleOutput}
             />
           </div>
         </div>

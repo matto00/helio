@@ -20,7 +20,13 @@ jest.mock("../../../panels/history/outputHistoryService", () => ({
 }));
 jest.mock("../../services/outputService", () => ({ getOutputRows: jest.fn() }));
 let sampleState: SampleState = "ready";
-jest.mock("../../hooks/useLiveSampleState", () => ({ useLiveSampleState: () => sampleState }));
+const sampleStateCalls = jest.fn();
+jest.mock("../../hooks/useLiveSampleState", () => ({
+  useLiveSampleState: () => {
+    sampleStateCalls();
+    return sampleState;
+  },
+}));
 
 const fetchHistory = jest.mocked(historyService.fetchOutputHistory);
 const getOutputRows = jest.mocked(outputService.getOutputRows);
@@ -95,6 +101,7 @@ const column = (setup?: Setup) => <LiveOutputColumn {...parts(setup)} />;
 beforeEach(() => {
   resetHistoryCache();
   clearSavedOutputRows();
+  sampleStateCalls.mockClear();
   sampleState = "ready";
   fetchHistory.mockReset();
   getOutputRows.mockReset();
@@ -293,6 +300,37 @@ describe("LiveOutputColumn", () => {
       expect(screen.getByRole("combobox", { name: "Displayed Output" })).toHaveTextContent(
         "Second",
       );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("does not re-render its view for an edit: ten edits inside the quiet window cost no view render, then one", async () => {
+    jest.useFakeTimers();
+    try {
+      const edit = (n: number) =>
+        column({
+          hasDraft: true,
+          views: new Map([["s1", view({ rows: BASE.slice(0, (n % 3) + 1), count: n })]]),
+        });
+      const { rerender } = renderWithStore(column());
+      // Let the mount settle (the baseline read lands and re-renders the view once).
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(50);
+      });
+      const afterMount = sampleStateCalls.mock.calls.length;
+      for (let n = 1; n <= 10; n += 1) {
+        rerender(edit(n));
+        await act(async () => {
+          jest.advanceTimersByTime(40);
+        });
+      }
+      // The view (and every hook in it) did not render for any of the ten edits.
+      expect(sampleStateCalls.mock.calls.length).toBe(afterMount);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(sampleStateCalls.mock.calls.length).toBeLessThanOrEqual(afterMount + 2);
     } finally {
       jest.useRealTimers();
     }

@@ -34,7 +34,7 @@ describe("useIdleCoalesced", () => {
     for (let v = 1; v <= 10; v += 1) {
       rerender({ v });
       act(() => {
-        jest.advanceTimersByTime(QUIET_MS - 20);
+        jest.advanceTimersByTime(QUIET_MS / 5);
       });
       expect(result.current).toBe(0);
     }

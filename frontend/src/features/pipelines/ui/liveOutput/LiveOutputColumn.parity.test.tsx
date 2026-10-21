@@ -138,6 +138,18 @@ beforeEach(() => {
 describe("live render parity with the saved panel", () => {
   const records = frameToRecords(evaluated(), SCHEMA);
 
+  it("draws the live chart without animation (it re-draws on every draft edit)", () => {
+    render(
+      <LiveOutputRender
+        kind="chart"
+        config={{ chartType: "line", fieldMapping: { xAxis: "date", yAxis: "amount" } }}
+        schema={SCHEMA}
+        records={records}
+      />,
+    );
+    expect(captured.at(-1)!.noAnimation).toBe(true);
+  });
+
   it("fixture: the evaluator produced the filtered, computed rows in schema order", () => {
     expect(records).toHaveLength(4);
     expect(Object.keys(records[0])).toEqual(["date", "region", "amount", "double_amount"]);

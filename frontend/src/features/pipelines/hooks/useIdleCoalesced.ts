@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 /** A change is shown once no newer change has arrived for this long (and the browser is idle). */
-export const QUIET_MS = 120;
+export const QUIET_MS = 250;
 /** The longest a changed value waits while changes keep arriving (a long drag still updates now and then). */
 export const MAX_WAIT_MS = 1500;
 /** Once quiet, the longest to wait for an idle moment. */

@@ -3,7 +3,7 @@
 // a caption, two summary tiles and the one-time last-run baseline. It writes nothing and reads nothing per edit.
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import { Select } from "../../../../shared/ui/Select";
 import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
@@ -74,7 +74,7 @@ export function LiveOutputColumn(props: LiveOutputColumnProps) {
   );
 }
 
-function LiveOutputColumnView({
+const LiveOutputColumnView = memo(function LiveOutputColumnView({
   page,
   presentation,
   selectedStepId,
@@ -207,7 +207,7 @@ function LiveOutputColumnView({
       )}
     </section>
   );
-}
+});
 
 function markerOf(source: ReturnType<typeof liveOutputSource> | null): LiveMarker {
   return source === null || source.kind === "loading" ? "none" : source.marker;
