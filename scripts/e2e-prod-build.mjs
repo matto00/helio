@@ -12,6 +12,13 @@
 //   scripts/concertino/stop-servers.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>
 // (that also stops the backend; start it again, or use a free DEV_PORT instead). The full local suite is `npm run e2e`
 // (dev server) plus this command.
+//
+// In a concertino lane (HEL-1699), from the worktree root (details: e2e/README.md, `@prod-build` section):
+//   scripts/concertino/stop-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
+//   DEV_PORT=<dev> BACKEND_PORT=<backend> scripts/e2e-backend.sh lane-start
+//   DEV_PORT=<dev> BACKEND_PORT=<backend> npm run e2e:prod-build
+//   scripts/concertino/stop-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
+//   scripts/concertino/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"   # resume ordinary lane work
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

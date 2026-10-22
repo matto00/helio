@@ -3,6 +3,16 @@
 #
 #   e2e-backend.sh start   launch `sbt run` in the background in its OWN session (setsid), recording its PGID
 #   e2e-backend.sh wait    wait until /health answers; fail FAST and loudly when the backend is dead or hung
+#   e2e-backend.sh lane-start   (HEL-1699) a concertino LANE only: `start` + `wait` for DEV_PORT/BACKEND_PORT, see below
+#
+# lane-start (needs DEV_PORT and BACKEND_PORT exported): starts the backend on BACKEND_PORT with CORS allowing
+# http://localhost:$DEV_PORT, health-waits http://localhost:$BACKEND_PORT/health, keeps its log and pgid file in the git
+# admin dir of THIS script's repo (<admin>/concertino-servers/), and records the setsid PID (= PGID) as
+# <admin>/concertino-servers/backend.pid, which is exactly the record scripts/concertino/stop-servers.sh stops. Refuses
+# when a variable is unset, BACKEND_PORT already answers, or backend.pid names a live process (signal 0 probe only; a
+# dead record is replaced). It adds no kill path: stop with
+#   scripts/concertino/stop-servers.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>
+# `start` and `wait` never write backend.pid. Run it as the worktree's own scripts/e2e-backend.sh. See e2e/README.md.
 #
 # Run 37416099275 attempt 3 had `nohup sbt run` print "entering thin client / starting sbt server in the
 # background ... set current project" and then nothing for 300 s (no compile ever began); a plain 300 s curl
@@ -76,5 +86,33 @@ case "${1:-}" in
       sleep "$POLL"
     done
     ;;
-  *) echo "usage: $0 start|wait" >&2; exit 2 ;;
+  lane-start)
+    lane_usage="usage: DEV_PORT=<dev> BACKEND_PORT=<backend> $0 lane-start"
+    [ -n "${DEV_PORT:-}" ] && [ -n "${BACKEND_PORT:-}" ] || { echo "e2e-backend: lane-start needs DEV_PORT and BACKEND_PORT ($lane_usage)" >&2; exit 2; }
+    lane_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+    lane_admin="$(git -C "$lane_root" rev-parse --absolute-git-dir)" || { echo "e2e-backend: lane-start: $lane_root is not a git checkout" >&2; exit 2; }
+    lane_dir="$lane_admin/concertino-servers"
+    mkdir -p "$lane_dir"
+    lane_rec="$lane_dir/backend.pid"
+    if [ -s "$lane_rec" ]; then
+      lane_old="$(cat "$lane_rec")"
+      if [ -n "$lane_old" ] && kill -0 "$lane_old" 2> /dev/null; then
+        echo "e2e-backend: lane-start refused: $lane_rec names live pid $lane_old (stop it with scripts/concertino/stop-servers.sh first)" >&2
+        exit 1
+      fi
+    fi
+    if curl -sf --max-time 3 "http://localhost:$BACKEND_PORT/health" > /dev/null 2>&1; then
+      echo "e2e-backend: lane-start refused: port $BACKEND_PORT already answers /health (stop it with scripts/concertino/stop-servers.sh first)" >&2
+      exit 1
+    fi
+    export PORT="$BACKEND_PORT" CORS_ALLOWED_ORIGINS="http://localhost:$DEV_PORT"
+    export HEALTH_URL="http://localhost:$BACKEND_PORT/health"
+    export BACKEND_LOG="$lane_dir/e2e-backend.log" BACKEND_PGIDFILE="$lane_dir/e2e-backend.pgid"
+    export BACKEND_DIR="${BACKEND_DIR:-$lane_root/backend}"
+    bash "$0" start || exit 1
+    cat "$BACKEND_PGIDFILE" > "$lane_rec"
+    echo "e2e-backend: lane-start pid=$(cat "$lane_rec") record=$lane_rec log=$BACKEND_LOG cors=$CORS_ALLOWED_ORIGINS"
+    exec bash "$0" wait
+    ;;
+  *) echo "usage: $0 start|wait|lane-start" >&2; exit 2 ;;
 esac

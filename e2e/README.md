@@ -94,6 +94,24 @@ untagged test, against the Vite dev server); set to `1`, the only projects are `
 fails closed unless `baseURL` serves a production build, not the dev server) and `prod-build` (only the tagged tests, service
 workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job (build, `vite preview`, same backend setup),
 not in a shard leg. `npm run check:e2e-prod-build-projects` keeps the partition honest; locally run `npm run e2e:prod-build`.
+
+**Running it inside a concertino lane (HEL-1699).** The preview must serve on the lane's `DEV_PORT` (so the backend's CORS
+origin `http://localhost:$DEV_PORT` matches), and the lane's dev server holds that port, so stop the lane's servers first.
+`stop-servers.sh` stops the backend too, and `e2e-backend.sh lane-start` starts it alone with the lane's ports. From the
+worktree root, with `WORKTREE_PATH`, `DEV_PORT` and `BACKEND_PORT` set to the lane's values:
+
+```bash
+scripts/concertino/stop-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
+DEV_PORT="$DEV_PORT" BACKEND_PORT="$BACKEND_PORT" scripts/e2e-backend.sh lane-start
+DEV_PORT="$DEV_PORT" BACKEND_PORT="$BACKEND_PORT" npm run e2e:prod-build
+scripts/concertino/stop-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
+scripts/concertino/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"   # resume ordinary lane work
+```
+
+`lane-start` health-waits (failing fast with the log), records the backend's process group in the worktree's git admin dir
+(`concertino-servers/backend.pid`, the record `stop-servers.sh` reads) and refuses when that record names a live process or
+`BACKEND_PORT` already answers. If `lane-start` fails (unhealthy, or refused), clean up with `stop-servers.sh` as in step 1 before retrying. The `e2e-backend.sh start`/`wait` subcommands are the unchanged CI path. Playwright runs
+under the lane's e2e lock/worker caps as usual.
 See CONTRIBUTING.md.
 
 ## CI runtime: sharding and parallel-mode files (HEL-1288)

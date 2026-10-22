@@ -2,6 +2,10 @@
 # copies that had to be "kept in step"). Each calling job keeps what a composite action cannot hold: `services`
 # (postgres), `env`, `timeout-minutes`, the checkout (a local action must be checked out first), its test steps
 # and uploads. Dependabot scans this directory (directories glob in .github/dependabot.yml). Commands and step order are identical to the former inline steps.
+# HEL-1699: `node_modules` + `frontend/node_modules` are cached under an exact lockfile/Node-major-keyed entry (no restore-keys);
+# on a hit both `npm ci` steps are skipped, because the `~/.npm` download cache alone did not bound `npm ci` (run
+# 39711300255: cache hit, then a 7 min install). Per ci-actions-cache-budget the entry is saved only on a main push, by
+# the one job that passes `save-node-modules-cache: true` (ci.yml `e2e` leg 1); every other job only restores.
 name: e2e-setup
 description: Java, sbt cache, background backend, Node, npm ci, Playwright chromium, backend health wait, optional Vite dev server.
 
@@ -10,6 +14,14 @@ inputs:
     description: 'Start the Vite dev server on :5173 ("false" for a job that serves its own build, e.g. vite preview).'
     required: false
     default: "true"
+  save-node-modules-cache:
+    description: 'Save the node_modules cache after install ("true" for exactly one job per run; it still saves only on a main push with a restore miss).'
+    required: false
+    default: "false"
+  node-major:
+    description: "Node major version: the single source for setup-node's node-version AND the node_modules cache key. Keyed on the major only (native ABI is fixed per major); runners in one run resolved different patches (22.23.3 vs 22.23.4, run 39816349491), which split the key."
+    required: false
+    default: "22"
 
 runs:
   using: composite
@@ -37,16 +49,37 @@ runs:
       shell: bash
       run: scripts/e2e-backend.sh start
     - uses: actions/setup-node@v7
+      id: setup-node
       with:
-        node-version: 22
+        node-version: ${{ inputs.node-major }}
         cache: npm
         cache-dependency-path: |
           package-lock.json
           frontend/package-lock.json
+    # HEL-1699 D1: exact key only (no restore-keys) so a partial tree from another lockfile is never used without `npm ci`.
+    - name: Restore node_modules cache
+      id: node-modules
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          node_modules
+          frontend/node_modules
+        key: e2e-node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node${{ inputs.node-major }}-${{ hashFiles('package-lock.json', 'frontend/package-lock.json') }}
     - run: npm ci
+      if: steps.node-modules.outputs.cache-hit != 'true'
       shell: bash
     - run: npm --prefix frontend ci
+      if: steps.node-modules.outputs.cache-hit != 'true'
       shell: bash
+    # HEL-1699 D3: save right after install (not a post-job step), so a later test failure cannot prevent it.
+    - name: Save node_modules cache
+      if: inputs.save-node-modules-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.node-modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          node_modules
+          frontend/node_modules
+        key: ${{ steps.node-modules.outputs.cache-primary-key }}
     # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
     # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
     # install 21-27 s) was no faster than the uncached baseline (22-23 s).
