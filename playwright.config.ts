@@ -29,6 +29,19 @@ function localWorkers(): number {
   return Number(raw);
 }
 
+// HEL-1691: opt-in production-build measurement. A latency test that must not be measured against the React
+// development build tags itself `@prod-build` (and nothing else). The environment alone picks the build: with
+// HELIO_E2E_PROD_BUILD unset the only project is `dev` (every test except the tagged ones); with it set to 1 the
+// only projects are `prod-build-guard` and `prod-build` (only the tagged tests, against `vite preview`, behind a
+// fail-closed build check). `dev` is omitted when it is set, so a dropped or mistyped `--project` can never run dev
+// tests against the preview server. Both builds are served on DEV_PORT, so origin, cookies and proxy are identical.
+// `npm run check:e2e-prod-build-projects` keeps this partition honest. See e2e/README.md and CONTRIBUTING.md.
+const PROD_BUILD_RAW = process.env.HELIO_E2E_PROD_BUILD ?? "";
+if (PROD_BUILD_RAW !== "" && PROD_BUILD_RAW !== "1") {
+  throw new Error(`HELIO_E2E_PROD_BUILD must be unset or 1, got "${PROD_BUILD_RAW}"`);
+}
+const PROD_BUILD = PROD_BUILD_RAW === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   // HEL-1301 — every e2e user registration is recorded in a per-run registry (globalSetup creates it),
@@ -135,6 +148,21 @@ export default defineConfig({
     // one file only (NOT a "**/hel912-*" pattern). Follow-up: HEL-992.
     "**/hel912-lanes-rejoin.spec.ts",
   ],
+  projects: PROD_BUILD
+    ? [
+        // Setup project: fails unless baseURL serves a production build (e2e/prod-build.guard.ts).
+        { name: "prod-build-guard", testMatch: /prod-build\.guard\.ts$/ },
+        {
+          name: "prod-build",
+          grep: /@prod-build/,
+          dependencies: ["prod-build-guard"],
+          // The production build registers the PWA service worker (autoUpdate), which precaches ~4 MB and can take over
+          // the page mid-test; the dev server never has one. Blocking it keeps the measured app identical to the dev
+          // baseline except for React's development runtime.
+          use: { serviceWorkers: "block" },
+        },
+      ]
+    : [{ name: "dev", grepInvert: /@prod-build/ }],
   timeout: 30_000,
   retries: 0,
   fullyParallel: false,
