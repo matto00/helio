@@ -1,0 +1,16 @@
+[info] - should stay at or under 192 MB (25% of the 768 MB production heap), real and dry *** FAILED ***
+[info] shape fewrows-payload-200        real delta MB    97.7  succeeded, 200 rows
+[info] shape fewrows-payload-200        dry  delta MB    93.6  succeeded, 200 rows
+[info] shape fewrows-payload-200        real delta MB   361.6  succeeded, 200 rows
+[info] shape fewrows-payload-200        dry  delta MB    93.6  succeeded, 200 rows
+[info] max over shapes MB: 361.6 (bound 192.0); largest swing between repeats of one shape: 264.0 MB (repeats: 2)
+[info] repeats fewrows-payload-200        dry  MB 93.6, 93.6
+[info] repeats fewrows-payload-200        real MB 97.7, 361.6
+[info] JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+[info] maxMemory MB: 768
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[error] Failed tests:
+[error] 	com.helio.services.pipelines.RunPathHeapSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 10 s, cache 100%, 29 disk cache hits
+exit 1

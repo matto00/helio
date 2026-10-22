@@ -1,0 +1,60 @@
+[info] shape post-wide-4@3900000        real delta MB   133.5  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.7  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.7  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   130.3  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.7  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.7  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   132.6  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        real delta MB   130.5  succeeded, 50000 rows
+[info] shape post-wide-4@3900000        dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   132.7  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.2  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.4  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   132.7  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   132.7  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.2  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.6  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.7  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.0  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.3  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape rowwidth-base              real delta MB   130.5  succeeded, 50000 rows
+[info] shape rowwidth-base              dry  delta MB    72.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.4  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   140.7  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   140.6  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.2  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.2  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.5  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.5  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.0  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   140.6  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          real delta MB   138.6  succeeded, 50000 rows
+[info] shape rowwidth-at-limit          dry  delta MB    80.1  succeeded, 50000 rows
+[info] max over shapes MB: 140.7 (bound 192.0); largest swing between repeats of one shape: 3.2 MB (repeats: 8)
+[info] repeats post-wide-4@3900000        dry  MB 72.0, 72.1, 72.1, 72.0, 72.1, 72.0, 72.1, 72.1
+[info] repeats post-wide-4@3900000        real MB 133.5, 132.7, 132.7, 130.3, 132.7, 132.7, 132.6, 130.5
+[info] repeats rowwidth-at-limit          dry  MB 80.1, 80.1, 80.2, 80.1, 80.1, 80.0, 80.1, 80.1
+[info] repeats rowwidth-at-limit          real MB 138.4, 140.7, 140.6, 138.2, 138.5, 138.5, 140.6, 138.6
+[info] repeats rowwidth-base              dry  MB 72.2, 72.1, 72.0, 72.2, 72.0, 72.0, 72.1, 72.1
+[info] repeats rowwidth-base              real MB 132.7, 130.4, 132.7, 132.7, 130.6, 130.7, 130.3, 130.5
+[info] JVM flags: --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED --add-opens=java.nio.channels.spi/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED -Xmx768m
+[info] maxMemory MB: 768
+01:00:10.221 INFO  [postgres:pid(240909)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-10-21 01:00:10.221 PDT [240912] LOG:  background worker "logical replication launcher" (PID 240919) exited with exit code 1
+[info] Tests: succeeded 1, failed 0, canceled 0, ignored 0, pending 0
+exit 0

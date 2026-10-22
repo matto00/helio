@@ -102,6 +102,60 @@ async function cardPoint(page: Page) {
   return { x: x + width / 2, y: y + 24 };
 }
 
+/** Animation frames a layout or scroll reading must hold unchanged to count as settled. */
+const STABLE_FRAMES = 6;
+
+/**
+ * The first Notes (markdown) card whose visible band leaves room for a 150px downward drag above the bottom nav, as a
+ * touch point inside its content box. Markdown cards carry no nested scroller on the phone stack, so a drag from one
+ * can only pan the page (the Table panel's resize handles are `touch-action: none` and its body scrolls on its own).
+ */
+async function notesTouchPoint(page: Page, drag: number) {
+  const point = await page.evaluate((reach) => {
+    const top = document.querySelector(".app-content")!.getBoundingClientRect().top;
+    const nav = document.querySelector(".bottom-nav")?.getBoundingClientRect().top ?? innerHeight;
+    const minY = top + 8;
+    const maxY = Math.min(nav, innerHeight) - reach - 8;
+    for (const card of document.querySelectorAll(".mobile-panel-stack__item--markdown")) {
+      const r = card.getBoundingClientRect();
+      const from = Math.max(r.top, minY);
+      const to = Math.min(r.bottom - 8, maxY);
+      if (to - from >= 8) return { x: r.left + r.width / 2, y: Math.round((from + to) / 2) };
+    }
+    return null;
+  }, drag);
+  expect(point, "a Notes card with room for the drag inside the viewport").not.toBeNull();
+  return point!;
+}
+
+/**
+ * What the finger would land on at (x, y): it must be inside a Notes card, with no ancestor up to `.app-content` that
+ * restricts touch-action, is a nested scroller (overflow auto/scroll with overflowing content), or is already scrolled.
+ * Returns the hit chain so a failure names the element (a Table resize handle, a nested scroller...).
+ */
+function touchBlockers(page: Page, x: number, y: number) {
+  return page.evaluate(
+    ([px, py]) => {
+      const root = document.querySelector(".app-content")!;
+      const hit = document.elementFromPoint(px, py);
+      const chain: string[] = [];
+      const problems: string[] = [];
+      if (!hit || !hit.closest(".mobile-panel-stack__item--markdown"))
+        problems.push("not inside a Notes card");
+      for (let el = hit; el && el !== root; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        const name = `${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]}`;
+        chain.push(name);
+        if (cs.touchAction !== "auto") problems.push(`${name} touch-action ${cs.touchAction}`);
+        const scrolls = /auto|scroll/.test(cs.overflowY) && el.scrollHeight > el.clientHeight;
+        if (scrolls || el.scrollTop > 0) problems.push(`${name} is a nested scroller`);
+      }
+      return { problems, chain: chain.join(" < ") };
+    },
+    [x, y] as const,
+  );
+}
+
 /** The snap pill is not clipped by the wrapper and overlaps neither the first card's title text nor any chip control. */
 async function expectPillClear(page: Page) {
   const r = await page.evaluate(() => {
@@ -221,17 +275,65 @@ for (const size of SIZES) {
     test("a scrolled page scrolls natively upward and never engages", async ({ page, request }) => {
       await openDashboard(page, request, size.width, size.height, `scrolled${size.width}`);
       const cdp = await client(page);
+      // Settled layout first: cards finish sizing after the panels load, which clamps and anchors the scroll offset.
+      await expect
+        .poll(() =>
+          page.evaluate(
+            (frames) =>
+              new Promise<boolean>((resolve) => {
+                const read = () => {
+                  const el = document.querySelector(".app-content")!;
+                  const card = document.querySelector(".mobile-panel-stack__item--markdown")!;
+                  return `${el.scrollHeight}:${card.getBoundingClientRect().top}`;
+                };
+                const first = read();
+                let left = frames;
+                const tick = () => {
+                  if (read() !== first) return resolve(false);
+                  if (--left === 0) return resolve(true);
+                  requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              }),
+            STABLE_FRAMES,
+          ),
+        )
+        .toBe(true);
       await page.evaluate(() => {
         document.querySelector(".app-content")!.scrollTop = 300;
       });
+      // The scroll offset, too, is sampled only once it holds across frames; `start` is that settled value.
+      await expect
+        .poll(() =>
+          page.evaluate(
+            (frames) =>
+              new Promise<number>((resolve) => {
+                const el = document.querySelector(".app-content")!;
+                const first = el.scrollTop;
+                let left = frames;
+                const tick = () => {
+                  if (el.scrollTop !== first) return resolve(-1);
+                  if (--left === 0) return resolve(first);
+                  requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              }),
+            STABLE_FRAMES,
+          ),
+        )
+        .toBeGreaterThan(100);
       const start = await page.evaluate(() => document.querySelector(".app-content")!.scrollTop);
-      expect(start).toBeGreaterThan(100);
-      await dragDown(cdp, size.width / 2, 300, 150);
+      const drag = 150;
+      const { x, y } = await notesTouchPoint(page, drag);
+      // Precondition, evaluated right before the finger goes down (nothing awaited in between): the drag can only pan.
+      const { problems, chain } = await touchBlockers(page, x, y);
+      expect(problems, `touch at (${x}, ${y}) lands on ${chain}`).toEqual([]);
+      await dragDown(cdp, x, y, drag);
       await expect
         .poll(() => page.evaluate(() => document.querySelector(".app-content")!.scrollTop))
         .toBeLessThan(start);
       await expect(page.locator(".pull-refresh-indicator")).toHaveCount(0);
-      await touch(cdp, "touchEnd", size.width / 2, 450);
+      await touch(cdp, "touchEnd", x, y + drag);
     });
 
     test("an upward drag scrolls the page and never engages", async ({ page, request }) => {

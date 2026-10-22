@@ -1,11 +1,14 @@
 package com.helio.services.pipelines
 
-import com.helio.domain.model.{PipelineId, PipelineStep}
+import com.helio.domain.engine.RunLimits
+import com.helio.domain.model.{PipelineId, PipelineStep, PipelineStepId}
 import com.helio.domain.steps.{ComputeConfig, ComputeStep, UnpivotConfig, UnpivotStep}
 import com.helio.services.ServiceError
 import com.helio.testsupport.RunServiceHarness
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
+import java.nio.file.{Files, Paths}
 
 /** HEL-1660 tasks 3.2 and 3.4 (AC5, AC6): the run limits seen end to end through `PipelineRunService`, over a real CSV and real
  *  snapshot/history repositories. */
@@ -92,6 +95,67 @@ class PipelineRunLimitsServiceSpec extends AnyWordSpec with Matchers with RunSer
       preview.left.toOption.get match {
         case e: ServiceError => e.message should include("unpivot would produce more than 100,000 rows (pipeline run limit)")
       }
+    }
+  }
+
+  // HEL-1679 (design.md D3, D5): one row's rendered JSON is bounded, for runs and for backfill (which writes through the same method).
+  "a row wider than the render limit (HEL-1679)" should {
+    // A one-column CSV row `{"a":"<n x>","c":...}` is a little over n characters wide as JSON.
+    def widePipeline(cellChars: Int): (PipelineId, PipelineStep) = {
+      val pid  = seedPipeline(seedCsvSource(2, 1, (r, _) => if (r == 0) "x" * cellChars else "short"))
+      val step = addStep(pid, ComputeStep.Kind, ComputeConfig("c", "1", None))
+      (pid, step)
+    }
+
+    "fail a real run cleanly with the run memory-limit error, naming the terminal step, and write no snapshot" in {
+      val (pid, step) = widePipeline(RunLimits.MaxRowRenderChars.toInt)
+      addOutput(pid, step, "wide")
+      awaitDb(service.submit(pid, isDry = false, owner)).isLeft shouldBe true
+      val run = awaitDb(pipelineRunRepo.listByPipeline(pid, owner)).head
+      run.status shouldBe "failed"
+      run.errorLog.get should include(step.id.value)
+      run.errorLog.get should include("Pipeline run memory limit reached")
+      run.errorLog.get should include("characters wide as JSON")
+      nodeSnapshotCount(pid) shouldBe 0
+    }
+
+    "still run it as a dry run (a dry run writes and renders nothing)" in {
+      val (pid, step) = widePipeline(RunLimits.MaxRowRenderChars.toInt)
+      addOutput(pid, step, "wide")
+      awaitDb(service.submit(pid, isDry = true, owner)) shouldBe a[Right[_, _]]
+    }
+
+    "accept a row just under the limit and write it" in {
+      val (pid, step) = widePipeline(RunLimits.MaxRowRenderChars.toInt / 2)
+      addOutput(pid, step, "ok")
+      awaitDb(service.submit(pid, isDry = false, owner)) shouldBe a[Right[_, _]]
+      nodeSnapshotRows(pid, step) shouldBe 2
+    }
+
+    // Backfill: a prior successful run (narrow data, no Output on the node), the source then rewritten to hold the wide row, an Output added, then
+    // the targeted backfill. (A run holding a wide row never succeeds, so backfill's "has run once" gate needs the narrow first run.)
+    def backfill(cellChars: Int): (PipelineId, PipelineStep) = {
+      import slick.jdbc.PostgresProfile.api._
+      val dsId = seedCsvSource(2, 1, (_, _) => "short")
+      val pid  = seedPipeline(dsId)
+      val step = addStep(pid, ComputeStep.Kind, ComputeConfig("c", "1", None))
+      awaitDb(service.submit(pid, isDry = false, owner)) shouldBe a[Right[_, _]]
+      nodeSnapshotCount(pid) shouldBe 0
+      val path = awaitDb(db.run(sql"SELECT config->>'path' FROM data_sources WHERE id = $dsId".as[String].head))
+      Files.writeString(Paths.get(path), "a\n" + ("x" * cellChars) + "\nshort\n")
+      addOutput(pid, step, "late")
+      awaitDb(service.backfillOutputNode(pid, Some(PipelineStepId(step.id.value)), owner, explicitRootId = None))
+      (pid, step)
+    }
+
+    "be written by backfill when under the limit, through the same size-capped snapshot write" in {
+      val (pid, step) = backfill(RunLimits.MaxRowRenderChars.toInt / 2)
+      nodeSnapshotRows(pid, step) shouldBe 2
+    }
+
+    "make backfill write nothing (a logged failure, not a throw)" in {
+      val (pid, step) = backfill(RunLimits.MaxRowRenderChars.toInt)
+      nodeSnapshotRows(pid, step) shouldBe 0
     }
   }
 }

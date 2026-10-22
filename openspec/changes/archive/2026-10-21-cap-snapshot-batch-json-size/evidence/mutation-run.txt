@@ -1,0 +1,104 @@
+## M1-render-eagerly (compactPrint moved out of the deferred flatMap)
+  spec: com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+  red: YES
+    [info] - should never render more than one batch ahead of the inserts (450 rows) *** FAILED ***
+    [info] - should never hold more rendered text than the batch budget ahead of the inserts (12 rows of ~300,000 characters) *** FAILED ***
+    [info] - should render a row wider than the budget alone, one row ahead at a time (3 rows of ~1.2M characters) *** FAILED ***
+    [error] 	com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M2-batch-by-count-only (size cap ignored)
+  spec: com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+  red: YES
+    [info] - should never hold more rendered text than the batch budget ahead of the inserts (12 rows of ~300,000 characters) *** FAILED ***
+    [info] - should render a row wider than the budget alone, one row ahead at a time (3 rows of ~1.2M characters) *** FAILED ***
+    [error] 	com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M3-batch-boundary-off-by-one (> became >=)
+  spec: com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+  red: YES
+    [info] - should close a batch exactly when the next row would pass the character budget, and keep each row's index *** FAILED ***
+    [error] 	com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M4-batch-may-be-empty (the at-least-one-row guard dropped)
+  spec: com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+  red: YES
+    [info] - should always put at least one row in a batch, however wide *** FAILED ***
+    [error] 	com.helio.infrastructure.persistence.pipelines.NodeSnapshotBatchedWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 4 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M5-run-widest-row-check-dropped
+  spec: com.helio.services.pipelines.PipelineRunLimitsServiceSpec
+  red: YES
+    [info] - should fail a real run cleanly with the run memory-limit error, naming the terminal step, and write no snapshot *** FAILED ***
+    [error] 	com.helio.services.pipelines.PipelineRunLimitsServiceSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 16 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M6-limit-compare-off-by-one (> became >=)
+  spec: com.helio.domain.engine.RunLimitsGuardSpec
+  red: YES
+    [info] - should treat exactly the limit as writable and one character more as too wide *** FAILED ***
+    [error] 	com.helio.domain.engine.RunLimitsGuardSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M7-terminal-frame-skipped
+  spec: com.helio.domain.engine.RunLimitsGuardSpec
+  red: YES
+    [info] - should accept a row of exactly the limit and refuse one character over (terminal frame) *** FAILED ***
+    [error] 	com.helio.domain.engine.RunLimitsGuardSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M8-retained-Output-frames-skipped
+  spec: com.helio.domain.engine.RunLimitsGuardSpec
+  red: YES
+    [info] - should see a too-wide row in a retained Output frame even when the terminal is narrow, and ignore a wide frame nobody retains *** FAILED ***
+    [error] 	com.helio.domain.engine.RunLimitsGuardSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M9-backfill-widest-row-check-dropped
+  spec: com.helio.services.pipelines.PipelineRunLimitsServiceSpec
+  red: YES
+    [info] - should make backfill write nothing (a logged failure, not a throw) *** FAILED ***
+    [error] 	com.helio.services.pipelines.PipelineRunLimitsServiceSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 14 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M10-limit-raised-past-certified (2,000,000 -> 3,000,000)
+  spec: com.helio.domain.engine.RunLimitsGuardSpec
+  red: YES
+    [info] - should stay at or above the ruling-4 floor (a row holding one 1,048,576-character value renders 1,048,584 characters) and at or below the certified value *** FAILED ***
+    [error] 	com.helio.domain.engine.RunLimitsGuardSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 2 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M11-payload-rendered-before-measuring
+  spec: com.helio.services.pipelines.NodePayloadHistoryWriteSpec
+  red: YES
+    [info] - should never render an over-cap node's payload text, and render an under-cap node exactly once *** FAILED ***
+    [error] 	com.helio.services.pipelines.NodePayloadHistoryWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 5 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M12-length-off-by-one-for-an-escape-class (tab counted as 1)
+  spec: com.helio.domain.engine.JsonTextLengthSpec
+  red: YES
+    [info] - should equal compactPrint for every adversarial string, as a value and as an object key *** FAILED ***
+    [info] - should equal compactPrint for nested arrays and objects *** FAILED ***
+    [error] 	com.helio.domain.engine.JsonTextLengthSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M13-length-off-by-one-for-surrogate-pairs (counted 3 bytes)
+  spec: com.helio.domain.engine.JsonTextLengthSpec
+  red: YES
+    [info] - should equal compactPrint for every adversarial string, as a value and as an object key *** FAILED ***
+    [info] - should equal compactPrint for nested arrays and objects *** FAILED ***
+    [info] - should equal compactPrint for engine rows converted through anyToJsValue (every value type the engine holds) *** FAILED ***
+    [error] 	com.helio.domain.engine.JsonTextLengthSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks
+## M14-payload-byte-cap-uses-chars (UTF-8 bytes not measured)
+  spec: com.helio.services.pipelines.NodePayloadHistoryWriteSpec
+  red: YES
+    [info] - should measure compact-JSON UTF-8 BYTES, not characters: multi-byte rows store at exactly the byte cap and not one below *** FAILED ***
+    [error] 	com.helio.services.pipelines.NodePayloadHistoryWriteSpec
+    [error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+    [error] elapsed time: 5 s, cache 93%, 27 disk cache hits, 2 onsite tasks

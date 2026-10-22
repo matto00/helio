@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 
+import { PULL_HOLD_PX } from "../../../../shared/motion/usePullToRefresh";
+
 // Regression guard for the container-type: size collapse (HEL-301 cycle-2
 // evaluator fix). jsdom does not implement CSS containment or real layout,
 // so no DOM-rendering Jest test can observe the collapse itself — the box
@@ -119,5 +121,26 @@ describe("MobilePanelStack.css — HEL-1583 phone gutters", () => {
     const body = findRuleBody(phoneBlock, ".mobile-panel-stack__item--markdown .markdown-panel");
     expect(body).toMatch(/padding-inline:\s*0\s*;/);
     expect(phoneBlock).toMatch(/\.mobile-panel-stack__item--text \.panel-content--text/);
+  });
+});
+
+// HEL-1681 item 3: `--pull-indicator-height` (CSS) is the Full-motion indicator's height and must equal the held stack
+// offset `PULL_HOLD_PX` (JS), or the held content would not exactly reveal the indicator. `PULL_HOLD_PX` is the source of
+// truth; this guard fails if either side moves alone.
+// mutation: change `48px` in the stylesheet, or `PULL_HOLD_PX`, alone -> red.
+describe("MobilePanelStack.css — pull indicator height", () => {
+  it("--pull-indicator-height equals PULL_HOLD_PX", () => {
+    const declared = /--pull-indicator-height:\s*([^;]+);/.exec(css)?.[1]?.trim();
+    expect(declared).toBe(`${PULL_HOLD_PX}px`);
+  });
+});
+
+// HEL-1681 item 2: the stack's chart canvas has a definite height. Without it the chart sized itself from whatever the
+// Crossfade's leaving skeleton layer left in the layout at first measure (24px: axis labels, no bars, probe 10/24).
+// mutation: delete the rule, or the height declaration -> red.
+describe("MobilePanelStack.css — chart canvas height", () => {
+  it("pins a definite height on the stack's chart canvas", () => {
+    const body = findRuleBody(css, ".mobile-panel-stack__item--output .chart-panel__canvas");
+    expect(body).toMatch(/(?<![-\w])height:\s*100px\s*;/);
   });
 });

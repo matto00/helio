@@ -1,0 +1,1 @@
+[info] HEL-1679 row-width scan (RunLimits.widestRowChars over 50,000 rows x 13 columns, best of 5): 68.1 ms

@@ -56,11 +56,14 @@
     "check:e2e-types": "tsc --noEmit -p e2e/tsconfig.json",
     "check:state-contrast:selftest": "node e2e/support/stateContrast.selftest.mjs",
     "check:e2e-shard:selftest": "node scripts/e2e-shard.selftest.mjs",
+    "check:e2e-prod-build-projects": "node scripts/check-e2e-prod-build-projects.mjs",
+    "check:e2e-prod-build-projects:selftest": "node scripts/check-e2e-prod-build-projects.selftest.mjs",
     "e2e:state-contrast-guard": "playwright test e2e/state-surface-contrast-guard.spec.ts",
     "check:helio-mcp-types": "npm --prefix helio-mcp run typecheck",
     "selftest:concertino-git-env": "bash scripts/concertino/lib/git-child-env.selftest.sh",
     "test": "jest && npm --prefix frontend test",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:prod-build": "node scripts/e2e-prod-build.mjs"
   },
   "keywords": [],
   "author": "",

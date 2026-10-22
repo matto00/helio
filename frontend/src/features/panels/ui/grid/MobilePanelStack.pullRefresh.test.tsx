@@ -5,6 +5,12 @@ import { makeMarkdownPanel, makeOutputPanel } from "../../../../test/panelFixtur
 import { defaultDashboardLayout } from "../../../dashboards/state/dashboardLayout";
 import { usePanelData } from "../../hooks/usePanelData";
 import { MobilePanelStack } from "./MobilePanelStack";
+import {
+  PhoneDashboardRefreshProvider,
+  PullRefreshContext,
+  type PullRefreshRegistry,
+} from "./pullRefreshRegistry";
+import { useContext, useEffect } from "react";
 
 // HEL-1656 stack wiring: a release past the threshold refreshes each output-bound panel once (none for a markdown
 // panel), holds busy while a request is held open, and announces Refreshing then Refreshed. Recorded mutations: see the
@@ -153,5 +159,61 @@ describe("MobilePanelStack pull-to-refresh", () => {
     expect(document.querySelector(".mobile-panel-stack")?.getAttribute("style") ?? "").not.toMatch(
       /transform/,
     );
+  });
+
+  // HEL-1681 D1/D4. mutation: render the indicator for any busy round, or dispose the shared registry in the stack's
+  // cleanup -> the first / second assertion goes red.
+  describe("with the dashboard's shared registry", () => {
+    const held: { current: PullRefreshRegistry | null } = { current: null };
+    function Spy() {
+      const registry = useContext(PullRefreshContext);
+      useEffect(() => {
+        held.current = registry;
+      });
+      return null;
+    }
+    const shell = () => (
+      <PhoneDashboardRefreshProvider>
+        <Spy />
+        {ui()}
+      </PhoneDashboardRefreshProvider>
+    );
+
+    it("announces a button-started round but shows no pull indicator and does not translate the stack", () => {
+      renderWithStore(shell(), { panels: { items: [a, b, text] } });
+      act(() => {
+        held.current!.start("button");
+      });
+      expect(refreshA).toHaveBeenCalledTimes(1);
+      expect(refreshB).toHaveBeenCalledTimes(1);
+      expect(statusRegion().textContent).toBe("Refreshing");
+      expect(document.querySelector(".pull-refresh-indicator")).toBeNull();
+      expect(
+        document.querySelector(".mobile-panel-stack")?.getAttribute("style") ?? "",
+      ).not.toMatch(/transform/);
+    });
+
+    it("does not dispose the shared registry when the stack unmounts (the provider owns it)", () => {
+      const view = renderWithStore(shell(), { panels: { items: [a, b, text] } });
+      const dispose = jest.spyOn(held.current!, "dispose");
+      view.rerender(
+        <PhoneDashboardRefreshProvider>
+          <Spy />
+        </PhoneDashboardRefreshProvider>,
+      );
+      expect(dispose).not.toHaveBeenCalled();
+      view.unmount();
+      expect(dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it("a pull release is ignored while a button round runs", () => {
+      renderWithStore(shell(), { panels: { items: [a, b, text] } });
+      act(() => {
+        held.current!.start("button");
+      });
+      refreshA.mockClear();
+      pullAndRelease(400);
+      expect(refreshA).not.toHaveBeenCalled();
+    });
   });
 });

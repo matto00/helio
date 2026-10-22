@@ -1,5 +1,6 @@
 package com.helio.infrastructure.persistence.pipelines
 
+import com.helio.domain.engine.JsonTextLength
 import com.helio.domain.history.{PayloadHistoryConfig, PayloadTierLimit}
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.DbContext
@@ -7,7 +8,6 @@ import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
-import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.UUID
@@ -33,6 +33,11 @@ final case class NodePayload(
 class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import NodePayloadHistoryRepository._
+
+  /** The node's payload text; a seam so a spec can observe that an over-cap node is never rendered (HEL-1679). Production is `compactPrint`. */
+  protected[helio] def render(rows: Vector[JsObject]): String = JsArray(rows).compactPrint
+
+  private def renderedBytes(rows: Vector[JsObject]): Long = JsonTextLength.utf8Bytes(JsArray(rows))
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -88,15 +93,15 @@ class NodePayloadHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext
           )
           DBIO.successful(None)
         } else {
-          val json  = JsArray(rows).compactPrint
-          val bytes = json.getBytes(StandardCharsets.UTF_8).length
+          // HEL-1679 (design.md D4): the exact UTF-8 size is measured without rendering, so an over-cap node's text is never built.
+          val bytes = renderedBytes(rows)
           if (bytes > config.maxBytes) {
             log.warn(
               "Node payload not stored for pipeline {} node {}: {} bytes exceeds PAYLOAD_HISTORY_MAX_BYTES ({})",
-              pipelineId, nodeLabel(nodeStepId, rootId), Int.box(bytes), Int.box(config.maxBytes)
+              pipelineId, nodeLabel(nodeStepId, rootId), Long.box(bytes), Int.box(config.maxBytes)
             )
             DBIO.successful(None)
-          } else insertAndTrim(pipelineId, nodeStepId, rootId, runId, triggerSource, capturedAt, rows.size, bytes, json, limit.maxRuns).map(Some(_))
+          } else insertAndTrim(pipelineId, nodeStepId, rootId, runId, triggerSource, capturedAt, rows.size, bytes.toInt, render(rows), limit.maxRuns).map(Some(_))
         }
       case _ => DBIO.successful(None)
     }
