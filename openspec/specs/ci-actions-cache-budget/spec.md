@@ -7,13 +7,17 @@ reused instead of being evicted, by controlling which refs write caches and remo
 ## Requirements
 
 ### Requirement: Large CI caches are written only from main
-The backend compile-output cache and the sbt dependency cache SHALL be saved only by a workflow run for a push to
-`refs/heads/main`, from exactly one job per run. Pull-request runs and every other job SHALL restore these caches
-without saving them.
+The backend compile-output cache, the sbt dependency cache and the e2e `node_modules` cache SHALL be saved only by a
+workflow run for a push to `refs/heads/main`, from exactly one job per run. Pull-request runs and every other job
+SHALL restore these caches without saving them.
 
 #### Scenario: PR that changes the sbt build
 - **WHEN** a pull request changes `backend/build.sbt` or `backend/src/**` and its CI run completes
 - **THEN** no `sbt-*` or `backend-compile-*` cache entry scoped to `refs/pull/<N>/merge` exists for that PR
+
+#### Scenario: PR that changes a lockfile
+- **WHEN** a pull request changes `package-lock.json` or `frontend/package-lock.json` and its CI run completes
+- **THEN** no `e2e-node-modules-*` cache entry scoped to `refs/pull/<N>/merge` exists for that PR
 
 #### Scenario: main push with a new dependency key
 - **WHEN** a push to `main` produces an sbt dependency key with no existing entry
@@ -41,7 +45,8 @@ Workflows triggered by a `v*` tag push or by a tag-based `workflow_dispatch` SHA
 ### Requirement: Superseded main cache entries are removed
 A janitor workflow SHALL delete `refs/heads/main` cache entries of an explicit allowlist of single-generation families
 (the backend compile cache and CodeQL overlay base databases per language, keeping the newest two of each; and the
-sbt dependency cache, keeping the newest one), keeping at least the newest entry of each family. It SHALL select deletions only from that allowlist and only on `refs/heads/main`, SHALL log every deletion
+sbt dependency cache and the e2e `node_modules` cache, keeping the newest one of each), keeping at least the newest
+entry of each family. It SHALL select deletions only from that allowlist and only on `refs/heads/main`, SHALL log every deletion
 (key, ref, size), and SHALL support a dry-run mode that deletes nothing.
 
 #### Scenario: after several main pushes
@@ -50,6 +55,10 @@ sbt dependency cache, keeping the newest one), keeping at least the newest entry
 
 #### Scenario: superseded sbt dependency entry
 - **WHEN** the janitor runs after `backend/build.sbt` changed on `main` and two `sbt-<hash>` entries exist on main
+- **THEN** the older one is deleted and logged and the newest remains
+
+#### Scenario: superseded node_modules entry
+- **WHEN** the janitor runs after a lockfile changed on `main` and two `e2e-node-modules-*` entries exist on main
 - **THEN** the older one is deleted and logged and the newest remains
 
 #### Scenario: entry outside the allowlist

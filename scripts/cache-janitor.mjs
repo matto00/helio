@@ -22,6 +22,8 @@ export const FAMILIES = [
   { name: "codeql-actions", re: /^codeql-overlay-base-database-\d+-[0-9a-f]+-actions-/, keep: 2 },
   // Content-keyed on build.sbt: superseded the moment build.sbt changes on main.
   { name: "sbt-deps", re: /^sbt-[0-9a-f]{64}$/, keep: 1 },
+  // HEL-1699: content-keyed on both lockfiles + Node version; superseded when either changes on main.
+  { name: "e2e-node-modules", re: /^e2e-node-modules-v\d+-/, keep: 1 },
 ];
 
 /** Pure: the cache entries to delete from a listing (array of {id,key,ref,size_in_bytes,created_at}). */
