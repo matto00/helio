@@ -6,7 +6,7 @@ skipping `npm ci` when it hits, so registry slowness cannot push a job past its 
 
 ### Requirement: e2e jobs skip npm ci on an exact node_modules cache hit
 The shared e2e setup action SHALL restore a cache holding `node_modules` and `frontend/node_modules` whose key is
-derived from the runner OS, the runner architecture, the resolved Node version and the contents of both
+derived from the runner OS, the runner architecture, the Node major version and the contents of both
 `package-lock.json` and `frontend/package-lock.json`, with no fallback (`restore-keys`) match. On an exact hit it
 SHALL skip both `npm ci` and `npm --prefix frontend ci`; on a miss it SHALL run both exactly as before.
 

@@ -41,10 +41,13 @@ only; the group only when the listener leads it).
 ## Decisions
 
 **D1. Cache `node_modules`, not just `~/.npm`.** Paths `node_modules` and `frontend/node_modules`. Key
-`e2e-node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node${{ steps.<setup-node id>.outputs.node-version }}-${{ hashFiles('package-lock.json', 'frontend/package-lock.json') }}`.
-No `restore-keys`: a partial `node_modules` from another lockfile must never be used without `npm ci`. The resolved
-Node version is in the key because native/platform packages (esbuild, rollup) and `npm ci`'s layout can vary with Node;
-a Node minor bump costs one miss. `v1` lets the key be invalidated deliberately. Alternative rejected: keeping only
+`e2e-node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node${{ inputs.node-major }}-${{ hashFiles('package-lock.json', 'frontend/package-lock.json') }}`.
+No `restore-keys`: a partial `node_modules` from another lockfile must never be used without `npm ci`. The Node
+MAJOR version is in the key (the action input `node-major`, also setup-node's `node-version`, so one source) because native/platform
+packages (esbuild, rollup) are ABI-bound per major. It was first the resolved full version, which PR #1090's own CI run
+(39816349491) showed splits the key: runners in one run resolved different tool-cache patches (22.23.3 for e2e 1-4 and 6, 22.23.4
+for e2e 5 and e2e-prod-build), so only some jobs could ever hit and, with janitor `keep: 1`, successive main saves would
+evict each other. A new major costs one miss. `v1` lets the key be invalidated deliberately. Alternative rejected: keeping only
 `~/.npm` — refuted by the run above.
 
 **D2. Skip both `npm ci` steps on an exact hit** (`if: steps.<restore id>.outputs.cache-hit != 'true'`). Both trees are

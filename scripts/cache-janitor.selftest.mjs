@@ -61,9 +61,9 @@ const listing = [
   mk("codeql-overlay-base-database-1-c801913f1ee29663-ruby-2.27.1-x", 1),
   mk("codeql-overlay-base-database-1-c801913f1ee29663-ruby-2.27.1-y", 2),
   // HEL-1699 e2e node_modules: keep 1 on main; PR copy and near-miss keys survive
-  mk(`e2e-node-modules-v1-Linux-X64-node22.1.0-${hex64("a")}`, 1),
-  mk(`e2e-node-modules-v1-Linux-X64-node22.1.0-${hex64("b")}`, 2),
-  mk(`e2e-node-modules-v1-Linux-X64-node22.1.0-${hex64("c")}`, 3, "refs/pull/9/merge"),
+  mk(`e2e-node-modules-v1-Linux-X64-node22-${hex64("a")}`, 1),
+  mk(`e2e-node-modules-v1-Linux-X64-node22-${hex64("b")}`, 2),
+  mk(`e2e-node-modules-v1-Linux-X64-node22-${hex64("c")}`, 3, "refs/pull/9/merge"),
   mk(`e2e-node-modules-Linux-${hex64("a")}`, 1),
 ];
 const keys = (xs) => xs.map((c) => c.key).sort();
