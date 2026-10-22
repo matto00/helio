@@ -2,8 +2,8 @@
 // HEL-1361 -- weighted e2e shard assignment for the CI `e2e` matrix.
 //
 //   node scripts/e2e-shard.mjs run <index> <count>      CI: run leg <index> (1-based) of <count>
-//   node scripts/e2e-shard.mjs plan <count>             print every leg's assignment (no tests run)
-//   node scripts/e2e-shard.mjs weights <runDir>...      regenerate e2e/shard-weights.tsv on stdout
+//   node scripts/e2e-shard.mjs plan [<count>]           print every leg's assignment (no tests run; default DEFAULT_E2E_LEGS)
+//   node scripts/e2e-shard.mjs weights [--legs <n>] <runDir>...   regenerate e2e/shard-weights.tsv on stdout
 //
 // Why: Playwright 1.55's `--shard` cuts the alphabetically ordered test groups by test COUNT, so
 // one slow file (state-surface-contrast-guard) landed wholly on one leg. This script partitions the
@@ -166,7 +166,11 @@ export function weightsFromRuns(runSums) {
   return new Map([...per].map(([f, v]) => [f, Math.max(1, Math.round(median(v)))]));
 }
 
-export const EXPECTED_SHARD_REPORTS = 4;
+// The `e2e` matrix leg count in .github/workflows/ci.yml (HEL-1698 owner ruling: 6). The selftest asserts this equals
+// that matrix's length, so the two cannot drift. `weights` expects this many reports per run unless `--legs <n>` says
+// the run predates a leg-count change (weights are per-file sums across all reports, so they do not depend on n).
+export const DEFAULT_E2E_LEGS = 6;
+export const EXPECTED_SHARD_REPORTS = DEFAULT_E2E_LEGS;
 
 /** Throws naming runDir and shard unless the run holds exactly `expected` clean reports. */
 export function validateRunReports(runDir, reports, expected = EXPECTED_SHARD_REPORTS) {
@@ -186,14 +190,14 @@ export function validateRunReports(runDir, reports, expected = EXPECTED_SHARD_RE
   }
 }
 
-function findReports(runDir) {
+function findReports(runDir, expected = EXPECTED_SHARD_REPORTS) {
   const out = [];
   for (const d of readdirSync(runDir, { withFileTypes: true })) {
     const p = join(runDir, d.name, "results.json");
     if (d.isDirectory() && existsSync(p))
       out.push({ shard: d.name, doc: JSON.parse(readFileSync(p, "utf8")) });
   }
-  validateRunReports(runDir, out);
+  validateRunReports(runDir, out, expected);
   return out.map((r) => r.doc);
 }
 
@@ -267,9 +271,23 @@ async function run(index, count) {
   process.exit(code);
 }
 
-function weightsMode(runDirs) {
-  if (runDirs.length === 0) throw new Error("usage: weights <runDir>...");
-  const w = weightsFromRuns(runDirs.map((d) => fileSumsForRun(findReports(d))));
+/** `--legs <n>` (any position) -> { legs, runDirs }; legs defaults to EXPECTED_SHARD_REPORTS. */
+export function parseWeightsArgs(args) {
+  const runDirs = [];
+  let legs = EXPECTED_SHARD_REPORTS;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--legs") {
+      legs = Number(args[++i]);
+      if (!Number.isInteger(legs) || legs < 1) throw new Error("usage: --legs <count >= 1>");
+    } else runDirs.push(args[i]);
+  }
+  return { legs, runDirs };
+}
+
+function weightsMode(args) {
+  const { legs, runDirs } = parseWeightsArgs(args);
+  if (runDirs.length === 0) throw new Error("usage: weights [--legs <n>] <runDir>...");
+  const w = weightsFromRuns(runDirs.map((d) => fileSumsForRun(findReports(d, legs))));
   console.log(
     "# HEL-1361 e2e shard weights: seconds per spec file, from CI Playwright JSON reports.",
   );
@@ -286,13 +304,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     if (mode === "run") await run(Number(rest[0]), Number(rest[1]));
     else if (mode === "plan") {
-      const n = Number(rest[0] ?? 4);
+      const n = Number(rest[0] ?? DEFAULT_E2E_LEGS);
       if (!Number.isInteger(n) || n < 1) throw new Error("usage: plan <count >= 1>");
       printPlan(plan(n));
     } else if (mode === "weights") weightsMode(rest);
     else
       throw new Error(
-        "usage: e2e-shard.mjs run <index> <count> | plan <count> | weights <runDir>...",
+        "usage: e2e-shard.mjs run <index> <count> | plan [<count>] | weights [--legs <n>] <runDir>...",
       );
   } catch (e) {
     console.error(`e2e-shard: ${e.message}`);

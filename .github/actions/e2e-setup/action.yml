@@ -1,0 +1,73 @@
+# HEL-1698: the e2e setup steps shared by ci.yml `e2e`, ci.yml `e2e-prod-build` and e2e-slow.yml (previously three
+# copies that had to be "kept in step"). Each calling job keeps what a composite action cannot hold: `services`
+# (postgres), `env`, `timeout-minutes`, the checkout (a local action must be checked out first), its test steps
+# and uploads. Dependabot scans this directory (directories glob in .github/dependabot.yml). Commands and step order are identical to the former inline steps.
+name: e2e-setup
+description: Java, sbt cache, background backend, Node, npm ci, Playwright chromium, backend health wait, optional Vite dev server.
+
+inputs:
+  start-dev-frontend:
+    description: 'Start the Vite dev server on :5173 ("false" for a job that serves its own build, e.g. vite preview).'
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: 21
+    - uses: sbt/setup-sbt@v1
+    # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
+    - name: Restore sbt dependency cache
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~/.sbt
+          ~/.ivy2/cache
+          ~/.cache/coursier
+        key: sbt-${{ hashFiles('**/build.sbt') }}
+        restore-keys: sbt-
+    # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
+    # is started in the background right after the sbt cache restores and overlaps the npm /
+    # browser steps below; the health wait is a separate, later step that still fails loudly
+    # and dumps the log.
+    - name: Start backend (sbt run, background)
+      shell: bash
+      run: scripts/e2e-backend.sh start
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          frontend/package-lock.json
+    - run: npm ci
+      shell: bash
+    - run: npm --prefix frontend ci
+      shell: bash
+    # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
+    # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
+    # install 21-27 s) was no faster than the uncached baseline (22-23 s).
+    - name: Install Playwright browsers
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
+    # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
+    - name: Wait for backend health
+      shell: bash
+      run: scripts/e2e-backend.sh wait
+    - name: Start frontend (Vite dev server)
+      if: inputs.start-dev-frontend == 'true'
+      shell: bash
+      working-directory: frontend
+      run: |
+        nohup npx vite --port 5173 > /tmp/frontend.log 2>&1 &
+        for i in $(seq 1 30); do
+          curl -sf http://localhost:5173/ && exit 0
+          sleep 2
+        done
+        echo "frontend did not become healthy" >&2
+        cat /tmp/frontend.log
+        exit 1
