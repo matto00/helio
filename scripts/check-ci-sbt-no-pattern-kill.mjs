@@ -14,6 +14,8 @@ export const SCANNED = [
   "scripts/lib/ci-sbt-diag.sh",
   "scripts/e2e-backend.sh",
   ".github/workflows/ci.yml",
+  ".github/workflows/e2e-slow.yml",
+  ".github/actions/e2e-setup/action.yml",
 ];
 
 const RULES = [

@@ -73,7 +73,8 @@ updates:
         dependency-type: "development"
 
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # "/" covers .github/workflows/*; the glob covers composite actions (HEL-1698: .github/actions/e2e-setup).
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10

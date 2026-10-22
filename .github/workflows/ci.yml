@@ -91,6 +91,8 @@ jobs:
       # HEL-1361: proves the e2e shard partition (scripts/e2e-shard.mjs) is exact-once and failable.
       # Wired into BOTH .husky/pre-commit and here, like check:tokens:selftest above.
       - run: npm run check:e2e-shard:selftest
+      # HEL-1698: proves the e2e-slow weekly lane's results guard (scripts/check-e2e-slow-results.mjs) is failable.
+      - run: npm run check:e2e-slow-results:selftest
       # HEL-1691: the `@prod-build` partition of the e2e suite (env unset -> only `dev`, none tagged; env set -> only the
       # guard and tagged `prod-build` tests), checked on Playwright's real `--list` output, plus its failable selftest.
       - run: npm run check:e2e-prod-build-projects
@@ -552,22 +554,25 @@ jobs:
   # naming its follow-up ticket — see that file for the current list.
   e2e:
     # The HELIO_E2E_SLOW=1 390/768 MAXIMAL phone sweeps are skipped here; .github/workflows/e2e-slow.yml runs them
-    # weekly (its setup steps mirror this job: keep the two in step).
+    # weekly (both use the .github/actions/e2e-setup composite action for their shared setup steps).
     runs-on: ubuntu-latest
-    # Slowest leg measures ~7 min; ~2.5x so a hung leg frees its runner instead of holding it for
-    # the 6 h default (HEL-1288).
+    # A hung leg frees its runner instead of holding it for the 6 h default (HEL-1288). Measured whole-leg wall on main
+    # before HEL-1698 (4 legs): ~16-25 min, slowest 1292-1498 s over five runs; HEL-1698 moved to 6 legs to get the
+    # slowest at or under 20 min without raising this timeout (after-figures: HEL-1698 PR runs and the post-merge watch).
     timeout-minutes: 25
-    # HEL-1288 (C8) — at most 4 legs (account-wide concurrent-job cap, shared with the backend job's legs;
-    # see profile.md); per-leg speed comes from Playwright `workers` (playwright.config.ts), not more legs.
+    # HEL-1288 (C8) capped this at 4 legs (account-wide concurrent-job cap, shared with the backend job's legs; see
+    # profile.md). HEL-1698 owner ruling (2026-10-22) knowingly supersedes that: 6 legs (backend 4 + e2e 6 = 10
+    # parallel jobs) to keep the slowest leg well under `timeout-minutes`. Per-leg speed still comes from Playwright
+    # `workers` (playwright.config.ts). `scripts/e2e-shard.mjs` selftest asserts its default leg count equals this matrix.
     # Sharded across N runners (each with its OWN Postgres service, backend and Vite,
     # so shards share no mutable state). `fail-fast: false` so every shard reports; the matrix
     # job's aggregate result is `failure` if any leg fails, which `ci-complete` (needs: e2e)
     # already treats as a failed required check.
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 6
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6]
     services:
       postgres:
         # HEL-1452: pulled via mirror.gcr.io (same tag/digest as Docker Hub) to avoid Docker Hub anonymous 429s.
@@ -615,56 +620,7 @@ jobs:
       CONNECTOR_MASTER_KEY_ID: ci-test-2026-08
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: sbt/setup-sbt@v1
-      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
-      - name: Restore sbt dependency cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.cache/coursier
-          key: sbt-${{ hashFiles('**/build.sbt') }}
-          restore-keys: sbt-
-      # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
-      # is started in the background right after the sbt cache restores and overlaps the npm /
-      # browser steps below; the health wait is a separate, later step that still fails loudly
-      # and dumps the log.
-      - name: Start backend (sbt run, background)
-        run: scripts/e2e-backend.sh start
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
-      - run: npm ci
-      - run: npm --prefix frontend ci
-      # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
-      # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
-      # install 21-27 s) was no faster than the uncached baseline (22-23 s).
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-      # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
-      # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
-      - name: Wait for backend health
-        run: scripts/e2e-backend.sh wait
-      - name: Start frontend (Vite dev server)
-        working-directory: frontend
-        run: |
-          nohup npx vite --port 5173 > /tmp/frontend.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:5173/ && exit 0
-            sleep 2
-          done
-          echo "frontend did not become healthy" >&2
-          cat /tmp/frontend.log
-          exit 1
+      - uses: ./.github/actions/e2e-setup
       # HEL-951 contract preserved: discovery is still Playwright's own (`playwright test --list`
       # over the config's glob and `testIgnore`). HEL-1361: scripts/e2e-shard.mjs partitions that
       # discovered set by per-file weight (e2e/shard-weights.tsv, from CI timings) instead of
@@ -762,45 +718,9 @@ jobs:
       CONNECTOR_MASTER_KEY_ID: ci-test-2026-08
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: ./.github/actions/e2e-setup
         with:
-          distribution: temurin
-          java-version: 21
-      - uses: sbt/setup-sbt@v1
-      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
-      - name: Restore sbt dependency cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.sbt
-            ~/.ivy2/cache
-            ~/.cache/coursier
-          key: sbt-${{ hashFiles('**/build.sbt') }}
-          restore-keys: sbt-
-      # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
-      # is started in the background right after the sbt cache restores and overlaps the npm /
-      # browser steps below; the health wait is a separate, later step that still fails loudly
-      # and dumps the log.
-      - name: Start backend (sbt run, background)
-        run: scripts/e2e-backend.sh start
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
-      - run: npm ci
-      - run: npm --prefix frontend ci
-      # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
-      # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
-      # install 21-27 s) was no faster than the uncached baseline (22-23 s).
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-      # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
-      # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
-      - name: Wait for backend health
-        run: scripts/e2e-backend.sh wait
+          start-dev-frontend: "false"
       # HEL-1691: the `@prod-build` latency tests run against the PRODUCTION build (`dist/` served by `vite preview`
       # on the same port, so origin, cookies and the /api proxy match the dev job). Same services, backend and setup
       # as the `e2e` legs; no step is added to any of those legs.
@@ -822,7 +742,7 @@ jobs:
       - name: Run @prod-build e2e tests (production build)
         run: HELIO_E2E_PROD_BUILD=1 npx playwright test --project=prod-build
       # The report is named playwright-json-prod-build, never playwright-json-shard-*: weight regeneration (scripts/e2e-shard.mjs
-      # weights) expects exactly the four shard reports.
+      # weights) expects exactly one report per e2e shard leg (6 by default) and no others.
       - name: Upload Playwright JSON report (per-test durations)
         if: always()
         uses: actions/upload-artifact@v7
