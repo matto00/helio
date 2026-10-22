@@ -7,7 +7,6 @@
 // frame size + unit controls (rolling_*, HEL-1316) render conditionally per
 // design.md decision 4 — the rank family ignores `field` and `offset` entirely.
 
-import { InlineError } from "../../../../shared/chrome/InlineError";
 import { useId, type ChangeEvent } from "react";
 
 import type { SchemaField } from "../../types/pipelineStep";
@@ -84,10 +83,6 @@ interface WindowConfigProps {
   analyzeColumns: string[];
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: WindowConfigValue) => void;
-  /** HEL-1416: the server's message for a rejected save of this step's config. */
-  saveError?: string | null;
-  /** HEL-1422: the rejection was a 422, so the function control is marked invalid. */
-  saveErrorIsValidation?: boolean;
 }
 
 export function WindowConfig({
@@ -95,15 +90,11 @@ export function WindowConfig({
   analyzeSchema,
   analyzeColumns,
   onChange,
-  saveError,
-  saveErrorIsValidation = false,
 }: WindowConfigProps) {
-  const errorId = useId();
   const baseId = useId();
   const offsetId = `${baseId}-offset`;
   const frameSizeId = `${baseId}-frame-size`;
   const outputColumnId = `${baseId}-output-column`;
-  const functionInvalid = Boolean(saveError) && saveErrorIsValidation;
   function emit(next: WindowConfigValue) {
     onChange(next);
   }
@@ -232,8 +223,6 @@ export function WindowConfig({
             value={config.function}
             options={FUNCTION_OPTIONS}
             onChange={handleFunctionChange}
-            ariaInvalid={functionInvalid}
-            ariaDescribedBy={functionInvalid ? errorId : undefined}
           />
         </div>
 
@@ -307,7 +296,6 @@ export function WindowConfig({
           />
         </div>
       </div>
-      <InlineError error={saveError ?? null} id={errorId} />
     </div>
   );
 }

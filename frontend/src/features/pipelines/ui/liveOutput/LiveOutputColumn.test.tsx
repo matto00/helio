@@ -19,6 +19,18 @@ jest.mock("../../../panels/history/outputHistoryService", () => ({
   fetchPublicOutputHistory: jest.fn(),
 }));
 jest.mock("../../services/outputService", () => ({ getOutputRows: jest.fn() }));
+const mockBodyRenders = { count: 0 };
+jest.mock("./LiveOutputBody", () => {
+  const actual = jest.requireActual("./LiveOutputBody");
+  const { createElement, memo } = jest.requireActual("react");
+  return {
+    ...actual,
+    LiveOutputBody: memo((props: object) => {
+      mockBodyRenders.count += 1;
+      return createElement(actual.LiveOutputBody, props);
+    }),
+  };
+});
 let sampleState: SampleState = "ready";
 const sampleStateCalls = jest.fn();
 jest.mock("../../hooks/useLiveSampleState", () => ({
@@ -102,6 +114,7 @@ beforeEach(() => {
   resetHistoryCache();
   clearSavedOutputRows();
   sampleStateCalls.mockClear();
+  mockBodyRenders.count = 0;
   sampleState = "ready";
   fetchHistory.mockReset();
   getOutputRows.mockReset();
@@ -153,7 +166,7 @@ describe("LiveOutputColumn", () => {
     await waitFor(() => expect(fetchHistory).toHaveBeenCalledTimes(2));
   });
 
-  it("is stale on the last good frame, with the step's message, for an error", async () => {
+  it("is stale on the last good frame for an error, and does not repeat the step's message", async () => {
     renderWithStore(
       column({
         hasDraft: true,
@@ -167,7 +180,8 @@ describe("LiveOutputColumn", () => {
     );
     expect(await screen.findByLabelText("Output is stale")).toBeInTheDocument();
     expect(screen.queryByLabelText("Output is live")).not.toBeInTheDocument();
-    expect(screen.getByText("bad expression")).toBeInTheDocument();
+    expect(screen.queryByText("bad expression")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing the last good render.")).toBeInTheDocument();
     expect(getValue("60")).toBeInTheDocument();
   });
 
@@ -305,7 +319,7 @@ describe("LiveOutputColumn", () => {
     }
   });
 
-  it("does not re-render its view for an edit: ten edits inside the quiet window cost no view render, then one", async () => {
+  it('does not re-render its view per edit: ten edits inside the quiet window cost one view render (the burst starts, so it reads "updating"), then one for the frame', async () => {
     jest.useFakeTimers();
     try {
       const edit = (n: number) =>
@@ -325,14 +339,56 @@ describe("LiveOutputColumn", () => {
           jest.advanceTimersByTime(40);
         });
       }
-      // The view (and every hook in it) did not render for any of the ten edits.
-      expect(sampleStateCalls.mock.calls.length).toBe(afterMount);
+      // The view (and every hook in it) rendered at most once for the ten edits: when the burst started and "settling" flipped.
+      expect(sampleStateCalls.mock.calls.length).toBeLessThanOrEqual(afterMount + 1);
       await act(async () => {
         jest.advanceTimersByTime(1000);
       });
-      expect(sampleStateCalls.mock.calls.length).toBeLessThanOrEqual(afterMount + 2);
+      expect(sampleStateCalls.mock.calls.length).toBeLessThanOrEqual(afterMount + 3);
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  describe("while a newer draft frame is settling", () => {
+    const NEXT: Frame = [{ date: "d", amount: int(5) }];
+    const liveColumn = (rows: Frame) =>
+      column({ hasDraft: true, views: new Map([["s1", view({ rows, count: rows.length })]]) });
+
+    it("shows 'updating' on the previous frame from the edit until the newer frame renders, then 'live'", async () => {
+      const { rerender } = renderWithStore(liveColumn(DRAFT));
+      expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+
+      rerender(liveColumn(NEXT));
+
+      expect(screen.getByLabelText("Output is updating")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Output is live")).not.toBeInTheDocument();
+      expect(getValue("30")).toBeInTheDocument();
+      expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+      expect(getValue("5")).toBeInTheDocument();
+    });
+
+    it("never shows 'updating' for a re-render that leaves the Output's frame alone", async () => {
+      const { rerender } = renderWithStore(liveColumn(DRAFT));
+      expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+
+      rerender(liveColumn(DRAFT));
+      rerender(column({ hasDraft: true, runStatus: "running", views: new Map([["s1", view()]]) }));
+
+      expect(screen.queryByLabelText("Output is updating")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Output is live")).toBeInTheDocument();
+    });
+
+    it("does not re-render the body when the burst starts, only when the newer frame renders", async () => {
+      const { rerender } = renderWithStore(liveColumn(DRAFT));
+      expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+      const before = mockBodyRenders.count;
+
+      rerender(liveColumn(NEXT));
+
+      expect(screen.getByLabelText("Output is updating")).toBeInTheDocument();
+      expect(mockBodyRenders.count).toBe(before);
+      await waitFor(() => expect(mockBodyRenders.count).toBeGreaterThan(before));
+    });
   });
 });

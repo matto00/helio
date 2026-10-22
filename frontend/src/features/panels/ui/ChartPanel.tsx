@@ -24,6 +24,7 @@ import { useChartClickHandler } from "./useChartClickHandler";
 import { useHeatmapDefaultCursor } from "./useHeatmapDefaultCursor";
 import { useChartEntranceMotion } from "./useChartEntranceMotion";
 import { chartShapeSignature, ShapeMemory } from "./chartShapeSignature";
+import { withoutMarkAnimation } from "./referenceMarksOption";
 import { resolveChartType } from "../../../utils/chartAppearance";
 import echarts from "./echartsCore";
 
@@ -127,7 +128,11 @@ export function ChartPanel({
   const option = useMemo(
     () =>
       noAnimation
-        ? { ...motionOption, animation: false, animationDurationUpdate: 0 }
+        ? {
+            ...withoutMarkAnimation(motionOption),
+            animation: false,
+            animationDurationUpdate: 0,
+          }
         : motionOption,
     [noAnimation, motionOption],
   );

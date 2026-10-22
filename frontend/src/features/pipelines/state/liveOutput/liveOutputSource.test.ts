@@ -2,6 +2,7 @@ import type { Frame } from "../../evaluator";
 import type { DraftStepView } from "../draftStepView";
 import {
   DRAFT_CAPTION,
+  LAST_GOOD_NOTE,
   LAST_RUN_CAPTION,
   NOT_PREVIEWED_CAPTION,
   SAMPLE_CAPTION,
@@ -108,7 +109,7 @@ describe("liveOutputSource (design.md D3 table)", () => {
     });
   });
 
-  it("is stale on the last good frame with the step's message for an error or a stale step", () => {
+  it("is stale on the last good frame for an error or a stale step, without repeating the step's message", () => {
     for (const status of ["error", "stale"] as const) {
       expect(
         source({ view: view({ status, rows: BASE, frameStale: true, message: "boom" }) }),
@@ -117,7 +118,7 @@ describe("liveOutputSource (design.md D3 table)", () => {
         rows: BASE,
         marker: "stale",
         caption: DRAFT_CAPTION,
-        note: "boom",
+        note: LAST_GOOD_NOTE,
       });
     }
     // The base frame stands in when the view has none.

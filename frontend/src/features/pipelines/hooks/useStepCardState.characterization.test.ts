@@ -75,16 +75,10 @@ afterEach(() => {
 // ---------------------------------------------------------------------------------------------
 
 describe("useStepCardState characterization — return shape (group 1)", () => {
-  it("returns exactly the 54 keys in base order", () => {
+  it("returns exactly the 52 keys in base order", () => {
     const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
     expect(Object.keys(result.current)).toEqual(EXPECTED_KEYS);
-    expect(EXPECTED_KEYS).toHaveLength(54);
-  });
-
-  it("starts with null saveError and false saveErrorIsValidation", () => {
-    const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
-    expect(result.current.saveError).toBeNull();
-    expect(result.current.saveErrorIsValidation).toBe(false);
+    expect(EXPECTED_KEYS).toHaveLength(52);
   });
 });
 
@@ -117,17 +111,6 @@ describe("useStepCardState characterization — handler wire payloads (group 2)"
       expect(onConfigChange).toHaveBeenCalledTimes(1);
     },
   );
-
-  it.each(ALL_CASES)("$name: never populates saveError (there is no server round trip)", (c) => {
-    const { result } = renderStateHook(stepOf("limit", { count: 5 }), jest.fn());
-
-    act(() => {
-      call(result, c.handler, ...c.args);
-    });
-
-    expect(result.current.saveError).toBeNull();
-    expect(result.current.saveErrorIsValidation).toBe(false);
-  });
 });
 
 describe("useStepCardState characterization — local echo (group 6)", () => {

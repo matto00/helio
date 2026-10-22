@@ -39,16 +39,11 @@ const CSV_SOURCE: DataSource = {
 
 function renderConfig(
   config: UpsertSourceConfigValue,
-  overrides: { isOwner?: boolean; saveError?: string | null; onChange?: jest.Mock } = {},
+  overrides: { isOwner?: boolean; onChange?: jest.Mock } = {},
 ) {
   const onChange = overrides.onChange ?? jest.fn();
   renderWithStore(
-    <UpsertSourceConfig
-      config={config}
-      isOwner={overrides.isOwner ?? true}
-      saveError={overrides.saveError ?? null}
-      onChange={onChange}
-    />,
+    <UpsertSourceConfig config={config} isOwner={overrides.isOwner ?? true} onChange={onChange} />,
     { sources: { items: [DATASET_SOURCE, CSV_SOURCE] } },
   );
   return onChange;
@@ -136,13 +131,11 @@ describe("UpsertSourceConfig — multiple cards on one page (evaluation change r
         <UpsertSourceConfig
           config={{ mode: "append", target: { kind: "newSource", name: "a" } }}
           isOwner
-          saveError={null}
           onChange={jest.fn()}
         />
         <UpsertSourceConfig
           config={{ mode: "append", target: { kind: "existingSource", dataSourceId: "ds-1" } }}
           isOwner
-          saveError={null}
           onChange={jest.fn()}
         />
       </>,
@@ -205,20 +198,5 @@ describe("UpsertSourceConfig — mode toggle (design.md Decision 5)", () => {
 
     expect(onChange).toHaveBeenCalledWith({ mode: "append" });
     expect(screen.queryByText(/can't be undone/i)).not.toBeInTheDocument();
-  });
-});
-
-describe("UpsertSourceConfig — save error (design.md Decision 6)", () => {
-  it("renders the backend rejection message inline", () => {
-    renderConfig(
-      { mode: "append", target: { kind: "existingSource", dataSourceId: "ds-1" } },
-      { saveError: "Data source not found: ds-1" },
-    );
-    expect(screen.getByText("Data source not found: ds-1")).toBeInTheDocument();
-  });
-
-  it("renders nothing extra when there is no save error", () => {
-    renderConfig({ mode: "append" }, { saveError: null });
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

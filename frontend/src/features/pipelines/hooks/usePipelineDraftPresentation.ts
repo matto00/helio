@@ -24,6 +24,7 @@ export function usePipelineDraftPresentation(page: PipelinePageState, focusStepI
     hasDraft,
     needBase: page.allOutputs.length > 0,
     focusStepId,
+    memory: page.draftFrameMemory,
   });
   const { views, baseCounts, baseRows, sampleTruncated } = frames;
 

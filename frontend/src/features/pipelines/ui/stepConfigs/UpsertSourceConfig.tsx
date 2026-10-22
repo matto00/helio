@@ -15,7 +15,6 @@ import { fetchSources } from "../../../sources/state/sourcesSlice";
 import { isStaticSource } from "../../../sources/types/dataSource";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { ConfirmInline, Select, TextField } from "../../../../shared/ui/index";
-import { InlineError } from "../../../../shared/chrome/InlineError";
 import { isUnconfiguredUpsertTarget } from "../../state/stepNarrowing";
 import type { UpsertMode, UpsertTarget } from "../../types/pipelineStep";
 
@@ -33,21 +32,11 @@ interface UpsertSourceConfigProps {
    *  the calling grantee). Threaded from `usePipelineDetailPage.ts`'s
    *  existing `isOwner` through `StepCard`/`StepOpEditor`. */
   isOwner: boolean;
-  /** design.md Decision 6 — a rejected PATCH's backend message (cycle
-   *  rejection, ownership "not found"), or `null`/absent when there is no
-   *  outstanding save error. Sourced from `useStepCardState`'s new scoped
-   *  `saveError` state, not the analyze-time `validationError` channel. */
-  saveError?: string | null;
   /** Called with the typed config object on any committed change (CS2c-3a). */
   onChange: (newConfig: UpsertSourceConfigValue) => void;
 }
 
-export function UpsertSourceConfig({
-  config,
-  isOwner,
-  saveError,
-  onChange,
-}: UpsertSourceConfigProps) {
+export function UpsertSourceConfig({ config, isOwner, onChange }: UpsertSourceConfigProps) {
   const dispatch = useAppDispatch();
   const { items: dataSources } = useAppSelector((state) => state.sources);
 
@@ -187,8 +176,6 @@ export function UpsertSourceConfig({
             aria-label="New source name"
           />
         )}
-
-        <InlineError error={saveError ?? null} />
       </div>
 
       <div className="pipeline-detail-page__compute-field">

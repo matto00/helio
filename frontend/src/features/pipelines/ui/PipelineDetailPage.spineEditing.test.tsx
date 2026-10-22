@@ -523,6 +523,8 @@ describe("spine editing: edits survive selection changes (HEL-1631, replaces des
 
     fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
     expect(rowTitles()).toEqual(["Filter rows", "Sort rows", "Compute column"]);
+    expect(screen.queryByDisplayValue("180")).toBeNull();
+    fireEvent.click(rowButton(1, "Filter rows"));
     expect(await screen.findByDisplayValue("180")).toBeInTheDocument();
   });
 

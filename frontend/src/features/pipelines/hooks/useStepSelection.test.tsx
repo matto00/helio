@@ -91,6 +91,21 @@ describe("useStepSelection", () => {
     rerender({ steps: [...THREE, swapped], loaded: true });
     expect(result.current.selectedStepId).toBe("real-9");
   });
+
+  it("does not treat a step that comes back (a Discard restoring a deleted step) as created", () => {
+    const { result, rerender } = render("/p", THREE);
+    act(() => result.current.selectStep("b"));
+    rerender({ steps: THREE.filter((s) => s.id !== "c"), loaded: true });
+    rerender({ steps: THREE, loaded: true });
+    expect(result.current.selectedStepId).toBe("b");
+  });
+
+  it("still selects a step the first time it ever appears after earlier removals", () => {
+    const { result, rerender } = render("/p", THREE);
+    rerender({ steps: THREE.filter((s) => s.id !== "c"), loaded: true });
+    rerender({ steps: [...THREE.filter((s) => s.id !== "c"), step("e", "b", 0)], loaded: true });
+    expect(result.current.selectedStepId).toBe("e");
+  });
 });
 
 describe("selectAfterRemoval / defaultSelectedStepId", () => {

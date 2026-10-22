@@ -25,20 +25,20 @@ jest.mock("../../services/pipelineService", () => ({
 describe("PipelineScheduleDialog re-renders", () => {
   it("does not rebuild the timezone options when re-rendered with unchanged timezones", () => {
     const store = configureStore({ reducer: { pipelines: pipelinesReducer } as never });
-    const tree = (name: string) => (
+    const tree = () => (
       <Provider store={store}>
         <PipelineScheduleDialog
-          pipelineId={`p-${name}`.slice(0, 3)}
+          pipelineId="p-1"
           schedule={null}
           open={false}
           onClose={() => undefined}
         />
       </Provider>
     );
-    const { rerender } = render(tree("1"));
+    const { rerender } = render(tree());
     const afterFirst = mapSpy.mock.calls.length;
     expect(afterFirst).toBeGreaterThan(0);
-    for (let i = 0; i < 5; i += 1) rerender(tree("1"));
+    for (let i = 0; i < 5; i += 1) rerender(tree());
     expect(mapSpy.mock.calls.length).toBe(afterFirst);
   });
 });

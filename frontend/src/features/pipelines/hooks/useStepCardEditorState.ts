@@ -112,10 +112,6 @@ export function useStepCardEditorState(step: Step) {
   const [generateTextConfig, setGenerateTextConfig] = useState<GenerateTextConfigValue>(() =>
     generateTextConfigOf(step),
   );
-  // design.md Decision 6 — scoped to `upsertsource` only (see the field's
-  // own doc on `StepCardStateHandlers` in `stepCardStateTypes.ts`).
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveErrorIsValidation, setSaveErrorIsValidation] = useState(false);
   if (prevConfig !== step.config || prevOpTypeId !== step.opType.id) {
     setPrevConfig(step.config);
     setPrevOpTypeId(step.opType.id);
@@ -199,9 +195,5 @@ export function useStepCardEditorState(step: Step) {
     setAnalyzeWithAiConfig,
     generateTextConfig,
     setGenerateTextConfig,
-    saveError,
-    setSaveError,
-    saveErrorIsValidation,
-    setSaveErrorIsValidation,
   };
 }

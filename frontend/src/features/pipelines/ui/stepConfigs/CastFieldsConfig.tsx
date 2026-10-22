@@ -6,7 +6,6 @@
 
 import { useId } from "react";
 
-import { InlineError } from "../../../../shared/chrome/InlineError";
 import { Select } from "../../../../shared/ui/index";
 
 // Mirrors the backend's `CastStep.SupportedTargets` (same values, same order); pinned by
@@ -56,65 +55,48 @@ interface CastFieldsConfigProps {
   /** Called when the user changes the target type for a field.
    *  Empty string means "remove from casts map" (keep as-is). */
   onChange: (field: string, targetType: string) => void;
-  /** HEL-1514: the server's message for a rejected save of this step's config. */
-  saveError?: string | null;
-  /** HEL-1514: the rejection was a 422, so the unsupported rows it concerns are described by it. */
-  saveErrorIsValidation?: boolean;
 }
 
-export function CastFieldsConfig({
-  columns,
-  casts,
-  onChange,
-  saveError,
-  saveErrorIsValidation = false,
-}: CastFieldsConfigProps) {
+export function CastFieldsConfig({ columns, casts, onChange }: CastFieldsConfigProps) {
   const idBase = useId();
-  const errorId = `${idBase}-error`;
-  const errorLinked = Boolean(saveError) && saveErrorIsValidation;
   const storedOutsideSchema = Object.keys(casts)
     .filter((key) => !columns.includes(key))
     .sort();
   const rows = [...columns, ...storedOutsideSchema];
   return (
-    <>
-      <table className="pipeline-detail-page__cast-table" aria-label="Cast fields">
-        <thead>
-          <tr>
-            <th className="pipeline-detail-page__cast-th">Source field</th>
-            <th className="pipeline-detail-page__cast-th">Target type</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((col, index) => {
-            const invalid = isUnsupportedTarget(casts[col]);
-            const hintId = `${idBase}-hint-${index}`;
-            return (
-              <tr key={col} className="pipeline-detail-page__cast-row">
-                <td className="pipeline-detail-page__cast-source">{col}</td>
-                <td className="pipeline-detail-page__cast-target">
-                  <Select
-                    ariaLabel={`Target type for ${col}`}
-                    value={casts[col] ?? KEEP_AS_IS_VALUE}
-                    options={optionsFor(casts[col])}
-                    onChange={(value) => onChange(col, value)}
-                    ariaInvalid={invalid}
-                    ariaDescribedBy={
-                      invalid ? (errorLinked ? `${hintId} ${errorId}` : hintId) : undefined
-                    }
-                  />
-                  {invalid && (
-                    <p id={hintId} className="pipeline-detail-page__cast-hint">
-                      {UNSUPPORTED_HINT}
-                    </p>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <InlineError error={saveError ?? null} id={errorId} />
-    </>
+    <table className="pipeline-detail-page__cast-table" aria-label="Cast fields">
+      <thead>
+        <tr>
+          <th className="pipeline-detail-page__cast-th">Source field</th>
+          <th className="pipeline-detail-page__cast-th">Target type</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((col, index) => {
+          const invalid = isUnsupportedTarget(casts[col]);
+          const hintId = `${idBase}-hint-${index}`;
+          return (
+            <tr key={col} className="pipeline-detail-page__cast-row">
+              <td className="pipeline-detail-page__cast-source">{col}</td>
+              <td className="pipeline-detail-page__cast-target">
+                <Select
+                  ariaLabel={`Target type for ${col}`}
+                  value={casts[col] ?? KEEP_AS_IS_VALUE}
+                  options={optionsFor(casts[col])}
+                  onChange={(value) => onChange(col, value)}
+                  ariaInvalid={invalid}
+                  ariaDescribedBy={invalid ? hintId : undefined}
+                />
+                {invalid && (
+                  <p id={hintId} className="pipeline-detail-page__cast-hint">
+                    {UNSUPPORTED_HINT}
+                  </p>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }

@@ -50,17 +50,6 @@ export interface StepCardStateHandlers {
   convertFormatConfig: ConvertFormatConfigValue;
   analyzeWithAiConfig: AnalyzeWithAiConfigValue;
   generateTextConfig: GenerateTextConfigValue;
-  /** design.md Decision 6 — the current rejected-`persist()` message for
-   *  THIS step, or `null` when there is none. Scoped narrowly: only ever
-   *  populated by `onUpsertSourceChange`'s persist call site (in `stepCardOpHandlers.ts`), per this
-   *  ticket's own decision (other op kinds keep their pre-existing
-   *  swallow-on-reject behavior). Cleared at the start of the next `persist`
-   *  attempt (success or failure). */
-  saveError: string | null;
-  /** HEL-1422: true only while `saveError` holds a validation rejection (HTTP 422), i.e. the
-   *  server judged the value itself invalid. A network/5xx failure leaves it false. Additive:
-   *  `UpsertSourceConfig` keeps rendering `saveError` alone. */
-  saveErrorIsValidation: boolean;
   onFieldToggle: (field: string, checked: boolean) => void;
   onRenameChange: (field: string, newName: string) => void;
   onCastChange: (field: string, targetType: string) => void;

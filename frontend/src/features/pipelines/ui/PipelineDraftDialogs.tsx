@@ -64,11 +64,6 @@ export function PipelineDraftDialogs({ page }: { page: PipelinePageState }) {
               </li>
             )}
           </ul>
-          {cascade.impact.hints.map((hint) => (
-            <p key={hint} className="draft-cascade__hint">
-              {hint}
-            </p>
-          ))}
         </Modal>
       )}
 

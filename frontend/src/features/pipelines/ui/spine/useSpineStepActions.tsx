@@ -8,6 +8,7 @@ import type { ReactNode, RefObject } from "react";
 
 import type { ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { useLaneReorder } from "../../hooks/useLaneReorder";
+import { useLatestCallback } from "../../hooks/useLatestCallback";
 import type { Lane, LaneGraph } from "../../state/stepTree";
 import type { ExpandPipelineShapeResponse } from "../../types/pipelineShape";
 import type { PipelineRoot } from "../../types/pipelineStep";
@@ -188,24 +189,23 @@ export function useSpineStepActions({
     return items;
   }
 
-  function handlePaletteSelect(opType: OpType) {
+  // Both go to the memoised StepPalette, which is mounted while closed: stable identities keep a draft edit from
+  // re-rendering it, and the latest closure still sees the current palette target and the layout's add handlers.
+  const handlePaletteSelect = useLatestCallback((opType: OpType) => {
     const target = palette;
     setPalette(null);
     if (target === null) return;
     if (target.kind === "append") onAddStep(opType);
     else if (target.kind === "insert") onInsertStep(opType, target.index);
     else onAddLaneStep(opType, target.parentStepId);
-  }
+  });
+  const closePalette = useLatestCallback(() => setPalette(null));
 
   const dialogs = (
     <>
       {/* `open` is the real boolean, not a conditional mount: Modal's focus-restore only runs on a
           true->false transition (HEL-1136 evaluation-1.md CR1). */}
-      <StepPalette
-        open={palette !== null}
-        onSelect={handlePaletteSelect}
-        onClose={() => setPalette(null)}
-      />
+      <StepPalette open={palette !== null} onSelect={handlePaletteSelect} onClose={closePalette} />
       {shapePickerOpen && (
         <ShapePickerModal
           anchorStepId={shapeAnchorStepId}

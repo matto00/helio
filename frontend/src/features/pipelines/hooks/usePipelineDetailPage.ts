@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { usePipelineAnalyzeDeferWatchdog } from "./usePipelineAnalyzeDeferWatchdog";
@@ -14,6 +14,7 @@ import { usePipelineRootAndToggleActions } from "./usePipelineRootAndToggleActio
 import { usePipelineStepMutations } from "./usePipelineStepMutations";
 import { usePipelineStepStructure } from "./usePipelineStepStructure";
 import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
+import { createDraftFrameMemory } from "./usePipelineDraftFrames";
 import { usePipelineDraftSave } from "./usePipelineDraftSave";
 import { useRunHistory } from "./useRunHistory";
 import { isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
@@ -110,6 +111,8 @@ export function usePipelineDetailPage() {
     ready: stepsInitialized && !stepsLoading && !stepsFailed,
   });
   const draftSteps = draft.draftSteps;
+  // Lives here, not in a layout, so the last good draft frames survive the 768px layout swap.
+  const [draftFrameMemory] = useState(createDraftFrameMemory);
   const [outputName, setOutputName] = useState("");
   const [editingOutputName, setEditingOutputName] = useState(false);
   // HEL-1354: run history is loaded on demand (modal open, truncated-banner boot, post-run
@@ -134,12 +137,13 @@ export function usePipelineDetailPage() {
 
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
+  const draftSaveInFlightRef = useRef(false);
   const sseData = usePipelineRunStream({
     id,
     dispatch,
     sseActive,
     setSseActive,
-    allOutputsRef,
+    draftSaveInFlightRef,
     refreshRunHistoryAfterRun,
   });
 
@@ -392,6 +396,7 @@ export function usePipelineDetailPage() {
     setSteps,
     roots,
     allOutputsRef,
+    draftSaveInFlightRef,
     outputsLoaded,
     setSseActive,
     refreshRunHistoryAfterRun,
@@ -409,6 +414,7 @@ export function usePipelineDetailPage() {
     steps: draftSteps,
     baseSteps: steps,
     draft,
+    draftFrameMemory,
     draftSave,
     /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
     draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,

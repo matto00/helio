@@ -60,8 +60,6 @@ export const EXPECTED_KEYS = [
   "convertFormatConfig",
   "analyzeWithAiConfig",
   "generateTextConfig",
-  "saveError",
-  "saveErrorIsValidation",
   "onFieldToggle",
   "onRenameChange",
   "onCastChange",

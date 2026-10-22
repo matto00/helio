@@ -193,21 +193,3 @@ describe("SecondaryInputPicker — eligibility as a PROPERTY (task 5.5)", () => 
     expect(onChange).toHaveBeenCalledWith({ kind: "lane", stepId: "f" });
   });
 });
-
-// HEL-1515 -- a rejected lane save (e.g. a lane naming this step's own descendant) shows the backend's message.
-describe("SecondaryInputPicker — rejected save (HEL-1515)", () => {
-  it("renders the backend's rejection message when one is passed", () => {
-    renderWithStore(
-      <SecondaryInputPicker
-        label="Other source"
-        value={{ kind: "source", dataSourceId: "" }}
-        allSteps={buildSteps()}
-        currentStepId="current"
-        onChange={jest.fn()}
-        saveError="Lane reference 'g' would create a cycle (it is a descendant of this step)."
-      />,
-      { sources: { items: [], status: "succeeded" } },
-    );
-    expect(screen.getByText(/it is a descendant of this step/)).toBeInTheDocument();
-  });
-});

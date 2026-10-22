@@ -200,3 +200,24 @@ export function applyReferenceMarks(
     series: [...series, carrier, ...(labelCarrier ? [labelCarrier] : [])],
   } as EChartsOption;
 }
+
+/** Turns off the animation of every markLine / markArea. Each mark carries its own `animation` flag, so the chart-level
+ *  one does not reach it: without this the marks of a chart that asks for no animation (the pipeline page's live Output)
+ *  still animate on every redraw. Applied after the shape signature is taken, so it never counts as a shape change. */
+export function withoutMarkAnimation(option: EChartsOption): EChartsOption {
+  const series = option.series;
+  if (!Array.isArray(series)) return option;
+  const calm = (mark: unknown) =>
+    mark !== null && typeof mark === "object" ? { ...mark, animation: false } : mark;
+  return {
+    ...option,
+    series: series.map((s) => {
+      const bag = s as { markLine?: unknown; markArea?: unknown };
+      return {
+        ...bag,
+        ...(bag.markLine !== undefined ? { markLine: calm(bag.markLine) } : {}),
+        ...(bag.markArea !== undefined ? { markArea: calm(bag.markArea) } : {}),
+      };
+    }) as EChartsOption["series"],
+  };
+}

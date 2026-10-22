@@ -35,8 +35,6 @@ interface LookupConfigProps {
   currentStepId: string;
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: LookupConfigValue) => void;
-  /** HEL-1515: the backend's rejection of the last save (e.g. a lane naming this step's own descendant). */
-  saveError?: string | null;
 }
 
 export function LookupConfig({
@@ -45,7 +43,6 @@ export function LookupConfig({
   allSteps,
   currentStepId,
   onChange,
-  saveError,
 }: LookupConfigProps) {
   // HEL-1465 — a per-instance id: two lookup steps expanded on one page must not share it.
   const lookupKeyId = useId();
@@ -82,7 +79,6 @@ export function LookupConfig({
         value={config.secondary}
         allSteps={allSteps}
         currentStepId={currentStepId}
-        saveError={saveError}
         onChange={handleSecondaryChange}
       />
 

@@ -7,8 +7,6 @@
 // Follows the same props-driven pattern as AggregateConfig / DateBucketConfig:
 // the parent (StepCard) owns state and calls onChange with the typed config.
 
-import { useId } from "react";
-import { InlineError } from "../../../../shared/chrome/InlineError";
 import type { SchemaField } from "../../types/pipelineStep";
 import { Select } from "../../../../shared/ui/index";
 import { X } from "lucide-react";
@@ -32,22 +30,9 @@ interface PivotConfigProps {
   analyzeColumns: string[];
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: PivotConfigValue) => void;
-  /** HEL-1416: the server's message for a rejected save of this step's config. */
-  saveError?: string | null;
-  /** HEL-1422: the rejection was a 422, so the aggregation control is marked invalid. */
-  saveErrorIsValidation?: boolean;
 }
 
-export function PivotConfig({
-  config,
-  analyzeSchema,
-  analyzeColumns,
-  onChange,
-  saveError,
-  saveErrorIsValidation = false,
-}: PivotConfigProps) {
-  const errorId = useId();
-  const aggInvalid = Boolean(saveError) && saveErrorIsValidation;
+export function PivotConfig({ config, analyzeSchema, analyzeColumns, onChange }: PivotConfigProps) {
   function emit(next: PivotConfigValue) {
     onChange(next);
   }
@@ -144,12 +129,9 @@ export function PivotConfig({
             value={config.agg}
             options={PIVOT_AGG_FNS.map((fn) => ({ value: fn, label: fn }))}
             onChange={(next) => emit({ ...config, agg: next as PivotConfigValue["agg"] })}
-            ariaInvalid={aggInvalid}
-            ariaDescribedBy={aggInvalid ? errorId : undefined}
           />
         </div>
       </div>
-      <InlineError error={saveError ?? null} id={errorId} />
     </div>
   );
 }

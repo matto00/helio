@@ -1347,6 +1347,8 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   `replaceMerge={["series"]}`; every series carries a stable `id`
   (`<type>:<name>`, `chartDataOptions.withSeriesIds`), so ECharts updates the
   series in place and animates it on `animationDurationUpdate`.
+  Carve-out: live draft previews (§11) update in place with no morph at every
+  motion level (`ChartPanel` `noAnimation`).
 
 ### Where it is applied (HEL-1584)
 

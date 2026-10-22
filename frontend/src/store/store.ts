@@ -26,6 +26,7 @@ import { toastsReducer } from "../features/toasts/state/toastsSlice";
 import { listenerMiddleware, startAppListening } from "./listenerMiddleware";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
 import { registerSignedInHintListener } from "../features/auth/state/signedInHint";
+import { registerKeptDraftClearListener } from "../features/pipelines/state/keptDraftListeners";
 import { addRecentVisitsListeners } from "../features/commandPalette/state/recentVisitsListeners";
 
 // Register all toast listeners before the store is finalised.
@@ -35,6 +36,8 @@ addToastListeners(startAppListening);
 addRecentVisitsListeners(startAppListening);
 // HEL-1562: keeps the landing page's "signed in" hint in step with `auth.status`.
 registerSignedInHintListener(startAppListening);
+// HEL-1685: kept pipeline drafts end with the session (logout, 401, failed rehydrate).
+registerKeptDraftClearListener(startAppListening);
 // HEL-1575: open-dashboard tabs (selection sync, persistence, hydration) and the warm cache's listeners.
 addDashboardTabsListeners(startAppListening);
 

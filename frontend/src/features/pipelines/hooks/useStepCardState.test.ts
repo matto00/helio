@@ -99,16 +99,6 @@ describe("useStepCardState -- edits go to the draft (HEL-1631)", () => {
     expect(onConfigChange).toHaveBeenCalledTimes(1);
     expect(updatePipelineStepMock).not.toHaveBeenCalled();
   });
-
-  it("starts with no saveError: a server rejection is shown when the draft is saved, not per edit", () => {
-    const step = makeStep();
-    const { result } = renderHook(() => useStepCardState(step, jest.fn()));
-    act(() => {
-      result.current.onLimitChange({ count: 6 });
-    });
-    expect(result.current.saveError).toBeNull();
-    expect(result.current.saveErrorIsValidation).toBe(false);
-  });
 });
 
 // HEL-911 evaluation-1.md CR6 (cycle 2): `onUnionChange`/`onLookupChange` widen the narrowed UI value

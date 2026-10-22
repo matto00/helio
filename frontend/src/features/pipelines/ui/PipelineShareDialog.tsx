@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, memo, useEffect, useState } from "react";
 
 import { Modal } from "../../../shared/ui/Modal";
 import { Select } from "../../../shared/ui/Select";
@@ -27,7 +27,12 @@ interface Props {
  *
  * API calls: GET/POST/DELETE /api/pipelines/:id/permissions
  */
-export function PipelineShareDialog({ pipelineId, pipelineName, open, onClose }: Props) {
+export const PipelineShareDialog = memo(function PipelineShareDialog({
+  pipelineId,
+  pipelineName,
+  open,
+  onClose,
+}: Props) {
   const [grants, setGrants] = useState<PermissionGrant[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,4 +178,4 @@ export function PipelineShareDialog({ pipelineId, pipelineName, open, onClose }:
       </div>
     </Modal>
   );
-}
+});

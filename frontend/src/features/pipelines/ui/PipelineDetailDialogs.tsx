@@ -4,6 +4,7 @@
 // phone boundary (a window resize, a device rotation) therefore does not unmount an open dialog and lose its
 // state (a History scrubber position, a half-typed Output name). All state lives in `usePipelineDetailPage`.
 
+import { useLatestCallback } from "../hooks/useLatestCallback";
 import type { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
 import { OutputHistoryModal } from "./outputHistory/OutputHistoryModal";
@@ -15,6 +16,9 @@ type PipelinePageState = ReturnType<typeof usePipelineDetailPage>;
 
 export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
   const { id } = page;
+  // Stable, so the memoised Share and Schedule dialogs (mounted while closed) skip a draft edit's render.
+  const closeShare = useLatestCallback(() => page.setShareOpen(false));
+  const closeSchedule = useLatestCallback(() => page.setScheduleOpen(false));
   return (
     <>
       {/* ── Output editor sheet (task 5.1) ── */}
@@ -59,7 +63,7 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
           pipelineId={id}
           pipelineName={page.pipelineName}
           open={page.shareOpen}
-          onClose={() => page.setShareOpen(false)}
+          onClose={closeShare}
         />
       )}
 
@@ -69,7 +73,7 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
           pipelineId={id}
           schedule={page.pipelineSchedule}
           open={page.scheduleOpen}
-          onClose={() => page.setScheduleOpen(false)}
+          onClose={closeSchedule}
         />
       )}
     </>
