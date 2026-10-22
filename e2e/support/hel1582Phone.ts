@@ -394,11 +394,11 @@ export function registerHeavySweeps(size: Viewport) {
         request,
       }) => {
         // Owner ruling (HEL-1582): the 390 and 768 maximal sweeps run only in the slow lane (HELIO_E2E_SLOW=1), because
-        // each takes about 3 minutes and CI's e2e legs time out at 18. The 375 maximal sweep and every every-kind C8 sweep
-        // stay in PR CI. Follow-up: run the slow lane nightly.
+        // each takes about 3 minutes and would crowd CI's 25-minute e2e leg timeout. The 375 maximal sweep and every
+        // every-kind C8 sweep stay in PR CI. The slow lane is .github/workflows/e2e-slow.yml (weekly + workflow_dispatch).
         test.skip(
           size.width !== 375 && process.env.HELIO_E2E_SLOW !== "1",
-          "slow lane only (HELIO_E2E_SLOW=1): CI's 18-minute leg timeout; owner ruling, nightly follow-up",
+          "slow lane only (HELIO_E2E_SLOW=1): runs in .github/workflows/e2e-slow.yml (weekly + dispatch); owner ruling",
         );
         test.setTimeout(1_500_000);
         await page.setViewportSize(size);

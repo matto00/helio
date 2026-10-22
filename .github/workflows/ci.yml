@@ -547,6 +547,8 @@ jobs:
   # `testIgnore` entry in `playwright.config.ts`, each carrying a comment
   # naming its follow-up ticket — see that file for the current list.
   e2e:
+    # The HELIO_E2E_SLOW=1 390/768 MAXIMAL phone sweeps are skipped here; .github/workflows/e2e-slow.yml runs them
+    # weekly (its setup steps mirror this job: keep the two in step).
     runs-on: ubuntu-latest
     # Slowest leg measures ~7 min; ~2.5x so a hung leg frees its runner instead of holding it for
     # the 6 h default (HEL-1288).
