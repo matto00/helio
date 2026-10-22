@@ -25,9 +25,9 @@
 
 - [x] 4.1 Starting from servers launched by `scripts/concertino/start-servers.sh` (lane ports 7131/10038), follow the README sequence verbatim (Playwright under the e2e lock); save full output; after the final `stop-servers.sh` show the recorded PGID has no processes (`ps -o pid= -g <pgid>` empty) and both ports free; then `start-servers.sh` + `scripts/concertino/assert-phase.sh servers ...` PASS. If a lingering thin-client sbt server interferes, resolve with documented commands only or escalate (D5)
 - [x] 4.2 Full dev-project e2e suite under the e2e lock (pre-Delivery requirement)
-- [ ] 4.3 Pre-merge miss-path evidence plan for the PR body (C1): what to check on the PR's CI run
+- [x] 4.3 Pre-merge miss-path evidence plan for the PR body (C1): what to check on the PR's CI run (in the PR body)
 - [x] 4.4 `files-modified.md` listing every path explicitly
 
 ## 5. Post-merge (orchestrator)
 
-- [ ] 5.1 After merge: the merge's main run (miss + one save, entry size via `gh cache list`), then >= 5 runs restoring it (restore-step duration, both `npm ci` steps skipped) — reported in the hand-back (C1)
+- [ ] 5.1 After merge: the merge's main run (miss + one save, entry size via `gh cache list`), then >= 5 runs restoring it (restore-step duration, both `npm ci` steps skipped) — reported in the hand-back (C1) (post-merge; open at archive time by design, C1)
