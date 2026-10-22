@@ -16,8 +16,11 @@ import scala.concurrent.{ExecutionContext, Future}
  *  independently-loaded `(dataSourceId, position)` pair a step trunk can be
  *  attached to (design.md R1-R3). RLS mirrors `pipeline_steps`: owner-only
  *  for INSERT/UPDATE/DELETE, sharing-aware (`helio_can_access_pipeline`) for
- *  SELECT (V98 §11) -- so every write here goes through `ctx.withUserContext`
- *  scoped to the pipeline OWNER, exactly like `PipelineStepRepository`.
+ *  SELECT (V98 §11). HEL-1652: the root writers ([[add]], [[removeRoot]]) run on the privileged
+ *  (`withSystemContext`) connection AFTER the service layer's owner-or-editor check
+ *  (`PipelineRootWrites`), exactly like the editor-capable step writes in `PipelineStepRepository`;
+ *  the owner-only write policies stay as the backstop for any user-context writer. Every
+ *  statement on those paths is explicitly scoped by pipeline/root/source id, never by RLS.
  */
 class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = PipelineDefinitionLocks.Enforced)(implicit ec: ExecutionContext) {
 
@@ -81,11 +84,13 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
     val nextPositionQuery =
       rootsTable.filter(_.pipelineId === pipelineId.value).map(_.position).max.result
     // HEL-1101 task 3.3 (design.md Decision 4): the lock + graph-read + check runs INSIDE this
-    // method's own existing `ctx.withUserContext` flatMap chain, ahead of the `rootsTable += row`
+    // method's own single `ctx.withSystemContext` flatMap chain (HEL-1652), ahead of the `rootsTable += row`
     // insert -- never a separate pre-flight `Future` in `PipelineService.addRoot` (that would
     // leave a window for a concurrent writer to interleave between the check and this insert).
     val pipelineNameQuery = pipelinesTable.filter(_.id === pipelineId.value).map(_.name).result.head
-    ctx.withUserContext(user.id.value) {
+    // HEL-1652: privileged connection; the caller (`PipelineRootWrites.addRoot`) has already authorized owner-or-editor
+    // and that `dataSourceId` is the actor's own. `user` scopes only the cycle guard's explicit visibility filter.
+    ctx.withSystemContext {
       for {
         // HEL-1629 (D5, hypothesis H'): the source row FOR KEY SHARE first, ahead of the advisory lock and the pipeline row. A
         // source delete takes the same row FOR UPDATE before it reads which pipelines are rooted on it, so a root add can
@@ -147,13 +152,36 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
   }
 
   /** Root removal as a DBIO (HEL-913 task 7.4/7.5), for composition into
-   *  `PipelineService.removeRoot`'s ONE transaction spanning this repo and
+   *  [[removeRoot]]'s ONE transaction spanning this repo and
    *  `PipelineStepRepository`'s explicit step/`node_snapshots` cleanup (R7 phase 2) --
    *  mirrors `addAction`'s existing DBIO-variant convention. Privileged (no ACL check here):
    *  the caller has already confirmed editor/owner access and every R7 refusal BEFORE composing
    *  this into the transaction. */
-  def removeAction(rootId: PipelineRootId): DBIO[Int] =
-    rootsTable.filter(_.id === rootId.value).delete
+  def removeAction(pipelineId: PipelineId, rootId: PipelineRootId): DBIO[Int] =
+    rootsTable.filter(r => r.id === rootId.value && r.pipelineId === pipelineId.value).delete
+
+  /** HEL-1652 (design D4/D5): the ONE root-removal transaction (R7 phase 2) -- cascade, `pipelineId`-scoped
+   *  [[removeAction]], [[compactPositions]] -- shared by `PipelineRootWrites.removeRoot` and the race/deadlock specs, so
+   *  every spec exercises the code production runs. Runs on the privileged connection, owner and
+   *  editor alike; the caller has already authorized and checked every R7 refusal. `afterCascade` is an in-transaction
+   *  hook between the cascade and the root delete (tests only; production passes nothing). Deleting zero root rows
+   *  (a racer removed it after phase 1) aborts and rolls the cascade back with [[RootAlreadyRemoved]]; never a
+   *  false success. Returns the removed step ids. */
+  def removeRoot(
+      stepRepo: PipelineStepRepository,
+      pipelineId: PipelineId,
+      rootId: PipelineRootId,
+      afterCascade: DBIO[Any] = DBIO.successful(())
+  ): Future[Set[String]] =
+    ctx.withSystemContext(
+      for {
+        removedStepIds <- stepRepo.removeRootCascadeAction(pipelineId, rootId)
+        _              <- afterCascade
+        deleted        <- removeAction(pipelineId, rootId)
+        _              <- if (deleted == 0) DBIO.failed(RootAlreadyRemoved(rootId)) else DBIO.successful(())
+        _              <- compactPositions(pipelineId)
+      } yield removedStepIds
+    )
 
   /** Compacts a pipeline's remaining roots to a dense 0..N-1 position sequence, preserving
    *  relative order. Used after a root removal (R7 phase 2) so a later root's `position` never
@@ -174,6 +202,9 @@ class PipelineRootRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pi
 }
 
 object PipelineRootRepository {
+
+  /** Signalled inside [[PipelineRootRepository.removeRoot]]'s transaction when the root row was already gone. */
+  final case class RootAlreadyRemoved(rootId: PipelineRootId) extends RuntimeException(s"Root not found: ${rootId.value}")
 
   private implicit val instantColumnType: BaseColumnType[Instant] =
     MappedColumnType.base[Instant, Timestamp](

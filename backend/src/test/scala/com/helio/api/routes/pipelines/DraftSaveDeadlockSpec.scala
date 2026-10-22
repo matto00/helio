@@ -79,9 +79,7 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
   }
 
   private val rootRemoveWithPanel = RaceWriter("root remove of r2 (its Output od has a bound panel)", Set.empty,
-    (h, s) => h.pipelineRepo.runTransactionally(userA)(
-      h.stepRepo.removeRootCascadeAction(pid(s), PipelineRootId(s.r2)) andThen h.rootRepo.removeAction(PipelineRootId(s.r2)) andThen h.rootRepo.compactPositions(pid(s))
-    ),
+    (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2)),
     s => {
       exec(s"INSERT INTO dashboards (id,name,created_by,created_at,last_updated,appearance,layout,owner_id) VALUES ('${s.id("dr")}','dr','u',now(),now(),'${DraftSaveSeed.DashboardAppearance}','{\"lg\":[],\"md\":[],\"sm\":[],\"xs\":[]}','$userA')")
       exec(s"INSERT INTO panels (id,dashboard_id,title,created_by,created_at,last_updated,appearance,owner_id,kind,output_id) VALUES ('${s.id("pr")}','${s.id("dr")}','pr','u',now(),now(),'${DraftSaveSeed.PanelAppearance}','$userA','output','${s.od}')")
