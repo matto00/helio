@@ -131,6 +131,8 @@ apt_opts() {
     -o "Acquire::http::Timeout=20"
     -o "Acquire::https::Timeout=20"
   )
+  # TEMP HEL-1700 verification (4.2): reproduce a live 25 kB/s trickle on attempt 1 only. REVERT BEFORE READY.
+  if [ "$n" = 1 ]; then OPTS+=(-o "Acquire::http::Dl-Limit=25"); fi
 }
 
 apt() { "${SUDO[@]}" apt-get "$@"; }
