@@ -318,6 +318,27 @@ a hung run the load data ends there. To try it locally (this keeps the local cap
 `HELIO_JEST_TIMING_DIR=/tmp/jest-timing npm --prefix frontend test -- --testPathPatterns=<file>`; opting in swaps an
 agent session's `agent` reporter for `default`.
 
+## E2E latency tests: the `@prod-build` tag (HEL-1691)
+
+The e2e suite runs against the Vite **development** build, whose React runtime alone costs about 60% of a draft edit on a CI
+runner. A test that asserts a latency budget opts in to a **production build** with the tag and nothing else:
+
+```ts
+test("...", { tag: "@prod-build" }, async ({ page }) => { ... });
+```
+
+`HELIO_E2E_PROD_BUILD` picks the projects, never a flag: unset, the only project is `dev` (every test except the tagged ones);
+set to `1`, the only projects are `prod-build-guard` (fails closed unless the server serves a production build) and `prod-build`
+(only the tagged tests, service workers blocked). In CI the tagged tests run in the dedicated `e2e-prod-build` job, not in a shard
+leg. `npm run check:e2e-prod-build-projects` (and its `:selftest`) fails when a tagged test would run on the dev server or an
+untagged test in the prod-build job. The first user is the burst test in `e2e/hel1631-draft-mode.spec.ts` (cited by its title,
+"a burst of client-evaluable edits sends no request ..."); budgets are never relaxed by moving a test to the tag.
+
+Locally, `npm run e2e` runs the dev-server suite and `npm run e2e:prod-build` builds the frontend, serves it with `vite preview`
+on `DEV_PORT`, runs the tagged tests and stops its own preview server on every exit path. The port must be free: in a lane stop
+the dev server first with `scripts/concertino/stop-servers.sh <WORKTREE_PATH> <DEV_PORT> <BACKEND_PORT>` (which also stops the
+backend, so start it again) or set `DEV_PORT` to a free port. The full local suite is both commands.
+
 ## Pull Request Expectations
 
 - Keep PRs reasonably scoped — one concern per PR

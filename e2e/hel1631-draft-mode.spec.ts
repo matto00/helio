@@ -8,6 +8,7 @@ import {
 import { registerAndLogin } from "./support/auth";
 import { psql } from "./support/db.cjs";
 import { evidencePath } from "./support/evidencePath";
+import { startBreakdown } from "./support/hel1691Breakdown";
 
 // HEL-1631: the pipeline page's draft mode, proven against the running app. Editing a step makes a client-only draft; a
 // client-evaluable edit recomputes counts and rows in the browser with NO request at all; a server-only step goes through the
@@ -156,6 +157,11 @@ async function timedFilterEdit(page: Page, value: string): Promise<number> {
   );
 }
 
+// HEL-1691: the burst test is measured against the production build (React's development runtime alone is ~60% of an edit's cost
+// on a CI runner); the `@prod-build` tag below is the whole opt-in (playwright.config.ts, `prod-build` project).
+const BURST_TITLE =
+  "a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms)";
+
 test.describe("HEL-1631 draft mode (live)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
   test.setTimeout(120_000);
@@ -174,10 +180,7 @@ test.describe("HEL-1631 draft mode (live)", () => {
     ).toBeLessThanOrEqual(MAX_WINDOW_TARGET);
   });
 
-  test("a burst of client-evaluable edits sends no request of any kind and updates counts and rows within 50 ms each (the first edit within 100 ms)", async ({
-    page,
-    request,
-  }) => {
+  test(BURST_TITLE, { tag: "@prod-build" }, async ({ page, request }) => {
     const creds = await registerAndLogin(page, request, { ...AUTH, label: "burst" });
     const { pipelineId } = await seed(page, creds.email);
     await openPipeline(page, pipelineId);
@@ -185,9 +188,12 @@ test.describe("HEL-1631 draft mode (live)", () => {
 
     const recording = recordApi(page);
     const latencies: number[] = [];
+    // HEL-1691: per-edit CPU-vs-wall breakdown, logged before the first `expect` so a failure carries it.
+    const breakdown = await startBreakdown(page);
     for (let k = 1; k <= 10; k += 1) {
-      latencies.push(await timedFilterEdit(page, String(260 + 7 * k)));
+      latencies.push(await breakdown.measure(k, () => timedFilterEdit(page, String(260 + 7 * k))));
     }
+    breakdown.log();
     // Let any debounced request that a regression would send (a 400 ms PATCH, a 500 ms preview) fire inside the window.
     await page.waitForTimeout(1500);
     const requests = recording.stop();

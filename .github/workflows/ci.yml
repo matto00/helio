@@ -91,6 +91,10 @@ jobs:
       # HEL-1361: proves the e2e shard partition (scripts/e2e-shard.mjs) is exact-once and failable.
       # Wired into BOTH .husky/pre-commit and here, like check:tokens:selftest above.
       - run: npm run check:e2e-shard:selftest
+      # HEL-1691: the `@prod-build` partition of the e2e suite (env unset -> only `dev`, none tagged; env set -> only the
+      # guard and tagged `prod-build` tests), checked on Playwright's real `--list` output, plus its failable selftest.
+      - run: npm run check:e2e-prod-build-projects
+      - run: npm run check:e2e-prod-build-projects:selftest
       # HEL-996: check:openspec[:selftest] existed as runnable npm scripts, wired only into
       # .husky/pre-commit -- but unlike HEL-913/HEL-846 above, that was not an oversight: `openspec`
       # is a globally-installed CLI (~/.local/bin/openspec on a dev machine), not a repo
@@ -706,6 +710,146 @@ jobs:
             /tmp/frontend.log
           retention-days: 7
 
+  # HEL-1691: dedicated job for tests that must be measured against a production build (see the steps below).
+  e2e-prod-build:
+    runs-on: ubuntu-latest
+    # HEL-1691 D9: measured 196 s on the PR run (39677346014: queue 2 s, backend + browsers + build + preview + 2 tests); ~2.5x.
+    timeout-minutes: 8
+    services:
+      postgres:
+        # HEL-1452: pulled via mirror.gcr.io (same tag/digest as Docker Hub) to avoid Docker Hub anonymous 429s.
+        image: mirror.gcr.io/library/postgres:16
+        env:
+          POSTGRES_USER: helio
+          POSTGRES_PASSWORD: helio
+          POSTGRES_DB: helio
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: jdbc:postgresql://localhost:5432/helio
+      DB_USER: helio
+      DB_PASSWORD: helio
+      HELIO_UPLOADS_BACKEND: local
+      DEV_PORT: 5173
+      BACKEND_PORT: 8080
+      # Required at boot (com.helio.app.Main's requireEnv), but only
+      # exercised by the real Google OAuth login flow, which this guard
+      # never uses (register/login goes through the email/password path) —
+      # placeholders, same pattern docs/cloud-dev-setup.md uses for local
+      # dev. Root-caused via CI run 32902461344: "Missing required
+      # environment variable: GOOGLE_CLIENT_ID" crashed the actor system
+      # guardian before any Playwright test could even connect.
+      GOOGLE_CLIENT_ID: placeholder
+      GOOGLE_CLIENT_SECRET: placeholder
+      GOOGLE_REDIRECT_URI: http://localhost:5173/auth/callback
+      # HEL-824 — mirrors the `backend` job's own CONNECTOR_MASTER_KEY/_ID
+      # above verbatim. HEL-536/HEL-821 shipped without any e2e-tested UI
+      # flow that reaches `POST /api/connectors` (ConnectorRepository.create
+      # unconditionally calls credentialRepo.create -> EncryptedSecretBackend
+      # .encrypt, which fails closed with MasterKeyError.NoKeyConfigured when
+      # unset, even for a no-auth Connector's empty-string credential — this
+      # is correct, existing behavior, not something to work around here), so
+      # this job's env block never needed the key until now. HEL-824's
+      # surface-7 Connectors-page e2e test is the first to create a real
+      # Connector through the UI, exposing the gap. CI-only test value, never
+      # the real prod secret.
+      CONNECTOR_MASTER_KEY: Npxr5hOsyxOtPW4HWFBYHmWKcbPDP+ss+3x1fAdNaP0=
+      CONNECTOR_MASTER_KEY_ID: ci-test-2026-08
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: sbt/setup-sbt@v1
+      # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
+      - name: Restore sbt dependency cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.cache/coursier
+          key: sbt-${{ hashFiles('**/build.sbt') }}
+          restore-keys: sbt-
+      # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
+      # is started in the background right after the sbt cache restores and overlaps the npm /
+      # browser steps below; the health wait is a separate, later step that still fails loudly
+      # and dumps the log.
+      - name: Start backend (sbt run, background)
+        run: scripts/e2e-backend.sh start
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix frontend ci
+      # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
+      # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
+      # install 21-27 s) was no faster than the uncached baseline (22-23 s).
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
+      # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
+      - name: Wait for backend health
+        run: scripts/e2e-backend.sh wait
+      # HEL-1691: the `@prod-build` latency tests run against the PRODUCTION build (`dist/` served by `vite preview`
+      # on the same port, so origin, cookies and the /api proxy match the dev job). Same services, backend and setup
+      # as the `e2e` legs; no step is added to any of those legs.
+      - name: Build frontend (production)
+        run: npm --prefix frontend run build
+      - name: Start frontend (vite preview)
+        working-directory: frontend
+        run: |
+          nohup npx vite preview --port 5173 --strictPort > /tmp/frontend.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5173/ && exit 0
+            sleep 2
+          done
+          echo "frontend preview did not become healthy" >&2
+          cat /tmp/frontend.log
+          exit 1
+      # HELIO_E2E_PROD_BUILD=1 selects only `prod-build-guard` + `prod-build` (playwright.config.ts); the guard fails
+      # closed unless the server is serving a production build. `--project` is explicit but not load-bearing.
+      - name: Run @prod-build e2e tests (production build)
+        run: HELIO_E2E_PROD_BUILD=1 npx playwright test --project=prod-build
+      # The report is named playwright-json-prod-build, never playwright-json-shard-*: weight regeneration (scripts/e2e-shard.mjs
+      # weights) expects exactly the four shard reports.
+      - name: Upload Playwright JSON report (per-test durations)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-json-prod-build
+          path: test-results/results.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload sbt hang diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbt-diagnostics-e2e-prod-build
+          path: ${{ runner.temp }}/sbt-diagnostics
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-prod-build
+          path: |
+            test-results/
+            /tmp/backend.log
+            /tmp/frontend.log
+          retention-days: 7
+
   # HEL-1427 (origin HEL-1426): builds the production backend image as cd-backend.yml does (final
   # `runtime` stage, so `sbt update`, `sbt assembly` and the jar COPY --from=builder are all exercised) but with
   # no login and no push, so a deploy-only Dockerfile break fails the PR instead of the release tag. Always-on
@@ -733,7 +877,7 @@ jobs:
   # status at all and would block every affected PR permanently.
   ci-complete:
     if: always()
-    needs: [frontend, backend, security, e2e, docker-image]
+    needs: [frontend, backend, security, e2e, e2e-prod-build, docker-image]
     runs-on: ubuntu-latest
     # HEL-1287 D11: 2-4 s of execution for the results step; HEL-1462 adds checkout + root `npm ci` + the needs guard
     # (estimated well under a minute from the npm cache), so 6 min leaves headroom.
