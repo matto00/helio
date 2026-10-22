@@ -117,7 +117,7 @@ runs:
         E2E_APT_KEY_PREFIX: ${{ steps.apt-key.outputs.prefix }}
       run: scripts/e2e-apt-deps.sh run
     - name: Save apt archive cache
-      if: inputs.save-apt-cache == 'true' && steps.apt-deps.outputs.downloaded != '0' && steps.apt-deps.outputs.save-key != steps.apt-debs.outputs.cache-matched-key
+      if: inputs.save-apt-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.apt-deps.outputs.downloaded != '0' && steps.apt-deps.outputs.save-key != steps.apt-debs.outputs.cache-matched-key
       uses: actions/cache/save@v6
       with:
         path: ~/.cache/e2e-apt-debs
