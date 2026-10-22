@@ -14,12 +14,20 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import slick.dbio.DBIO
 import spray.json.{JsBoolean, JsObject}
+import com.helio.api.JsonProtocols
+import com.helio.api.protocols.pipelines.RunResultResponse
+import com.helio.api.routes.RunResponseMarshalling
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.marshalling.Marshal
+import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
+import org.apache.pekko.stream.scaladsl.Sink
 
 import java.lang.management.ManagementFactory
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 
 /** HEL-1660 task 3.3 (owner ruling 3, design.md D6): the heap one run holds, measured END TO END through the service run path
@@ -69,6 +77,43 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
   override protected def engineOver(fileSystem: LocalFileSystem): InProcessPipelineEngine = new SamplingEngine(fileSystem)
   override protected def snapshotRepoOver(ctx: DbContext): NodeSnapshotRepository         = new SamplingSnapshotRepo(ctx)
 
+  /** HEL-1693: the HTTP render of the run's response, measured with the run (the share covers what a manual run holds until its last byte is written).
+   *  `HELIO_RUN_HEAP_RENDER`: `stream` (default) = the routes' own `RunResponseMarshalling.chunkedJson`; `spray` = the pre-HEL-1693 default marshalling (one rendered String, one strict body); `none` = stop at `submit` (HEL-1679's method).
+   *  Per-piece sampling is thinned to every `HELIO_RUN_HEAP_PIECE_EVERY`th piece (default 8) plus the background sampler and one sample right after the
+   *  response is built and again after the last piece. */
+  private val renderMode  = sys.env.getOrElse("HELIO_RUN_HEAP_RENDER", "stream")
+  private val pieceEvery  = sys.env.get("HELIO_RUN_HEAP_PIECE_EVERY").map(_.toInt).getOrElse(8)
+  @volatile private var renderSystemStarted = false
+  private lazy val renderSystem: ActorSystem = { renderSystemStarted = true; ActorSystem("run-heap-render") }
+  private val renderProtocols = new JsonProtocols {}
+
+  override def afterAll(): Unit = try { if (renderSystemStarted) Await.result(renderSystem.terminate(), 30.seconds) } finally super.afterAll()
+
+  private def buildResponse(r: RunResultResponse): Future[HttpResponse] = renderMode match {
+    case "spray" =>
+      import renderProtocols._
+      Marshal(StatusCodes.OK -> r).to[HttpResponse]
+    case "stream" =>
+      import renderProtocols._
+      Future.successful(RunResponseMarshalling.chunkedJson(StatusCodes.OK, r))
+    case other => throw new IllegalArgumentException(s"unknown HELIO_RUN_HEAP_RENDER $other")
+  }
+
+  /** Build the response the route would, then pull every byte of its entity, sampling as it goes; returns the byte count. */
+  private def renderAndDrain(r: RunResultResponse): Long =
+    if (renderMode == "none") 0L
+    else {
+      implicit val system: ActorSystem = renderSystem
+      val response = Await.result(buildResponse(r), 600.seconds)
+      sample()
+      var pieces = 0
+      val bytes = Await.result(
+        response.entity.dataBytes.map { b => pieces += 1; if (pieces % pieceEvery == 0) sample(); b.length.toLong }.runWith(Sink.fold(0L)(_ + _)), 600.seconds)
+      sample()
+      require(response.entity.isKnownEmpty || bytes > 0 || r.rows.isEmpty, "empty response body")
+      bytes
+    }
+
   private final case class Measured(name: String, mode: String, deltaMb: Double, outcome: String)
   private val results = ArrayBuffer.empty[Measured]
 
@@ -102,7 +147,7 @@ class RunPathHeapSpec extends AnyWordSpec with Matchers with RunServiceHarness {
       sampler.setDaemon(true); sampler.start()
       val outcome =
         try awaitDb(runner.submit(pid, isDry = !isReal, owner)) match {
-          case Right(r) => s"succeeded, ${r.rowCount} rows"
+          case Right(r) => val bytes = renderAndDrain(r); s"succeeded, ${r.rowCount} rows, body ${bytes / 1048576} MB"
           case Left(e)  => "refused: " + e.message.take(110)
         } finally { sampling = false; sampler.join() }
       results += Measured(name, if (isReal) "real" else "dry", (math.max(peak, before) - before) / 1048576.0, outcome)
