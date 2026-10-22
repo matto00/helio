@@ -139,10 +139,16 @@ class DraftSaveRaceSpec extends DraftRaceFixture {
     RaceWriter("root add (PipelineRootRepository.add)", Set(LockSite.RootAdd),
       (h, s) => h.rootRepo.add(pid(s), DataSourceId(s.id("ds3")), owner),
       s => exec(s"INSERT INTO data_sources (id,name,source_type,config,created_at,updated_at,owner_id,inferred_schema) VALUES ('${s.id("ds3")}','ds3','dataset','{}',now(),now(),'$userA','[]')")),
-    RaceWriter("root remove (removeRootCascadeAction, removeAction, compactPositions)", Set(LockSite.RootRemove),
-      (h, s) => h.pipelineRepo.runTransactionally(userA)(
-        h.stepRepo.removeRootCascadeAction(pid(s), PipelineRootId(s.r2)) andThen h.rootRepo.removeAction(PipelineRootId(s.r2)) andThen h.rootRepo.compactPositions(pid(s))
-      ),
+    // HEL-1652: an EDITOR grantee adds a root with a source the editor owns; since the write is privileged it takes the same locks
+    // in the same order as the owner's add, so the same exclusion holds.
+    RaceWriter("root add by an editor grantee (PipelineRootRepository.add)", Set(LockSite.RootAdd),
+      (h, s) => h.rootRepo.add(pid(s), DataSourceId(s.id("dsB")), AuthenticatedUser(UserId(userB))),
+      s => {
+        exec(s"INSERT INTO data_sources (id,name,source_type,config,created_at,updated_at,owner_id,inferred_schema) VALUES ('${s.id("dsB")}','dsB','dataset','{}',now(),now(),'$userB','[]')")
+        exec(s.grant(userB, "editor"))
+      }),
+    RaceWriter("root remove (PipelineRootRepository.removeRoot: cascade, removeAction, compactPositions; privileged, as owner and editor run it)", Set(LockSite.RootRemove),
+      (h, s) => h.rootRepo.removeRoot(h.stepRepo, pid(s), PipelineRootId(s.r2)),
       s => exec(s"DELETE FROM outputs WHERE id='${s.od}'")),
     RaceWriter("schedule upsert (PipelineScheduleRepository.upsert)", Set(LockSite.ScheduleUpsert),
       (h, s) => h.scheduleRepo.upsert(PipelineSchedule(PipelineScheduleId(s.id("sch")), pid(s), ScheduleKind.Cron, "5 * * * *", true, "UTC", None, None, now, now), owner)),

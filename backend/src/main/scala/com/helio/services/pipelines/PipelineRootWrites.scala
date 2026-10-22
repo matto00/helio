@@ -11,7 +11,7 @@ import com.helio.infrastructure.persistence.pipelines.{OutputRepository, Pipelin
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Root add/remove (`addRoot`/`removeRoot`) and the shared root-source resolution `create` also uses. Split out of `PipelineService` (HEL-1463). */
+/** Root add/remove (`addRoot`/`removeRoot`; owner or editor grantee, HEL-1652 -- the writes run on the privileged connection after the access check here) and the shared root-source resolution `create` also uses. Split out of `PipelineService` (HEL-1463). */
 private[pipelines] final class PipelineRootWrites(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
@@ -208,15 +208,14 @@ private[pipelines] final class PipelineRootWrites(
                             o.node.stepId.exists(sid => doomedIds.contains(sid.value)) || o.node.rootId.contains(rootId)
                           })
                         removedOutputsF.flatMap { removedOutputCount =>
-                          val action = for {
-                            removedStepIds <- pipelineStepRepo.removeRootCascadeAction(pipelineId, rootId)
-                            _              <- pipelineRootRepo.removeAction(rootId)
-                            _              <- pipelineRootRepo.compactPositions(pipelineId)
-                          } yield removedStepIds
-                          pipelineRepo.runTransactionally(user.id.value)(action).map { removedStepIds =>
+                          pipelineRootRepo.removeRoot(pipelineStepRepo, pipelineId, rootId).map { removedStepIds =>
                             audit("pipeline.root.remove", "pipeline", Some(pipelineId.value), user)
                             Right(RemovePipelineRootResponse(removedStepIds.size, removedOutputCount))
-                          }.recover { case ex => Left(PipelineService.classifyDbError(ex)) }
+                          }.recover {
+                            // HEL-1652 D5: a racer removed the root after phase 1 -- 404, before the generic classifier (never a 500).
+                            case PipelineRootRepository.RootAlreadyRemoved(id) => Left(ServiceError.NotFound(s"Root not found: ${id.value}"))
+                            case ex                                           => Left(PipelineService.classifyDbError(ex))
+                          }
                         }
                     }
                   }
