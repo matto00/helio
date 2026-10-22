@@ -1,11 +1,12 @@
 // PipelineSpineLayout -- HEL-1579 (design.md D1/D2): the desktop pipeline page body. One compact header,
 // then three grid regions: the step spine (left), the selected step's focused editor above its preview
-// table (centre) and a reserved, empty zero-width `live-output` track that HEL-1581 will size and fill.
+// table (centre) and the `live-output` track holding the live Output column (HEL-1632; a collapsible section under the
+// centre column when the page is too narrow for three).
 // It owns only the selection, the save seam and the preview dedupe; all state and handlers come from
 // `usePipelineDetailPage()` (the same result the phone layout reads, so no handler is duplicated).
 
 import { GitBranch } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
@@ -20,6 +21,8 @@ import { stepRenderKey } from "../../state/stepTree";
 import { PipelineDraftNotices } from "../PipelineDraftNotices";
 import { PipelineRiverSkeleton } from "../PipelineRiverSkeleton";
 import { StepCardFocused } from "../StepCardFocused";
+import { LiveOutputColumn } from "../liveOutput/LiveOutputColumn";
+import { useThreeColumnLayout } from "../liveOutput/useThreeColumnLayout";
 import { PipelineSpine } from "./PipelineSpine";
 import { PipelineSpineHeader } from "./PipelineSpineHeader";
 import { useSpineStepActions } from "./useSpineStepActions";
@@ -72,6 +75,12 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     structuralBlockedReason: page.draftBlockReason,
   });
   const presentation = usePipelineDraftPresentation(page, selectedStepId);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const threeColumns = useThreeColumnLayout(bodyRef);
+  // The narrow-desktop Output section is collapsed until opened, per page session.
+  const [outputOpen, setOutputOpen] = useState(false);
+  // Stable, so the memoised Output view is not re-rendered by a new function identity on every edit.
+  const toggleOutput = useCallback(() => setOutputOpen((open) => !open), []);
 
   const selectedStep =
     selectedStepId !== null ? steps.find((s) => s.id === selectedStepId) : undefined;
@@ -176,7 +185,11 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
           />
         </div>
 
-        <div className="spine-body">
+        <div
+          className="spine-body"
+          ref={bodyRef}
+          data-live-layout={threeColumns ? "column" : "disclosure"}
+        >
           <aside className="spine-body__spine" aria-label="Steps and outputs">
             {stepsLoading ? (
               <PipelineRiverSkeleton ariaLabel="Loading steps" />
@@ -281,9 +294,16 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
             )}
           </section>
 
-          {/* Reserved for HEL-1581's live Output render: empty and zero-width until it sets
-              --pipeline-live-output-width and renders into it (design.md D2). */}
-          <div className="spine-body__live-output" aria-hidden="true" />
+          <div className="spine-body__live-output">
+            <LiveOutputColumn
+              page={page}
+              presentation={presentation}
+              selectedStepId={selectedStepId}
+              layout={threeColumns ? "column" : "disclosure"}
+              expanded={outputOpen}
+              onToggle={toggleOutput}
+            />
+          </div>
         </div>
         {actions.dialogs}
       </div>

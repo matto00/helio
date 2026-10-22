@@ -204,13 +204,16 @@ describe("PipelineDetailPage desktop spine: structure", () => {
     expect(screen.getByRole("region", { name: "Step editor and preview" })).toBeInTheDocument();
   });
 
-  it("reserves an empty, zero-width live-output slot (HEL-1581) without building a live render", async () => {
+  it("fills the live-output slot with the live Output column and shows no live marker without a draft (HEL-1632)", async () => {
     await renderSpinePageSettled();
     await screen.findByRole("region", { name: "Step 1 Filter rows" });
     const slot = document.querySelector(".spine-body__live-output");
     expect(slot).not.toBeNull();
-    expect(slot).toBeEmptyDOMElement();
+    expect(
+      within(slot as HTMLElement).getByRole("region", { name: "Live Output" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("live")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Output is live")).not.toBeInTheDocument();
   });
 
   it("shows the empty state in the spine for a pipeline with no steps", async () => {

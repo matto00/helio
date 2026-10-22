@@ -24,6 +24,8 @@ export interface DraftFrames {
   sampleTruncated: boolean;
   /** The saved pipeline's frame per step over the same sample: what a first edit is compared with for the changed-row flash. */
   baseRows: ReadonlyMap<string, Frame> | null;
+  /** Each root's sample frame, by pipeline root id: the rows an Output bound to a root renders (HEL-1632). */
+  rootRows: ReadonlyMap<string, Frame>;
   /** Some step is waiting on the server. */
   pending: boolean;
   /** The columns (with types) a step receives as input in the draft, when its parent has a current frame; `null` falls back to
@@ -35,6 +37,7 @@ const NONE: DraftFrames = {
   views: null,
   baseCounts: null,
   baseRows: null,
+  rootRows: new Map(),
   sampleTruncated: false,
   pending: false,
   inputSchemaOf: () => null,
@@ -44,7 +47,8 @@ const NONE: DraftFrames = {
  * HEL-1631 (design.md D3/D4): the draft's per-step frames. The client evaluator walks the saved steps (the "saved" side of a
  * count) and the draft steps (the "draft" side) over the cached source samples; a step the client cannot evaluate goes through
  * the HEL-1630 transport. Called by the layout (desktop or phone), which knows the focused step; the draft itself lives on the
- * page hook. With no draft nothing is walked and nothing is requested.
+ * page hook. With no draft the draft side is not walked and nothing is requested; the saved side is walked only when the pipeline has an
+ * Output (`needBase`), so the live Output column (HEL-1632) has rows to show and a first edit does not pay for it.
  */
 export function usePipelineDraftFrames({
   pipelineId,
@@ -52,6 +56,7 @@ export function usePipelineDraftFrames({
   baseSteps,
   draftSteps,
   hasDraft,
+  needBase = false,
   focusStepId,
 }: {
   pipelineId: string;
@@ -59,6 +64,8 @@ export function usePipelineDraftFrames({
   baseSteps: Step[];
   draftSteps: Step[];
   hasDraft: boolean;
+  /** Walk the saved steps even without a draft (the pipeline has an Output to render). */
+  needBase?: boolean;
   focusStepId: string | null;
 }): DraftFrames {
   const rootFrames = useAppSelector((state) => selectRootFrames(state, roots));
@@ -78,9 +85,10 @@ export function usePipelineDraftFrames({
     roots.some((r) => state.sourceSamples.entries[r.dataSourceId]?.sample?.truncated === true),
   );
 
+  const walkBase = hasDraft || needBase;
   const baseDefs = useMemo(
-    () => (hasDraft ? toStepDefinitions(baseSteps) : null),
-    [baseSteps, hasDraft],
+    () => (walkBase ? toStepDefinitions(baseSteps) : null),
+    [baseSteps, walkBase],
   );
   const draftDefs = useMemo(
     () => (hasDraft ? toStepDefinitions(draftSteps) : null),
@@ -133,8 +141,14 @@ export function usePipelineDraftFrames({
     return { counts, rows };
   }, [baseWalk]);
 
+  const rootRows = useMemo(() => new Map(rootFrames.map((r) => [r.rootId, r.rows])), [rootFrames]);
+
   return useMemo(() => {
-    if (views === null) return NONE;
+    if (views === null) {
+      return base === null && rootRows.size === 0
+        ? NONE
+        : { ...NONE, baseRows: base?.rows ?? null, rootRows, sampleTruncated };
+    }
     const inputSchemaOf = (step: Step, saved: readonly SchemaField[]): SchemaField[] | null => {
       if (draftWalk === null) return null;
       const parent = step.parentStepId ?? null;
@@ -151,9 +165,10 @@ export function usePipelineDraftFrames({
       views,
       baseCounts: base?.counts ?? null,
       baseRows: base?.rows ?? null,
+      rootRows,
       sampleTruncated,
       pending: [...views.values()].some((v) => v.status === "pending"),
       inputSchemaOf,
     };
-  }, [views, base, sampleTruncated, draftWalk, rootFrames]);
+  }, [views, base, rootRows, sampleTruncated, draftWalk, rootFrames]);
 }

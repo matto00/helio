@@ -49,6 +49,8 @@ interface ChartRendererProps {
   compact?: boolean;
   /** HEL-572: forwarded to `ChartPanel` — see its `onDataPointSelect` prop. */
   onDataPointSelect?: (selection: ChartClickSelection) => void;
+  /** HEL-1632: forwarded to `ChartPanel` — see its `noAnimation` prop. */
+  noAnimation?: boolean;
 }
 
 /** HEL-1311 design D5 -- "3 non-numeric values skipped." (histogram only; null when nothing was skipped). */
@@ -73,6 +75,7 @@ export function ChartRenderer({
   fieldTypes,
   compact,
   onDataPointSelect,
+  noAnimation,
 }: ChartRendererProps) {
   const trimmedAnnotation = annotation?.trim();
   // `buildDataOption` cannot render DOM, so the histogram's skipped-cell count is derived here (the
@@ -124,6 +127,7 @@ export function ChartRenderer({
             fieldTypes={fieldTypes}
             compact={compact}
             onDataPointSelect={onDataPointSelect}
+            noAnimation={noAnimation}
           />
         </Suspense>
       </div>
