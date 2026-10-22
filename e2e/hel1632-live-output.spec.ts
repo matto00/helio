@@ -256,36 +256,40 @@ test.describe("HEL-1632 live Output column", () => {
     expect(histories).toHaveLength(1);
   });
 
-  test("the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured", async ({
-    page,
-    request,
-  }) => {
-    await registerAndLogin(page, request, { ...AUTH, label: "latency" });
-    const { pipelineId } = await seed(page);
-    await openPipeline(page, pipelineId);
-    await expect(column(page).locator("canvas, svg").first()).toBeVisible();
-    await expect(page.locator(".spine-row").first().locator(".spine-row__count")).toHaveText("14");
+  // HEL-1691: measured against the production build, like the HEL-1631 burst test; the tag is the whole opt-in.
+  test(
+    "the 10-edit burst with a chart Output on screen keeps the HEL-1631 latency budget; input to live-output update measured",
+    { tag: "@prod-build" },
+    async ({ page, request }) => {
+      await registerAndLogin(page, request, { ...AUTH, label: "latency" });
+      const { pipelineId } = await seed(page);
+      await openPipeline(page, pipelineId);
+      await expect(column(page).locator("canvas, svg").first()).toBeVisible();
+      await expect(page.locator(".spine-row").first().locator(".spine-row__count")).toHaveText(
+        "14",
+      );
 
-    const results: { count: number; live: number }[] = [];
-    for (let k = 1; k <= 10; k += 1) {
-      results.push(await timedFilterEdit(page, String(260 + 7 * k)));
-    }
-    const counts = results.map((r) => r.count);
-    const lives = results.map((r) => r.live);
-    console.log(
-      `[HEL-1632 e2e] step-count latency ms: ${counts.map((n) => n.toFixed(1)).join(", ")}`,
-    );
-    console.log(
-      `[HEL-1632 e2e] input to live-output ms: ${lives.map((n) => n.toFixed(1)).join(", ")}`,
-    );
-    expect(
-      counts.every((ms) => ms >= 0),
-      `every edit updated the count: ${counts}`,
-    ).toBe(true);
-    expect(counts[0], `first edit: ${counts}`).toBeLessThan(100);
-    expect(Math.max(...counts.slice(1)), `edits 2-10: ${counts}`).toBeLessThan(50);
-    await expect(tile(page, "Rows out")).toContainText("4");
-  });
+      const results: { count: number; live: number }[] = [];
+      for (let k = 1; k <= 10; k += 1) {
+        results.push(await timedFilterEdit(page, String(260 + 7 * k)));
+      }
+      const counts = results.map((r) => r.count);
+      const lives = results.map((r) => r.live);
+      console.log(
+        `[HEL-1632 e2e] step-count latency ms: ${counts.map((n) => n.toFixed(1)).join(", ")}`,
+      );
+      console.log(
+        `[HEL-1632 e2e] input to live-output ms: ${lives.map((n) => n.toFixed(1)).join(", ")}`,
+      );
+      expect(
+        counts.every((ms) => ms >= 0),
+        `every edit updated the count: ${counts}`,
+      ).toBe(true);
+      expect(counts[0], `first edit: ${counts}`).toBeLessThan(100);
+      expect(Math.max(...counts.slice(1)), `edits 2-10: ${counts}`).toBeLessThan(50);
+      await expect(tile(page, "Rows out")).toContainText("4");
+    },
+  );
 
   test("an error above the Output's node keeps the last good render and shows stale", async ({
     page,
