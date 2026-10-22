@@ -12,6 +12,7 @@ import type {
 import type { PublicOutputMeta } from "../../pipelines/types/output";
 import { getOutputId } from "../state/panelNarrowing";
 import type { Panel } from "../types/panel";
+import { recordsToPanelRows } from "../ui/outputRenderInputs";
 
 export interface PublicPanelDataResult {
   rawRows: string[][] | null;
@@ -129,19 +130,7 @@ export function usePublicPanelData(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputId, dashboardId, panelId, token, sortKey, filterKey]);
 
-  const headers = useMemo(
-    () => (rows && rows.length > 0 ? Object.keys(rows[0]).map(String) : null),
-    [rows],
-  );
-  const rawRows = useMemo(
-    () =>
-      rows && rows.length > 0
-        ? rows.map((row) =>
-            Object.values(row).map((v) => (v !== null && v !== undefined ? String(v) : "")),
-          )
-        : null,
-    [rows],
-  );
+  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows), [rows]);
 
   const noData = rows !== null && rows.length === 0 && !error;
 

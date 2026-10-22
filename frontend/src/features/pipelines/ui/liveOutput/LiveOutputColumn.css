@@ -1,0 +1,143 @@
+/* HEL-1632 (DESIGN.md §0, §11): the live Output column. Tokens only; accent is never used here (the accent marks the
+   selected step and the primary action), "live" is a success-intent dot plus lowercase mono text. */
+.live-output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.live-output__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* Type recipe comes from the shared `.eyebrow` utility (set on the element); only the colour is local. */
+.live-output__eyebrow,
+.live-output__toggle {
+  color: var(--app-text-muted);
+}
+
+.live-output__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.live-output__toggle:focus-visible {
+  outline: var(--app-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--app-radius-sm);
+}
+
+.live-output__marker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.live-output__marker--live {
+  color: var(--app-success);
+}
+
+.live-output__marker--stale {
+  color: var(--app-warning);
+}
+
+.live-output__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-success);
+}
+
+.live-output__name {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+}
+
+.live-output__card {
+  /* The renderers fill their parent; a fixed block size gives the chart its canvas. */
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+  min-height: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+  overflow: hidden;
+}
+
+.live-output__card > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.live-output__table-scroll {
+  overflow: auto;
+}
+
+.live-output__tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.live-output__tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface);
+}
+
+.live-output__tile-label {
+  color: var(--app-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.live-output__tile-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text);
+}
+
+/* Secondary text colour: fewer rows is not a failure, so never red or green. */
+.live-output__tile-note {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.live-output__caption,
+.live-output__note,
+.live-output__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text-muted);
+}
+
+.live-output__note {
+  font-size: var(--text-xs);
+}
+
+.live-output--phone {
+  padding-bottom: var(--space-4);
+}

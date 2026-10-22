@@ -3,16 +3,17 @@ import { useMemo } from "react";
 import type { PanelAppearance } from "../types/panel";
 import type { OutputSchemaField } from "../../pipelines/types/output";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
-import { groupAndAggregate } from "../../../utils/aggregate";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
-import { aggregateSeriesName } from "../../../utils/chartClickSelection";
-import { defaultChartAppearance } from "../../../theme/appearance";
-import { chartAggregationSpec, selectChartOverlay } from "../history/chartOverlay";
+import { selectChartOverlay } from "../history/chartOverlay";
 import { configCompare } from "../history/metricHistoryView";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
 import { toChartFieldTypes } from "../../../utils/chartTimeAxis";
 import { sanitizeReferenceMarks } from "../../../utils/referenceMarks";
-import { isNonAggregatingChartType } from "../../../utils/chartTypes";
+import {
+  buildChartAggregate,
+  chartGroupingSpec,
+  resolveChartAppearance,
+} from "./outputRenderInputs";
 import { resolvePanelChartType } from "./resolvePanelChartType";
 import { groupHasNull } from "../../../utils/blankLabel";
 import { ChartRenderer } from "./renderers/ChartRenderer";
@@ -86,22 +87,14 @@ export function ChartOutputPanel({
   // HEL-1351 design D7 — the panel's stored type, else the Output's, else line; one resolver for
   // render, click mapping and Inspect.
   const chartType = resolvePanelChartType(appearance.chart, config);
-  const resolvedAppearance = useMemo<PanelAppearance>(
-    () =>
-      // Only a type the renderers would not already default to needs injecting (an absent type
-      // renders `line`); a stored type wins and is passed through untouched.
-      appearance.chart?.chartType || chartType === "line"
-        ? appearance
-        : { ...appearance, chart: { ...(appearance.chart ?? defaultChartAppearance), chartType } },
+  const resolvedAppearance = useMemo(
+    () => resolveChartAppearance(appearance, chartType),
     [appearance, chartType],
   );
   // HEL-1351 design D1/D2 (C2) — an aggregated Output plots one value per group, grouped client-side
   // with the SAME function and condition the editor preview uses. A panel whose resolved type is
   // scatter renders raw rows (scatter never aggregates), so it neither groups nor re-keys clicks.
-  const aggregationSpec = useMemo(
-    () => (isNonAggregatingChartType(chartType) ? null : chartAggregationSpec(config)),
-    [chartType, config],
-  );
+  const aggregationSpec = useMemo(() => chartGroupingSpec(chartType, config), [chartType, config]);
   // HEL-1408 design D10a -- null detection reads the typed records (never the null-to-"" `rawRows`),
   // strictly `=== null`, and rides on a LOCAL copy of the spec so the shared spec type is untouched.
   const groupBy = aggregationSpec?.groupBy;
@@ -111,21 +104,7 @@ export function ChartOutputPanel({
     [aggregationSpec, hasNullGroup],
   );
   const chartAggregate = useMemo(
-    () =>
-      aggregationSpec && records
-        ? {
-            ...groupAndAggregate(
-              records,
-              aggregationSpec.groupBy,
-              aggregationSpec.agg,
-              aggregationSpec.yField,
-            ),
-            seriesName: aggregateSeriesName(aggregationSpec),
-            groupBy: aggregationSpec.groupBy,
-            // HEL-1424 -- the chart relabels the null group "(blank)" only when it really is null.
-            hasNullGroup,
-          }
-        : null,
+    () => buildChartAggregate(aggregationSpec, records, hasNullGroup),
     [aggregationSpec, records, hasNullGroup],
   );
   // An aggregated Output only overlays its grouped baseline over the grouped plot; with no record

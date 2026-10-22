@@ -66,6 +66,9 @@ export interface ChartPanelProps {
    *  `selectDataPoint`. Omitted entirely for a non-chart-eligible mount —
    *  see `ChartInspectConfig`. */
   onDataPointSelect?: (selection: ChartClickSelection) => void;
+  /** HEL-1632: draw every option (the first one included) with no animation. The pipeline page's live Output re-draws on each
+   *  draft edit, and a data-change morph would paint frames between one edit and the next. */
+  noAnimation?: boolean;
 }
 
 export function ChartPanel({
@@ -81,6 +84,7 @@ export function ChartPanel({
   fieldTypes,
   compact = false,
   onDataPointSelect,
+  noAnimation = false,
 }: ChartPanelProps = {}) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const measuredHeight = useMeasuredChartHeight(wrapperRef);
@@ -118,7 +122,15 @@ export function ChartPanel({
   const onHeatmapReady = useHeatmapDefaultCursor(resolveChartType(appearance?.chart) === "heatmap");
 
   // HEL-1034 / HEL-1573 -- token-timed entrance that plays once per chart mount and is not replayed by option changes.
-  const { option, onChartReady: onEntranceReady } = useChartEntranceMotion(builtOption);
+  const { option: motionOption, onChartReady: onEntranceReady } =
+    useChartEntranceMotion(builtOption);
+  const option = useMemo(
+    () =>
+      noAnimation
+        ? { ...motionOption, animation: false, animationDurationUpdate: 0 }
+        : motionOption,
+    [noAnimation, motionOption],
+  );
   const onChartReady = useCallback(
     (chart: Parameters<typeof onHeatmapReady>[0] & Parameters<typeof onEntranceReady>[0]) => {
       onHeatmapReady(chart);

@@ -6,7 +6,7 @@ import { AUTH, THEMES, openPipeline, seedPipeline } from "./support/hel1582Phone
 import { realTap, seedTallSchemaPipeline, stubLastRun } from "./support/hel1668";
 
 // HEL-1668 items 4, 5 (compact spine on a touch tablet) and 6: the output schema panel is placed by its real height
-// (desktop 1280x800 and 1000x800, phone below-placement clearing the bottom nav), the spine copy is unambiguous, and
+// (desktop 1280x840 (800 tall before the HEL-1632 live column narrowed the centre) and 1000x800, phone below-placement clearing the bottom nav), the spine copy is unambiguous, and
 // the last-run time survives an 8-digit row count. Light and dark.
 
 const fieldsTrigger = (page: Page) => page.getByRole("button", { name: /\d+ fields/ }).first();
@@ -29,8 +29,12 @@ async function openSchemaPanel(page: Page) {
   return { trigger: t as DOMRect, panel: p };
 }
 
+// HEL-1632: at 1280 the live Output column takes a third column, so the centre column is ~363px wide (was ~660px) and the
+// filter editor's rows stack (267px tall, 163px at 1700 where they do not). The "N fields" trigger therefore sits ~12px
+// lower and the pinned fixture's "below is roomier" premise (trigger centre above the viewport's midline) needs 40px more
+// height; the placement logic under test is unchanged.
 for (const viewport of [
-  { width: 1280, height: 800 },
+  { width: 1280, height: 840 },
   { width: 1000, height: 800 },
 ]) {
   const at = `${viewport.width}x${viewport.height}`;
