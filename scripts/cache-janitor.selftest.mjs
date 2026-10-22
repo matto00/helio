@@ -65,6 +65,11 @@ const listing = [
   mk(`e2e-node-modules-v1-Linux-X64-node22-${hex64("b")}`, 2),
   mk(`e2e-node-modules-v1-Linux-X64-node22-${hex64("c")}`, 3, "refs/pull/9/merge"),
   mk(`e2e-node-modules-Linux-${hex64("a")}`, 1),
+  // HEL-1700 e2e apt archives: keep 1 on main; PR copy and near-miss keys survive
+  mk(`e2e-apt-debs-v1-ubuntu24.04-X64-${hex64("a")}`, 1),
+  mk(`e2e-apt-debs-v1-ubuntu24.04-X64-${hex64("b")}`, 2),
+  mk(`e2e-apt-debs-v1-ubuntu24.04-X64-${hex64("c")}`, 3, "refs/pull/9/merge"),
+  mk(`e2e-apt-debs-ubuntu24.04-X64-${hex64("a")}`, 1),
 ];
 const keys = (xs) => xs.map((c) => c.key).sort();
 const got = keys(mod.selectDeletions(listing));
@@ -74,6 +79,7 @@ const want = keys([
   listing[6], // javascript day 1
   listing[12], // sbt-a (superseded by sbt-b)
   listing[26], // e2e-node-modules a (superseded by b)
+  listing[30], // e2e-apt-debs a (superseded by b)
 ]);
 check(
   "exact deletion set",
@@ -96,6 +102,13 @@ check(
     !got.includes(listing[27].key) &&
     !got.includes(listing[28].key) &&
     !got.includes(listing[29].key),
+);
+check(
+  "superseded apt archive entry deleted, newest and PR/near-miss entries kept",
+  got.includes(listing[30].key) &&
+    !got.includes(listing[31].key) &&
+    !got.includes(listing[32].key) &&
+    !got.includes(listing[33].key),
 );
 check("sole codeql actions entry survives", !got.includes(cq("actions", 1)));
 check(

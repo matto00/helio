@@ -1,0 +1,9 @@
+- `scripts/e2e-apt-deps.sh` — new: Playwright-derived package list, Ubuntu-only per-attempt apt options, cached .deb dir, two bounded attempts, offline install, prune, save-key
+- `scripts/e2e-apt-deps.selftest.sh` — new: hermetic selftest (stub apt-get/timeout/dpkg-query/npx)
+- `.github/actions/e2e-setup/action.yml` — OS key step, apt cache restore/save, script call, `playwright install chromium` without --with-deps, `save-apt-cache` input
+- `.github/workflows/ci.yml` — leg 1 passes `save-apt-cache`; runs the new selftest
+- `.github/workflows/e2e-slow.yml` — PR paths filter gains the script
+- `scripts/cache-janitor.mjs` — `e2e-apt-debs` family (keep 1)
+- `scripts/cache-janitor.selftest.mjs` — janitor case for the new family
+- `package.json` — `selftest:e2e-apt-deps`
+- `openspec/changes/bound-e2e-apt-deps/tasks.md` — ticks

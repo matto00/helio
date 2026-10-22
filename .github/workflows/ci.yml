@@ -159,6 +159,8 @@ jobs:
       - run: npm run selftest:ci-prune-sbt-cas
       # HEL-1699: lane-start selftest (throwaway git repo, stub sbt; CI-only like the selftests above, no `.husky/**` change).
       - run: npm run selftest:e2e-backend-lane
+      # HEL-1700: e2e apt-deps installer selftest (stub apt-get/timeout/dpkg-query on PATH; CI-only like the selftests above, no `.husky/**` change).
+      - run: npm run selftest:e2e-apt-deps
       - run: npm run check:cache-cleanup-pr
       - run: npm run check:cache-cleanup-pr:selftest
       # HEL-1601: per-test timing + 1 Hz runner load around `npm test`, to locate the ~1 s main-thread stall seen on a
@@ -626,6 +628,8 @@ jobs:
         with:
           # HEL-1699: exactly one job per run may save the node_modules cache (main push only; see the action).
           save-node-modules-cache: ${{ matrix.shard == 1 }}
+          # HEL-1700: same single designated job saves the apt .deb archive cache (main push only; see the action).
+          save-apt-cache: ${{ matrix.shard == 1 }}
       # HEL-951 contract preserved: discovery is still Playwright's own (`playwright test --list`
       # over the config's glob and `testIgnore`). HEL-1361: scripts/e2e-shard.mjs partitions that
       # discovered set by per-file weight (e2e/shard-weights.tsv, from CI timings) instead of
