@@ -164,7 +164,7 @@ prune_archives() {
       log "pruned $f (installed: ${have:-none})"
     fi
   done
-  rm -rf "$ARCHIVES/partial" "$ARCHIVES/lock"
+  "${SUDO[@]}" rm -rf "$ARCHIVES/partial" "$ARCHIVES/lock"
 }
 
 # stdin: sorted file names. stdout: key suffix (sha256 of the names).
@@ -207,7 +207,8 @@ run() {
       break
     fi
     log "attempt $n failed or exceeded ${BOUND_SECONDS}s; last fetch line: $(grep -E '^(Get|Ign|Err):' "$WORK/a$n/log" | tail -n1)"
-    rm -rf "$ARCHIVES/partial"
+    # apt ran as root, so what it left in partial/ is root-owned (CI run 39864699117: plain `rm` got Permission denied).
+    "${SUDO[@]}" rm -rf "$ARCHIVES/partial"
     mkdir -p "$ARCHIVES/partial"
   done
   if [ -z "$winner" ]; then
