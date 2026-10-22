@@ -1,9 +1,0 @@
-- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/PipelineRootRepository.scala` — `add` runs privileged; `removeAction` gains pipelineId filter; new shared `removeRoot` transaction + `RootAlreadyRemoved` (D5)
-- `backend/src/main/scala/com/helio/services/pipelines/PipelineRootWrites.scala` — `removeRoot` calls the shared transaction; maps `RootAlreadyRemoved` to 404 before `classifyDbError`
-- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRlsSpec.scala` — C5 tests replaced by editor/viewer/stranger/owner/cycle root tests (NOBYPASSRLS)
-- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveRaceSpec.scala` — remove writer uses shared method; editor-actor root-add race case
-- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveDeadlockSpec.scala` — remove writer uses shared method
-- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineCascadeLockOrderRaceSpec.scala` — remove uses shared method
-- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/OutputDeleteRacesPanelCreateSpec.scala` — remove uses shared method
-- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRootRemoveAtomicitySpec.scala` — new: D5 rollback at the shared-method seam
-- `backend/src/test/scala/com/helio/infrastructure/persistence/pipelines/PipelineRootWriteGrantsSpec.scala` — new: D6 migration-only grant proof
