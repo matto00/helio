@@ -17,6 +17,7 @@
     "check:ci-sbt-guard": "node scripts/check-ci-sbt-no-pattern-kill.mjs",
     "check:ci-sbt-guard:selftest": "node scripts/check-ci-sbt-no-pattern-kill.selftest.mjs",
     "selftest:ci-sbt": "node scripts/ci-sbt.selftest.mjs",
+    "selftest:e2e-backend-lane": "bash scripts/e2e-backend-lane.selftest.sh",
     "selftest:cache-janitor": "node scripts/cache-janitor.selftest.mjs",
     "selftest:ci-prune-sbt-cas": "node scripts/ci-prune-sbt-cas.selftest.mjs",
     "check:cache-cleanup-pr": "node scripts/check-cache-cleanup-pr.mjs",
