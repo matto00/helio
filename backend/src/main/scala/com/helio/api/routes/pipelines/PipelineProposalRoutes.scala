@@ -1,6 +1,6 @@
 package com.helio.api.routes.pipelines
 
-import com.helio.api.routes.ServiceResponse
+import com.helio.api.routes.{RunResponseMarshalling, ServiceResponse}
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
@@ -37,7 +37,7 @@ final class PipelineProposalRoutes(
         post {
           entity(as[PipelineProposal]) { proposal =>
             ServiceResponse.run(proposalService.apply(proposal, user)) { response =>
-              StatusCodes.Created -> response
+              RunResponseMarshalling.chunkedJson(StatusCodes.Created, response)
             }
           }
         }

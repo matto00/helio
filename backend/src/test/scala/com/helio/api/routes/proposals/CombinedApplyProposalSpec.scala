@@ -1,6 +1,6 @@
 package com.helio.api.routes.proposals
 
-import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, StatusCodes}
 import spray.json._
 
 /** Happy-path route-level coverage for `POST /api/proposals/apply` (HEL-387)
@@ -37,6 +37,10 @@ class CombinedApplyProposalSpec extends CombinedApplyProposalSpecBase {
           |}""".stripMargin
       apply(body) ~> routes ~> check {
         status shouldBe StatusCodes.Created
+        // HEL-1693 G2: the body embeds the run result and is streamed (chunked) compact JSON, byte-identical to spray's compact rendering.
+        chunks should not be empty
+        contentType shouldBe ContentTypes.`application/json`
+        responseAs[String] shouldBe responseAs[String].parseJson.compactPrint
         val obj           = responseAs[String].parseJson.asJsObject
         val pipelineResp  = obj.fields("pipeline").asJsObject
         // HEL-907 task 1.1: `outputs` (renamed from the old single
