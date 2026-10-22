@@ -177,3 +177,12 @@ environment or `backend/.env` exactly like `support/historySeed.ts`; nothing abo
   on disk: the exact ids to delete by hand with the same builder. Do not sweep other runs' directories
   automatically - a concurrently running run in the same worktree owns its own. Residue from before this
   change is not covered; it goes through the exact-id dev-DB residue procedure.
+
+## Slow lane (HEL-1667)
+
+The MAXIMAL phone sweeps at 390 and 768 px (`hel1582-sweep-390.spec.ts`, `hel1582-sweep-768.spec.ts`) are skipped in
+PR CI unless `HELIO_E2E_SLOW=1` is set (about 3 minutes each; HEL-1582 owner ruling). The workflow
+`.github/workflows/e2e-slow.yml` runs both files with `HELIO_E2E_SLOW=1` weekly (Monday 10:17 UTC) and on demand
+(`gh workflow run e2e-slow.yml --ref <ref>`); it also runs on a PR that edits that workflow file. It fails if any
+selected test was skipped or none ran, so a broken gate cannot go green. Locally: `HELIO_E2E_SLOW=1 npx playwright test
+e2e/hel1582-sweep-390.spec.ts e2e/hel1582-sweep-768.spec.ts`.
