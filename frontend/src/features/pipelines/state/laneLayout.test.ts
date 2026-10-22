@@ -199,6 +199,11 @@ describe("laneOutputSubtitle (task 6.1, evaluation-1.md non-blocking suggestion)
     expect(laneOutputSubtitle(graph, labels, "t1")).toBe("Filter A › lane 1 › Group & aggregate");
     expect(laneOutputSubtitle(graph, labels, "t2")).toBe("Filter A › lane 2 › Group & aggregate");
   });
+
+  it("names a step that no longer exists 'a deleted step', not 'an unknown step'", () => {
+    const graph = buildLaneGraph([step("a", undefined, 0)], ONE_ROOT);
+    expect(laneOutputSubtitle(graph, new Map(), "gone")).toBe("a deleted step");
+  });
 });
 
 // HEL-968 D2/task 4.2 — root-grouped column ordering: a root's lanes are

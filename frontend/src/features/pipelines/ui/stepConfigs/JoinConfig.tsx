@@ -30,8 +30,6 @@ interface JoinConfigProps {
   allSteps: Step[];
   currentStepId: string;
   onChange: (newConfig: JoinConfigValue) => void;
-  /** HEL-1515: the backend's rejection of the last save (e.g. a lane naming this step's own descendant). */
-  saveError?: string | null;
 }
 
 // Mirrors JoinStep.SupportedJoinTypes (backend); anything else fails at run time.
@@ -48,7 +46,6 @@ export function JoinConfig({
   allSteps,
   currentStepId,
   onChange,
-  saveError,
 }: JoinConfigProps) {
   const normalizedType = config.joinType.trim().toLowerCase();
   const supportedType = JOIN_TYPES.find((t) => t === normalizedType);
@@ -65,7 +62,6 @@ export function JoinConfig({
         value={config.secondary}
         allSteps={allSteps}
         currentStepId={currentStepId}
-        saveError={saveError}
         onChange={(secondary) => onChange({ ...config, secondary })}
       />
 

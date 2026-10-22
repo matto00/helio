@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
 import { selectRootFrames, selectSourceFrames } from "../../sources/state/sourceSamplesSlice";
@@ -14,6 +14,17 @@ import { createViewTracker, type DraftStepView } from "../state/draftStepView";
 import type { PipelineRoot, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { useDraftPreviewTransport } from "./useDraftPreviewTransport";
+
+/** What a draft remembers between renders: the last good frame per step and the walker's reuse state. Owned by the page
+ *  hook, so a desktop/phone layout swap does not drop them. */
+export interface DraftFrameMemory {
+  walker: ReturnType<typeof createIncrementalWalker>;
+  tracker: ReturnType<typeof createViewTracker>;
+}
+
+export function createDraftFrameMemory(): DraftFrameMemory {
+  return { walker: createIncrementalWalker(), tracker: createViewTracker() };
+}
 
 export interface DraftFrames {
   /** Every step's displayed view; `null` while no draft exists (nothing displayed changes from the saved pipeline). */
@@ -58,6 +69,7 @@ export function usePipelineDraftFrames({
   hasDraft,
   needBase = false,
   focusStepId,
+  memory,
 }: {
   pipelineId: string;
   roots: PipelineRoot[];
@@ -67,7 +79,9 @@ export function usePipelineDraftFrames({
   /** Walk the saved steps even without a draft (the pipeline has an Output to render). */
   needBase?: boolean;
   focusStepId: string | null;
+  memory: DraftFrameMemory;
 }): DraftFrames {
+  const { walker, tracker } = memory;
   const rootFrames = useAppSelector((state) => selectRootFrames(state, roots));
   const secondaryKey = useMemo(() => secondarySourceIds(draftSteps).join(","), [draftSteps]);
   const secondaryIds = useMemo(
@@ -98,7 +112,6 @@ export function usePipelineDraftFrames({
     () => (baseDefs === null ? null : evaluatePipeline(baseDefs, rootFrames, { sources })),
     [baseDefs, rootFrames, sources],
   );
-  const [walker] = useState(createIncrementalWalker);
   const draftWalk = useMemo(
     () => (draftDefs === null ? null : walker.walk(draftDefs, rootFrames, sources)),
     [walker, draftDefs, rootFrames, sources],
@@ -119,7 +132,6 @@ export function usePipelineDraftFrames({
   );
   const transport = useDraftPreviewTransport({ pipelineId, enabled: hasDraft, built });
 
-  const [tracker] = useState(createViewTracker);
   const views = useMemo(() => {
     if (draftWalk === null) {
       tracker.reset();

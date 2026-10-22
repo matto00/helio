@@ -77,4 +77,18 @@ describe("useIdleCoalesced", () => {
     act(() => callbacks.forEach((cb) => cb()));
     expect(result.current).toBe(5);
   });
+
+  it("renders an intermediate value at the cap during a continuous burst, even if the browser never goes idle", () => {
+    window.requestIdleCallback = (() => 1) as never;
+    window.cancelIdleCallback = (() => undefined) as never;
+    const { result, rerender, seen } = render();
+    for (let v = 1; v <= 30; v += 1) {
+      rerender({ v });
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+    }
+    expect(result.current).toBeGreaterThan(0);
+    expect(seen.some((v) => v > 0 && v < 30)).toBe(true);
+  });
 });

@@ -49,10 +49,6 @@
   color: var(--app-success);
 }
 
-.live-output__marker--stale {
-  color: var(--app-warning);
-}
-
 .live-output__live-dot {
   width: 6px;
   height: 6px;

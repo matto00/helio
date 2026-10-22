@@ -374,40 +374,13 @@ function scanAll(files: string[]) {
 describe("elevation token guard (HEL-442)", () => {
   const files = allCssFiles(SRC_ROOT);
 
-  it("walks every CSS file in frontend/src (currently 151)", () => {
-    // HEL-584 added `PanelFullscreenOverlay.css` (117 -> 118); it declares
-    // no box-shadow/border-radius, so no new pin was needed.
-    // HEL-572 added `PanelInspectView.css` (118 -> 119); its one
-    // `border-radius` declaration uses `var(--app-radius-sm)` (a token, not
-    // a literal), so it produces zero hits and needed no new pin either.
-    // HEL-588 added `CrossFilterIndicator.css` (119 -> 120); its one
-    // `border-radius` declaration also uses `var(--app-radius-md)` (a token),
-    // so it produces zero hits and needed no new pin either.
-    // HEL-1189 added `OutputControlsEditor.css` (120 -> 121); its
-    // `border-radius` declaration uses `var(--app-radius-md)` (a token), so
-    // it produces zero hits and needed no new pin either.
-    // HEL-1190 added `OutputViewerControlBar.css` (121 -> 122); it declares
-    // no box-shadow/border-radius at all, so no new pin was needed either.
-    // HEL-1207 added `ProvenancePopover.css` + `ProvenanceTrigger.css` (122 -> 124); neither
-    // declares motion/elevation of its own (the panel surface comes from shared `Popover.css`).
-    // HEL-1209 added `FirstRunDropZone.css` + `FirstRunRefineBar.css` (124 -> 126); every shadow,
-    // radius is a token (`var(--app-shadow-card)`, `var(--app-radius-*)`), so no new pin was needed.
-    // HEL-989 added `SourceDeleteConflictNotice.css` (129 -> 130); it declares no shadow/radius/motion
-    // literals (tokens only), so no new pin was needed.
-    // HEL-1277 added `OutputHistoryModal.css` (130 -> 131); tokens only, no shadow/radius/motion literals.
-    // HEL-1502 added `shared/ui/disclosureSummary.css` (131 -> 132); tokens only, no shadow/radius/motion literals.
-    // HEL-1562 added `landing/landing.css` (132 -> 133); tokens only, no shadow/radius/motion literals.
-    // HEL-1574 added `AppRail.css`, `ContextList.css`, `AssistantContextList.css` and removed `SidebarBody.css` (133 -> 135); tokens only.
-    // HEL-1579 added `PipelineSpine.css`, `PipelineSpineHeader.css`, `PipelineSpineLayout.css`, `PipelineSpineAccent.css`,
-    // `StepCardFocused.css` and `StepPreviewTable.css` (135 -> 141); tokens only, no shadow/radius/motion literals.
-    // HEL-1575 added `DashboardTabBar.css` and `PaletteSearchBox.css`, HEL-1576 added `DashboardMetaRow.css`; tokens only, no shadow/radius/motion literals.
-    // HEL-1572 added `SegmentedRadioGroup.css` and `AppearanceSection.css`; tokens only.
-    // True count after merging the lanes: 135 + 6 (HEL-1579) + 2 (HEL-1575) + 1 (HEL-1576) + 2 (HEL-1572) + 1 (HEL-1578: features/home/ui/HomePage.css) + 2 (HEL-1573: motion.css, Crossfade.css) + 1 (HEL-1628: features/sources/ui/SourceSampleLabel.css) = 150, recounted with find, not carried from any side.
-    // HEL-1583 added `features/dashboards/ui/DashboardChipRow.css` (150 -> 151), recounted with find after merging HEL-1628; tokens only.
-    // HEL-1582 added shared/motion/BottomSheet.css and features/pipelines/ui/mobile/PipelineMobile.css and deleted OutputsRail.css, OutputsGalleryTab.css, OutputGalleryCard.css and PipelineDetailHeader.css (151 -> 149), recounted with find.
-    // HEL-1631 added `features/pipelines/ui/PipelineDraftNotices.css` (149 -> 150), recounted with find; tokens only.
-    // HEL-1632 added `features/pipelines/ui/liveOutput/LiveOutputColumn.css` (150 -> 151), recounted with find; tokens only.
-    expect(files.length).toBe(151);
+  it("walks every CSS file in frontend/src, not an empty or truncated set", () => {
+    // A hard-coded file count conflicts between lanes that each add a stylesheet, so this asserts a floor and a known file
+    // instead: an empty glob, or one that stops descending into a feature folder, fails here rather than passing vacuously.
+    expect(files.length).toBeGreaterThan(100);
+    expect(files.some((f) => f.endsWith(path.join("liveOutput", "LiveOutputColumn.css")))).toBe(
+      true,
+    );
   });
 
   it("has zero hits in a file with no box-shadow/border-radius declarations at all", () => {

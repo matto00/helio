@@ -92,6 +92,12 @@
   color: var(--app-error);
 }
 
+/* The grid's own empty line has a top margin only; inside the card it takes the same inset as the notes above it. */
+.step-preview__body .ui-data-grid__empty {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+}
+
 /* Body rows show a hover state (the state-surface guard treats every `tbody tr` as interactive). The table
    sits on a `--app-surface` card, so the rung is soft in light, strong in dark (DESIGN.md §3, HEL-866). */
 @media (hover: hover) {

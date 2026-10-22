@@ -76,8 +76,6 @@ export function useStepCardState(
     setAnalyzeWithAiConfig,
     generateTextConfig,
     setGenerateTextConfig,
-    saveError,
-    saveErrorIsValidation,
   } = useStepCardEditorState(step);
   const { persist, emitOrPersist } = useStepCardPersist({ step, onConfigChange });
   const {
@@ -172,8 +170,6 @@ export function useStepCardState(
     convertFormatConfig,
     analyzeWithAiConfig,
     generateTextConfig,
-    saveError,
-    saveErrorIsValidation,
     onFieldToggle,
     onRenameChange,
     onCastChange,

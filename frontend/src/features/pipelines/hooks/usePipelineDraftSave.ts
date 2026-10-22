@@ -63,6 +63,8 @@ type SaveArgs = {
   setSteps: Dispatch<SetStateAction<Step[]>>;
   roots: PipelineRoot[];
   allOutputsRef: MutableRefObject<Output[]>;
+  /** Shared with the run stream: true while a Save & run is posted and its response is not yet processed. */
+  draftSaveInFlightRef: MutableRefObject<boolean>;
   outputsLoaded: boolean;
   setSseActive: Dispatch<SetStateAction<boolean>>;
   refreshRunHistoryAfterRun: () => void;
@@ -97,6 +99,7 @@ export function usePipelineDraftSave({
   setSteps,
   roots,
   allOutputsRef,
+  draftSaveInFlightRef,
   outputsLoaded,
   setSseActive,
   refreshRunHistoryAfterRun,
@@ -106,7 +109,6 @@ export function usePipelineDraftSave({
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<DraftNotice | null>(null);
   const [cascade, setCascade] = useState<DraftCascadePrompt | null>(null);
-  const savingRef = useRef(false);
   /** The live "Saved." toast and the application its Undo targets: dismissed once that Undo succeeds or a newer save replaces it. */
   const savedToastRef = useRef<{ toastId: string; applicationId: string } | null>(null);
   const dismissSavedToast = useCallback(() => {
@@ -234,13 +236,13 @@ export function usePipelineDraftSave({
 
   const post = useCallback(
     async (confirm: DraftCascadeConfirmation | undefined) => {
-      if (!id || savingRef.current) return;
+      if (!id || draftSaveInFlightRef.current) return;
       // A draft restored over a pipeline that changed while it was away is never saved over it: reload first.
       if (draft.staleRestoredRef.current) {
         setNotice({ kind: "stale" });
         return;
       }
-      savingRef.current = true;
+      draftSaveInFlightRef.current = true;
       setSaving(true);
       setNotice(null);
       let posted = false;
@@ -312,11 +314,22 @@ export function usePipelineDraftSave({
           });
         }
       } finally {
-        savingRef.current = false;
+        draftSaveInFlightRef.current = false;
         if (mountedRef.current) setSaving(false);
       }
     },
-    [id, allOutputsRef, dispatch, draft, outputsLoaded, roots, setSseActive, settleSaved, stepsRef],
+    [
+      id,
+      allOutputsRef,
+      dispatch,
+      draft,
+      draftSaveInFlightRef,
+      outputsLoaded,
+      roots,
+      setSseActive,
+      settleSaved,
+      stepsRef,
+    ],
   );
 
   const saveAndRun = useCallback(() => post(undefined), [post]);

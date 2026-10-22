@@ -12,6 +12,11 @@ import { useLiveOutputBaseline } from "../../hooks/useLiveOutputBaseline";
 import { useLiveSampleState } from "../../hooks/useLiveSampleState";
 import { clearSavedOutputRows, useSavedOutputRows } from "../../hooks/useSavedOutputRows";
 import { liveOutputSource, type LiveMarker } from "../../state/liveOutput/liveOutputSource";
+import {
+  isSettling,
+  resolveDisplayedOutput,
+  type OutputPick,
+} from "../../state/liveOutput/resolveDisplayedOutput";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { LiveOutputBody } from "./LiveOutputBody";
 import "./LiveOutputColumn.css";
@@ -62,11 +67,18 @@ export function LiveOutputColumn(props: LiveOutputColumnProps) {
   // selected step shows at once.
   const coalesced = useIdleCoalesced(fresh);
   const shown = coalesced.selectedStepId === selectedStepId ? coalesced : fresh;
+  // The explicit pick lives here (its setter is stable) so the view's Output can be resolved on both sides.
+  const [pick, setPick] = useState<OutputPick | null>(null);
+  const displayed = resolveDisplayedOutput(shown.page.allOutputs, pick, shown.selectedStepId);
+  const settling = isSettling(displayed, fresh.presentation.frames, shown.presentation.frames);
   return (
     <LiveOutputColumnView
       page={shown.page}
       presentation={shown.presentation}
       selectedStepId={shown.selectedStepId}
+      pick={pick}
+      onPick={setPick}
+      settling={settling}
       layout={layout}
       expanded={expanded}
       onToggle={onToggle}
@@ -78,6 +90,9 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
   page,
   presentation,
   selectedStepId,
+  pick,
+  onPick,
+  settling,
   layout = "column",
   expanded = true,
   onToggle,
@@ -85,22 +100,17 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
   page: PipelinePageState;
   presentation: ReturnType<typeof usePipelineDraftPresentation>;
   selectedStepId: string | null;
+  pick: OutputPick | null;
+  onPick: (pick: OutputPick) => void;
+  /** A newer draft frame exists than the one this view draws: a "live" marker reads "updating". */
+  settling: boolean;
   layout?: LiveOutputLayout;
   /** `disclosure` only: whether the body is open. */
   expanded?: boolean;
   onToggle?: () => void;
 }) {
   const outputs = page.allOutputs;
-  // The explicit pick holds only for the step it was made on: selecting a step that carries another Output follows it.
-  const [pick, setPick] = useState<{ id: string; forStep: string | null } | null>(null);
-  const picked =
-    pick !== null && pick.forStep === selectedStepId
-      ? outputs.find((o) => o.id === pick.id)
-      : undefined;
-  const output =
-    picked ??
-    (selectedStepId === null ? undefined : outputs.find((o) => o.nodeStepId === selectedStepId)) ??
-    outputs[0];
+  const output = resolveDisplayedOutput(outputs, pick, selectedStepId);
 
   const { frames, hasDraft } = presentation;
   const sample = useLiveSampleState(page.roots, page.id ?? "");
@@ -177,7 +187,7 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
     <section className={`live-output live-output--${layout}`} aria-label="Live Output">
       <header className="live-output__header">
         {eyebrow}
-        <Marker marker={model.source?.kind === "loading" ? "none" : markerOf(model.source)} />
+        <Marker marker={markerOf(model.source, settling)} />
       </header>
       {!open ? null : outputs.length >= 2 ? (
         <Select
@@ -185,7 +195,7 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
           ariaLabel="Displayed Output"
           value={output.id}
           options={outputs.map((o) => ({ value: o.id, label: o.name }))}
-          onChange={(id) => setPick({ id, forStep: selectedStepId })}
+          onChange={(id) => onPick({ id, forStep: selectedStepId })}
         />
       ) : (
         <p className="live-output__name">{output.name}</p>
@@ -209,6 +219,10 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
   );
 });
 
-function markerOf(source: ReturnType<typeof liveOutputSource> | null): LiveMarker {
-  return source === null || source.kind === "loading" ? "none" : source.marker;
+function markerOf(
+  source: ReturnType<typeof liveOutputSource> | null,
+  settling: boolean,
+): LiveMarker {
+  if (source === null || source.kind === "loading") return "none";
+  return settling && source.marker === "live" ? "updating" : source.marker;
 }

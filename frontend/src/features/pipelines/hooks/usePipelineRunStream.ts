@@ -1,7 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
-import { previewOutput, resetRunScopedState } from "../state/outputsSlice";
-import type { Output } from "../types/output";
+import {
+  previewOutput,
+  resetRunScopedState,
+  selectOutputsForPipeline,
+} from "../state/outputsSlice";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePipelineRunEvents } from "./usePipelineRunEvents";
 import type { RunStatusEventData } from "./usePipelineRunEvents";
@@ -12,7 +15,8 @@ type UsePipelineRunStreamArgs = {
   dispatch: ReturnType<typeof useAppDispatch>;
   sseActive: boolean;
   setSseActive: Dispatch<SetStateAction<boolean>>;
-  allOutputsRef: MutableRefObject<Output[]>;
+  /** True from the moment a Save & run is posted until its response has been processed. */
+  draftSaveInFlightRef: MutableRefObject<boolean>;
   refreshRunHistoryAfterRun: ReturnType<typeof useRunHistory>["refreshRunHistoryAfterRun"];
 };
 
@@ -26,7 +30,7 @@ export function usePipelineRunStream({
   dispatch,
   sseActive,
   setSseActive,
-  allOutputsRef,
+  draftSaveInFlightRef,
   refreshRunHistoryAfterRun,
 }: UsePipelineRunStreamArgs) {
   const sseData = usePipelineRunEvents({
@@ -52,10 +56,21 @@ export function usePipelineRunStream({
       // `TERMINAL_STATUSES`), distinct from `succeeded` -- a dry run must
       // refresh the rail exactly like a live run does (design.md decision 2
       // draws no rail-thumbnail distinction between the two).
-      if (id && (event.status === "succeeded" || event.status === "dry_run")) {
-        for (const output of allOutputsRef.current) {
-          void dispatch(previewOutput({ pipelineId: id, outputId: output.id }));
-        }
+      // A Save & run's run can finish before the save's response is processed, while this page still holds the pre-save
+      // Output list: an Output the save removed would be requested (a 404). The save refreshes the previews from its own
+      // saved definition when it settles, so nothing is lost by skipping them here.
+      if (
+        id &&
+        !draftSaveInFlightRef.current &&
+        (event.status === "succeeded" || event.status === "dry_run")
+      ) {
+        // The ids come from the store at this moment, not from a render's ref: `outputsReplaced` may have landed after
+        // the last commit, and a ref would still hold an Output the save removed.
+        dispatch((_dispatch, getState) => {
+          for (const output of selectOutputsForPipeline(getState(), id)) {
+            void dispatch(previewOutput({ pipelineId: id, outputId: output.id }));
+          }
+        });
       }
       refreshRunHistoryAfterRun();
       // HEL-242's DataType-row-invalidation dispatch (`markDataTypeRowsStale`)

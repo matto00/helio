@@ -176,7 +176,9 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
             onSaveAndRun: () => void page.draftSave.saveAndRun(),
           }}
         />
-        <PipelineDraftNotices page={page} />
+        <div className="spine-notice-slot">
+          <PipelineDraftNotices page={page} />
+        </div>
         <div className="spine-strip-slot">
           <SpineStatusStrip
             costVerdict={page.costVerdict}

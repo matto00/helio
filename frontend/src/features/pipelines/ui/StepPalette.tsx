@@ -8,7 +8,7 @@
 // not a group mapping — design.md Decision 7).
 
 import { Search, SearchX } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import "../../commandPalette/ui/CommandPalette.css";
 import { Modal } from "../../../shared/ui/Modal";
@@ -134,7 +134,11 @@ function buildGroups(
   return groups;
 }
 
-export function StepPalette({ open, onClose, onSelect }: StepPaletteProps) {
+export const StepPalette = memo(function StepPalette({
+  open,
+  onClose,
+  onSelect,
+}: StepPaletteProps) {
   const [catalog, setCatalog] = useState<PipelineStepCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -313,4 +317,4 @@ export function StepPalette({ open, onClose, onSelect }: StepPaletteProps) {
       )}
     </Modal>
   );
-}
+});

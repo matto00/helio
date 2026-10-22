@@ -10,6 +10,8 @@ export const SAMPLE_CAPTION = "Rendered from the cached sample.";
 export const LAST_RUN_CAPTION = "Showing the last run.";
 export const NOT_PREVIEWED_CAPTION = "Not previewed (AI step): showing the last run's data.";
 export const SELECT_STEP_HINT = "Select this step to update it";
+/** An upstream error's message is shown by the step editor and the preview table, so the Output only says what it shows. */
+export const LAST_GOOD_NOTE = "Showing the last good render.";
 
 /** `none`: nothing to flag; `live`: the current draft's frame; `updating`: a server fallback is in flight; `stale`: a last
  *  good frame or saved rows while a draft exists; `saved`: saved rows with no draft. */
@@ -83,6 +85,6 @@ export function liveOutputSource(input: LiveOutputSourceInput): LiveOutputSource
       ? saved(true, DRAFT_CAPTION, null, "updating")
       : { kind: "frame", rows: lastGood, marker: "updating", caption: DRAFT_CAPTION, note: null };
   }
-  // error | stale: the last good frame, with the step's message.
-  return staleFrame(view.message);
+  // error | stale: the last good frame; the step's message is not repeated here (LAST_GOOD_NOTE).
+  return staleFrame(lastGood === null ? null : LAST_GOOD_NOTE);
 }

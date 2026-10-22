@@ -562,7 +562,7 @@ describe("draft mode: Save & run", () => {
       outputIds: ["o1"],
       panelIds: ["p1", "p2"],
       alertRuleIds: ["a1"],
-      hints: ["Remove the panels first to keep their data."],
+      hints: ["Removes 1 step(s).", "Removes 1 output(s)."],
     };
     saveMock.mockRejectedValueOnce(
       axiosError(422, { code: "CASCADE_CONFIRMATION_REQUIRED", impact }),
@@ -579,9 +579,7 @@ describe("draft mode: Save & run", () => {
     expect(within(dialog).getByText("Output: Revenue table")).toBeInTheDocument();
     expect(within(dialog).getByText("2 panels bound to those Outputs")).toBeInTheDocument();
     expect(within(dialog).getByText("1 alert rule on those Outputs")).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("Remove the panels first to keep their data."),
-    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/\(s\)/)).toBeNull();
     expect(saveMock).toHaveBeenCalledTimes(1);
     expect(saveMock.mock.calls[0][1].steps.map((s) => s.id)).toEqual(["s1", "s2"]);
     expect(saveMock.mock.calls[0][1].outputs).toEqual([]);

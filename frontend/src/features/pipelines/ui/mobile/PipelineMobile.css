@@ -256,6 +256,9 @@
      the overflow:hidden page and make it taller than its box, so a screen reader or find-in-page that scrolls one
      into view scrolls the header away with no way back. */
   position: relative;
+  /* The list is its own stacking context: an Output card's menu button (`.actions-menu`, z-index 4, shared) must not
+     paint or hit-test above the floating action bar (`.mobile-actions`, z-index 2), which shares the page's context. */
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

@@ -57,11 +57,13 @@ export function selectAfterRemoval(
  *  steps are not loaded); `change` is a stable object identity per list change, for an effect to key on. */
 export function useAddedStepId(steps: Step[], stepsLoaded: boolean) {
   const idsKey = steps.map((s) => s.id).join("|");
+  // `ids` is cumulative: every id seen since the first loaded list. A step that goes away and comes back (a draft's
+  // delete, then Discard) is therefore never "added" a second time; only an id never seen before is.
   const [seen, setSeen] = useState<{ key: string; ids: Set<string>; added: string[] } | null>(null);
   if (stepsLoaded && (seen === null || seen.key !== idsKey)) {
     setSeen({
       key: idsKey,
-      ids: new Set(steps.map((s) => s.id)),
+      ids: new Set([...(seen?.ids ?? []), ...steps.map((s) => s.id)]),
       // The first loaded list is the baseline, never "created".
       added: seen === null ? [] : steps.filter((s) => !seen.ids.has(s.id)).map((s) => s.id),
     });

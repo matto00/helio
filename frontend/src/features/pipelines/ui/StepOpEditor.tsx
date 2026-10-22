@@ -91,8 +91,6 @@ export function StepOpEditor({
     convertFormatConfig,
     analyzeWithAiConfig,
     generateTextConfig,
-    saveError,
-    saveErrorIsValidation,
     onFieldToggle,
     onRenameChange,
     onCastChange,
@@ -149,15 +147,7 @@ export function StepOpEditor({
     );
   }
   if (step.opType.id === "cast") {
-    return (
-      <CastFieldsConfig
-        columns={analyzeColumns}
-        casts={casts}
-        onChange={onCastChange}
-        saveError={saveError}
-        saveErrorIsValidation={saveErrorIsValidation}
-      />
-    );
+    return <CastFieldsConfig columns={analyzeColumns} casts={casts} onChange={onCastChange} />;
   }
   if (step.opType.id === "filter") {
     return (
@@ -233,8 +223,6 @@ export function StepOpEditor({
         analyzeSchema={analyzeSchema}
         analyzeColumns={analyzeColumns}
         onChange={onPivotChange}
-        saveError={saveError}
-        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }
@@ -245,8 +233,6 @@ export function StepOpEditor({
         analyzeSchema={analyzeSchema}
         analyzeColumns={analyzeColumns}
         onChange={onWindowChange}
-        saveError={saveError}
-        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }
@@ -274,8 +260,6 @@ export function StepOpEditor({
         config={fillNullConfig}
         analyzeColumns={analyzeColumns}
         onChange={onFillNullChange}
-        saveError={saveError}
-        saveErrorIsValidation={saveErrorIsValidation}
       />
     );
   }
@@ -296,7 +280,6 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onUnionChange}
-        saveError={saveError}
       />
     );
   }
@@ -308,7 +291,6 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onLookupChange}
-        saveError={saveError}
       />
     );
   }
@@ -320,7 +302,6 @@ export function StepOpEditor({
         allSteps={allSteps}
         currentStepId={step.id}
         onChange={onJoinChange}
-        saveError={saveError}
       />
     );
   }
@@ -334,7 +315,6 @@ export function StepOpEditor({
       <UpsertSourceConfig
         config={upsertSourceConfig}
         isOwner={isOwner}
-        saveError={saveError}
         onChange={onUpsertSourceChange}
       />
     );

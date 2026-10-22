@@ -153,7 +153,7 @@ export function laneOutputSubtitle(
   stepLabelById: Map<string, string>,
   stepId: string,
 ): string {
-  const fallback = "an unknown step";
+  const fallback = "a deleted step";
   const laneId = graph.laneOfStepId[stepId];
   const lane = graph.lanes.find((l) => l.id === laneId);
   const stepLabel = stepLabelById.get(stepId) ?? fallback;

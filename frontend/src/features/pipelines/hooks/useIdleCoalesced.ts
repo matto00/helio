@@ -37,7 +37,15 @@ export function useIdleCoalesced<T>(value: T): T {
     const wait = Math.min(QUIET_MS, Math.max(0, pendingSince.current + MAX_WAIT_MS - now));
     let cancelIdle = () => undefined as void;
     const timer = window.setTimeout(() => {
-      cancelIdle = whenIdle(() => setShown(value));
+      // Past the cap the value is shown directly. Waiting for idle here would let the next change cancel the pending idle
+      // callback, and under a continuous burst a busy browser never reaches it: the cap would not hold.
+      const capped =
+        pendingSince.current !== null && performance.now() - pendingSince.current >= MAX_WAIT_MS;
+      if (capped) {
+        // The next unshown change starts a fresh wait.
+        pendingSince.current = null;
+        setShown(value);
+      } else cancelIdle = whenIdle(() => setShown(value));
     }, wait);
     return () => {
       window.clearTimeout(timer);

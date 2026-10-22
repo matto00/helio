@@ -217,47 +217,6 @@ describe("CastFieldsConfig — stored unsupported target (HEL-1514)", () => {
     expect(onChange).toHaveBeenCalledWith("zeta", "");
   });
 
-  it("on a validation 422 the unsupported row is also described by the save error", () => {
-    render(
-      <CastFieldsConfig
-        columns={["amount", "label"]}
-        casts={{ amount: "binary-ref", label: "string" }}
-        onChange={jest.fn()}
-        saveError="cast: unsupported target type 'binary-ref'"
-        saveErrorIsValidation
-      />,
-    );
-
-    const ids = screen
-      .getByRole("combobox", { name: "Target type for amount" })
-      .getAttribute("aria-describedby")!
-      .split(" ");
-    expect(ids).toHaveLength(2);
-    expect(document.getElementById(ids[0])).toHaveTextContent("No longer supported.");
-    expect(document.getElementById(ids[1])).toHaveTextContent("cast: unsupported target type");
-    expect(screen.getByRole("combobox", { name: "Target type for label" })).not.toHaveAttribute(
-      "aria-describedby",
-    );
-  });
-
-  it("a non-validation save error is not linked to any row", () => {
-    render(
-      <CastFieldsConfig
-        columns={["amount"]}
-        casts={{ amount: "binary-ref" }}
-        onChange={jest.fn()}
-        saveError="Internal boom"
-      />,
-    );
-
-    const ids = screen
-      .getByRole("combobox", { name: "Target type for amount" })
-      .getAttribute("aria-describedby")!
-      .split(" ");
-    expect(ids).toHaveLength(1);
-    expect(document.getElementById(ids[0])).toHaveTextContent("No longer supported.");
-  });
-
   it("renders no extra rows when every stored key is in the schema", () => {
     render(<CastFieldsConfig columns={["id"]} casts={{ id: "string" }} onChange={jest.fn()} />);
 

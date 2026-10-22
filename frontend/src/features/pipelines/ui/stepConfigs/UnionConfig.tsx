@@ -26,17 +26,9 @@ interface UnionConfigProps {
   currentStepId: string;
   /** Called with the typed config object on any change (CS2c-3a). */
   onChange: (newConfig: UnionConfigValue) => void;
-  /** HEL-1515: the backend's rejection of the last save (e.g. a lane naming this step's own descendant). */
-  saveError?: string | null;
 }
 
-export function UnionConfig({
-  config,
-  allSteps,
-  currentStepId,
-  onChange,
-  saveError,
-}: UnionConfigProps) {
+export function UnionConfig({ config, allSteps, currentStepId, onChange }: UnionConfigProps) {
   function handleSecondaryChange(secondary: SecondaryInput) {
     onChange({ ...config, secondary });
   }
@@ -52,7 +44,6 @@ export function UnionConfig({
         value={config.secondary}
         allSteps={allSteps}
         currentStepId={currentStepId}
-        saveError={saveError}
         onChange={handleSecondaryChange}
       />
 

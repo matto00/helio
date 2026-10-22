@@ -431,20 +431,4 @@ describe("WindowConfig", () => {
     chooseSelectOption("Frame unit", "days");
     expect(onChange).toHaveBeenCalledWith({ ...config, frameUnit: "days" });
   });
-
-  it("marks the function control invalid for a rejected rolling save", () => {
-    render(
-      <WindowConfig
-        config={{ ...emptyConfig, function: "rolling_avg", frameSize: 7 }}
-        analyzeSchema={sampleSchema}
-        analyzeColumns={sampleColumns}
-        onChange={jest.fn()}
-        saveError="window function 'rolling_avg' requires 'frameSize' to be an integer in 1..1000"
-        saveErrorIsValidation
-      />,
-    );
-    const fn = screen.getByRole("combobox", { name: /window function/i });
-    expect(fn).toHaveAttribute("aria-invalid", "true");
-    expect(fn).toHaveAttribute("aria-describedby");
-  });
 });

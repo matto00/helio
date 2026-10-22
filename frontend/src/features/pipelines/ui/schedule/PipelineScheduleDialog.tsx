@@ -11,7 +11,7 @@
 // stays a mono TextField with a format hint, since a friendlier cron widget
 // would need a new dependency (non-goal).
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 
 import { Modal } from "../../../../shared/ui/Modal";
 import { Select } from "../../../../shared/ui/Select";
@@ -80,7 +80,7 @@ function decomposeInterval(expression: string): { value: string; unit: string; r
   return { value: "", unit: "m", raw: expression };
 }
 
-export function PipelineScheduleDialog({
+export const PipelineScheduleDialog = memo(function PipelineScheduleDialog({
   pipelineId,
   schedule,
   open,
@@ -410,4 +410,4 @@ export function PipelineScheduleDialog({
       </div>
     </Modal>
   );
-}
+});
