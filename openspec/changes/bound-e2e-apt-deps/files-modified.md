@@ -7,3 +7,4 @@
 - `scripts/cache-janitor.selftest.mjs` — janitor case for the new family
 - `package.json` — `selftest:e2e-apt-deps`
 - `openspec/changes/bound-e2e-apt-deps/tasks.md` — ticks
+- `openspec/changes/bound-e2e-apt-deps/measurements.md` — CI evidence: runner probe, before/after timings, trickle bound, 403 red/green

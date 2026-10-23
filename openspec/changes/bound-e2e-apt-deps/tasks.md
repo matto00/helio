@@ -16,9 +16,9 @@
 
 ## 1. Probe the runner (before writing the script)
 
-- [ ] 1.1 From an existing CI job log or a first CI push, record the runner's `/etc/apt/sources.list.d` file names and
+- [x] 1.1 From an existing CI job log or a first CI push, record the runner's `/etc/apt/sources.list.d` file names and
   the Ubuntu `URIs:` value, and `ImageOS`; verify by quoting the log lines in the PR body / evidence notes.
-- [ ] 1.2 Record `npx playwright install-deps --dry-run chromium` output on the runner (ubuntu 24.04), and confirm its
+- [x] 1.2 Record `npx playwright install-deps --dry-run chromium` output on the runner (ubuntu 24.04), and confirm its
   package list equals the 2026-10-22 job logs' list; verify by quoting both.
 
 ## 2. Install script
@@ -48,14 +48,14 @@
 
 ## 4. CI evidence (design "Verification plan")
 
-- [ ] 4.1 403 red/green (old command fails, new script passes) with a failing third-party source; record output.
-- [ ] 4.2 Stall bound with a reproduced slow trickle (cold cache, `Acquire::http::Dl-Limit=25` on attempt 1 only):
+- [x] 4.1 403 red/green (old command fails, new script passes) with a failing third-party source; record output.
+- [x] 4.2 Stall bound with a reproduced slow trickle (cold cache, `Acquire::http::Dl-Limit=25` on attempt 1 only):
   attempt 1 killed at ~90 s, attempt 2 succeeds; throttling both -> named error at ~180 s. A dead/silent mirror is not
   acceptable evidence. Revert; record run links and log excerpts.
-- [ ] 4.3 Warm path: temporary PR-ref save, then a run with zero `.deb` downloads; record it, then
+- [x] 4.3 Warm path: temporary PR-ref save, then a run with zero `.deb` downloads; record it, then
   `gh cache delete` the PR-ref `e2e-apt-debs-*` entry and revert the temporary commit; record run links.
-- [ ] 4.4 Before/after timing table of the deps sub-step across >=3 full PR runs (cold and warm), all 8 e2e jobs +
+- [x] 4.4 Before/after timing table of the deps sub-step across >=3 full PR runs (cold and warm), all 8 e2e jobs +
   e2e-slow; write it to `openspec/changes/bound-e2e-apt-deps/measurements.md`.
-- [ ] 4.5 Final head has no temporary verification code (verify by diff against the base), and
+- [x] 4.5 Final head has no temporary verification code (verify by diff against the base), and
   `gh cache list --ref refs/pull/<N>/merge` shows no `e2e-apt-debs-*` entry; the logged cache key has a non-empty OS
   segment.
