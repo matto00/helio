@@ -76,12 +76,14 @@ export class HelioLayoutConflictError extends HelioApiError {
 
 /** 401 specifically — the PAT is missing/expired/revoked. */
 export class HelioAuthError extends HelioApiError {
-  constructor(url: string) {
+  /** `hint` replaces the stdio remediation text; only the HTTP entry point supplies one. */
+  constructor(url: string, hint?: string) {
     super(
       401,
       url,
-      "Unauthorized (401): the Helio PAT was rejected. It may be revoked, " +
-        "expired, or wrong. Mint a fresh token via POST /api/tokens and update HELIO_PAT.",
+      hint ??
+        "Unauthorized (401): the Helio PAT was rejected. It may be revoked, " +
+          "expired, or wrong. Mint a fresh token via POST /api/tokens and update HELIO_PAT.",
     );
     this.name = "HelioAuthError";
   }
@@ -182,11 +184,13 @@ const defaultDeps: HelioHttpClientDeps = {
 export class HelioHttpClient {
   private readonly baseUrl: string;
   private readonly authHeader: string;
+  private readonly authErrorHint: string | undefined;
   private readonly deps: HelioHttpClientDeps;
 
   constructor(config: HelioConfig, deps: Partial<HelioHttpClientDeps> = {}) {
     this.baseUrl = config.baseUrl;
     this.authHeader = `Bearer ${config.pat}`;
+    this.authErrorHint = config.authErrorHint;
     this.deps = { ...defaultDeps, ...deps };
   }
 
@@ -283,7 +287,7 @@ export class HelioHttpClient {
       }
 
       if (response.status === 401) {
-        throw new HelioAuthError(url);
+        throw new HelioAuthError(url, this.authErrorHint);
       }
       // Read a non-2xx body exactly once (a real Response body is single-use).
       const errorBody = response.ok ? undefined : await this.readErrorBody(response);

@@ -16,8 +16,16 @@ export interface RejectionEmitter {
 export function installUnhandledRejectionGuard(
   proc: RejectionEmitter,
   write: (line: string) => void,
+  /** HTTP mode: log only the error name, never its message (which can quote a request body). */
+  redactMessage = false,
 ): void {
   proc.on("unhandledRejection", (reason) => {
+    if (redactMessage) {
+      write(
+        `helio-mcp: unhandled rejection: ${reason instanceof Error ? reason.name : "non-error"}\n`,
+      );
+      return;
+    }
     const text = reason instanceof Error ? reason.message : String(reason);
     const msg =
       text.length > MAX_LOG_CHARS ? `${text.slice(0, MAX_LOG_CHARS)}... [truncated]` : text;

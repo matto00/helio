@@ -1,0 +1,28 @@
+/* HEL-1709: facts + note on the MCP connector consent page, inside the shared .auth-card. */
+.connect-mcp__facts {
+  margin: 0 0 var(--space-5);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.connect-mcp__facts dt {
+  color: var(--app-text-muted);
+  margin-top: var(--space-3);
+}
+
+.connect-mcp__facts dd {
+  margin: 0;
+  color: var(--app-text);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.connect-mcp__note {
+  margin: 0 0 var(--space-5);
+  color: var(--app-text-muted);
+  font-size: var(--text-xs);
+}
+
+.connect-mcp__facts ~ .auth-secondary-btn {
+  margin-top: var(--space-3);
+}

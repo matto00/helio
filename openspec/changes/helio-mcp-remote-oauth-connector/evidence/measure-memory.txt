@@ -1,0 +1,4 @@
+== isolated process, one 8 MiB call
+{"idleRssMiB":128,"status8":200,"bodyBytes8":8388223,"responseHasId8":1,"peakHwmMiBAfter8":202,"rssMiBSettledAfter8":193}
+== isolated process, one 32 MiB call
+{"idleRssMiB":129,"status32":200,"bodyBytes32":33554047,"responseHasId32":1,"peakHwmMiBAfter32":410,"rssMiBSettledAfter32":360}

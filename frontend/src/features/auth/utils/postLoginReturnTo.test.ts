@@ -1,4 +1,9 @@
-import { consumeReturnTo, rememberReturnTo } from "./postLoginReturnTo";
+import {
+  consumeReturnTo,
+  rememberReturnTo,
+  returnPathFromState,
+  safeReturnPath,
+} from "./postLoginReturnTo";
 
 describe("postLoginReturnTo", () => {
   beforeEach(() => {
@@ -47,5 +52,34 @@ describe("postLoginReturnTo", () => {
     } finally {
       window.sessionStorage.setItem = original;
     }
+  });
+});
+
+describe("safeReturnPath / returnPathFromState (HEL-1709)", () => {
+  it.each(["/connect/mcp?request=a.b.c", "/home", "/x#frag"])("accepts %s", (p) => {
+    expect(safeReturnPath(p)).toBe(p);
+  });
+
+  it.each([
+    "https://evil.example/x",
+    "//evil.example",
+    "/\\evil.example",
+    "x",
+    "/a\nb",
+    "",
+    5,
+    null,
+  ])("rejects %p", (p) => {
+    expect(safeReturnPath(p)).toBeNull();
+  });
+
+  it("reads a Location or a string from state.from", () => {
+    expect(
+      returnPathFromState({ from: { pathname: "/connect/mcp", search: "?request=r", hash: "" } }),
+    ).toBe("/connect/mcp?request=r");
+    expect(returnPathFromState({ from: "/pipelines/1" })).toBe("/pipelines/1");
+    expect(returnPathFromState({ from: "//evil" })).toBeNull();
+    expect(returnPathFromState(null)).toBeNull();
+    expect(returnPathFromState({})).toBeNull();
   });
 });

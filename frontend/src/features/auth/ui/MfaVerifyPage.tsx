@@ -6,17 +6,19 @@
 // redirects to `/login` rather than rendering a dead end.
 
 import { type FormEvent, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { TextField } from "../../../shared/ui/index";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { verifyMfa } from "../state/authSlice";
+import { returnPathFromState } from "../utils/postLoginReturnTo";
 import "./auth.css";
 
 export function MfaVerifyPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const status = useAppSelector((state) => state.auth.status);
   const mfaChallenge = useAppSelector((state) => state.auth.mfaChallenge);
 
@@ -35,7 +37,8 @@ export function MfaVerifyPage() {
     setError(null);
     const result = await dispatch(verifyMfa({ code }));
     if (verifyMfa.fulfilled.match(result)) {
-      void navigate("/home");
+      // HEL-1709: back to the page the visitor came from (e.g. /connect/mcp?request=...).
+      void navigate(returnPathFromState(location.state) ?? "/home");
     } else {
       setError((result.payload as string | undefined) ?? "Invalid code. Please try again.");
     }

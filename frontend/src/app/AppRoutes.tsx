@@ -7,6 +7,7 @@ import { ConnectorsPage } from "../features/connectors/ui/ConnectorsPage";
 import { ConnectorCompletionPage } from "../features/connectors/ui/ConnectorCompletionPage";
 import { PublicOnlyRoute } from "../features/auth/ui/PublicOnlyRoute";
 import { LoginPage } from "../features/auth/ui/LoginPage";
+import { ConnectMcpPage } from "../features/mcpConnect/ui/ConnectMcpPage";
 import { MfaVerifyPage } from "../features/auth/ui/MfaVerifyPage";
 import { OAuthCallbackPage } from "../features/auth/ui/OAuthCallbackPage";
 import { RegisterPage } from "../features/auth/ui/RegisterPage";
@@ -109,6 +110,9 @@ export function AppRoutes() {
 
       {/* Protected routes (redirect to /login when unauthenticated) */}
       <Route element={<ProtectedRoute />}>
+        {/* HEL-1709: MCP connector consent. Outside AppShell on purpose: a minimal card, no app
+            chrome to click through, in the sign-in layout. */}
+        <Route path="/connect/mcp" element={<ConnectMcpPage />} />
         <Route element={<AppShell />}>
           <Route path="/home" element={<HomePage />} />
           {/* HEL-1578: the dashboard view (the selected dashboard) moved here from `/home`. */}

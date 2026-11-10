@@ -55,7 +55,16 @@ export const navigateFallback = "/app.html";
 // precached landing `index.html`, and `/?ref=x` misses the precache and, being denied here, goes
 // to the network, which serves the landing page. Without this, a browser holding the previous
 // service worker would be shown the app shell at `/` forever.
-export const navigateFallbackDenylist = [/^\/api\//, /^\/(\?.*)?$/, /^\/index\.html(\?.*)?$/];
+//
+// HEL-1709: `/connect/` too. The consent page must be delivered with Firebase's anti-framing headers
+// (`firebase.json`); a service-worker navigate-fallback answer would be served from the precache
+// without them, so those navigations always go to the network.
+export const navigateFallbackDenylist = [
+  /^\/api\//,
+  /^\/(\?.*)?$/,
+  /^\/index\.html(\?.*)?$/,
+  /^\/connect\//,
+];
 
 // Deliberately no entry matching `/api` in this list — Workbox only caches
 // routes it is told to cache, so omission is the enforcement mechanism for

@@ -11,6 +11,9 @@
 export interface HelioConfig {
   readonly baseUrl: string;
   readonly pat: string;
+  /** HTTP mode only: replaces the stdio 401 remediation text (which tells the user to edit
+   *  `HELIO_PAT`, meaningless for a remote connector). Never set by `loadConfig`. */
+  readonly authErrorHint?: string;
 }
 
 const DEFAULT_BASE_URL = "http://localhost:8080";
