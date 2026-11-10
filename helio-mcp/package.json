@@ -8,28 +8,36 @@
     "helio-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "verify": "tsx scripts/verify.ts",
-    "verify:isolated": "tsx scripts/verifyIsolated.ts"
+    "verify:isolated": "tsx scripts/verifyIsolated.ts",
+    "start:http": "node dist/http.js",
+    "dev:http": "tsx src/http.ts"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "zod": "^3.25.0"
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.5.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "ajv": "^8.20.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   },
   "overrides": {
-    "fast-uri": "^3.1.6",
-    "qs": "^6.15.4"
+    "@hono/node-server": "^2.1.6",
+    "fast-uri": "^3.1.9",
+    "qs": "^6.17.1"
   }
 }

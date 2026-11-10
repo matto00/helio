@@ -14,6 +14,30 @@
 
 import { createRestDataSourceSchema } from "./restDataSourceSchema.js";
 
+describe("createRestDataSourceSchema connectorId messages (zod 3 required_error parity)", () => {
+  const messageFor = (connectorId: unknown): string => {
+    const input: Record<string, unknown> = { name: "Widgets" };
+    if (connectorId !== undefined) input.connectorId = connectorId;
+    const result = createRestDataSourceSchema.safeParse(input);
+    if (result.success) throw new Error("expected a failed parse");
+    return result.error.issues.find((i) => i.path[0] === "connectorId")?.message ?? "";
+  };
+
+  it("a missing connectorId gets the custom list_connectors message", () => {
+    expect(messageFor(undefined)).toContain("call list_connectors");
+  });
+
+  it("a wrong-type connectorId gets zod's type error, not the custom message", () => {
+    const message = messageFor(5);
+    expect(message).not.toContain("list_connectors");
+    expect(message).toMatch(/string/i);
+  });
+
+  it("an empty connectorId still gets the custom message", () => {
+    expect(messageFor("")).toContain("call list_connectors");
+  });
+});
+
 describe("createRestDataSourceSchema", () => {
   it("accepts a minimal valid connectorId-only input", () => {
     const result = createRestDataSourceSchema.safeParse({

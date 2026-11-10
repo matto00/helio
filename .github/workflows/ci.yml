@@ -557,7 +557,9 @@ jobs:
   e2e:
     # The HELIO_E2E_SLOW=1 390/768 MAXIMAL phone sweeps are skipped here; .github/workflows/e2e-slow.yml runs them
     # weekly (both use the .github/actions/e2e-setup composite action for their shared setup steps).
-    runs-on: ubuntu-latest
+    # HEL-1709: pinned off ubuntu-latest (now 26.04): Playwright 1.55.1 has no 26.04 browser/deps support, so `playwright install`
+    # fails there. Revisit when Playwright is bumped to a release that supports 26.04.
+    runs-on: ubuntu-24.04
     # A hung leg frees its runner instead of holding it for the 6 h default (HEL-1288). Measured whole-leg wall on main
     # before HEL-1698 (4 legs): ~16-25 min, slowest 1292-1498 s over five runs; HEL-1698 moved to 6 legs to get the
     # slowest at or under 20 min without raising this timeout (after-figures: HEL-1698 PR runs and the post-merge watch).
@@ -673,7 +675,9 @@ jobs:
 
   # HEL-1691: dedicated job for tests that must be measured against a production build (see the steps below).
   e2e-prod-build:
-    runs-on: ubuntu-latest
+    # HEL-1709: pinned off ubuntu-latest (now 26.04): Playwright 1.55.1 has no 26.04 browser/deps support, so `playwright install`
+    # fails there. Revisit when Playwright is bumped to a release that supports 26.04.
+    runs-on: ubuntu-24.04
     # HEL-1691 D9: measured 196 s on the PR run (39677346014: queue 2 s, backend + browsers + build + preview + 2 tests); ~2.5x.
     timeout-minutes: 8
     services:

@@ -1,0 +1,77 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  1.327MB
+Step 1/16 : FROM node:22-slim AS build
+ ---> 5ec23b7c622b
+Step 2/16 : WORKDIR /app
+ ---> Using cache
+ ---> cf6a65d3ec82
+Step 3/16 : COPY package.json package-lock.json ./
+ ---> Using cache
+ ---> 902993244dd5
+Step 4/16 : RUN npm ci
+ ---> Using cache
+ ---> 1cd37a30a100
+Step 5/16 : COPY tsconfig.json tsconfig.build.json ./
+ ---> Using cache
+ ---> ba037bb6ac93
+Step 6/16 : COPY src ./src
+ ---> Using cache
+ ---> 8826710b7e9f
+Step 7/16 : RUN npm run build
+ ---> Using cache
+ ---> b2c72735c812
+Step 8/16 : FROM node:22-slim AS runtime
+ ---> 5ec23b7c622b
+Step 9/16 : ENV NODE_ENV=production
+ ---> Using cache
+ ---> f5090546dad0
+Step 10/16 : WORKDIR /app
+ ---> Using cache
+ ---> 7d7106b209a6
+Step 11/16 : COPY package.json package-lock.json ./
+ ---> Using cache
+ ---> 8bfcf0513095
+Step 12/16 : RUN npm ci --omit=dev && npm cache clean --force
+ ---> Running in 5583f14cd2ec
+
+added 93 packages, and audited 94 packages in 2s
+
+32 packages are looking for funding
+  run `npm fund` for details
+
+5 vulnerabilities (3 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[91mnpm notice
+npm notice New major version of npm available! 10.9.9 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+[0m[91mnpm warn using --force Recommended protections disabled.
+[0m ---> Removed intermediate container 5583f14cd2ec
+ ---> 4e7fceb3803e
+Step 13/16 : COPY --from=build /app/dist ./dist
+ ---> ec5937826b49
+Step 14/16 : USER node
+ ---> Running in 3c98a0ddb125
+ ---> Removed intermediate container 3c98a0ddb125
+ ---> 3c09900eee67
+Step 15/16 : EXPOSE 8080
+ ---> Running in 2be4d9622dcf
+ ---> Removed intermediate container 2be4d9622dcf
+ ---> d5e3d16d1964
+Step 16/16 : CMD ["node", "dist/http.js"]
+ ---> Running in c4158e524517
+ ---> Removed intermediate container c4158e524517
+ ---> 3cd4710335a9
+Successfully built 3cd4710335a9
+Successfully tagged helio-mcp:hel1709

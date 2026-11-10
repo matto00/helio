@@ -5,6 +5,17 @@
 
 import { createConnectorSchema } from "./connectorSchema.js";
 
+describe("createConnectorSchema non-object input (zod 3 .strict(MSG) parity)", () => {
+  it("a non-object input gets zod's type error, not the unrecognized-key message", () => {
+    for (const value of ["str", null]) {
+      const result = createConnectorSchema.safeParse(value);
+      if (result.success) throw new Error("expected a failed parse");
+      expect(result.error.issues[0]?.message).not.toContain("unrecognized field");
+      expect(result.error.issues[0]?.message).toMatch(/object/i);
+    }
+  });
+});
+
 describe("createConnectorSchema", () => {
   it("accepts a minimal valid credential-less input", () => {
     const result = createConnectorSchema.safeParse({

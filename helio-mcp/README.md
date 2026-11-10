@@ -74,6 +74,65 @@ The server speaks MCP over **stdio**. Example client config:
 All diagnostic logging goes to **stderr**; stdout carries only the JSON-RPC
 protocol stream.
 
+## HTTP mode: a claude.ai custom connector (HEL-1709)
+
+`dist/http.js` serves the same tools over MCP Streamable HTTP at `/mcp`, with OAuth sign-in, so Helio can be added
+as a remote connector. The stdio entry point above is unchanged. Connector URL: **`https://mcp.helioapp.dev/mcp`**.
+
+How it works: helio-mcp is the OAuth authorization server (SDK `mcpAuthRouter`: discovery, dynamic client
+registration, PKCE `S256`). `/authorize` sends the browser to the Helio web app's `/connect/mcp` consent page; Allow
+mints a named 90-day PAT through the existing `POST /api/tokens` and form-POSTs it back to `/oauth/callback`; the
+access token is that PAT sealed (AES-256-GCM) with `HELIO_MCP_TOKEN_KEY`. Nothing is stored, any instance can serve
+any request, and every `/mcp` call acts as the PAT's user. No refresh tokens: after 90 days (or revocation) the
+client re-authorizes. `GET /mcp` answers `405` (no server-initiated stream).
+
+### Environment variables
+
+| Variable                           | Required | Meaning                                                                                                    |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `HELIO_MCP_PUBLIC_URL`             | yes      | This service's public origin, no path (`https://mcp.helioapp.dev`).                                        |
+| `HELIO_APP_URL`                    | yes      | Helio web app origin (consent page; the only CORS origin).                                                 |
+| `HELIO_API_BASE_URL`               | yes      | Helio backend the tools call.                                                                              |
+| `HELIO_MCP_TOKEN_KEY`              | yes      | base64 of exactly 32 bytes. From Secret Manager; never logged.                                             |
+| `HELIO_MCP_TOKEN_KEY_PREVIOUS`     | no       | Prior key, rotation window only (open-only).                                                               |
+| `PORT`                             | no       | Default 8080.                                                                                              |
+| `HELIO_MCP_LIVENESS_TTL_SECONDS`   | no       | 1..3600, default 300: how often a token's PAT is re-checked against the backend.                           |
+| `HELIO_MCP_LARGE_BODY_SLOTS`       | no       | 1..16, default 2 (deploy pins the measured 1): concurrent requests over 8 MiB, chunked or content-encoded. |
+| `HELIO_MCP_ALLOWED_REDIRECT_HOSTS` | no       | Comma list; unset = any https host. The deploy script defaults to `claude.ai,claude.com`.                  |
+
+Bad or missing values exit non-zero naming the variable, never its value. Local run: `npm run dev:http`.
+
+### Deploying (owner runs every step)
+
+1. Service account: `gcloud iam service-accounts create helio-mcp-sa --project=helio-493120`.
+2. Key: `openssl rand -base64 32 | gcloud secrets create helio-mcp-token-key --data-file=- --project=helio-493120`,
+   then grant `roles/secretmanager.secretAccessor` on it to the `helio-mcp-sa` service account.
+3. Image: `docker build -t <registry>/helio-mcp:<tag> helio-mcp && docker push ...`.
+4. `HELIO_API_BASE_URL=<backend url> bash infra/deploy-mcp.sh --image=<registry>/helio-mcp:<tag>`
+   (request-based billing, min 0 / max 2 instances, 1 GiB, concurrency 5; sizing in the change's `measurements.md`).
+5. Domain: map `mcp.helioapp.dev` to the `helio-mcp` service (Cloud Run domain mapping) and add the DNS records it prints.
+6. Build the frontend with `VITE_MCP_ORIGIN=https://mcp.helioapp.dev` (set in `cd-frontend.yml`).
+7. In claude.ai: Settings, Connectors, Add custom connector, URL `https://mcp.helioapp.dev/mcp`, sign in to Helio, Allow.
+
+Post-deploy checks: (a) `req.ip` is the real client behind Cloud Run (trust proxy is 1): two different clients must
+not share a rate-limit bucket; (b) small requests are not re-framed as chunked by the platform (they would contend
+for large-body slots): a normal `tools/list` must never return `429`.
+
+### Operating notes
+
+- **Revoking:** each connector authorization (and every reconnect) mints a new PAT named `MCP connector: ...` in
+  Helio Settings, API tokens. Revoke it there; within `HELIO_MCP_LIVENESS_TTL_SECONDS` per instance the connector gets a 401 and re-authorizes.
+- **Rate limits:** `/register` 60/h, `/token` and `/authorize` 300/15 min, `/oauth/*` 60/min, per IP per instance;
+  with `--max-instances=2` the effective limit is double.
+- **Logs:** one line per request (method, path, status). The Cloud Run request log holds only sealed query strings
+  (a pending request, no PAT; the PAT travels in a POST body only).
+- **Size:** Cloud Run caps HTTP/1 requests AND responses at 32 MiB (a tool result is buffered into one JSON response, so a result over 32 MiB cannot be returned), so `/mcp` answers `413` above that. A CSV whose JSON-escaped
+  body exceeds it (control-byte-heavy CSVs near the 15 MiB cap expand 6x as `\uXXXX`; quotes/newlines at most 2x)
+  must be created through stdio.
+- **Key rotation:** deploy with `USE_PREVIOUS_KEY=1` and the old key in `helio-mcp-token-key-previous` so existing
+  tokens keep opening. Dropping the previous key invalidates every issued access token AND every registered client id
+  (client ids are sealed too); connectors then re-register on their own.
+
 ## Tool catalog
 
 | Tool                    | Endpoint(s) used                                                  | Purpose                                                                                                                                                                                                                                  |

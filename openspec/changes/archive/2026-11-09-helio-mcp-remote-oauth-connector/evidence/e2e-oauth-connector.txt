@@ -1,0 +1,69 @@
+helio-mcp: ready (http) on :19311, resource http://127.0.0.1:19311/mcp
+helio-mcp: POST /mcp 401
+PASS  no token: 401 with WWW-Authenticate resource_metadata
+helio-mcp: POST /mcp 401
+helio-mcp: GET /.well-known/oauth-protected-resource/mcp 200
+helio-mcp: GET /.well-known/oauth-authorization-server 200
+helio-mcp: POST /register 201
+PASS  alice: first connect needs authorization (401 -> discovery -> registration)
+PASS  alice: client id was registered dynamically
+PASS  alice: public client, no secret issued
+helio-mcp: GET /authorize 302
+PASS  alice: /authorize redirects to the Helio consent page
+helio-mcp: GET /oauth/pending 200
+PASS  alice: consent info shows client name + redirect host
+helio-mcp: POST /oauth/callback 302
+PASS  alice: callback redirects to the client with a code and the original state
+helio-mcp: GET /.well-known/oauth-protected-resource/mcp 200
+helio-mcp: GET /.well-known/oauth-authorization-server 200
+helio-mcp: POST /token 200
+PASS  alice: token exchange stored an access token
+helio-mcp: POST /mcp 200
+helio-mcp: POST /mcp 202
+helio-mcp: GET /mcp 405
+helio-mcp: POST /mcp 200
+PASS  alice: listTools returns the helio tool set  (76 tools)
+helio-mcp: POST /mcp 200
+PASS  alice: create_dashboard via MCP
+helio-mcp: POST /mcp 200
+PASS  alice: create_content_panel (markdown) succeeded  ({
+  "appearance": {
+    "background": "transparent",
+    "color": "inherit",
+   )
+PASS  alice: panel read back over REST as that user (markdown content present)  (HTTP 200)
+helio-mcp: POST /mcp 401
+helio-mcp: GET /.well-known/oauth-protected-resource/mcp 200
+helio-mcp: GET /.well-known/oauth-authorization-server 200
+helio-mcp: POST /register 201
+PASS  bob: first connect needs authorization (401 -> discovery -> registration)
+PASS  bob: client id was registered dynamically
+PASS  bob: public client, no secret issued
+helio-mcp: GET /authorize 302
+PASS  bob: /authorize redirects to the Helio consent page
+helio-mcp: GET /oauth/pending 200
+PASS  bob: consent info shows client name + redirect host
+helio-mcp: POST /oauth/callback 302
+PASS  bob: callback redirects to the client with a code and the original state
+helio-mcp: GET /.well-known/oauth-protected-resource/mcp 200
+helio-mcp: GET /.well-known/oauth-authorization-server 200
+helio-mcp: POST /token 200
+PASS  bob: token exchange stored an access token
+helio-mcp: POST /mcp 200
+helio-mcp: POST /mcp 202
+helio-mcp: GET /mcp 405
+helio-mcp: POST /mcp 200
+PASS  bob: sees none of alice's dashboards (isolation)
+PASS  bob: alice's dashboard panels are not readable by bob over REST  (HTTP 404)
+helio-mcp: POST /mcp 401
+PASS  tampered token: 401
+helio-mcp: POST /mcp 200
+PASS  alice: PAT revoked through Settings' endpoint  (HTTP 204)
+helio-mcp: POST /mcp 200
+PASS  revoked PAT inside the 2s liveness window: tool error telling the user to reconnect  (HelioAuthError (status 401) for http://localhost:10048/api/dashboards?limit=200&offset=0: )
+helio-mcp: POST /mcp 401
+PASS  revoked PAT after the window: 401 with error=invalid_token
+cleanup: PAT 9b7dcc2f-bc8b-4b7b-9ea8-f000f25d7af6 revoke -> HTTP 404
+cleanup: PAT c2f8ce8d-e53a-4257-9fc1-932e056677d5 revoke -> HTTP 204
+
+ALL CHECKS PASSED

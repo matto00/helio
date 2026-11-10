@@ -1,0 +1,14 @@
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Length: 19
+ETag: 5e4c7ae85275af050207ec8737765ea6
+Last-Modified: Tue, 10 Nov 2026 01:17:10 GMT
+Vary: Accept-Encoding
+Cache-Control: no-cache
+Content-Security-Policy: frame-ancestors 'none'
+X-Frame-Options: DENY
+Date: Tue, 10 Nov 2026 01:17:35 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+(Firebase CLI hosting emulator with frontend/firebase.json; SPA route /connect/mcp is served via the rewrite and carries the headers. Emulator, not production.)

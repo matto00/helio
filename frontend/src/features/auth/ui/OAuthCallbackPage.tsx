@@ -5,7 +5,7 @@ import { OrbitMark } from "../../../shared/chrome/OrbitMark";
 import { Spinner } from "../../../shared/ui/Spinner";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { handleOAuthCallback, isMfaRequiredResponse } from "../state/authSlice";
-import { consumeReturnTo } from "../utils/postLoginReturnTo";
+import { consumeReturnTo, safeReturnPath } from "../utils/postLoginReturnTo";
 import "./auth.css";
 
 export function OAuthCallbackPage() {
@@ -35,12 +35,17 @@ export function OAuthCallbackPage() {
           // HEL-702: same MFA branch as LoginPage — route to the
           // verification step instead of the app when a challenge was issued.
           if (isMfaRequiredResponse(result.payload)) {
-            void navigate("/login/verify", { replace: true });
+            // HEL-1709: the Google round trip's stashed deep link rides to the verify step.
+            const returnTo = consumeReturnTo();
+            void navigate("/login/verify", {
+              replace: true,
+              state: returnTo ? { from: returnTo } : undefined,
+            });
             return;
           }
           // F-081: restore the deep link stashed by Login/RegisterPage
           // before the redirect to Google, if there was one.
-          void navigate(consumeReturnTo() ?? "/home", { replace: true });
+          void navigate(safeReturnPath(consumeReturnTo()) ?? "/home", { replace: true });
         } else {
           consumeReturnTo();
           void navigate("/login?error=oauth_failed", { replace: true });
