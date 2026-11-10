@@ -151,3 +151,24 @@ and replacement are recorded.
 - `Origin` is not validated on `/mcp`: the endpoint is public, bearer-only and uses no ambient credentials (no cookies), so a cross-site page holds no token to forge a request with. DNS-rebinding protection is likewise unnecessary for a bearer-gated public host.
 - Implementation deviation: in HTTP mode `server.server.onerror` and the unhandled-rejection guard log the error NAME only (not the 500-char truncated message design D6 kept), because task 7.5 requires no body fragment in logs and SDK messages can quote a body.
 
+
+## Gate-Chain Implications Checklist
+
+Scope: the only hook-invoked script this change touches is `scripts/check-dependabot-groups.mjs` (run by `.husky/pre-commit`
+via `check:dependabot`). The edit adds three data entries (`express`, `cors`, `express-rate-limit` under `/helio-mcp`) to its
+`DECLARED_INDEPENDENT` table; no logic changed and `.husky/**` is not modified.
+
+- **What does it execute?** A Node script that reads `.github/dependabot.yml` and the `package.json` manifests with
+  `readFileSync` and compares them in memory. No subprocess, no network, no git call. It exits 1 listing any production
+  dependency not in a declared family or `DECLARED_INDEPENDENT`.
+- **What environment does it inherit, and from where?** The pre-commit hook's environment (in a linked worktree that includes
+  git's exported `GIT_DIR`) and `node` from `PATH`. It reads no environment variable and does not use the working directory:
+  the repo root is the optional argument or derived from the script's own file location, so an inherited `GIT_DIR` cannot redirect it.
+- **Does it write anything outside its own sandbox?** No. It is read-only and prints to stdout/stderr only; it creates no file,
+  touches no index or ref, and never writes to the repository or the shared dev database.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Its header states it runs in linked
+  worktrees where root `node_modules` may be absent (it has no YAML dependency), and it resolves everything from its own
+  location, so both checkouts read their own tree's files and give the same verdict for the same content.
+- **What happens on its first run?** There is no state to initialise. Its first run on this change failed closed, naming the
+  three unaccounted dependencies; after the entries were added it printed `check-dependabot-groups: OK`, and the commit gate passed.
+  The isolation-test transcript for this script is recorded by `test-gate-in-isolation.sh`.
