@@ -18,6 +18,9 @@ custom connector needs a public HTTPS MCP endpoint that signs each user in with 
 - `helio-mcp/Dockerfile` and `infra/deploy-mcp.sh` for a new Cloud Run service `helio-mcp` at `mcp.helioapp.dev`
   (request-based billing, min-instances 0, CPU throttling on). The owner runs the deploy, domain mapping and secret.
 - `express`, `cors`, `express-rate-limit` declared directly (all already installed as SDK dependencies).
+- **Fold-in (owner, 2026-11-10): CI repair so the PR merges green.** e2e jobs pinned to `ubuntu-24.04`; security
+  advisories resolved by version bumps (backend guava/snappy-java via `dependencyOverrides`; root, `frontend/` and
+  helio-mcp npm lockfiles); helio-mcp zod 3 -> 4; `check:cloud-run-cpu` also guards `infra/deploy-mcp.sh`.
 - README/docs: HTTP mode, env vars, deploy, adding the connector in claude.ai.
 - stdio entry point unchanged.
 
@@ -31,6 +34,9 @@ custom connector needs a public HTTPS MCP endpoint that signs each user in with 
 ### Modified Capabilities
 
 ## Non-goals
+
+- Raising any CI timeout; allow-listing any advisory; changing HEL-1700's apt-deps approach. (`backend/build.sbt` dependency pins are owner-ruled fold-in
+  scope, not the "no Scala change" non-goal below.)
 
 - No Scala backend or Flyway change; no backend-issued OAuth tokens.
 - No refresh tokens; a connector re-authorizes when its PAT expires.

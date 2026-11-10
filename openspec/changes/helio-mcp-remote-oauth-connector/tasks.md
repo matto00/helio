@@ -5,6 +5,7 @@
 - [C3] In-lane acceptance proof is a local end-to-end run with the MCP SDK's own OAuth client (register, consent sign-in, token, listTools, create_content_panel markdown as that user, 401 + WWW-Authenticate for missing/invalid token). The claude.ai check is a follow-up ticket; merge on green gates.
 - [C4] The stdio entry point keeps its behaviour and its existing tests pass unmodified.
 - [C5] No secret, key or PAT is committed or logged; tests generate keys at runtime. Never read or print any .env file.
+- [C6] Fold-in (owner, 2026-11-10): #1110 merges green under the normal auditor. No CI timeout raised, no advisory allow-listed, no edit or push to PR #1094; a fix needing a too-large or risky change (e.g. a backend major bump with behaviour change) is escalated with specifics.
 
 ## 1. Sealing and config
 
@@ -56,3 +57,14 @@
 - [x] 7.5 Task 6.3 includes a malformed-body case: no body fragment in logs via `onerror` or the unhandled-rejection guard
 - [x] 7.6 Password sign-up (`RegisterPage`) round-trip test under the real route wrappers, same as the sign-in paths
 - [ ] 7.7 PR body states the two deviations from the ticket's letter: `GET /mcp` answers 405, HTTP body limit is 32 MiB
+
+## 8. Fold-in: CI repair (owner, 2026-11-10; design D10)
+
+- [x] 8.1 Read PR #1094's diff first (`gh pr diff 1094`; do not edit or push to it). Pin `runs-on: ubuntu-24.04` on ci.yml `e2e` and `e2e-prod-build` and on e2e-slow.yml's job, with a comment naming the 26.04 migration and Playwright 1.55.1; touch no other job and none of #1094's hunks
+- [x] 8.2 Backend: `dependencyOverrides` for exactly `"com.google.guava" % "guava" % "33.7.2-android"` and `"org.xerial.snappy" % "snappy-java" % "1.1.10.9"` (comment each with its GHSA); confirm the resolved artifacts are exactly those strings (`sbt dependencyTree` or `evicted`); full `sbt testFull` under the capped JVM; reproduce the CI "Enforce backend CVSS >= 7" check locally if feasible, else state how the fix was verified
+- [x] 8.3 npm audits (after 8.4), each via `npx audit-ci --config <dir>/.audit-ci.jsonc` as CI runs it: fix in-range/same-major items directly (root zod >= 4.6.6; frontend follow-redirects 1.16.2, fast-uri 3.1.9; helio-mcp zod via 8.4); no allow-list; root `package.json` edits stay out of `scripts`. Full jest suites, frontend build and helio-mcp typecheck/build after. Record each lockfile's before/after advisory list
+- [x] 8.3a glob GHSA-3g3m-2fjr-6pw4 / minimatch GHSA-g3hv-75wg-m249 (root + frontend): PROBE ONLY on a scratch copy, never committed: scoped forced cross-major `overrides` (glob >= 14.0.2, minimatch >= 11.0.1); run root + frontend jest with coverage, `npm run lint`, frontend production build and diff the generated PWA precache list against the current build's; report the exact override shape, every failure and the precache diff so the orchestrator can escalate with data
+- [x] 8.4 helio-mcp zod 3 -> 4 (`zod@^4.6.6`), done before 8.3: dump every tool's `listTools()` `inputSchema` before the bump, fix the typecheck sites and any behaviour change, dump again and diff; record the diff (ideally empty) as evidence and eliminate or justify each change; tool input acceptance and error shapes unchanged; list every test edited and why (only zod-owned message text may change)
+- [x] 8.5 `scripts/check-cloud-run-cpu.mjs`: also check `infra/deploy-mcp.sh`, failing on `--no-cpu-throttling` and when the file is missing or has no non-comment `gcloud run deploy`; selftest cases: flag present, absent, file missing, no deploy command, backend rule unchanged; extend the `## Gate-Chain Implications Checklist` answers in design.md to cover both files and run `scripts/concertino/test-gate-in-isolation.sh HEL-1709 <file>` for `scripts/check-cloud-run-cpu.mjs` AND `scripts/check-cloud-run-cpu.selftest.mjs`, each to a PASS transcript
+- [x] 8.6 Every new or changed dependency that `check:dependabot` flags is grouped or declared per its rules
+- [ ] 8.7 Comment on HEL-1700 and in #1110's PR body naming the overlap with #1094 (orchestrator does this at Delivery)

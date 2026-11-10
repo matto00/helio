@@ -1,0 +1,24 @@
+HEL-1709 8.4 zod 3.25.76 -> 4.6.7: listTools() inputSchema dump, before vs after (121 tools, same server.createServer in-memory client).
+Raw 'diff' of jq -S sorted JSON: 596 lines. Categories (all advertisement-only, zod 4 JSON Schema generator):
+1. additionalProperties:false dropped on strip-mode (non-strict) z.object: before=114 sites, after=7. The 7 .strict()/strictObject sites keep it:
+     apply_combined_proposal inputSchema.properties.dashboard.properties.panels.items.properties.controls.items
+     apply_proposal inputSchema.properties.panels.items.properties.controls.items
+     create_connector inputSchema
+     create_rest_data_source inputSchema
+     create_rest_data_source inputSchema.properties.queryParams.anyOf.0.items
+     propose_dashboard inputSchema.properties.panels.items.properties.controls.items
+     replace_dashboard_contents inputSchema.properties.panels.items.properties.controls.items
+   Server acceptance unchanged: strip-mode objects strip unknown keys under both majors; the advertised false was never enforced server-side.
+2. propertyNames:{type:string} added to every z.record(z.string(),...) (41 sites): equivalent (JSON keys are strings).
+3. z.number().int() now advertises minimum/maximum +-9007199254740991 (zod 4 safe-integer limit, documented change); 50 sites. Values beyond 2^53 were never valid JSON numbers for the backend.
+4. A shared $ref (#/properties/items/items) is inlined in 4 places in the layout tool (same object shape).
+After normalising categories 1-3 (jq filter below) the ONLY remaining difference is category 4:
+def clean: walk(if type=="object" then
+  (del(.additionalProperties | select(. == false)) | del(.propertyNames) | del(.maximum | select(.==9007199254740991)) | del(.minimum | select(.==-9007199254740991))) else . end);
+clean
+--- normalised diff size: 132 lines, all the $ref inlining ---
+
+zod 4 behaviour sweep (src non-test): required_error->error (restDataSourceSchema.ts, fixed); .strict(MSG)->z.strictObject(shape, MSG) (connectorSchema.ts, fixed; UNRECOGNIZED_KEY_MESSAGE unchanged);
+.default([])/.default({}) on pipelineProposal.ts/pipelines.ts: defaults are literal empties, short-circuit identical; .int()/.positive() on placements.ts: safe-integer bound only;
+refine on optional (credentialDenylist.ts): connectorSchema/restDataSourceSchema/csvDataSourceSchema tests pass unmodified; __proto__ guard (connectorSchema.test.ts) passes unmodified; no errorMap/invalid_type_error/passthrough/merge/nativeEnum/ZodError.format use.
+Tests edited: NONE. helio-mcp jest: 65 suites / 570 tests pass unmodified (root jest, filter helio-mcp).

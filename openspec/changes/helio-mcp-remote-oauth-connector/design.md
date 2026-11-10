@@ -137,6 +137,42 @@ error inside the window then 401 after it. Playwright, starting signed out, driv
 throwaway user (MFA enrolled via API, TOTP computed in the test) through `/connect/mcp`; if infeasible, the reason
 and replacement are recorded.
 
+**D10. Fold-in: CI repair (owner, 2026-11-10).** The PR must merge green under the normal auditor; no CI timeout is
+raised and no advisory is allow-listed (`.audit-ci.jsonc` files untouched). `backend/build.sbt` dependency pins and zod-owned
+message-text test edits are owner-ruled fold-in scope (C6), not a C1 or C4 breach.
+- *e2e:* pin `runs-on: ubuntu-24.04` on exactly the jobs that use `.github/actions/e2e-setup` (ci.yml `e2e`,
+  `e2e-prod-build`; e2e-slow.yml), with a comment citing the 26.04 migration and Playwright 1.55.1. Every other job
+  already passes on `ubuntu-latest` and is left alone. This is a one-line change per job and touches none of the hunks
+  HEL-1700's PR #1094 changes (its edits are in `e2e-setup/action.yml`, ci.yml's selftest list and `save-apt-cache`
+  input, e2e-slow.yml's `paths`, and a root `package.json` `scripts` line), so the two merge in either order; this
+  change keeps its root `package.json` edits out of the `scripts` block. Alternative (bump Playwright to a version that
+  supports 26.04) rejected: larger, changes the browser under every e2e test, and collides with #1094's package list.
+- *security, backend:* `dependencyOverrides` pins `"com.google.guava" % "guava" % "33.7.2-android"` (the build
+  resolves `33.3.1-android` today, so the flavour is kept) and `"org.xerial.snappy" % "snappy-java" % "1.1.10.9"`, each
+  commented with its GHSA, following the Jackson pin convention in `backend/build.sbt`; proof: the resolved artifacts
+  are exactly those strings (`sbt evicted`/`dependencyTree`), full `sbt testFull`.
+- *security, npm (per lockfile, as `audit-ci` reports on the PR):* root: glob GHSA-3g3m-2fjr-6pw4 (fixed 14.0.2),
+  minimatch GHSA-g3hv-75wg-m249 (fixed 11.0.1), zod 4.3.6 (to >= 4.6.6); `frontend/`: glob, minimatch,
+  follow-redirects (1.16.2), fast-uri (3.1.9); helio-mcp: zod (via the zod 4 item). zod, follow-redirects and
+  fast-uri are in-range or same-major and are fixed directly. **glob and minimatch have no in-range fix**: no released
+  jest, typescript-estree or workbox-build accepts a fixed major, so the only route without an allow-list is a forced
+  cross-major `overrides`. That is the "too large or risky" class C6 escalates, so it is NOT committed: the executor
+  probes it on a scratch copy (scoped nested overrides; root + frontend jest with coverage, `npm run lint`, frontend
+  production build with the generated PWA precache list diffed against the current one) and reports the measured
+  outcome, and the orchestrator escalates with that data before anything lands.
+- *zod 4:* migrate `helio-mcp` to `zod@^4.6.6` (MCP SDK 1.32.x accepts `^3.25 || ^4.0`), fixing the two known
+  typecheck sites (`connectorSchema.ts`, `restDataSourceSchema.ts`). Tool input acceptance and error shapes must not
+  change; a test may change only where it pins zod's own message text, each listed in the PR body. Because the SDK
+  derives every tool's advertised `inputSchema` from its zod schema and zod 4 converts differently, `listTools()`
+  `inputSchema` for every tool is dumped before and after the bump and diffed; the diff (ideally empty) is recorded, and
+  any change is eliminated or justified. Done before the helio-mcp audit item.
+- *cpu guard:* `check-cloud-run-cpu.mjs` gains a check of `infra/deploy-mcp.sh` that fails when its `gcloud run
+  deploy` command carries `--no-cpu-throttling` (the inverse of the backend rule) and, like `checkDeployScript`, fails
+  when the file is missing or has no non-comment `gcloud run deploy` invocation (never a vacuous pass). Selftest cases:
+  flag present (fail), absent (pass), file missing (fail), no deploy command (fail), backend rule unchanged. Both the
+  script and its selftest are hook-invoked (`.husky/pre-commit:17-18`), so CON-132 applies to both: checklist entry and
+  an isolation-test transcript for each.
+
 ## Risks / Trade-offs
 
 - [Key unseals every connector's PAT] Secret Manager only, never logged; rotation via `_PREVIOUS`.
@@ -154,21 +190,32 @@ and replacement are recorded.
 
 ## Gate-Chain Implications Checklist
 
-Scope: the only hook-invoked script this change touches is `scripts/check-dependabot-groups.mjs` (run by `.husky/pre-commit`
-via `check:dependabot`). The edit adds three data entries (`express`, `cors`, `express-rate-limit` under `/helio-mcp`) to its
-`DECLARED_INDEPENDENT` table; no logic changed and `.husky/**` is not modified.
+Scope: the hook-invoked scripts this change touches are `scripts/check-dependabot-groups.mjs` (run by `.husky/pre-commit`
+via `check:dependabot`) and, from the fold-in (D10, task 8.5), `scripts/check-cloud-run-cpu.mjs` and its selftest
+`scripts/check-cloud-run-cpu.selftest.mjs` (both run at `.husky/pre-commit:17-18`). The dependabot edit adds three data
+entries (`express`, `cors`, `express-rate-limit` under `/helio-mcp`) to its `DECLARED_INDEPENDENT` table; no logic changed.
+The cpu-guard edit adds an inverse check of `infra/deploy-mcp.sh` (it must NOT carry `--no-cpu-throttling`, and a missing
+file or one with no non-comment `gcloud run deploy` fails). `.husky/**` is not modified.
 
-- **What does it execute?** A Node script that reads `.github/dependabot.yml` and the `package.json` manifests with
-  `readFileSync` and compares them in memory. No subprocess, no network, no git call. It exits 1 listing any production
-  dependency not in a declared family or `DECLARED_INDEPENDENT`.
+- **What does it execute?** Node scripts that read repo files with `readFileSync`/`existsSync` and compare text in memory:
+  `check-dependabot-groups.mjs` reads `.github/dependabot.yml` and the `package.json` manifests;
+  `check-cloud-run-cpu.mjs` reads `.github/workflows/cd-backend.yml`, `infra/deploy-backend.sh` and now `infra/deploy-mcp.sh`.
+  No subprocess, no network, no git call. Each exits 1 listing its problems. The selftest imports the checker and
+  additionally creates and removes one temporary directory under the OS temp dir (`mkdtempSync`) for its "file missing" case.
 - **What environment does it inherit, and from where?** The pre-commit hook's environment (in a linked worktree that includes
-  git's exported `GIT_DIR`) and `node` from `PATH`. It reads no environment variable and does not use the working directory:
-  the repo root is the optional argument or derived from the script's own file location, so an inherited `GIT_DIR` cannot redirect it.
-- **Does it write anything outside its own sandbox?** No. It is read-only and prints to stdout/stderr only; it creates no file,
-  touches no index or ref, and never writes to the repository or the shared dev database.
-- **Does it behave differently from a linked worktree than from a main checkout?** No. Its header states it runs in linked
-  worktrees where root `node_modules` may be absent (it has no YAML dependency), and it resolves everything from its own
-  location, so both checkouts read their own tree's files and give the same verdict for the same content.
-- **What happens on its first run?** There is no state to initialise. Its first run on this change failed closed, naming the
-  three unaccounted dependencies; after the entries were added it printed `check-dependabot-groups: OK`, and the commit gate passed.
-  The isolation-test transcript for this script is recorded by `test-gate-in-isolation.sh`.
+  git's exported `GIT_DIR`) and `node` from `PATH`. None reads an environment variable or uses the working directory:
+  the repo root is the optional argument or derived from the script's own file location (`import.meta.url`), so an inherited
+  `GIT_DIR` cannot redirect them. The selftest's temp directory comes from `os.tmpdir()` (honours `TMPDIR`), used only for a
+  synthetic root it builds itself.
+- **Does it write anything outside its own sandbox?** The checkers: no, read-only, stdout/stderr only. The selftest writes
+  one file (a copy of `deploy-mcp.sh`) into a fresh `mkdtempSync` directory under the OS temp dir and removes it in a
+  `finally` block; it never writes to the repository, index, refs or the shared dev database.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Both resolve every path from the
+  script's own location (or the passed root), so each checkout reads its own tree's files and gives the same verdict for
+  the same content; neither depends on root `node_modules` (only `node:` built-ins are imported).
+- **What happens on its first run?** There is no state to initialise. `check-dependabot-groups.mjs` first failed closed naming
+  the three unaccounted dependencies, then printed `check-dependabot-groups: OK` once the entries were added.
+  `check-cloud-run-cpu.mjs` and its selftest ran green on the real tree on their first run after the edit (the real
+  `infra/deploy-mcp.sh` has no `--no-cpu-throttling`); the selftest's flag-present case was first observed red against a
+  faulty fixture regex, proving it can fail. Isolation-test transcripts for all three scripts are recorded by
+  `test-gate-in-isolation.sh`.

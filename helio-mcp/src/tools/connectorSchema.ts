@@ -89,11 +89,12 @@ export const createConnectorInputSchema = {
  *  where the spec's concession says the identification may live. */
 const UNRECOGNIZED_KEY_MESSAGE = `An unrecognized field is not accepted by create_connector — ${CREDENTIAL_REJECT_OPTS.alternative}`;
 
-// .strict(MSG) (skeptic-final-2.md): stays a plain ZodObject (correct JSON Schema advertisement,
+// z.strictObject(shape, MSG) (skeptic-final-2.md; was .strict(MSG) under zod 3): stays a plain ZodObject (correct JSON Schema advertisement,
 // no .passthrough()-onto-__proto__ hole, and the check fires unconditionally alongside any other
 // field error -- none of which a .superRefine-based replacement preserved). The five named
 // denylist fields above still give a BETTER, key-specific message than this fallback, since a
 // known key reaches its own `.refine` before the unrecognized-key check runs.
-export const createConnectorSchema = z
-  .object(createConnectorInputSchema)
-  .strict(UNRECOGNIZED_KEY_MESSAGE);
+export const createConnectorSchema = z.strictObject(
+  createConnectorInputSchema,
+  UNRECOGNIZED_KEY_MESSAGE,
+);

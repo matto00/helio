@@ -52,7 +52,7 @@ export const createRestDataSourceInputSchema = {
   name: z.string().min(1),
   connectorId: z
     .string({
-      required_error:
+      error:
         "connectorId is required — call list_connectors to obtain one, or create_connector " +
         "if none exist yet.",
     })

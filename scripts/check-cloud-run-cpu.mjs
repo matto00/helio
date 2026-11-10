@@ -6,10 +6,14 @@
 // Fails if either deploy path loses `--no-cpu-throttling` (matched as a whole
 // token inside the real `flags:` value / `gcloud run deploy` invocation --
 // comments never count) or carries the positive `--cpu-throttling`.
+// HEL-1709: the inverse rule for the MCP service: infra/deploy-mcp.sh must NOT pass
+// `--no-cpu-throttling` (helio-mcp does no work between requests, so the default
+// request-based CPU allocation is correct and cheaper). A missing file or one with no
+// non-comment `gcloud run deploy` invocation fails too, never a vacuous pass.
 //
 // Usage: node check-cloud-run-cpu.mjs [repoRoot]
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -36,12 +40,11 @@ export function checkWorkflow(text) {
   return values.flatMap((v) => verdict(label, v.split(/\s+/)));
 }
 
-/** Check the deploy script text: the (backslash-continued) `gcloud run deploy` command. */
-export function checkDeployScript(text) {
-  const label = "infra/deploy-backend.sh";
+/** The (backslash-continued) non-comment `gcloud run deploy` command as tokens, or null. */
+function deployCommandTokens(text) {
   const lines = text.split("\n");
   const start = lines.findIndex((l) => !/^\s*#/.test(l) && /gcloud\s+run\s+deploy\b/.test(l));
-  if (start === -1) return [`${label}: no gcloud run deploy invocation found`];
+  if (start === -1) return null;
   let cmd = "";
   for (let i = start; i < lines.length; i++) {
     const l = lines[i].replace(/\s+$/, "");
@@ -51,13 +54,39 @@ export function checkDeployScript(text) {
       break;
     }
   }
-  return verdict(label, cmd.trim().split(/\s+/));
+  return cmd.trim().split(/\s+/);
+}
+
+/** Check the deploy script text: the (backslash-continued) `gcloud run deploy` command. */
+export function checkDeployScript(text) {
+  const label = "infra/deploy-backend.sh";
+  const tokens = deployCommandTokens(text);
+  if (tokens === null) return [`${label}: no gcloud run deploy invocation found`];
+  return verdict(label, tokens);
+}
+
+/** HEL-1709: the MCP service's deploy script must NOT carry `--no-cpu-throttling`. */
+export function checkMcpDeployScript(text) {
+  const label = "infra/deploy-mcp.sh";
+  const tokens = deployCommandTokens(text);
+  if (tokens === null) return [`${label}: no gcloud run deploy invocation found`];
+  return tokens.includes(NO_THROTTLE)
+    ? [`${label}: must not pass ${NO_THROTTLE} (the MCP service is request-driven)`]
+    : [];
+}
+
+/** HEL-1709: read and check infra/deploy-mcp.sh under `root`; a missing file is a failure. */
+export function checkMcpDeployFile(root) {
+  const path = join(root, "infra/deploy-mcp.sh");
+  if (!existsSync(path)) return ["infra/deploy-mcp.sh: file not found"];
+  return checkMcpDeployScript(readFileSync(path, "utf8"));
 }
 
 export function check(root) {
   return [
     ...checkWorkflow(readFileSync(join(root, ".github/workflows/cd-backend.yml"), "utf8")),
     ...checkDeployScript(readFileSync(join(root, "infra/deploy-backend.sh"), "utf8")),
+    ...checkMcpDeployFile(root),
   ];
 }
 

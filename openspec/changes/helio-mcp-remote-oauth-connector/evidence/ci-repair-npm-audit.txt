@@ -1,0 +1,14 @@
+HEL-1709 8.3 / 8.3a: npx audit-ci --config <dir>/.audit-ci.jsonc (as CI runs it); .audit-ci.jsonc files untouched, no allow-list.
+
+BEFORE (this branch, e55f92652 lockfiles)
+  root:      GHSA-3g3m-2fjr-6pw4 (glob), GHSA-g3hv-75wg-m249 (minimatch), GHSA-mrhx-c7xc-m3w5 (zod 4.3.6)
+  frontend/: GHSA-3g3m-2fjr-6pw4 (glob), GHSA-g3hv-75wg-m249 (minimatch), GHSA-mrwp-f3q8-3g9p (follow-redirects 1.16.1),
+             GHSA-w74x-v6f9-j3xg + GHSA-wjr9-j795-jxcr (fast-uri 3.1.8)
+  helio-mcp: GHSA-mrhx-c7xc-m3w5 (zod 3.25.76; per skeptic-design-6/7)
+FIXES (lockfile-only, in-range/same-major): root zod 4.3.6 -> 4.6.7 (npm update zod --package-lock-only);
+  frontend follow-redirects 1.16.1 -> 1.16.3, fast-uri 3.1.8 -> 3.1.9; helio-mcp zod ^3.25.0 -> ^4.6.6 (4.6.7, task 8.4).
+AFTER (committed)
+  root:      only glob GHSA-3g3m-2fjr-6pw4 + minimatch GHSA-g3hv-75wg-m249 remain (no in-range fix)
+  frontend/: only glob GHSA-3g3m-2fjr-6pw4 + minimatch GHSA-g3hv-75wg-m249 remain
+  helio-mcp: Passed npm security audit.
+8.3a (PROBE ONLY, scratch copy, never committed): see the executor report for the override shape, results and PWA precache diff.

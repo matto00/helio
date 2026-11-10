@@ -394,6 +394,11 @@ lazy val root = (project in file("."))
       // 1.26.2 on every classpath (sbt 1 unified versions across configurations); sbt 2 resolves
       // Compile on its own and falls back to Spark's 1.23.0 (< 1.26.0, which carries
       // CVE-2024-25710 / CVE-2024-26308). Pin the version the app has been shipping.
-      "org.apache.commons" % "commons-compress" % "1.26.2"
+      "org.apache.commons" % "commons-compress" % "1.26.2",
+      // HEL-1709: guava 33.7.2 clears GHSA-xxph-c9ww-hj94; the -android flavour is kept, as the build resolved
+      // 33.3.1-android before this pin.
+      "com.google.guava" % "guava" % "33.7.2-android",
+      // HEL-1709: snappy-java 1.1.10.9 clears GHSA-gwq9-9ffj-mvrv, GHSA-q233-g92q-qxp6 (both CVSS 7.5; fixed in 1.1.10.9).
+      "org.xerial.snappy" % "snappy-java" % "1.1.10.9"
     )
   )
