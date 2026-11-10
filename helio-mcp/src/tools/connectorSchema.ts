@@ -94,7 +94,7 @@ const UNRECOGNIZED_KEY_MESSAGE = `An unrecognized field is not accepted by creat
 // field error -- none of which a .superRefine-based replacement preserved). The five named
 // denylist fields above still give a BETTER, key-specific message than this fallback, since a
 // known key reaches its own `.refine` before the unrecognized-key check runs.
-export const createConnectorSchema = z.strictObject(
-  createConnectorInputSchema,
-  UNRECOGNIZED_KEY_MESSAGE,
-);
+// The message applies to unrecognized keys only (zod 3 `.strict(MSG)` parity); a non-object input keeps zod's default.
+export const createConnectorSchema = z.strictObject(createConnectorInputSchema, {
+  error: (issue) => (issue.code === "unrecognized_keys" ? UNRECOGNIZED_KEY_MESSAGE : undefined),
+});

@@ -1,4 +1,4 @@
-HEL-1709 8.4 zod 3.25.76 -> 4.6.7: listTools() inputSchema dump, before vs after (121 tools, same server.createServer in-memory client).
+HEL-1709 8.4 zod 3.25.76 -> 4.6.7: listTools() inputSchema dump, before vs after (76 tools, same server.createServer in-memory client).
 Raw 'diff' of jq -S sorted JSON: 596 lines. Categories (all advertisement-only, zod 4 JSON Schema generator):
 1. additionalProperties:false dropped on strip-mode (non-strict) z.object: before=114 sites, after=7. The 7 .strict()/strictObject sites keep it:
      apply_combined_proposal inputSchema.properties.dashboard.properties.panels.items.properties.controls.items
@@ -22,3 +22,8 @@ zod 4 behaviour sweep (src non-test): required_error->error (restDataSourceSchem
 .default([])/.default({}) on pipelineProposal.ts/pipelines.ts: defaults are literal empties, short-circuit identical; .int()/.positive() on placements.ts: safe-integer bound only;
 refine on optional (credentialDenylist.ts): connectorSchema/restDataSourceSchema/csvDataSourceSchema tests pass unmodified; __proto__ guard (connectorSchema.test.ts) passes unmodified; no errorMap/invalid_type_error/passthrough/merge/nativeEnum/ZodError.format use.
 Tests edited: NONE. helio-mcp jest: 65 suites / 570 tests pass unmodified (root jest, filter helio-mcp).
+
+Cycle-3 correction (evaluation-3.md): the tool count is 76 (an earlier draft said 121, which was a count of every "name" key including nested properties).
+Error-message parity fixes: connectorId's custom message now only for a missing value (error: (issue) => issue.input === undefined ? MSG : undefined), and
+createConnectorSchema's UNRECOGNIZED_KEY_MESSAGE only for the unrecognized_keys issue (a non-object input keeps zod's default). Two new tests, each shown red first:
+restDataSourceSchema.test.ts (wrong-type connectorId) and connectorSchema.test.ts (non-object input). Other conversions swept: .min(1,{message}) and credentialDenylist .refine({message}) are unchanged in meaning.

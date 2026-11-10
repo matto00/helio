@@ -17,3 +17,4 @@ Owner-accepted glob/minimatch overrides (8.3a):
 - `frontend/package.json` — the same scoped overrides plus `workbox-build`
 - `package-lock.json` — regenerated to match the overrides
 - `frontend/package-lock.json` — regenerated to match the overrides
+- `helio-mcp/src/tools/restDataSourceSchema.test.ts`, `helio-mcp/src/tools/connectorSchema.test.ts` — parity tests for zod 4 custom-message scope
