@@ -160,6 +160,14 @@ message-text test edits are owner-ruled fold-in scope (C6), not a C1 or C4 breac
   probes it on a scratch copy (scoped nested overrides; root + frontend jest with coverage, `npm run lint`, frontend
   production build with the generated PWA precache list diffed against the current one) and reports the measured
   outcome, and the orchestrator escalates with that data before anything lands.
+- *glob/minimatch overrides, OWNER-ACCEPTED (2026-11-10, accept-scoped-overrides) and committed as probed.* Root and
+  `frontend/` `package.json` `overrides`: `@jest/reporters`, `jest-config`, `jest-runtime` each `{"glob": "^14.0.2"}`,
+  `@typescript-eslint/typescript-estree` `{"minimatch": "^11.0.1"}`; frontend only `workbox-build` `{"glob": "^14.0.2"}`.
+  **TEMPORARY: remove each override once jest, typescript-eslint and workbox-build ship versions whose own dependency
+  range accepts the fixed glob/minimatch majors.** The repo has no convention for annotating overrides (no `//` key, no
+  overrides doc), so this note is the record; it also goes in the PR body. Proven under clean `npm ci` in both
+  directories (audit-ci pass, jest with coverage, lint, frontend build, PWA precache identical): see
+  `evidence/glob-minimatch-probe.txt`.
 - *zod 4:* migrate `helio-mcp` to `zod@^4.6.6` (MCP SDK 1.32.x accepts `^3.25 || ^4.0`), fixing the two known
   typecheck sites (`connectorSchema.ts`, `restDataSourceSchema.ts`). Tool input acceptance and error shapes must not
   change; a test may change only where it pins zod's own message text, each listed in the PR body. Because the SDK

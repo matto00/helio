@@ -11,3 +11,9 @@ Fold-in (tasks.md section 8, design D10) — paths outside the change directory:
 - `frontend/package-lock.json` — follow-redirects 1.16.1 -> 1.16.3, fast-uri 3.1.8 -> 3.1.9 (lockfile only)
 - `scripts/check-cloud-run-cpu.mjs` — also checks `infra/deploy-mcp.sh` (must NOT carry `--no-cpu-throttling`; missing file / no deploy command fails)
 - `scripts/check-cloud-run-cpu.selftest.mjs` — cases: flag present, absent, file missing, no deploy command, backend rule unchanged
+
+Owner-accepted glob/minimatch overrides (8.3a):
+- `package.json` — scoped temporary `overrides` for glob and minimatch (jest/typescript-estree parents)
+- `frontend/package.json` — the same scoped overrides plus `workbox-build`
+- `package-lock.json` — regenerated to match the overrides
+- `frontend/package-lock.json` — regenerated to match the overrides

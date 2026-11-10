@@ -1,4 +1,4 @@
-HEL-1709 8.3a: PROBE ONLY (scratch copy outside the worktree, never committed; no override is in this change's package.json).
+HEL-1709 8.3a: PROBE ONLY (scratch copy). SUPERSEDED: the owner accepted these overrides and they ARE now committed; see the section at the end.
 Scratch: copy of tracked files, `npm install --ignore-scripts` in root and frontend/, helio-mcp/node_modules symlinked.
 
 Override shape tried (added to `overrides` of BOTH root package.json and frontend/package.json; frontend also got workbox-build):
@@ -22,3 +22,12 @@ PWA precache (vite-plugin-pwa 1.3.0, generateSW): baseline build 51 entries (272
   (2727.89 KiB). `url:"...",revision:...` entries extracted from dist/sw.js and sorted: byte-identical (empty diff).
 Caveats: the probe was not exercised in CI (Node/OS differences), ESLint's own minimatch@3 / glob@7 consumers are unaffected by
 the scoped overrides, and `npm ci` consistency of a committed override+lockfile was not tried beyond `npm install`.
+
+COMMITTED RE-PROOF (owner-accepted; same override shape, in the worktree, from the committed lockfiles)
+  clean `npm ci` in frontend/ (node_modules removed first) exit 0; root `npm ci --ignore-scripts` exit 0
+  (scripts skipped to avoid husky side effects in the worktree)
+  audit-ci root: Passed; frontend: Passed. Resolved glob 14.0.4 / minimatch 11.0.5 under the overridden parents.
+  root jest --coverage 65 suites / 570 tests pass; frontend jest --coverage 764 suites / 9402 tests pass
+  root lint, frontend lint, frontend build: exit 0
+  PWA precache: 51 entries (2727.89 KiB); url+revision list byte-identical to the pre-override baseline
+  check:dependabot: OK
