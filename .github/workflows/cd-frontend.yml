@@ -74,6 +74,11 @@ jobs:
           set -euo pipefail
           VERSION="${{ github.event.inputs.tag || github.ref_name }}"
           SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          npx firebase-tools deploy --only hosting --project helio-493120 \
+          # HEL-1714: pinned. firebase-tools is not a frontend dependency, so a bare
+          # `npx firebase-tools` installed the newest release on every deploy. 15.35.0
+          # added a Service Usage API check that the deploy account could not pass,
+          # which broke the v0.9.11 deploy (helio-github-sa now has
+          # roles/serviceusage.serviceUsageViewer for it). Upgrade deliberately.
+          npx --yes firebase-tools@15.35.0 deploy --only hosting --project helio-493120 \
             --message "release-${VERSION}-${SHA}"
         working-directory: frontend
