@@ -13,6 +13,7 @@ on:
     paths:
       - ".github/workflows/e2e-slow.yml"
       - ".github/actions/e2e-setup/**"
+      - "scripts/e2e-apt-deps.sh"
 
 permissions:
   contents: read

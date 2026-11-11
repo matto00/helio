@@ -6,8 +6,11 @@
 # on a hit both `npm ci` steps are skipped, because the `~/.npm` download cache alone did not bound `npm ci` (run
 # 39711300255: cache hit, then a 7 min install). Per ci-actions-cache-budget the entry is saved only on a main push, by
 # the one job that passes `save-node-modules-cache: true` (ci.yml `e2e` leg 1); every other job only restores.
+# HEL-1700: chromium's apt dependencies come from scripts/e2e-apt-deps.sh (cached .debs, Ubuntu-only sources, bounded retried
+# fetch), not `playwright install --with-deps`. The .deb cache follows the same rule: saved only on a main push by the one
+# job that passes `save-apt-cache: true` (ci.yml `e2e` leg 1), and only when a package was actually downloaded.
 name: e2e-setup
-description: Java, sbt cache, background backend, Node, npm ci, Playwright chromium, backend health wait, optional Vite dev server.
+description: Java, sbt cache, background backend, Node, npm ci, Playwright chromium and its apt deps, backend health wait, optional Vite dev server.
 
 inputs:
   start-dev-frontend:
@@ -16,6 +19,10 @@ inputs:
     default: "true"
   save-node-modules-cache:
     description: 'Save the node_modules cache after install ("true" for exactly one job per run; it still saves only on a main push with a restore miss).'
+    required: false
+    default: "false"
+  save-apt-cache:
+    description: 'Save the apt .deb archive cache after install ("true" for exactly one job per run, the one that saves node_modules; it still saves only on a main push and only when a .deb was downloaded).'
     required: false
     default: "false"
   node-major:
@@ -80,12 +87,46 @@ runs:
           node_modules
           frontend/node_modules
         key: ${{ steps.node-modules.outputs.cache-primary-key }}
-    # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost of
-    # this step is `--with-deps` (apt), not the browser download, and a hit (restore 5-10 s +
-    # install 21-27 s) was no faster than the uncached baseline (22-23 s).
+    # HEL-1700: chromium's system packages are installed by scripts/e2e-apt-deps.sh instead of `--with-deps`, whose apt part
+    # stalled on the Azure Ubuntu mirror for 7-14 min and failed when the image's packages.microsoft.com source returned 403.
+    # The script uses Playwright's own package list, an Ubuntu-only apt source set, a cached .deb archive dir and two
+    # bounded attempts on two mirrors (see openspec/changes/bound-e2e-apt-deps/design.md). The cache is restore-only here;
+    # one save per run: a main push, the job passing `save-apt-cache: true`, and only when a .deb was actually downloaded.
+    - name: Compute apt archive cache key
+      id: apt-key
+      shell: bash
+      env:
+        RUNNER_ARCH_NAME: ${{ runner.arch }}
+      run: |
+        os="$(scripts/e2e-apt-deps.sh os-segment)"
+        echo "prefix=e2e-apt-debs-v1-${os}-${RUNNER_ARCH_NAME}-" >> "$GITHUB_OUTPUT"
+        echo "apt archive cache key prefix: e2e-apt-debs-v1-${os}-${RUNNER_ARCH_NAME}-"
+    # Prefix restore is safe: apt reuses a cached .deb only when its name (package, version, arch) and size match the fresh
+    # index; a stale file is ignored and then pruned, never installed in place of the candidate.
+    - name: Restore apt archive cache
+      id: apt-debs
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.cache/e2e-apt-debs
+        key: ${{ steps.apt-key.outputs.prefix }}none
+        restore-keys: ${{ steps.apt-key.outputs.prefix }}
+    - name: Install Playwright system dependencies
+      id: apt-deps
+      shell: bash
+      env:
+        E2E_APT_KEY_PREFIX: ${{ steps.apt-key.outputs.prefix }}
+      run: scripts/e2e-apt-deps.sh run
+    - name: Save apt archive cache
+      if: inputs.save-apt-cache == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.apt-deps.outputs.downloaded != '0' && steps.apt-deps.outputs.save-key != steps.apt-debs.outputs.cache-matched-key
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/e2e-apt-debs
+        key: ${{ steps.apt-deps.outputs.save-key }}
+    # HEL-1288 measured an `~/.cache/ms-playwright` cache and dropped it: the dominant cost was apt, not the browser
+    # download, and a hit (restore 5-10 s + install 21-27 s) was no faster than the uncached baseline (22-23 s).
     - name: Install Playwright browsers
       shell: bash
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install chromium
     # Fail-fast health wait (HEL-1288): detects a dead sbt group or one hung before compile/run within
     # seconds and dumps /tmp/backend.log on failure (no restart). See scripts/e2e-backend.sh.
     - name: Wait for backend health
