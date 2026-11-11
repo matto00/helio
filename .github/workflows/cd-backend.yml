@@ -88,4 +88,12 @@ jobs:
           # rather than silently storing plaintext. NOTE this workflow — not
           # infra/deploy-backend.sh — is what actually deploys; the script is
           # for manual/local deploys and its wiring does NOT reach Cloud Run.
-          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest --max-instances=2 --no-cpu-throttling"
+          # RESEND_API_KEY (HEL-1712) is the outbound-email credential (HEL-704),
+          # Secret Manager `helio-resend-api-key`. Its partner HELIO_EMAIL_FROM is
+          # deliberately NOT set here: this flags string is split by
+          # deploy-cloudrun's parseFlags, which keeps quote characters inside the
+          # value, so a sender with a space and angle brackets cannot be passed
+          # intact. It lives on the service (set by infra/deploy-backend.sh from
+          # infra/.env.deploy, or `gcloud run services update --update-env-vars`),
+          # and --update-env-vars below preserves it like DATABASE_URL.
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest,RESEND_API_KEY=helio-resend-api-key:latest --max-instances=2 --no-cpu-throttling"
