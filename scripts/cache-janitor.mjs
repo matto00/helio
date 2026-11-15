@@ -24,6 +24,8 @@ export const FAMILIES = [
   { name: "sbt-deps", re: /^sbt-[0-9a-f]{64}$/, keep: 1 },
   // HEL-1699: content-keyed on both lockfiles + Node version; superseded when either changes on main.
   { name: "e2e-node-modules", re: /^e2e-node-modules-v\d+-/, keep: 1 },
+  // HEL-1700: the e2e apt .deb archive dir, keyed on the set of archive file names; one generation is enough.
+  { name: "e2e-apt-debs", re: /^e2e-apt-debs-v\d+-/, keep: 1 },
 ];
 
 /** Pure: the cache entries to delete from a listing (array of {id,key,ref,size_in_bytes,created_at}). */
