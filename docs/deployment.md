@@ -306,6 +306,21 @@ Firebase Hosting keeps a full history of deploys and supports one-click rollback
 
 That's it — no rebuild required, Firebase re-serves the previous bundle instantly.
 
+## MCP connector: `VITE_MCP_ORIGIN` and the `helio-mcp` service (HEL-1709)
+
+The consent page at `/connect/mcp` talks to the separate `helio-mcp` Cloud Run service
+(`https://mcp.helioapp.dev`; deploy and setup steps in `helio-mcp/README.md`, script
+`infra/deploy-mcp.sh`).
+
+- **`VITE_MCP_ORIGIN`** (build-time, set in `.github/workflows/cd-frontend.yml` to
+  `https://mcp.helioapp.dev`) is the only origin the consent page reads pending requests from and
+  posts the new token to. Unset, the page reports that connectors are unavailable and mints nothing.
+- `frontend/firebase.json` sends `Content-Security-Policy: frame-ancestors 'none'` and
+  `X-Frame-Options: DENY` for `/connect/**`, and the service worker never answers `/connect/*`
+  navigations from its precache (`pwaConfig.ts`), so those headers always apply.
+- The `helio-mcp` service is deployed separately from the backend and the frontend; a frontend
+  release does not deploy it, and rolling back one does not roll back the other.
+
 ## When to use each
 
 | Scenario                                   | Action                                       |

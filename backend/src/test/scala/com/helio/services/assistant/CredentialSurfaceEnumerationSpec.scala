@@ -90,9 +90,18 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
       // "credential" occurrence here is prose (variable/test names, description text), never a
       // secret value in transit.
       "helio-mcp/src/tools/connectorHandlers.test.ts"      -> "asserts the pending-creation path makes zero calls to api.createConnector and that api.createPendingConnector's input carries no credential-shaped field -- 'credential' occurrences are prose/test-description only",
+      // HEL-1709: the remote-connector HTTP entry (OAuth sign-in) legitimately handles Personal Access
+      // Tokens. None of these five carries a credential VALUE: the matches are the CORS "credentials"
+      // option/header name and prose in error and comment text. Secrets themselves (PATs, the sealing
+      // key) are neither literals here nor ever logged (task 6.3 greps the diff and run logs).
+      "helio-mcp/src/httpConfig.ts"                        -> "config validation message 'no path, query, fragment or credentials' for an origin URL -- prose in an error string; no credential value is read, held or logged (the sealing key is validated by length and never echoed)",
+      "helio-mcp/src/oauth/patCheck.ts"                    -> "doc comment on the PatStatus 'refused' case ('not a usable connector credential'); the function sends the PAT only as the Authorization header of one GET /api/tokens and returns a status enum, never the token or a response body",
+      "helio-mcp/src/oauth/routes.ts"                      -> "the CORS option 'credentials: false' on /oauth/pending (browsers may not send cookies), its doc comment, and three user-facing error-page sentences ('the credential supplied was not valid'); the PAT arrives in the POST body, is checked and sealed into a code, and is never placed in a URL or log",
+      "helio-mcp/src/oauth/oauthFlow.test.ts"              -> "asserts the response header access-control-allow-credentials is ABSENT on /oauth/pending (no credentialed CORS); the test PATs are inert fixture literals",
+      "helio-mcp/src/testing/httpHarness.ts"               -> "doc comment stating 'nothing here is a real credential' -- keys are generated per run and the PATs are inert stub literals for a local stub backend"
     )
 
-    "match exactly the fourteen allow-listed files, each for its documented reason" in {
+    "match exactly the nineteen allow-listed files, each for its documented reason" in {
       val actual = filesContainingToken(new File(root, "helio-mcp/src"), "credential").toSet
       actual shouldBe allowedMatches.keySet
 

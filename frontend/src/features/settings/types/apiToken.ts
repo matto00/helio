@@ -18,12 +18,13 @@ export interface ApiTokenResponse {
   expiresAt: string | null;
 }
 
-/** `POST /api/tokens` request body. Only `name` is required on the backend;
- *  this UI never sends `expiresInDays`/`scopedPipelineIds` (design.md
- *  non-goals), so neither is modeled here -- a token created from this UI is
- *  always non-expiring and unscoped, matching the backend's field defaults. */
+/** `POST /api/tokens` request body. Only `name` is required on the backend. Settings never sends
+ *  `expiresInDays` (a token it creates is non-expiring); the MCP connector consent page (HEL-1709)
+ *  does, for a 90-day token. `scopedPipelineIds` is not modeled: every token created from this UI is
+ *  unscoped. */
 export interface CreateApiTokenRequest {
   name: string;
+  expiresInDays?: number;
 }
 
 /** The ONLY response shape that ever carries the raw token -- returned once,

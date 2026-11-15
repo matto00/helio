@@ -42,3 +42,30 @@ export function consumeReturnTo(): string | null {
     return null;
   }
 }
+
+/** HEL-1709: only a same-origin relative path (`/x?y#z`) is ever followed after sign-in. Rejects
+ *  absolute URLs, protocol-relative `//host`, and backslash tricks (`/\\host`). */
+export function safeReturnPath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f]/.test(value)) return null;
+  return value;
+}
+
+/** The post-sign-in destination carried in router `state.from`: either a path string (the
+ *  Google round trip) or a react-router `Location` (a `ProtectedRoute` bounce). */
+export function returnPathFromState(state: unknown): string | null {
+  const from = (state as { from?: unknown } | null | undefined)?.from;
+  if (typeof from === "string") return safeReturnPath(from);
+  if (typeof from === "object" && from !== null) {
+    const loc = from as { pathname?: unknown; search?: unknown; hash?: unknown };
+    if (typeof loc.pathname !== "string") return null;
+    return safeReturnPath(
+      `${loc.pathname}${typeof loc.search === "string" ? loc.search : ""}${
+        typeof loc.hash === "string" ? loc.hash : ""
+      }`,
+    );
+  }
+  return null;
+}

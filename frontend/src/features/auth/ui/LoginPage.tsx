@@ -48,13 +48,12 @@ export function LoginPage() {
     if (login.fulfilled.match(result)) {
       // HEL-702: MFA-enabled accounts get a pending challenge instead of a
       // session — route to the verification step rather than the app.
-      void navigate(
-        isMfaRequiredResponse(result.payload)
-          ? "/login/verify"
-          : from
-            ? pathFromLocation(from)
-            : "/home",
-      );
+      // HEL-1709: `from` rides along to the verification step so MFA does not drop the deep link.
+      if (isMfaRequiredResponse(result.payload)) {
+        void navigate("/login/verify", { state: from ? { from } : undefined });
+      } else {
+        void navigate(from ? pathFromLocation(from) : "/home");
+      }
     } else {
       setError((result.payload as string | undefined) ?? "Login failed.");
     }

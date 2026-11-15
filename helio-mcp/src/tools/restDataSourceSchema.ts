@@ -52,9 +52,12 @@ export const createRestDataSourceInputSchema = {
   name: z.string().min(1),
   connectorId: z
     .string({
-      required_error:
-        "connectorId is required — call list_connectors to obtain one, or create_connector " +
-        "if none exist yet.",
+      // zod 3 `required_error`: the custom message only for a missing value; a wrong type keeps zod's default.
+      error: (issue) =>
+        issue.input === undefined
+          ? "connectorId is required — call list_connectors to obtain one, or create_connector " +
+            "if none exist yet."
+          : undefined,
     })
     .min(1, {
       message:

@@ -36,6 +36,19 @@ describe("pwaConfig", () => {
     });
   });
 
+  describe("the MCP consent page is always fetched from the network (HEL-1709)", () => {
+    const denied = (path: string) => navigateFallbackDenylist.some((pattern) => pattern.test(path));
+
+    it.each(["/connect/mcp", "/connect/mcp?request=abc"])("denylists %s", (path) => {
+      expect(denied(path)).toBe(true);
+    });
+
+    it("does not denylist look-alike app routes", () => {
+      expect(denied("/connectors")).toBe(false);
+      expect(denied("/connectors/complete")).toBe(false);
+    });
+  });
+
   describe("the landing page owns / (spec: pwa-installability)", () => {
     const denied = (path: string) => navigateFallbackDenylist.some((pattern) => pattern.test(path));
 

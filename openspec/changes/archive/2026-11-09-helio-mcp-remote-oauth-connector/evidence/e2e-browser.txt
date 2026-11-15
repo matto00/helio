@@ -1,0 +1,27 @@
+PASS  setup: MFA enrolled for the throwaway user  (HTTP 200)
+helio-mcp: ready (http) on :19777, resource http://127.0.0.1:19777/mcp
+helio-mcp: POST /register 201
+helio-mcp: GET /authorize 302
+PASS  light: signed-out visitor is sent to /login  (http://localhost:7141/login)
+PASS  light: password step leads to the MFA step
+PASS  light: after MFA the visitor is back on /connect/mcp?request=...
+helio-mcp: GET /oauth/pending 200
+helio-mcp: GET /oauth/pending 200
+PASS  light: page shows client name and redirect host
+helio-mcp: POST /oauth/callback 302
+PASS  light: Allow ends at the client's redirect URI with a code and state
+helio-mcp: POST /token 200
+PASS  token exchange succeeds for the browser-issued code
+helio-mcp: POST /mcp 200
+PASS  /mcp tools/list works with the browser-issued token
+PASS  Settings token list has exactly one named, expiring connector PAT  (MCP connector: Browser e2e client (127.0.0.1:19888))
+helio-mcp: GET /authorize 302
+helio-mcp: GET /oauth/pending 200
+helio-mcp: GET /oauth/pending 200
+PASS  dark: signed-in visitor goes straight to the consent page
+helio-mcp: POST /oauth/callback 302
+PASS  dark: Deny returns access_denied with state and no code
+PASS  dark: Deny minted no PAT  (1 -> 1)
+cleanup: PAT 9a3f6b6e-70fe-4ba0-82c2-caa21863a14c revoke -> HTTP 204
+
+ALL CHECKS PASSED

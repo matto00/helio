@@ -162,3 +162,8 @@ automatically forwarded to **Cloud Logging**.
   ```bash
   gcloud run services logs read helio-backend --region us-west1 --project helio-493120
   ```
+
+## helio-mcp connector service (HEL-1709)
+
+`infra/deploy-mcp.sh` deploys the separate `helio-mcp` Cloud Run service (`https://mcp.helioapp.dev/mcp`, the claude.ai
+custom-connector endpoint). Setup, secrets, domain mapping and operating notes: `helio-mcp/README.md`, "HTTP mode".

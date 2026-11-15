@@ -86,6 +86,12 @@ export const DECLARED_INDEPENDENT = [
   { ecosystem: "npm", directory: "/frontend", packages: ["qrcode.react"] },
   { ecosystem: "npm", directory: "/frontend", packages: ["tslib"] },
   { ecosystem: "npm", directory: "/", packages: ["react-markdown"] },
+  // HEL-1709: helio-mcp's HTTP entry declares these three directly, but each is also a dependency of
+  // @modelcontextprotocol/sdk, which pins a compatible range of its own; they do not co-version
+  // with each other or with the SDK/zod group, so a lone bump is safe (CI typechecks and tests it).
+  { ecosystem: "npm", directory: "/helio-mcp", packages: ["express"] },
+  { ecosystem: "npm", directory: "/helio-mcp", packages: ["cors"] },
+  { ecosystem: "npm", directory: "/helio-mcp", packages: ["express-rate-limit"] },
 ];
 
 // ---------------------------------------------------------------------------

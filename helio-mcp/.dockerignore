@@ -1,0 +1,8 @@
+node_modules
+dist
+e2e
+scripts
+README.md
+Dockerfile
+.dockerignore
+.audit-ci.jsonc

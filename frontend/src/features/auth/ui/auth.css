@@ -159,7 +159,9 @@
   border-top: 1px solid var(--app-border-subtle);
 }
 
-.auth-google-btn {
+/* Secondary-button recipe (DESIGN.md section 5); also the consent page's Deny (HEL-1709). */
+.auth-google-btn,
+.auth-secondary-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -181,7 +183,8 @@
 /* F-090: was permanently styled as disabled (cursor:not-allowed,
  * opacity:0.6) even though the onClick is a fully working OAuth entry
  * point — this button was never actually wired to a disabled state. */
-.auth-google-btn:hover {
+.auth-google-btn:hover:not(:disabled),
+.auth-secondary-btn:hover:not(:disabled) {
   border-color: var(--app-border-strong);
   background: var(--app-surface-soft);
 }
@@ -251,3 +254,8 @@
 
 /* `.auth-loading__spinner` is now the shared `Spinner` primitive (size `2xl`) — see
  * ProtectedRoute.tsx / OAuthCallbackPage.tsx (F-190). */
+
+.auth-secondary-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

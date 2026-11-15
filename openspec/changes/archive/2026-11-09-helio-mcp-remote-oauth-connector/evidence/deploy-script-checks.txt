@@ -1,0 +1,7 @@
+$ bash -n infra/deploy-mcp.sh
+exit=0
+$ bash infra/deploy-mcp.sh   (no --image)
+ERROR: deploy-mcp.sh requires an explicit --image=<full-image-path:tag> flag.
+Build and push the helio-mcp image first (docker build helio-mcp), then re-run:
+  bash infra/deploy-mcp.sh --image=<full-image-path:tag>
+exit=1

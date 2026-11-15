@@ -1,5 +1,10 @@
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
+// HEL-1709: origin of the helio-mcp service (e.g. https://mcp.helioapp.dev) that the MCP connector
+// consent page reads pending requests from and POSTs its decision to. Fixed at build time and the
+// ONLY source of that origin -- never taken from the URL or the pending request.
+export const MCP_ORIGIN = (import.meta.env.VITE_MCP_ORIGIN ?? "").replace(/\/+$/, "");
+
 // F-002: `import.meta.env.DEV` can't be referenced directly from a file under
 // Jest (ts-jest compiles to CommonJS, where the bare `import.meta` syntax is
 // a hard parse error — see `jest.config.cjs`'s `config/env` → `envMock.ts`

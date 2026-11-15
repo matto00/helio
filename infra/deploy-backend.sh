@@ -16,6 +16,16 @@ set -a; source "$(dirname "$0")/.env.deploy"; set +a
 # script never emits a literal empty value into --set-env-vars.
 HELIO_BETA_DAILY_MESSAGE_LIMIT="${HELIO_BETA_DAILY_MESSAGE_LIMIT:-50}"
 
+# HEL-1712: HELIO_EMAIL_FROM is the outbound-email sender (EmailConfig, HEL-704; prod value in
+# infra/.env.deploy.example). It is environment-specific (the sending domain must be verified
+# in Resend for that deploy target), so it is sourced from .env.deploy rather than hardcoded, and
+# required: --set-env-vars below REPLACES the revision's env vars, so a deploy without it would
+# silently turn email off (POST /api/beta-access/request -> 503). Its partner RESEND_API_KEY is a
+# secret, read from Secret Manager `helio-resend-api-key` via --set-secrets below (see
+# docs/secrets-inventory.md). The `^|^` delimiter on --set-env-vars lets the value carry spaces
+# and angle brackets intact.
+HELIO_EMAIL_FROM="${HELIO_EMAIL_FROM:?HELIO_EMAIL_FROM is not set; add it to infra/.env.deploy (see infra/.env.deploy.example)}"
+
 # HEL-749 cycle 3: --max-instances=2 (not 3) matches the live, intentionally-set production
 # value — commit 51f110c0 ("Pin production CLAUDE_MODEL to Haiku 4.5 and cap Cloud Run to 2
 # instances") capped it after the privileged DB pool (5 connections/instance,
@@ -107,8 +117,8 @@ gcloud run deploy helio-backend \
   --subnet=helio-run-egress \
   --vpc-egress=private-ranges-only \
   --service-account=helio-backend-sa@helio-493120.iam.gserviceaccount.com \
-  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001|CONNECTOR_MASTER_KEY_ID=env-2026-08" \
-  --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest \
+  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001|CONNECTOR_MASTER_KEY_ID=env-2026-08|HELIO_EMAIL_FROM=${HELIO_EMAIL_FROM}" \
+  --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest,RESEND_API_KEY=helio-resend-api-key:latest \
   --memory=1Gi \
   --cpu=1 \
   --no-cpu-throttling \

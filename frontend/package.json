@@ -39,6 +39,21 @@
     },
     "@vite-pwa/assets-generator": {
       "sharp": "^0.35.5"
+    },
+    "@jest/reporters": {
+      "glob": "^14.0.2"
+    },
+    "jest-config": {
+      "glob": "^14.0.2"
+    },
+    "jest-runtime": {
+      "glob": "^14.0.2"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    },
+    "workbox-build": {
+      "glob": "^14.0.2"
     }
   },
   "devDependencies": {
