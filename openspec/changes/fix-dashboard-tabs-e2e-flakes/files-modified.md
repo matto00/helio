@@ -1,0 +1,3 @@
+- `e2e/hel1575-dashboard-tabs.spec.ts` — navigation-tolerant post-logout warm-count helper; kept forced-401 regression test
+- `openspec/changes/fix-dashboard-tabs-e2e-flakes/repro.md` — reproduction budget, forced race red/green, test A closure
+- `openspec/changes/fix-dashboard-tabs-e2e-flakes/tasks.md` — tasks ticked

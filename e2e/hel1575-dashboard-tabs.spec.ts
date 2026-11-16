@@ -230,6 +230,23 @@ async function warmEntryCount(page: Page): Promise<number | null> {
   });
 }
 
+/**
+ * The count after a sign-out. A 401 from any in-flight request makes the app's interceptor hard-navigate to
+ * /login (main.tsx), and that navigation can commit after `waitForURL("/login")` has already resolved on the SPA's
+ * own redirect, destroying the page's execution context mid-evaluate (CI 38987195427). The destroyed context is a
+ * transient of the sign-out, not a count: report it as "not yet zero" (-1) so the poll reads again in the
+ * settled document, which is the one whose state is being asserted.
+ */
+async function warmEntryCountAfterSignOut(page: Page): Promise<number> {
+  try {
+    return (await warmEntryCount(page)) ?? 0;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Execution context was destroyed"))
+      return -1;
+    throw error;
+  }
+}
+
 async function secondContext(browser: Browser, page: Page): Promise<BrowserContext> {
   const baseURL = new URL(page.url()).origin;
   return browser.newContext({
@@ -645,7 +662,23 @@ test.describe("HEL-1575 dashboard tabs", () => {
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await page.waitForURL("/login");
     // The database is deleted, or, if a browser keeps the shell, holds no entries.
-    await expect.poll(async () => (await warmEntryCount(page)) ?? 0).toBe(0);
+    await expect.poll(() => warmEntryCountAfterSignOut(page)).toBe(0);
+  });
+
+  test("logout with an already-expired session (the sign-out request answers 401) still clears the warm copy", async ({
+    page,
+    request,
+  }) => {
+    await openThreeTabs(page, request);
+    await expect.poll(() => warmEntryCount(page)).toBeGreaterThanOrEqual(1);
+    await page.route("**/api/auth/logout", (route) =>
+      route.fulfill({ status: 401, json: { message: "Unauthorized" } }),
+    );
+    await page.getByRole("button", { name: "User menu" }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await page.waitForURL("/login");
+    // The 401 interceptor hard-navigates to /login on top of the SPA's own redirect.
+    await expect.poll(() => warmEntryCountAfterSignOut(page)).toBe(0);
   });
 
   test("reload of the only, never-left dashboard is warm: no panel list or rows request", async ({
