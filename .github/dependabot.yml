@@ -17,6 +17,18 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     labels: ["dependencies"]
+    ignore:
+      # HEL-1725: these majors broke every grouped PR that carried them
+      # (ts-jest peers typescript <7; eslint-plugin-react peers eslint <=9).
+      # Migration tracked in HEL-1726; remove these rules there.
+      - dependency-name: "typescript"
+        versions: [">=7"]
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10"]
+      - dependency-name: "js-yaml"
+        versions: [">=5"]
     groups:
       dev-dependencies:
         dependency-type: "development"
@@ -32,6 +44,18 @@ updates:
     # their limits and stay at 10.
     open-pull-requests-limit: 15
     labels: ["dependencies"]
+    ignore:
+      # HEL-1725: these majors broke every grouped PR that carried them
+      # (ts-jest peers typescript <7; eslint-plugin-react peers eslint <=9).
+      # Migration tracked in HEL-1726; remove these rules there.
+      - dependency-name: "typescript"
+        versions: [">=7"]
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10"]
+      - dependency-name: "js-yaml"
+        versions: [">=5"]
     groups:
       # Co-versioned families: each shares a compile-time or runtime contract,
       # so a member raised alone is typechecked against its siblings' old
@@ -62,6 +86,18 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     labels: ["dependencies"]
+    ignore:
+      # HEL-1725: these majors broke every grouped PR that carried them
+      # (ts-jest peers typescript <7; eslint-plugin-react peers eslint <=9).
+      # Migration tracked in HEL-1726; remove these rules there.
+      - dependency-name: "typescript"
+        versions: [">=7"]
+      - dependency-name: "eslint"
+        versions: [">=10"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10"]
+      - dependency-name: "js-yaml"
+        versions: [">=5"]
     groups:
       # The SDK declares zod as a peer and helio-mcp passes zod schemas into
       # `registerTool`, so a lone zod major bump typechecks against the old SDK's types.
@@ -89,6 +125,17 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     labels: ["dependencies"]
+    ignore:
+      # HEL-1725: Scala 3, Pekko 2, Spark 4 and Flyway 13 are migrations, not
+      # bumps; in the sbt group they made #1117 unbuildable (no Spark _3 jars).
+      - dependency-name: "org.scala-lang:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.apache.pekko:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.apache.spark:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.flywaydb:*"
+        update-types: ["version-update:semver-major"]
     groups:
       sbt:
         patterns: ["*"]
