@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1230 — a drag followed by a panel create before the flush must not be lost: the dragged position
 // is still PATCHed by Save now. The drag moves RIGHT (x only) so it cannot land on the cell the
@@ -77,7 +78,7 @@ test("drag, then add a panel, then Save now PATCHes the dragged position", async
         layoutPatches.push(r.postData() ?? "");
     });
     await page.goto(`/dashboards/${ids.dashboardId}`);
-    await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+    await waitForPanelGrid(page, 1);
 
     await page.getByRole("button", { name: "Edit layout" }).click(); // HEL-1576: drag only in edit mode
     const handle = page.locator(".panel-grid-card__handle").first();

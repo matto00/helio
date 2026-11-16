@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1457 — a layout save from a tab that is behind the server must not drop another writer's panel.
 // Real browser, real drag on `.panel-grid-card__handle`: the tab drags its only panel, a second panel is then
@@ -84,7 +85,7 @@ test("a drag saved from a stale tab keeps a panel created meanwhile", async ({ p
     await expect(page.getByText("Unsaved changes")).toBeHidden();
 
     await page.reload();
-    await expect(page.locator(".react-grid-item")).toHaveCount(2, { timeout: 15_000 });
+    await waitForPanelGrid(page, 2);
     const reloaded = await storedLg(request, dashboardId);
     expect(reloaded.map((i) => i.panelId).sort()).toEqual([firstId, secondId].sort());
   } finally {

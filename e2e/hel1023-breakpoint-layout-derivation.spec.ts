@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
 import { waitForGridWidth } from "./support/gridProcessedWidth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -359,6 +360,8 @@ async function openAt(page: Page, dashboardId: string, width: number, theme: "li
   await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
   await page.goto(`/dashboards/${dashboardId}`);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  // The load is always at the first (1900 px, desktop) window; wait out the skeleton's stub grid (HEL-1633).
+  await waitForPanelGrid(page, 8, { timeout: 20_000 });
 }
 
 test.describe("HEL-1023 derive/repair the breakpoint layout at render", () => {

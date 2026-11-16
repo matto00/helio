@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1085 design.md D9/task 4.8 — live-browser proof of keyboard completability, computed
 // accessible name/description and error association (C1: jsdom cannot measure focus or
@@ -126,7 +127,7 @@ test.describe("HEL-1085 form field renderers — keyboard completion (real backe
 
       await page.goto("/dashboards");
       await expect(page.getByRole("heading", { name: "HEL-1085 e2e Dashboard" })).toBeVisible();
-      await expect(page.locator(".react-grid-item")).toHaveCount(1);
+      await waitForPanelGrid(page, 1);
 
       const form = page.getByRole("form", { name: "HEL-1085 Order Form" });
       await expect(form).toBeVisible();

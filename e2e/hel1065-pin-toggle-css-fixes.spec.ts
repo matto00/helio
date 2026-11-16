@@ -5,6 +5,7 @@ import { forceFocusVisible } from "./support/forceFocusVisible";
 import { readIndicatorSnapshot } from "./support/focusPresenceProbe";
 import { measureBox } from "./support/touchTargetProbe";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1065 (design.md D5) — rendered-geometry proof that HEL-465's two
 // documented-but-inert pin-toggle CSS fixes actually have an effect, on the
@@ -124,7 +125,7 @@ async function seedPinnableTablePanel(
   // reload so the grid actually reflects it.
   await page.goto("/dashboards");
   await expect(page.getByRole("heading", { name: new RegExp(dashboardName) })).toBeVisible();
-  await expect(page.locator(".react-grid-item")).toHaveCount(1);
+  await waitForPanelGrid(page, 1);
 
   return { dashboardName };
 }
