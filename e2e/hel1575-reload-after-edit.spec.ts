@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1575 fix cycle 3 (reload path): a reload issued right after an own panel edit must show the edit.
 // The browser copy of the active dashboard is snapshotted on a debounce; an own write recorded between
@@ -44,7 +45,8 @@ for (const [name, delayMs] of [
       await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
       if (delayMs > 0) await page.waitForTimeout(delayMs);
       await page.reload();
-      await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+      await waitForPanelGrid(page, 1);
+      await expect(page.locator(".react-grid-item")).toHaveCount(1);
     } finally {
       await request.delete(`/api/dashboards/${dashboardId}`, { headers: CSRF });
     }

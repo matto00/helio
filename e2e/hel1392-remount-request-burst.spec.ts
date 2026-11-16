@@ -7,6 +7,7 @@ import { evidencePath } from "./support/evidencePath";
 import { containerWidthForViewport, waitForGridWidth } from "./support/gridProcessedWidth";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { deleteExact, seedBurstDashboard, type BurstSeed } from "./support/remountBurstSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1392 — crossing the 768px grid-CONTAINER boundary swaps the desktop grid for the phone stack
 // (container = viewport - 352px of rail, context list and padding) and remounts every card. This spec counts EVERY /api
@@ -82,7 +83,7 @@ async function openDashboard(page: Page, seed: BurstSeed, extraQuery = "") {
   const params = new URLSearchParams(extraQuery);
   for (const id of seed.controlPanelIds) params.set(`p.${id}.c1`, "East");
   await page.goto(`/dashboards/${seed.dashboardId}?${params.toString()}`);
-  await expect(page.locator(".react-grid-item")).toHaveCount(8, { timeout: 20_000 });
+  await waitForPanelGrid(page, 8, { timeout: 20_000 });
   await expect(page.getByRole("heading", { name: "HEL-1392 T1" })).toBeVisible();
 }
 

@@ -6,6 +6,7 @@ import { CSRF_HEADER, registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { clearLog, log, RECORDER } from "./support/motionRecorder";
 import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1573 -- the panel-grid vendor overrides (C2, HEL-1032), a real drag and resize, and the chart entrance (C1,
 // HEL-1034), all in a real browser. Split from hel1573-motion-primitives.spec.ts, which holds the per-mode matrix.
@@ -28,7 +29,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await setMotion(request, "full");
     await seedWorld(request, "M-c2");
     await page.goto("/dashboards");
-    await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+    await waitForPanelGrid(page, 3);
     await page.waitForTimeout(800);
 
     const read = () =>

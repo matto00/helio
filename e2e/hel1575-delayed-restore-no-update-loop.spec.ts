@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1575 fix cycle 3: reloading a warm tab while the browser-store read is slow (past the 500 ms restore
 // timeout) keeps the loading skeleton up for the whole window. That skeleton's grid used to be drawn first for
@@ -64,7 +65,7 @@ test("a reload with a slow browser-store read shows the panels with no update-de
       expect(layout.ok()).toBe(true);
     }
     await page.goto(`/dashboards/${ids[0]}`);
-    await expect(page.locator(".react-grid-item")).toHaveCount(1);
+    await waitForPanelGrid(page, 1);
     // Let the browser copy of this dashboard be written (debounce 1.5 s + write) so the reload restores it.
     await page.waitForTimeout(3000);
     await page.evaluate(
@@ -73,7 +74,7 @@ test("a reload with a slow browser-store read shows the panels with no update-de
     );
     errors.length = 0;
     await page.reload();
-    await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+    await waitForPanelGrid(page, 1);
     await page.waitForTimeout(1500);
     expect(errors.filter((text) => text.includes("Maximum update depth"))).toEqual([]);
   } finally {

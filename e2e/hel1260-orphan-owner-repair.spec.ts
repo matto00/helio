@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1260 — the owner of a dashboard holding a panel with NO stored layout item (an orphan, which
 // the API itself can no longer produce, so it is made by clearing the stored layout) triggers exactly
@@ -100,7 +101,7 @@ for (const theme of ["light", "dark"] as const) {
       expect(repairPosts).toHaveLength(0);
       await page.goto(`/dashboards/${dashboardId}`);
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+      await waitForPanelGrid(page, 1);
       await expect.poll(() => repairPosts.length, { timeout: 15_000 }).toBe(1);
       const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       expect(repairPosts[0].url).toMatch(
@@ -119,7 +120,7 @@ for (const theme of ["light", "dark"] as const) {
       const rectBefore = await settledGridItemBox(page);
 
       await page.reload();
-      await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+      await waitForPanelGrid(page, 1);
       const rectAfter = await settledGridItemBox(page);
       expect(Math.abs(rectAfter.x - rectBefore.x)).toBeLessThan(2);
       expect(Math.abs(rectAfter.y - rectBefore.y)).toBeLessThan(2);
@@ -173,7 +174,7 @@ for (const theme of ["light", "dark"] as const) {
       const rectBefore = await settledGridItemBox(page);
 
       await page.reload();
-      await expect(page.locator(".react-grid-item")).toHaveCount(1, { timeout: 15_000 });
+      await waitForPanelGrid(page, 1);
       const rectAfter = await settledGridItemBox(page);
       expect(Math.abs(rectAfter.x - rectBefore.x)).toBeLessThan(2);
       expect(Math.abs(rectAfter.y - rectBefore.y)).toBeLessThan(2);
