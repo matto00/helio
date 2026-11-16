@@ -1,4 +1,0 @@
-- `e2e/support/panelGridReady.ts` - additive: LIVE_STACK_ITEMS + waitForPanelStack (phone twin); one doc-comment pointer on waitForPanelGrid
-- `e2e/hel1583-mobile-dashboard.spec.ts` - open() waits with waitForPanelStack(page, 3); geometry/last-card/measurement reads use the live-layer selector
-- `e2e/hel1724-panel-stack-ready.spec.ts` - new guard (stretched skeleton fade + delayed panels fetch; one-shot reads)
-- `openspec/changes/wait-out-phone-stack-skeleton/sweep.md` - sweep verdicts (0 FIX sites)
