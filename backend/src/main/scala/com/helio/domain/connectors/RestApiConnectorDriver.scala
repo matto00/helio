@@ -107,6 +107,24 @@ class RestApiConnectorDriver(
     else baseUrl + endpoint
   }
 
+  /** The decrypted credential value for `connector` (`Left` when absent). Shared by [[buildResolvedRequest]] and the
+   *  HEL-1638 dry run's owned-connector path. */
+  private def credentialFor(connector: Connector): Future[Either[String, String]] =
+    (credentialRepoOpt, connector.credentialId) match {
+      case (_, None) =>
+        // HEL-955: unreachable in practice -- resolveConnector above already rejects a
+        // pending Connector -- but kept as a defensive, curated fail-closed branch rather
+        // than a `.get` that could throw, so a future refactor of resolveConnector cannot
+        // silently reopen a decrypt-of-nothing path.
+        Future.successful(Left("Connector credential not found"): Either[String, String])
+      case (None, Some(_)) => Future.successful(Right(""): Either[String, String])
+      case (Some(credRepo), Some(credentialId)) =>
+        credRepo.decryptForUse(credentialId, connector.ownerId).map {
+          case Some(plaintext) => Right(plaintext)
+          case None            => Left("Connector credential not found")
+        }
+    }
+
   /** Builds the full request for a Connector-resolved `RestApiConfig`: resolves `connectorId`
    *  → `Connector`, decrypts its credential, composes `baseUrl` + `endpoint` via `joinUrl` +
    *  `queryParams` + merged headers (source wins on collision, Decision 4), applies auth per
@@ -124,64 +142,57 @@ class RestApiConnectorDriver(
     resolveConnector(config.connectorId, resolveContext).flatMap {
       case Left(err) => Future.successful(Left(err))
       case Right(connector) =>
-        val authShape = ConnectorAuthShape.parse(connector.config)
-        val credentialFut = (credentialRepoOpt, connector.credentialId) match {
-          case (_, None) =>
-            // HEL-955: unreachable in practice -- resolveConnector above already rejects a
-            // pending Connector -- but kept as a defensive, curated fail-closed branch rather
-            // than a `.get` that could throw, so a future refactor of resolveConnector cannot
-            // silently reopen a decrypt-of-nothing path.
-            Future.successful(Left("Connector credential not found"): Either[String, String])
-          case (None, Some(_)) => Future.successful(Right(""): Either[String, String])
-          case (Some(credRepo), Some(credentialId)) =>
-            credRepo.decryptForUse(credentialId, connector.ownerId).map {
-              case Some(plaintext) => Right(plaintext)
-              case None            => Left("Connector credential not found")
-            }
-        }
-        credentialFut.map {
-          case Left(err) => Left(err)
-          case Right(credentialValue) =>
-            // HEL-826 design.md Decision 3 — the structural safety guards, checked FIRST,
-            // before any templating/URI/entity work: a body on GET/HEAD, or an unparseable
-            // bodyContentType, short-circuits before any HttpRequest is built.
-            for {
-              _            <- RestApiConfig.rejectBodyOnSafeMethod(config.method, config.body)
-              parsedCt     <- RestApiConfig.parseBodyContentType(config.bodyContentType)
-              resolvedBits <- resolveTemplatedRequestParts(config)
-            } yield {
-              val (resolvedEndpoint, resolvedQueryParams, resolvedHeaders, resolvedBody) = resolvedBits
-              val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
-
-              // HEL-844 design.md D4: a single ordered `Uri.Query` built from the endpoint's own
-              // existing pairs followed by the config's pairs — preserves duplicate keys AND their
-              // order. The previous per-param `uri.query().toMap` fold did NOT drop the endpoint's
-              // query string outright (its distinct pairs survived); it silently REORDERED them
-              // (`Map`'s hash-based iteration order, not insertion order) and COLLAPSED any
-              // duplicate key within them to its last value — corrected here.
-              val baseUri         = Uri(joinUrl(connector.baseUrl, resolvedEndpoint))
-              val combinedPairs   = baseUri.query().toVector ++ resolvedQueryParams.pairs
-              val withQueryParams = baseUri.withQuery(Uri.Query(combinedPairs: _*))
-              val uri             = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
-
-              val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
-              val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
-              // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
-              // colliding with the auth header's own name (e.g. "Authorization", or the
-              // api-key header name) must not produce a request carrying both -- the auth
-              // header (built from the decrypted credential, never client-suppliable) always
-              // wins; HTTP header names are case-insensitive, so the collision check is too.
-              val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
-              val baseHeaders: List[HttpHeader] = mergedHeaders
-                .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
-                .map { case (k, v) => RawHeader(k, v) }
-                .toList
-
-              val baseRequest = HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders)
-              resolvedBody.fold(baseRequest)(b => baseRequest.withEntity(HttpEntity(parsedCt, b.getBytes(StandardCharsets.UTF_8))))
-            }
+        credentialFor(connector).map {
+          case Left(err)              => Left(err)
+          case Right(credentialValue) => composeRequest(config, connector, credentialValue)
         }
     }
+
+  /** HEL-1638: the post-`resolveConnector` part of [[buildResolvedRequest]], factored out unchanged so the propose-time dry
+   *  run composes the IDENTICAL request (templating with `parameters`, `joinUrl`, ordered query merge, headers, auth) from a
+   *  `Connector` value and the credential value as an argument. `resolveConnector`, the pending guard and credential decrypt
+   *  stay in the persisted caller; the unpersisted NoAuth Auto connector passes `""`. */
+  private def composeRequest(config: RestApiConfig, connector: Connector, credentialValue: String): Either[String, HttpRequest] = {
+    val authShape = ConnectorAuthShape.parse(connector.config)
+    // HEL-826 design.md Decision 3 — the structural safety guards, checked FIRST,
+    // before any templating/URI/entity work: a body on GET/HEAD, or an unparseable
+    // bodyContentType, short-circuits before any HttpRequest is built.
+    for {
+      _            <- RestApiConfig.rejectBodyOnSafeMethod(config.method, config.body)
+      parsedCt     <- RestApiConfig.parseBodyContentType(config.bodyContentType)
+      resolvedBits <- resolveTemplatedRequestParts(config)
+    } yield {
+      val (resolvedEndpoint, resolvedQueryParams, resolvedHeaders, resolvedBody) = resolvedBits
+      val method = HttpMethods.getForKey(config.method.toUpperCase).getOrElse(HttpMethods.GET)
+
+      // HEL-844 design.md D4: a single ordered `Uri.Query` built from the endpoint's own
+      // existing pairs followed by the config's pairs — preserves duplicate keys AND their
+      // order. The previous per-param `uri.query().toMap` fold did NOT drop the endpoint's
+      // query string outright (its distinct pairs survived); it silently REORDERED them
+      // (`Map`'s hash-based iteration order, not insertion order) and COLLAPSED any
+      // duplicate key within them to its last value — corrected here.
+      val baseUri         = Uri(joinUrl(connector.baseUrl, resolvedEndpoint))
+      val combinedPairs   = baseUri.query().toVector ++ resolvedQueryParams.pairs
+      val withQueryParams = baseUri.withQuery(Uri.Query(combinedPairs: _*))
+      val uri             = injectAuthQueryParam(withQueryParams, authShape, credentialValue)
+
+      val mergedHeaders = authShape.defaultHeaders ++ resolvedHeaders // Decision 4: source wins
+      val authHeaders: List[HttpHeader] = buildAuthHeaders(authShape, credentialValue)
+      // Cycle-2 skeptic non-blocking note (a): a source/Connector-default header
+      // colliding with the auth header's own name (e.g. "Authorization", or the
+      // api-key header name) must not produce a request carrying both -- the auth
+      // header (built from the decrypted credential, never client-suppliable) always
+      // wins; HTTP header names are case-insensitive, so the collision check is too.
+      val authHeaderNames = authHeaders.map(_.name().toLowerCase).toSet
+      val baseHeaders: List[HttpHeader] = mergedHeaders
+        .filterNot { case (k, _) => authHeaderNames.contains(k.toLowerCase) }
+        .map { case (k, v) => RawHeader(k, v) }
+        .toList
+
+      val baseRequest = HttpRequest(method = method, uri = uri, headers = authHeaders ++ baseHeaders)
+      resolvedBody.fold(baseRequest)(b => baseRequest.withEntity(HttpEntity(parsedCt, b.getBytes(StandardCharsets.UTF_8))))
+    }
+  }
 
   /** HEL-823: resolves `{{name}}` placeholders in `config.endpoint`/`config.queryParams`
    *  values/`config.headers` values against `config.parameters`, applying per-context
@@ -420,6 +431,35 @@ class RestApiConnectorDriver(
   )(implicit ec: ExecutionContext): Future[Either[String, InferredSchema]] =
     fetch(config, resolveContext).map(_.flatMap(json => toRowsEither(json, config.rootSelector))
       .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
+
+  /** HEL-1638: schema inference for a config whose Connector is NOT persisted (the propose-time dry run of an inline `url`
+   *  REST root: the unpersisted Auto connector, credential `""`) or already resolved by the caller. Composes the request
+   *  through the same [[composeRequest]] the persisted path uses, issues it through [[issueAndParse]] (the HEL-879 SSRF
+   *  choke point), then infers exactly as [[inferSchema]]. `fetchOverride`, when wired (test fixtures), replaces the fetch
+   *  here as it does in [[fetch]]. */
+  def inferSchemaForConnector(config: RestApiConfig, connector: Connector, credentialValue: String)(implicit
+      ec: ExecutionContext
+  ): Future[Either[String, InferredSchema]] = {
+    val json: Future[Either[String, JsValue]] = fetchOverride match {
+      case Some(fn) => fn(config)
+      case None =>
+        composeRequest(config, connector, credentialValue) match {
+          case Left(err)      => Future.successful(Left(err))
+          case Right(request) => issueAndParse(request)
+        }
+    }
+    json.map(_.flatMap(j => toRowsEither(j, config.rootSelector))
+      .map(rows => SchemaInferenceEngine.inferSchemaFromRows(rows).copy(observedRowCount = Some(rows.size.toLong))))
+  }
+
+  /** HEL-1638: [[inferSchemaForConnector]] for an already-resolved, persisted Connector (decrypts its credential first). */
+  def inferSchemaForResolvedConnector(config: RestApiConfig, connector: Connector)(implicit
+      ec: ExecutionContext
+  ): Future[Either[String, InferredSchema]] =
+    credentialFor(connector).flatMap {
+      case Left(err)         => Future.successful(Left(err))
+      case Right(credential) => inferSchemaForConnector(config, connector, credential)
+    }
 
   /** Forwards to the existing `fetch`/`toRowsEither` methods, truncating to `maxRows` — matching
    *  `SourceService.previewRest`'s `connector.toRows(json).take(10)` pattern. A `Left` from a

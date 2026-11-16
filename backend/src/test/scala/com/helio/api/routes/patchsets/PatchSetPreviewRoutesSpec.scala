@@ -1,6 +1,7 @@
 package com.helio.api.routes.patchsets
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.patchsets.PatchSetRoutes
@@ -123,7 +124,7 @@ class PatchSetPreviewRoutesSpec
     )
     patchSetPreviewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, outputRepo
+      accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
 
     seedUsers()

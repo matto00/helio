@@ -1,9 +1,11 @@
 package com.helio.services.pipelines
 
 import com.helio.services.ServiceError
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -58,7 +60,9 @@ final class PipelineProposalService(
     // HEL-907 task 1.1: used only to READ BACK the Outputs `pipelineService.create`'s
     // single transactional call already created (for the apply response / rollback
     // logging) -- never to write. Every Output write goes through `pipelineService.create`.
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    // HEL-1638 (C12): charged before every propose-time live fetch of an inline rest/sql root's schema.
+    sourceFetchBudget: SourceFetchBudget
 )(implicit ec: ExecutionContext) {
 
   import PipelineProposalService._
@@ -82,15 +86,72 @@ final class PipelineProposalService(
    *  [[validateStructure]] check `apply` uses, plus — ONLY for a reference to an *existing*
    *  `sourceId` — a read-only [[com.helio.infrastructure.DataSourceRepository.findByIdOwned]]
    *  existence/ownership check, mirroring `DashboardProposalService.validate`'s own "binding
-   *  validation against real ids" shape. An *inline* source spec (kind=csv/rest/sql/static, no
-   *  pre-existing id) gets structural validation only — resolving/creating it is exactly what
-   *  [[resolveSource]] does, and a non-mutating validate cannot do that without itself becoming a
-   *  mutation (accepted asymmetry, see design.md Risks). */
+   *  validation against real ids" shape. HEL-1638: it also runs [[dryRun]], apply's
+   *  pre-write checks (inline csv rejection; static/sql/rest create checks and root schemas through [[PipelineRootDryRun]];
+   *  preflight; cross-owner refs; Output `fieldMapping` column-at-node), writing nothing. An inline rest/sql root needs one
+   *  live fetch for its schema, charged to the source-fetch budget here (a refusal is a 429); a fetch failure follows the
+   *  same rule as apply (the source is kept with an empty schema, and only an Output with a `fieldMapping` then fails). */
   def validate(proposal: PipelineProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(err))
-      case Right(_)  => validateAllSourceReferences(proposal.roots, user)
+      case Right(_)  =>
+        validateAllSourceReferences(proposal.roots, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  => dryRun(proposal, user, chargeFetches = true)
+        }
     }
+
+  private val createDryRun = new PipelineCreateDryRun(dataSourceRepo)
+
+  /** HEL-1638: apply's pre-write checks as a dry run (writes nothing): each root's schema as apply would persist it, then
+   *  `PipelineCreateDryRun` (preflight, ownership, Output `fieldMapping` column-at-node) through the same functions
+   *  `createTransactional` calls. Run by `validate` and, before any write, by `apply`. Inline static/sql/rest roots are dry-run through
+   *  [[PipelineRootDryRun]]; the live fetch of a rest/sql root is charged to the source-fetch budget when `chargeFetches`
+   *  (validate) and not on apply, whose preceding propose already paid and whose `createRest`/`createSql` make the one
+   *  persisted-path fetch. */
+  private def dryRun(proposal: PipelineProposal, user: AuthenticatedUser, chargeFetches: Boolean): Future[Either[ServiceError, Unit]] =
+    proposal.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[DryRunRoot]]](Right(Vector.empty))) {
+        case (acc, (root, idx)) =>
+          acc.flatMap {
+            case Left(err) => Future.successful(Left(err))
+            case Right(done) => dryRunRootSchema(root, idx, user, chargeFetches).map(_.map(done :+ _))
+          }
+      }.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(roots) =>
+          val req = CreatePipelineRequest(
+            name    = proposal.pipelineName.trim,
+            roots   = proposal.roots.map(r => CreatePipelineRootRequest(sourceId = Some("dry-run"), clientId = r.clientId)),
+            tag     = None,
+            steps   = proposal.steps,
+            outputs = proposal.outputs
+          )
+          createDryRun.check(req, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
+      }
+
+  private val rootDryRun = new PipelineRootDryRun(dataSourceRepo, sourceService, sourceFetchBudget)
+
+  private type DryRunRoot = PipelineRootDryRun.Root
+
+  private def dryRunRootSchema(source: PipelineProposalSource, idx: Int, user: AuthenticatedUser, chargeFetches: Boolean): Future[Either[ServiceError, DryRunRoot]] = {
+    val address = PipelineService.rootAddress(idx)
+    val name    = inlineName(source)
+    def missingConfig = PipelineRootDryRun.Spec.Invalid(ServiceError.BadRequest(s"$address.config is required for an inline source"))
+    val spec: PipelineRootDryRun.Spec = (source.sourceId, source.`type`.map(DataSourceKind.canonicalize)) match {
+      case (Some(sourceId), _)                  => PipelineRootDryRun.Spec.Existing(sourceId)
+      case (None, Some(DataSourceKind.Csv))     => PipelineRootDryRun.Spec.Csv
+      case (None, Some(DataSourceKind.Dataset)) => source.staticConfig.fold(missingConfig: PipelineRootDryRun.Spec)(PipelineRootDryRun.Spec.Static(name, _))
+      case (None, Some(DataSourceKind.Sql))     => source.sqlConfig.fold(missingConfig: PipelineRootDryRun.Spec)(PipelineRootDryRun.Spec.Sql(name, _))
+      case (None, Some(DataSourceKind.RestApi)) => source.restConfig.fold(missingConfig: PipelineRootDryRun.Spec)(c => PipelineRootDryRun.Spec.Rest(name, ProposalRestApiConfig.toRestApiConfigPayload(c)))
+      case _                                    => PipelineRootDryRun.Spec.Invalid(ServiceError.BadRequest(s"$address: sourceId or inline type is required"))
+    }
+    rootDryRun.rootSchema(spec, address, user, chargeFetches, s"$address: data source not found", inlineCsvRejection(address))
+  }
+
+  private def inlineCsvRejection(address: String): ServiceError =
+    ServiceError.UnprocessableEntity(
+      s"$address: inline csv sources are not supported by apply-proposal yet; create the CSV source separately and reference it via sourceId"
+    )
 
   /** HEL-914 task 6b.4: ownership-checks EVERY root, not only the first — a
    *  serial fold so the FIRST unreadable root's address is what's reported
@@ -132,9 +193,14 @@ final class PipelineProposalService(
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(err))
       case Right(_) =>
-        resolveAllRoots(proposal.roots, user).flatMap {
-          case Left(err)        => Future.successful(Left(err))
-          case Right(resolved)  => createPipeline(proposal, resolved, user)
+        // apply's own dry-run call does not charge the fetch budget (HEL-1638 C12): the propose that preceded it did.
+        dryRun(proposal, user, chargeFetches = false).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_) =>
+            resolveAllRoots(proposal.roots, user).flatMap {
+              case Left(err)        => Future.successful(Left(err))
+              case Right(resolved)  => createPipeline(proposal, resolved, user)
+            }
         }
     }
 
@@ -360,9 +426,7 @@ final class PipelineProposalService(
       case (None, Some(DataSourceKind.Csv)) =>
         // D3: schema-valid but apply-time-rejected — no bytes channel exists
         // in a JSON proposal for `DataSourceService.createCsv`'s upload path.
-        Future.successful(Left(ServiceError.UnprocessableEntity(
-          s"$address: inline csv sources are not supported by apply-proposal yet; create the CSV source separately and reference it via sourceId"
-        )))
+        Future.successful(Left(inlineCsvRejection(address)))
       case (None, Some(DataSourceKind.Sql))      => resolveSqlSource(source, address, user)
       case (None, Some(DataSourceKind.RestApi))  => resolveRestSource(source, address, user)
       case (None, Some(DataSourceKind.Dataset))  => resolveStaticSource(source, address, user)

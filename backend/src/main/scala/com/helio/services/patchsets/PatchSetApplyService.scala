@@ -11,6 +11,7 @@ import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyRe
 import com.helio.domain.panels.PanelConfigCodec
 import com.helio.domain.model.{AuthenticatedUser, OutputId, PatchSetApplicationId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.services.sources.SourceService
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -66,13 +67,15 @@ final class PatchSetApplyService(
     applicationRepo: PatchSetApplicationRepository,
     // HEL-1239: required (no `= null` default) -- see `PatchSetApplyContext.outputRepo`.
     outputRepo: OutputRepository,
-    outputService: OutputService = null
+    outputService: OutputService = null,
+    // HEL-1638 D1b: resolves an inline rest/sql pipeline-create root's schema for the create dry run (never charged here).
+    sourceService: SourceService = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
   private[services] val context: PatchSetApplyContext =
-    PatchSetApplyContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+    PatchSetApplyContext.buildUncharged(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, sourceService)
 
   private val services: PatchSetApplyServices =
     PatchSetApplyServices(panelService, dashboardService, dataSourceService, pipelineService, outputService)

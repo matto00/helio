@@ -51,6 +51,7 @@ import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPrevi
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.ratelimit.{InMemoryRateLimiter, RateLimitConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService, WorkspaceTeardownService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -321,8 +322,11 @@ final class ApiRoutes(
   // this ticket's own route-level test. A second, independent `InMemoryRateLimiter` instance
   // keeps the two budgets genuinely separate while still reusing `RateLimitDirective` itself
   // unmodified (design.md Decision 6's own framing).
+  // HEL-1638 (C12): ONE limiter instance shared with the propose-time source-fetch budget below, so an inline rest/sql
+  // dry-run fetch and an HTTP preview/infer draw from the same per-principal bucket.
+  private val sourceFetchLimiter = new InMemoryRateLimiter()
   private val sourceFetchRateLimitDirective = new RateLimitDirective(
-    new InMemoryRateLimiter(),
+    sourceFetchLimiter,
     userSessionRepo,
     Option(apiTokenRepo),
     pipelineRunGuardConfig.sourceFetchRateLimitPerWindow,
@@ -532,9 +536,13 @@ final class ApiRoutes(
   // dataSourceService/pipelineService/pipelineRunService/dataTypeService,
   // all already constructed above, plus dataSourceRepo/dataTypeRepo for the
   // read-only lookups its own scaladoc documents (no direct DB writes).
+  // HEL-1638 (C12): one source-fetch budget for every propose-time live fetch (pipeline proposals and patch-set previews).
+  private val proposalSourceFetchBudget =
+    new SourceFetchBudget(sourceFetchLimiter, pipelineRunGuardConfig.sourceFetchRateLimitPerWindow, rateLimitConfig.windowSeconds)
   private val pipelineProposalService = new PipelineProposalService(
     sourceService, dataSourceService, pipelineService, pipelineRunService,
-    dataSourceRepo, outputRepo
+    dataSourceRepo, outputRepo,
+    proposalSourceFetchBudget
   )
   // HEL-387: atomic combined pipeline+dashboard proposal apply — composes the
   // already-constructed pipelineProposalService/proposalService (the latter
@@ -575,7 +583,7 @@ final class ApiRoutes(
     accessChecker, patchSetApplicationRepo,
     // HEL-907 task 1.2: wires the `output` target.kind's own repo/service, mirroring every
     // other nullable-optional collaborator in this file (`.orNull`).
-    outputRepo, outputService
+    outputRepo, outputService, sourceService
   )
   // HEL-408: read-only diff/impact preview -- reuses PatchSetApplyResolvers
   // (same package) for pre-validation; needs only the repos/accessChecker
@@ -586,7 +594,7 @@ final class ApiRoutes(
     accessChecker,
     // HEL-1239: same nullable-optional `.orNull` as the apply service above -- a null here (no
     // DbContext) surfaces as a typed ServiceError from the output resolvers, never an NPE.
-    outputRepo
+    outputRepo, sourceService, proposalSourceFetchBudget
   )
   // HEL-413: restores a successfully-journaled apply's edits (design.md D4/D5) -- composes the
   // same per-resource services/repos patchSetApplyService does (minus metricRepo/accessChecker,

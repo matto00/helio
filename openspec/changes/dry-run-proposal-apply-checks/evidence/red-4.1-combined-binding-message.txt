@@ -1,0 +1,5 @@
+First ProposalDryRunParitySpec run, before the CombinedProposalService fix (real mismatch found by the corpus):
+[info] - should agree between propose and apply: combined: non-sentinel panel bound to a missing Output *** FAILED ***
+[info]   validate=Outcome(false,Output not found) apply=Outcome(false,panel 'Total': output <id> not found)
+Cause: combined validate did not run apply's preValidateBindings for panels bound to a real Output (the Binding.Real dry run said "Output not found").
+Fix: DashboardProposalService.validateBindingsExcluding, called by CombinedProposalService.validate before controls. Green: Tests: succeeded 22, failed 0.

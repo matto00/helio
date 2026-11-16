@@ -1,0 +1,8 @@
+Red 1.4 (unmodified production code, fd7064f7d + 70d7df8b4/7ae784fcd): DashboardProposalServiceValidateSpec, form panel with duplicate sourceField
+(panel.validateConfig rejects it at apply via PanelCreateBuilder.buildForCreate; validate accepts):
+[info] - should reject a form panel whose config panel.validateConfig rejects (duplicate sourceField), with apply's message *** FAILED ***
+[info]   Right(<(), the Unit value>) was not an instance of scala.util.Left, but an instance of scala.util.Right (DashboardProposalServiceValidateSpec.scala:132)
+[info] Tests: succeeded 4, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+The test itself is kept as red-1.4-test.patch (git apply) and is committed with the fix in task 3.2, so the branch never carries a failing test.
+Patch-set preview red is added with task 3.3 (same reason).

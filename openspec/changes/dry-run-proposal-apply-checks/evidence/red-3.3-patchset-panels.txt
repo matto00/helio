@@ -1,0 +1,5 @@
+PatchSetPreviewServiceSpec on the code before 3.3 (resolvePanelCreate/resolvePanelUpdate ran no panel service checks):
+- should reject a panel create whose config panel.validateConfig rejects (divider weight 0), with apply's message (HEL-1638) *** FAILED ***  ("" did not include "divider weight must be positive")
+- should reject a panel create bound to an Output that does not exist (non-$ref), at preview (HEL-1638) *** FAILED ***  ("" did not start with "edit 0: ")
+- should reject a panel update whose effective config panel.validateConfig rejects (divider weight 0) at preview (HEL-1638) *** FAILED ***
+Tests: succeeded 18, failed 3 (empty message = the edit resolved Right)

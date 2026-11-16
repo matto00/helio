@@ -99,7 +99,8 @@ abstract class PipelineApplyProposalSpecBase
   private val stubConnector = new RestApiConnectorDriver(Some { config =>
     if (config.endpoint == "/fail") Future.successful(Left("connector: endpoint unreachable"))
     else if (config.endpoint == "/run-fail") {
-      if (restRunFailCallCount.getAndIncrement() == 0)
+      // HEL-1638: apply's propose-time dry run fetches the schema once, then `createRest` again, so the run is the third call.
+      if (restRunFailCallCount.getAndIncrement() < 2)
         Future.successful(Right(JsArray(JsObject("name" -> JsString("alice"), "score" -> JsNumber(1)))))
       else
         Future.successful(Left("connector: endpoint unreachable"))

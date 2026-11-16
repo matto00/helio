@@ -1,6 +1,7 @@
 package com.helio.api.routes.patchsets
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.http.{AccessCheckerImpl, ResourceType => AclResourceType, ResourceTypeRegistry}
 import com.helio.api.protocols.alerts.CreateAlertRuleRequest
 import com.helio.api.protocols.panels.CreatePanelRequest
@@ -110,7 +111,7 @@ abstract class PatchSetRoutesFixture
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
       accessChecker, new PatchSetApplicationRepository(ctx)(routeEc), outputRepo
     )
-    patchSetPreviewService = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+    patchSetPreviewService = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default())
     seedUsers()
   }
 

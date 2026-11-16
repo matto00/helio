@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.sources.InlineSourceCleanup
 import com.helio.api.http.RequestValidation
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineSummaryResponse}
-import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId, DataSourceKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSource, DataSourceId}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository
 import scala.collection.mutable.ArrayBuffer
@@ -110,31 +110,7 @@ private[pipelines] final class PipelineCreateWrites(
       }
     }
 
-  /** The request-only shape errors [[PipelineRootWrites.resolveOneRootSourceId]] would raise, with the same messages and statuses,
-   *  so they surface before any sibling root's inline source is created. The null-service check stays at
-   *  creation time. */
-  private def rootShapeProblem(req: CreatePipelineRootRequest): Option[ServiceError] =
-    (req.sourceId.map(_.trim), req.`type`) match {
-      case (Some(sid), None) if sid.nonEmpty => None
-      case (Some(_), None)  => Some(ServiceError.BadRequest("roots: sourceId is required and must not be blank"))
-      case (Some(_), Some(_)) => Some(ServiceError.BadRequest("roots: specify either sourceId or an inline type, not both"))
-      case (None, None)     => Some(ServiceError.BadRequest("roots: sourceId or inline type is required"))
-      case (None, Some(kind)) =>
-        if (req.name.map(_.trim).forall(_.isEmpty)) Some(ServiceError.BadRequest("roots: name is required for an inline source"))
-        else {
-          val missingConfig = Some(ServiceError.BadRequest("roots: config is required for an inline source"))
-          DataSourceKind.canonicalize(kind) match {
-            case DataSourceKind.Csv =>
-              Some(ServiceError.UnprocessableEntity(
-                "inline csv sources are not supported for pipeline roots; create the CSV source separately and reference it via sourceId"
-              ))
-            case DataSourceKind.Sql     => if (req.sqlConfig.isEmpty) missingConfig else None
-            case DataSourceKind.RestApi => if (req.restConfig.isEmpty) missingConfig else None
-            case DataSourceKind.Dataset => if (req.staticConfig.isEmpty) missingConfig else None
-            case other                  => Some(ServiceError.BadRequest(s"roots: unrecognized inline type '$other'"))
-          }
-        }
-    }
+  private def rootShapeProblem(req: CreatePipelineRootRequest): Option[ServiceError] = PipelineRootWrites.shapeProblem(req)
 
   /** Root pass (b) and everything after it, under [[InlineSourceCompensation.compensating]]. */
   private def createWithInlineRoots(

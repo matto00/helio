@@ -1,0 +1,7 @@
+[info] - should reject propose_pipeline whose Output maps a column absent at its node, naming the available columns, capturing nothing (HEL-1638) *** FAILED ***
+[info] Tests: succeeded 31, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.assistant.AssistantToolExecutorSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 3 s, cache 93%, 27 disk cache hits, 2 onsite tasks

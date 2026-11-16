@@ -27,6 +27,10 @@ final case class CombinedProposalApplyResponse(
     dashboard: DuplicateDashboardResponse
 )
 
+/** HEL-1638: body of a passing propose-side dry run (`POST .../validate-proposal`, `POST /api/proposals/validate`).
+ *  A failing dry run is the apply route's own error response, never a `valid: false` body. */
+final case class ProposalValidateResponse(valid: Boolean)
+
 trait CombinedProposalProtocol
     extends SprayJsonSupport
     with DefaultJsonProtocol
@@ -43,4 +47,7 @@ trait CombinedProposalProtocol
 
   implicit val combinedProposalApplyResponseFormat: RootJsonFormat[CombinedProposalApplyResponse] =
     jsonFormat2(CombinedProposalApplyResponse.apply)
+
+  implicit val proposalValidateResponseFormat: RootJsonFormat[ProposalValidateResponse] =
+    jsonFormat1(ProposalValidateResponse.apply)
 }

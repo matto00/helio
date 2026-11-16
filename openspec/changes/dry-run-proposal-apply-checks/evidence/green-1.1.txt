@@ -1,0 +1,2 @@
+[info] - should reject an Output mapping a column dropped by an upstream select, and one never in the source, with apply's column message (HEL-1638)
+[info] Tests: succeeded 11, failed 0, canceled 0, ignored 0, pending 0

@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
@@ -173,7 +174,7 @@ class PatchSetPreviewServiceSpec
 
     service = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, outputRepo
+      accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
     val applicationRepo = new PatchSetApplicationRepository(ctx)(routeEc)
     applyService = new PatchSetApplyService(
@@ -325,6 +326,28 @@ class PatchSetPreviewServiceSpec
       }
     }
 
+
+    // HEL-1638 D3/3.3: panel create and update run the same build/update checks apply runs, at resolve (preview and apply).
+    "reject a panel create whose config panel.validateConfig rejects (divider weight 0), with apply's message (HEL-1638)" in {
+      val dashboard = seedDashboard(userA)
+      val createPatch = JsObject(
+        "dashboardId" -> JsString(dashboard.id.value), "title" -> JsString("Bad divider"), "type" -> JsString("divider"),
+        "config" -> JsObject("weight" -> JsNumber(0))
+      )
+      val edits = Vector(Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch)))
+      preview(edits, userA).swap.toOption.map(_.message).getOrElse("") should include("divider weight must be positive")
+      await(panelRepo.findAllByDashboardId(dashboard.id, Some(userA), Page(0, 10))).total shouldBe 0
+    }
+
+    "reject a panel create bound to an Output that does not exist (non-$ref), at preview (HEL-1638)" in {
+      val dashboard = seedDashboard(userA)
+      val createPatch = JsObject(
+        "dashboardId" -> JsString(dashboard.id.value), "title" -> JsString("Unbound"), "type" -> JsString("output"),
+        "config" -> JsObject("outputId" -> JsString(UUID.randomUUID().toString))
+      )
+      val edits = Vector(Edit(EditTarget("panel", None), "create", None, None, None, None, None, Some(createPatch)))
+      preview(edits, userA).swap.toOption.map(_.message).getOrElse("") should (startWith("edit 0: ") and include("Output not found"))
+    }
 
     "give a create edit's after the '(pending)' id sentinel, and a delete edit's after is None (6.2)" in {
       val dashboard = seedDashboard(userA)

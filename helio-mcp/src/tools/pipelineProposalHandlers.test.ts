@@ -41,6 +41,7 @@ const proposal: PipelineProposal = {
 
 function makeFakeApi(overrides: Partial<Record<keyof HelioApi, unknown>> = {}): HelioApi {
   const fake = {
+    validatePipelineProposal: async (_p: PipelineProposal) => ({ valid: true }),
     listDataSources: async () => ({
       items: [{ id: "source-1", name: "Source 1", type: "static", createdAt: "", updatedAt: "" }],
       total: 1,
@@ -107,6 +108,42 @@ describe("proposePipelineHandler", () => {
         outputs: proposal.outputs,
       }),
     ).rejects.toThrow(HelioApiError);
+  });
+});
+
+describe("proposePipelineHandler server dry run (HEL-1638)", () => {
+  it("sends the assembled proposal to validatePipelineProposal before any read", async () => {
+    const order: string[] = [];
+    let sent: PipelineProposal | undefined;
+    const api = makeFakeApi({
+      validatePipelineProposal: async (p: PipelineProposal) => {
+        order.push("validate");
+        sent = p;
+        return { valid: true };
+      },
+      listDataSources: async () => {
+        order.push("list");
+        return { items: [], total: 0, offset: 0, limit: 200 };
+      },
+    });
+    await proposePipelineHandler(api, { ...proposal, roots: proposal.roots });
+    expect(sent).toEqual(proposal);
+    expect(order).toEqual(["validate", "list"]);
+  });
+
+  it("rejects with the backend message when the dry run rejects (the tool shell returns it as isError)", async () => {
+    const api = makeFakeApi({
+      validatePipelineProposal: async () => {
+        throw new HelioApiError(
+          400,
+          "/api/pipelines/validate-proposal",
+          "output 'O': fieldMapping references column(s) not present at this node: display_name. Available columns: team, wins",
+        );
+      },
+    });
+    await expect(proposePipelineHandler(api, { ...proposal })).rejects.toThrow(
+      "Available columns: team, wins",
+    );
   });
 });
 

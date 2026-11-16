@@ -20,7 +20,7 @@ class PatchSetPipelineDefinitionParitySpec extends DraftSaveApiFixture {
       val seed = seedPipeline()
       exec(seed.grant(userB, "editor"))
       val h = new DraftSaveHarness(ctx)
-      val definitionCtx = PatchSetApplyContext.build(h.panelRepo, h.dashboardRepo, h.dataSourceRepo, h.pipelineRepo, h.stepRepo, null, h.outputRepo)
+      val definitionCtx = PatchSetApplyContext.buildUncharged(h.panelRepo, h.dashboardRepo, h.dataSourceRepo, h.pipelineRepo, h.stepRepo, null, h.outputRepo)
       val summary = await(h.pipelineRepo.findSummaryByIdShared(PipelineId(seed.pipeline), Some(owner))).get
       val viaAction = PatchSetTargetFingerprint.of("pipeline", await(h.pipelineRepo.runPrivileged(PatchSetPipelineDefinition.ofAction(PipelineId(seed.pipeline), definitionCtx))))
       viaOf(h, seed.pipeline, definitionCtx, summary) shouldBe viaAction
@@ -31,7 +31,7 @@ class PatchSetPipelineDefinitionParitySpec extends DraftSaveApiFixture {
     "reflect a rename made after the caller's summary read" in {
       val seed = seedPipeline()
       val h = new DraftSaveHarness(ctx)
-      val definitionCtx = PatchSetApplyContext.build(h.panelRepo, h.dashboardRepo, h.dataSourceRepo, h.pipelineRepo, h.stepRepo, null, h.outputRepo)
+      val definitionCtx = PatchSetApplyContext.buildUncharged(h.panelRepo, h.dashboardRepo, h.dataSourceRepo, h.pipelineRepo, h.stepRepo, null, h.outputRepo)
       val staleSummary = await(h.pipelineRepo.findSummaryByIdShared(PipelineId(seed.pipeline), Some(owner))).get
       val before = viaOf(h, seed.pipeline, definitionCtx, staleSummary)
       exec(s"UPDATE pipelines SET name='renamed after the summary read' WHERE id='${seed.pipeline}'")

@@ -2,11 +2,12 @@ package com.helio.services.proposals
 
 
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.CombinedProposalService
-import com.helio.api.protocols.proposals.{CombinedProposal, DashboardProposal, ProposalPanel}
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.proposals.{CombinedProposal, DashboardProposal, ProposalPanel, ProposalPanelLayout}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, PipelineProposal, PipelineProposalSource}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.mockito.Mockito.{mock, when}
@@ -39,7 +40,7 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val user    = AuthenticatedUser(ownerId)
 
   private def newService(dataSourceRepo: DataSourceRepository): CombinedProposalService = {
-    val pipelineProposalService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
+    val pipelineProposalService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null, SourceFetchBudget.default())
     new CombinedProposalService(pipelineProposalService, new DashboardProposalService(null, null, outputRepo = mock(classOf[OutputRepository])))
   }
 
@@ -50,7 +51,9 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     PipelineProposal(
       pipelineName = "My Pipeline",
       roots        = Vector(PipelineProposalSource(Some(sourceId.value), None, None, None, None, None, None)),
-      steps        = Vector.empty
+      steps        = Vector.empty,
+      // HEL-1638: the sentinel panel needs exactly one Output (apply 422s otherwise); the old fixture had none.
+      outputs      = Vector(CreatePipelineTransactionalOutputRequest(None, "table", "Out"))
     )
 
   private def sentinelMetricPanel(): ProposalPanel =
@@ -88,6 +91,28 @@ class CombinedProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       val result   = await(newService(dsRepo).validate(combined, user))
 
       result shouldBe Right(())
+    }
+
+    // HEL-1638 task 1.2: apply's pre-write checks that combined validate used to skip.
+    "reject a sentinel panel when the pipeline creates two Outputs, with apply's message (HEL-1638)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+      val pipeline = validPipeline(sourceId)
+      val two      = pipeline.copy(outputs = pipeline.outputs :+ CreatePipelineTransactionalOutputRequest(None, "table", "Out2"))
+      val err = await(newService(dsRepo).validate(CombinedProposal(two, validDashboard()), user)).swap.toOption.getOrElse(fail("accepted"))
+      err shouldBe a[ServiceError.UnprocessableEntity]
+      err.message should include("created 2 Output(s)")
+    }
+
+    "reject overlapping panel layouts, with apply's layout message (HEL-1638)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
+      val a = sentinelMetricPanel().copy(layout = Some(ProposalPanelLayout(0, 0, 4, 3)))
+      val b = sentinelMetricPanel().copy(title = "Total 2", layout = Some(ProposalPanelLayout(2, 1, 4, 3)))
+      val err = await(newService(dsRepo).validate(CombinedProposal(validPipeline(sourceId), DashboardProposal("Sales", Vector(a, b))), user)).swap.toOption.getOrElse(fail("accepted"))
+      err.message should include("lg")
     }
 
     "reject an invalid pipeline portion (nonexistent source), proving the delegation is enforced" in {

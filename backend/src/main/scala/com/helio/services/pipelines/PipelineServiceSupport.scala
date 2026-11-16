@@ -81,11 +81,7 @@ private[pipelines] final class PipelineServiceSupport(
   private[pipelines] def resolveSecondarySourceSchemas(
       steps:   Iterable[(String, String)],
       resolve: DataSourceId => Future[Option[DataSource]]
-  ): Future[Map[String, Vector[SchemaField]]] = {
-    val ids = steps.flatMap { case (op, config) => PipelineAnalyzeService.secondarySourceIdOf(op, config) }.toVector.distinct
-    Future.traverse(ids)(id => resolve(DataSourceId(id)).map(id -> _.map(_.inferredSchema).filter(_.nonEmpty)))
-      .map(_.collect { case (id, Some(schema)) => id -> schema }.toMap)
-  }
+  ): Future[Map[String, Vector[SchemaField]]] = PipelineStepOwnership.resolveSecondarySourceSchemas(steps, resolve)
 
   /** Map the analyze service's stringly-typed step output back into the
    *  discriminated-union wire shape by re-decoding the config blob into its
@@ -161,23 +157,8 @@ private[pipelines] final class PipelineServiceSupport(
     }
   }
 
-  /** HEL-1100 (design.md Decision 1): an `upsertsource` step's target must be OWNED BY THE
-   *  PIPELINE OWNER, not the calling grantee -- resolved against
-   *  `AuthenticatedUser(pipeline.ownerId, ...)` (D5: writes always run as the owner), never the
-   *  caller's own identity. A grantee therefore cannot target the grantee's own dataset (rejected
-   *  here, "data source not found"), but can target the owner's. `None` for every non-`upsertsource`
-   *  config (mirrors `secondaryDataSourceId`'s own "no second source" no-op contract). */
   private[pipelines] def upsertOwnershipCheckF(typedConfig: Any, pipelineOwnerId: UserId, caller: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
-    typedConfig match {
-      case cfg: UpsertSourceConfig =>
-        val ownerUser = AuthenticatedUser(pipelineOwnerId, caller.source, caller.tokenId)
-        UpsertTargetCheck.check(cfg.target, ownerUser, dataSourceRepo).map {
-          case UpsertTargetCheck.NotFound(msg)    => Left(ServiceError.NotFound(msg))
-          case UpsertTargetCheck.NotWritable(msg) => Left(ServiceError.UnprocessableEntity(msg))
-          case UpsertTargetCheck.Writable         => Right(())
-        }
-      case _ => Future.successful(Right(()))
-    }
+    PipelineStepOwnership.upsertOwnershipCheck(dataSourceRepo, typedConfig, pipelineOwnerId, caller)
 
   private[pipelines] def toSummaryResponse(s: PipelineSummary): PipelineSummaryResponse =
     PipelineSummaryResponse(

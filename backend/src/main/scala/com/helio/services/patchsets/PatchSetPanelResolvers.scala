@@ -1,7 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.domain.panels.PanelConfigCodec
-import com.helio.services.panels.{FormBindingValidator, PanelServiceHelpers}
+import com.helio.services.panels.{FormBindingValidator, PanelCreateBuilder, PanelServiceHelpers}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
 import com.helio.api.protocols.patchsets.Edit
@@ -41,11 +41,15 @@ private[patchsets] object PatchSetPanelResolvers {
                 edit.panelPatch match {
                   case None => Future.successful(Left(ServiceError.BadRequest(s"edit $index: patch is required for a panel update")))
                   case Some(request) =>
-                    Future.successful(Right(ResolvedEdit(
-                      index, "panel", "update",
-                      Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
-                      ResolvedAction.PanelUpdate(panelId, request, panel)
-                    )))
+                    // HEL-1638 D3: `PanelService.update`'s validation chain over the effective (post-patch) config.
+                    ctx.panelDryRun.checkUpdate(panel, request, user).map {
+                      case Left(err) => Left(prefixedWithEdit(index, err))
+                      case Right(_) => Right(ResolvedEdit(
+                        index, "panel", "update",
+                        Some(panelResponseFormat.write(PanelResponse.fromDomain(panel))),
+                        ResolvedAction.PanelUpdate(panelId, request, panel)
+                      ))
+                    }
                 }
             }
         }
@@ -134,9 +138,16 @@ private[patchsets] object PatchSetPanelResolvers {
                 PanelServiceHelpers.resolveCreateConfig(request) match {
                   case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
                   case Right(createConfig) =>
-                    rejectUnboundOrBadlyBoundForm(request, createConfig, index, user, ctx).map {
-                      case Left(err) => Left(err)
-                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request), outputRefUse = use))
+                    rejectUnboundOrBadlyBoundForm(request, createConfig, index, user, ctx).flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(_) =>
+                        // HEL-1638 D3: `PanelService.create`'s build checks. A `$ref` Output does not exist yet (Sentinel);
+                        // any other binding is checked as apply checks it.
+                        val binding = if (use.isDefined) PanelCreateBuilder.Binding.Sentinel else PanelCreateBuilder.Binding.Real
+                        ctx.panelDryRun.check(request, user, binding).map {
+                          case Left(err) => Left(prefixedWithEdit(index, err))
+                          case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request), outputRefUse = use))
+                        }
                     }
                 }
             }
@@ -168,4 +179,11 @@ private[patchsets] object PatchSetPanelResolvers {
         }
       case _ => Future.successful(Right(()))
     }
+
+  private def prefixedWithEdit(index: Int, err: ServiceError): ServiceError = err match {
+    case ServiceError.UnprocessableEntity(msg) => ServiceError.UnprocessableEntity(s"edit $index: $msg")
+    case ServiceError.BadRequest(msg)          => ServiceError.BadRequest(s"edit $index: $msg")
+    case ServiceError.NotFound(msg)            => ServiceError.NotFound(s"edit $index: $msg")
+    case other                                 => other
+  }
 }

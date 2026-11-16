@@ -1,0 +1,34 @@
+MUTATION 1: drop parameters from the dry-run (shared createRest config build) path
+[info] - should issue the same composed request as apply's create (queryParams + parameters templating), through the real driver *** FAILED ***
+[info]   Vector() was not equal to Vector("/items?a=1&page=2&a=2") (ProposalDryRunRestSchemaSpec.scala:120)
+[info] - should refuse the (N+1)th propose-time fetch in the window without fetching, charging the shared source-fetch budget
+[info] - should fetch-failure rule: a failed root plus an Output on a healthy root is accepted (apply keeps the source with an empty schema)
+[info] Tests: succeeded 2, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+MUTATION 2: dry run does not charge the source-fetch budget
+[info] - should issue the same composed request as apply's create (queryParams + parameters templating), through the real driver
+[info] - should refuse the (N+1)th propose-time fetch in the window without fetching, charging the shared source-fetch budget *** FAILED ***
+[info]   java.util.NoSuchElementException: None.get
+[info]   at scala.None$.get(Option.scala:627)
+[info]   at scala.None$.get(Option.scala:626)
+[info]   at com.helio.services.pipelines.ProposalDryRunRestSchemaSpec.$anonfun$new$4(ProposalDryRunRestSchemaSpec.scala:139)
+[info]   at org.scalatest.OutcomeOf.outcomeOf(OutcomeOf.scala:85)
+[info]   at org.scalatest.OutcomeOf.outcomeOf$(OutcomeOf.scala:83)
+[info]   at org.scalatest.OutcomeOf$.outcomeOf(OutcomeOf.scala:104)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:22)
+[info]   at org.scalatest.Transformer.apply(Transformer.scala:20)
+[info]   at org.scalatest.wordspec.AnyWordSpecLike$$anon$3.apply(AnyWordSpecLike.scala:1240)
+[info]   at org.scalatest.TestSuite.withFixture(TestSuite.scala:196)
+[info]   ...
+[info] - should fetch-failure rule: a failed root plus an Output on a healthy root is accepted (apply keeps the source with an empty schema)
+[info] Tests: succeeded 2, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***
+
+MUTATION 3: fetch-failure rejection not reworded (apply's empty-columns message)
+[info] - should issue the same composed request as apply's create (queryParams + parameters templating), through the real driver
+[info] - should refuse the (N+1)th propose-time fetch in the window without fetching, charging the shared source-fetch budget
+[info] - should fetch-failure rule: a failed root plus an Output on a healthy root is accepted (apply keeps the source with an empty schema) *** FAILED ***
+[info]   "fieldMapping references column(s) not present at this node: team, wins. Available columns: " did not include substring "roots[0]: could not read the source schema" (ProposalDryRunRestSchemaSpec.scala:166)
+[info] Tests: succeeded 2, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

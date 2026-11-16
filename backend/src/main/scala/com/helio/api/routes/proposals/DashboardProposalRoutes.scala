@@ -1,6 +1,7 @@
 package com.helio.api.routes.proposals
 
 import com.helio.api.routes.ServiceResponse
+import com.helio.api.protocols.proposals.ProposalValidateResponse
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
@@ -28,6 +29,16 @@ final class DashboardProposalRoutes(
 
   val routes: Route =
     pathPrefix("dashboards") {
+      // HEL-1638 (D4): the propose-side dry run (see CombinedProposalRoutes for why it has no rate-limit directive of its own).
+      path("validate-proposal") {
+        post {
+          entity(as[DashboardProposal]) { proposal =>
+            ServiceResponse.run(proposalService.validate(proposal, user).map(_.map(_ => ProposalValidateResponse(valid = true)))) {
+              response => StatusCodes.OK -> response
+            }
+          }
+        }
+      } ~
       path("apply-proposal") {
         post {
           entity(as[DashboardProposal]) { proposal =>

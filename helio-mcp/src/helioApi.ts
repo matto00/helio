@@ -1000,6 +1000,19 @@ export class HelioApi {
   // client-side composition (create_pipeline with outputs[], then place_outputs), not a single
   // backend call -- there is no equivalent one-POST primitive in the new model.
 
+  /** Propose-side dry run of a dashboard proposal (HEL-1638, `POST /api/dashboards/validate-proposal`): runs the
+   *  checks apply runs before writing and writes nothing. Resolves `{valid: true}`; a rejection is apply's own
+   *  error status and message, thrown as a `HelioApiError`. */
+  validateDashboardProposal(proposal: DashboardProposal): Promise<{ valid: true }> {
+    return this.http.post<{ valid: true }>("/api/dashboards/validate-proposal", proposal);
+  }
+
+  /** Propose-side dry run of a pipeline proposal (HEL-1638, `POST /api/pipelines/validate-proposal`); same contract
+   *  as `validateDashboardProposal`. */
+  validatePipelineProposal(proposal: PipelineProposal): Promise<{ valid: true }> {
+    return this.http.post<{ valid: true }>("/api/pipelines/validate-proposal", proposal);
+  }
+
   /** Apply a reviewed proposal (HEL-225). Server validates + creates the
    *  dashboard + panels atomically via the existing services (RLS + V41). */
   applyProposal(

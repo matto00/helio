@@ -3,8 +3,8 @@ package com.helio.services.patchsets
 import com.helio.services.ServiceError
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.services.pipelines.PipelineCreatePreflight
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PipelineId}
+import com.helio.services.pipelines.{PipelineCreateDryRun, PipelineRootDryRun, PipelineRootWrites}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, PipelineId}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
 
@@ -89,6 +89,7 @@ private[patchsets] object PatchSetPipelineResolvers {
   private def prefixedWithEdit(index: Int, err: ServiceError): ServiceError = err match {
     case ServiceError.UnprocessableEntity(msg) => ServiceError.UnprocessableEntity(s"edit $index: $msg")
     case ServiceError.BadRequest(msg)          => ServiceError.BadRequest(s"edit $index: $msg")
+    case ServiceError.NotFound(msg)            => ServiceError.NotFound(s"edit $index: $msg")
     case other                                 => other
   }
 
@@ -111,32 +112,67 @@ private[patchsets] object PatchSetPipelineResolvers {
         if (request.roots.isEmpty)
           Future.successful(Left(ServiceError.BadRequest(s"edit $index: roots must be a non-empty array")))
         else {
-          def loop(remaining: List[CreatePipelineRootRequest]): Future[Either[ServiceError, Unit]] = remaining match {
+          // HEL-1638 D1b: `PipelineCreateWrites.checkedCreate`'s order -- (1) per root in order: shape (apply's messages via
+          // `PipelineRootWrites.shapeProblem`) and existing-source ownership; (2) the request-only preflight and cross-owner
+          // refs; (3) each root's schema as apply would persist it (inline create checks, budgeted live fetch), then the
+          // Output column check. The same `PipelineCreateDryRun` the proposal path runs. Apply's own `create` re-checks.
+          val dryRun = new PipelineCreateDryRun(ctx.dataSourceRepo)
+          def rootsLoop(remaining: List[CreatePipelineRootRequest]): Future[Either[ServiceError, Unit]] = remaining match {
             case Nil => Future.successful(Right(()))
             case root :: rest =>
-              // HEL-913 task 7.1a: an inline root (`sourceId` absent, `type` present) has no
-              // id yet to pre-check here -- apply-time `pipelineService.create` (this file's
-              // own doc, above) re-validates it authoritatively, inline branch included.
-              root.sourceId.map(_.trim) match {
-                case Some(sid) if sid.isEmpty =>
-                  Future.successful(Left(ServiceError.BadRequest(s"edit $index: roots: sourceId is required and must not be blank")))
-                case Some(sid) =>
-                  ctx.dataSourceRepo.findByIdOwned(DataSourceId(sid), user).flatMap {
-                    case None    => Future.successful(Left(ServiceError.NotFound(s"edit $index: data source not found: $sid")))
-                    case Some(_) => loop(rest)
+              PipelineRootWrites.shapeProblem(root) match {
+                case Some(err) => Future.successful(Left(err))
+                case None =>
+                  root.sourceId.map(_.trim) match {
+                    case Some(sid) =>
+                      ctx.dataSourceRepo.findByIdOwned(DataSourceId(sid), user).flatMap {
+                        case None    => Future.successful(Left(ServiceError.NotFound(s"data source not found: $sid")))
+                        case Some(_) => rootsLoop(rest)
+                      }
+                    case None => rootsLoop(rest)
                   }
-                case None => loop(rest)
               }
           }
-          loop(request.roots.toList).map {
-            case Left(err) => Left(err)
-            case Right(()) =>
-              // HEL-1402/HEL-1469: the SAME request-only step/Output pre-flight `PipelineService.create`
-              // runs before it creates any inline root source, surfaced at resolve time (4xx, nothing
-              // applied, no source created) instead of a forward-apply failure reported as HTTP 200 --
-              // for apply AND preview (which shares `resolveAll`). Root errors above stay first.
-              PipelineCreatePreflight.run(request).left.map(prefixedWithEdit(index, _))
-                .map(_ => ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
+          def rootSpec(root: CreatePipelineRootRequest): PipelineRootDryRun.Spec = {
+            val name = root.name.map(_.trim).getOrElse("")
+            root.sourceId.map(_.trim) match {
+              case Some(sid) => PipelineRootDryRun.Spec.Existing(sid)
+              case None =>
+                DataSourceKind.canonicalize(root.`type`.getOrElse("")) match {
+                  case DataSourceKind.Csv     => PipelineRootDryRun.Spec.Csv
+                  case DataSourceKind.Sql     => PipelineRootDryRun.Spec.Sql(name, root.sqlConfig.get)
+                  case DataSourceKind.RestApi => PipelineRootDryRun.Spec.Rest(name, root.restConfig.get)
+                  case _                      => PipelineRootDryRun.Spec.Static(name, root.staticConfig.get)
+                }
+            }
+          }
+          def rootSchemas(): Future[Either[ServiceError, Vector[PipelineRootDryRun.Root]]] =
+            request.roots.zipWithIndex.foldLeft(Future.successful[Either[ServiceError, Vector[PipelineRootDryRun.Root]]](Right(Vector.empty))) {
+              case (acc, (root, i)) =>
+                acc.flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(done) =>
+                    ctx.rootDryRun.rootSchema(rootSpec(root), s"roots[$i]", user, ctx.chargeFetches, "data source not found", ServiceError.UnprocessableEntity("inline csv sources are not supported for pipeline roots")).map(_.map(done :+ _))
+                }
+            }
+          val checked: Future[Either[ServiceError, Unit]] =
+            rootsLoop(request.roots.toList).flatMap {
+              case Left(err) => Future.successful(Left(err))
+              case Right(()) =>
+                dryRun.preflight(request, user).flatMap {
+                  case Left(err)   => Future.successful(Left(err))
+                  case Right(None) => Future.successful(Right(()))
+                  case Right(Some(indices)) =>
+                    rootSchemas().flatMap {
+                      case Left(err)    => Future.successful(Left(err))
+                      case Right(roots) =>
+                        dryRun.checkOutputs(request, indices, roots.map(_.schema), roots.zipWithIndex.collect { case (r, i) if r.fetchError.isDefined => i -> r.fetchError.get }.toMap, user)
+                    }
+                }
+            }
+          checked.map {
+            case Left(err) => Left(prefixedWithEdit(index, err))
+            case Right(()) => Right(ResolvedEdit(index, "pipeline", "create", None, ResolvedAction.PipelineCreate(request)))
           }
         }
     }

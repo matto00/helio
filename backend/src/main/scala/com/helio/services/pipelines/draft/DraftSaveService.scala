@@ -45,7 +45,7 @@ final class DraftSaveService(
   private val writes = new PipelineDraftWrites(locks, pipelineRootRepo, pipelineStepRepo, outputRepo)
   private val reads  = new DraftDefinitionReads(pipelineStepRepo, outputRepo)
   // Only the repositories `ofAction` reads are used; the rest of the patch-set context is not touched by a definition read.
-  private val definitionCtx = PatchSetApplyContext.build(panelRepo, null, dataSourceRepo, pipelineRepo, pipelineStepRepo, null, outputRepo)
+  private val definitionCtx = PatchSetApplyContext.buildUncharged(panelRepo, null, dataSourceRepo, pipelineRepo, pipelineStepRepo, null, outputRepo)
   private val transaction = new DraftSaveTransaction(
     writes, pipelineStepRepo, outputRepo, panelRepo, applicationRepo, auditRepo, definitionCtx, reads, hooks
   )

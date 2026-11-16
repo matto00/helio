@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{NewConnectorDraft, ProposalRestApiConfig}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.ServiceError
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -16,7 +17,7 @@ class PipelineProposalServiceRestConfigSpec extends AnyWordSpec with Matchers {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val service = new PipelineProposalService(null, null, null, null, null, null)
+  private val service = new PipelineProposalService(null, null, null, null, null, null, SourceFetchBudget.default())
 
   private val draft = NewConnectorDraft("Stripe", "https://api.stripe.com", "api_key", Some("Authorization"), Some("header"), "Get it from the dashboard")
 

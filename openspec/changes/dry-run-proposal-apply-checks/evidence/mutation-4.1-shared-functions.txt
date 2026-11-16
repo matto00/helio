@@ -1,0 +1,24 @@
+Parity spec (dry-run + apply sides), PipelineProposalServiceValidateSpec (dry run), DisabledStepOutputColumnRoutesSpec (POST /api/pipelines = apply's createTransactional)
+== Mutation A: outputNodeSchemas returns an empty analyzed map ==
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[info] - should reject an Output mapping a column dropped by an upstream select, and one never in the source, with apply's column message (HEL-1638) *** FAILED ***
+[info] - should be accepted when that step is disabled (transparent) *** FAILED ***
+[info] - should agree between propose and apply: pipeline: Output maps a column present at its node (select keeps it) *** FAILED ***
+[info] - should agree between propose and apply: pipeline: Output maps a column dropped by an upstream select *** FAILED ***
+[info] - should agree between propose and apply: pipeline: disabled step upstream of an Output: a column the source has is accepted *** FAILED ***
+[info] - should agree between propose and apply: pipeline: failed rest root plus a step-produced mapped column *** FAILED ***
+[info] Tests: succeeded 29, failed 6, canceled 0, ignored 0, pending 0
+[info] *** 6 TESTS FAILED ***
+== Mutation B: outputMappingProblem always Right ==
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+[info] - should reject an Output mapping a column dropped by an upstream select, and one never in the source, with apply's column message (HEL-1638) *** FAILED ***
+[info] - should GUARD: be rejected with the column message when the step is enabled *** FAILED ***
+[info] - should agree between propose and apply: pipeline: Output maps a column dropped by an upstream select *** FAILED ***
+[info] - should agree between propose and apply: pipeline: Output maps a column that was never in the source *** FAILED ***
+[info] - should agree between propose and apply: pipeline: disabled step upstream of an Output: the column it would have produced is rejected *** FAILED ***
+[info] - should agree between propose and apply: pipeline: failed rest root plus a source column of that root *** FAILED ***
+[info] - should agree between propose and apply: pipeline: inline static root, mapped column missing *** FAILED ***
+[info] - should agree between propose and apply: patch-set: patch-set pipeline create, existing-source root, Output maps a missing column *** FAILED ***
+[info] - should agree between propose and apply: patch-set: patch-set pipeline create, inline static root, missing column *** FAILED ***
+[info] Tests: succeeded 26, failed 9, canceled 0, ignored 0, pending 0
+[info] *** 9 TESTS FAILED ***

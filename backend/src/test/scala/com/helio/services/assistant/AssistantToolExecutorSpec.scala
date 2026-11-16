@@ -1,6 +1,7 @@
 package com.helio.services.assistant
 
 import com.helio.services.assistant.AssistantToolExecutor
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.patchsets.PatchSetPreviewService
 import com.helio.services.pipelines.PipelineProposalService
@@ -10,8 +11,9 @@ import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchSer
 import com.helio.api.protocols.assistant.AssistantProposal
 import com.helio.api.protocols.patchsets.{PatchSet, PatchSetPreviewResponse}
 import com.helio.api.protocols.proposals.{CombinedProposal, CombinedProposalProtocol, DashboardProposal, ProposalPanel}
-import com.helio.api.protocols.sources.{CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
-import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
+import com.helio.services.ServiceError
+import com.helio.api.protocols.sources.{CreateSourceRequest, SqlCreateSourceRequest, CsvSourceConfigPayload, RestApiConfigPayload, SqlInferRequest, SqlSourceConfigPayload, StaticColumnPayload, StaticDataPayload, TestConnectionResponse}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.infrastructure.ai.ClaudeContentBlock
@@ -94,7 +96,7 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
     // working instance via `pipelineProposalServiceOverride`.
     val pipelineProposalService =
       if (pipelineProposalServiceOverride != null) pipelineProposalServiceOverride
-      else new PipelineProposalService(null, null, null, null, null, null)
+      else new PipelineProposalService(sourceService, null, null, null, null, null, SourceFetchBudget.default())
     new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -510,6 +512,9 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val config          = restConfig()
       val sourceServiceM  = mock(classOf[SourceService])
       when(sourceServiceM.testRest(config, user)).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      // HEL-1638: validate now dry-runs the inline root's schema through the source service; the fetch itself is not under test here.
+      when(sourceServiceM.dryRunRestSchema(any[CreateSourceRequest](), any[AuthenticatedUser](), any[() => Either[ServiceError, Unit]]()))
+        .thenReturn(Future.successful(Right(SourceService.InlineDryRunSchema(Vector.empty, None))))
       val executor = newExecutor(sourceService = sourceServiceM)
 
       await(executor.execute("test_connection", JsObject("type" -> JsString("rest_api"), "config" -> executorJson.restApiConfigPayloadFormat.write(config))))
@@ -525,8 +530,10 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val config         = sqlConfig()
       val sourceServiceM = mock(classOf[SourceService])
       when(sourceServiceM.testSql(SqlInferRequest("sql", config))).thenReturn(Future.successful(Right(TestConnectionResponse(ok = true, error = None))))
+      when(sourceServiceM.dryRunSqlSchema(any[SqlCreateSourceRequest](), any[AuthenticatedUser](), any[() => Either[ServiceError, Unit]]()))
+        .thenReturn(Future.successful(Right(SourceService.InlineDryRunSchema(Vector.empty, None))))
       val realCombined = new CombinedProposalService(
-        new PipelineProposalService(null, null, null, null, null, null),
+        new PipelineProposalService(sourceServiceM, null, null, null, null, null, SourceFetchBudget.default()),
         new DashboardProposalService(null, null, mock(classOf[OutputRepository]))
       )
       val executor = newExecutor(combinedProposalService = realCombined, sourceService = sourceServiceM)
@@ -580,13 +587,33 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
       val dataSourceRepo = mock(classOf[DataSourceRepository])
       val existing         = RestSource(DataSourceId("src_existing"), "Existing REST", ownerId, now, now, RestApiConfig(connectorId = "conn-1", endpoint = "https://api.example.com", method = "GET", headers = Map.empty))
       when(dataSourceRepo.findByIdOwned(DataSourceId("src_existing"), user)).thenReturn(Future.successful(Some(existing)))
-      val realPipelineService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
+      val realPipelineService = new PipelineProposalService(null, null, null, null, dataSourceRepo, null, SourceFetchBudget.default())
       val executor              = newExecutor(pipelineProposalServiceOverride = realPipelineService)
 
       val proposal = pipelineProposalWith(sourceIdSource("src_existing"))
       val result    = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
 
       result shouldBe a[Right[_, _]]
+    }
+
+    // HEL-1638 task 1.3 (red first): a propose whose Output maps a missing column is a Left naming the available
+    // columns (the assistant loop turns a Left into an is_error tool_result), and nothing is captured.
+    "reject propose_pipeline whose Output maps a column absent at its node, naming the available columns, capturing nothing (HEL-1638)" in {
+      val dataSourceRepo = mock(classOf[DataSourceRepository])
+      val rosters = DatasetSource(DataSourceId("src_rosters"), "Rosters", ownerId, now, now,
+        inferredSchema = Vector(SchemaField("roster_id", "string"), SchemaField("owner_id", "string")))
+      when(dataSourceRepo.findByIdOwned(DataSourceId("src_rosters"), user)).thenReturn(Future.successful(Some(rosters)))
+      val executor = newExecutor(pipelineProposalServiceOverride = new PipelineProposalService(null, null, null, null, dataSourceRepo, null, SourceFetchBudget.default()))
+      val base = pipelineProposalWith(sourceIdSource("src_rosters"))
+      val proposal = base.copy(
+        steps = Vector(CreatePipelineTransactionalStepRequest("sel", "select", """{"fields":["roster_id","owner_id"]}""".parseJson.asJsObject)),
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(Some("sel"), "chart", "Teams",
+          Some("""{"chartType":"bar","fieldMapping":{"xAxis":"display_name","yAxis":"roster_id"}}""".parseJson.asJsObject)))
+      )
+      val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
+      val message = result.swap.toOption.getOrElse(fail("accepted"))
+      message should include("display_name")
+      message should include("Available columns: owner_id, roster_id")
     }
 
     "let propose_pipeline proceed to validate for an inline static source with no test_connection call" in {
@@ -608,7 +635,9 @@ class AssistantToolExecutorSpec extends AnyWordSpec with Matchers {
 
       val result = await(executor.execute("propose_pipeline", executorJson.pipelineProposalFormat.write(proposal)))
 
-      result shouldBe a[Right[_, _]]
+      // HEL-1638: validate now runs apply's inline-csv rejection, so this is a Left -- carrying apply's csv message,
+      // NOT the test_connection gate's, which is what proves the gate was bypassed.
+      result.swap.toOption.getOrElse(fail("accepted")) should include("inline csv sources are not supported")
     }
   }
 

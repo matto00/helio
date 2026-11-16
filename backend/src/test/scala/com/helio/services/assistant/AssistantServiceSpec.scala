@@ -1,6 +1,7 @@
 package com.helio.services.assistant
 
 import com.helio.api.protocols.sources.{RestApiConfigPayload, StaticColumnPayload, StaticDataPayload}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol}
 import com.helio.api.protocols.pipelines.{PipelineProposalSource, ProposalRestApiConfig}
 import com.helio.api.protocols.assistant.AssistantTurnResult
@@ -149,7 +150,7 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // degrades to `rowCount = 0`).
     val panelCapabilityService   = new PanelCapabilityService(outputRepo, null)
     val dashboardProposalService = new DashboardProposalService(null, null, outputRepo)
-    val pipelineProposalService  = new PipelineProposalService(null, null, null, null, dsRepo, null)
+    val pipelineProposalService  = new PipelineProposalService(null, null, null, null, dsRepo, null, SourceFetchBudget.default())
     val claudeClient             = new ClaudeClient(config(), transport)
     // combinedProposalService/patchSetPreviewService/sourceService: null — no scripted sequence
     // below invokes propose_combined/propose_patch_set/test_connection (mirrors

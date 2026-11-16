@@ -59,48 +59,20 @@ private[pipelines] final class PipelineRootWrites(
   private def resolveInlineRootSourceId(kind: String, req: CreatePipelineRootRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSourceId]] =
     if (sourceService == null || dataSourceService == null)
       Future.successful(Left(ServiceError.InternalError("Inline root sources are unavailable (no SourceService/DataSourceService configured)")))
-    else
-      req.name.map(_.trim).filter(_.nonEmpty) match {
-        case None => Future.successful(Left(ServiceError.BadRequest("roots: name is required for an inline source")))
-        case Some(name) =>
-          // HEL-1073 design.md Decision 2: canonicalize before matching so a "static" inline
-          // type (legacy caller) resolves the same branch as "dataset".
-          DataSourceKind.canonicalize(kind) match {
-            case DataSourceKind.Csv =>
-              Future.successful(Left(ServiceError.UnprocessableEntity(
-                "inline csv sources are not supported for pipeline roots; create the CSV source separately and reference it via sourceId"
-              )))
-            case DataSourceKind.Sql =>
-              req.sqlConfig match {
-                case None      => Future.successful(Left(ServiceError.BadRequest("roots: config is required for an inline source")))
-                case Some(cfg) =>
-                  sourceService.createSql(SqlCreateSourceRequest(name, DataSourceKind.Sql, cfg), user).map {
-                    case Left(err)  => Left(err)
-                    case Right(csr) => Right(DataSourceId(csr.source.id))
-                  }
-              }
-            case DataSourceKind.RestApi =>
-              req.restConfig match {
-                case None      => Future.successful(Left(ServiceError.BadRequest("roots: config is required for an inline source")))
-                case Some(cfg) =>
-                  sourceService.createRest(CreateSourceRequest(name, DataSourceKind.RestApi, cfg, fieldOverrides = None), user).map {
-                    case Left(err)  => Left(err)
-                    case Right(csr) => Right(DataSourceId(csr.source.id))
-                  }
-              }
-            case DataSourceKind.Dataset =>
-              req.staticConfig match {
-                case None      => Future.successful(Left(ServiceError.BadRequest("roots: config is required for an inline source")))
-                case Some(cfg) =>
-                  dataSourceService.createStatic(StaticDataSourceRequest(name, DataSourceKind.Dataset, cfg.columns, cfg.rows), user).map {
-                    case Left(err) => Left(err)
-                    case Right(ds) => Right(ds.id)
-                  }
-              }
-            case other =>
-              Future.successful(Left(ServiceError.BadRequest(s"roots: unrecognized inline type '$other'")))
-          }
-      }
+    else PipelineRootWrites.inlineShapeProblem(kind, req) match {
+      case Some(err) => Future.successful(Left(err))
+      case None =>
+        val name = req.name.map(_.trim).getOrElse("")
+        DataSourceKind.canonicalize(kind) match {
+          case DataSourceKind.Sql =>
+            sourceService.createSql(SqlCreateSourceRequest(name, DataSourceKind.Sql, req.sqlConfig.get), user).map(_.map(csr => DataSourceId(csr.source.id)))
+          case DataSourceKind.RestApi =>
+            sourceService.createRest(CreateSourceRequest(name, DataSourceKind.RestApi, req.restConfig.get, fieldOverrides = None), user).map(_.map(csr => DataSourceId(csr.source.id)))
+          case _ => // Dataset: `inlineShapeProblem` already rejected every other kind
+            val cfg = req.staticConfig.get
+            dataSourceService.createStatic(StaticDataSourceRequest(name, DataSourceKind.Dataset, cfg.columns, cfg.rows), user).map(_.map(_.id))
+        }
+    }
 
   /** `POST /api/pipelines/:id/roots` (HEL-913 task 7.4/7.1a, R6) — appends a new root at the
    *  next available position. Requires Editor or Owner. `req` is `CreatePipelineRootRequest`,
@@ -223,4 +195,36 @@ private[pipelines] final class PipelineRootWrites(
               } yield result
           }
       }
+}
+
+private[services] object PipelineRootWrites {
+
+  /** The request-only shape errors of an inline root (`type` present, no `sourceId`): `name` required, then the kind's config
+   *  present, csv unsupported, unknown kind. The ONE place those messages live: [[PipelineRootWrites.resolveOneRootSourceId]]
+   *  (apply), `PipelineCreateWrites.rootShapeProblem` and the patch-set create dry run all call it. */
+  def inlineShapeProblem(kind: String, req: CreatePipelineRootRequest): Option[ServiceError] =
+    if (req.name.map(_.trim).forall(_.isEmpty)) Some(ServiceError.BadRequest("roots: name is required for an inline source"))
+    else {
+      val missingConfig = Some(ServiceError.BadRequest("roots: config is required for an inline source"))
+      DataSourceKind.canonicalize(kind) match {
+        case DataSourceKind.Csv =>
+          Some(ServiceError.UnprocessableEntity(
+            "inline csv sources are not supported for pipeline roots; create the CSV source separately and reference it via sourceId"
+          ))
+        case DataSourceKind.Sql     => if (req.sqlConfig.isEmpty) missingConfig else None
+        case DataSourceKind.RestApi => if (req.restConfig.isEmpty) missingConfig else None
+        case DataSourceKind.Dataset => if (req.staticConfig.isEmpty) missingConfig else None
+        case other                  => Some(ServiceError.BadRequest(s"roots: unrecognized inline type '$other'"))
+      }
+    }
+
+  /** Root shape (`sourceId` xor inline `type`, blank id, then [[inlineShapeProblem]]) with apply's messages and statuses. */
+  def shapeProblem(req: CreatePipelineRootRequest): Option[ServiceError] =
+    (req.sourceId.map(_.trim), req.`type`) match {
+      case (Some(sid), None) if sid.nonEmpty => None
+      case (Some(_), None)    => Some(ServiceError.BadRequest("roots: sourceId is required and must not be blank"))
+      case (Some(_), Some(_)) => Some(ServiceError.BadRequest("roots: specify either sourceId or an inline type, not both"))
+      case (None, None)       => Some(ServiceError.BadRequest("roots: sourceId or inline type is required"))
+      case (None, Some(kind)) => inlineShapeProblem(kind, req)
+    }
 }

@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
 import com.helio.api.protocols.pipelines._
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
@@ -101,7 +102,7 @@ class OutputCompareWriteValidationSpec
   "the patch-set preview of an Output update" should {
     "reject an invalid compare exactly like apply would (400), and accept a valid one" in {
       val (_, oid) = seedMetricOutput(ownerId, None)
-      val preview  = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, stepRepo, accessChecker, outputRepo)(harnessEc)
+      val preview  = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, stepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default())(harnessEc)
       def edit(c: JsValue) = PatchSet(None, Vector(
         Edit(EditTarget("output", Some(oid), None), "update", None, None, None, None, None, None, Some(UpdateOutputRequest(None, Some(cfg(c)))))
       ))
