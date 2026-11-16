@@ -23,12 +23,19 @@ export interface EditTarget {
   kind: PatchSetTargetKind;
   id?: string;
   /** Names the parent resource a not-yet-existing CHILD resource is created under -- required for a
-   *  `create` targeting a child kind (currently only `pipelineStep`), omitted for update/delete. */
+   *  `create` targeting a child kind (`pipelineStep` and `output`, both naming the pipeline), omitted for
+   *  update/delete and for a `panel` create (a panel's dashboard is `patch.dashboardId`). */
   parentId?: string;
+  /** HEL-1639: a short name a CREATE edit may carry so a LATER panel create of the same set can bind to what it
+   *  creates with `patch.config.outputId = "$ref:<ref>"`. Never persisted; survives fingerprint stamping unchanged. */
+  ref?: string;
   /** HEL-1458: opaque hash of the target's editable state, issued by preview on update/delete edits and echoed on
    *  apply so the server refuses (409 PATCH_SET_STALE) a target changed since that preview. Never set on a create. */
   fingerprint?: string;
 }
+
+/** Prefix of a panel create's `config.outputId` that names an earlier `output` create of the same patch set. */
+export const OUTPUT_REF_PREFIX = "$ref:";
 
 /** One targeted edit. `patch`'s real shape reuses the existing per-resource
  *  PATCH/create request shape matching `target.kind` (the same type the

@@ -1207,10 +1207,13 @@ export interface EditTarget {
   kind: McpPatchSetTargetKind;
   id?: string;
   /** HEL-914 task 5.1: names the parent resource a not-yet-existing CHILD resource is created
-   *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`,
-   *  whose `parentId` is the existing parent pipeline's id) and must be OMITTED for
-   *  update/delete, where it is meaningless. */
+   *  under -- REQUIRED for a `pipelineStep` or `output` create (both name the existing parent
+   *  pipeline), OMITTED for update/delete (meaningless there) and for a `panel` create (its
+   *  dashboard is `patch.dashboardId`). */
   parentId?: string;
+  /** HEL-1639: create edits only -- a short name a LATER `panel` create of the same set binds to with
+   *  `patch.config.outputId = "$ref:<ref>"`. */
+  ref?: string;
   /** HEL-1458: opaque hash of the target's state, stamped by `propose_patch_set` on update/delete edits. Pass it
    *  through unchanged: apply answers 409 (nothing applied) when the target changed since. Never set on a create. */
   fingerprint?: string;

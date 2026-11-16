@@ -3,7 +3,7 @@ package com.helio.services.patchsets
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, DashboardResponse}
 import com.helio.api.protocols.patchsets.Edit
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, PipelineId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, OutputKind, PipelineId, ResourceAccess}
 import PatchSetApplyServiceJson._
 import spray.json.JsonReader
 
@@ -35,30 +35,42 @@ private[services] object PatchSetApplyResolvers {
   import PatchSetDataSourceResolvers.{resolveDataSourceUpdate, resolveDataSourceDelete, resolveDataSourceCreate}
   import PatchSetPipelineResolvers.{resolvePipelineUpdate, resolvePipelineDelete, resolvePipelineCreate}
   import PatchSetPipelineStepResolvers.{resolvePipelineStepUpdate, resolvePipelineStepDelete, resolvePipelineStepCreate}
-  import PatchSetOutputResolvers.{resolveOutputUpdate, resolveOutputDelete}
+  import PatchSetOutputResolvers.{resolveOutputUpdate, resolveOutputDelete, resolveOutputCreate, rejectEditedOutputNodes}
 
   def resolveAll(
       edits: Vector[Edit],
       user: AuthenticatedUser,
       ctx: PatchSetApplyContext
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, Vector[ResolvedEdit]]] = {
-    def loop(remaining: Vector[(Edit, Int)], acc: Vector[ResolvedEdit]): Future[Either[ServiceError, Vector[ResolvedEdit]]] =
+    def loop(remaining: Vector[(Edit, Int)], acc: Vector[ResolvedEdit], refs: PatchSetRefs): Future[Either[ServiceError, Vector[ResolvedEdit]]] =
       remaining.headOption match {
         case None => Future.successful(Right(acc))
         case Some((edit, index)) =>
-          resolveEdit(edit, index, user, ctx).flatMap {
-            case Left(err)       => Future.successful(Left(err))
-            case Right(resolved) => loop(remaining.tail, acc :+ resolved)
+          PatchSetRefs.checkDefinition(edit, index, refs) match {
+            case Left(err) => Future.successful(Left(err))
+            case Right(_) =>
+              resolveEdit(edit, index, user, ctx, refs).flatMap {
+                case Left(err) => Future.successful(Left(err))
+                case Right(resolved) =>
+                  val tagged = resolved.copy(ref = edit.target.ref)
+                  loop(remaining.tail, acc :+ tagged, PatchSetRefs.register(refs, tagged))
+              }
           }
       }
-    loop(edits.zipWithIndex, Vector.empty)
+    loop(edits.zipWithIndex, Vector.empty, PatchSetRefs.empty).flatMap {
+      case Left(err)       => Future.successful(Left(err))
+      // HEL-1639 D2: preview and apply must judge an Output create against the same saved schema, so a set that also
+      // edits that node's steps is refused as a whole.
+      case Right(resolved) => rejectEditedOutputNodes(resolved, ctx).map(_.toLeft(resolved))
+    }
   }
 
   private def resolveEdit(
       edit: Edit,
       index: Int,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
+      ctx: PatchSetApplyContext,
+      refs: PatchSetRefs
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
     // HEL-914 task 5.1/D3: `target.parentId` is REJECTED, not ignored, on update/delete --
     // checked once, generically, here rather than duplicated into every update/delete resolver.
@@ -72,7 +84,7 @@ private[services] object PatchSetApplyResolvers {
     (edit.target.kind, edit.op) match {
       case ("panel", "update")        => resolvePanelUpdate(edit, index, user, ctx)
       case ("panel", "delete")        => resolvePanelDelete(edit, index, user, ctx)
-      case ("panel", "create")        => resolvePanelCreate(edit, index, user, ctx)
+      case ("panel", "create")        => resolvePanelCreate(edit, index, user, ctx, refs)
       case ("dashboard", "update")    => resolveDashboardUpdate(edit, index, user, ctx)
       case ("dashboard", "delete")    => resolveDashboardDelete(edit, index, user, ctx)
       case ("dashboard", "create")    => resolveDashboardCreate(edit, index, user, ctx)
@@ -90,13 +102,7 @@ private[services] object PatchSetApplyResolvers {
       case ("pipelineStep", "create") => resolvePipelineStepCreate(edit, index, user, ctx)
       case ("output", "update") => resolveOutputUpdate(edit, index, user, ctx)
       case ("output", "delete") => resolveOutputDelete(edit, index, user, ctx)
-      case ("output", "create") =>
-        // HEL-914 task 5.1/6b.6/6b.7: `EditTarget.parentId` (added for `pipelineStep` create,
-        // above) makes an `output` create REPRESENTABLE too, but this ticket neither implements
-        // nor tests one -- a deliberate, documented absence, not a remaining impossibility (the
-        // parent-id gap that used to explain rejecting THIS kind is closed; only lack of
-        // coverage keeps it rejected).
-        Future.successful(Left(ServiceError.BadRequest(s"edit $index: create is not supported for output")))
+      case ("output", "create") => resolveOutputCreate(edit, index, user, ctx)
       case (kind, op) =>
         Future.successful(Left(ServiceError.BadRequest(s"edit $index: unsupported target.kind '$kind' for op '$op'")))
     }

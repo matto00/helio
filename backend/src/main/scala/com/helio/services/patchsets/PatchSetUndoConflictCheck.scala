@@ -4,7 +4,7 @@ import com.helio.api.protocols.dashboards.{DashboardLayoutItemResponse, Dashboar
 import com.helio.api.protocols.sources.DataSourceResponse
 import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
 import com.helio.api.protocols.panels.PanelResponse
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DashboardLayout, DashboardLayoutItem, DataSourceId, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DashboardLayout, DashboardLayoutItem, DataSourceId, OutputId, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.domain.steps.SecondaryInput
 import com.helio.services.panels.LayoutPolicy
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
@@ -60,8 +60,20 @@ private[services] object PatchSetUndoConflictCheck {
       case ("pipeline", "update" | "create")  => checkPipeline(edit, user, ctx)
       case ("pipelineStep", "update")         => checkPipelineStep(edit, ctx)
       case ("pipelineStep", "create")         => checkPipelineStepCreate(edit, ctx)
+      case ("output", "create")               => checkOutputCreate(edit, user, ctx)
       case (kind, op)                          =>
         Future.successful(Some(s"edit ${edit.index}: no undo path for target.kind '$kind' op '$op'"))
+    }
+
+  /** HEL-1639 D2: the Output an apply created must still exist for its undo to delete it. */
+  private def checkOutputCreate(edit: JournaledEdit, user: AuthenticatedUser, ctx: PatchSetUndoContext)(implicit ec: ExecutionContext): Future[Option[String]] =
+    edit.newId match {
+      case None => Future.successful(Some(missing(edit)))
+      case Some(id) =>
+        ctx.outputRepo.findById(OutputId(id), user).map {
+          case None    => Some(changed(edit, s"output $id no longer exists"))
+          case Some(_) => None
+        }
     }
 
   private def missing(edit: JournaledEdit): String =

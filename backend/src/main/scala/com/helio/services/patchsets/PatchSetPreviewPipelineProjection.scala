@@ -2,7 +2,7 @@ package com.helio.services.patchsets
 
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.OutputService
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineSummaryResponse, UpdateOutputRequest, UpdatePipelineRequest}
+import com.helio.api.protocols.pipelines.{CreateOutputRequest, CreatePipelineRequest, CreatePipelineRootRequest, PipelineRootSummaryResponse, PipelineSummaryResponse, UpdateOutputRequest, UpdatePipelineRequest}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineSummary
 import PatchSetApplyServiceJson._
@@ -30,6 +30,22 @@ private[patchsets] object PatchSetPreviewPipelineProjection {
       val config  = merged.getOrElse(priorConfig)
       (outputResponseFormat.write(outputResponseFrom(updated, config)), updated, config)
     }
+  }
+
+  /** HEL-1639 D2: the pending Output an `output` create adds -- a field echo of the (already resolved and validated)
+   *  request under the `"(pending)"` sentinel id, like every other create projection. */
+  private[patchsets] def outputCreateAfter(pipelineId: PipelineId, request: CreateOutputRequest, user: AuthenticatedUser): JsValue = {
+    val now = Instant.now()
+    val output = Output(
+      id        = OutputId(PatchSetPreviewProjection.PendingId),
+      name      = request.name.trim,
+      ownerId   = user.id,
+      node      = NodeRef(pipelineId, request.nodeStepId.map(PipelineStepId(_))),
+      kind      = OutputKind.fromString(request.kind).getOrElse(OutputKind.Table),
+      createdAt = now,
+      updatedAt = now
+    )
+    outputResponseFormat.write(outputResponseFrom(output, request.config.getOrElse(JsObject.empty)))
   }
 
   /** Mirrors `PipelineService.updateName`'s blank-name check

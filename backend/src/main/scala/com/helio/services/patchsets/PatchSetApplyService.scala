@@ -9,7 +9,7 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.patchsets.{EditOutcome, PatchSet, PatchSetApplyResponse}
 import com.helio.domain.panels.PanelConfigCodec
-import com.helio.domain.model.{AuthenticatedUser, PatchSetApplicationId}
+import com.helio.domain.model.{AuthenticatedUser, OutputId, PatchSetApplicationId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
@@ -129,23 +129,40 @@ final class PatchSetApplyService(
     def loop(
         remaining: Vector[ResolvedEdit],
         applied: Vector[(ResolvedEdit, EditOutcome)],
-        rawConfigs: Map[Int, JsValue]
+        rawConfigs: Map[Int, JsValue],
+        createdByRef: Map[String, String]
     ): Future[Either[(ServiceError, Vector[(ResolvedEdit, EditOutcome)]), (Vector[(ResolvedEdit, EditOutcome)], Map[Int, JsValue])]] =
       remaining.headOption match {
         case None => Future.successful(Right((applied, rawConfigs)))
-        case Some(edit) =>
-          PatchSetApplyForward.applyOne(edit, user, services).flatMap {
+        case Some(declared) =>
+          // HEL-1639 D2: a panel create bound by `$ref` gets the real id of the Output an earlier edit just created.
+          PatchSetRefs.substitute(declared, createdByRef) match {
             case Left(err) => Future.successful(Left((err, applied)))
-            case Right(outcome) =>
-              captureRawPanelConfig(edit).flatMap { rawConfigOpt =>
-                val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
-                loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs)
+            case Right(edit) =>
+              PatchSetApplyForward.applyOne(edit, user, services).flatMap {
+                case Left(err) => Future.successful(Left((err, applied)))
+                case Right(outcome) =>
+                  captureRawPanelConfig(edit).flatMap { rawConfigOpt =>
+                    val nextRawConfigs = rawConfigOpt.fold(rawConfigs)(json => rawConfigs + (edit.index -> json))
+                    val nextCreated = (edit.ref, edit.action, outcome.newId) match {
+                      case (Some(ref), _: ResolvedAction.OutputCreate, Some(id)) => createdByRef + (ref -> id)
+                      case _                                                      => createdByRef
+                    }
+                    loop(remaining.tail, applied :+ (edit -> outcome), nextRawConfigs, nextCreated)
+                  }
               }
           }
       }
 
-    loop(resolved, Vector.empty, Map.empty).flatMap {
+    loop(resolved, Vector.empty, Map.empty, Map.empty).flatMap {
       case Right((appliedAll, rawConfigs)) =>
+        // HEL-1639 D2: created Outputs are backfilled only now that the whole set has applied, so a rolled-back set
+        // never triggers one.
+        if (services.outputService != null)
+          services.outputService.backfillCreated(
+            appliedAll.collect { case (e, o) if e.action.isInstanceOf[ResolvedAction.OutputCreate] => o.newId }.flatten.map(OutputId(_)),
+            user
+          )
         journalSuccess(appliedAll, rawConfigs, user).map { applicationId =>
           Right(PatchSetApplyResponse(appliedAll.map(_._2), failure = None, applicationId = Some(applicationId)))
         }

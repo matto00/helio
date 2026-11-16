@@ -4,7 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.sources.{DataSourceService, InlineSourceCleanup, SourceService}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, PipelineStepConfigCodec, ProposalOutputSummary, ProposalRestApiConfig}
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, DataSourceResponse, SqlCreateSourceRequest, SqlSourceConfigPayload, StaticDataSourceRequest}
-import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, DataSourceKind, OutputId, OutputKind, PipelineId, PipelineStep, PipelineStepKind}
 import com.helio.domain.connectors.SqlConnectorDriver
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
@@ -108,9 +108,20 @@ final class PipelineProposalService(
     source.sourceId match {
       case None => Future.successful(Right(()))
       case Some(sourceId) =>
-        dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).map {
-          case None    => Left(ServiceError.NotFound(s"${PipelineService.rootAddress(idx)}: data source not found"))
-          case Some(_) => Right(())
+        dataSourceRepo.findByIdOwned(DataSourceId(sourceId), user).flatMap {
+          case Some(_) => Future.successful(Right(()))
+          case None =>
+            // HEL-1639 D4: the commonest mistake is an Output id in `sourceId`. Name it, and name the pipeline to extend, but
+            // only when the caller can read that Output (owner or pipeline grantee): a stranger's Output id is just an
+            // unknown source, so nothing leaks across tenants.
+            OutputReadAccess.readablePipelineId(outputRepo, pipelineService, OutputId(sourceId), user).map {
+              case Some(pipelineId) =>
+                Left(ServiceError.BadRequest(
+                  s"${PipelineService.rootAddress(idx)}: '$sourceId' is an Output, not a data source. Outputs cannot be pipeline roots; " +
+                    s"add steps or Outputs to its pipeline $pipelineId with propose_patch_set"
+                ))
+              case None => Left(ServiceError.NotFound(s"${PipelineService.rootAddress(idx)}: data source not found"))
+            }
         }
     }
 
@@ -286,9 +297,9 @@ final class PipelineProposalService(
       Left(ServiceError.BadRequest(
         s"step ${idx + 1} ('${step.clientId}'): rootClientId '${step.rootClientId.get}' must be a root's clientId in this same proposal"
       ))
-    else if (!PipelineStepKind.All.contains(step.`type`))
+    else if (!PipelineStepKind.Authorable.contains(step.`type`))
       Left(ServiceError.BadRequest(
-        s"step ${idx + 1}: invalid type '${step.`type`}'. Allowed values: ${PipelineStepKind.All.toSeq.sorted.mkString(", ")}"
+        s"step ${idx + 1}: invalid type '${step.`type`}'. Valid step types: ${PipelineStepKind.Authorable.toSeq.sorted.mkString(", ")}"
       ))
     else
       // HEL-814 D0/D2: checking only decode Success/Failure lets a wrong-shape config through,
@@ -299,7 +310,14 @@ final class PipelineProposalService(
         case Some(msg) => Left(ServiceError.UnprocessableEntity(s"step ${idx + 1}: $msg"))
         case None =>
           PipelineStepConfigCodec.decode(step.`type`, step.config.compactPrint) match {
-            case Success(_) => Right(())
+            case Success(_) =>
+              // HEL-1639 D4: the full schema-independent config check analyze itself runs (declared required
+              // keys plus the per-kind validators), so `lookup {}` is rejected here, naming the missing keys,
+              // instead of passing propose and failing at apply.
+              ProposalStepRules.problem(step.`type`, step.config.compactPrint) match {
+                case Some(problems) => Left(ServiceError.UnprocessableEntity(s"step ${idx + 1} ('${step.`type`}'): $problems"))
+                case None           => Right(())
+              }
             case Failure(_) => Left(ServiceError.BadRequest(s"step ${idx + 1}: invalid '${step.`type`}' config"))
           }
       }

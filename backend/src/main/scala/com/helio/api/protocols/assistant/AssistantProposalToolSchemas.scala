@@ -1,6 +1,7 @@
 package com.helio.api.protocols.assistant
 
-import com.helio.domain.panels.ChartTypes
+import com.helio.domain.model.{OutputKind, PipelineStepKind}
+import com.helio.domain.panels.{ChartTypes, OutputBindingSpec}
 import com.helio.domain.patchsets.PatchSetTargetKinds
 import com.helio.services.pipelines.OutputConfigValidation
 import com.helio.infrastructure.ai.ClaudeTool
@@ -161,10 +162,29 @@ private[protocols] trait AssistantProposalToolSchemas {
     "examples" -> JsArray(Vector(DashboardProposalExample, DashboardProposalFormExample))
   )
 
+  /** HEL-1639 D3/D7: how an Output's chart/table shape is written, generated from the binding specs so it cannot drift:
+   *  `config.fieldMapping` maps each slot to a column name that exists AT the Output's node. */
+  private val OutputShapeDoc: String = {
+    val slots = OutputBindingSpec.All.map { spec =>
+      val required = spec.requiredSlots
+      val optional = spec.optionalSlots.map(_ + "?")
+      val all      = required ++ optional
+      s"${OutputKind.asString(spec.outputKind)}: ${if (all.isEmpty) "no slots" else all.mkString(", ")}"
+    }
+    "An Output's shape lives in its config: config.fieldMapping maps each slot to a column name that exists at the " +
+      s"Output's node (slots -- ${slots.mkString("; ")}), and a chart also sets config.chartType. A panel never carries fieldMapping."
+  }
+
   // ── PipelineProposal (schemas/pipelines/pipeline-proposal.schema.json) ───────────────────────────────────
 
   private val PipelineProposalSourceSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "description" -> JsString(
+      "One pipeline root. EITHER an existing data source: {sourceId} alone (no `type`), OR a new inline source: " +
+        "{type, name, config}. Never both. sourceId must be a DATA SOURCE id from find; an Output id is NOT a source " +
+        "(to build on an Output's data, add steps/Outputs to its pipeline with propose_patch_set)."
+    ),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "sourceId" -> JsObject(
         "type" -> JsString("string"),
@@ -208,8 +228,15 @@ private[protocols] trait AssistantProposalToolSchemas {
     )
   )
 
+  // HEL-1639 D3: strict step shape. `type` is the registry's authorable step types (never a hand list); the `oneOf`
+  // narrows `config` to the chosen op's schema (see AssistantStepSchemas, pinned to the registry by its spec).
   private val PipelineProposalStepSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "description" -> JsString(
+      "One pipeline step. type MUST be one of the listed step types (there is no passthrough); config MUST match " +
+        "that type's shape. Reference columns that exist at the step's input (the previous step's outputSchema)."
+    ),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "clientId" -> JsObject(
         "type" -> JsString("string"),
@@ -218,7 +245,7 @@ private[protocols] trait AssistantProposalToolSchemas {
             "output's nodeStepClientId, target this step within the SAME proposal."
         )
       ),
-      "type"         -> JsObject("type" -> JsString("string")),
+      "type"         -> enumSchema(PipelineStepKind.Authorable.toSeq.sorted: _*),
       "config"       -> JsObject("type" -> JsString("object")),
       "parentStepId" -> JsObject(
         "type" -> JsString("string"),
@@ -243,13 +270,15 @@ private[protocols] trait AssistantProposalToolSchemas {
         )
       )
     ),
-    "required" -> JsArray(Vector(JsString("clientId"), JsString("type"), JsString("config")))
+    "required" -> JsArray(Vector(JsString("clientId"), JsString("type"), JsString("config"))),
+    "oneOf" -> AssistantStepSchemas.stepVariants
   )
 
   // HEL-907 task 1.1: a proposal's Output(s) -- zero, one, or many, each optionally targeting a
   // specific step (by clientId) rather than always the pipeline's final trunk step.
   private val PipelineProposalOutputSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "nodeStepClientId" -> JsObject(
         "type" -> JsString("string"),
@@ -265,7 +294,7 @@ private[protocols] trait AssistantProposalToolSchemas {
       "name"   -> JsObject("type" -> JsString("string")),
       "config" -> JsObject(
         "type"        -> JsString("object"),
-        "description" -> JsString(OutputConfigValidation.KeysDoc)
+        "description" -> JsString(OutputShapeDoc + " " + OutputConfigValidation.KeysDoc)
       ),
       "rootClientId" -> JsObject(
         "type" -> JsArray(Vector(JsString("string"), JsString("null"))),
@@ -301,6 +330,7 @@ private[protocols] trait AssistantProposalToolSchemas {
 
   private val PipelineProposalSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "pipelineName" -> JsObject("type" -> JsString("string")),
       "roots"        -> JsObject(
@@ -377,15 +407,24 @@ private[protocols] trait AssistantProposalToolSchemas {
 
   private val EditTargetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "kind" -> enumSchema(PatchSetTargetKinds.All: _*),
-      "id"   -> JsObject("type" -> JsString("string")),
+      "id"   -> JsObject("type" -> JsString("string"), "description" -> JsString("The existing resource's id. Required for update/delete; omit for create.")),
       "parentId" -> JsObject(
         "type" -> JsString("string"),
         "description" -> JsString(
-          "HEL-914: names the parent resource a not-yet-existing CHILD resource is created under -- " +
-            "REQUIRED for a create targeting a child kind (currently only pipelineStep, whose parentId " +
-            "is the existing parent pipeline's id) and must be OMITTED for update/delete."
+          "Names the existing parent of a CHILD resource being created. Required ONLY for a pipelineStep create (the " +
+            "pipeline's id) and an output create (the pipeline's id). Omit it for every other create -- in particular a " +
+            "panel create takes its dashboard from patch.dashboardId, NOT from here -- and for update/delete."
+        )
+      ),
+      "ref" -> JsObject(
+        "type" -> JsString("string"),
+        "description" -> JsString(
+          "Create edits only: a short name (a-z, 0-9, _ or -, starting with a letter, max 32) so a LATER panel create in " +
+            "the same set can bind to what this creates, with patch.config.outputId = \"$ref:<ref>\". Only output " +
+            "creates can be referenced; the ref must come before the panel that uses it."
         )
       ),
       "fingerprint" -> JsObject(
@@ -400,18 +439,25 @@ private[protocols] trait AssistantProposalToolSchemas {
 
   private val EditSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "target" -> EditTargetSchema,
       "op"     -> enumSchema("update", "delete", "create"),
       "patch" -> JsObject(
         "type" -> JsString("object"),
         "description" -> JsString(
-          "Partial update/create body matching target.kind's existing update-request/create-request " +
-            "shape. Absent for delete edits. target.id is required for update/delete. A pipelineStep " +
-            "create's patch must ALSO set attachAsTail: true to add a SIBLING lane off " +
+          "Partial update/create body matching target.kind's existing update-request/create-request shape. Absent for " +
+            "delete edits. target.id is required for update/delete. " +
+            "panel create: { dashboardId, title, type: \"output\", config: { outputId } } -- dashboardId is the EXISTING " +
+            "dashboard's id (get_resource on the dashboard), outputId is an Output's id or \"$ref:<ref>\" of an earlier " +
+            "output create; a panel NEVER carries fieldMapping/aggregation (they are rejected). " +
+            "output create (target.parentId = the pipeline's id): { name, kind, nodeStepId, config } -- nodeStepId MUST be " +
+            "a step id of that pipeline whose outputSchema (get_resource on the pipeline) has every column the " +
+            "config.fieldMapping names. " + OutputShapeDoc + " " +
+            "A pipelineStep create's patch must ALSO set attachAsTail: true to add a SIBLING lane off " +
             "patch.parentStepId -- omitting it instead SPLICES the new step in directly after " +
             "patch.parentStepId, reparenting that step's existing children onto the new step (a " +
-            "trunk insertion, not a new lane). For target.kind \"output\" (update only), patch is " +
+            "trunk insertion, not a new lane). For target.kind \"output\" update, patch is " +
             "{ name?, config? } and patch.config is shallow-merged: " + OutputConfigValidation.KeysDoc
         )
       )
@@ -434,15 +480,45 @@ private[protocols] trait AssistantProposalToolSchemas {
       ]
     }""".parseJson
 
+  // HEL-1639 D7: the worked case the whole change is about -- add chart Outputs to an EXISTING pipeline at the node that
+  // has the columns, and bind new panels on the EXISTING dashboard, in ONE proposal. Decode-pinned like the others.
+  private val PatchSetOutputAndPanelExample: JsValue =
+    """{
+      "summary": "Add a wins chart to the Standings dashboard",
+      "edits": [
+        {
+          "target": { "kind": "output", "parentId": "pipeline_example_from_get_resource", "ref": "wins" },
+          "op": "create",
+          "patch": {
+            "name": "Wins by team",
+            "kind": "chart",
+            "nodeStepId": "step_example_with_display_name",
+            "config": { "chartType": "bar", "fieldMapping": { "xAxis": "display_name", "yAxis": "settings.wins" } }
+          }
+        },
+        {
+          "target": { "kind": "panel" },
+          "op": "create",
+          "patch": {
+            "dashboardId": "dashboard_example_from_find",
+            "title": "Wins by team",
+            "type": "output",
+            "config": { "outputId": "$ref:wins" }
+          }
+        }
+      ]
+    }""".parseJson
+
   private val PatchSetSchema: JsObject = JsObject(
     "type" -> JsString("object"),
+    "additionalProperties" -> JsFalse,
     "properties" -> JsObject(
       "summary" -> JsObject("type" -> JsString("string")),
       "edits"   -> JsObject("type" -> JsString("array"), "items" -> EditSchema),
       "proposalId" -> JsObject("type" -> JsString("string"), "description" -> JsString("Server-assigned. Omit."))
     ),
     "required" -> JsArray(Vector(JsString("edits"))),
-    "examples" -> JsArray(Vector(PatchSetExample))
+    "examples" -> JsArray(Vector(PatchSetOutputAndPanelExample, PatchSetExample))
   )
 
   //
@@ -518,7 +594,8 @@ private[protocols] trait AssistantProposalToolSchemas {
   val proposeDashboardTool: ClaudeTool = ClaudeTool(
     name = "propose_dashboard",
     description =
-      "Propose a new dashboard (name + panels) bound to EXISTING pipeline-output Outputs. " +
+      "Propose a NEW dashboard (name + panels) bound to EXISTING pipeline-output Outputs -- applying it ALWAYS creates a " +
+        "new dashboard, even when one with that name exists; to change an existing dashboard use propose_patch_set. " +
         "Validated but NEVER created — the user reviews and applies it separately. Use when the " +
         "workspace already has data that answers the goal; check get_resource's panelCapabilities " +
         "for an Output before proposing a panel kind against it.",
@@ -528,9 +605,10 @@ private[protocols] trait AssistantProposalToolSchemas {
   val proposePipelineTool: ClaudeTool = ClaudeTool(
     name = "propose_pipeline",
     description =
-      "Propose a new pipeline (source + ordered transform steps + output name). " +
-        "Validated but NEVER created. Use when find turns up no existing Output that can answer " +
-        "the goal.",
+      "Propose a NEW pipeline (source + ordered transform steps + Outputs). Several Outputs can hang off one pipeline: " +
+        "prefer ONE pipeline with all the Outputs you need. roots[].sourceId must be a DATA SOURCE id, never an Output id. " +
+        "Validated but NEVER created. To add Outputs to a pipeline that already exists, use propose_patch_set instead. " +
+        "At most one propose_* call per response is evaluated: put everything in one call.",
     inputSchema = PipelineProposalSchema
   )
 
@@ -549,9 +627,10 @@ private[protocols] trait AssistantProposalToolSchemas {
     name = "propose_patch_set",
     description =
       "Propose an ordered list of targeted edits (update/delete/create) against one or more " +
-        s"EXISTING resources (${PatchSetTargetKinds.AllSlashed}). Previewed " +
-        "but NEVER applied. Use when the goal is refining something that already exists rather than " +
-        "creating something new.",
+        s"EXISTING resources (${PatchSetTargetKinds.AllSlashed}). Previewed but NEVER applied. This is THE tool to add " +
+        "Outputs to an existing pipeline (output create) and panels to an existing dashboard (panel create, bound to an " +
+        "Output by id or by \"$ref:<ref>\" of an output create earlier in the same set), and to refine anything that " +
+        "already exists. Put every edit of the change in ONE call; if it fails, fix and re-propose the whole set.",
     inputSchema = PatchSetSchema
   )
 

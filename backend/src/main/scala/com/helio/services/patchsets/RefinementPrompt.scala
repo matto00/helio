@@ -36,7 +36,8 @@ object RefinementPrompt extends PipelineStepProtocol {
       "change to that exact same new resource, put the COMPLETE desired end state directly in the " +
       "create edit's own patch instead of splitting it across two edits — never guess or reuse an " +
       "unrelated existing id as a stand-in for a not-yet-created one; that silently mutates the wrong " +
-      "real resource instead of failing loudly.\n" +
+      "real resource instead of failing loudly. (The assistant's propose_patch_set has an explicit " +
+      "target.ref / \"$ref:\" mechanism for this; refinement does NOT offer it, so it never applies here.)\n" +
       "- A panel edit's config.outputId (create or update) MUST be a real, currently-existing Output " +
       "id from the state listed below — an output-kind panel has NO fieldMapping/aggregation/" +
       "chartType/baseType/layout/timelineOptions of its own at all; those all live on the Output " +

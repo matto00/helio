@@ -7,6 +7,7 @@ import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
 import com.helio.api.protocols.patchsets.Edit
 import com.helio.domain.model.{AuthenticatedUser, PanelId}
 import PatchSetApplyServiceJson._
+import spray.json.{JsObject, JsString}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -79,11 +80,51 @@ private[patchsets] object PatchSetPanelResolvers {
       edit: Edit,
       index: Int,
       user: AuthenticatedUser,
-      ctx: PatchSetApplyContext
+      ctx: PatchSetApplyContext,
+      refs: PatchSetRefs = PatchSetRefs.empty
   )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
-    decodeCreatePatch[CreatePanelRequest](edit, index) match {
+    rejectMisplacedShape(edit, index).flatMap(_ => decodeCreatePatch[CreatePanelRequest](edit, index)) match {
       case Left(err) => Future.successful(Left(err))
       case Right(request) =>
+        outputRefUse(request, index, refs) match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(use) => resolveValidatedPanelCreate(edit, request, use, index, user, ctx)
+        }
+    }
+
+  /** HEL-1639 D3: a panel create takes its dashboard from `patch.dashboardId` (never `target.parentId`), and an output
+   *  panel binds an Output by id only -- the chart shape (kind, fieldMapping, aggregation) lives on the Output. Both
+   *  mistakes used to be silently ignored or reported as a bare "dashboardId is required", so the model repeated them. */
+  private def rejectMisplacedShape(edit: Edit, index: Int): Either[ServiceError, Unit] =
+    if (edit.target.parentId.exists(_.trim.nonEmpty))
+      Left(ServiceError.BadRequest(s"edit $index: a panel create takes its dashboard from patch.dashboardId; remove target.parentId"))
+    else {
+      val patch  = edit.createPatch.collect { case o: JsObject => o }
+      val config = patch.flatMap(_.fields.get("config")).collect { case o: JsObject => o }
+      val isOutput = patch.flatMap(_.fields.get("type")).contains(JsString("output"))
+      val misplaced = if (isOutput) config.toVector.flatMap(c => Vector("fieldMapping", "aggregation").filter(c.fields.contains)) else Vector.empty
+      if (misplaced.isEmpty) Right(())
+      else Left(ServiceError.BadRequest(
+        s"edit $index: ${misplaced.mkString(" and ")} in a panel's config has no effect: chart shape belongs on the Output (kind + fieldMapping). " +
+          "Create the Output with an output create edit (or use an Output that already has that shape) and bind the panel with config.outputId only"
+      ))
+    }
+
+  /** A `config.outputId` of `"$ref:<ref>"` must name an EARLIER output create of the same set. */
+  private def outputRefUse(request: CreatePanelRequest, index: Int, refs: PatchSetRefs): Either[ServiceError, Option[OutputRefUse]] =
+    request.config.collect { case o: JsObject => o }.flatMap(_.fields.get("outputId")).collect { case JsString(id) => id }.flatMap(PatchSetRefs.refOf) match {
+      case None      => Right(None)
+      case Some(ref) => PatchSetRefs.resolveUse(ref, index, refs).map(Some(_))
+    }
+
+  private def resolveValidatedPanelCreate(
+      edit: Edit,
+      request: CreatePanelRequest,
+      use: Option[OutputRefUse],
+      index: Int,
+      user: AuthenticatedUser,
+      ctx: PatchSetApplyContext
+  )(implicit ec: ExecutionContext): Future[Either[ServiceError, ResolvedEdit]] =
         PanelServiceHelpers.validateCreatePanelRequest(request) match {
           case Left(msg) => Future.successful(Left(ServiceError.BadRequest(s"edit $index: $msg")))
           case Right(dashboardId) =>
@@ -95,12 +136,11 @@ private[patchsets] object PatchSetPanelResolvers {
                   case Right(createConfig) =>
                     rejectUnboundOrBadlyBoundForm(request, createConfig, index, user, ctx).map {
                       case Left(err) => Left(err)
-                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request)))
+                      case Right(_)  => Right(ResolvedEdit(index, "panel", "create", None, ResolvedAction.PanelCreate(request), outputRefUse = use))
                     }
                 }
             }
         }
-    }
 
   /** HEL-1148 design.md D4 "Patch-set create": a `form` panel created by a patch-set must carry a
    *  non-empty `config.dataSourceId` and pass the shared `FormBindingValidator` (caller-owned,

@@ -2,7 +2,7 @@
 
 Cross-domain workspace-wide operations: NL search/get_resource, context-budget building for the assistant, and teardown/cleanup.
 
-Holds: `WorkspaceAssistantTools`, `WorkspaceContextBudget`, `WorkspaceContextService`, `WorkspaceSearchService`, `WorkspaceTeardownService`.
+Holds: `WorkspaceAssistantTools`, `WorkspaceContextBudget`, `WorkspaceContextService`, `WorkspaceSearchService`, `SecretRedaction`, `WorkspaceTeardownService`.
 
 Does NOT hold: business logic for other domains, or persistence
 (`infrastructure/persistence/workspace/`) — this directory's files call

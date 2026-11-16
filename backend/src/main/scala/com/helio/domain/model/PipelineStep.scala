@@ -413,6 +413,10 @@ object PipelineStepKind {
    *  is checked by nothing. */
   def All: Set[String] = PipelineStep.Registry.keySet
 
+  /** HEL-1639 D3/D4: the kinds an assistant (or any proposal author) may name -- every registered kind whose
+   *  companion is `authorable` (excludes the legacy `groupby`). Derived from the registry, never a second list. */
+  def Authorable: Set[String] = PipelineStep.Registry.collect { case (kind, c) if c.authorable => kind }.toSet
+
   def parseKind(s: String): Either[String, String] =
     if (All.contains(s)) Right(s)
     else Left(s"Unknown step op: '$s'. Valid values: ${All.toSeq.sorted.mkString(", ")}")

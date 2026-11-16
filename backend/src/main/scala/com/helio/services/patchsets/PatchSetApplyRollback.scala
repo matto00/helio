@@ -188,6 +188,17 @@ private[services] object PatchSetApplyRollback {
             edit.toOutcome("rolledBack", resultingState = Some(outputResponseFormat.write(outputResponseFrom(output, config))))
           case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
         }
+      case ResolvedAction.OutputCreate(_, _) =>
+        // HEL-1639 D2: delete what the create just made. Rollback walks the set in reverse, so a panel bound to this
+        // Output by `$ref` has already been removed by its own compensation; the delete cascades to any that remain.
+        forwardOutcome.newId match {
+          case None => Future.successful(edit.toOutcome("unrecoverable"))
+          case Some(idStr) =>
+            services.outputService.delete(OutputId(idStr), user).map {
+              case Right(_)  => edit.toOutcome("rolledBack")
+              case Left(err) => logFailure(edit, err.message); edit.toOutcome("unrecoverable")
+            }
+        }
       case ResolvedAction.OutputDelete(_, _) =>
         // design.md D1 precedent (dashboard/dataSource/pipeline delete, same file): cascades to
         // every placement Panel bound to this Output (V94 `panels.output_id ON DELETE CASCADE`,

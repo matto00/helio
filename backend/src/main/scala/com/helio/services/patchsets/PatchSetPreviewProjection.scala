@@ -164,6 +164,13 @@ private[services] object PatchSetPreviewProjection {
         }
       case ResolvedAction.OutputDelete(id, _) =>
         unlessRemoved(overlay, "output", id.value, "Output")(Right((None, overlay)))
+      // HEL-1639 D2: a pending Output; a later panel create names it by `$ref`, carried on that edit, so nothing is added
+      // to the overlay (a pending Output has no stored row for anything to read).
+      case ResolvedAction.OutputCreate(pipelineId, request) =>
+        Future.successful(
+          if (overlay.isRemoved("pipeline", pipelineId.value)) Left(gone("Pipeline"))
+          else Right((Some(PatchSetPreviewPipelineProjection.outputCreateAfter(pipelineId, request, user)), overlay))
+        )
     }
 
   /** A panel create: rejected when the dashboard or Output it names was deleted by an earlier edit; otherwise its
@@ -180,10 +187,12 @@ private[services] object PatchSetPreviewProjection {
     val dashboardId = panel.dashboardId.value
     val outputId    = Option(panel).collect { case o: OutputPanel => o.outputId }.flatten
     if (overlay.isRemoved("dashboard", dashboardId)) Future.successful(Left(gone("Dashboard")))
-    else if (outputId.exists(o => overlay.isRemoved("output", o.value))) Future.successful(Left(gone("Output")))
+    else if (outputId.exists(o => edit.outputRefUse.isEmpty && overlay.isRemoved("output", o.value))) Future.successful(Left(gone("Output")))
     else {
       val kindF = outputId match {
         case None    => Future.successful(None)
+        // A `$ref:` binding names an Output this set creates: its kind is the referenced create's, and there is no row to read.
+        case Some(_) if edit.outputRefUse.isDefined => Future.successful(edit.outputRefUse.map(_.kind))
         case Some(o) => overlay.outputs.get(o.value).map(x => Future.successful(Option(x._1))).getOrElse(ctx.outputRepo.findByIdInternal(o)).map(_.map(_.kind))
       }
       kindF.map { kind =>

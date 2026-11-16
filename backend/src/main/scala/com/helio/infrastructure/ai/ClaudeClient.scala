@@ -125,8 +125,14 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                 } else if (thisHop > request.maxHops) {
                   Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage))
                 } else {
+                  val rejected = rejectedOncePerResponse(toolUses, request.oncePerResponseTools)
                   Future
-                    .traverse(toolUses)(executeTool(executor, _))
+                    .traverse(toolUses) { tu =>
+                      rejected.get(tu.id) match {
+                        case Some(message) => Future.successful(ClaudeContentBlock.ToolResult(tu.id, message, isError = true))
+                        case None          => executeTool(executor, tu)
+                      }
+                    }
                     .flatMap { toolResults =>
                       val userTurn = ClaudeToolMessage(ClaudeRole.User, toolResults)
                       loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage, newWebSearchUsed)
@@ -137,6 +143,16 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
 
     loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0), webSearchUsed = 0)
   }
+
+  /** HEL-1639 D5: within ONE response, the first `tool_use` among the tools named in `oncePerResponse` (block order) runs;
+   *  every later one maps to the error text the model gets instead of a result, by tool-use id. A `tool_use` of any other tool is never rejected. */
+  private def rejectedOncePerResponse(toolUses: Seq[ClaudeContentBlock.ToolUse], oncePerResponse: Set[String]): Map[String, String] =
+    // The named tools share ONE slot per response regardless of which one: a turn yields one proposal.
+    toolUses.filter(tu => oncePerResponse.contains(tu.name)).drop(1).map(tu => tu.id -> OncePerResponseMessage).toMap
+
+  private val OncePerResponseMessage: String =
+    "only one propose_* call per response is evaluated. A turn yields ONE proposal: put every edit (all Output creates " +
+      "and panel creates) in a single propose_patch_set call, and re-propose the whole set if it fails"
 
   /** Invokes the caller-supplied executor for a single `tool_use` block; an explicit `Left` becomes
    *  an `isError = true` `ToolResult` rather than failing the overall `Future` (design.md D7) — and

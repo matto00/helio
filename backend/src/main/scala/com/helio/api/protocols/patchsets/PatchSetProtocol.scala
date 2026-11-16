@@ -43,7 +43,15 @@ import scala.collection.mutable
 /** `fingerprint` (HEL-1458) is an opaque `v1:` content hash of the target's editable state, issued by
  *  preview and by refinement; apply refuses with 409 when it no longer matches. Optional so a caller that
  *  sends none keeps today's behaviour, and rejected on a `create` edit at resolution (never in the reader). */
-final case class EditTarget(kind: String, id: Option[String], parentId: Option[String] = None, fingerprint: Option[String] = None)
+final case class EditTarget(
+    kind: String,
+    id: Option[String],
+    parentId: Option[String] = None,
+    fingerprint: Option[String] = None,
+    // HEL-1639 D2: a short name a CREATE edit may carry so a LATER edit of the same set can refer to what it creates
+    // (a panel create binds `config.outputId` to `"$ref:<ref>"`). Never persisted; omitted on the wire when absent.
+    ref: Option[String] = None
+)
 
 /** `op`'s `update`-patch is decoded into exactly ONE of the six `Option`
  *  fields below, selected by `target.kind` — the same multi-`Option`-field-
@@ -104,6 +112,7 @@ trait PatchSetProtocol
       t.id.foreach(v => fields("id") = JsString(v))
       t.parentId.foreach(v => fields("parentId") = JsString(v))
       t.fingerprint.foreach(v => fields("fingerprint") = JsString(v))
+      t.ref.foreach(v => fields("ref") = JsString(v))
       JsObject(fields.toMap)
     }
     def read(json: JsValue): EditTarget = {
@@ -112,7 +121,8 @@ trait PatchSetProtocol
         kind     = obj.fields.get("kind").map(_.convertTo[String]).getOrElse(deserializationError("edit target 'kind' is required")),
         id       = obj.fields.get("id").map(_.convertTo[String]),
         parentId = obj.fields.get("parentId").map(_.convertTo[String]),
-        fingerprint = obj.fields.get("fingerprint").map(_.convertTo[String])
+        fingerprint = obj.fields.get("fingerprint").map(_.convertTo[String]),
+        ref      = obj.fields.get("ref").map(_.convertTo[String])
       )
     }
   }

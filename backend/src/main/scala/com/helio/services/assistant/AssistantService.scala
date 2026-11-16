@@ -83,7 +83,9 @@ final class AssistantService(
       // HEL-757 design.md D1 — every converse call offers Claude's server-side web_search tool,
       // unconditionally: never gated on message content/intent (the sole caller of sendWithTools
       // is this one call site, so "every assistant turn" resolves cleanly to "always true" here).
-      webSearch = true
+      webSearch = true,
+      // HEL-1639 D5: a turn yields ONE proposal; only the first propose_* of a response runs.
+      oncePerResponseTools = AssistantProtocol.proposeToolNames
     )
     // `history` (the CALLER-supplied prefix, before `seedHistory` folds AssistantSystemPrompt.text
     // into it) is threaded through to `toTurnResult` for two purposes: desanitizing the RETURNED

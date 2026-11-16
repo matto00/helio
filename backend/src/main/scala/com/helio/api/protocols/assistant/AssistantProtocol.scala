@@ -106,4 +106,8 @@ object AssistantProtocol extends AssistantProposalToolSchemas {
     proposeCombinedTool,
     proposePatchSetTool
   )
+
+  /** HEL-1639 D5: the tools of which only the first call in one model response runs. */
+  val proposeToolNames: Set[String] =
+    Set(proposeDashboardTool, proposePipelineTool, proposeCombinedTool, proposePatchSetTool).map(_.name)
 }

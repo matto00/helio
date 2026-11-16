@@ -107,5 +107,10 @@ private[services] object PatchSetApplyForward {
         })
       case ResolvedAction.OutputDelete(id, _) =>
         services.outputService.delete(id, user).map(_.map(_ => edit.toOutcome("applied")))
+      // HEL-1639 D2: no backfill here -- apply triggers it for every created Output once the whole set has succeeded.
+      case ResolvedAction.OutputCreate(pipelineId, request) =>
+        services.outputService.create(pipelineId, request, user, backfill = false).map(_.map { case (output, config) =>
+          edit.toOutcome("applied", newId = Some(output.id.value), resultingState = Some(outputResponseFormat.write(outputResponseFrom(output, config))))
+        })
     }
 }

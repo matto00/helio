@@ -251,7 +251,7 @@ class WorkspaceSearchServiceSpec
   "find (5.2 no match)" should {
     "return an empty result, not an error, for a query matching no owned resource" in {
       createDashboard(userA, "find-52-real-dashboard")
-      val results = await(service.find(userA, "find-52-nonexistent-query-xyz"))
+      val results = await(service.find(userA, "zzqxnomatchzz"))
       results shouldBe empty
     }
   }
@@ -300,7 +300,7 @@ class WorkspaceSearchServiceSpec
 
       val result = await(service.getResource(userA, pipeline.id, WorkspaceResourceType.Pipeline))
       result match {
-        case Right(WorkspaceResourceDetail.PipelineDetail(detail)) => detail.id shouldBe pipeline.id
+        case Right(WorkspaceResourceDetail.PipelineDetail(detail, _, _)) => detail.id shouldBe pipeline.id
         case other => fail(s"expected Right(PipelineDetail), got $other")
       }
     }
@@ -326,7 +326,7 @@ class WorkspaceSearchServiceSpec
 
       val result = await(service.getResource(userA, pipeline.outputDataTypeId, WorkspaceResourceType.DataType))
       result match {
-        case Right(WorkspaceResourceDetail.DataTypeDetail(detail)) =>
+        case Right(WorkspaceResourceDetail.DataTypeDetail(detail, _, _)) =>
           detail.columns shouldBe fromAssemble.columns
           detail.sampleRows shouldBe fromAssemble.sampleRows
           detail.columnStats shouldBe fromAssemble.columnStats

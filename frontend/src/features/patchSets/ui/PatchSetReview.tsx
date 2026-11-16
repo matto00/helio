@@ -5,6 +5,7 @@ import type {
   PatchSetPreviewResponse,
   PatchSetStaleRejection,
 } from "../types/patchSet";
+import { describeCreate } from "./createSummary";
 import "./PatchSetReview.css";
 
 interface PatchSetReviewProps {
@@ -151,6 +152,7 @@ function PatchSetEditRow({ edit }: { edit: EditPreview }) {
   // nothing to diff against (one side is entirely absent), so they keep the raw before/after panes.
   const changed = edit.op === "update" ? changedFields(edit.before, edit.after) : [];
   const showChangedFields = changed.length > 0;
+  const createLine = describeCreate(edit);
 
   return (
     <li className="patch-set-review__edit">
@@ -158,6 +160,8 @@ function PatchSetEditRow({ edit }: { edit: EditPreview }) {
         <span className="patch-set-review__kind">{edit.kind}</span>
         <span className="patch-set-review__op">{edit.op}</span>
       </div>
+
+      {createLine && <p className="patch-set-review__summary">{createLine}</p>}
 
       {edit.impact.length > 0 && (
         <ul className="patch-set-review__impact" aria-label={`Impact for edit ${edit.index + 1}`}>
