@@ -29,7 +29,7 @@
     "react-redux": "^9.3.0",
     "react-router-dom": "^7.18.3",
     "remark-gfm": "^4.0.1",
-    "tslib": "^2.8.1"
+    "tslib": "^2.9.1"
   },
   "overrides": {
     "follow-redirects": ">=1.16.0",
