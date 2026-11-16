@@ -124,6 +124,11 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
     // transport even though it no longer leaks into the RETURNED/persisted value.
     private val received = new ConcurrentLinkedQueue[ClaudeApiToolRequest]()
     def firstReceivedRequest: ClaudeApiToolRequest = received.peek()
+    def allReceivedRequests: Vector[ClaudeApiToolRequest] = {
+      val b = Vector.newBuilder[ClaudeApiToolRequest]
+      received.forEach(r => b += r)
+      b.result()
+    }
 
     override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
       Future.failed(new UnsupportedOperationException("FakeToolTransport.send is not exercised by these tests"))
@@ -512,11 +517,78 @@ class AssistantServiceSpec extends AnyWordSpec with Matchers with DashboardPropo
       // RETURNED/persisted/rendered value: exactly the typed message, nothing else.
       result.fullHistory.head.content shouldBe Seq(ClaudeContentBlock.Text("What's our revenue?"))
 
-      // OUTBOUND request Claude actually received: system prompt still folded in (unaffected by
-      // the fix) -- the fold must survive, only the RETURNED value changes.
+      // OUTBOUND request Claude actually received (HEL-1718): the system prompt travels in the API
+      // `system` field, never folded into the first message.
       val outboundFirstTurnText = transport.firstReceivedRequest.messages.head.content.flatMap(_.text).mkString
-      outboundFirstTurnText should include(AssistantSystemPrompt.text)
-      outboundFirstTurnText should include("What's our revenue?")
+      outboundFirstTurnText shouldBe "What's our revenue?"
+    }
+
+    // HEL-1718 D8 — asserts on the SERIALIZED request JSON (not a Scala field) so these compile and
+    // fail on the unfixed code.
+    def systemOf(req: ClaudeApiToolRequest): Option[JsValue] =
+      ClaudeProtocol.claudeApiToolRequestFormat.write(req).asJsObject.fields.get("system")
+    def messagesJson(req: ClaudeApiToolRequest): String =
+      ClaudeProtocol.claudeApiToolRequestFormat.write(req).asJsObject.fields("messages").compactPrint
+    // The prompt as it appears inside serialized JSON (newlines/quotes escaped); a raw-text check could never match.
+    val escapedPrompt: String = JsString(AssistantSystemPrompt.text).compactPrint.drop(1).dropRight(1)
+    val expectedSystem: JsValue = JsArray(JsObject(
+      "type"          -> JsString("text"),
+      "text"          -> JsString(AssistantSystemPrompt.text),
+      "cache_control" -> JsObject("type" -> JsString("ephemeral"))
+    ))
+
+    "send the system prompt in the system field on turn 2, identical to turn 1, never in any message (HEL-1718)" in {
+      val outputRepo = mock(classOf[OutputRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(finalTextResponse("First answer.")),
+        Future.successful(finalTextResponse("Second answer."))
+      ))
+      val service = newService(outputRepo, dsRepo, transport)
+
+      val turn1 = awaitRight(service.converse(Seq.empty, "Hello", user))
+      val turn2 = awaitRight(service.converse(turn1.fullHistory, "And again", user))
+
+      val Vector(req1, req2) = transport.allReceivedRequests
+      systemOf(req1) shouldBe Some(expectedSystem)
+      systemOf(req2) shouldBe Some(expectedSystem)
+      systemOf(req2) shouldBe systemOf(req1)
+      messagesJson(req1) should not include escapedPrompt
+      messagesJson(req2) should not include escapedPrompt
+      turn1.fullHistory.toString should not include AssistantSystemPrompt.text
+      turn2.fullHistory.toString should not include AssistantSystemPrompt.text
+      turn2.fullHistory.head.content shouldBe Seq(ClaudeContentBlock.Text("Hello"))
+    }
+
+    "send the system prompt on every hop of a multi-hop turn (HEL-1718)" in {
+      val outputRepo = mock(classOf[OutputRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      stubEmptyFind(outputRepo)
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("t1", "find", findInput)),
+        Future.successful(finalTextResponse("Nothing found."))
+      ))
+      awaitRight(newService(outputRepo, dsRepo, transport).converse(Seq.empty, "Find orders", user))
+
+      val reqs = transport.allReceivedRequests
+      reqs should have size 2
+      reqs.foreach(r => systemOf(r) shouldBe Some(expectedSystem))
+    }
+
+    "send the system prompt for a legacy conversation whose turn 1 is the plain user message (HEL-1718)" in {
+      val outputRepo = mock(classOf[OutputRepository])
+      val dsRepo = mock(classOf[DataSourceRepository])
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("Welcome back."))))
+      val legacy = Seq(
+        ClaudeToolMessage.text(ClaudeRole.User, "Legacy first message"),
+        ClaudeToolMessage.text(ClaudeRole.Assistant, "Legacy answer")
+      )
+
+      awaitRight(newService(outputRepo, dsRepo, transport).converse(legacy, "Next question", user))
+
+      val req = transport.firstReceivedRequest
+      systemOf(req) shouldBe Some(expectedSystem)
+      messagesJson(req) should not include escapedPrompt
     }
 
     // Task 6.2 (HEL-665 design.md D1) — fullHistory is populated (not empty/partial) even when the

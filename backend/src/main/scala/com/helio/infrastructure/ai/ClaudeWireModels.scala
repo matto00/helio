@@ -118,6 +118,7 @@ final case class ClaudeApiToolMessage(role: String, content: Seq[ClaudeApiConten
 final case class ClaudeApiToolRequest(
     model: String,
     maxTokens: Int,
+    system: Seq[ClaudeApiContentBlock] = Seq.empty,
     messages: Seq[ClaudeApiToolMessage],
     temperature: Double,
     tools: Seq[ClaudeApiToolSpec]

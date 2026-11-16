@@ -85,23 +85,18 @@ final class AssistantService(
       // is this one call site, so "every assistant turn" resolves cleanly to "always true" here).
       webSearch = true,
       // HEL-1639 D5: a turn yields ONE proposal; only the first propose_* of a response runs.
-      oncePerResponseTools = AssistantProtocol.proposeToolNames
+      oncePerResponseTools = AssistantProtocol.proposeToolNames,
+      // HEL-1718: the prompt rides the API `system` field on EVERY hop of EVERY turn, never inside a message.
+      system = Some(AssistantSystemPrompt.text)
     )
-    // `history` (the CALLER-supplied prefix, before `seedHistory` folds AssistantSystemPrompt.text
-    // into it) is threaded through to `toTurnResult` for two purposes: desanitizing the RETURNED
-    // `fullHistory` back down to the plain `message` (evaluation-1.md Change Request 1), and — HEL-
-    // 667 design.md D2 — isolating this call's OWN new turns (`fullHistory.drop(history.length)`)
-    // for `searchedWithNoResults`'s "last tool call in THIS turn's new history" definition. `request`
-    // above (what's actually sent to Claude) is completely unaffected either way.
-    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor, history, message))
+    // `history` (the CALLER-supplied prefix) is threaded through to `toTurnResult` to isolate this call's OWN
+    // new turns (`fullHistory.drop(history.length)`) for `searchedWithNoResults` (HEL-667 design.md D2).
+    claudeClient.sendWithTools(request, executor).map(outcome => toTurnResult(outcome, executor, history))
   }
 
-  /** Folds the static [[AssistantSystemPrompt]] into the SAME message as the fresh user turn, only
-   *  when `history` is empty — mirrors `DashboardAuthoringPrompt`'s own precedent for the identical
-   *  constraint (no separate `system` field on `ClaudeToolRequest`; Anthropic's Messages API also
-   *  requires strict user/assistant alternation, so this can never be a second, separately-appended
-   *  `user` turn). A non-empty `history` is a continued conversation (HEL-663) whose turn 1 already
-   *  carried this text — never re-injected.
+  /** Appends the fresh user turn to `history`. The static [[AssistantSystemPrompt]] is NOT folded in here
+   *  (HEL-1718): it travels in the API `system` field on every hop (see `converse`), so the turn is always the
+   *  plain `message` and no persisted/rendered turn ever contains the prompt.
    *
    *  skeptic-final-1.md CR1 (live-verified defect): `history`'s LAST turn can be an assistant turn
    *  with one or more UNRESOLVED `tool_use` blocks — exactly the shape a persisted
@@ -115,11 +110,10 @@ final class AssistantService(
    *  never a separate turn — so two consecutive `role = user` turns (which would violate the OTHER
    *  structural invariant, strict alternation) are never produced either. */
   private def seedHistory(history: Seq[ClaudeToolMessage], message: String): Seq[ClaudeToolMessage] = {
-    val turnText  = if (history.isEmpty) AssistantSystemPrompt.text + "\n\n" + message else message
     val danglingIds = danglingToolUseIds(history)
     val newTurnContent: Seq[ClaudeContentBlock] =
       danglingIds.map(id => ClaudeContentBlock.ToolResult(id, DanglingToolUseResultMessage, isError = true)) :+
-        ClaudeContentBlock.Text(turnText)
+        ClaudeContentBlock.Text(message)
     history :+ ClaudeToolMessage(ClaudeRole.User, newTurnContent)
   }
 
@@ -136,16 +130,14 @@ final class AssistantService(
     "Not executed — the tool-call budget was reached before this call could run."
 
   /** `FinalResponse`/`HopBudgetExhausted` both carry a real `history` — folded to `Right(...)`,
-   *  `fullHistory` desanitized via [[desanitizeFirstTurn]] before being returned (design.md D1 +
-   *  evaluation-1.md Change Request 1). `Failed` carries no `history` at all — folded to
+   *  `fullHistory` returned as-is (it never contains the system prompt, HEL-1718). `Failed` carries no `history` at all — folded to
    *  `Left(error)` directly, never a value-less or fabricated `AssistantTurnResult`. `history` here
-   *  is `converse`'s own CALLER-supplied prefix (before `seedHistory` folded it), needed both by
-   *  [[desanitizeFirstTurn]] and by [[computeSearchedWithNoResults]] (HEL-667 design.md D2). */
+   *  is `converse`'s own CALLER-supplied prefix, needed by [[computeSearchedWithNoResults]]
+   *  (HEL-667 design.md D2). */
   private def toTurnResult(
       outcome: ClaudeToolOutcome,
       executor: AssistantToolExecutor,
-      history: Seq[ClaudeToolMessage],
-      message: String
+      history: Seq[ClaudeToolMessage]
   ): Either[ClaudeError, AssistantTurnResult] = outcome match {
     case ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
       Right(
@@ -156,7 +148,7 @@ final class AssistantService(
           hopBudgetExhausted = false,
           searchedWithNoResults = computeSearchedWithNoResults(executor.proposal, fullHistory, history),
           usage,
-          desanitizeFirstTurn(fullHistory, history.isEmpty, message),
+          fullHistory,
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
           proposeValidationFailures = executor.proposeValidationFailures
@@ -171,7 +163,7 @@ final class AssistantService(
           hopBudgetExhausted = true,
           searchedWithNoResults = false,
           usage,
-          desanitizeFirstTurn(fullHistory, history.isEmpty, message),
+          fullHistory,
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
           proposeValidationFailures = executor.proposeValidationFailures
@@ -214,19 +206,6 @@ final class AssistantService(
       case Success(JsArray(elements)) => elements.isEmpty
       case _                            => false
     }
-
-  /** Undoes `seedHistory`'s system-prompt folding for the value actually RETURNED by `converse`
-   *  (evaluation-1.md Change Request 1 — the outbound request Claude sees, built in `converse`
-   *  above, is completely unaffected by this). `seedHistory` only folds `AssistantSystemPrompt.text`
-   *  into the first turn when the caller's own `history` was empty (a brand-new conversation's first
-   *  message) — that same condition (`historyWasEmpty`) is when `fullHistory.head` needs rewriting
-   *  back down to the plain `message` before this value gets persisted (`AssistantConversationRoutes
-   *  .converseFlow`'s `appendTurn`) and rendered (`MessageTurn.tsx`) verbatim. A non-empty caller
-   *  `history` never triggered the fold in the first place (`seedHistory`'s `else` branch already
-   *  appends the plain `message`), so `fullHistory` passes through unchanged. */
-  private def desanitizeFirstTurn(fullHistory: Seq[ClaudeToolMessage], historyWasEmpty: Boolean, message: String): Seq[ClaudeToolMessage] =
-    if (!historyWasEmpty || fullHistory.isEmpty) fullHistory
-    else fullHistory.updated(0, ClaudeToolMessage.text(ClaudeRole.User, message))
 
   private def toolCallCount(history: Seq[ClaudeToolMessage]): Int =
     history.iterator.flatMap(_.content).count {
