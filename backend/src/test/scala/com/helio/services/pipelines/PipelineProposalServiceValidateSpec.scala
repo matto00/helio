@@ -124,8 +124,9 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       run("""{"alias":"a","fn":"bogus_fn","field":"v"}""").swap.toOption.get.message should include("Unsupported aggregation function")
     }
 
-    // HEL-1416: fillnull/window/pivot enum rejection reaches the proposal surface; drafts stay accepted.
-    "reject invalid fillnull/window/pivot enum values with a 422 and accept their drafts (HEL-1416)" in {
+    // HEL-1416: fillnull/window/pivot enum rejection reaches the proposal surface. HEL-1639 D4: an INCOMPLETE draft is no
+    // longer accepted here either -- a proposal is meant to apply and run, so the full step validation runs at propose time.
+    "reject invalid fillnull/window/pivot enum values with a 422, and incomplete drafts too (HEL-1416, HEL-1639)" in {
       val sourceId = DataSourceId(UUID.randomUUID().toString)
       val dsRepo   = mock(classOf[DataSourceRepository])
       when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
@@ -144,17 +145,17 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
         err shouldBe a[ServiceError.UnprocessableEntity]
         err.message should include(msg)
       }
-      run("fillnull", """{"columns":[],"strategy":"constant"}""") shouldBe Right(())
-      run("window", """{"function":"lag","outputColumn":"p"}""") shouldBe Right(())
-      run("pivot", """{"column":"c","values":"v"}""") shouldBe Right(())
+      // The drafts HEL-1416 once accepted are rejected at propose time, each naming what is missing.
+      run("fillnull", """{"columns":[],"strategy":"constant"}""").swap.toOption.get.message should include("requires 'value'")
+      run("window", """{"function":"lag","outputColumn":"p"}""").swap.toOption.get.message should include("window")
+      run("pivot", """{"column":"c","values":"v"}""").swap.toOption.get.message should include("pivot")
     }
 
-    // GUARD, sited next to the proof: an INCOMPLETE draft step is still
-    // accepted by this surface. D2 rejects wrong-TYPE values only, so a
-    // proposal carrying a not-yet-configured step stays applicable.
-    // Failable by mutation: make `validateRawConfig` reject an empty string
-    // and this goes red while the proof above stays green.
-    "GUARD: still accept a proposal step whose required values are empty (a draft, not a wrong shape)" in {
+    // HEL-1639 D4 reverses the HEL-814 GUARD that sat here ("a proposal step whose required values are empty is still
+    // accepted"). That tolerance suits an editor saving a half-filled step, not a proposal that must apply and run:
+    // `lookup {}` passing propose and failing at apply is exactly what made the assistant loop. The UI save path is
+    // untouched; only proposals (assistant, MCP, HTTP apply-proposal) now reject an incomplete step, naming the keys.
+    "reject a proposal step whose required values are empty, naming the missing keys (HEL-1639, was the HEL-814 GUARD)" in {
       val sourceId = DataSourceId(UUID.randomUUID().toString)
       val dsRepo   = mock(classOf[DataSourceRepository])
       when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(existingSource(sourceId))))
@@ -166,7 +167,11 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       )
       val withDraft = proposal(existingSourceRef(sourceId.value)).copy(steps = Vector(draftStep))
 
-      await(newService(dsRepo).validate(withDraft, user)) shouldBe Right(())
+      val err = await(newService(dsRepo).validate(withDraft, user)).swap.toOption.getOrElse(fail("draft step accepted"))
+      err shouldBe a[ServiceError.UnprocessableEntity]
+      err.message should include("step 1 ('compute')")
+      err.message should include("'column'")
+      err.message should include("'expression'")
     }
 
     "reject a blank pipelineName before any repository lookup" in {

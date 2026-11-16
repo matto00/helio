@@ -66,6 +66,16 @@ class CredentialSurfaceEnumerationSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  // HEL-1639 task 3.7: `get_resource(pipeline)` now returns each node's step config. No registered step kind carries a
+  // secret today, so the guard is structural: the node writer must route every config through `SecretRedaction`.
+  "the pipeline node detail (get_resource)" should {
+    "send every step config through SecretRedaction before it reaches the model" in {
+      val source = Source.fromFile(new File(root, "backend/src/main/scala/com/helio/services/workspace/WorkspaceSearchService.scala"), "UTF-8")
+      try source.mkString should include("SecretRedaction.redact(PipelineStepConfigCodec.encode(")
+      finally source.close()
+    }
+  }
+
   "helio-mcp/src" should {
     // Pinned to fresh `grep -rniIl "credential" helio-mcp/src/` output — each entry justified by
     // WHY it's safe (it rejects/type-references, never carries, a credential), not a blanket pass.

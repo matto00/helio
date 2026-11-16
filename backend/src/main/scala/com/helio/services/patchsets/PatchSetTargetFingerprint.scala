@@ -75,7 +75,7 @@ private[services] object PatchSetTargetFingerprint {
           "alertRules" -> PatchSetPipelineDefinition.alertRulesJson(alertRules.getOrElse(id.value, Vector.empty))
         )))
       case _: ResolvedAction.PanelCreate | _: ResolvedAction.DashboardCreate | _: ResolvedAction.DataSourceCreate |
-          _: ResolvedAction.PipelineCreate | _: ResolvedAction.PipelineStepCreate =>
+          _: ResolvedAction.PipelineCreate | _: ResolvedAction.PipelineStepCreate | _: ResolvedAction.OutputCreate =>
         Future.successful(None)
     }
 

@@ -121,7 +121,14 @@ final class OutputService(
 
   /** Create an Output on a pipeline node. Requires Editor or Owner access on
    *  the parent pipeline — a Viewer grantee cannot add Outputs. */
-  def create(pipelineId: PipelineId, req: CreateOutputRequest, user: AuthenticatedUser): Future[Either[ServiceError, (Output, JsObject)]] =
+  def create(
+      pipelineId: PipelineId,
+      req: CreateOutputRequest,
+      user: AuthenticatedUser,
+      // HEL-1639 D2: a patch set creates its Outputs inside an all-or-nothing walk, so it defers the backfill until the
+      // whole walk has succeeded (see `backfillCreated`); a rolled-back set must never have triggered one.
+      backfill: Boolean = true
+  ): Future[Either[ServiceError, (Output, JsObject)]] =
     if (req.name.trim.isEmpty)
       Future.successful(Left(ServiceError.BadRequest("name is required")))
     // HEL-913 task 5.8a: `nodeStepId` and `rootId` are mutually exclusive when BOTH are
@@ -155,7 +162,7 @@ final class OutputService(
                           explicitRootId = explicitRootId
                         ).map { output =>
                           audit("output.create", Some(output.id.value), user)
-                          triggerBackfill(output, user)
+                          if (backfill) triggerBackfill(output, user)
                           // HEL-946: return the config we just wrote, not a re-fetch —
                           // the caller (POST /api/pipelines/:id/outputs) previously
                           // dropped it via the config-less `outputResponseFrom`
@@ -167,6 +174,16 @@ final class OutputService(
                 }
             }
         }
+    }
+
+  /** HEL-1639 D2: the deferred half of `create(.., backfill = false)` -- fires the same fire-and-forget backfill once a
+   *  patch set has applied cleanly. Best effort and never fails the caller. */
+  def backfillCreated(ids: Vector[OutputId], user: AuthenticatedUser): Unit =
+    ids.foreach { id =>
+      outputRepo.findById(id, user).foreach {
+        case Some(output) => triggerBackfill(output, user)
+        case None         => ()
+      }
     }
 
   /** Sharing-aware read — owner, editor, and viewer grantees of the parent

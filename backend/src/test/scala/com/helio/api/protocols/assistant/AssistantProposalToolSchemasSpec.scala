@@ -198,8 +198,8 @@ class AssistantProposalToolSchemasSpec
     }
 
     "carry an update edit with target.id present" in {
-      val decoded = examplesOf("propose_patch_set").head.convertTo[PatchSet]
-      val update   = decoded.edits.find(_.op == "update").getOrElse(fail("no update edit in example"))
+      val decoded = examplesOf("propose_patch_set").map(_.convertTo[PatchSet])
+      val update   = decoded.flatMap(_.edits).find(_.op == "update").getOrElse(fail("no update edit in any example"))
       update.target.id shouldBe defined
     }
 

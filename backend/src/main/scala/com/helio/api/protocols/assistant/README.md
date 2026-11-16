@@ -1,6 +1,6 @@
 # Protocols — Assistant
 
-Assistant conversation request/response types, and the workspace-assistant tool-call schemas (`AssistantProposalToolSchemas`) offered to Claude's function-calling loop.
+Assistant conversation request/response types, and the workspace-assistant tool-call schemas (`AssistantProposalToolSchemas`, `AssistantStepSchemas`) offered to Claude's function-calling loop.
 
 Holds: `AssistantConversationProtocol`, `AssistantProposalToolSchemas`, `AssistantProtocol`.
 

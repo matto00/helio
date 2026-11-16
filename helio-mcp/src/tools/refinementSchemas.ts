@@ -26,9 +26,13 @@ export const editTargetSchema = z.object({
   kind: z.enum(PATCH_SET_TARGET_KINDS),
   id: z.string().optional(),
   /** HEL-914 task 5.1: names the parent resource a not-yet-existing CHILD resource is created
-   *  under -- REQUIRED for a create targeting a child kind (currently only `pipelineStep`) and
-   *  must be OMITTED for update/delete. */
+   *  under -- REQUIRED for a create targeting a child kind (`pipelineStep` and, HEL-1639, `output`: both
+   *  name the pipeline) and must be OMITTED for update/delete and for a `panel` create. */
   parentId: z.string().optional(),
+  /** HEL-1639: create edits only -- a short name a LATER `panel` create of the same set binds to with
+   *  `patch.config.outputId = "$ref:<ref>"`. Zod strips unknown keys, so without this field a hand-authored ref would be
+   *  silently dropped before reaching the backend and the panel create would fail with a dangling reference. */
+  ref: z.string().optional(),
   /** HEL-1458: the server-issued hash of the target's state when the patch set was proposed/previewed. Zod strips
    *  unknown keys, so without this field the fingerprint `propose_patch_set` stamps would be silently dropped here and
    *  `apply_patch_set` left unprotected. */

@@ -7,10 +7,10 @@ import com.helio.services.pipelines.{OutputService, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
-import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineStepRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
+import com.helio.api.protocols.pipelines.{CreateOutputRequest, CreatePipelineRequest, CreatePipelineStepRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.EditOutcome
 import com.helio.api.protocols.sources.{StaticDataSourceRequest, UpdateDataSourceRequest}
-import com.helio.domain.model.{Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
+import com.helio.domain.model.{OutputKind, Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Panel, PanelId, PipelineId, PipelineStep, PipelineStepId}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{PipelineRepository, PipelineStepRepository}
@@ -66,6 +66,10 @@ private[services] object ResolvedAction {
   // nothing in this change exercises an `output` create.
   final case class OutputUpdate(id: OutputId, request: UpdateOutputRequest, prior: Output, priorConfig: JsObject) extends ResolvedAction
   final case class OutputDelete(id: OutputId, prior: Output) extends ResolvedAction
+  // HEL-1639 D2: add an Output at an existing step of an existing pipeline. `request` is the create-Output body; its
+  // `nodeStepId` was checked against the pipeline's SAVED steps at resolve time. The edit's own `ref` (if any) lives on
+  // `ResolvedEdit.ref`.
+  final case class OutputCreate(pipelineId: PipelineId, request: CreateOutputRequest) extends ResolvedAction
 
   // `dataType` create carries no ResolvedAction -- rejected at pre-validation itself (no create
   // API exists for it at all). `output` create likewise carries none -- not because of any
@@ -84,11 +88,19 @@ private[services] final case class ResolvedEdit(
     kind: String,
     op: String,
     priorStateJson: Option[JsValue],
-    action: ResolvedAction
+    action: ResolvedAction,
+    // HEL-1639 D2: the `target.ref` a create edit carries, which a later panel create may name as `"$ref:<ref>"`.
+    ref: Option[String] = None,
+    // HEL-1639 D2: set on a panel create whose `config.outputId` is `"$ref:<ref>"`; carries the referenced create's kind.
+    outputRefUse: Option[OutputRefUse] = None
 ) {
   def toOutcome(status: String, newId: Option[String] = None, resultingState: Option[JsValue] = None): EditOutcome =
     EditOutcome(index = index, status = status, newId = newId, priorState = priorStateJson, resultingState = resultingState)
 }
+
+/** A panel create's binding to an earlier `output` create of the same set (HEL-1639 D2): `ref` names it and `kind` is
+ *  that create's Output kind (a pending Output has no stored row to read the kind from). */
+private[services] final case class OutputRefUse(ref: String, kind: OutputKind)
 
 /** Read-side collaborators [[PatchSetApplyResolvers]]'s pre-validation pass
  *  needs (design.md D2/D2a) — bundled so every resolver function takes one

@@ -60,6 +60,12 @@
   white-space: nowrap;
 }
 
+.patch-set-review__summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}
+
 .patch-set-review__impact {
   margin: 0;
   padding: 0;

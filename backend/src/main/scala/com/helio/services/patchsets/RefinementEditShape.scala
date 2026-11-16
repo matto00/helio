@@ -264,7 +264,7 @@ object RefinementEditShape {
       "edit's target.id, can ever legitimately reference it):\n\n" +
       "output panel create:\n" + OutputPanelCreateExample +
       "\n\noutput update (rename, or rebind config \u2014 see the worked output-update\n" +
-      "example above; output has NO create op of its own):\n" + OutputUpdateExample +
+      "example above; an output CREATE exists in the assistant's patch sets but is NOT offered in this flow):\n" + OutputUpdateExample +
       "\npatch.config of an output update: " + OutputConfigValidation.KeysDoc +
       "\n\ncreate is ALSO supported for dashboard (patch: { \"name\": string }), dataSource (patch reuses\n" +
       "StaticDataSourceRequest \u2014 { \"name\", \"type\": \"static\", \"columns\": [...], \"rows\": [...] }, static\n" +
@@ -272,8 +272,9 @@ object RefinementEditShape {
       "required \u2014 \"roots\" is a NON-EMPTY array, one element per pipeline root, each EITHER an existing\n" +
       "\"sourceId\" OR an inline source spec (\"type\"/\"name\"/one of \"sqlConfig\"/\"restConfig\"/\"staticConfig\");\n" +
       "\"sourceDataSourceId\" is RETIRED and hard-rejected (HEL-913, no alias, no default) \u2014 never emit it;\n" +
-      "\"tag\"/\"steps\"/\"outputs\" optional). create is NEVER supported for pipelineStep or\n" +
-      "output (neither has a direct create API reachable from a patch-set edit \u2014 never emit one of\n" +
+      "\"tag\"/\"steps\"/\"outputs\" optional). create is NOT offered in this flow for pipelineStep or\n" +
+      "output (the assistant's propose_patch_set supports them, with a target.ref for an output so a panel can bind to it;\n" +
+      "refinement edits one existing resource and has no intra-set references \u2014 never emit one of\n" +
       "those). \"dataType\" is not a valid target.kind at all anymore \u2014 never emit any edit targeting\n" +
       "it."
 

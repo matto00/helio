@@ -2,14 +2,15 @@ package com.helio.services.workspace
 
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.pipelines.PipelineService
+import com.helio.services.pipelines.{OutputReadAccess, PipelineService}
 import com.helio.services.sources.DataSourceService
 import com.helio.api.protocols.agents.{AgentMemoryEntryResponse, AgentPreferencesResponse}
 import com.helio.api.protocols.pipelines.{AnalyzeStepResponse, PipelineSummaryResponse}
 import com.helio.api.protocols.sources.ConnectorSummary
-import com.helio.api.protocols.workspace.{WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
+import com.helio.api.protocols.workspace.{ResourceDashboardPanel, WorkspaceContextAgentSection, WorkspaceContextColumn, WorkspaceContextColumnStats, WorkspaceContextComputedColumn, WorkspaceContextCounts, WorkspaceContextDashboard, WorkspaceContextDataSource, WorkspaceContextOutput, WorkspaceContextJoinHint, WorkspaceContextPipeline, WorkspaceContextPipelineStep, WorkspaceContextResponse}
 import com.helio.api.protocols.pipelines.PipelineLaneTreeNode
 import com.helio.domain.model.{AgentMemoryEntry, AuthenticatedUser, DashboardLayout, DataField, DataFieldType, DataSource, DataSourceId, Dashboard, FieldTypeCategory, Output, Page, PipelineId, PipelineRootId, PipelineStep, PipelineStepId}
+import com.helio.domain.panels.OutputPanel
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.ConnectorRepository
@@ -457,6 +458,30 @@ final class WorkspaceContextService(
    *  `(entity, user) => Future[...]` shape immediately below. */
   private[services] def toDashboardEntry(d: Dashboard, user: AuthenticatedUser): Future[WorkspaceContextDashboard] =
     panelCountFor(d, user).map(count => WorkspaceContextDashboard(id = d.id.value, name = d.name, panelCount = count))
+
+  /** HEL-1639 D1: a dashboard's panels with the Output each is bound to and that Output's pipeline, so the assistant can
+   *  walk dashboard -> panel -> Output -> pipeline without a name search. Best effort: an Output the caller cannot read
+   *  (owner or pipeline grantee, see `OutputReadAccess`) just has no pipeline id. Empty when no `PanelRepository` is wired (fixtures). */
+  private[services] def dashboardPanels(d: Dashboard, user: AuthenticatedUser): Future[Vector[ResourceDashboardPanel]] =
+    panelRepoOpt match {
+      case None => Future.successful(Vector.empty)
+      case Some(panelRepo) =>
+        panelRepo.findAllByDashboardId(d.id, Some(user), Page.Default).flatMap { page =>
+          val bound = page.items.collect { case p: OutputPanel => p.outputId }.flatten.distinct
+          Future
+            .traverse(bound)(id => OutputReadAccess.readablePipelineId(outputRepo, pipelineService, id, user).map(pid => id.value -> pid))
+            .map { pipelineByOutput =>
+              val lookup = pipelineByOutput.toMap
+              page.items.map { p =>
+                val outputId = p match {
+                  case op: OutputPanel => op.outputId.map(_.value)
+                  case _               => None
+                }
+                ResourceDashboardPanel(p.id.value, p.title, p.kind, outputId, outputId.flatMap(lookup.get(_).flatten))
+              }
+            }
+        }
+    }
 
   /** Beta UI-audit F-004 fix: when `panelRepoOpt` is wired, the real row count over the panels
    *  table -- `Page(0, 1)` still returns the accurate total via that same query's own COUNT

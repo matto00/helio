@@ -4,10 +4,12 @@ import com.helio.services.ServiceError
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.pipelines.PipelineService
 import com.helio.services.sources.DataSourceService
-import com.helio.api.protocols.pipelines.PipelineSummaryResponse
-import com.helio.api.protocols.workspace.{WorkspaceResourceDetail, WorkspaceResourceSummary}
-import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, Page, PipelineId, WorkspaceResourceType}
+import com.helio.api.protocols.pipelines.{PipelineStepConfigCodec, PipelineSummaryResponse}
+import com.helio.api.protocols.workspace.{ResourceNode, ResourceOutputRef, WorkspaceResourceDetail, WorkspaceResourceSummary}
+import com.helio.domain.model.{AuthenticatedUser, Dashboard, DashboardId, DataSource, DataSourceId, Output, OutputId, OutputKind, Page, PipelineId, WorkspaceResourceType}
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+
+import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -92,29 +94,37 @@ final class WorkspaceSearchService(
       pipelineSummaries   <- pipelineSummariesF
       dashboardSummaries  <- dashboardSummariesF
     } yield {
-      val normalizedQuery = query.toLowerCase
       val candidates = dataSourceSummaries ++ dataTypeSummaries ++ pipelineSummaries ++ dashboardSummaries
-      val matches = candidates.filter(matchesQuery(_, normalizedQuery))
-      rankAndTruncate(matches, normalizedQuery)
+      rankAndTruncate(candidates, WorkspaceSearchService.Query(query))
     }
   }
 
-  private def matchesQuery(summary: WorkspaceResourceSummary, normalizedQuery: String): Boolean =
-    summary.name.toLowerCase.contains(normalizedQuery) || summary.description.toLowerCase.contains(normalizedQuery)
-
-  /** Deterministic top-K selection (design.md D1a): a match found earlier in `name` (lower substring
-   *  index) ranks first; a match with no `name` hit at all (description-only) sorts after every
-   *  `name` match via the `Int.MaxValue` sentinel below. `(resourceType, name)` ascending breaks any
-   *  remaining tie — never an arbitrary/iteration-order-dependent subset across repeated calls over
-   *  the same data. */
-  private def rankAndTruncate(matches: Vector[WorkspaceResourceSummary], normalizedQuery: String): Vector[WorkspaceResourceSummary] = {
-    def namePosition(s: WorkspaceResourceSummary): Int = {
-      val idx = s.name.toLowerCase.indexOf(normalizedQuery)
-      if (idx >= 0) idx else Int.MaxValue
-    }
-    matches.sortBy(s => (namePosition(s), s.resourceType, s.name)).take(MaxFindResults)
+  /** HEL-1639 D6: a candidate matches when the whole query is a substring of its name or description (the
+   *  pre-existing behaviour) OR any significant query token occurs in its name or description. The score is the
+   *  number of tokens found in the NAME (a whole-query hit counts as every token), so "Fantasy Football standings
+   *  dashboard" finds a dashboard named "Standings". */
+  private def score(summary: WorkspaceResourceSummary, q: WorkspaceSearchService.Query): Option[(Int, Int)] = {
+    val name = summary.name.toLowerCase
+    val desc = summary.description.toLowerCase
+    val whole = q.whole
+    val wholeInName = name.contains(whole)
+    val wholeInDesc = desc.contains(whole)
+    val nameTokens = q.tokens.count(name.contains)
+    val descTokens = q.tokens.count(desc.contains)
+    if (wholeInName) Some((q.tokens.size + 1, name.indexOf(whole)))
+    else if (nameTokens > 0) Some((nameTokens, name.indexOf(q.tokens.find(name.contains).get)))
+    else if (wholeInDesc || descTokens > 0) Some((0, Int.MaxValue))
+    else None
   }
 
+  /** Deterministic top-K selection (design.md D1a): best token score first, then earlier name position, with
+   *  `(resourceType, name)` ascending as the stable tie-break -- never an iteration-order-dependent subset. */
+  private def rankAndTruncate(candidates: Vector[WorkspaceResourceSummary], q: WorkspaceSearchService.Query): Vector[WorkspaceResourceSummary] =
+    candidates
+      .flatMap(c => score(c, q).map(sc => (c, sc)))
+      .sortBy { case (c, (hits, pos)) => (-hits, pos, c.resourceType, c.name) }
+      .map(_._1)
+      .take(MaxFindResults)
 
   private def toDataSourceSummary(ds: DataSource): WorkspaceResourceSummary =
     WorkspaceResourceSummary(
@@ -195,7 +205,9 @@ final class WorkspaceSearchService(
       // (existence-not-leaked, unchanged contract).
       outputRepo.findByIdOwned(OutputId(id), user).flatMap {
         case None         => Future.successful(Left(ServiceError.NotFound(s"Output not found: $id")))
-        case Some(output) => workspaceContextService.toDataTypeEntry(output, user).map(entry => Right(WorkspaceResourceDetail.DataTypeDetail(entry)))
+        case Some(output) => workspaceContextService.toDataTypeEntry(output, user).map { entry =>
+          Right(WorkspaceResourceDetail.DataTypeDetail(entry, Some(output.node.pipelineId.value), output.node.stepId.map(_.value)))
+        }
       }
 
     case WorkspaceResourceType.Pipeline =>
@@ -204,7 +216,11 @@ final class WorkspaceSearchService(
     case WorkspaceResourceType.Dashboard =>
       dashboardService.findById(DashboardId(id), user).flatMap {
         case Left(err) => Future.successful(Left(err))
-        case Right(d)  => workspaceContextService.toDashboardEntry(d, user).map(entry => Right(WorkspaceResourceDetail.DashboardDetail(entry)))
+        case Right(d) =>
+          for {
+            entry  <- workspaceContextService.toDashboardEntry(d, user)
+            panels <- workspaceContextService.dashboardPanels(d, user)
+          } yield Right(WorkspaceResourceDetail.DashboardDetail(entry, panels))
       }
 
   }
@@ -221,7 +237,65 @@ final class WorkspaceSearchService(
         Future.successful(Left(err))
       case Right(summary) if !summary.ownerId.contains(user.id.value) =>
         Future.successful(Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}")))
-      case Right(summary) =>
-        workspaceContextService.buildPipeline(summary, user).map(entry => Right(WorkspaceResourceDetail.PipelineDetail(entry)))
+      case Right(summary) => pipelineDetail(summary, user).map(Right(_))
     }
+
+  /** HEL-1639 D1: the pipeline detail the assistant needs to extend a pipeline -- `laneTree` populated (this pipeline's
+   *  own steps, roots and root-of-step maps, the same batch helpers `assemble` uses, scoped to one id), every node with
+   *  its config and the schema after it, and every Output with its node, kind and fieldMapping. */
+  private def pipelineDetail(summary: PipelineSummaryResponse, user: AuthenticatedUser): Future[WorkspaceResourceDetail.PipelineDetail] = {
+    val pid = PipelineId(summary.id)
+    val ids = Set(pid)
+    // ACL: `getPipelineResource` established that `user` owns this pipeline (the owner-only filter) before calling here, so the
+    // `*Internal` reads below (batched steps/roots, the pipeline's Outputs and their configs) are scoped by that check.
+    for {
+      rootDs       <- pipelineService.listRootDataSourceIdsInternalBatch(ids)
+      rootIdOfStep <- pipelineService.rootIdsOfBatch(ids)
+      steps        <- pipelineService.listByPipelineInternalBatch(ids)
+      entry        <- workspaceContextService.buildPipeline(summary, user, rootDs, rootIdOfStep, steps)
+      analyzed     <- pipelineService.analyze(pid, user).map(_.toOption).recover { case _ => None }
+      outputs      <- outputRepo.listByPipelineInternal(pid)
+      configs      <- outputRepo.findConfigsByIdsInternal(outputs.map(_.id.value))
+    } yield {
+      val ownSteps  = steps.getOrElse(pid, Vector.empty)
+      val schemaOf  = analyzed.map(_.steps.map(a => a.id -> a).toMap).getOrElse(Map.empty)
+      val rootOf    = rootIdOfStep.getOrElse(pid, Map.empty)
+      val ordered   = analyzed.map(_.steps.map(_.id)).getOrElse(ownSteps.map(_.id.value))
+      val byId      = ownSteps.map(st => st.id.value -> st).toMap
+      val nodes = ordered.flatMap(byId.get).map { st =>
+        val a = schemaOf.get(st.id.value)
+        ResourceNode(
+          id = st.id.value,
+          parentStepId = st.parentStepId.map(_.value),
+          rootId = rootOf.get(st.id).map(_.value),
+          `type` = st.kind,
+          config = SecretRedaction.redact(PipelineStepConfigCodec.encode(st).parseJson),
+          disabled = !st.enabled,
+          outputSchema = a.map(_.outputSchema).getOrElse(Vector.empty),
+          validationError = a.flatMap(_.validationError)
+        )
+      }
+      val outputRefs = outputs.map { o =>
+        ResourceOutputRef(o.id.value, o.name, OutputKind.asString(o.kind), o.node.stepId.map(_.value), configs.get(o.id.value).flatMap(_.fields.get("fieldMapping")))
+      }
+      WorkspaceResourceDetail.PipelineDetail(entry, nodes, outputRefs)
+    }
+  }
+}
+
+object WorkspaceSearchService {
+
+  /** Words that carry no identity in a resource search ("my standings dashboard"). */
+  private val StopWords: Set[String] = Set("my", "the", "a", "of", "for", "dashboard", "pipeline", "output", "source", "data")
+
+  /** `whole` is the lower-cased query (the old contiguous-substring match); `tokens` are its lower-cased alphanumeric
+   *  words of at least 2 characters that are not stop words. With no tokens left the query behaves exactly as before. */
+  final case class Query(whole: String, tokens: Vector[String])
+
+  object Query {
+    def apply(raw: String): Query = {
+      val whole = raw.toLowerCase
+      Query(whole, whole.split("[^a-z0-9]+").toVector.filter(t => t.length >= 2 && !StopWords.contains(t)).distinct)
+    }
+  }
 }

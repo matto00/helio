@@ -142,7 +142,9 @@ class PatchSetPreviewOutputContextSpec
 
   private final case class Seeded(
       dashboardId: String, panelId: String, sourceId: String, pipelineId: String,
-      stepId: String, outputId: String, boundOutputId: String
+      stepId: String, outputId: String, boundOutputId: String,
+      // HEL-1639: a SECOND pipeline the `output create` row targets, so no other row of the matrix edits its node.
+      otherPipelineId: String, otherStepId: String
   )
 
   private def seedAll(): Seeded = {
@@ -164,7 +166,17 @@ class PatchSetPreviewOutputContextSpec
     }
     val output = await(outputRepo.insertInternal(PipelineId(pipeline.id), None, userA.id, "Out", OutputKind.Table, explicitRootId = None))
     val bound  = await(outputRepo.insertInternal(PipelineId(pipeline.id), Some(PipelineStepId(step.id)), userA.id, "Bound", OutputKind.Table, explicitRootId = None))
-    Seeded(dashboard.id.value, panel.id.value, sourceId.value, pipeline.id, step.id, output.id.value, bound.id.value)
+    val other = await(pipelineService.create(
+      CreatePipelineRequest("Other " + UUID.randomUUID(), Vector(CreatePipelineRootRequest(Some(sourceId.value)))), userA
+    )) match {
+      case Right(p) => p
+      case Left(e)  => fail(s"other pipeline seed failed: $e")
+    }
+    val otherStep = await(pipelineService.addStep(PipelineId(other.id), CreatePipelineStepRequest("limit", JsObject("count" -> JsNumber(5))), userA)) match {
+      case Right(st) => st
+      case Left(e)   => fail(s"other step seed failed: $e")
+    }
+    Seeded(dashboard.id.value, panel.id.value, sourceId.value, pipeline.id, step.id, output.id.value, bound.id.value, other.id, otherStep.id)
   }
 
   private def edit(kind: String, op: String, id: Option[String] = None, parentId: Option[String] = None)(
@@ -200,7 +212,11 @@ class PatchSetPreviewOutputContextSpec
     edit("pipelineStep", "delete", Some(s.stepId))(),
     edit("pipelineStep", "create", None, Some(s.pipelineId))(create = Some(JsObject("type" -> JsString("limit"), "config" -> JsObject("count" -> JsNumber(1))))),
     edit("output", "update", Some(s.outputId))(output = Some(UpdateOutputRequest(Some("Renamed O"), None))),
-    edit("output", "delete", Some(s.outputId))()
+    edit("output", "delete", Some(s.outputId))(),
+    // HEL-1639: an output create at a step of a pipeline no other row of the matrix touches.
+    edit("output", "create", None, Some(s.otherPipelineId))(create = Some(JsObject(
+      "name" -> JsString("Created O"), "kind" -> JsString("table"), "nodeStepId" -> JsString(s.otherStepId)
+    )))
   )
 
   // ── full-schema snapshot ───────────────────────────────────────────────
@@ -310,7 +326,7 @@ class PatchSetPreviewOutputContextSpec
       after shouldBe before
     }
 
-    "reject an output create edit with a 400 and write nothing" in {
+    "reject an output create edit that names no pipeline (target.parentId) with a 400 and write nothing" in {
       val before = snapshot()
       val e = edit("output", "create")(create = Some(JsObject("name" -> JsString("N"), "kind" -> JsString("table"))))
       await(previewService.preview(PatchSet(None, Vector(e)), userA)) match {

@@ -62,28 +62,8 @@ private[pipelines] final class PipelineServiceSupport(
    *  (`validateFieldMappingColumnsExist`, new this task) -- ordered so an unknown SLOT name is
    *  reported before a merely-absent COLUMN name for the same bad mapping, matching which error
    *  is more actionable first. */
-  private[pipelines] def validateOutputFieldMapping(kind: OutputKind, config: JsObject, schema: Vector[SchemaField]): Either[ServiceError, Unit] = {
-    val spec = OutputBindingSpec.All.find(_.outputKind == kind).getOrElse(
-      throw new IllegalStateException(s"PipelineService: no OutputBindingSpec for kind $kind -- OutputBindingSpec.All is missing a case")
-    )
-    // HEL-1273/HEL-1313: the config-only checks are `PipelineCreatePreflight.validateOutputConfig` (run first,
-    // unconditionally, before the no-fieldMapping early return).
-    PipelineCreatePreflight.validateOutputConfig(kind, config).flatMap { _ =>
-      config.fields.get("fieldMapping").collect { case o: JsObject => o } match {
-        case None => Right(())
-        case Some(mappingObj) =>
-          val mapping = mappingObj.fields.collect { case (k, JsString(v)) => k -> v }
-          OutputBindingSpec.validateFieldMapping(spec, mapping) match {
-            case Left(msg) => Left(ServiceError.BadRequest(msg))
-            case Right(()) =>
-              OutputBindingSpec.validateFieldMappingColumnsExist(mapping, schema) match {
-                case Left(msg) => Left(ServiceError.BadRequest(msg))
-                case Right(()) => Right(())
-              }
-          }
-      }
-    }
-  }
+  private[pipelines] def validateOutputFieldMapping(kind: OutputKind, config: JsObject, schema: Vector[SchemaField]): Either[ServiceError, Unit] =
+    OutputFieldMappingCheck.validate(kind, config, schema)
 
   private[pipelines] def toWarningResponse(w: AnalyzeSchemaWarnings.Warning): AnalyzeWarningResponse =
     AnalyzeWarningResponse(stepId = w.stepId, code = w.code, message = w.message)

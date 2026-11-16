@@ -146,14 +146,18 @@ final case class ClaudeTool(name: String, description: String, inputSchema: JsVa
  *  `webSearch` (HEL-757 design.md D2) opts this call into Anthropic's server-side `web_search`
  *  tool, alongside `tools`' ordinary custom function-tools. Defaults `false` so every existing
  *  caller/construction site is completely unaffected — `AssistantService.converse` is the only
- *  caller that sets it `true` today. */
+ *  caller that sets it `true` today.
+ *
+ *  `oncePerResponseTools` (HEL-1639 D5) names tools of which only the FIRST `tool_use` in one model response runs; each
+ *  later one in that response gets a synthetic `isError` result. Empty by default, so no other caller changes. */
 final case class ClaudeToolRequest(
     history: Seq[ClaudeToolMessage],
     tools: Seq[ClaudeTool],
     maxHops: Int,
     maxTokens: Option[Int] = None,
     temperature: Option[Double] = None,
-    webSearch: Boolean = false
+    webSearch: Boolean = false,
+    oncePerResponseTools: Set[String] = Set.empty
 )
 
 /** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`

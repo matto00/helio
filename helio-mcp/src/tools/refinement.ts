@@ -87,12 +87,14 @@ export function registerRefinementTools(server: McpServer, api: HelioApi): void 
         "back everything already applied if a mid-set edit fails (nothing is left half-applied). " +
         "Does NOT decompose the patch set into individual per-resource PATCH tool calls — pass " +
         "the exact PatchSet propose_patch_set returned (or one built/edited by hand matching the " +
-        "same shape: { summary?, edits: [{ target: {kind, id?, parentId?, fingerprint?}, " +
+        "same shape: { summary?, edits: [{ target: {kind, id?, parentId?, ref?, fingerprint?}, " +
         "op: update|delete|create, patch? }] }, where `patch` reuses each kind's existing " +
         "PATCH/create request shape verbatim and is absent entirely for op: delete). " +
-        "target.parentId is REQUIRED for a create targeting a child kind (currently only " +
-        "pipelineStep, whose parentId is the existing parent pipeline's id) and must be OMITTED " +
-        "for update/delete. A pipelineStep create's patch must ALSO set attachAsTail: true to " +
+        "target.parentId is REQUIRED for a pipelineStep or output create (the existing parent " +
+        "pipeline's id), must be OMITTED for update/delete, and is never used on a panel create " +
+        "(its dashboard is patch.dashboardId). An output create is { name, kind, nodeStepId, " +
+        "config }; give it a target.ref and a LATER panel create in the same set can bind to it " +
+        'with patch.config.outputId = "$ref:<ref>". A pipelineStep create\'s patch must ALSO set attachAsTail: true to ' +
         "add a SIBLING lane off patch.parentStepId — omitting it instead SPLICES the new step in " +
         "directly after patch.parentStepId, reparenting that step's existing children onto the " +
         "new step (a trunk insertion, not a new lane). Keep each update/delete target's " +

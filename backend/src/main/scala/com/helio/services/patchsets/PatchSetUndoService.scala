@@ -11,7 +11,7 @@ import com.helio.api.protocols.sources.{DataSourceResponse, UpdateDataSourceRequ
 import com.helio.api.protocols.pipelines.{OutputResponse, PipelineSummaryResponse, UpdatePipelineRequest, UpdatePipelineStepRequest}
 import com.helio.api.protocols.patchsets.{EditUndoOutcome, PatchSetUndoResponse}
 import com.helio.api.protocols.panels.{CreatePanelRequest, PanelResponse}
-import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataFieldType, DataSourceId, OutputKind, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
+import com.helio.domain.model.{AuthenticatedUser, DashboardId, DataFieldType, DataSourceId, OutputId, OutputKind, PanelId, PatchSetApplicationId, PipelineId, PipelineStepId}
 import com.helio.domain.engine.SchemaField
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -128,8 +128,17 @@ final class PatchSetUndoService(
       case ("pipelineStep", "update") => restorePipelineStepUpdate(edit, user)
       case ("pipelineStep", "delete") => restorePipelineStepDelete(edit, user)
       case ("pipelineStep", "create") => restorePipelineStepCreate(edit, user)
+      // HEL-1639 D2: delete the Output the apply created (and any panel still bound to it; undo walks the set in reverse,
+      // so a panel created in the same set is already gone).
+      case ("output", "create")       => restoreCreateUndo(edit, id => deleteCreatedOutput(OutputId(id), user))
       case (kind, op) =>
         Future.successful(Left(s"edit ${edit.index}: no undo path for target.kind '$kind' op '$op'"))
+    }
+
+  private def deleteCreatedOutput(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+    context.outputRepo.findById(id, user).flatMap {
+      case None    => Future.successful(Left(ServiceError.NotFound("Output not found")))
+      case Some(_) => context.outputRepo.deleteWithPanelsInternal(id).map(_ => Right(()))
     }
 
   private def missingPriorState(edit: JournaledEdit): String =

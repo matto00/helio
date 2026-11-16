@@ -82,4 +82,26 @@ describe("patchSetSchema keeps a dashboard layout edit's expectedLayoutVersion (
     });
     expect(parsed.edits[0]?.patch).toEqual({ layout: { lg: [] }, expectedLayoutVersion: 7 });
   });
+
+  it("keeps target.ref and an output create's parentId instead of stripping them (HEL-1639)", () => {
+    const raw = {
+      edits: [
+        {
+          target: { kind: "output", parentId: "pipeline-1", ref: "wins" },
+          op: "create",
+          patch: { name: "Wins", kind: "chart", nodeStepId: "step-2" },
+        },
+        {
+          target: { kind: "panel" },
+          op: "create",
+          patch: { dashboardId: "d-1", type: "output", config: { outputId: "$ref:wins" } },
+        },
+      ],
+    };
+
+    const parsed = patchSetSchema.parse(raw);
+    expect(parsed.edits[0]!.target.ref).toBe("wins");
+    expect(parsed.edits[0]!.target.parentId).toBe("pipeline-1");
+    expect(parsed.edits[1]!.patch?.config).toEqual({ outputId: "$ref:wins" });
+  });
 });
