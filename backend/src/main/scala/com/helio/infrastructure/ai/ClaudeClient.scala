@@ -90,7 +90,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
   def sendWithTools(request: ClaudeToolRequest, executor: ClaudeToolExecutor): Future[ClaudeToolOutcome] = {
 
     def loop(history: Seq[ClaudeToolMessage], hopsUsed: Int, usage: TokenUsage, webSearchUsed: Int): Future[ClaudeToolOutcome] =
-      guardrailRejectTool(history) match {
+      guardrailRejectTool(request.system, history) match {
         case Some(reason) =>
           Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)))
         case None =>
@@ -250,6 +250,9 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
         markedFirst +: rest
     }
     ClaudeApiToolRequest(
+      system = request.system.filter(_.trim.nonEmpty).toSeq.map(s =>
+        ClaudeApiContentBlock(blockType = "text", text = Some(s), cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
+      ),
       model = config.model,
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
@@ -276,8 +279,10 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       ClaudeMessage(m.role, flattened)
     }
 
-  private def guardrailRejectTool(history: Seq[ClaudeToolMessage]): Option[String] = {
-    val estimated = ClaudeTokenEstimator.estimate(flattenForEstimate(history))
+  private def guardrailRejectTool(system: Option[String], history: Seq[ClaudeToolMessage]): Option[String] = {
+    // HEL-1718: the system prompt is sent on every hop, so it counts on every hop.
+    val systemMessage = system.filter(_.trim.nonEmpty).toSeq.map(s => ClaudeMessage(ClaudeRole.User, s))
+    val estimated     = ClaudeTokenEstimator.estimate(systemMessage ++ flattenForEstimate(history))
     if (estimated > config.maxInputTokens)
       Some(s"Estimated input tokens ($estimated) exceed the configured limit (${config.maxInputTokens})")
     else

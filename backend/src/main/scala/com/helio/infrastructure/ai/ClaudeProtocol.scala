@@ -203,15 +203,19 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
         throw new UnsupportedOperationException("ClaudeApiToolMessage is an outbound-only wire type")
     }
 
+  /** HEL-1718: the top-level `system` array, present only when non-empty (no key = byte-identical to before). */
+  private def systemField(system: Seq[ClaudeApiContentBlock]): Map[String, JsValue] =
+    if (system.isEmpty) Map.empty else Map("system" -> system.toJson)
+
   implicit val claudeApiToolRequestFormat: RootJsonFormat[ClaudeApiToolRequest] =
     new RootJsonFormat[ClaudeApiToolRequest] {
-      def write(r: ClaudeApiToolRequest): JsValue = JsObject(
+      def write(r: ClaudeApiToolRequest): JsValue = JsObject(Map[String, JsValue](
         "model"       -> JsString(r.model),
         "max_tokens"  -> JsNumber(r.maxTokens),
         "messages"    -> r.messages.toJson,
         "temperature" -> JsNumber(r.temperature),
         "tools"       -> r.tools.toJson
-      )
+      ) ++ systemField(r.system))
 
       // Outbound-only — this ticket never decodes a request it built itself (mirrors
       // claudeApiRequestFormat's identical rationale).

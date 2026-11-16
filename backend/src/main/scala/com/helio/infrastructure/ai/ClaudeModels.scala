@@ -149,7 +149,10 @@ final case class ClaudeTool(name: String, description: String, inputSchema: JsVa
  *  caller that sets it `true` today.
  *
  *  `oncePerResponseTools` (HEL-1639 D5) names tools of which only the FIRST `tool_use` in one model response runs; each
- *  later one in that response gets a synthetic `isError` result. Empty by default, so no other caller changes. */
+ *  later one in that response gets a synthetic `isError` result. Empty by default, so no other caller changes.
+ *
+ *  `system` (HEL-1718) is the prompt sent as the Messages API's top-level `system` field on EVERY hop; it is never
+ *  folded into a message. `None` (or blank) sends no `system` key. */
 final case class ClaudeToolRequest(
     history: Seq[ClaudeToolMessage],
     tools: Seq[ClaudeTool],
@@ -157,7 +160,8 @@ final case class ClaudeToolRequest(
     maxTokens: Option[Int] = None,
     temperature: Option[Double] = None,
     webSearch: Boolean = false,
-    oncePerResponseTools: Set[String] = Set.empty
+    oncePerResponseTools: Set[String] = Set.empty,
+    system: Option[String] = None
 )
 
 /** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`

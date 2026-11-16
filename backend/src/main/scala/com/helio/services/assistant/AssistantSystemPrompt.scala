@@ -18,10 +18,8 @@ package com.helio.services.assistant
  *  followed by a proposal-less final answer) — this prompt text itself steers, but is never
  *  unit-tested directly (design.md's own stated Risk/Mitigation).
  *
- *  HEL-390's `ClaudeRequest`/`ClaudeToolRequest` model only `user`/`assistant` turns, no separate
- *  `system` field (same constraint `DashboardAuthoringPrompt`'s own doc comment notes) — so
- *  `AssistantService.converse` folds this text into the conversation's first `user` turn rather than
- *  a distinct channel. */
+ *  HEL-1718: `AssistantService.converse` sends this text as `ClaudeToolRequest.system` (the Messages API's
+ *  top-level `system` field) on every hop of every turn; it is never folded into a message. */
 object AssistantSystemPrompt {
 
   /** HEL-700 design.md D1/D3 — a compact "shaping guidance" section covering only the known

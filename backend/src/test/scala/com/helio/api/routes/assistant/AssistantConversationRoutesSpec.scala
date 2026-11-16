@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.UserRepository
-import com.helio.services.assistant.{AssistantConversationService, AssistantService}
+import com.helio.services.assistant.{AssistantConversationService, AssistantService, AssistantSystemPrompt}
 import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -302,6 +302,40 @@ class AssistantConversationRoutesSpec
       Get(s"/assistant-conversations/${detail.record.id.value}") ~> routesFor(userA, Some(assistantService)) ~> check {
         status shouldBe StatusCodes.OK
         transcriptOf(responseAs[String]) should have size 2
+      }
+    }
+
+    // HEL-1718 seam: two POSTs through the real route; the system prompt reaches the wire on BOTH
+    // turns (serialized `system` field) and never lands in the persisted transcript.
+    "send the system prompt in the wire system field on the second POST and never persist it (HEL-1718)" in {
+      cleanDb()
+      val detail    = await(conversationService.create(userA, None, title = None))
+      val transport = new SequencedTransport(Vector(finalTextResponse("One."), finalTextResponse("Two.")))
+      val service   = assistantServiceWith(transport)
+      val id        = detail.record.id.value
+
+      Post(s"/assistant-conversations/$id/converse", jsonEntity("""{"message":"First"}""")) ~> routesFor(userA, Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      Post(s"/assistant-conversations/$id/converse", jsonEntity("""{"message":"Second"}""")) ~> routesFor(userA, Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+
+      val wire = transport.receivedRequests.map(r => ClaudeProtocol.claudeApiToolRequestFormat.write(r).asJsObject)
+      wire should have size 2
+      val promptText = AssistantSystemPrompt.text
+      wire(1).fields.get("system").map(_.compactPrint).getOrElse("") should include(JsString(promptText).compactPrint)
+      wire(1).fields.get("system") shouldBe wire(0).fields.get("system")
+      wire.foreach(_.fields("messages").compactPrint should not include "Worked examples")
+
+      Get(s"/assistant-conversations/$id") ~> routesFor(userA, Some(service)) ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[String]
+        body should not include "Worked examples"
+        val transcript = transcriptOf(body)
+        transcript should have size 4
+        transcript.head.content shouldBe Seq(ClaudeContentBlock.Text("First"))
+        transcript.map(_.content.toString).foreach(_ should not include "Worked examples")
       }
     }
 

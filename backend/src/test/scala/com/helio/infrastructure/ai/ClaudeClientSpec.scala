@@ -732,5 +732,55 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {
       }
       transport.toolInvocations shouldBe 1
     }
+
+    // HEL-1718 D8
+    "send the same marked system block on every hop and never put it in a message" in {
+      val transport = new FakeToolTransport(Vector(
+        Future.successful(toolUseResponse("toolu_1", "find", JsObject.empty)),
+        Future.successful(finalTextResponse("done"))
+      ))
+      val client = new ClaudeClient(config(), transport)
+      val req    = toolRequest(maxHops = 3).copy(system = Some("SYSPROMPT-XYZ"))
+      await(client.sendWithTools(req, new FakeToolExecutor(Future.successful(Right("ok")))))
+
+      val wire = transport.toolRequests.map(r => ClaudeProtocol.claudeApiToolRequestFormat.write(r).asJsObject)
+      wire should have size 2
+      val expected = JsArray(JsObject("type" -> JsString("text"), "text" -> JsString("SYSPROMPT-XYZ"), "cache_control" -> JsObject("type" -> JsString("ephemeral"))))
+      wire.foreach { w =>
+        w.fields("system") shouldBe expected
+        w.fields("messages").compactPrint should not include "SYSPROMPT-XYZ"
+      }
+      // breakpoints: last tool, system block, first message's last block, nothing else
+      transport.toolRequests.head.messages.head.content.last.cacheControl shouldBe Some(ClaudeApiCacheControl.Ephemeral)
+      transport.toolRequests.head.tools.collect { case t: ClaudeApiTool => t }.last.cacheControl shouldBe Some(ClaudeApiCacheControl.Ephemeral)
+      // ...and nothing else: exactly 3 cache_control markers in the whole serialized request
+      "cache_control".r.findAllIn(ClaudeProtocol.claudeApiToolRequestFormat.write(transport.toolRequests.head).compactPrint).size shouldBe 3
+    }
+
+    "send no system key when the request has no system, or a blank one" in {
+      val transport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("a")), Future.successful(finalTextResponse("b"))))
+      val client    = new ClaudeClient(config(), transport)
+      val exec      = new FakeToolExecutor(Future.successful(Right("ok")))
+      await(client.sendWithTools(toolRequest(maxHops = 3), exec))
+      await(client.sendWithTools(toolRequest(maxHops = 3).copy(system = Some("  ")), exec))
+      transport.toolRequests.foreach(r => ClaudeProtocol.claudeApiToolRequestFormat.write(r).asJsObject.fields.get("system") shouldBe None)
+    }
+
+    "count the system prompt in the guardrail: messages alone fit, messages plus system do not" in {
+      val prompt = "hi"
+      val limit  = 5
+      val okTransport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("fine"))))
+      await(new ClaudeClient(config(maxInputTokens = limit), okTransport).sendWithTools(toolRequest(maxHops = 3, prompt = prompt), new FakeToolExecutor(Future.successful(Right("ok")))))
+      okTransport.toolInvocations shouldBe 1
+
+      val badTransport = new FakeToolTransport(Vector(Future.successful(finalTextResponse("fine"))))
+      val outcome = await(new ClaudeClient(config(maxInputTokens = limit), badTransport)
+        .sendWithTools(toolRequest(maxHops = 3, prompt = prompt).copy(system = Some("x" * 400)), new FakeToolExecutor(Future.successful(Right("ok")))))
+      outcome match {
+        case ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(_)) => succeed
+        case other                                                        => fail(s"expected Failed(GuardrailExceeded), got $other")
+      }
+      badTransport.toolInvocations shouldBe 0
+    }
   }
 }
