@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
+import { LIVE_STACK_ITEMS, waitForPanelStack } from "./support/panelGridReady";
 
 // Every test registers its own user and seeds its own data, so tests are independently schedulable.
 test.describe.configure({ mode: "parallel" });
@@ -78,6 +79,9 @@ async function open(
   await isolateLivePage(page);
   const seeded = await seed(page, label);
   await page.goto(`/dashboards/${seeded.dashboardIds[0]}`);
+  // HEL-1724: the first dashboard has 3 panels. Wait out the loading skeleton's stubs (also `.mobile-panel-stack__item`s,
+  // overlapping the real cards while they fade) before anything measures the stack.
+  await waitForPanelStack(page, 3);
   // The markdown renderer is lazy: wait for its body, not just the card.
   await expect(
     page.locator(".mobile-panel-stack__item--markdown .markdown-panel").first(),
@@ -167,10 +171,8 @@ for (const theme of THEMES) {
       });
       expect(boxRight).toBeLessThanOrEqual(28);
 
-      const geometry = await page.evaluate(() => {
-        const cards = Array.from(
-          document.querySelectorAll<HTMLElement>(".mobile-panel-stack__item"),
-        );
+      const geometry = await page.evaluate((liveItems) => {
+        const cards = Array.from(document.querySelectorAll<HTMLElement>(liveItems));
         const view = document.documentElement.clientWidth;
         const rects = cards.map((c) => c.getBoundingClientRect());
         return {
@@ -179,7 +181,7 @@ for (const theme of THEMES) {
           cardRightGap: rects.map((r) => view - r.right),
           gaps: rects.slice(1).map((r, i) => r.top - rects[i].bottom),
         };
-      });
+      }, LIVE_STACK_ITEMS);
       expect(geometry.cardLeft.length).toBeGreaterThanOrEqual(3);
       for (const left of geometry.cardLeft) expect(left).toBeCloseTo(12, 0);
       for (const right of geometry.cardRightGap) expect(right).toBeCloseTo(12, 0);
@@ -302,7 +304,7 @@ for (const theme of THEMES) {
       request,
     }) => {
       await open(page, request, 375, theme, `clr${theme}`);
-      const result = await page.evaluate(async () => {
+      const result = await page.evaluate(async (items) => {
         const scroller = document.querySelector<HTMLElement>(".app-content")!;
         const nodes = [
           document.scrollingElement,
@@ -312,11 +314,11 @@ for (const theme of THEMES) {
         for (const n of nodes) if (n) n.scrollTop = n.scrollHeight;
         window.scrollTo(0, document.body.scrollHeight);
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const cards = Array.from(document.querySelectorAll(".mobile-panel-stack__item"));
+        const cards = Array.from(document.querySelectorAll(items));
         const last = cards[cards.length - 1].getBoundingClientRect();
         const nav = document.querySelector(".bottom-nav")!.getBoundingClientRect();
         return { lastBottom: last.bottom, navTop: nav.top };
-      });
+      }, LIVE_STACK_ITEMS);
       expect(result.lastBottom).toBeLessThanOrEqual(result.navTop);
     });
   });
@@ -347,10 +349,8 @@ test.describe("HEL-1583 measurements", () => {
             scrollLeft: row.scrollLeft,
           };
         });
-        const stack = await page.evaluate(() => {
-          const cards = Array.from(
-            document.querySelectorAll<HTMLElement>(".mobile-panel-stack__item"),
-          );
+        const stack = await page.evaluate((items) => {
+          const cards = Array.from(document.querySelectorAll<HTMLElement>(items));
           const rects = cards.map((c) => c.getBoundingClientRect());
           const view = document.documentElement.clientWidth;
           return {
@@ -362,7 +362,7 @@ test.describe("HEL-1583 measurements", () => {
             gaps: rects.slice(1).map((r, i) => Math.round((r.top - rects[i].bottom) * 100) / 100),
             hasHorizontalOverflow: document.documentElement.scrollWidth > view,
           };
-        });
+        }, LIVE_STACK_ITEMS);
         // Before the contrast probes: an element screenshot scrolls the row, so this is the as-loaded state.
         await page.screenshot({ path: evidencePath("HEL-1583", `phone-${width}-${theme}.png`) });
         const contrast = {
