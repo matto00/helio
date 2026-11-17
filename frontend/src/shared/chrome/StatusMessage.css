@@ -47,9 +47,11 @@
     color var(--app-transition);
 }
 
-.status-message__retry:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .status-message__retry:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .status-message__retry:disabled {

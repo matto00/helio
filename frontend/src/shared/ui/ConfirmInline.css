@@ -26,8 +26,10 @@
   transition: background-color var(--app-transition);
 }
 
-.ui-confirm-inline__confirm-btn:hover {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .ui-confirm-inline__confirm-btn:hover {
+    background: var(--app-error-surface);
+  }
 }
 
 .ui-confirm-inline__cancel-btn {
@@ -44,7 +46,9 @@
     background-color var(--app-transition);
 }
 
-.ui-confirm-inline__cancel-btn:hover {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .ui-confirm-inline__cancel-btn:hover {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }

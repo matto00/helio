@@ -474,14 +474,8 @@
 @media (hover: hover) {
   .mobile-pill--primary:hover:not(:disabled) {
     border-color: transparent;
-    background: var(--app-accent);
-    color: var(--app-accent-ink);
-  }
-}
-
-@media (hover: hover) {
-  .mobile-pill--primary:hover:not(:disabled) {
     background: var(--app-accent-strong);
+    color: var(--app-accent-ink);
   }
 }
 

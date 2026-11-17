@@ -37,9 +37,11 @@
 
 /* Hover shows as a border step (translucent neutral, so it separates from any backdrop in both themes) on the
    selected AND unselected option: a colour-only hover has no measurable state background (HEL-866 guard). */
-.ui-segmented__option:hover {
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-segmented__option:hover {
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .ui-segmented__option--selected {

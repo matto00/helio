@@ -227,10 +227,12 @@
   color: var(--app-text-muted);
 }
 
-.ui-modal-btn--secondary:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-modal-btn--secondary:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 .ui-modal-btn--primary {
@@ -239,8 +241,10 @@
   color: var(--app-accent-ink);
 }
 
-.ui-modal-btn--primary:hover:not(:disabled) {
-  background: var(--app-accent-strong);
+@media (hover: hover) {
+  .ui-modal-btn--primary:hover:not(:disabled) {
+    background: var(--app-accent-strong);
+  }
 }
 
 /* Danger -- DESIGN.md §5: hairline color-mix(error 60%), error text; hover
@@ -253,8 +257,10 @@
   color: var(--app-error);
 }
 
-.ui-modal-btn--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .ui-modal-btn--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+  }
 }
 
 /* ── Mobile tap-target floor (HEL-319, following the HEL-308/314 convention) ──

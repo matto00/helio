@@ -59,8 +59,10 @@
   transition: background-color var(--app-transition);
 }
 
-.actions-menu__item:hover:not(:disabled) {
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .actions-menu__item:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+  }
 }
 
 .actions-menu__item:focus-visible {
@@ -77,8 +79,10 @@
   color: var(--app-error);
 }
 
-.actions-menu__item--danger:hover:not(:disabled) {
-  background: var(--app-error-surface);
+@media (hover: hover) {
+  .actions-menu__item--danger:hover:not(:disabled) {
+    background: var(--app-error-surface);
+  }
 }
 
 /* HEL-308: actions-menu items are a primary tap target on phone (panel-card,
