@@ -145,3 +145,5 @@ export function usePipelineEditorState() {
     stepsFingerprintRef,
   };
 }
+
+export type PipelineEditorState = ReturnType<typeof usePipelineEditorState>;
