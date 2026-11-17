@@ -3,7 +3,7 @@ import { httpClient, setupAuthInterceptor } from "../../../services/httpClient";
 import { clearAuth } from "../../auth/state/authSlice";
 import { KEPT_DRAFT_PREFIX, writeKeptDraft } from "./keptDraft";
 
-const kept = { overlay: { configs: {}, enabled: {}, deleted: [] }, base: "sig" };
+const kept = { overlay: { version: 2 as const, ops: [], configs: {}, enabled: {} }, base: "sig" };
 
 interface InterceptorManager {
   handlers: { rejected: (err: unknown) => Promise<never> }[];

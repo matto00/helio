@@ -12,6 +12,7 @@
 //
 // The component is keyed by the selected step id, so every selection mounts it fresh and fetches fresh.
 
+import { isDraftClientId } from "../../state/draftOps";
 import { useMemo, useState } from "react";
 
 import { DataGrid, Skeleton } from "../../../../shared/ui/index";
@@ -103,7 +104,8 @@ export function StepPreviewTable({
   // The saved-config fetch follows the SAVED step (HEL-1631 D7a): a draft edit never changes what it asks for.
   const fetchStep = draft?.savedStep ?? step;
   const draftActive = draft !== undefined && draft.active;
-  const canFetch = fetchStep.enabled && !isCreating && !isDraft;
+  // A step the draft created has no saved rows to fetch: its rows are the draft's (HEL-1684).
+  const canFetch = fetchStep.enabled && !isCreating && !isDraft && !isDraftClientId(step.id);
   const configFingerprint = `${stepIndex}:${enabledBits}:${JSON.stringify(fetchStep.config)}`;
 
   const { previewRows, previewRowCount, previewError } = useStepPreviewFetch({

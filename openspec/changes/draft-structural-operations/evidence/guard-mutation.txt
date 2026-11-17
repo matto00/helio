@@ -1,0 +1,9 @@
+Mutation applied to prove the [guard] v1 kept-draft e2e can fail:
+  file:   frontend/src/features/pipelines/state/keptDraft.ts, readKeptDraft
+  before: if (o.version === undefined) {            // earlier-format branch: deleted[] -> delete ops
+  after:  if (o.version === undefined) {
+            return null;                            // earlier format read as absent
+Test: e2e/hel1684-draft-structural.spec.ts "[guard] a draft kept in the earlier format (deleted ids) still restores"
+Result with the mutation (file restored afterwards):
+  X 1 [dev] ... [guard] a draft kept in the earlier format ... Error: expect(locator).toBeVisible() failed
+  1 failed

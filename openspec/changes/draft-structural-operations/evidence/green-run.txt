@@ -1,0 +1,58 @@
+
+Running 26 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1684-desktop-addstep-1794902010465-56705@example.test
+  ✓   1 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › add step: a draft entry, saved atomically with the structure the draft showed (11.4s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-addstep-1794902021449-36962@example.test
+  ✓   2 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › add step: Discard restores the saved pipeline with no request (5.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-insertstep-1794902026461-26577@example.test
+  ✓   3 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed (11.3s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-insertstep-1794902037720-18927@example.test
+  ✓   4 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › insert step: Discard restores the saved pipeline with no request (5.4s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-duplicatestep-1794902043117-67852@example.test
+  ✓   5 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed (10.9s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-duplicatestep-1794902054071-74636@example.test
+  ✓   6 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: Discard restores the saved pipeline with no request (6.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-lanestep-1794902060106-98477@example.test
+  ✓   7 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: a draft entry, saved atomically with the structure the draft showed (12.7s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-lanestep-1794902072824-83828@example.test
+  ✓   8 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: Discard restores the saved pipeline with no request (7.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-Movedown-1794902079877-83978@example.test
+  ✓   9 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › Move down: a draft entry, saved atomically with the structure the draft showed (11.8s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-Movedown-1794902091702-23666@example.test
+  ✓  10 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › Move down: Discard restores the saved pipeline with no request (5.4s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-Moveup-1794902097118-51626@example.test
+  ✓  11 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › Move up: a draft entry, saved atomically with the structure the draft showed (11.6s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-Moveup-1794902108721-70828@example.test
+  ✓  12 [dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › Move up: Discard restores the saved pipeline with no request (5.5s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-dragreorder-1794902114203-8069@example.test
+  ✓  13 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › drag reorder: a draft entry, saved atomically with the structure the draft showed (11.6s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-addstep-1794902125860-28513@example.test
+  ✓  14 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › add step: a draft entry, saved atomically with the structure the draft showed (13.1s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-insertstep-1794902138983-12287@example.test
+  ✓  15 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed (13.9s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-duplicatestep-1794902152958-97772@example.test
+  ✓  16 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed (13.4s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-lanestep-1794902166402-60340@example.test
+  ✓  17 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › + lane step: a draft entry, saved atomically with the structure the draft showed (14.2s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-Movedown-1794902180624-68522@example.test
+  ✓  18 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › Move down: a draft entry, saved atomically with the structure the draft showed (13.2s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-Moveup-1794902193804-66617@example.test
+  ✓  19 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › Move up: a draft entry, saved atomically with the structure the draft showed (13.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-insertstep-1794902206786-6394@example.test
+  ✓  20 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed (12.4s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-insertstep-1794902219231-32786@example.test
+  ✓  21 [dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed (13.4s)
+[HEL-1300 e2e] throwaway user: hel1684-back-1794902232659-93755@example.test
+  ✓  22 [dev] › e2e/hel1684-draft-structural.spec.ts:479:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a draft with an inserted step survives Back and Forward and is shown again (4.4s)
+[HEL-1300 e2e] throwaway user: hel1684-v1-1794902237047-11796@example.test
+  ✓  23 [dev] › e2e/hel1684-draft-structural.spec.ts:500:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › [guard] a draft kept in the earlier format (deleted ids) still restores (5.4s)
+[HEL-1300 e2e] throwaway user: hel1684-stale-1794902242434-78572@example.test
+  ✓  24 [dev] › e2e/hel1684-draft-structural.spec.ts:539:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step (5.7s)
+[HEL-1300 e2e] throwaway user: hel1684-undo-1794902248126-83364@example.test
+  ✓  25 [dev] › e2e/hel1684-draft-structural.spec.ts:579:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step (5.3s)
+[HEL-1300 e2e] throwaway user: hel1684-tail-1794902253424-92631@example.test
+  ✓  26 [dev] › e2e/hel1684-draft-structural.spec.ts:617:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name (4.5s)
+[HEL-1301 e2e] deleted 26 recorded throwaway user(s)
+
+  26 passed (4.1m)

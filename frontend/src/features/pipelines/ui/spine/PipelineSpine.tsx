@@ -47,7 +47,8 @@ interface PipelineSpineProps {
   draftFor?: (stepId: string) => SpineRowDraft | undefined;
   /** HEL-1631: the draft's counts are over the first 1,000 rows of a larger source. */
   draftCountsOverSample?: boolean;
-  /** HEL-1631 (design.md D2): while a draft exists, the structural controls are disabled with this reason. */
+  /** HEL-1631 (design.md D2): while a draft exists, the controls the draft does not carry (roots, shapes, Outputs) are disabled
+   *  with this reason. HEL-1684: add, insert, duplicate, "+ lane" and reorder are draft entries and stay enabled. */
   structuralBlockedReason?: string | null;
   countsPartial: boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
@@ -118,7 +119,7 @@ export function PipelineSpine({
     menuItemsFor,
     phone,
     reorderFor: (lane, index) =>
-      lane.parentStepId === undefined && structuralBlockedReason === null
+      lane.parentStepId === undefined
         ? {
             index,
             onDragStart: reorder.onStepDragStart,
@@ -222,8 +223,6 @@ export function PipelineSpine({
             type="button"
             className={phone ? "spine-add-row" : "spine-ghost-btn"}
             aria-label={hasSteps ? "+ Add transformation step" : "+ Add step"}
-            disabled={structuralBlockedReason !== null}
-            title={structuralBlockedReason ?? undefined}
             onClick={actions.openAppendPalette}
           >
             + Add step

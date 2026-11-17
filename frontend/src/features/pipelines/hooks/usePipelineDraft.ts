@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 
+import { newClientId } from "../state/draftOps";
+import type { DraftAnchor } from "../state/draftOps";
 import {
   EMPTY_OVERLAY,
-  applyOverlay,
   baseSignature,
   hasDraft as overlayHasDraft,
+  pruneOverlay,
   rebaseOverlay,
+  replayOverlay,
   withConfig,
   withDeleted,
   withEnabled,
+  withOp,
   type DraftOverlay,
 } from "../state/pipelineDraft";
 import { readKeptDraft, writeKeptDraft } from "../state/keptDraft";
@@ -58,7 +62,9 @@ export function usePipelineDraft({
     const kept = readKeptDraft(pipelineId);
     // Nothing kept: leave the overlay alone (no state change, so no extra render on open).
     if (kept !== null) {
-      setOverlay(rebaseOverlay(baseStepsRef.current, kept.overlay).overlay);
+      // Not re-based here: a stale draft keeps every op so "Reload the saved pipeline" can still report each one it drops.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot restore of the kept draft once the saved steps are loaded
+      setOverlay(kept.overlay);
       if (kept.base !== baseSignature(baseStepsRef.current)) {
         keptBaseRef.current = kept.base;
         staleRestoredRef.current = true;
@@ -76,27 +82,110 @@ export function usePipelineDraft({
     );
   }, [pipelineId, overlay, baseSteps, baseStepsRef]);
 
-  const draftSteps = useMemo(() => applyOverlay(baseSteps, overlay), [baseSteps, overlay]);
+  const replayed = useMemo(
+    () => (overlayHasDraft(overlay) ? replayOverlay(baseSteps, overlay) : null),
+    [baseSteps, overlay],
+  );
+  const draftSteps = replayed === null ? baseSteps : replayed.steps;
   const hasDraft = overlayHasDraft(overlay);
+
+  // The saved steps can change under a draft (an immediate write that started before it opened lands, an AI step's deferred
+  // create completes): an op whose steps are gone is dropped whole and the count is reported. Skipped for a stale-restored
+  // draft, whose ops stay until "Reload the saved pipeline" has counted them.
+  const [droppedCount, setDroppedCount] = useState(0);
+  const droppedNow = replayed?.dropped ?? 0;
+  useEffect(() => {
+    if (droppedNow === 0 || staleRestoredRef.current || restoredFor.current !== pipelineId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- prunes the ops the changed saved steps invalidated, and counts them for the notice
+    setDroppedCount((n) => n + droppedNow);
+    setOverlay((prev) => pruneOverlay(baseStepsRef.current, prev));
+  }, [droppedNow, pipelineId, baseStepsRef]);
+  const clearDropped = useCallback(() => setDroppedCount(0), []);
 
   const setConfig = useCallback(
     (stepId: string, config: PipelineStepConfig) =>
-      setOverlay((prev) => withConfig(baseStepsRef.current, prev, stepId, config)),
+      setOverlay((prev) =>
+        withConfig(baseStepsRef.current, prev, stepId, config, staleRestoredRef.current),
+      ),
     [baseStepsRef],
   );
   const setEnabled = useCallback(
     (stepId: string, enabled: boolean) =>
-      setOverlay((prev) => withEnabled(baseStepsRef.current, prev, stepId, enabled)),
+      setOverlay((prev) =>
+        withEnabled(baseStepsRef.current, prev, stepId, enabled, staleRestoredRef.current),
+      ),
     [baseStepsRef],
   );
   const deleteStep = useCallback(
-    (stepId: string) => setOverlay((prev) => withDeleted(baseStepsRef.current, prev, stepId)),
+    (stepId: string) =>
+      setOverlay((prev) =>
+        withDeleted(baseStepsRef.current, prev, stepId, staleRestoredRef.current),
+      ),
+    [baseStepsRef],
+  );
+  const insertStep = useCallback(
+    (type: string, config: PipelineStepConfig, anchor: DraftAnchor) =>
+      setOverlay((prev) =>
+        withOp(
+          baseStepsRef.current,
+          prev,
+          { kind: "insert", clientId: newClientId(), type, config, anchor },
+          staleRestoredRef.current,
+        ),
+      ),
+    [baseStepsRef],
+  );
+  const addLaneStep = useCallback(
+    (type: string, config: PipelineStepConfig, parent: string) =>
+      setOverlay((prev) =>
+        withOp(
+          baseStepsRef.current,
+          prev,
+          { kind: "lane", clientId: newClientId(), type, config, parent },
+          staleRestoredRef.current,
+        ),
+      ),
+    [baseStepsRef],
+  );
+  /** A copy of the step as the draft shows it now (its kind, edited config and enabled flag are captured in the op). */
+  const duplicateStep = useCallback(
+    (stepId: string) =>
+      setOverlay((prev) => {
+        const source = replayOverlay(baseStepsRef.current, prev).steps.find((s) => s.id === stepId);
+        if (!source) return prev;
+        return withOp(
+          baseStepsRef.current,
+          prev,
+          {
+            kind: "duplicate",
+            clientId: newClientId(),
+            of: stepId,
+            type: source.opType.id,
+            config: source.config,
+            enabled: source.enabled,
+          },
+          staleRestoredRef.current,
+        );
+      }),
+    [baseStepsRef],
+  );
+  const reorderTrunk = useCallback(
+    (rootId: string, trunk: string[]) =>
+      setOverlay((prev) =>
+        withOp(
+          baseStepsRef.current,
+          prev,
+          { kind: "reorder", rootId, trunk },
+          staleRestoredRef.current,
+        ),
+      ),
     [baseStepsRef],
   );
   const discard = useCallback(() => {
     keptBaseRef.current = null;
     staleRestoredRef.current = false;
     setStaleRestored(false);
+    setDroppedCount(0);
     setOverlay(EMPTY_OVERLAY);
   }, []);
 
@@ -118,8 +207,14 @@ export function usePipelineDraft({
     setConfig,
     setEnabled,
     deleteStep,
+    insertStep,
+    addLaneStep,
+    duplicateStep,
+    reorderTrunk,
     discard,
     rebase,
+    droppedCount,
+    clearDropped,
     staleRestored,
     staleRestoredRef,
   };

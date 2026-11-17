@@ -1,0 +1,355 @@
+
+Running 99 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1579-fit-1794900368856-51024@example.test
+HEL1007-IDS {"email":"hel1007-1794900368858-52459@example.com","pipeline":"e9fa4ed7-6319-4654-b9b0-5191767f08a2","sources":["f36a7c2d-2b9b-4cf2-9d9a-41eaf5607774","5d2c35bf-b9d3-44f2-8364-cc6bfac05df1"],"rootA":"ed173b50-74e9-4607-92e1-3cf82d942bf0","rootB":"daec311c-9770-49d5-8fdf-fcd3d346d827"}
+HEL1007-STEPS ["f25ee42e-3acc-4dec-aa90-fb6c4b456496","1f83eacd-20ea-4a5d-a1b8-0c6966ca6da4","ad5a58ae-c18f-4fa0-bd88-a750a31f99d6","93ab7704-e1cb-4060-bfea-226e56a39120","56789e28-41b5-4333-a059-90d9b015812d","b5393a0d-8f50-480b-a1f8-69b29397687f"]
+[HEL-1620 e2e] 1280x800: spine, editor and at least 8 preview rows fit without page scroll: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/outputs
+  ✓   2 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:153:7 › HEL-1579 pipeline detail step spine (live) › 1280x800: spine, editor and at least 8 preview rows fit without page scroll (4.9s)
+[HEL-1300 e2e] throwaway user: hel1579-fit1440-1794900373182-73356@example.test
+  ✓   1 [dev] › e2e/hel1007-multi-root-reorder.spec.ts:51:7 › HEL-1007 reorder every root's lane › keyboard reorder in root 1's lane persists across reload; root 0 untouched; names and focus (5.3s)
+[HEL-1300 e2e] throwaway user: hel1582-fit-1794900373598-5157@example.test
+[HEL-1620 e2e] 1440x900 (HEL-1585 check for this page): the document does not scroll: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/outputs
+  ✓   3 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:188:7 › HEL-1579 pipeline detail step spine (live) › 1440x900 (HEL-1585 check for this page): the document does not scroll (3.9s)
+[HEL-1300 e2e] throwaway user: hel1579-accent-dark-1794900377153-17799@example.test
+  ✓   4 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:46:7 › HEL-1582 phone pipeline page (live) › AC1: at 375x812 the source, all 3 steps and the Output fit without scrolling, in both themes (5.6s)
+[HEL-1300 e2e] throwaway user: hel1582-fit-mutation-1794900379210-68352@example.test
+  ✓   6 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:62:7 › HEL-1582 phone pipeline page (live) › AC1 guard can fail: a taller row makes the fit assertion go red (3.8s)
+[HEL-1300 e2e] throwaway user: hel1582-swipe-1794900382969-81669@example.test
+[HEL-1620 e2e] accent audit [dark #ec4899]: only Run, the selected step and focus use the accent (every kind): 57 /api requests, max 60s window 57 (limit 120, target <= 90), 0 x 429; top: 18 POST /api/pipelines/:id/steps; 18 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓   5 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:211:11 › HEL-1579 pipeline detail step spine (live) › accent audit [dark #ec4899]: only Run, the selected step and focus use the accent (every kind) (10.7s)
+[HEL-1300 e2e] throwaway user: hel1579-accent-dark-1794900387872-48862@example.test
+  ✓   7 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:76:7 › HEL-1582 phone pipeline page (live) › AC2: a touch drag on the handle dismisses the sheet; a short drag returns it; the body never drags it; the close control closes it (9.9s)
+[HEL-1300 e2e] throwaway user: hel1582-sheet-menu-1794900392907-13107@example.test
+  ✓   9 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:177:7 › HEL-1582 phone pipeline page (live) › AC2: the sheet's Step actions menu opens above the modal, Move step down works from it, and focus stays in the sheet (4.0s)
+[HEL-1300 e2e] throwaway user: hel1582-kinds-1794900396887-72209@example.test
+[HEL-1620 e2e] accent audit [dark #3b82f6]: only Run, the selected step and focus use the accent (every kind): 57 /api requests, max 60s window 57 (limit 120, target <= 90), 0 x 429; top: 18 POST /api/pipelines/:id/steps; 18 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓   8 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:211:11 › HEL-1579 pipeline detail step spine (live) › accent audit [dark #3b82f6]: only Run, the selected step and focus use the accent (every kind) (9.8s)
+[HEL-1300 e2e] throwaway user: hel1579-accent-light-1794900397663-23678@example.test
+[HEL-1620 e2e] accent audit [light #ec4899]: only Run, the selected step and focus use the accent (every kind): 57 /api requests, max 60s window 57 (limit 120, target <= 90), 0 x 429; top: 18 POST /api/pipelines/:id/steps; 18 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  11 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:211:11 › HEL-1579 pipeline detail step spine (live) › accent audit [light #ec4899]: only Run, the selected step and focus use the accent (every kind) (10.2s)
+[HEL-1300 e2e] throwaway user: hel1579-accent-light-1794900407848-74385@example.test
+[HEL-1620 e2e] accent audit [light #3b82f6]: only Run, the selected step and focus use the accent (every kind): 57 /api requests, max 60s window 57 (limit 120, target <= 90), 0 x 429; top: 18 POST /api/pipelines/:id/steps; 18 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  12 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:211:11 › HEL-1579 pipeline detail step spine (live) › accent audit [light #3b82f6]: only Run, the selected step and focus use the accent (every kind) (10.1s)
+[HEL-1300 e2e] throwaway user: hel1579-narrow-dark-1794900417988-18423@example.test
+[HEL-1582 e2e] editors opened in the sheet: Filter rows, Sort rows, Compute column, Cast type, Rename column, Date bucket, Dedupe rows, Fill null / impute, String operation, Window (rank / running / rolling), Select fields, Limit rows, Assert / validate, Group & aggregate, Pivot (long → wide), Unpivot (wide → long), Split text, Union / append rows, Join tables, Lookup / enrich, Write to source, Extract headings, Chunk by token count, Convert format, Analyze with AI, Generate text
+  ✓  10 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:223:7 › HEL-1582 phone pipeline page (live) › AC2: every step kind's editor opens in the sheet at 375px with every control inside it (27.7s)
+[HEL-1300 e2e] throwaway user: hel1582-clear-1794900424564-96576@example.test
+[HEL-1620 e2e] 820/900/1100px [dark]: the header keeps one row and the page does not scroll (screenshots): 62 /api requests, max 60s window 62 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/auth/me; 5 GET /api/dashboards; 4 GET /api/pipeline-schedules; 4 GET /api/pipelines; 4 GET /api/pipelines/:id; 4 GET /api/pipelines/:id/steps; 4 GET /api/pipelines/:id/analyze; 4 GET /api/pipelines/:id/schedule
+  ✓  13 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:251:9 › HEL-1579 pipeline detail step spine (live) › 820/900/1100px [dark]: the header keeps one row and the page does not scroll (screenshots) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1579-narrow-light-1794900426705-52259@example.test
+  ✓  14 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:276:7 › HEL-1582 phone pipeline page (live) › AC3: scrolled to the end the last item clears the pills and the pills clear the nav (and the guard can fail) (5.5s)
+[HEL-1300 e2e] throwaway user: hel1582-touch375-1794900430131-68839@example.test
+[HEL-1620 e2e] 820/900/1100px [light]: the header keeps one row and the page does not scroll (screenshots): 62 /api requests, max 60s window 62 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/auth/me; 5 GET /api/dashboards; 4 GET /api/pipeline-schedules; 4 GET /api/pipelines; 4 GET /api/pipelines/:id; 4 GET /api/pipelines/:id/steps; 4 GET /api/pipelines/:id/analyze; 4 GET /api/pipelines/:id/schedule
+  ✓  15 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:251:9 › HEL-1579 pipeline detail step spine (live) › 820/900/1100px [light]: the header keeps one row and the page does not scroll (screenshots) (8.3s)
+[HEL-1300 e2e] throwaway user: hel1579-select-1794900435060-67325@example.test
+  ✓  16 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 375x812 (8.0s)
+[HEL-1300 e2e] throwaway user: hel1582-touch390-1794900438130-49123@example.test
+[HEL-1620 e2e] selecting a step updates the focused editor heading and the preview header: 38 /api requests, max 60s window 38 (limit 120, target <= 90), 0 x 429; top: 3 GET /api/auth/me; 3 GET /api/dashboards; 3 POST /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/pipeline-schedules; 2 GET /api/pipelines; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps
+  ✓  17 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:336:7 › HEL-1579 pipeline detail step spine (live) › selecting a step updates the focused editor heading and the preview header (4.9s)
+[HEL-1300 e2e] throwaway user: hel1579-lanes-1794900439939-89365@example.test
+[HEL-1620 e2e] a branch renders as a labelled sub-spine and a lane row is selectable: 27 /api requests, max 60s window 27 (limit 120, target <= 90), 0 x 429; top: 4 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id/steps/:id/preview; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  19 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:360:7 › HEL-1579 pipeline detail step spine (live) › a branch renders as a labelled sub-spine and a lane row is selectable (3.9s)
+[HEL-1300 e2e] throwaway user: hel1579-flush-1794900443806-76659@example.test
+  ✓  18 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 390x844 (8.8s)
+[HEL-1300 e2e] throwaway user: hel1582-touch768-1794900446943-46700@example.test
+[HEL-1620 e2e] an edit made just before selecting another step stays in the draft (no edit is lost, no request): 26 /api requests, max 60s window 26 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/outputs
+  ✓  20 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:381:7 › HEL-1579 pipeline detail step spine (live) › an edit made just before selecting another step stays in the draft (no edit is lost, no request) (4.9s)
+[HEL-1300 e2e] throwaway user: hel1579-evidence-dark-1794900448757-28938@example.test
+[HEL-1620 e2e] evidence: the running page at 1440, 1280 and 820 wide [dark]: 48 /api requests, max 60s window 48 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 4 POST /api/pipelines/:id/steps; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze
+  ✓  22 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:408:9 › HEL-1579 pipeline detail step spine (live) › evidence: the running page at 1440, 1280 and 820 wide [dark] (6.9s)
+[HEL-1300 e2e] throwaway user: hel1579-evidence-light-1794900455614-99178@example.test
+  ✓  21 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:337:9 › HEL-1582 phone pipeline page (live) › AC4: every interactive element of each tab and the open sheet clears the 44px touch floor at 768x1024 (8.7s)
+[HEL-1300 e2e] throwaway user: hel1582-header375-1794900455658-49657@example.test
+  ✓  24 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 375x812 (5.1s)
+[HEL-1300 e2e] throwaway user: hel1582-header390-1794900460789-63437@example.test
+[HEL-1620 e2e] evidence: the running page at 1440, 1280 and 820 wide [light]: 50 /api requests, max 60s window 50 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/auth/me; 4 GET /api/dashboards; 4 POST /api/pipelines/:id/steps; 3 GET /api/pipeline-schedules; 3 GET /api/pipelines; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps; 3 GET /api/pipelines/:id/analyze
+  ✓  23 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:408:9 › HEL-1579 pipeline detail step spine (live) › evidence: the running page at 1440, 1280 and 820 wide [light] (7.1s)
+[HEL-1300 e2e] throwaway user: hel1579-sweep-1794900462765-7881@example.test
+  ✓  25 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 390x844 (5.2s)
+[HEL-1300 e2e] throwaway user: hel1582-header768-1794900465948-49142@example.test
+  ✓  27 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:404:9 › HEL-1582 phone pipeline page (live) › AC4: the header of a never-run pipeline (and in rename mode) clears the 44px touch floor at 768x1024 (5.0s)
+[HEL-1300 e2e] throwaway user: hel1582-fit-never-1794900470904-64049@example.test
+  ✓  28 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:430:7 › HEL-1582 phone pipeline page (live) › AC1: a never-run pipeline fits at 375x812 too (the status line has no label) (3.6s)
+[HEL-1300 e2e] throwaway user: hel1582-fit-run-1794900474563-40799@example.test
+  ✓  29 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:444:7 › HEL-1582 phone pipeline page (live) › AC1: the Output card still clears the action bar at 375x812 while a Run is queued and after it succeeds (the persisted last-run meta is not shown beside the in-session status) (4.2s)
+[HEL-1300 e2e] throwaway user: hel1582-fit-partial-1794900478737-78429@example.test
+[HEL-1620 e2e] sweep 769-1100px: header and editor actions fit, both themes, list at default and max width: 71 /api requests, max 60s window 71 (limit 120, target <= 90), 0 x 429; top: 5 GET /api/auth/me; 5 GET /api/dashboards; 4 POST /api/pipelines/:id/steps; 4 GET /api/pipeline-schedules; 4 GET /api/pipelines; 4 GET /api/pipelines/:id; 4 GET /api/pipelines/:id/steps; 4 GET /api/pipelines/:id/analyze
+  ✓  26 [dev] › e2e/hel1579-pipeline-spine-layout.spec.ts:440:7 › HEL-1579 pipeline detail step spine (live) › sweep 769-1100px: header and editor actions fit, both themes, list at default and max width (18.6s)
+[HEL-1300 e2e] throwaway user: hel1631-discard-1794900481333-82807@example.test
+  ✓  30 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:492:7 › HEL-1582 phone pipeline page (live) › AC1: a truncated last run with an 8-digit row count and a paused cron chip still fits at 375x812 on page open, with the Partial badge visible (3.9s)
+[HEL-1300 e2e] throwaway user: hel1582-scrollaway-1794900482620-77662@example.test
+  ✓  32 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:541:7 › HEL-1582 phone pipeline page (live) › a long step list never lets the page scroll away its header: the visually hidden headings stay inside the scroller (4.7s)
+[HEL-1300 e2e] throwaway user: hel1582-sheet-motion-1794900487311-18973@example.test
+[HEL-1631 e2e] Discard restores the saved pipeline exactly, with zero requests: 27 /api requests, max 60s window 27 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 3 GET /api/pipelines/:id; 3 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines
+  ✓  31 [dev] › e2e/hel1631-draft-mode.spec.ts:221:7 › HEL-1631 draft mode (live) › Discard restores the saved pipeline exactly, with zero requests (11.0s)
+[HEL-1300 e2e] throwaway user: hel1631-save-1794900492330-15951@example.test
+[HEL-1631 e2e] Save & run requests: GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d?definition=true | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/run-events | POST /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/draft/save | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/run-history | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/run-history | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/analyze | GET /api/pipelines/ac3fc893-69d9-470f-9946-abe55427367d/steps/63022282-e032-4ae9-94c8-06ef499b86a9/preview
+[HEL-1631 e2e] Save & run is ONE draft save with a run and ONE journal row; Undo restores the saved definition; a disabled step stays disabled: 37 /api requests, max 60s window 37 (limit 120, target <= 90), 0 x 429; top: 8 GET /api/pipelines/:id; 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/pipelines/:id/run-history; 1 POST /api/auth/login
+  ✓  34 [dev] › e2e/hel1631-draft-mode.spec.ts:273:7 › HEL-1631 draft mode (live) › Save & run is ONE draft save with a run and ONE journal row; Undo restores the saved definition; a disabled step stays disabled (6.4s)
+[HEL-1300 e2e] throwaway user: hel1631-server-1794900498736-40993@example.test
+[HEL-1631 e2e] 6 draft-preview requests in 3972 ms (bound 9)
+[HEL-1631 e2e] a server-only step updates through the draft-preview transport: pending, paced, never a run endpoint: 30 /api requests, max 60s window 30 (limit 120, target <= 90), 0 x 429; top: 6 POST /api/pipelines/:id/draft-preview; 4 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id/steps/:id/preview; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines
+  ✓  35 [dev] › e2e/hel1631-draft-mode.spec.ts:346:7 › HEL-1631 draft mode (live) › a server-only step updates through the draft-preview transport: pending, paced, never a run endpoint (11.1s)
+[HEL-1300 e2e] throwaway user: hel1631-stale-1794900509833-45825@example.test
+[HEL-1631 e2e] a base that changed under the draft offers ONLY 'Reload the saved pipeline', and the draft survives the reload: 28 /api requests, max 60s window 28 (limit 120, target <= 90), 0 x 429; top: 4 GET /api/pipelines/:id; 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  36 [dev] › e2e/hel1631-draft-mode.spec.ts:384:7 › HEL-1631 draft mode (live) › a base that changed under the draft offers ONLY 'Reload the saved pipeline', and the draft survives the reload (4.3s)
+[HEL-1300 e2e] throwaway user: hel1631-refused-1794900514100-37778@example.test
+[HEL-1631 e2e] a run the guard refused after the save committed says so, with the retry time and a Run now action: 27 /api requests, max 60s window 27 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/analyze; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines
+  ✓  37 [dev] › e2e/hel1631-draft-mode.spec.ts:421:7 › HEL-1631 draft mode (live) › a run the guard refused after the save committed says so, with the retry time and a Run now action (4.1s)
+[HEL-1300 e2e] throwaway user: hel1631-back-1794900518200-16928@example.test
+[HEL-1631 e2e] Back with a draft open does not lose it: forward again shows the same draft (skeptic-final-1 CR1): 28 /api requests, max 60s window 28 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  38 [dev] › e2e/hel1631-draft-mode.spec.ts:452:7 › HEL-1631 draft mode (live) › Back with a draft open does not lose it: forward again shows the same draft (skeptic-final-1 CR1) (3.9s)
+[HEL-1300 e2e] throwaway user: hel1631-back-stale-1794900522153-43950@example.test
+[HEL-1631 e2e] a draft kept across Back is NOT silently saved over a change made while away: the stale path applies (skeptic-final-2): 29 /api requests, max 60s window 29 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id; 2 GET /api/pipelines/:id/steps; 2 GET /api/pipelines/:id/analyze; 2 GET /api/pipelines/:id/schedule; 2 GET /api/pipelines/:id/outputs
+  ✓  39 [dev] › e2e/hel1631-draft-mode.spec.ts:473:7 › HEL-1631 draft mode (live) › a draft kept across Back is NOT silently saved over a change made while away: the stale path applies (skeptic-final-2) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1631-discard-fresh-1794900531243-726@example.test
+[HEL-1631 e2e] after Discard, a step first opened during the draft fetches exactly its own saved preview and nothing else: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id/steps/:id/preview; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  40 [dev] › e2e/hel1631-draft-mode.spec.ts:508:7 › HEL-1631 draft mode (live) › after Discard, a step first opened during the draft fetches exactly its own saved preview and nothing else (5.7s)
+[HEL-1300 e2e] throwaway user: hel1631-blocked-1794900536941-80373@example.test
+[HEL-1631 e2e] roots, shapes and Outputs stay disabled with a reason while a draft exists; the step actions are enabled (HEL-1684): 22 /api requests, max 60s window 22 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary; 1 POST /api/pipelines/:id/run
+  ✓  41 [dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › roots, shapes and Outputs stay disabled with a reason while a draft exists; the step actions are enabled (HEL-1684) (3.7s)
+[HEL-1300 e2e] throwaway user: hel1631-phone-1794900540638-36546@example.test
+  ✓  42 [dev] › e2e/hel1631-draft-mode.spec.ts:555:7 › HEL-1631 draft mode on a phone (live) › 375px: the draft status fills the action bar's slot and the pills become Discard and Save & run (4.7s)
+[HEL-1300 e2e] throwaway user: hel1632-burst-1794900545386-97866@example.test
+[HEL-1632 e2e] one baseline history read at load, then a burst of edits sends nothing and the Output follows the draft: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  43 [dev] › e2e/hel1632-live-output.spec.ts:216:7 › HEL-1632 live Output column › one baseline history read at load, then a burst of edits sends nothing and the Output follows the draft (8.0s)
+[HEL-1300 e2e] throwaway user: hel1632-error-1794900553396-85742@example.test
+[HEL-1632 e2e] an error above the Output's node keeps the last good render and shows stale: 27 /api requests, max 60s window 27 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 2 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/outputs/:id/history; 1 POST /api/auth/login; 1 POST /api/data-sources
+  ✓  44 [dev] › e2e/hel1632-live-output.spec.ts:294:7 › HEL-1632 live Output column › an error above the Output's node keeps the last good render and shows stale (4.2s)
+[HEL-1300 e2e] throwaway user: hel1632-server-1794900557617-37195@example.test
+  ✓  33 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:568:7 › HEL-1582 phone pipeline page (live) › the sheet composes HEL-1584's Modal motion: one entrance, no transform at rest, a held exit with no flash, an anchored popover, under Full, Subtle and Off in both themes (1.3m)
+[HEL-1300 e2e] throwaway user: hel1582-ai-move-1794900563440-42080@example.test
+[HEL-1632 e2e] a server-only step shows updating, then live; Discard returns to the saved render with zero requests: 31 /api requests, max 60s window 31 (limit 120, target <= 90), 0 x 429; top: 4 POST /api/pipelines/:id/steps; 3 POST /api/pipelines/:id/outputs; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/pipelines/:id/steps/:id/preview; 2 GET /api/outputs/:id/history; 1 POST /api/auth/login; 1 POST /api/data-sources
+  ✓  45 [dev] › e2e/hel1632-live-output.spec.ts:311:7 › HEL-1632 live Output column › a server-only step shows updating, then live; Discard returns to the saved render with zero requests (8.9s)
+[HEL-1300 e2e] throwaway user: hel1632-ai-1794900566575-12103@example.test
+  ✓  46 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:730:7 › HEL-1582 phone pipeline page (live) › AC4 (C8): tapping the Analyze with AI "Move output field 2 up" button moves that field up, at the sheet's real hit area (5.2s)
+[HEL-1300 e2e] throwaway user: hel1582-panel375-1794900568658-60633@example.test
+[HEL-1632 e2e] an Output below an AI step shows its saved data labelled stale: 28 /api requests, max 60s window 28 (limit 120, target <= 90), 0 x 429; top: 4 POST /api/pipelines/:id/steps; 3 POST /api/pipelines/:id/outputs; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 GET /api/outputs/:id/history; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines
+  ✓  47 [dev] › e2e/hel1632-live-output.spec.ts:338:7 › HEL-1632 live Output column › an Output below an AI step shows its saved data labelled stale (5.2s)
+[HEL-1300 e2e] throwaway user: hel1632-shot1280light-1794900571734-12813@example.test
+[HEL-1632 e2e] screenshots 1280 light: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  49 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 1280 light (5.4s)
+[HEL-1300 e2e] throwaway user: hel1632-shot900light-1794900577161-9564@example.test
+[HEL-1632 e2e] screenshots 900 light: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  50 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 900 light (7.3s)
+[HEL-1300 e2e] throwaway user: hel1632-shot375light-1794900584471-39267@example.test
+[HEL-1632 e2e] screenshots 375 light: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 GET /api/home-summary; 1 POST /api/pipelines
+  ✓  51 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 375 light (4.0s)
+[HEL-1300 e2e] throwaway user: hel1632-shot430light-1794900588510-32566@example.test
+  ✓  48 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:773:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 375x812 (23.4s)
+[HEL-1300 e2e] throwaway user: hel1582-panel390-1794900592023-32347@example.test
+[HEL-1632 e2e] screenshots 430 light: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  52 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 430 light (4.2s)
+[HEL-1300 e2e] throwaway user: hel1632-shot1280dark-1794900592738-44389@example.test
+[HEL-1632 e2e] screenshots 1280 dark: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  54 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 1280 dark (5.3s)
+[HEL-1300 e2e] throwaway user: hel1632-shot900dark-1794900598082-75728@example.test
+[HEL-1632 e2e] screenshots 900 dark: 25 /api requests, max 60s window 25 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  55 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 900 dark (7.6s)
+[HEL-1300 e2e] throwaway user: hel1632-shot375dark-1794900605717-72701@example.test
+[HEL-1632 e2e] screenshots 375 dark: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 GET /api/home-summary; 1 POST /api/pipelines
+  ✓  56 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 375 dark (4.1s)
+[HEL-1300 e2e] throwaway user: hel1632-shot430dark-1794900609811-3467@example.test
+[HEL-1632 e2e] screenshots 430 dark: 23 /api requests, max 60s window 23 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 POST /api/data-sources; 1 POST /api/pipelines; 1 GET /api/home-summary
+  ✓  57 [dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 430 dark (4.4s)
+[HEL-1300 e2e] throwaway user: hel1632-motionfull-1794900614232-80346@example.test
+  ✓  53 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:773:9 › HEL-1582 phone pipeline page (live) › the "N fields" panel opens fully on screen, above the sheet, with a real filter hit area, on a 3-step pipeline with a 17-column source at 390x844 (23.1s)
+[HEL-1300 e2e] throwaway user: hel1582-panel-desktop-1794900615142-56886@example.test
+  ✓  59 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:841:7 › HEL-1582 phone pipeline page (live) › desktop (1440x900): the "N fields" panel opens on the side of its trigger with room, fully inside the viewport (4.0s)
+[HEL-1300 e2e] throwaway user: hel1582-touch-mutation-1794900619137-33712@example.test
+[HEL-1632 e2e] screenshot motion full: 26 /api requests, max 60s window 26 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 PATCH /api/users/me/preferences; 1 POST /api/data-sources; 1 GET /api/home-summary
+  ✓  58 [dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion full (5.8s)
+[HEL-1300 e2e] throwaway user: hel1632-motionsubtle-1794900620039-72936@example.test
+  ✓  60 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:873:7 › HEL-1582 phone pipeline page (live) › AC4 guard can fail: a shrunk tab and a removed hit expander are caught by the same probe (3.7s)
+[HEL-1300 e2e] throwaway user: hel1582-contrast-1794900622877-820@example.test
+[HEL-1632 e2e] screenshot motion subtle: 26 /api requests, max 60s window 26 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 PATCH /api/users/me/preferences; 1 POST /api/data-sources; 1 GET /api/home-summary
+  ✓  61 [dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion subtle (5.8s)
+[HEL-1300 e2e] throwaway user: hel1632-motionoff-1794900625836-94055@example.test
+[HEL-1632 e2e] screenshot motion off: 26 /api requests, max 60s window 26 (limit 120, target <= 90), 0 x 429; top: 3 POST /api/pipelines/:id/steps; 2 GET /api/auth/me; 2 GET /api/dashboards; 2 POST /api/pipelines/:id/outputs; 1 POST /api/auth/login; 1 PATCH /api/users/me/preferences; 1 POST /api/data-sources; 1 GET /api/home-summary
+  ✓  63 [dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion off (5.4s)
+[HEL-1300 e2e] throwaway user: hel1668-owner-375-1794900631248-5473@example.test
+[HEL-1300 e2e] throwaway user: hel1668-editor-1794900633029-21554@example.test
+┌─────────┬─────────┬────────────────────────┬───────────┬─────────┬─────────┬───────────┬─────────────────┐
+│ (index) │ theme   │ control                │ state     │ surface │ text    │ indicator │ verdict         │
+├─────────┼─────────┼────────────────────────┼───────────┼─────────┼─────────┼───────────┼─────────────────┤
+│ 0       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 1       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 2       │ [32m'dark'[39m  │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 3       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 4       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 5       │ [32m'dark'[39m  │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.80'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 6       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 7       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 8       │ [32m'dark'[39m  │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 9       │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.234'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 10      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 11      │ [32m'dark'[39m  │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 12      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'8.515'[39m │ [32m'8.03'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 13      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 14      │ [32m'dark'[39m  │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 15      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 16      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 17      │ [32m'dark'[39m  │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 18      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 19      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 20      │ [32m'dark'[39m  │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 21      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'15.63'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 22      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 23      │ [32m'dark'[39m  │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'17.70'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 24      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 25      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 26      │ [32m'dark'[39m  │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 27      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.133'[39m │ [32m'13.62'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 28      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'4.96'[39m    │ [32m'pass'[39m          │
+│ 29      │ [32m'dark'[39m  │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'15.43'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 30      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 31      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 32      │ [32m'dark'[39m  │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 33      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.187'[39m │ [32m'14.16'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 34      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'5.40'[39m    │ [32m'pass'[39m          │
+│ 35      │ [32m'dark'[39m  │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'7.81'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 36      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 37      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 38      │ [32m'light'[39m │ [32m'tab (inactive)'[39m       │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 39      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 40      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 41      │ [32m'light'[39m │ [32m'step row'[39m             │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.96'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 42      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 43      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 44      │ [32m'light'[39m │ [32m'add step row'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 45      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 46      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 47      │ [32m'light'[39m │ [32m'Dry run pill'[39m         │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 48      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'hover'[39m   │ [32m'1.981'[39m │ [32m'8.21'[39m  │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 49      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 50      │ [32m'light'[39m │ [32m'Run pipeline pill'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'6.49'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 51      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 52      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 53      │ [32m'light'[39m │ [32m'back link'[39m            │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 54      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 55      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 56      │ [32m'light'[39m │ [32m'actions menu trigger'[39m │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 57      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'17.81'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 58      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 59      │ [32m'light'[39m │ [32m'source name button'[39m   │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'20.48'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 60      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 61      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 62      │ [32m'light'[39m │ [32m'source menu trigger'[39m  │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'-'[39m     │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 63      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'hover'[39m   │ [32m'1.150'[39m │ [32m'14.20'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 64      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'3.48'[39m    │ [32m'pass'[39m          │
+│ 65      │ [32m'light'[39m │ [32m'output card'[39m          │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'16.33'[39m │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 66      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 67      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 68      │ [32m'light'[39m │ [32m'new output button'[39m    │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+│ 69      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'hover'[39m   │ [32m'1.119'[39m │ [32m'16.74'[39m │ [32m'-'[39m       │ [32m'pass'[39m          │
+│ 70      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'focus'[39m   │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'3.19'[39m    │ [32m'pass'[39m          │
+│ 71      │ [32m'light'[39m │ [32m'schedule chip'[39m        │ [32m'pressed'[39m │ [32m'-'[39m     │ [32m'5.73'[39m  │ [32m'-'[39m       │ [32m'none-declared'[39m │
+└─────────┴─────────┴────────────────────────┴───────────┴─────────┴─────────┴───────────┴─────────────────┘
+  ✓  62 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:1041:7 › HEL-1582 phone pipeline page (live) › phone hover, focus and pressed states of the new controls clear the state-surface floor (1.10), text 4.5:1 and non-text 3:1, in both themes (and the measurement can fail) (14.4s)
+[HEL-1300 e2e] throwaway user: hel1582-hover-distinct-1794900637244-31164@example.test
+  ✓  64 [dev] › e2e/hel1668-editor-phone-refresh.spec.ts:41:7 › an editor's phone refresh sends one pipeline-scoped sample request, answered 200, and the label stays (375x812) (8.1s)
+[HEL-1300 e2e] throwaway user: hel1668-owner-768-1794900639350-11215@example.test
+[HEL-1300 e2e] throwaway user: hel1668-editor-1794900641221-99141@example.test
+{
+  "dark": {
+    "dryRest": "rgb(26, 24, 22)",
+    "dryHover": "rgb(38, 35, 32)",
+    "dryVsRest": 1.1327997421191345,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 146, 73)"
+  },
+  "light": {
+    "dryRest": "rgb(239, 236, 230)",
+    "dryHover": "rgb(255, 255, 255)",
+    "dryVsRest": 1.1790493202689154,
+    "runRest": "rgb(249, 115, 22)",
+    "runHover": "rgb(250, 149, 78)"
+  }
+}
+  ✓  65 [dev] › e2e/hel1582-mobile-pipeline.spec.ts:1140:7 › HEL-1582 phone pipeline page (live) › HEL-1669: the Dry run hover is distinct from its rest fill (>= 1.10) and the Run pill rests on --app-accent / hovers on --app-accent-strong, in both themes (5.3s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-1000-14-1794900642523-90230@example.test
+META [33m1000[39m [33m14[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+META [33m1000[39m [33m14[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  67 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 14 rows at 1000x800 (5.3s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-1000-12345678-1794900647867-90808@example.test
+  ✓  66 [dev] › e2e/hel1668-editor-phone-refresh.spec.ts:41:7 › an editor's phone refresh sends one pipeline-scoped sample request, answered 200, and the label stays (768x1024) (8.8s)
+[HEL-1300 e2e] throwaway user: hel1582-deeplink-375-1794900648150-42256@example.test
+META [33m1000[39m [33m12345678[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+META [33m1000[39m [33m12345678[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  68 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 12,345,678 rows at 1000x800 (5.5s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-1024-14-1794900653426-76053@example.test
+META [33m1024[39m [33m14[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  69 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 375x812 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (375x812) (9.4s)
+[HEL-1300 e2e] throwaway user: hel1582-resize-375-1794900657532-93057@example.test
+META [33m1024[39m [33m14[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  70 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 14 rows at 1024x800 (5.7s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-1024-12345678-1794900659083-73743@example.test
+  ✓  71 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 375x812 › item 1: narrowing a desktop page to the phone width opens no sheet (375x812) (4.3s)
+[HEL-1300 e2e] throwaway user: hel1582-toast-375-1794900661852-35476@example.test
+META [33m1024[39m [33m12345678[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+META [33m1024[39m [33m12345678[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  72 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 12,345,678 rows at 1024x800 (5.5s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-375-14-1794900664554-89466@example.test
+META [33m375[39m [33m14[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":true,"inside":true,"ellipsized":false}}
+META [33m375[39m [33m14[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"14 rows written ·","visible":true,"inside":true,"ellipsized":false}}
+  ✓  74 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 14 rows at 375x812 (5.3s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-375-12345678-1794900669858-70462@example.test
+  ✓  73 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 375x812 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (375x812) (8.8s)
+[HEL-1300 e2e] throwaway user: hel1582-escape-375-1794900670635-36663@example.test
+META [33m375[39m [33m12345678[39m dark {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+META [33m375[39m [33m12345678[39m light {"time":{"text":"3 minutes ago","inside":true},"count":{"text":"12,345,678 rows written ·","visible":false,"inside":false,"ellipsized":false}}
+  ✓  75 [dev] › e2e/hel1668-header-meta.spec.ts:20:9 › last-run meta never shows a cut figure: 12,345,678 rows at 375x812 (5.3s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-gap-1280-1794900675142-81471@example.test
+  ✓  76 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 375x812 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (375x812) (7.1s)
+[HEL-1300 e2e] throwaway user: hel1582-hover-375-1794900677709-68332@example.test
+GAP [33m1280[39m dark {"countVisible":false,"nameTruncated":false,"nameText":"hel1668-long-pipeline-name","timeRight":830,"boxRight":927,"trailingLeft":939}
+GAP [33m1280[39m light {"countVisible":false,"nameTruncated":false,"nameText":"hel1668-long-pipeline-name","timeRight":830,"boxRight":927,"trailingLeft":939}
+  ✓  77 [dev] › e2e/hel1668-header-meta.spec.ts:78:7 › hidden count reserves no width; count shows when there is room (1280x800) (5.4s)
+[HEL-1300 e2e] throwaway user: hel1582-meta-gap-1440-1794900680562-28319@example.test
+GAP [33m1440[39m dark {"countVisible":true,"nameTruncated":false,"nameText":"hel1668-long-pipeline-name","timeRight":956,"boxRight":1087,"trailingLeft":1099}
+  ✓  78 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 375x812 › item 5: a touch tap leaves no sticky hover fill on the step row (375x812) (7.5s)
+[HEL-1300 e2e] throwaway user: hel1582-deeplink-390-1794900685191-54137@example.test
+GAP [33m1440[39m light {"countVisible":true,"nameTruncated":false,"nameText":"hel1668-long-pipeline-name","timeRight":956,"boxRight":1087,"trailingLeft":1099}
+  ✓  79 [dev] › e2e/hel1668-header-meta.spec.ts:78:7 › hidden count reserves no width; count shows when there is room (1440x800) (5.2s)
+[HEL-1300 e2e] throwaway user: hel1685-notice-1794900685772-70467@example.test
+  ✓  81 [dev] › e2e/hel1685-draft-polish.spec.ts:110:7 › HEL-1685 draft polish (live) › 1280x800: a refused save's notice takes only its own height and the page does not scroll (item 4) (6.6s)
+[HEL-1300 e2e] throwaway user: hel1685-phone-375-1794900692354-39108@example.test
+  ✓  80 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 390x844 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (390x844) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1582-resize-390-1794900694265-50773@example.test
+  ✓  83 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 390x844 › item 1: narrowing a desktop page to the phone width opens no sheet (390x844) (4.0s)
+[HEL-1300 e2e] throwaway user: hel1582-toast-390-1794900698312-51331@example.test
+  ✓  82 [dev] › e2e/hel1685-draft-polish.spec.ts:150:9 › HEL-1685 draft polish (live) › 375px: an Output card's menu never takes a tap meant for the floating action bar (item 5) (11.7s)
+[HEL-1300 e2e] throwaway user: hel1685-phone-430-1794900704066-70603@example.test
+  ✓  84 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 390x844 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (390x844) (8.4s)
+[HEL-1300 e2e] throwaway user: hel1582-escape-390-1794900706691-11827@example.test
+  ✓  86 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 390x844 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (390x844) (6.7s)
+[HEL-1300 e2e] throwaway user: hel1582-hover-390-1794900713401-54532@example.test
+  ✓  85 [dev] › e2e/hel1685-draft-polish.spec.ts:150:9 › HEL-1685 draft polish (live) › 430px: an Output card's menu never takes a tap meant for the floating action bar (item 5) (11.7s)
+[HEL-1300 e2e] throwaway user: hel1685-disclosure-1794900715756-27947@example.test
+  ✓  87 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 390x844 › item 5: a touch tap leaves no sticky hover fill on the step row (390x844) (7.3s)
+[HEL-1300 e2e] throwaway user: hel1582-deeplink-768-1794900720698-53173@example.test
+  ✓  88 [dev] › e2e/hel1685-draft-polish.spec.ts:207:7 › HEL-1685 draft polish (live) › 900px wide: with the Output section open the step editor shows its first input row with no inner scroll (addendum G) (12.2s)
+[HEL-1300 e2e] throwaway user: hel1685-removed-output-1794900727997-22092@example.test
+  ✓  89 [dev] › e2e/hel1668-phone-sheet.spec.ts:36:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: the ?step= deep link opens that step's sheet, closing clears it, an unknown id opens none (768x1024) (9.7s)
+[HEL-1300 e2e] throwaway user: hel1582-resize-768-1794900730431-45392@example.test
+  ✓  91 [dev] › e2e/hel1668-phone-sheet.spec.ts:67:9 › HEL-1668 phone sheet polish at 768x1024 › item 1: narrowing a desktop page to the phone width opens no sheet (768x1024) (4.3s)
+[HEL-1300 e2e] throwaway user: hel1582-toast-768-1794900734685-94351@example.test
+  ✓  90 [dev] › e2e/hel1685-draft-polish.spec.ts:252:7 › HEL-1685 draft polish (live) › 1280x800: Save & run that removes an Output requests no preview of it (item 7) (9.1s)
+[HEL-1300 e2e] throwaway user: hel1705-unfocused-1794900737104-49756@example.test
+  ✓  92 [dev] › e2e/hel1668-phone-sheet.spec.ts:86:9 › HEL-1668 phone sheet polish at 768x1024 › item 2: a failed step move's error toast shows above the sheet, is dismissable and was announced after its region sat empty for two frames (768x1024) (8.7s)
+[HEL-1300 e2e] throwaway user: hel1582-escape-768-1794900743433-39023@example.test
+  ✓  93 [dev] › e2e/hel1705-live-output-refresh.spec.ts:131:7 › HEL-1705 live Output column › D: an unfocused server-resolved Output refreshes from the one draft-preview request (10.1s)
+[HEL-1300 e2e] throwaway user: hel1705-e-light-1794900747170-49404@example.test
+  ✓  94 [dev] › e2e/hel1668-phone-sheet.spec.ts:184:9 › HEL-1668 phone sheet polish at 768x1024 › item 3: Escape closes only the schema panel, then only the step menu, then the sheet (768x1024) (7.7s)
+[HEL-1300 e2e] throwaway user: hel1582-hover-768-1794900751160-72510@example.test
+  ✓  95 [dev] › e2e/hel1705-live-output-refresh.spec.ts:175:9 › HEL-1705 live Output column › E: plain-chart LATEST tile and the compare overlay, desktop and phone (light) (8.0s)
+[HEL-1300 e2e] throwaway user: hel1705-e-dark-1794900755139-67957@example.test
+  ✓  96 [dev] › e2e/hel1668-phone-sheet.spec.ts:217:9 › HEL-1668 phone sheet polish at 768x1024 › item 5: a touch tap leaves no sticky hover fill on the step row (768x1024) (8.3s)
+  ✓  97 [dev] › e2e/hel1705-live-output-refresh.spec.ts:175:9 › HEL-1705 live Output column › E: plain-chart LATEST tile and the compare overlay, desktop and phone (dark) (7.6s)
+[HEL-1300 e2e] throwaway user: hel1705-order-1794900762747-84837@example.test
+  ✓  98 [dev] › e2e/hel908-trunk-reorder-drag.spec.ts:20:7 › HEL-908 trunk-to-trunk reorder — real drag gesture › dragging a tailed trunk node to a new position carries its tail with it (3.7s)
+  ✓  99 [dev] › e2e/hel1705-live-output-refresh.spec.ts:242:7 › HEL-1705 live Output column › H: a saved table panel and the live column lay columns out in the Output's schema order (7.5s)
+[HEL-1301 e2e] deleted 101 recorded throwaway user(s)
+
+  99 passed (6.7m)

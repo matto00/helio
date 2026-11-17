@@ -9,7 +9,10 @@ import {
   deleteStep,
   hasDraft,
   outputsOnRemovedSteps,
+  pruneOverlay,
   rebaseOverlay,
+  replayOverlay,
+  withOp,
   removedStepIds,
   toDraftOutputs,
   toDraftSteps,
@@ -262,5 +265,107 @@ describe("definitionMatchesBase", () => {
 
   it("does not compare Outputs while the page has not loaded them", () => {
     expect(definitionMatchesBase({ steps, outputs: [] }, steps, null)).toBe(true);
+  });
+});
+
+describe("structure ops in the overlay (HEL-1684)", () => {
+  const base = [
+    step("a", { parentStepId: null }),
+    step("b", { parentStepId: "a", rootId: null }),
+    step("c", { parentStepId: "b", rootId: null }),
+  ];
+  const insertAfterA = {
+    kind: "insert",
+    clientId: "draft-1",
+    type: "limit",
+    config: { count: 3 },
+    anchor: { after: "a" },
+  } as const;
+
+  it("a step added after a leaf and then deleted leaves no draft at all", () => {
+    const added = withOp(base, EMPTY_OVERLAY, {
+      ...insertAfterA,
+      anchor: { after: "c" },
+    });
+    expect(hasDraft(added)).toBe(true);
+    expect(hasDraft(withDeleted(base, added, "draft-1"))).toBe(false);
+    expect(withDeleted(base, added, "draft-1")).toBe(EMPTY_OVERLAY);
+  });
+
+  it("Move down followed by Move up is no draft", () => {
+    const down = withOp(base, EMPTY_OVERLAY, {
+      kind: "reorder",
+      rootId: "r1",
+      trunk: ["b", "a", "c"],
+    });
+    expect(hasDraft(down)).toBe(true);
+    const back = withOp(base, down, { kind: "reorder", rootId: "r1", trunk: ["a", "b", "c"] });
+    expect(back).toBe(EMPTY_OVERLAY);
+  });
+
+  it("an edit to a new step lives under its client id and is pruned when set back to the op's own config", () => {
+    const added = withOp(base, EMPTY_OVERLAY, insertAfterA);
+    const edited = withConfig(base, added, "draft-1", limit(9));
+    expect(applyOverlay(base, edited).find((s) => s.id === "draft-1")?.config).toEqual({
+      count: 9,
+    });
+    expect(withConfig(base, edited, "draft-1", limit(3)).configs).toEqual({});
+  });
+
+  it("deleting the new step drops its config entry and restores the base when nothing else changed", () => {
+    const edited = withConfig(base, withOp(base, EMPTY_OVERLAY, insertAfterA), "draft-1", limit(9));
+    expect(withDeleted(base, edited, "draft-1")).toBe(EMPTY_OVERLAY);
+  });
+
+  it("a duplicate keeps the config captured when it was recorded, whatever the original is later edited to", () => {
+    const dup = withOp(base, EMPTY_OVERLAY, {
+      kind: "duplicate",
+      clientId: "draft-d",
+      of: "b",
+      type: "limit",
+      config: limit(10),
+      enabled: true,
+    });
+    const edited = withConfig(base, dup, "b", limit(99));
+    const steps = applyOverlay(base, edited);
+    expect(steps.find((s) => s.id === "draft-d")?.config).toEqual(limit(10));
+    expect(steps.find((s) => s.id === "b")?.config).toEqual(limit(99));
+  });
+
+  it("replay reports an op whose steps are gone from the base and the entries that go with it", () => {
+    const added = withConfig(base, withOp(base, EMPTY_OVERLAY, insertAfterA), "draft-1", limit(9));
+    const shrunk = base.filter((s) => s.id !== "a");
+    const replayed = replayOverlay(shrunk, added);
+    expect(replayed.droppedOps).toHaveLength(1);
+    expect(replayed.droppedEntries).toBe(1);
+    expect(replayed.dropped).toBe(2);
+    expect(pruneOverlay(shrunk, added)).toBe(EMPTY_OVERLAY);
+  });
+
+  it("rebase keeps every op whose steps still exist, drops a dependent op with its parent, and counts them", () => {
+    const first = withOp(base, EMPTY_OVERLAY, insertAfterA);
+    const both = withOp(base, first, {
+      kind: "lane",
+      clientId: "draft-2",
+      type: "limit",
+      config: limit(1),
+      parent: "draft-1",
+    });
+    const kept = withDeleted(base, both, "c");
+    const newBase = base.filter((s) => s.id !== "a");
+    const { overlay, dropped } = rebaseOverlay(newBase, kept);
+    expect(dropped).toBe(2);
+    expect(overlay.ops.map((o) => o.kind)).toEqual(["delete"]);
+  });
+
+  it("toDraftSteps sends a new step by clientId, and a step under it by parentClientId", () => {
+    const added = withOp(base, EMPTY_OVERLAY, insertAfterA);
+    const body = toDraftSteps(applyOverlay(base, added));
+    const fresh = body.find((s) => s.clientId === "draft-1")!;
+    expect(fresh.id).toBeUndefined();
+    expect(fresh.parentStepId).toBe("a");
+    const moved = body.find((s) => s.id === "b")!;
+    expect(moved.parentClientId).toBe("draft-1");
+    expect(moved.parentStepId).toBeUndefined();
   });
 });

@@ -1,0 +1,1221 @@
+
+Running 26 tests using 1 worker
+
+[HEL-1300 e2e] throwaway user: hel1684-desktop-addstep-1794898963220-12877@example.test
+  ✘   1 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › add step: a draft entry, saved atomically with the structure the draft showed (19.1s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-addstep-1794898982840-45160@example.test
+  ✘   2 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › add step: Discard restores the saved pipeline with no request (19.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-insertstep-1794899002315-99628@example.test
+  ✘   3 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed (19.2s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-insertstep-1794899021958-65070@example.test
+  ✘   4 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › insert step: Discard restores the saved pipeline with no request (19.2s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-duplicatestep-1794899041655-55494@example.test
+  ✘   5 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed (19.3s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-duplicatestep-1794899061329-66542@example.test
+  ✘   6 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: Discard restores the saved pipeline with no request (19.7s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-lanestep-1794899081554-94938@example.test
+  ✘   7 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: a draft entry, saved atomically with the structure the draft showed (19.2s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-lanestep-1794899101300-79076@example.test
+  ✘   8 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: Discard restores the saved pipeline with no request (19.6s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-Movedown-1794899121460-16845@example.test
+  ✘   9 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move down: a draft entry, saved atomically with the structure the draft showed (20.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-Movedown-1794899141840-39162@example.test
+  ✘  10 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move down: Discard restores the saved pipeline with no request (19.1s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-Moveup-1794899161383-6799@example.test
+  ✘  11 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move up: a draft entry, saved atomically with the structure the draft showed (19.1s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-d-Moveup-1794899180949-54225@example.test
+  ✘  12 [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move up: Discard restores the saved pipeline with no request (19.1s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-dragreorder-1794899200506-87774@example.test
+  ✘  13 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › drag reorder: a draft entry, saved atomically with the structure the draft showed (18.9s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-addstep-1794899219875-63784@example.test
+  ✘  14 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › add step: a draft entry, saved atomically with the structure the draft showed (19.5s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-insertstep-1794899239779-2874@example.test
+  ✘  15 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed (19.9s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-duplicatestep-1794899260109-17377@example.test
+  ✘  16 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed (19.6s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-lanestep-1794899280132-16845@example.test
+  ✘  17 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › + lane step: a draft entry, saved atomically with the structure the draft showed (19.8s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-Movedown-1794899300430-73952@example.test
+  ✘  18 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move down: a draft entry, saved atomically with the structure the draft showed (20.0s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-Moveup-1794899320833-78157@example.test
+  ✘  19 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move up: a draft entry, saved atomically with the structure the draft showed (20.0s)
+[HEL-1300 e2e] throwaway user: hel1684-desktop-insertstep-1794899341252-66551@example.test
+  ✘  20 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed (18.9s)
+[HEL-1300 e2e] throwaway user: hel1684-phone-insertstep-1794899360596-85092@example.test
+  ✘  21 [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed (19.8s)
+[HEL-1300 e2e] throwaway user: hel1684-back-1794899380880-87621@example.test
+  ✘  22 [dev] › e2e/hel1684-draft-structural.spec.ts:439:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a draft with an inserted step survives Back and Forward and is shown again (19.0s)
+[HEL-1300 e2e] throwaway user: hel1684-v1-1794899400371-83737@example.test
+  ✓  23 [dev] › e2e/hel1684-draft-structural.spec.ts:460:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › [guard] a draft kept in the earlier format (deleted ids) still restores (5.7s)
+[HEL-1300 e2e] throwaway user: hel1684-stale-1794899405653-76019@example.test
+  ✘  24 [dev] › e2e/hel1684-draft-structural.spec.ts:499:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step (18.6s)
+[HEL-1300 e2e] throwaway user: hel1684-undo-1794899425129-53588@example.test
+  ✘  25 [dev] › e2e/hel1684-draft-structural.spec.ts:539:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step (19.0s)
+[HEL-1300 e2e] throwaway user: hel1684-tail-1794899444621-89562@example.test
+  ✘  26 [dev] › e2e/hel1684-draft-structural.spec.ts:573:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name (18.9s)
+[HEL-1301 e2e] deleted 26 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › add step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: '+ Add transformation step' })[22m
+    [2m    - locator resolved to <button disabled type="button" class="spine-ghost-btn" aria-label="+ Add transformation step" title="Save or discard your draft first">+ Add step</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      214 |       await closeSheet(page);
+      215 |       void viewport;
+    > 216 |       await page.getByRole("button", { name: "+ Add transformation step" }).click();
+          |                                                                             ^
+      217 |       await pickStep(page, "limit");
+      218 |     },
+      219 |   },
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:216:77)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-79634--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-79634--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-79634--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › add step: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: '+ Add transformation step' })[22m
+    [2m    - locator resolved to <button disabled type="button" class="spine-ghost-btn" aria-label="+ Add transformation step" title="Save or discard your draft first">+ Add step</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      214 |       await closeSheet(page);
+      215 |       void viewport;
+    > 216 |       await page.getByRole("button", { name: "+ Add transformation step" }).click();
+          |                                                                             ^
+      217 |       await pickStep(page, "limit");
+      218 |     },
+      219 |   },
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:216:77)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-87021-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-87021-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-87021-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:226:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-b60e1--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-b60e1--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-b60e1--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › insert step: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:226:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-16e1d-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-16e1d-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-16e1d-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.step-focused').getByRole('button', { name: 'Duplicate step' })[22m
+    [2m    - locator resolved to <button disabled type="button" aria-label="Duplicate step" class="step-focused__action" title="Save or discard your draft first">Duplicate</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      236 |       if (viewport === "desktop") {
+      237 |         await selectRow(page, 1);
+    > 238 |         await editorAction(page, "Duplicate step").click();
+          |                                                    ^
+      239 |       } else {
+      240 |         await spineRows(page).nth(1).locator(".spine-row__select").click();
+      241 |         await expect(sheet(page)).toBeVisible();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:238:52)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-44036--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-44036--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-44036--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.step-focused').getByRole('button', { name: 'Duplicate step' })[22m
+    [2m    - locator resolved to <button disabled type="button" aria-label="Duplicate step" class="step-focused__action" title="Save or discard your draft first">Duplicate</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      236 |       if (viewport === "desktop") {
+      237 |         await selectRow(page, 1);
+    > 238 |         await editorAction(page, "Duplicate step").click();
+          |                                                    ^
+      239 |       } else {
+      240 |         await spineRows(page).nth(1).locator(".spine-row__select").click();
+      241 |         await expect(sheet(page)).toBeVisible();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:238:52)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-e3959-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-e3959-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-e3959-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Branch from here' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Branch from here</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:253:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-3238b--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-3238b--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-3238b--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Branch from here' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Branch from here</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:253:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-4def7-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-4def7-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-4def7-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move down: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step down/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step down in hel1684-src-runs">Move down</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:262:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-26dcb--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-26dcb--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-26dcb--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move down: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step down/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step down in hel1684-src-runs">Move down</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:262:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-fd8b1-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-fd8b1-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-fd8b1-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move up: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step up/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step up in hel1684-src-runs">Move up</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:270:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-84d73--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-84d73--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-84d73--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move up: Discard restores the saved pipeline with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step up/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step up in hel1684-src-runs">Move up</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:270:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:404:11
+
+    Error Context: test-results/hel1684-draft-structural-H-c780b-ed-pipeline-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-c780b-ed-pipeline-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-c780b-ed-pipeline-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › drag reorder: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.elementHandle: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('.spine-row').first().locator('.spine-row__grip')[22m
+
+
+      277 |     desktopOnly: true,
+      278 |     run: async (page) => {
+    > 279 |       const src = await spineRows(page).nth(0).locator(".spine-row__grip").elementHandle();
+          |                                                                            ^
+      280 |       const dst = await spineRows(page).nth(2).elementHandle();
+      281 |       // The grip is a plain HTML5 `draggable`; the drag events are dispatched on the elements the app listens on
+      282 |       // (the same approach as hel908-trunk-reorder-drag.spec.ts), a frame apart so React commits the over index.
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:279:76)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:22
+
+    Error Context: test-results/hel1684-draft-structural-H-beef2--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-beef2--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-beef2--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › add step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: '+ Add transformation step' })[22m
+    [2m    - locator resolved to <button disabled type="button" class="spine-add-row" aria-label="+ Add transformation step" title="Save or discard your draft first">+ Add step</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m    29 × waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying click action[22m
+    [2m       - waiting 500ms[22m
+
+
+      214 |       await closeSheet(page);
+      215 |       void viewport;
+    > 216 |       await page.getByRole("button", { name: "+ Add transformation step" }).click();
+          |                                                                             ^
+      217 |       await pickStep(page, "limit");
+      218 |     },
+      219 |   },
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:216:77)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-2c5e2--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-2c5e2--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-2c5e2--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      190 |     .getByRole("button", { name: /^Step actions for / })
+      191 |     .click();
+    > 192 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      193 | }
+      194 |
+      195 | interface Action {
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:192:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:226:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-56408--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-56408--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-56408--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('dialog', { name: 'Step editor' }).getByRole('button', { name: 'Duplicate step' })[22m
+    [2m    - locator resolved to <button disabled type="button" aria-label="Duplicate step" class="step-focused__action" title="Save or discard your draft first">Duplicate</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      241 |         await expect(sheet(page)).toBeVisible();
+      242 |         await settleTransitions(page);
+    > 243 |         await sheet(page).getByRole("button", { name: "Duplicate step" }).click();
+          |                                                                           ^
+      244 |       }
+      245 |     },
+      246 |   },
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:243:75)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-10261--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-10261--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-10261--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › + lane step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Branch from here' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Branch from here</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      190 |     .getByRole("button", { name: /^Step actions for / })
+      191 |     .click();
+    > 192 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      193 | }
+      194 |
+      195 | interface Action {
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:192:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:253:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-c468c--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-c468c--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-c468c--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move down: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step down/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step down in hel1684-src-runs">Move down</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      190 |     .getByRole("button", { name: /^Step actions for / })
+      191 |     .click();
+    > 192 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      193 | }
+      194 |
+      195 | interface Action {
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:192:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:262:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-588da--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-588da--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-588da--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move up: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: /^Move step up/ })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first" aria-label="Move step up in hel1684-src-runs">Move up</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      190 |     .getByRole("button", { name: /^Step actions for / })
+      191 |     .click();
+    > 192 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      193 | }
+      194 |
+      195 | interface Action {
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:192:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:270:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-956d8--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-956d8--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-956d8--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:183:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:226:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-cfdde--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-cfdde--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-cfdde--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+      190 |     .getByRole("button", { name: /^Step actions for / })
+      191 |     .click();
+    > 192 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      193 | }
+      194 |
+      195 | interface Action {
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:192:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:226:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:351:9
+
+    Error Context: test-results/hel1684-draft-structural-H-e2ba6--structure-the-draft-showed-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-e2ba6--structure-the-draft-showed-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-e2ba6--structure-the-draft-showed-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [dev] › e2e/hel1684-draft-structural.spec.ts:439:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a draft with an inserted step survives Back and Forward and is shown again 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:449:5
+
+    Error Context: test-results/hel1684-draft-structural-H-a3be4--Forward-and-is-shown-again-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-a3be4--Forward-and-is-shown-again-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-a3be4--Forward-and-is-shown-again-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  23) [dev] › e2e/hel1684-draft-structural.spec.ts:499:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:509:5
+
+    Error Context: test-results/hel1684-draft-structural-H-4b8ca-stale-Reload-keeps-the-step-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-4b8ca-stale-Reload-keeps-the-step-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-4b8ca-stale-Reload-keeps-the-step-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  24) [dev] › e2e/hel1684-draft-structural.spec.ts:539:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:553:5
+
+    Error Context: test-results/hel1684-draft-structural-H-f282f-lection-on-a-surviving-step-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-f282f-lection-on-a-surviving-step-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-f282f-lection-on-a-surviving-step-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  25) [dev] › e2e/hel1684-draft-structural.spec.ts:573:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('menuitem', { name: 'Insert step after' })[22m
+    [2m    - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Insert step after</button>[22m
+    [2m  - attempting click action[22m
+    [2m    2 × waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not stable[22m
+    [2m    - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is not stable[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is not enabled[22m
+    [2m  28 × retrying click action[22m
+    [2m       - waiting 500ms[22m
+    [2m       - waiting for element to be visible, enabled and stable[22m
+    [2m       - element is not enabled[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/support/pipelineSpine.ts:45:14)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-structural-operations/HEL-1684/e2e/hel1684-draft-structural.spec.ts:582:5
+
+    Error Context: test-results/hel1684-draft-structural-H-bca6d--asks-to-confirm-it-by-name-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1684-draft-structural-H-bca6d--asks-to-confirm-it-by-name-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1684-draft-structural-H-bca6d--asks-to-confirm-it-by-name-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  25 failed
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › add step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › add step: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › insert step: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move down: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move down: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › Move up: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:392:13 › HEL-1684 draft structure actions: desktop, light (live) › Move up: Discard restores the saved pipeline with no request 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, light (live) › drag reorder: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › add step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › + lane step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move down: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, dark (live) › Move up: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: desktop, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:338:11 › HEL-1684 draft structure actions: phone, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:439:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a draft with an inserted step survives Back and Forward and is shown again 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:499:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:539:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step 
+    [dev] › e2e/hel1684-draft-structural.spec.ts:573:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name 
+  1 passed (8.4m)

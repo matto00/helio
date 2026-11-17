@@ -524,7 +524,7 @@ test.describe("HEL-1631 draft mode (live)", () => {
     expect(sent[0]).toBe(`GET /api/pipelines/${pipelineId}/steps/${stepIds[2]}/preview`);
   });
 
-  test("structural controls are disabled with a reason while a draft exists", async ({
+  test("roots, shapes and Outputs stay disabled with a reason while a draft exists; the step actions are enabled (HEL-1684)", async ({
     page,
     request,
   }) => {
@@ -532,12 +532,19 @@ test.describe("HEL-1631 draft mode (live)", () => {
     const { pipelineId } = await seed(page, creds.email);
     await openPipeline(page, pipelineId);
     await timedFilterEdit(page, "300");
+    const reason = "Save or discard your draft first";
+    const addSource = page.getByRole("button", { name: "Add source" });
+    await expect(addSource).toBeDisabled();
+    await expect(addSource).toHaveAttribute("title", reason);
+    const shape = page.getByRole("button", { name: "Add Outputs from a shape" });
+    await expect(shape).toBeDisabled();
+    await expect(shape).toHaveAttribute("title", reason);
+    await expect(page.getByRole("button", { name: "New output" })).toBeDisabled();
     const add = page.getByRole("button", { name: "+ Add transformation step" });
-    await expect(add).toBeDisabled();
-    await expect(add).toHaveAttribute("title", "Save or discard your draft first");
-    await expect(page.getByRole("button", { name: "Duplicate step" })).toBeDisabled();
-    await page.getByRole("button", { name: "Discard draft" }).click();
     await expect(add).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Duplicate step" })).toBeEnabled();
+    await page.getByRole("button", { name: "Discard draft" }).click();
+    await expect(addSource).toBeEnabled();
   });
 });
 

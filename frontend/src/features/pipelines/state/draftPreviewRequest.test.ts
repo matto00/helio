@@ -121,4 +121,20 @@ describe("buildDraftPreviewRequest", () => {
     expect(Object.keys(built.request.lanes ?? {})).toEqual(["x"]);
     expect(built.request.steps.map((s) => s.id)).toEqual(["a", "j"]);
   });
+
+  it("sends a draft client id as the step id, as a server step and as a requested rows step", () => {
+    const built = build(
+      [
+        def("a", "limit", null, { count: 2 }),
+        def("draft-x1", "convertformat", "a", CONVERT),
+        def("draft-x2", "limit", "draft-x1", { count: 1 }),
+      ],
+      "draft-x1",
+      {},
+      ["draft-x2"],
+    )!;
+    expect(built.request.steps.map((s) => s.id)).toEqual(["draft-x1", "draft-x2"]);
+    expect(built.request.steps[1].parentStepId).toBe("draft-x1");
+    expect(built.request.rowsStepIds).toEqual(["draft-x2"]);
+  });
 });
