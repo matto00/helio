@@ -4,10 +4,59 @@
   // with an inline comment carrying the ticket and a review-by date — never a silent/blanket suppression.
   "moderate": true,
   "allowlist": [
-    // HEL-1246: GHSA-vfj7-8cjw-p6xm (braces) — dev-only (jest->micromatch->braces), no patched
-    // version (braces 3.0.3 and micromatch 4.0.8 are both latest). Path-scoped so the same
-    // advisory via any non-micromatch path still fails. Review-by 2026-11-02; remove once a
-    // patched braces/micromatch ships.
-    "GHSA-vfj7-8cjw-p6xm|*micromatch>braces*",
+    // HEL-1751: GHSA-fc5q-39xc-vjpf (picomatch ReDoS via single-branch repeated extglobs, <= 4.0.7) —
+    // dev-only: `npm audit --omit=dev` is 0, every path below runs through dev/build tooling
+    // (jest/jest-util (via jest-haste-map>anymatch, micromatch) and typescript-eslint>tinyglobby, fdir).
+    // No patched release: 4.0.7 is the latest picomatch. audit-ci reports each path as a head-anchored
+    // "a>b>picomatch" string whose head and trailing ">" vary run to run (npm audit key order), so a
+    // verbatim per-path list is flaky. Instead there is one entry per package in picomatch's dev-only
+    // transitive effects set (all "dev": true in the lockfile), each as "<full package name>>*": a path
+    // must START at one of these dev packages. A production path starts at a production package, which
+    // is not listed, so it still fails. Do NOT loosen to "picomatch*", "jest*" or a leading "*".
+    // Re-derive the set from `npm audit --json` if the lockfile changes.
+    // Review-by 2026-12-17; remove once picomatch > 4.0.7 ships.
+    "GHSA-fc5q-39xc-vjpf|@jest/console>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/core>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/environment>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/expect>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/globals>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/reporters>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/test-result>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/transform>*",
+    "GHSA-fc5q-39xc-vjpf|@types/jest>*",
+    "GHSA-fc5q-39xc-vjpf|@typescript-eslint/eslint-plugin>*",
+    "GHSA-fc5q-39xc-vjpf|@typescript-eslint/parser>*",
+    "GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>*",
+    "GHSA-fc5q-39xc-vjpf|@typescript-eslint/typescript-estree>*",
+    "GHSA-fc5q-39xc-vjpf|@typescript-eslint/utils>*",
+    "GHSA-fc5q-39xc-vjpf|anymatch>*",
+    "GHSA-fc5q-39xc-vjpf|babel-jest>*",
+    "GHSA-fc5q-39xc-vjpf|expect>*",
+    "GHSA-fc5q-39xc-vjpf|fdir>*",
+    "GHSA-fc5q-39xc-vjpf|jest>*",
+    "GHSA-fc5q-39xc-vjpf|jest-changed-files>*",
+    "GHSA-fc5q-39xc-vjpf|jest-circus>*",
+    "GHSA-fc5q-39xc-vjpf|jest-cli>*",
+    "GHSA-fc5q-39xc-vjpf|jest-config>*",
+    "GHSA-fc5q-39xc-vjpf|jest-each>*",
+    "GHSA-fc5q-39xc-vjpf|jest-environment-node>*",
+    "GHSA-fc5q-39xc-vjpf|jest-haste-map>*",
+    "GHSA-fc5q-39xc-vjpf|jest-message-util>*",
+    "GHSA-fc5q-39xc-vjpf|jest-mock>*",
+    "GHSA-fc5q-39xc-vjpf|jest-resolve>*",
+    "GHSA-fc5q-39xc-vjpf|jest-resolve-dependencies>*",
+    "GHSA-fc5q-39xc-vjpf|jest-runner>*",
+    "GHSA-fc5q-39xc-vjpf|jest-runtime>*",
+    "GHSA-fc5q-39xc-vjpf|jest-snapshot>*",
+    "GHSA-fc5q-39xc-vjpf|jest-util>*",
+    "GHSA-fc5q-39xc-vjpf|jest-watcher>*",
+    "GHSA-fc5q-39xc-vjpf|jest-worker>*",
+    "GHSA-fc5q-39xc-vjpf|micromatch>*",
+    "GHSA-fc5q-39xc-vjpf|picomatch>*",
+    "GHSA-fc5q-39xc-vjpf|tinyglobby>*",
+    "GHSA-fc5q-39xc-vjpf|ts-jest>*",
+    "GHSA-fc5q-39xc-vjpf|typescript-eslint>*",
   ],
 }
