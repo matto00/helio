@@ -61,7 +61,8 @@
   padding: var(--space-4);
 }
 
-/* A tall op editor (aggregate, join) scrolls inside itself and never pushes the table below ~8 rows. */
+/* A tall op editor (aggregate, join) scrolls inside itself: it is capped at 45% of the column (raised to a 290px floor in the
+   narrow-desktop disclosure layout below). That cap does not guarantee the table any rows; on short windows the preview gives way. */
 .spine-body__editor {
   flex: 0 1 auto;
   max-height: 45%;
@@ -111,10 +112,19 @@
 }
 
 /* Narrow desktop: the editor shows its first input row in full (no inner scroll) rather than shrinking to 45% of the
-   column (a taller editor, aggregate or join, still scrolls inside itself past 290px); the preview table takes the squeeze. */
+   column (a taller editor, aggregate or join, still scrolls inside itself past 290px); the preview table takes the squeeze.
+   HEL-1704: the squeeze stops at the preview's title row (`.step-preview` min-height below); on a window too short for that
+   (about 600px tall) the editor shrinks instead, scrolling inside itself, and its first condition row stays in view. */
 .spine-body[data-live-layout="disclosure"] .spine-body__editor {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
   max-height: max(45%, 290px);
+}
+
+/* The title row: top border + header top padding + the title's line box (`1lh`: the preview and its title share the font and
+   `line-height: normal`) + header bottom padding. Schema chips and the count wrap below it and may clip. */
+.spine-body[data-live-layout="disclosure"] .step-preview {
+  min-height: calc(1px + 2 * var(--space-2) + 1lh);
 }
 
 .spine-body__placeholder {

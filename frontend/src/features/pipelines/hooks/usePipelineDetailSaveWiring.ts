@@ -1,0 +1,95 @@
+import type { Dispatch, SetStateAction } from "react";
+
+import type { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useAppSelector } from "../../../hooks/reduxHooks";
+import type { useToast } from "../../toasts/hooks/useToast";
+import type { PipelineRoot } from "../types/pipelineStep";
+import type { PipelineDraft } from "./usePipelineDraft";
+import type { PipelineEditorState } from "./usePipelineEditorState";
+import { usePipelineDraftSave } from "./usePipelineDraftSave";
+import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
+
+/**
+ * Run, save, cancel and Save & run wiring (HEL-1704 split of `usePipelineDetailPage`). `navigate` is passed in, not read
+ * here, so the page's `useNavigate` keeps its place among the effect-bearing hooks.
+ */
+export function usePipelineDetailSaveWiring({
+  id,
+  dispatch,
+  navigate,
+  pushToast,
+  editor,
+  draft,
+  roots,
+  draftSaveInFlightRef,
+  refreshRunHistoryAfterRun,
+  outputName,
+  isDirty,
+  setIsConfirmingCancel,
+}: {
+  id: string | undefined;
+  dispatch: ReturnType<typeof useAppDispatch>;
+  navigate: Parameters<typeof usePipelineRunAndSaveActions>[0]["navigate"];
+  pushToast: ReturnType<typeof useToast>["push"];
+  editor: PipelineEditorState;
+  draft: PipelineDraft;
+  roots: PipelineRoot[];
+  draftSaveInFlightRef: Parameters<typeof usePipelineDraftSave>[0]["draftSaveInFlightRef"];
+  refreshRunHistoryAfterRun: () => void;
+  outputName: string;
+  isDirty: boolean;
+  setIsConfirmingCancel: Dispatch<SetStateAction<boolean>>;
+}) {
+  const { stepsRef, setSteps, allOutputsRef, setSseActive } = editor;
+  const {
+    handleRunPipeline,
+    handleDryRun,
+    handleRunToUpdate,
+    handleSave,
+    handleCancel,
+    confirmCancelDiscard,
+    dismissCancelConfirm,
+    refreshVisibleOutputPreviews,
+  } = usePipelineRunAndSaveActions({
+    id,
+    dispatch,
+    navigate,
+    setSseActive,
+    allOutputsRef,
+    refreshRunHistoryAfterRun,
+    outputName,
+    isDirty,
+    setIsConfirmingCancel,
+  });
+
+  const outputsLoaded = useAppSelector(
+    (state) => id !== undefined && state.outputs.listStatus[id] === "succeeded",
+  );
+  const draftSave = usePipelineDraftSave({
+    id,
+    dispatch,
+    pushToast,
+    draft,
+    stepsRef,
+    setSteps,
+    roots,
+    allOutputsRef,
+    draftSaveInFlightRef,
+    outputsLoaded,
+    setSseActive,
+    refreshRunHistoryAfterRun,
+    refreshVisibleOutputPreviews,
+    onRunNow: () => void handleRunPipeline(),
+  });
+
+  return {
+    handleRunPipeline,
+    handleDryRun,
+    handleRunToUpdate,
+    handleSave,
+    handleCancel,
+    confirmCancelDiscard,
+    dismissCancelConfirm,
+    draftSave,
+  };
+}
