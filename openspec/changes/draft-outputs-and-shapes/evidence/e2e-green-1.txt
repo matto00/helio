@@ -1,0 +1,81 @@
+
+Running 19 tests using 1 worker
+
+[1A[2K[1/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonasavedstep-1794939926434-77367@example.test
+
+[1A[2K[2/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputontheroot-1794939933270-86135@example.test
+
+[1A[2K[3/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonadraftnewstep-1794939939667-59701@example.test
+
+[1A[2K[4/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-editanOutput-1794939947373-16550@example.test
+
+[1A[2K[5/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-deleteanOutputboundtoapanel-1794939953518-10975@example.test
+
+[1A[2K[6/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-deleteanOutputcreatedinthedraft-1794939960240-59046@example.test
+
+[1A[2K[7/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-shape-1794939967747-33274@example.test
+
+[1A[2K[8/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-aggregatetail-1794939974208-50614@example.test
+
+[1A[2K[9/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:447:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:447:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request
+[HEL-1300 e2e] throwaway user: hel1733-discard-1794939981257-66617@example.test
+
+[1A[2K[10/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonasavedstep-1794939986931-23459@example.test
+
+[1A[2K[11/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputontheroot-1794939994658-1802@example.test
+
+[1A[2K[12/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonadraftnewstep-1794940001401-34439@example.test
+
+[1A[2K[13/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-editanOutput-1794940010696-60200@example.test
+
+[1A[2K[14/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-deleteanOutputboundtoapanel-1794940017363-62254@example.test
+
+[1A[2K[15/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-deleteanOutputcreatedinthedraft-1794940024462-65318@example.test
+
+[1A[2K[16/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-shape-1794940032792-79512@example.test
+
+[1A[2K[17/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-aggregatetail-1794940040528-15643@example.test
+
+[1A[2K[18/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonasavedstep-1794940048548-37489@example.test
+
+[1A[2K[19/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonasavedstep-1794940055457-27927@example.test
+
+[HEL-1301 e2e] deleted 19 recorded throwaway user(s)
+[1A[2K  19 passed (2.3m)

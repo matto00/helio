@@ -229,7 +229,15 @@ private[pipelines] final class PipelineNodeReads(
       }
     }
 
-  private def buildNodeCapabilities(stepId: Option[PipelineStepId], schema: Vector[SchemaField]): NodeCapabilitiesResponse = {
+  private def buildNodeCapabilities(stepId: Option[PipelineStepId], schema: Vector[SchemaField]): NodeCapabilitiesResponse =
+    PipelineNodeReads.buildNodeCapabilities(stepId, schema)
+}
+
+object PipelineNodeReads {
+
+  /** HEL-1733 D7: the pure capabilities rule (columns the typed wire knows, one bindability verdict per Output kind), moved
+   *  here UNCHANGED from the instance so `NodeCapabilitiesParitySpec` can hold the frontend's port of it to the server. */
+  def buildNodeCapabilities(stepId: Option[PipelineStepId], schema: Vector[SchemaField]): NodeCapabilitiesResponse = {
     val columns = schema.flatMap(sf => DataFieldType.fromString(sf.`type`).map(t => PanelCapabilityColumnResponse(sf.name, DataFieldType.asString(t), nullable = false)))
     val capabilities = OutputBindingSpec.All.map { spec =>
       val result = OutputBindingSpec.evaluate(spec, schema)

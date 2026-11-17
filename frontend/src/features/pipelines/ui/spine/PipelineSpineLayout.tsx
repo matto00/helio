@@ -75,10 +75,17 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     onInstantiateShape: page.handleInstantiateShape,
     onReorderSteps: page.handleReorderSteps,
     structuralBlockedReason: page.draftBlockReason,
+    outputBlockedReason: page.draftOutputBlockReason,
   });
   // The explicit Output pick lives here so the displayed Output's node rides on the draft request (HEL-1705).
   const [outputPick, setOutputPick] = useState<OutputPick | null>(null);
-  const outputNodeStepIds = useDisplayedOutputNodeIds(page.allOutputs, outputPick, selectedStepId);
+  const outputNodeStepIds = useDisplayedOutputNodeIds(
+    page.draftOutputs,
+    outputPick,
+    selectedStepId,
+    page.sheetNodeStepId,
+    page.outputPickRemap,
+  );
   const presentation = usePipelineDraftPresentation(page, selectedStepId, outputNodeStepIds);
   const bodyRef = useRef<HTMLDivElement>(null);
   const threeColumns = useThreeColumnLayout(bodyRef);
@@ -215,13 +222,15 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
                 roots={roots}
                 pipelineId={pipelineId}
                 sourceByRootId={page.sourceByRootId}
-                outputs={page.allOutputs}
+                outputs={page.draftOutputs}
                 selectedStepId={selectedStepId}
                 stepCount={steps.length}
                 rowCountFor={(stepId) => stepRowCount(stepId, runStepRowCounts, persistedCounts)}
                 draftFor={presentation.draftFor}
                 draftCountsOverSample={presentation.draftCountsOverSample}
                 structuralBlockedReason={presentation.structuralBlockedReason}
+                outputBlockedReason={page.draftOutputBlockReason}
+                editedOutputIds={page.draftOutputEditedIds}
                 countsPartial={countsPartial}
                 getAnalyzeValidationError={page.getAnalyzeValidationError}
                 getAnalyzeWarnings={page.getAnalyzeWarnings}

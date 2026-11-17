@@ -39,6 +39,7 @@ export function usePipelineStepsSeed({
     stepsFetchedThisMount,
     onStepsRetry,
     setSeedToken,
+    setOutputsFetch,
   } = editor;
   // Initialize local steps from persisted Redux data on first load.
   if (!stepsInitialized && stepsFetchedThisMount && persistedSteps.length > 0) {
@@ -57,6 +58,10 @@ export function usePipelineStepsSeed({
     (ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"),
     [setStepsFetch],
   );
+  const onOutputsSettled = useCallback(
+    (ok: boolean) => setOutputsFetch(ok ? "loaded" : "failed"),
+    [setOutputsFetch],
+  );
   return usePipelinePageLoad({
     id,
     dispatch,
@@ -67,6 +72,7 @@ export function usePipelineStepsSeed({
     loadRunHistoryWhenTruncated,
     onStepsSettled,
     onStepsRetry,
+    onOutputsSettled,
     analyzeStatusRef: analyzeState.analyzeStatusRef,
   });
 }

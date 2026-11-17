@@ -6,6 +6,7 @@ import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { PipelineEditorState } from "./usePipelineEditorState";
 import type { PipelineDraft } from "./usePipelineDraft";
+import { useOutputImmediateActions } from "./useOutputImmediateActions";
 import { usePipelineDraftRouting } from "./usePipelineDraftRouting";
 import { usePipelineRootAndToggleActions } from "./usePipelineRootAndToggleActions";
 import { usePipelineStepMutations } from "./usePipelineStepMutations";
@@ -51,8 +52,8 @@ export function usePipelineDetailStepActions({
     clearDraftCreateError,
     createDraftIfComplete,
     markTempRemoved,
-    handleAddOutputViaAggregateTail,
-    handleInstantiateShape,
+    handleAddOutputViaAggregateTail: handleAddOutputViaAggregateTailNow,
+    handleInstantiateShape: handleInstantiateShapeNow,
   } = usePipelineStepStructure({
     id,
     dispatch,
@@ -97,6 +98,7 @@ export function usePipelineDetailStepActions({
     syncStepsFromServer,
   });
 
+  const outputActionsNow = useOutputImmediateActions(id ?? "");
   const routed = usePipelineDraftRouting({
     draft,
     roots,
@@ -110,14 +112,15 @@ export function usePipelineDetailStepActions({
       handleAddLaneStepNow,
       handleDuplicateStepNow,
       handleReorderStepsNow,
+      handleInstantiateShapeNow,
+      handleAddOutputViaAggregateTailNow,
+      outputActionsNow,
     },
   });
 
   return {
     draftCreateErrors,
     creatingStepIds,
-    handleAddOutputViaAggregateTail,
-    handleInstantiateShape,
     handleAddRoot,
     handleRemoveRoot,
     duplicatingStepIds,

@@ -61,6 +61,10 @@ export function usePipelineEditorState() {
   // editor, which would claim the pipeline has no steps), and Retry flips the phase back to pending.
   const stepsFailed = stepsFetch === "failed";
   const onStepsRetry = useCallback(() => setStepsFetch("pending"), []);
+  // HEL-1733 (design.md D15) -- the page's OWN Outputs fetch, recorded here so the draft can judge Output ops only against Outputs this
+  // mount loaded (Redux may still hold the previous visit's list with a "succeeded" status until the refetch's `pending`). A later
+  // refetch never sets it back to "loading".
+  const [outputsFetch, setOutputsFetch] = useState<"loading" | "loaded" | "failed">("loading");
   // F-105 — bumped (in the derived-state block below, batched into the same re-render as
   // `stepsInitialized`) the one time `steps` is seeded from `persistedSteps`. The debounced
   // re-analyze effect compares it with `consumedSeedTokenRef` (written only in that effect) so the
@@ -126,6 +130,8 @@ export function usePipelineEditorState() {
     stepsInitialized,
     setStepsInitialized,
     setStepsFetch,
+    outputsFetch,
+    setOutputsFetch,
     stepsFetchedThisMount,
     stepsLoading,
     stepsFailed,

@@ -26,6 +26,8 @@ type UsePipelinePageLoadArgs = {
   onStepsSettled: (ok: boolean) => void;
   /** HEL-1501: puts the steps-fetch phase back to "pending" when the steps error's Retry is used. */
   onStepsRetry: () => void;
+  /** HEL-1733 D15: called once the Outputs fetch this mount dispatched settles (`ok` = fulfilled). */
+  onOutputsSettled: (ok: boolean) => void;
   /** HEL-1501: the page's own analyze status, read at settle time to decide whether Retry must also
    *  re-request analyze (a same-outage failure would otherwise leave the recovered cards schema-less). */
   analyzeStatusRef: MutableRefObject<"idle" | "loading" | "succeeded" | "failed" | null>;
@@ -46,6 +48,7 @@ export function usePipelinePageLoad({
   loadRunHistoryWhenTruncated,
   onStepsSettled,
   onStepsRetry,
+  onOutputsSettled,
   analyzeStatusRef,
 }: UsePipelinePageLoadArgs) {
   // 3.1 Fetch pipeline and steps on mount / id change.
@@ -69,7 +72,9 @@ export function usePipelinePageLoad({
     // task 3.3 / design.md decision 2 — fetched alongside the pipeline
     // detail/steps fetch, NOT embedded in `PipelineSummaryResponse` (verified:
     // that response carries no `outputs` field).
-    void dispatch(fetchOutputs({ pipelineId: id }));
+    void dispatch(fetchOutputs({ pipelineId: id })).then((action) => {
+      onOutputsSettled(fetchOutputs.fulfilled.match(action));
+    });
   }, [
     dispatch,
     id,
@@ -77,6 +82,7 @@ export function usePipelinePageLoad({
     currentPipelineId,
     loadRunHistoryWhenTruncated,
     onStepsSettled,
+    onOutputsSettled,
   ]);
 
   // HEL-1483 -- the page for `id` must converge to `id`'s pipeline whichever stale request lands

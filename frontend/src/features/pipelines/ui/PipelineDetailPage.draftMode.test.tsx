@@ -20,7 +20,8 @@ import {
   updatePipelineStep,
   updatePipelineStepEnabled,
 } from "../services/pipelineService";
-import { previewOutputs } from "../services/outputService";
+import { listOutputs, previewOutputs } from "../services/outputService";
+import type { Output } from "../types/output";
 import { getPipelineWithDefinition, saveDraft } from "../services/draftSaveService";
 import { undoPatchSet } from "../../patchSets/services/patchSetService";
 import { httpClient } from "../../../services/httpClient";
@@ -73,6 +74,7 @@ jest.mock("../services/pipelineService", () => ({
 jest.mock("../services/outputService", () => ({
   ...jest.requireActual("../services/outputService"),
   previewOutputs: jest.fn(),
+  listOutputs: jest.fn(),
 }));
 
 jest.mock("../services/draftSaveService", () => ({
@@ -105,11 +107,11 @@ const SAMPLE: SourceSample = {
 
 const FINGERPRINT = "v1:" + "a".repeat(64);
 
-const definitionOf = (steps: PipelineStep[]): PipelineSummary =>
+const definitionOf = (steps: PipelineStep[], outputs: Output[] = []): PipelineSummary =>
   ({
     ...SPINE_PIPELINE,
     fingerprint: FINGERPRINT,
-    definition: { steps, outputs: [] },
+    definition: { steps, outputs },
   }) as PipelineSummary;
 
 const savedResponse = (run: DraftSaveResponse["run"], steps = threeSteps()): DraftSaveResponse => ({
@@ -136,6 +138,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  jest.mocked(listOutputs).mockResolvedValue([]);
   jest.mocked(httpClient.get).mockResolvedValue({ data: { columns: [], capabilities: {} } });
   jest.mocked(fetchRunHistory).mockResolvedValue([]);
   getByIdMock.mockResolvedValue(SPINE_PIPELINE);
@@ -166,6 +169,10 @@ const rowCount = (n: number, label: string) =>
 
 async function renderDraftPage(options: Parameters<typeof makeSpineStore>[0] = {}) {
   const store = makeSpineStore({ samples: { "src-1": SAMPLE }, outputs: [], ...options });
+  // The page's own Outputs fetch (HEL-1733 D15) returns what the store was seeded with.
+  jest.mocked(listOutputs).mockResolvedValue(options.outputs ?? []);
+  if (options.outputs?.length)
+    readDefinitionMock.mockResolvedValue(definitionOf(threeSteps(), options.outputs));
   await renderSpinePageSettled(store);
   await screen.findByRole("region", { name: "Step 1 Filter rows" });
   return store;
@@ -333,7 +340,7 @@ describe("draft mode: Discard", () => {
 });
 
 describe("draft mode: what stays blocked while a draft exists", () => {
-  it("keeps roots, shapes and Outputs disabled with the reason, enables the step actions, and lifts the block after Discard", async () => {
+  it("keeps only the roots disabled with the reason; the step, Output and shape actions are draft entries (HEL-1733), and the block lifts after Discard", async () => {
     await renderDraftPage();
     editThreshold("240");
     const reason = "Save or discard your draft first";
@@ -342,12 +349,11 @@ describe("draft mode: what stays blocked while a draft exists", () => {
     expect(add).toBeEnabled();
     expect(screen.getByRole("button", { name: "Duplicate step" })).toBeEnabled();
     const newOutput = within(spine()).getByRole("button", { name: "New output" });
-    expect(newOutput).toBeDisabled();
-    expect(newOutput).toHaveAccessibleDescription(reason);
-    expect(within(spine()).getByRole("button", { name: "Add source" })).toBeDisabled();
-    expect(
-      within(spine()).getByRole("button", { name: "Add Outputs from a shape" }),
-    ).toBeDisabled();
+    expect(newOutput).toBeEnabled();
+    const addSource = within(spine()).getByRole("button", { name: "Add source" });
+    expect(addSource).toBeDisabled();
+    expect(addSource).toHaveAccessibleDescription(reason);
+    expect(within(spine()).getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Step actions for Filter rows" }));
     const menu = screen.getByRole("menu", { name: "Step actions for Filter rows" });
@@ -364,12 +370,11 @@ describe("draft mode: what stays blocked while a draft exists", () => {
       expect(item).toHaveAccessibleDescription("");
     }
     const addOutput = within(menu).getByRole("menuitem", { name: /^Add output/ });
-    expect(addOutput).toBeDisabled();
-    expect(addOutput).toHaveAttribute("title", reason);
+    expect(addOutput).toBeEnabled();
     fireEvent.keyDown(menu, { key: "Escape" });
 
     fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
-    expect(newOutput).toBeEnabled();
+    expect(addSource).toBeEnabled();
   });
 });
 

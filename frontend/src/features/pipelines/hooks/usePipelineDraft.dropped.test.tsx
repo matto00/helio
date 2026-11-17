@@ -31,6 +31,8 @@ function mount(initial: Step[]) {
       usePipelineDraft({
         baseSteps: steps,
         baseStepsRef: { current: steps },
+        baseOutputs: [],
+        outputsStatus: "loaded",
         pipelineId: "pipe-1",
         ready: true,
       }),
@@ -66,7 +68,10 @@ describe("saved steps change under a draft", () => {
 
     let dropped = 0;
     act(() => {
-      dropped = result.current.rebase(steps.filter((s) => s.id !== "s2"));
+      dropped = result.current.rebase(
+        steps.filter((s) => s.id !== "s2"),
+        [],
+      );
     });
     expect(dropped).toBe(1);
   });

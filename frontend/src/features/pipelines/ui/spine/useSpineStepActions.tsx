@@ -39,6 +39,8 @@ export interface SpineStepActionsArgs {
   onReorderSteps: (newOrder: Step[]) => void | Promise<void>;
   /** HEL-1631 (design.md D2): while a draft exists the menu items the draft does not carry (Add output) are disabled with this reason. */
   structuralBlockedReason?: string | null;
+  /** HEL-1733: while a draft exists and the page's Outputs are not loaded, "Add output" waits with this reason. */
+  outputBlockedReason?: string | null;
 }
 
 export interface SpineStepActions {
@@ -72,6 +74,7 @@ export function useSpineStepActions({
   onInstantiateShape,
   onReorderSteps,
   structuralBlockedReason = null,
+  outputBlockedReason = null,
 }: SpineStepActionsArgs): SpineStepActions {
   const blocked = structuralBlockedReason !== null;
   const reason = structuralBlockedReason ?? undefined;
@@ -180,7 +183,13 @@ export function useSpineStepActions({
         reason: blocked && isTempStepId(step.id) ? reason : undefined,
         onClick: () => setPalette({ kind: "branch", parentStepId: step.id }),
       },
-      { label: "Add output", disabled: blocked, reason, onClick: () => onAddOutput(step.id) },
+      {
+        label: "Add output",
+        // HEL-1733: an Output on a step is a draft entry; only a not-yet-created (`step-N`) step has no row to bind to.
+        disabled: (blocked && isTempStepId(step.id)) || outputBlockedReason !== null,
+        reason: outputBlockedReason ?? (blocked && isTempStepId(step.id) ? reason : undefined),
+        onClick: () => onAddOutput(step.id),
+      },
     );
     return items;
   }

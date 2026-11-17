@@ -7,6 +7,7 @@ import { ChevronRight } from "lucide-react";
 
 import { ActionsMenu } from "../../../../shared/chrome/ActionsMenu";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
+import { isDraftOutput } from "../../state/draftOutputs";
 import { laneOutputSubtitle } from "../../state/laneLayout";
 import type { LaneGraph } from "../../state/stepTree";
 import type { Output } from "../../types/output";
@@ -24,8 +25,10 @@ interface SpineOutputsProps {
   onOpenOutput: (output: Output) => void;
   onOpenHistory: (output: Output) => void;
   onAddOutput: () => void;
-  /** HEL-1631: set while a draft exists; Outputs cannot be created or edited until it is saved or discarded. */
+  /** HEL-1733: set only while a draft exists and the page's Outputs are not loaded; Outputs are draft entries otherwise. */
   blockedReason?: string | null;
+  /** HEL-1733: Output ids the draft edited ("Edited"); a created one reads "New · not saved". */
+  editedOutputIds?: ReadonlySet<string>;
 }
 
 export function SpineOutputs({
@@ -37,6 +40,7 @@ export function SpineOutputs({
   onOpenHistory,
   onAddOutput,
   blockedReason = null,
+  editedOutputIds,
 }: SpineOutputsProps) {
   const phone = variant === "phone";
   const stepLabelById = new Map(steps.map((s) => [s.id, s.label]));
@@ -57,8 +61,12 @@ export function SpineOutputs({
               <span className="spine-card__name">{output.name}</span>
               <span className="spine-card__meta">
                 {kindLabel(output.kind)}
-                {output.panelCount !== undefined &&
-                  ` · used in ${output.panelCount} ${output.panelCount === 1 ? "panel" : "panels"}`}
+                {isDraftOutput(output)
+                  ? " · New · not saved"
+                  : (output.panelCount !== undefined &&
+                      ` · used in ${output.panelCount} ${output.panelCount === 1 ? "panel" : "panels"}`) ||
+                    ""}
+                {!isDraftOutput(output) && editedOutputIds?.has(output.id) ? " · Edited" : ""}
               </span>
               <span className="spine-card__meta">
                 from{" "}
@@ -81,6 +89,9 @@ export function SpineOutputs({
                   {
                     label: "History",
                     ariaLabel: `History for ${output.name}`,
+                    // A created Output has no stored history until Save & run (HEL-1733).
+                    disabled: isDraftOutput(output),
+                    reason: isDraftOutput(output) ? "Available after Save & run" : undefined,
                     onClick: () => onOpenHistory(output),
                   },
                 ]}

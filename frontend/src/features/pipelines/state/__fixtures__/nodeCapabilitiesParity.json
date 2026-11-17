@@ -1,0 +1,1019 @@
+{
+  "capabilities": [
+    {
+      "name": "empty",
+      "schema": [],
+      "columns": [],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": [],
+            "unit": [],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": [],
+            "unit": [],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": [],
+            "series": [],
+            "xAxis": [],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": [],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "string only",
+      "schema": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "columns": [
+        {
+          "name": "name",
+          "dataType": "string"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["name"],
+            "unit": ["name"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["name"],
+            "unit": ["name"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["name"],
+            "series": ["name"],
+            "xAxis": ["name"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": ["name"],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "integer only",
+      "schema": [
+        {
+          "name": "n",
+          "type": "integer"
+        }
+      ],
+      "columns": [
+        {
+          "name": "n",
+          "dataType": "integer"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["n"],
+            "unit": ["n"],
+            "value": ["n"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["n"],
+            "unit": ["n"],
+            "value": ["n"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "annotation": ["n"],
+            "series": ["n"],
+            "xAxis": ["n"],
+            "yAxis": ["n"]
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "event": ["n"],
+            "time": ["n"]
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "float only",
+      "schema": [
+        {
+          "name": "x",
+          "type": "float"
+        }
+      ],
+      "columns": [
+        {
+          "name": "x",
+          "dataType": "float"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["x"],
+            "unit": ["x"],
+            "value": ["x"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["x"],
+            "unit": ["x"],
+            "value": ["x"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "annotation": ["x"],
+            "series": ["x"],
+            "xAxis": ["x"],
+            "yAxis": ["x"]
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "event": ["x"],
+            "time": ["x"]
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "boolean only",
+      "schema": [
+        {
+          "name": "b",
+          "type": "boolean"
+        }
+      ],
+      "columns": [
+        {
+          "name": "b",
+          "dataType": "boolean"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["b"],
+            "unit": ["b"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["b"],
+            "unit": ["b"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["b"],
+            "series": ["b"],
+            "xAxis": ["b"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": ["b"],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "timestamp only",
+      "schema": [
+        {
+          "name": "t",
+          "type": "timestamp"
+        }
+      ],
+      "columns": [
+        {
+          "name": "t",
+          "dataType": "timestamp"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["t"],
+            "unit": ["t"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["t"],
+            "unit": ["t"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["t"],
+            "series": ["t"],
+            "xAxis": ["t"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "event": ["t"],
+            "time": ["t"]
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "string-body only",
+      "schema": [
+        {
+          "name": "body",
+          "type": "string-body"
+        }
+      ],
+      "columns": [
+        {
+          "name": "body",
+          "dataType": "string-body"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["body"],
+            "unit": ["body"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["body"],
+            "unit": ["body"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["body"],
+            "series": ["body"],
+            "xAxis": ["body"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": ["body"],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "binary-ref only",
+      "schema": [
+        {
+          "name": "blob",
+          "type": "binary-ref"
+        }
+      ],
+      "columns": [
+        {
+          "name": "blob",
+          "dataType": "binary-ref"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["blob"],
+            "unit": ["blob"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["blob"],
+            "unit": ["blob"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["blob"],
+            "series": ["blob"],
+            "xAxis": ["blob"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": ["blob"],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "time series",
+      "schema": [
+        {
+          "name": "date",
+          "type": "timestamp"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "duration_s",
+          "type": "integer"
+        },
+        {
+          "name": "ratio",
+          "type": "float"
+        }
+      ],
+      "columns": [
+        {
+          "name": "date",
+          "dataType": "timestamp"
+        },
+        {
+          "name": "status",
+          "dataType": "string"
+        },
+        {
+          "name": "duration_s",
+          "dataType": "integer"
+        },
+        {
+          "name": "ratio",
+          "dataType": "float"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["date", "status", "duration_s", "ratio"],
+            "unit": ["date", "status", "duration_s", "ratio"],
+            "value": ["duration_s", "ratio"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "label": ["date", "status", "duration_s", "ratio"],
+            "unit": ["date", "status", "duration_s", "ratio"],
+            "value": ["duration_s", "ratio"]
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "annotation": ["date", "status", "duration_s", "ratio"],
+            "series": ["date", "status", "duration_s", "ratio"],
+            "xAxis": ["date", "status", "duration_s", "ratio"],
+            "yAxis": ["duration_s", "ratio"]
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "event": ["date", "status", "duration_s", "ratio"],
+            "time": ["date", "duration_s", "ratio"]
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "no numeric column",
+      "schema": [
+        {
+          "name": "a",
+          "type": "string"
+        },
+        {
+          "name": "b",
+          "type": "boolean"
+        },
+        {
+          "name": "t",
+          "type": "timestamp"
+        }
+      ],
+      "columns": [
+        {
+          "name": "a",
+          "dataType": "string"
+        },
+        {
+          "name": "b",
+          "dataType": "boolean"
+        },
+        {
+          "name": "t",
+          "dataType": "timestamp"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["a", "b", "t"],
+            "unit": ["a", "b", "t"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["a", "b", "t"],
+            "unit": ["a", "b", "t"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["a", "b", "t"],
+            "series": ["a", "b", "t"],
+            "xAxis": ["a", "b", "t"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {
+            "event": ["a", "b", "t"],
+            "time": ["t"]
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    },
+    {
+      "name": "no orderable column",
+      "schema": [
+        {
+          "name": "a",
+          "type": "string"
+        },
+        {
+          "name": "b",
+          "type": "boolean"
+        }
+      ],
+      "columns": [
+        {
+          "name": "a",
+          "dataType": "string"
+        },
+        {
+          "name": "b",
+          "dataType": "boolean"
+        }
+      ],
+      "capabilities": {
+        "collection": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'collection'",
+          "eligibleColumns": {
+            "label": ["a", "b"],
+            "unit": ["a", "b"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "metric": {
+          "requiredSlots": ["value"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'metric'",
+          "eligibleColumns": {
+            "label": ["a", "b"],
+            "unit": ["a", "b"],
+            "value": []
+          },
+          "optionalSlots": ["label", "unit"]
+        },
+        "chart": {
+          "requiredSlots": ["xAxis", "yAxis"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'chart'",
+          "eligibleColumns": {
+            "annotation": ["a", "b"],
+            "series": ["a", "b"],
+            "xAxis": ["a", "b"],
+            "yAxis": []
+          },
+          "optionalSlots": ["series", "annotation"]
+        },
+        "timeline": {
+          "requiredSlots": ["time", "event"],
+          "reason": "missing-required-column-type",
+          "bindable": false,
+          "message": "No column satisfies a required slot for 'timeline'",
+          "eligibleColumns": {
+            "event": ["a", "b"],
+            "time": []
+          },
+          "optionalSlots": []
+        },
+        "table": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
+        "markdown": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        }
+      }
+    }
+  ],
+  "merges": [
+    {
+      "name": "patch overrides one key",
+      "stored": {
+        "a": 1,
+        "b": 2
+      },
+      "patch": {
+        "b": 3
+      },
+      "merged": {
+        "a": 1,
+        "b": 3
+      }
+    },
+    {
+      "name": "patch adds a key",
+      "stored": {
+        "a": 1
+      },
+      "patch": {
+        "c": "x"
+      },
+      "merged": {
+        "a": 1,
+        "c": "x"
+      }
+    },
+    {
+      "name": "null clears a key (kept as null)",
+      "stored": {
+        "a": 1,
+        "b": 2
+      },
+      "patch": {
+        "a": null
+      },
+      "merged": {
+        "a": null,
+        "b": 2
+      }
+    },
+    {
+      "name": "shallow: a nested object is replaced whole",
+      "stored": {
+        "chartOptions": {
+          "x": 1,
+          "y": 2
+        }
+      },
+      "patch": {
+        "chartOptions": {
+          "x": 9
+        }
+      },
+      "merged": {
+        "chartOptions": {
+          "x": 9
+        }
+      }
+    },
+    {
+      "name": "empty patch",
+      "stored": {
+        "a": 1
+      },
+      "patch": {},
+      "merged": {
+        "a": 1
+      }
+    },
+    {
+      "name": "empty stored",
+      "stored": {},
+      "patch": {
+        "fieldMapping": {
+          "xAxis": "date"
+        }
+      },
+      "merged": {
+        "fieldMapping": {
+          "xAxis": "date"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDiff.scala` — a draft Output edit is validated against the STORED config; restore uses the restore policy (D12)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineNodeReads.scala` — `buildNodeCapabilities` moved unchanged to the companion (D7)
+- `backend/src/test/scala/com/helio/services/pipelines/draft/DraftDiffSpec.scala` — D12 (a)-(c), red first
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveApiSpec.scala` — route-level rename of an Output with a stored legacy key, red first
+- `backend/src/test/scala/com/helio/services/pipelines/NodeCapabilitiesParitySpec.scala` — capabilities and mergeConfig parity guard against the checked-in fixture
+- `frontend/src/features/pipelines/state/__fixtures__/nodeCapabilitiesParity.json` — the shared parity fixture
+- `frontend/src/features/pipelines/state/draftOps.ts` — `outputCreate` / `outputDelete` ops, `DraftOutputNode`, `isOutputOp`
+- `frontend/src/features/pipelines/state/draftOutputs.ts` — interleaved replay of step and Output ops, edit map, `draftMerge`
+- `frontend/src/features/pipelines/state/pipelineDraft.ts` — overlay v3, Output-aware prune/replay/rebase/toDraftOutputs, `outputsSignature`
+- `frontend/src/features/pipelines/state/keptDraft.ts` — kept draft v3 (`outputsBase`), v2/v1 still restore
+- `frontend/src/features/pipelines/state/nodeCapabilities.ts` — client port of the server's node capabilities
+- `frontend/src/features/pipelines/state/draftNodeSchema.ts` — `analyze-proposal` request builder and per-node schema reader
+- `frontend/src/features/pipelines/state/draftSelection.ts` — `remapCreatedOutputs` (post-save pick, D10)
+- `frontend/src/features/pipelines/state/liveOutput/resolveDisplayedOutput.ts` — honours the pick remap
+- `frontend/src/features/pipelines/services/analyzeProposalService.ts` — the read-only projection call
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts` — Output actions, base-Outputs readiness and the one-shot Output-base judgement (D15)
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.ts` — routed Output, shape and aggregate-tail handlers (D3, D8)
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts` — draft Outputs, block reasons, pick remap
+- `frontend/src/features/pipelines/hooks/usePipelineDetailStepActions.ts` — passes the immediate shape/tail handlers to the router
+- `frontend/src/features/pipelines/hooks/usePipelineDetailSaveWiring.ts` — one source of truth for "Outputs loaded"
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts` — refuses Output ops while Outputs are not loaded; rebase takes Outputs
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSettle.ts` — computes the post-save pick remap
+- `frontend/src/features/pipelines/hooks/draftSaveRequest.ts` — save body carries the replayed Outputs; `stepNamedBy` names a created Output
+- `frontend/src/features/pipelines/hooks/usePipelineEditorState.ts`, `usePipelinePageLoad.ts`, `usePipelineStepsSeed.ts` — page-local Outputs fetch status
+- `frontend/src/features/pipelines/hooks/usePipelineOutputSheets.ts` — `sheetNodeStepId` and the sheet draft-frames holder
+- `frontend/src/features/pipelines/hooks/usePipelineDraftPresentation.ts` — publishes the layout's frames to the sheet
+- `frontend/src/features/pipelines/hooks/useDisplayedOutputNodeIds.ts` — adds the sheet node to the requested rows
+- `frontend/src/features/pipelines/hooks/useDraftNodeCapabilities.ts` — the sheet's draft capabilities and typing state
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — draft mode (draft entries, draft columns/preview, footer hints)
+- `frontend/src/features/pipelines/ui/outputEditor/outputSheetDraft.ts` — the sheet's draft contract and frame-to-preview helpers
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.tsx` — gives the sheet the draft handlers while a draft exists
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx`, `SpineOutputs.tsx`, `useSpineStepActions.tsx` — only roots stay blocked; card meta; temp-step rule on "Add output"
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx`, `ui/mobile/PipelineMobileLayout.tsx`, `ui/mobile/MobilePipelineHeader.tsx` — draft Outputs, block reasons, shape anchor
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.tsx` — shows draft Outputs; no server read by a client id
+- Tests: `state/draftOutputs.test.ts`, `draftNodeSchema.test.ts`, `nodeCapabilities.test.ts`, `keptDraft.test.ts`, `draftSelection.test.ts`, `hooks/usePipelineDraft.outputs.test.tsx`, `usePipelineDraftRouting.outputs.test.tsx`, `draftSaveRequest.test.ts`, `ui/outputEditor/OutputEditorSheet.draft.test.tsx`, plus updated `PipelineDetailPage.draftMode.test.tsx`, `LiveOutputColumn.test.tsx`, key-set guard and hook fixtures
+- `e2e/hel1733-draft-outputs-shapes.spec.ts` — new e2e (eight actions x desktop-light and phone-dark, smokes, kept/stale/undo/sheet/stubbed expand)
+- `e2e/hel1631-draft-mode.spec.ts` — blocked set is roots only
+- `frontend/src/features/pipelines/hooks/useOutputImmediateActions.ts` — the immediate Output writes moved out of the sheet (D3)
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputSheetNode.ts` — the sheet's node capabilities/preview data
+- `frontend/src/features/pipelines/state/jsonEqual.ts` — `jsonEqual` split out so `draftOutputs.ts` can hold the Output prune rules
+- `frontend/src/features/pipelines/ui/spine/draftBlocks.test.tsx` — the D3 consumer-table assertions
+
+## Full-path manifest (orchestrator, from the reviewed merge-base diff at 5580112e8)
+
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineNodeReads.scala`
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDiff.scala`
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftSaveApiSpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/NodeCapabilitiesParitySpec.scala`
+- `backend/src/test/scala/com/helio/services/pipelines/draft/DraftDiffSpec.scala`
+- `e2e/hel1631-draft-mode.spec.ts`
+- `e2e/hel1733-draft-outputs-shapes.spec.ts`
+- `frontend/src/features/pipelines/hooks/draftSaveRequest.test.ts`
+- `frontend/src/features/pipelines/hooks/draftSaveRequest.ts`
+- `frontend/src/features/pipelines/hooks/useDisplayedOutputNodeIds.ts`
+- `frontend/src/features/pipelines/hooks/useDraftNodeCapabilities.ts`
+- `frontend/src/features/pipelines/hooks/useOutputImmediateActions.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.keys.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailPage.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailSaveWiring.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDetailStepActions.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.dropped.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.outputs.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDraft.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftPresentation.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.outputs.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftRouting.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.dropped.test.tsx`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineDraftSettle.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineEditorState.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineOutputSheets.ts`
+- `frontend/src/features/pipelines/hooks/usePipelinePageLoad.ts`
+- `frontend/src/features/pipelines/hooks/usePipelineStepsSeed.ts`
+- `frontend/src/features/pipelines/services/analyzeProposalService.ts`
+- `frontend/src/features/pipelines/state/__fixtures__/nodeCapabilitiesParity.json`
+- `frontend/src/features/pipelines/state/draftNodeSchema.test.ts`
+- `frontend/src/features/pipelines/state/draftNodeSchema.ts`
+- `frontend/src/features/pipelines/state/draftOps.ts`
+- `frontend/src/features/pipelines/state/draftOutputs.test.ts`
+- `frontend/src/features/pipelines/state/draftOutputs.ts`
+- `frontend/src/features/pipelines/state/draftSelection.test.ts`
+- `frontend/src/features/pipelines/state/draftSelection.ts`
+- `frontend/src/features/pipelines/state/jsonEqual.ts`
+- `frontend/src/features/pipelines/state/keptDraft.test.ts`
+- `frontend/src/features/pipelines/state/keptDraft.ts`
+- `frontend/src/features/pipelines/state/keptDraftListeners.test.ts`
+- `frontend/src/features/pipelines/state/liveOutput/resolveDisplayedOutput.ts`
+- `frontend/src/features/pipelines/state/nodeCapabilities.test.ts`
+- `frontend/src/features/pipelines/state/nodeCapabilities.ts`
+- `frontend/src/features/pipelines/state/pipelineDraft.ts`
+- `frontend/src/features/pipelines/ui/PipelineDetailDialogs.tsx`
+- `frontend/src/features/pipelines/ui/PipelineDetailPage.draftMode.test.tsx`
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.test.tsx`
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.tsx`
+- `frontend/src/features/pipelines/ui/mobile/MobilePipelineHeader.tsx`
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.css`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.draft.test.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/outputSheetDraft.ts`
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputSheetNode.ts`
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx`
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx`
+- `frontend/src/features/pipelines/ui/spine/SpineOutputs.tsx`
+- `frontend/src/features/pipelines/ui/spine/draftBlocks.test.tsx`
+- `frontend/src/features/pipelines/ui/spine/useSpineStepActions.tsx`

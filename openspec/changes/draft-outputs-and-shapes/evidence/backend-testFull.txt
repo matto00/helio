@@ -1,0 +1,4 @@
+Command: cd backend && nice -n 19 sbt -J-Xmx3g testFull  (exit 0). Raw log (15 MB) not kept; summary lines:
+[info] Total number of tests run: 9588
+[info] Tests: succeeded 9588, failed 0, canceled 5, ignored 0, pending 0
+[info] All tests passed.

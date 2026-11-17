@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import { ActionsMenu, type ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { ICON_SIZE } from "../../../../shared/ui/iconSize";
 import { TextField } from "../../../../shared/ui/TextField";
+import { isTempStepId } from "../../state/stepNarrowing";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
 import { SpineLastRunMeta, SpineRunStatus } from "../spine/SpineRunStatus";
 import { SpineScheduleChip } from "../spine/SpineScheduleChip";
@@ -30,11 +31,18 @@ export function MobilePipelineHeader({
   const displayName = page.outputName || page.pipelineName;
   const onlyRootSource = roots.length === 1 ? page.sourceByRootId[roots[0].id] : undefined;
   const hasSteps = page.steps.length > 0;
-  const lastTrunkStepId = hasSteps
-    ? page.laneGraph.lanes
-        .find((l) => l.parentStepId === undefined && l.rootId === roots[0]?.id)
-        ?.steps.at(-1)?.id
-    : undefined;
+  const trunkSteps =
+    page.laneGraph.lanes.find((l) => l.parentStepId === undefined && l.rootId === roots[0]?.id)
+      ?.steps ?? [];
+  // HEL-1733: a shape is a draft entry, anchored on the last REAL trunk step (a `step-N` has no row to splice under).
+  const inDraft = page.draftBlockReason !== null;
+  const anchorStep = inDraft
+    ? [...trunkSteps].reverse().find((s) => !isTempStepId(s.id))
+    : trunkSteps.at(-1);
+  const lastTrunkStepId = hasSteps ? anchorStep?.id : undefined;
+  const shapeReason =
+    page.draftOutputBlockReason ??
+    (inDraft && trunkSteps.length > 0 && anchorStep === undefined ? page.draftBlockReason : null);
 
   const items: ActionsMenuItem[] = [
     { label: "Rename", onClick: () => page.setEditingOutputName(true) },
@@ -49,8 +57,8 @@ export function MobilePipelineHeader({
     },
     {
       label: "Add Outputs from a shape",
-      disabled: page.draftBlockReason !== null,
-      reason: page.draftBlockReason ?? undefined,
+      disabled: shapeReason !== null,
+      reason: shapeReason ?? undefined,
       onClick: () => actions.openShapePicker(lastTrunkStepId),
     },
     {

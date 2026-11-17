@@ -4,9 +4,12 @@
 // phone boundary (a window resize, a device rotation) therefore does not unmount an open dialog and lose its
 // state (a History scrubber position, a half-typed Output name). All state lives in `usePipelineDetailPage`.
 
+import { useMemo } from "react";
+
 import { useLatestCallback } from "../hooks/useLatestCallback";
 import type { usePipelineDetailPage } from "../hooks/usePipelineDetailPage";
 import { OutputEditorSheet } from "./outputEditor/OutputEditorSheet";
+import type { OutputSheetDraft } from "./outputEditor/outputSheetDraft";
 import { OutputHistoryModal } from "./outputHistory/OutputHistoryModal";
 import { PipelineScheduleDialog } from "./schedule/PipelineScheduleDialog";
 import { PipelineShareDialog } from "./PipelineShareDialog";
@@ -19,6 +22,22 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
   // Stable, so the memoised Share and Schedule dialogs (mounted while closed) skip a draft edit's render.
   const closeShare = useLatestCallback(() => page.setShareOpen(false));
   const closeSchedule = useLatestCallback(() => page.setScheduleOpen(false));
+  // HEL-1733: while a draft exists the sheet records draft entries and reads the draft; with none it keeps its immediate path.
+  const { setSheetNodeStepId } = page;
+  const hasDraft = page.draft.hasDraft;
+  const sheetFrames = page.sheetDraftNode?.frames ?? null;
+  const sheetDraft = useMemo<OutputSheetDraft | undefined>(
+    () =>
+      hasDraft
+        ? {
+            pipelineName: page.pipelineName,
+            roots: page.roots,
+            frames: sheetFrames,
+            onNodeChange: setSheetNodeStepId,
+          }
+        : undefined,
+    [hasDraft, page.pipelineName, page.roots, sheetFrames, setSheetNodeStepId],
+  );
   return (
     <>
       {/* ── Output editor sheet (task 5.1) ── */}
@@ -35,6 +54,12 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
           steps={page.steps}
           onAddAsTailWithAggregate={page.handleAddOutputViaAggregateTail}
           onRunPipeline={() => void page.handleRunPipeline()}
+          actions={{
+            create: page.handleCreateOutput,
+            update: page.handleUpdateOutput,
+            remove: page.handleDeleteOutput,
+          }}
+          draft={sheetDraft}
         />
       )}
 

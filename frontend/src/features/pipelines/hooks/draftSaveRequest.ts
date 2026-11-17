@@ -9,6 +9,7 @@ import {
   toDraftSteps,
 } from "../state/pipelineDraft";
 import type { DraftOverlay } from "../state/pipelineDraft";
+import { isDraftClientId } from "../state/draftOps";
 import { pipelineStepToStep } from "../state/stepNarrowing";
 import type {
   DraftCascadeConfirmation,
@@ -42,9 +43,16 @@ export function runRefusedMessage(run: Extract<DraftRunOutcome, { started: false
 }
 
 /** The step the server named in a 400, if its message mentions one of the page's step ids. */
-export function stepNamedBy(message: string, steps: readonly Step[]): string | null {
+export function stepNamedBy(
+  message: string,
+  steps: readonly Step[],
+  outputs: readonly Output[] = [],
+): string | null {
   const hit = steps.find((s) => message.includes(s.id));
-  return hit ? hit.label : null;
+  if (hit) return hit.label;
+  // A created Output is named by its client id in a 400 (HEL-1733 D9).
+  const out = outputs.find((o) => isDraftClientId(o.id) && message.includes(o.id));
+  return out ? out.name : null;
 }
 
 export type DraftSaveBuild =
@@ -81,7 +89,7 @@ export function buildDraftSaveRequest(args: {
   ) {
     return { kind: "stale" };
   }
-  const replay = replayOverlay(savedSteps, overlay);
+  const replay = replayOverlay(savedSteps, overlay, definition.outputs);
   if (replay.dropped > 0) return { kind: "dropped", count: replay.dropped };
   const finalSteps = replay.steps;
   return {
@@ -89,7 +97,7 @@ export function buildDraftSaveRequest(args: {
     request: {
       baseFingerprint: summary.fingerprint,
       steps: toDraftSteps(finalSteps),
-      outputs: toDraftOutputs(definition.outputs, finalSteps, roots[0]?.id),
+      outputs: toDraftOutputs(replay.outputs ?? definition.outputs, finalSteps, roots[0]?.id),
       runAfterSave: "run",
       ...(confirm ? { confirmCascade: confirm } : {}),
     },
@@ -99,7 +107,12 @@ export function buildDraftSaveRequest(args: {
 /** Maps a failed save to the cascade prompt (a 422) or the notice to show. */
 export function noticeForSaveError(
   err: unknown,
-  ctx: { steps: readonly Step[]; outputs: readonly Output[]; draftSteps: readonly Step[] },
+  ctx: {
+    steps: readonly Step[];
+    outputs: readonly Output[];
+    draftSteps: readonly Step[];
+    draftOutputs?: readonly Output[];
+  },
 ): { cascade: DraftCascadePrompt } | { notice: DraftNotice } {
   const conflict = extractDraftSaveConflict(err);
   if (conflict?.kind === "stale") return { notice: { kind: "stale" } };
@@ -118,5 +131,11 @@ export function noticeForSaveError(
     err,
     isAxiosError(err) ? "The save was refused." : "The save could not be completed.",
   );
-  return { notice: { kind: "error", message, stepName: stepNamedBy(message, ctx.draftSteps) } };
+  return {
+    notice: {
+      kind: "error",
+      message,
+      stepName: stepNamedBy(message, ctx.draftSteps, ctx.draftOutputs),
+    },
+  };
 }

@@ -15,10 +15,12 @@ export function resolveDisplayedOutput(
   outputs: readonly Output[],
   pick: OutputPick | null,
   selectedStepId: string | null,
+  /** HEL-1733 D10: created-Output client id -> the saved Output it became (set by Save & run). */
+  remap?: ReadonlyMap<string, string>,
 ): Output | undefined {
   const picked =
     pick !== null && pick.forStep === selectedStepId
-      ? outputs.find((o) => o.id === pick.id)
+      ? outputs.find((o) => o.id === (remap?.get(pick.id) ?? pick.id))
       : undefined;
   return (
     picked ??

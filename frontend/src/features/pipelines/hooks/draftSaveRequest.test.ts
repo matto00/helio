@@ -3,10 +3,12 @@
 
 import { AxiosError } from "axios";
 
-import { EMPTY_OVERLAY } from "../state/pipelineDraft";
+import type { DraftOp } from "../state/draftOps";
+import { EMPTY_OVERLAY, type DraftOverlay } from "../state/pipelineDraft";
 import { pipelineStepToStep } from "../state/stepNarrowing";
-import { threeSteps } from "../ui/pipelineSpineTestKit";
-import { buildDraftSaveRequest, noticeForSaveError } from "./draftSaveRequest";
+import type { Output } from "../types/output";
+import { makeOutput, threeSteps } from "../ui/pipelineSpineTestKit";
+import { buildDraftSaveRequest, noticeForSaveError, stepNamedBy } from "./draftSaveRequest";
 
 const wire = threeSteps();
 const steps = wire.map(pipelineStepToStep);
@@ -101,5 +103,79 @@ describe("[guard] noticeForSaveError", () => {
     expect("notice" in mapped && mapped.notice.kind === "error" && mapped.notice.stepName).toBe(
       steps[1].label,
     );
+  });
+});
+
+// HEL-1733 (design.md D9): the save body carries the replayed Outputs. Red first against the pre-change builder, which emitted the
+// saved Outputs only (`toDraftOutputs(definition.outputs, ...)`) and never an edit, a created Output or a delete.
+describe("buildDraftSaveRequest with draft Outputs (HEL-1733)", () => {
+  const saved = makeOutput("o1", "Saved", { nodeStepId: "s2" });
+  const withOutputs = { fingerprint: FINGERPRINT, definition: { steps: wire, outputs: [saved] } };
+  const buildWith = (overlay: DraftOverlay, outputs: Output[] | null = [saved]) =>
+    build({ summary: withOutputs, baseOutputs: outputs, overlay });
+  const create = (clientId: string, node: string, name = "New"): DraftOp => ({
+    kind: "outputCreate",
+    clientId,
+    node: { step: node },
+    outputKind: "table",
+    name,
+    config: {},
+  });
+
+  it("emits a created Output by clientId on a saved step, and an edit and a delete as the draft shows them", () => {
+    const edited = buildWith({
+      ...EMPTY_OVERLAY,
+      ops: [create("draft-o", "s1")],
+      outputEdits: { o1: { name: "Renamed", config: { a: 1 } } },
+    });
+    expect(edited.kind === "ready" && edited.request.outputs).toEqual([
+      { id: "o1", name: "Renamed", kind: "table", config: { a: 1 }, nodeStepId: "s2" },
+      { clientId: "draft-o", name: "New", kind: "table", config: {}, nodeStepId: "s1" },
+    ]);
+    const deleted = buildWith({
+      ...EMPTY_OVERLAY,
+      ops: [{ kind: "outputDelete", outputId: "o1" }],
+    });
+    expect(deleted.kind === "ready" && deleted.request.outputs).toEqual([]);
+  });
+
+  it("names a step the draft created by nodeStepClientId", () => {
+    const built = buildWith({
+      ...EMPTY_OVERLAY,
+      ops: [
+        {
+          kind: "insert",
+          clientId: "draft-s",
+          type: "limit",
+          config: { count: 1 },
+          anchor: { after: "s3" },
+        },
+        create("draft-o", "draft-s"),
+      ],
+    });
+    expect(built.kind === "ready" && built.request.outputs[1]).toMatchObject({
+      clientId: "draft-o",
+      nodeStepClientId: "draft-s",
+    });
+    expect(built.kind === "ready" && built.request.outputs[1].nodeStepId).toBeUndefined();
+  });
+
+  it("sends nothing when an Output op no longer applies (dropped), never a reduced list", () => {
+    const built = buildWith({ ...EMPTY_OVERLAY, ops: [create("draft-o", "gone")] });
+    expect(built).toEqual({ kind: "dropped", count: 1 });
+  });
+
+  it("is stale when the saved Outputs differ from the draft's base Outputs", () => {
+    expect(buildWith({ ...EMPTY_OVERLAY }, [makeOutput("o9", "Other")])).toEqual({ kind: "stale" });
+  });
+});
+
+describe("stepNamedBy names a created Output from a 400 (HEL-1733 D9)", () => {
+  it("returns the Output's name when only its client id appears in the message", () => {
+    const created = makeOutput("draft-abc123", "My new output");
+    expect(stepNamedBy("Output 'draft-abc123': unknown key", steps, [created])).toBe(
+      "My new output",
+    );
+    expect(stepNamedBy("nothing here", steps, [created])).toBeNull();
   });
 });

@@ -171,4 +171,37 @@ class DraftDiffSpec extends AnyWordSpec with Matchers {
       error(plan(outputs = unchangedOutputs.map(o => if (o.id.contains("oa")) o.copy(name = "  ") else o))) should include("name is required")
     }
   }
+
+  // HEL-1733 D12: a draft Output edit is judged like PATCH /api/outputs/:id (against the STORED config), so an Output
+  // that carries a stored legacy key can still be renamed in a draft; a restore re-judges nothing it restores.
+  "Output edit validation against the stored config (HEL-1733)" should {
+    val legacyConfig = JsObject("metricLabel" -> JsString("Old label"))
+    def metricOut(id: String, config: JsObject) =
+      OutputRow(id, "p", Some("t2"), owner, "m", "metric", config, Vector.empty, 0, None, now, now, None)
+    val legacyCurrent = current.copy(outputs = Vector(metricOut("om", legacyConfig)))
+    def planLegacy(config: JsObject, name: String = "renamed", restoring: Boolean = false, id: String = "om") =
+      DraftDiff.plan(
+        legacyCurrent,
+        DraftSaveRequest("fp", unchangedSteps, Vector(DraftOutputRequest(Some(id), None, name, "metric", Some("t2"), None, None, Some(config))), None, None),
+        restoring,
+        ids()
+      )
+
+    "plan an update (not a 400) for a rename of an Output whose stored config carries a legacy key" in {
+      val p = planLegacy(legacyConfig).toOption.getOrElse(fail("expected a plan"))
+      p.outputUpdates.map(_.name) shouldBe Vector("renamed")
+    }
+    "still refuse a draft that ADDS a new unknown key to that Output, naming the key" in {
+      error(planLegacy(JsObject(legacyConfig.fields + ("metricUnit" -> JsString("ms"))))) should include("metricUnit")
+    }
+    "plan a create when a restore recreates a removed Output carrying a legacy key" in {
+      val restored = DraftDiff.plan(
+        current.copy(outputs = Vector.empty),
+        DraftSaveRequest("fp", unchangedSteps, Vector(DraftOutputRequest(Some("om"), None, "m", "metric", Some("t2"), None, None, Some(legacyConfig))), None, None),
+        true,
+        ids()
+      )
+      restored.toOption.getOrElse(fail(s"expected a plan, got $restored")).outputCreates.map(_.id) shouldBe Vector("om")
+    }
+  }
 }

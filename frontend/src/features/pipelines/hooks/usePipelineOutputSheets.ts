@@ -9,6 +9,7 @@ import {
   selectPreviewRowCountByOutputId,
 } from "../state/outputsSlice";
 import type { Output } from "../types/output";
+import type { DraftFrames } from "./usePipelineDraftFrames";
 
 type UsePipelineOutputSheetsArgs = {
   id: string | undefined;
@@ -58,6 +59,34 @@ export function usePipelineOutputSheets({ id, allOutputsRef }: UsePipelineOutput
   const handleCloseOutputSheet = useCallback(() => {
     setOutputSheet(null);
   }, []);
+
+  // HEL-1733 (design.md D5 wiring): the sheet's target node is page state, so the layout can ask the draft-preview request for its
+  // rows (`rowsStepIds`) and the sheet can read its draft columns. Initialised from the opened Output (or the create target); the
+  // sheet's Step picker moves it. Keyed by the sheet, so a new sheet starts from its own target (effect-free).
+  const sheetKey =
+    outputSheet === null
+      ? null
+      : (outputSheet.output?.id ?? `create:${outputSheet.createTargetStepId ?? ""}`);
+  const [pickedNode, setPickedNode] = useState<{ key: string; id: string | undefined } | null>(
+    null,
+  );
+  const sheetNodeStepId =
+    outputSheet === null
+      ? undefined
+      : pickedNode !== null && pickedNode.key === sheetKey
+        ? pickedNode.id
+        : (outputSheet.output?.nodeStepId ?? outputSheet.createTargetStepId);
+  const setSheetNodeStepId = useCallback(
+    (stepId: string | undefined) => {
+      if (sheetKey !== null) setPickedNode({ key: sheetKey, id: stepId });
+    },
+    [sheetKey],
+  );
+  // Written by the active layout (desktop or phone) while a sheet is open: the draft frames the sheet's preview and columns read.
+  const [sheetDraftNode, setSheetDraftNode] = useState<{
+    frames: DraftFrames;
+    nodeStepId: string | undefined;
+  } | null>(null);
 
   // HEL-909 — the Panel sheet's "Output link" deep-links here as
   // `/pipelines/:id?outputId=<id>` (no pre-existing OutputEditorSheet
@@ -122,5 +151,9 @@ export function usePipelineOutputSheets({ id, allOutputsRef }: UsePipelineOutput
     handleCloseOutputHistory,
     handleAddOutput,
     handleCloseOutputSheet,
+    sheetNodeStepId,
+    setSheetNodeStepId,
+    sheetDraftNode,
+    setSheetDraftNode,
   };
 }

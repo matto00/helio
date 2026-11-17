@@ -1,9 +1,14 @@
 import { useCallback } from "react";
 
-import { liveTrunkIds, trunkAfterMove } from "../state/draftOps";
+import { liveTrunkIds, newClientId, trunkAfterMove } from "../state/draftOps";
+import type { DraftOp, DraftOutputNode } from "../state/draftOps";
+import { draftMerge, outputFromCreate } from "../state/draftOutputs";
 import { computeInsertAnchor } from "../state/insertAnchor";
 import { defaultConfigFor, isTempStepId } from "../state/stepNarrowing";
-import type { PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
+import type { Output } from "../types/output";
+import type { OutputActions } from "./useOutputImmediateActions";
+import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
+import type { AggregateConfig, PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
 import type { OpType, Step } from "../types/step";
 import { useLatestCallback } from "./useLatestCallback";
 import type { PipelineDraft } from "./usePipelineDraft";
@@ -18,6 +23,18 @@ export interface ImmediateStepHandlers {
   handleAddLaneStepNow: (opType: OpType, parentStepId: string) => Promise<void>;
   handleDuplicateStepNow: (stepId: string) => Promise<void> | void;
   handleReorderStepsNow: (newOrder: Step[]) => void | Promise<void>;
+  /** HEL-1733: the shape and aggregate-tail immediate paths (the Output create/edit/delete immediate path lives in the sheet). */
+  handleInstantiateShapeNow: (
+    expansion: ExpandPipelineShapeResponse,
+    anchorStepId?: string,
+  ) => Promise<void>;
+  /** The immediate Output writes (`useOutputImmediateActions`). */
+  outputActionsNow: OutputActions;
+  handleAddOutputViaAggregateTailNow: (
+    parentStepId: string,
+    aggregateConfig: AggregateConfig,
+    outputPayload: { kind: string; name: string; config: Record<string, unknown> },
+  ) => Promise<Output>;
 }
 
 /**
@@ -49,6 +66,9 @@ export function usePipelineDraftRouting({
     handleAddLaneStepNow,
     handleDuplicateStepNow,
     handleReorderStepsNow,
+    handleInstantiateShapeNow,
+    handleAddOutputViaAggregateTailNow,
+    outputActionsNow,
   } = handlers;
   const { setConfig, setEnabled, deleteStep } = draft;
   const handleStepConfigChange = useCallback(
@@ -117,7 +137,119 @@ export function usePipelineDraftRouting({
     }
   });
 
+  // ── HEL-1733: Output create/edit/delete, shapes and the aggregate tail are draft entries while a draft exists ──
+  const { createOutput, editOutput, deleteOutput, appendOps } = draft;
+  /** The node a created Output binds to: a real step, or the pipeline's ONLY root (the server's own no-step rule). A temp
+   *  (`step-N`) step and a multi-root pipeline's "Pipeline source" are refused, never recorded or guessed. */
+  const nodeFor = (nodeStepId: string | undefined): DraftOutputNode => {
+    if (nodeStepId !== undefined) {
+      if (isTempStepId(nodeStepId))
+        throw new Error("Save the new step before adding an Output to it.");
+      return { step: nodeStepId };
+    }
+    if (roots.length !== 1) throw new Error("Pick a step: this pipeline has several sources.");
+    return { root: roots[0].id };
+  };
+  const handleCreateOutput = useLatestCallback(
+    (payload: Parameters<OutputActions["create"]>[0]): void | Promise<void> => {
+      if (!inDraft) return outputActionsNow.create(payload);
+      createOutput(nodeFor(payload.nodeStepId), payload.kind, payload.name.trim(), payload.config);
+    },
+  );
+  /** Records the WHOLE resulting config: the sheet's patch laid over the Output's current draft config (D4). */
+  const handleUpdateOutput = useLatestCallback(
+    (
+      output: Output,
+      payload: { name: string; config?: Record<string, unknown> },
+    ): void | Promise<void> => {
+      if (!inDraft) return outputActionsNow.update(output, payload);
+      if (payload.name.trim() === "") throw new Error("An Output needs a name.");
+      editOutput(output.id, {
+        name: payload.name.trim(),
+        config: draftMerge(output.config, payload.config ?? {}),
+      });
+    },
+  );
+  const handleDeleteOutput = useLatestCallback((output: Output): void | Promise<void> => {
+    if (!inDraft) return outputActionsNow.remove(output);
+    deleteOutput(output.id);
+  });
+
+  const handleInstantiateShape = useLatestCallback(
+    (expansion: ExpandPipelineShapeResponse, anchorStepId?: string): Promise<void> => {
+      if (!inDraft) return handleInstantiateShapeNow(expansion, anchorStepId);
+      if (anchorStepId !== undefined && isTempStepId(anchorStepId)) return Promise.resolve();
+      const rootId = roots[0]?.id;
+      const fresh = new Map<string, string>();
+      for (const e of expansion.steps) fresh.set(e.clientId, newClientId());
+      const ops: DraftOp[] = expansion.steps.map((e) => {
+        const clientId = fresh.get(e.clientId) as string;
+        const parentFresh = e.parentStepId !== undefined ? fresh.get(e.parentStepId) : undefined;
+        const anchor =
+          parentFresh !== undefined
+            ? { after: parentFresh }
+            : anchorStepId !== undefined
+              ? { after: anchorStepId }
+              : { append: rootId ?? "" };
+        return { kind: "insert", clientId, type: e.kind, config: e.config, anchor };
+      });
+      for (const o of expansion.outputs ?? []) {
+        const node = fresh.get(o.nodeStepId);
+        if (node === undefined) continue;
+        ops.push({
+          kind: "outputCreate",
+          clientId: newClientId(),
+          node: { step: node },
+          outputKind: o.kind,
+          name: o.name ?? o.kind,
+          config: o.config ?? {},
+        });
+      }
+      // One overlay update: a shape is never half in the draft.
+      appendOps(ops);
+      return Promise.resolve();
+    },
+  );
+
+  const handleAddOutputViaAggregateTail = useLatestCallback(
+    (
+      parentStepId: string,
+      aggregateConfig: AggregateConfig,
+      outputPayload: { kind: string; name: string; config: Record<string, unknown> },
+    ): Promise<Output> => {
+      if (!inDraft)
+        return handleAddOutputViaAggregateTailNow(parentStepId, aggregateConfig, outputPayload);
+      if (isTempStepId(parentStepId))
+        return Promise.reject(new Error("Save the new step before adding a tail to it."));
+      const laneId = newClientId();
+      const create: Extract<DraftOp, { kind: "outputCreate" }> = {
+        kind: "outputCreate",
+        clientId: newClientId(),
+        node: { step: laneId },
+        outputKind: outputPayload.kind,
+        name: outputPayload.name.trim(),
+        config: outputPayload.config,
+      };
+      appendOps([
+        {
+          kind: "lane",
+          clientId: laneId,
+          type: "aggregate",
+          config: aggregateConfig,
+          parent: parentStepId,
+        },
+        create,
+      ]);
+      return Promise.resolve(outputFromCreate(create));
+    },
+  );
+
   return {
+    handleCreateOutput,
+    handleUpdateOutput,
+    handleDeleteOutput,
+    handleInstantiateShape,
+    handleAddOutputViaAggregateTail,
     handleStepConfigChange,
     handleRemoveStep,
     handleToggleStepEnabled,

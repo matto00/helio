@@ -2,6 +2,7 @@
 // Settings) does not lose it. It is stored WITH the saved pipeline it was made against: a return over a different saved
 // pipeline must take the stale-base path, never silently re-base. Cleared on logout (keys are per pipeline id, not per user).
 
+import { isOutputOp } from "./draftOps";
 import type { DraftOp } from "./draftOps";
 import type { DraftOverlay } from "./pipelineDraft";
 
@@ -11,6 +12,9 @@ export interface KeptDraft {
   overlay: DraftOverlay;
   /** A signature of the saved steps the draft was made against (`baseSignature`). */
   base: string;
+  /** HEL-1733 D11: a signature of the saved Outputs the draft was made against (`outputsSignature`); absent in a kept v1/v2 draft
+   *  (compared on steps only) and while the page's Outputs had not loaded when it was written. */
+  outputsBase?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -45,6 +49,19 @@ function parseOp(raw: unknown): DraftOp | null {
         typeof raw.enabled === "boolean"
         ? (raw as unknown as DraftOp)
         : null;
+    case "outputCreate": {
+      const n = raw.node;
+      const nodeOk = isRecord(n) && (isString(n.step) || isString(n.root));
+      return isString(raw.clientId) &&
+        nodeOk &&
+        isString(raw.outputKind) &&
+        isString(raw.name) &&
+        isRecord(raw.config)
+        ? (raw as unknown as DraftOp)
+        : null;
+    }
+    case "outputDelete":
+      return isString(raw.outputId) ? { kind: "outputDelete", outputId: raw.outputId } : null;
     case "reorder":
       return isString(raw.rootId) && Array.isArray(raw.trunk) && raw.trunk.every(isString)
         ? (raw as unknown as DraftOp)
@@ -54,13 +71,24 @@ function parseOp(raw: unknown): DraftOp | null {
   }
 }
 
-/** Version 2 is validated op by op; a draft kept with no `version` (`{configs, enabled, deleted}`) is the earlier format and
- *  restores as delete ops. Anything else reads as absent. */
+function parseOutputEdits(raw: unknown): DraftOverlay["outputEdits"] | null {
+  if (raw === undefined) return {};
+  if (!isRecord(raw)) return null;
+  const edits: Record<string, { name: string; config: Record<string, unknown> }> = {};
+  for (const [id, edit] of Object.entries(raw)) {
+    if (!isRecord(edit) || !isString(edit.name) || !isRecord(edit.config)) return null;
+    edits[id] = { name: edit.name, config: edit.config };
+  }
+  return edits;
+}
+
+/** Version 3 and 2 are validated op by op (v2 restores as v3 with no Output edits and no `outputsBase`); a draft kept with no
+ *  `version` (`{configs, enabled, deleted}`) is the earliest format and restores as delete ops. Anything else reads as absent. */
 export function readKeptDraft(pipelineId: string): KeptDraft | null {
   try {
     const raw = window.sessionStorage.getItem(KEPT_DRAFT_PREFIX + pipelineId);
     if (raw === null) return null;
-    const v = JSON.parse(raw) as { overlay?: unknown; base?: unknown };
+    const v = JSON.parse(raw) as { overlay?: unknown; base?: unknown; outputsBase?: unknown };
     const o = v.overlay;
     if (typeof v.base !== "string" || !isRecord(o) || !isRecord(o.configs) || !isRecord(o.enabled))
       return null;
@@ -69,16 +97,25 @@ export function readKeptDraft(pipelineId: string): KeptDraft | null {
     if (o.version === undefined) {
       if (!Array.isArray(o.deleted) || !o.deleted.every(isString)) return null;
       const ops = o.deleted.map((stepId): DraftOp => ({ kind: "delete", stepId }));
-      return { base: v.base, overlay: { version: 2, ops, configs, enabled } };
+      return { base: v.base, overlay: { version: 3, ops, configs, enabled, outputEdits: {} } };
     }
-    if (o.version !== 2 || !Array.isArray(o.ops)) return null;
+    if ((o.version !== 2 && o.version !== 3) || !Array.isArray(o.ops)) return null;
     const ops: DraftOp[] = [];
     for (const item of o.ops) {
       const op = parseOp(item);
       if (op === null) return null;
+      // A v2 draft never held an Output op: one in it is not a draft this build wrote.
+      if (o.version === 2 && isOutputOp(op)) return null;
       ops.push(op);
     }
-    return { base: v.base, overlay: { version: 2, ops, configs, enabled } };
+    const outputEdits = o.version === 3 ? parseOutputEdits(o.outputEdits) : {};
+    if (outputEdits === null) return null;
+    if (v.outputsBase !== undefined && !isString(v.outputsBase)) return null;
+    return {
+      base: v.base,
+      ...(o.version === 3 && v.outputsBase !== undefined ? { outputsBase: v.outputsBase } : {}),
+      overlay: { version: 3, ops, configs, enabled, outputEdits },
+    };
   } catch {
     return null;
   }

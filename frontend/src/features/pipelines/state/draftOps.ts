@@ -27,7 +27,24 @@ export type DraftOp =
       config: PipelineStepConfig;
       enabled: boolean;
     }
-  | { kind: "reorder"; rootId: string; trunk: string[] };
+  | { kind: "reorder"; rootId: string; trunk: string[] }
+  | {
+      kind: "outputCreate";
+      clientId: string;
+      node: DraftOutputNode;
+      outputKind: string;
+      name: string;
+      config: Record<string, unknown>;
+    }
+  | { kind: "outputDelete"; outputId: string };
+
+/** The node a draft Output is created on: a step (a saved id or a client id) or a root of the pipeline. */
+export type DraftOutputNode = { step: string } | { root: string };
+
+/** Output ops ride the same log as step ops (HEL-1733 D1) so replay order settles "an Output created on a step a later op deletes". */
+export function isOutputOp(op: DraftOp): boolean {
+  return op.kind === "outputCreate" || op.kind === "outputDelete";
+}
 
 const CLIENT_ID_PREFIX = "draft-";
 
@@ -216,6 +233,10 @@ export function applyOp(steps: readonly Step[], op: DraftOp): Step[] | null {
         : spliceAfter(steps, op.of, freshStep(op.clientId, op.type, op.config, op.enabled));
     case "reorder":
       return relinkTrunk(steps, op.rootId, op.trunk);
+    case "outputCreate":
+    case "outputDelete":
+      // Output ops never change the steps; `replayOps` judges them against the Outputs (draftOutputs.ts).
+      return [...steps];
   }
 }
 

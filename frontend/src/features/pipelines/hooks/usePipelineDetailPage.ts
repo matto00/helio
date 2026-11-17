@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useToast } from "../../toasts/hooks/useToast";
 import type { PipelineRoot } from "../types/pipelineStep";
+import { selectOutputsForPipeline } from "../state/outputsSlice";
 import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
 import { createDraftFrameMemory } from "./usePipelineDraftFrames";
 import { usePipelineAnalyzeState } from "./usePipelineAnalyzeState";
@@ -23,6 +24,7 @@ import { useRunHistory } from "./useRunHistory";
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
 const EMPTY_ROOTS: PipelineRoot[] = [];
+const EMPTY_REMAP: ReadonlyMap<string, string> = new Map();
 
 /**
  * All `PipelineDetailPage` state, effects, and handlers (HEL-682 split,
@@ -48,9 +50,13 @@ export function usePipelineDetailPage() {
   const editor = usePipelineEditorState();
   const { steps, stepsRef, stepsInitialized, stepsLoading, stepsFailed } = editor;
   // HEL-1631: the client-only draft overlays the saved `steps`; everything the layouts render reads the draft steps.
+  // HEL-1733 (D15): effect-free selector moved above the draft; the same selector `usePipelineOutputSheets` reads, so identity is shared.
+  const savedOutputs = useAppSelector((state) => selectOutputsForPipeline(state, id ?? ""));
   const draft = usePipelineDraft({
     baseSteps: steps,
     baseStepsRef: stepsRef,
+    baseOutputs: savedOutputs,
+    outputsStatus: editor.outputsFetch,
     pipelineId: id,
     ready: stepsInitialized && !stepsLoading && !stepsFailed,
   });
@@ -65,6 +71,8 @@ export function usePipelineDetailPage() {
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   const draftSaveInFlightRef = useRef(false);
+  // HEL-1733 D10: set by Save & run's settle; keeps an explicit pick of a created Output on the saved Output it became.
+  const [outputPickRemap, setOutputPickRemap] = useState<ReadonlyMap<string, string>>(EMPTY_REMAP);
   const sseData = usePipelineRunStream({
     id,
     dispatch,
@@ -134,6 +142,7 @@ export function usePipelineDetailPage() {
     draft,
     roots,
     draftSaveInFlightRef,
+    setOutputPickRemap,
     refreshRunHistoryAfterRun,
     outputName: ui.outputName,
     isDirty,
@@ -141,6 +150,14 @@ export function usePipelineDetailPage() {
   });
 
   const { analyzeResult } = analyzeState;
+  const outputBlockReason =
+    !draft.hasDraft || draft.outputsStatus === "loaded"
+      ? null
+      : draft.outputsStatus === "failed"
+        ? "Outputs could not be loaded"
+        : "Outputs are still loading";
+  const outputEdits = draft.overlay.outputEdits;
+  const draftOutputEditedIds = useMemo(() => new Set(Object.keys(outputEdits)), [outputEdits]);
   return {
     stepsLoading,
     stepsFailed,
@@ -154,6 +171,13 @@ export function usePipelineDetailPage() {
     draftFrameMemory,
     /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
     draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,
+    // HEL-1733 D3/D15: roots stay blocked in a draft (HEL-1734); Output, shape and aggregate-tail actions are draft entries, and wait
+    // only while the page's own Outputs fetch has not landed (never judged against an Output list that has not loaded).
+    draftOutputBlockReason: outputBlockReason,
+    /** The Outputs the page shows: the saved ones with the draft laid over them (the saved list itself with no draft). */
+    draftOutputs: draft.draftOutputs,
+    draftOutputEditedIds,
+    outputPickRemap,
     dropdownOpenAt: editor.dropdownOpenAt,
     setDropdownOpenAt: editor.setDropdownOpenAt,
     sseActive: editor.sseActive,
