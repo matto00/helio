@@ -79,11 +79,30 @@ test.describe("HEL-1750 actions menu fits the viewport", () => {
     // Every created row must be rendered before choosing the one that is LAST on screen (list order is not creation order).
     await expect(page.locator(".dashboard-list__item-row", { hasText: lastName })).toHaveCount(1);
     await expect(page.locator(".dashboard-list__item-row", { hasText: names[0] })).toHaveCount(1);
+    // The rail's entrance animations (and its scroll position) must be at rest before the trigger is read. Wait on the real
+    // signal: no finite animation still running on the list. (Infinite ones, e.g. a spinner, are ignored by design.)
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () =>
+              document
+                .querySelector(".dashboard-list")
+                ?.getAnimations({ subtree: true })
+                .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).length ?? -1,
+          ),
+        { message: "the dashboard list's entrance animations settle" },
+      )
+      .toBe(0);
     const row = page.locator(".dashboard-list__item-row").last();
-    await row.scrollIntoViewIfNeeded();
-    await row.hover();
     const trigger = row.getByRole("button", { name: / actions$/ });
-    await trigger.click();
+    // Open with the keyboard, not a pointer: the trigger is hidden at rest and revealed by :hover / :focus-within, and a
+    // pointer hover on a row at the bottom of a scrolling list raced the list's own scrolling in CI (Playwright's
+    // "element is not stable" retried until the test timed out, HEL-1750 CI run 44185332093). Programmatic focus
+    // reveals the trigger and scrolls it into view natively; Enter opens the menu exactly as a click does.
+    await trigger.focus();
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press("Enter");
 
     const menu = await menuSettled(page);
     const probe = await lastItemProbe(menu);
@@ -92,7 +111,11 @@ test.describe("HEL-1750 actions menu fits the viewport", () => {
 
     await page.getByRole("menuitem", { name: "Delete" }).click();
     await expect(page.getByRole("button", { name: "Confirm", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // Keyboard again (the confirm row sits at the bottom of the scrolling list, see above).
+    const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+    await cancel.focus();
+    await page.keyboard.press("Enter");
+    await expect(cancel).toHaveCount(0);
   });
 
   // The pipeline Output menu (SpineOutputs, one item) cannot breach the viewport on a phone: its trigger must sit above
