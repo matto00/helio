@@ -48,9 +48,11 @@
     color var(--app-transition);
 }
 
-.inline-error__retry:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
+@media (hover: hover) {
+  .inline-error__retry:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+  }
 }
 
 .inline-error__retry:disabled {

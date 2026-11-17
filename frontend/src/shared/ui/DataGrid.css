@@ -345,9 +345,14 @@
   transition: background var(--app-transition);
 }
 
-.ui-data-grid__resize-handle:hover::after,
 .ui-data-grid__resize-handle:active::after {
   background: var(--app-border-strong);
+}
+
+@media (hover: hover) {
+  .ui-data-grid__resize-handle:hover::after {
+    background: var(--app-border-strong);
+  }
 }
 
 /* Keyboard-focus state for the arrow-key nudge (DataGrid.tsx
@@ -606,10 +611,12 @@
     color var(--app-transition);
 }
 
-.ui-data-grid__filter-toggle-btn:hover {
-  background: var(--app-surface-soft);
-  border-color: var(--app-border-strong);
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-data-grid__filter-toggle-btn:hover {
+    background: var(--app-surface-soft);
+    border-color: var(--app-border-strong);
+    color: var(--app-text);
+  }
 }
 
 /* HEL-451 design D4d task 3c.2: "visually distinct from the inactive state,
@@ -638,8 +645,10 @@
   transition: color var(--app-transition);
 }
 
-.ui-data-grid__filter-clear-all-btn:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-data-grid__filter-clear-all-btn:hover {
+    color: var(--app-text);
+  }
 }
 
 .ui-data-grid__filter-input {

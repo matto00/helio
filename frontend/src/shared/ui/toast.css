@@ -149,8 +149,10 @@
   transition: opacity var(--app-transition);
 }
 
-.toast__action:hover {
-  opacity: 0.8;
+@media (hover: hover) {
+  .toast__action:hover {
+    opacity: 0.8;
+  }
 }
 
 .toast__close {
@@ -173,9 +175,11 @@
     background-color var(--app-transition);
 }
 
-.toast__close:hover {
-  color: var(--app-text);
-  background: color-mix(in srgb, var(--app-text) 10%, transparent);
+@media (hover: hover) {
+  .toast__close:hover {
+    color: var(--app-text);
+    background: color-mix(in srgb, var(--app-text) 10%, transparent);
+  }
 }
 
 /* HEL-535 D4/evaluation-1.md CR1 — the 44px mobile tap-target floor MUST be

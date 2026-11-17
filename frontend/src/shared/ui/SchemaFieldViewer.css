@@ -60,8 +60,10 @@
   cursor: pointer;
 }
 
-.schema-field-viewer__group-toggle:hover {
-  color: var(--app-accent-text);
+@media (hover: hover) {
+  .schema-field-viewer__group-toggle:hover {
+    color: var(--app-accent-text);
+  }
 }
 
 .schema-field-viewer__group-toggle:focus-visible {
@@ -97,8 +99,10 @@
   cursor: pointer;
 }
 
-.schema-field-viewer__show-all:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .schema-field-viewer__show-all:hover {
+    text-decoration: underline;
+  }
 }
 
 .schema-field-viewer__show-all:focus-visible {

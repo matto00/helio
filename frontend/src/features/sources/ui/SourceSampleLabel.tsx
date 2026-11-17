@@ -18,11 +18,35 @@ interface SourceSampleLabelProps {
 /**
  * HEL-1628 (docs/live-draft-preview.md §4): the sample label and refresh control under a source on the pipeline
  * page. Rules live in `describeSampleLabel`; this component only chooses between loading, unavailable and the
- * described label, and owns the one manual re-fetch (`force`).
+ * described label. Composes `useSourceSampleLabel` with `SourceSampleLabelView`.
  */
 export function SourceSampleLabel({ sourceId, sourceName, pipelineId }: SourceSampleLabelProps) {
+  const label = useSourceSampleLabel(sourceId, pipelineId);
+  return (
+    <SourceSampleLabelView
+      sourceId={sourceId}
+      sourceName={sourceName}
+      pipelineId={pipelineId}
+      label={label}
+    />
+  );
+}
+
+interface SourceSampleLabelViewProps extends SourceSampleLabelProps {
+  /** The `useSourceSampleLabel` result, so a caller that already ran the hook (the spine source card) shares its
+   *  one age timer instead of mounting a second. */
+  label: ReturnType<typeof useSourceSampleLabel>;
+}
+
+/** The presentational half of `SourceSampleLabel`: renders an already-computed label and owns the one manual
+ *  re-fetch (`force`). */
+export function SourceSampleLabelView({
+  sourceId,
+  sourceName,
+  pipelineId,
+  label: { text, caveat, loading, entry, canRefresh },
+}: SourceSampleLabelViewProps) {
   const dispatch = useAppDispatch();
-  const { text, caveat, loading, entry, canRefresh } = useSourceSampleLabel(sourceId, pipelineId);
 
   if (text === null) return null;
 

@@ -109,10 +109,20 @@ for (const width of [1280, 1440]) {
           timeRight: time.getBoundingClientRect().right,
           boxRight: b.right,
           trailingLeft: trailing.getBoundingClientRect().left,
+          headerGap: parseFloat(
+            getComputedStyle(document.querySelector(".spine-header") as HTMLElement).columnGap,
+          ),
         };
       });
       console.log("GAP", width, theme, JSON.stringify(m));
       expect(m.nameTruncated, "the pipeline name is not truncated").toBe(false);
+      if (width === 1280)
+        // HEL-1675: with the count hidden the meta box still grows to the trailing controls, so only the header's own
+        // gap (plus a pixel of rounding) may separate them: no width is reserved for the count that is not shown.
+        expect(
+          m.trailingLeft - m.boxRight,
+          "no reserved gap between the meta box and the trailing controls",
+        ).toBeLessThanOrEqual(m.headerGap + 1);
       if (width === 1440) expect(m.countVisible, "the count shows when there is room").toBe(true);
       await page.screenshot({ path: evidencePath("HEL-1668", `meta-gap-${width}-${theme}.png`) });
     }

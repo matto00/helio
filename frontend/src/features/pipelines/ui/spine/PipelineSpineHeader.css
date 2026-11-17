@@ -1,6 +1,7 @@
 /* HEL-1579 (design.md D3): the one-row header. Run (Save & run while a draft exists) is the only accent-filled control; every other control
-   is secondary or ghost (DESIGN.md §5). Below ~1100px the meta text truncates with an ellipsis before
-   anything wraps; the controls never wrap below the name. */
+   is secondary or ghost (DESIGN.md §5). The meta line is sized from the relative time alone and grows into free space,
+   so the row count appears only when it fits (it wraps away whole, never as a fragment) and the whole line is hidden
+   below a 685px header container; the controls never wrap below the name. */
 .spine-header {
   display: flex;
   align-items: center;
@@ -280,14 +281,8 @@
 @media (hover: hover) {
   .spine-header__btn--primary:hover:not(:disabled) {
     border-color: transparent;
-    background: var(--app-accent);
-    color: var(--app-accent-ink);
-  }
-}
-
-@media (hover: hover) {
-  .spine-header__btn--primary:hover:not(:disabled) {
     background: var(--app-accent-strong);
+    color: var(--app-accent-ink);
   }
 }
 

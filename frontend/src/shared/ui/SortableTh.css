@@ -14,8 +14,10 @@
   cursor: pointer;
 }
 
-.sortable-th__btn:hover {
-  color: var(--app-accent-text);
+@media (hover: hover) {
+  .sortable-th__btn:hover {
+    color: var(--app-accent-text);
+  }
 }
 
 .sortable-th__btn:focus-visible {
@@ -41,6 +43,8 @@
   opacity: 0.45;
 }
 
-.sortable-th__btn:hover .sortable-th__glyph {
-  color: var(--app-accent-text);
+@media (hover: hover) {
+  .sortable-th__btn:hover .sortable-th__glyph {
+    color: var(--app-accent-text);
+  }
 }

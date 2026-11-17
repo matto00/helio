@@ -503,6 +503,23 @@ recipes (match metrics exactly; see `Modal.css` / `App.css` for reference):
 All at `--control-sm/md` height, `--app-radius-sm`, `--weight-medium`,
 `--text-xs/sm`. **[judgment]** A new button style is a defect, not a variant.
 
+**Hover effects live inside `@media (hover: hover)` (HEL-1675).** A touch tap
+leaves the element under the finger in `:hover` until the next tap lands
+elsewhere, so an ungated hover fill stays painted on a phone after the tap.
+Every rule whose selector contains `:hover` (fills, border, colour, transforms
+-- every control recipe above) is written inside `@media (hover: hover)`; a rule
+list that mixes `:hover` with a non-hover selector (`:focus-visible`, `:active`,
+`--selected`, `--focused`) is split so the non-hover members stay ungated.
+Focus, active, selected and pressed states are never gated. A hover REVEAL (a
+control that is reachable only through hover) is a named exception: register it
+in the allowlist of the guard for its stylesheets, with its reason. Two guards
+enforce this and fail on an ungated `:hover`:
+`frontend/src/shared/sharedHoverGating.css.test.ts` (every stylesheet under
+`frontend/src/shared/`, discovered by walking the directory, empty allowlist)
+and `frontend/src/features/pipelines/ui/pipelineHoverGating.css.test.ts` (the
+pipeline page's stylesheets). Other feature stylesheets are not yet covered
+(HEL-1735). **[mechanical]**
+
 **Chrome surfaces are borderless.** Inside `.app-command-bar`, the rail
 and the context list, every trigger drops its hairline at every width (`cmd-btn`,
 `ui-icon-btn`, `actions-menu__trigger`, `user-menu__trigger`) — these surfaces
