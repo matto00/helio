@@ -1,6 +1,13 @@
 import fs from "fs";
 import path from "path";
 
+import {
+  mixedGatedRules,
+  parseRules,
+  stripComments,
+  ungatedHoverSelectors,
+} from "../../../test/cssHoverGating";
+
 // HEL-1668 D5: the pipeline page's own stylesheets apply hover FILLS only on hover-capable pointers, so a touch tap
 // never leaves a hover fill stuck. Every selector containing `:hover` is either inside `@media (hover: hover)` or on
 // the named reveal allowlist below; and no gated rule mixes a `:hover` selector with a non-hover one (a mixed list
@@ -18,7 +25,6 @@ const FILES = [
   "spine/StepPreviewTable.css",
 ];
 
-const HOVER_MEDIA = "@media (hover: hover)";
 const COMPACT_CONTAINER = "@container spine-column (max-width: 226px)";
 
 /** Hover REVEALS (not fills) that stay ungated, each with its reason. A tap on a touch device has to keep revealing
@@ -46,62 +52,6 @@ const REVEAL_ALLOWLIST: { file: string; ancestor?: string; selector: string; rea
   },
 ];
 
-interface Rule {
-  selectors: string[];
-  ancestors: string[];
-}
-
-function stripComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, "");
-}
-
-function splitTop(selector: string): string[] {
-  const parts: string[] = [];
-  let depth = 0;
-  let cur = "";
-  for (const c of selector) {
-    if (c === "(" || c === "[") depth++;
-    if (c === ")" || c === "]") depth--;
-    if (c === "," && depth === 0) {
-      parts.push(cur.trim());
-      cur = "";
-    } else cur += c;
-  }
-  parts.push(cur.trim());
-  return parts.filter((p) => p !== "");
-}
-
-function parseRules(css: string, ancestors: string[] = []): Rule[] {
-  const rules: Rule[] = [];
-  let i = 0;
-  while (i < css.length) {
-    const open = css.indexOf("{", i);
-    if (open === -1) break;
-    let depth = 1;
-    let j = open + 1;
-    while (depth > 0 && j < css.length) {
-      if (css[j] === "{") depth++;
-      else if (css[j] === "}") depth--;
-      j++;
-    }
-    const prelude = css
-      .slice(i, open)
-      .replace(/^[\s;}]+/, "")
-      .trim();
-    const body = css.slice(open + 1, j - 1);
-    if (prelude.startsWith("@")) {
-      const normalized = prelude.replace(/\s+/g, " ");
-      if (/^@(media|supports|container|layer)/.test(normalized)) {
-        rules.push(...parseRules(body, [...ancestors, normalized]));
-      }
-    } else {
-      rules.push({ selectors: splitTop(prelude.replace(/\s+/g, " ")), ancestors });
-    }
-    i = j;
-  }
-  return rules;
-}
-
 const rulesByFile = FILES.map((file) => ({
   file,
   rules: parseRules(stripComments(fs.readFileSync(path.join(__dirname, file), "utf-8"))),
@@ -116,34 +66,20 @@ describe("pipeline page hover gating (HEL-1668)", () => {
   });
 
   it("every :hover selector is inside @media (hover: hover) or on the named reveal allowlist", () => {
-    const offenders: string[] = [];
-    for (const { file, rules } of rulesByFile) {
-      for (const rule of rules) {
-        for (const selector of rule.selectors.filter((s) => s.includes(":hover"))) {
-          if (rule.ancestors.includes(HOVER_MEDIA)) continue;
-          const allowed = REVEAL_ALLOWLIST.some(
-            (a) =>
-              a.file === file &&
-              (a.ancestor === undefined
-                ? rule.ancestors.length === 0 && a.selector === selector
-                : rule.ancestors.includes(a.ancestor)),
-          );
-          if (!allowed) offenders.push(`${file}: ${selector}`);
-        }
-      }
-    }
+    const offenders = ungatedHoverSelectors(rulesByFile, (file, rule, selector) =>
+      REVEAL_ALLOWLIST.some(
+        (a) =>
+          a.file === file &&
+          (a.ancestor === undefined
+            ? rule.ancestors.length === 0 && a.selector === selector
+            : rule.ancestors.includes(a.ancestor)),
+      ),
+    );
     expect(offenders).toEqual([]);
   });
 
   it("no gated rule mixes a :hover selector with a non-hover one", () => {
-    const mixed: string[] = [];
-    for (const { file, rules } of rulesByFile) {
-      for (const rule of rules) {
-        if (!rule.ancestors.includes(HOVER_MEDIA)) continue;
-        if (rule.selectors.some((s) => !s.includes(":hover")))
-          mixed.push(`${file}: ${rule.selectors.join(", ")}`);
-      }
-    }
+    const mixed = mixedGatedRules(rulesByFile);
     expect(mixed).toEqual([]);
   });
 

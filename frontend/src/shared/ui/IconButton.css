@@ -59,9 +59,11 @@
   color: var(--app-text-muted);
 }
 
-.ui-icon-btn--ghost:hover:not(:disabled) {
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-icon-btn--ghost:hover:not(:disabled) {
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* Secondary -- hairline border, matches .cmd-btn--icon. */
@@ -70,10 +72,12 @@
   color: var(--app-text-muted);
 }
 
-.ui-icon-btn--secondary:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
-  background: var(--app-surface-soft);
-  color: var(--app-text);
+@media (hover: hover) {
+  .ui-icon-btn--secondary:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+    background: var(--app-surface-soft);
+    color: var(--app-text);
+  }
 }
 
 /* Danger -- error-tinted hover, matches .preferences-editor__icon-btn. */
@@ -82,10 +86,12 @@
   color: var(--app-text-muted);
 }
 
-.ui-icon-btn--danger:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
-  background: var(--app-error-surface);
-  color: var(--app-error);
+@media (hover: hover) {
+  .ui-icon-btn--danger:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--app-error) 60%, transparent);
+    background: var(--app-error-surface);
+    color: var(--app-error);
+  }
 }
 
 /* ── Mobile tap-target floor (HEL-308/314/319 convention, matching

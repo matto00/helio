@@ -1,38 +1,24 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { usePipelineAnalyzeDeferWatchdog } from "./usePipelineAnalyzeDeferWatchdog";
-import { usePipelineAnalyzeLookups } from "./usePipelineAnalyzeLookups";
-import { usePipelineAnalyzeState } from "./usePipelineAnalyzeState";
-import { usePipelineClearRunOnLeave } from "./usePipelineClearRunOnLeave";
-import { usePipelineDirtyAndOwner } from "./usePipelineDirtyAndOwner";
-import { usePipelineEditorState } from "./usePipelineEditorState";
-import { usePipelineOwnPipeline } from "./usePipelineOwnPipeline";
-import { usePipelineStepsFingerprint } from "./usePipelineStepsFingerprint";
-import { usePipelineDebouncedAnalyze } from "./usePipelineDebouncedAnalyze";
-import { usePipelineRootAndToggleActions } from "./usePipelineRootAndToggleActions";
-import { usePipelineStepMutations } from "./usePipelineStepMutations";
-import { usePipelineStepStructure } from "./usePipelineStepStructure";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useToast } from "../../toasts/hooks/useToast";
+import type { PipelineRoot } from "../types/pipelineStep";
 import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
 import { createDraftFrameMemory } from "./usePipelineDraftFrames";
-import { usePipelineDraftSave } from "./usePipelineDraftSave";
-import { useLatestCallback } from "./useLatestCallback";
-import { useRunHistory } from "./useRunHistory";
-import { liveTrunkIds, trunkAfterMove } from "../state/draftOps";
-import { computeInsertAnchor } from "../state/insertAnchor";
-import { defaultConfigFor, isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
-import { buildLaneGraph } from "../state/stepTree";
-import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { usePipelineAnalyzeState } from "./usePipelineAnalyzeState";
+import { usePipelineDetailAnalyze } from "./usePipelineDetailAnalyze";
+import { usePipelineDetailSaveWiring } from "./usePipelineDetailSaveWiring";
+import { usePipelineDetailStepActions } from "./usePipelineDetailStepActions";
+import { usePipelineDetailUiState } from "./usePipelineDetailUiState";
+import { usePipelineDirtyAndOwner } from "./usePipelineDirtyAndOwner";
+import { usePipelineEditorState } from "./usePipelineEditorState";
 import { usePipelineOutputSheets } from "./usePipelineOutputSheets";
-import { usePipelinePageLoad } from "./usePipelinePageLoad";
-import { usePipelineRunAndSaveActions } from "./usePipelineRunAndSaveActions";
+import { usePipelineOwnPipeline } from "./usePipelineOwnPipeline";
 import { usePipelineRunStream } from "./usePipelineRunStream";
 import { usePipelineSourceScheduleActions } from "./usePipelineSourceScheduleActions";
-import { useToast } from "../../toasts/hooks/useToast";
-import { canSampleShared } from "../../sources/hooks/useSourceSampleAccess";
-import { useSourceSamples } from "../../sources/hooks/useSourceSamples";
-import type { PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
-import type { OpType, Step } from "../types/step";
+import { usePipelineStepsSeed } from "./usePipelineStepsSeed";
+import { useRunHistory } from "./useRunHistory";
 
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
@@ -44,6 +30,9 @@ const EMPTY_ROOTS: PipelineRoot[] = [];
  * once per `PipelineDetailPage` render, so every ref/memo/callback
  * identity-stability invariant documented inline (F-146, F-105) holds
  * exactly as it did when this lived directly in the component.
+ *
+ * HEL-1704: the page wiring over focused hooks. The relative order of every effect-bearing call is the order they had when
+ * they were all inline (design.md D1); effect-free state moved into `usePipelineDetailUiState`.
  */
 export function usePipelineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -51,62 +40,13 @@ export function usePipelineDetailPage() {
   const navigate = useNavigate();
   const { push: pushToast } = useToast();
 
-  const {
-    sources,
-    sourcesStatus,
-    runStatus,
-    runError,
-    runIsDry,
-    runResult,
-    runStepRowCounts,
-    runSourceRowCount,
-    runSourceTruncated,
-    runTruncationNotice,
-    updateStatus,
-    updateError,
-    reduxSteps,
-    singletonIsOwn,
-    currentPipeline,
-    currentPipelineStatus,
-    currentPipelineError,
-    currentPipelineErrorKind,
-  } = usePipelineOwnPipeline({ id });
+  const own = usePipelineOwnPipeline({ id });
+  const { currentPipeline } = own;
+  const analyzeState = usePipelineAnalyzeState({ id });
+  const persistedSteps = id ? (own.reduxSteps[id] ?? []) : [];
 
-  const { analyzeResult, analyzeStatus, analyzeStatusRef, pipelineSchedule } =
-    usePipelineAnalyzeState({ id });
-
-  const persistedSteps = id ? (reduxSteps[id] ?? []) : [];
-
-  const {
-    steps,
-    setSteps,
-    stepsRef,
-    pendingDraftMetaRef,
-    pendingDraftIds,
-    setPendingDraftIds,
-    draftFallbackMetaRef,
-    allOutputsRef,
-    stepsInitialized,
-    setStepsInitialized,
-    setStepsFetch,
-    stepsFetchedThisMount,
-    stepsLoading,
-    stepsFailed,
-    onStepsRetry,
-    seedToken,
-    setSeedToken,
-    consumedSeedTokenRef,
-    dropdownOpenAt,
-    setDropdownOpenAt,
-    sseActive,
-    setSseActive,
-    sseActiveRef,
-    pendingAnalyzeRef,
-    lastAnalyzedFingerprintRef,
-    pendingSinceRef,
-    deferWatchdogHandleRef,
-    stepsFingerprintRef,
-  } = usePipelineEditorState();
+  const editor = usePipelineEditorState();
+  const { steps, stepsRef, stepsInitialized, stepsLoading, stepsFailed } = editor;
   // HEL-1631: the client-only draft overlays the saved `steps`; everything the layouts render reads the draft steps.
   const draft = usePipelineDraft({
     baseSteps: steps,
@@ -117,342 +57,90 @@ export function usePipelineDetailPage() {
   const draftSteps = draft.draftSteps;
   // Lives here, not in a layout, so the last good draft frames survive the 768px layout swap.
   const [draftFrameMemory] = useState(createDraftFrameMemory);
-  const [outputName, setOutputName] = useState("");
-  const [editingOutputName, setEditingOutputName] = useState(false);
+  const ui = usePipelineDetailUiState(currentPipeline);
   // HEL-1354: run history is loaded on demand (modal open, truncated-banner boot, post-run
   // refresh) rather than on every page open; see `useRunHistory`.
-  const {
-    historyOpen,
-    openRunHistory,
-    ensureRunHistoryLoaded,
-    closeRunHistory,
-    retryRunHistory,
-    runs,
-    runHistoryView,
-    refreshRunHistoryAfterRun,
-    loadRunHistoryWhenTruncated,
-  } = useRunHistory(id);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  // Track which pipeline id the outputName was last initialized from
-  const [outputNamePipelineId, setOutputNamePipelineId] = useState<string | null>(null);
-  // Inline discard-confirm state (replaces window.confirm on dirty cancel).
-  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
-
+  const history = useRunHistory(id);
+  const { refreshRunHistoryAfterRun } = history;
   const currentUser = useAppSelector((state) => state.auth.currentUser);
 
   const draftSaveInFlightRef = useRef(false);
   const sseData = usePipelineRunStream({
     id,
     dispatch,
-    sseActive,
-    setSseActive,
+    sseActive: editor.sseActive,
+    setSseActive: editor.setSseActive,
     draftSaveInFlightRef,
     refreshRunHistoryAfterRun,
   });
 
-  // ── Derived-state initialization (React recommended pattern) ──
-  // Sync outputName whenever a different pipeline becomes current.
-  if (currentPipeline && currentPipeline.id !== outputNamePipelineId) {
-    setOutputNamePipelineId(currentPipeline.id);
-    setOutputName(currentPipeline.name);
-  }
-  // Initialize local steps from persisted Redux data on first load.
-  if (!stepsInitialized && stepsFetchedThisMount && persistedSteps.length > 0) {
-    setStepsInitialized(true);
-    setSteps(persistedSteps.map(pipelineStepToStep));
-    // F-105 — this transition changes `stepsFingerprint` below from "" to a
-    // real value, which the debounced re-analyze effect can't tell apart
-    // from a genuine edit. Without this token it fires its own /analyze
-    // ~300ms after the mount effect's own immediate one (two identical
-    // requests on every page open). Consumed by that effect's next run;
-    // it changes only in the render where `stepsFingerprint` also changes.
-    setSeedToken((token) => token + 1);
-  }
-
-  const onStepsSettled = useCallback(
-    (ok: boolean) => setStepsFetch(ok ? "fulfilled" : "failed"),
-    [setStepsFetch],
-  );
-  const { retryPipelineLoad, retryStepsLoad } = usePipelinePageLoad({
+  const { retryPipelineLoad, retryStepsLoad } = usePipelineStepsSeed({
     id,
     dispatch,
-    currentPipeline,
-    singletonIsOwn,
-    currentPipelineStatus,
-    sourcesStatus,
-    loadRunHistoryWhenTruncated,
-    onStepsSettled,
-    onStepsRetry,
-    analyzeStatusRef,
+    editor,
+    own,
+    analyzeState,
+    persistedSteps,
+    loadRunHistoryWhenTruncated: history.loadRunHistoryWhenTruncated,
   });
 
-  const stepsFingerprint = usePipelineStepsFingerprint({
-    steps,
-    pendingDraftIds,
-    stepsFingerprintRef,
-  });
-
-  // HEL-912 task 1.1 — n-lane grouping (design.md decision 1), recomputed
-  // only when the steps array or the pipeline's roots change. HEL-968 D1 —
-  // `roots` is now required: it's what lets a root with zero steps still
-  // render as an empty lane, which `steps` alone could never reveal.
   const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
-  const laneGraph = useMemo(() => buildLaneGraph(draftSteps, roots), [draftSteps, roots]);
-  // HEL-1628: one sample capture per root source when the page opens with nothing cached (both layouts); the
-  // label's refresh button is the only other fetch. Never from a step editor, so edits do not re-fetch.
-  const rootSourceIds = useMemo(() => roots.map((r) => r.dataSourceId), [roots]);
-  // HEL-1648: a non-owned (shared) source is sampled through this pipeline once analyze says the caller is its
-  // owner or an editor; `callerRole` is permission-only, so an invalid step does not withdraw it.
-  useSourceSamples(
-    rootSourceIds,
-    id
-      ? { pipelineId: id, canSampleShared: canSampleShared(analyzeResult?.callerRole) }
-      : undefined,
-  );
-  const { clearDeferWatchdog, forceDeferredAnalyze } = usePipelineAnalyzeDeferWatchdog({
+  const analyze = usePipelineDetailAnalyze({
     id,
     dispatch,
-    pendingAnalyzeRef,
-    lastAnalyzedFingerprintRef,
-    pendingSinceRef,
-    deferWatchdogHandleRef,
-    stepsFingerprintRef,
-  });
-  usePipelineDebouncedAnalyze({
-    id,
-    dispatch,
-    steps,
-    stepsFingerprint,
-    seedToken,
-    sseActive,
-    analyzeStatus,
-    forceDeferredAnalyze,
-    clearDeferWatchdog,
-    consumedSeedTokenRef,
-    lastAnalyzedFingerprintRef,
-    sseActiveRef,
-    analyzeStatusRef,
-    pendingAnalyzeRef,
-    pendingSinceRef,
-    deferWatchdogHandleRef,
-    suspended: draft.hasDraft,
-  });
-
-  usePipelineClearRunOnLeave({ dispatch, id });
-
-  const {
-    getAnalyzeColumns,
-    getAnalyzeSchema,
-    getAnalyzeOutputSchema,
-    hasOwnAnalyzeEntry,
-    getAnalyzeValidationError,
-    getAnalyzeWarnings,
-  } = usePipelineAnalyzeLookups({
-    analyzeResult,
-    steps,
-    pendingDraftMetaRef,
-    draftFallbackMetaRef,
+    editor,
+    analyzeState,
+    draft,
+    draftSteps,
+    roots,
   });
 
   const { isDirty, pipelineName, sourceByRootId, isOwner } = usePipelineDirtyAndOwner({
     id,
-    outputNamePipelineId,
-    outputName,
+    outputNamePipelineId: ui.outputNamePipelineId,
+    outputName: ui.outputName,
     currentPipeline,
     currentUser,
     roots,
-    sources,
+    sources: own.sources,
   });
 
-  const {
-    outputsByStepId,
-    previewRowCountByOutputId,
-    allOutputs,
-    outputSheet,
-    handleOpenOutput,
-    historyOutput,
-    handleOpenOutputHistory,
-    handleCloseOutputHistory,
-    handleAddOutput,
-    handleCloseOutputSheet,
-  } = usePipelineOutputSheets({ id, allOutputsRef });
+  const outputSheets = usePipelineOutputSheets({ id, allOutputsRef: editor.allOutputsRef });
 
   const { handleEditSource, handleToggleScheduleEnabled } = usePipelineSourceScheduleActions({
     id,
     dispatch,
     navigate,
-    pipelineSchedule,
+    pipelineSchedule: analyzeState.pipelineSchedule,
   });
 
-  const {
-    syncStepsFromServer,
-    draftCreateErrors,
-    creatingStepIds,
-    handleInsertStep: handleInsertStepNow,
-    handleAddStep: handleAddStepNow,
-    handleAddLaneStep: handleAddLaneStepNow,
-    clearDraftCreateError,
-    createDraftIfComplete,
-    markTempRemoved,
-    handleAddOutputViaAggregateTail,
-    handleInstantiateShape,
-  } = usePipelineStepStructure({
+  const stepActions = usePipelineDetailStepActions({
     id,
     dispatch,
     roots,
-    stepsRef,
-    setSteps,
-    setStepsInitialized,
+    editor,
+    setSteps: editor.setSteps,
     pushToast,
-    pendingDraftMetaRef,
-    setPendingDraftIds,
-    draftFallbackMetaRef,
+    draft,
+    draftSteps,
   });
 
-  const {
-    handleStepConfigChange: handleTempStepConfigChange,
-    handleRemoveStep: handleRemoveSavedStep,
-    handleReorderSteps: handleReorderStepsNow,
-  } = usePipelineStepMutations({
-    id,
-    roots,
-    stepsRef,
-    setSteps,
-    pushToast,
-    clearDraftCreateError,
-    createDraftIfComplete,
-    markTempRemoved,
-    syncStepsFromServer,
-  });
-
-  const {
-    handleAddRoot,
-    handleRemoveRoot,
-    handleToggleStepEnabled: handleToggleTempStepEnabled,
-    handleDuplicateStep: handleDuplicateStepNow,
-    duplicatingStepIds,
-  } = usePipelineRootAndToggleActions({
-    id,
-    dispatch,
-    stepsRef,
-    setSteps,
-    pushToast,
-    syncStepsFromServer,
-  });
-
-  // HEL-1631 (design.md D6): a config edit, an enabled toggle or a delete of a saved step changes only the draft; a step
-  // that is still a not-yet-created AI draft (temp id) keeps its existing local create flow.
-  const { setConfig, setEnabled, deleteStep } = draft;
-  const handleStepConfigChange = useCallback(
-    (stepId: string, config: PipelineStepConfig) => {
-      if (isTempStepId(stepId)) handleTempStepConfigChange(stepId, config);
-      else setConfig(stepId, config);
-    },
-    [handleTempStepConfigChange, setConfig],
-  );
-  const handleRemoveStep = useCallback(
-    (stepId: string) => {
-      if (isTempStepId(stepId)) handleRemoveSavedStep(stepId);
-      else deleteStep(stepId);
-    },
-    [handleRemoveSavedStep, deleteStep],
-  );
-  const handleToggleStepEnabled = useCallback(
-    (stepId: string, enabled: boolean): Promise<void> => {
-      if (isTempStepId(stepId)) return handleToggleTempStepEnabled(stepId, enabled);
-      setEnabled(stepId, enabled);
-      return Promise.resolve();
-    },
-    [handleToggleTempStepEnabled, setEnabled],
-  );
-
-  // HEL-1684 (design.md D3): while a draft exists, the step structure actions record a draft op instead of writing; with no draft
-  // open each keeps its immediate path. Latest-closure callbacks keep the identities the memoised cards rely on (F-146).
-  const { insertStep, addLaneStep, duplicateStep, reorderTrunk } = draft;
-  const inDraft = draft.hasDraft;
-  const handleAddStep = useLatestCallback((opType: OpType) => {
-    const rootId = roots[0]?.id;
-    if (!inDraft || rootId === undefined) return handleAddStepNow(opType);
-    insertStep(opType.id, defaultConfigFor(opType.id), { append: rootId });
-  });
-  const handleInsertStep = useLatestCallback((opType: OpType, index: number): Promise<void> => {
-    const rootId = roots[0]?.id;
-    if (!inDraft || rootId === undefined) return handleInsertStepNow(opType, index);
-    // Anchored over the DRAFT lane (temp steps skipped), never `stepsRef`'s length: an index into a draft holding new steps can
-    // exceed the saved length without being an append.
-    const anchor = computeInsertAnchor(draftSteps, roots, index);
-    insertStep(
-      opType.id,
-      defaultConfigFor(opType.id),
-      anchor.kind === "head" ? { head: rootId } : { after: anchor.stepId },
-    );
-    return Promise.resolve();
-  });
-  const handleAddLaneStep = useLatestCallback(
-    (opType: OpType, parentStepId: string): Promise<void> => {
-      if (!inDraft) return handleAddLaneStepNow(opType, parentStepId);
-      if (!isTempStepId(parentStepId))
-        addLaneStep(opType.id, defaultConfigFor(opType.id), parentStepId);
-      return Promise.resolve();
-    },
-  );
-  const handleDuplicateStep = useLatestCallback((stepId: string) => {
-    if (!inDraft) return handleDuplicateStepNow(stepId);
-    if (!isTempStepId(stepId)) duplicateStep(stepId);
-  });
-  const handleReorderSteps = useLatestCallback((newOrder: Step[]): void | Promise<void> => {
-    if (!inDraft) return handleReorderStepsNow(newOrder);
-    for (const root of roots) {
-      const before = liveTrunkIds(draftSteps, root.id);
-      if (before.length < 2) continue;
-      const after = trunkAfterMove(newOrder, root.id, before);
-      if (after.length !== before.length || after.every((id, i) => id === before[i])) continue;
-      reorderTrunk(root.id, after);
-    }
-  });
-
-  const {
-    handleRunPipeline,
-    handleDryRun,
-    handleRunToUpdate,
-    handleSave,
-    handleCancel,
-    confirmCancelDiscard,
-    dismissCancelConfirm,
-    refreshVisibleOutputPreviews,
-  } = usePipelineRunAndSaveActions({
+  const saveWiring = usePipelineDetailSaveWiring({
     id,
     dispatch,
     navigate,
-    setSseActive,
-    allOutputsRef,
-    refreshRunHistoryAfterRun,
-    outputName,
-    isDirty,
-    setIsConfirmingCancel,
-  });
-
-  const outputsLoaded = useAppSelector(
-    (state) => id !== undefined && state.outputs.listStatus[id] === "succeeded",
-  );
-  const draftSave = usePipelineDraftSave({
-    id,
-    dispatch,
     pushToast,
+    editor,
     draft,
-    stepsRef,
-    setSteps,
     roots,
-    allOutputsRef,
     draftSaveInFlightRef,
-    outputsLoaded,
-    setSseActive,
     refreshRunHistoryAfterRun,
-    refreshVisibleOutputPreviews,
-    onRunNow: () => void handleRunPipeline(),
+    outputName: ui.outputName,
+    isDirty,
+    setIsConfirmingCancel: ui.setIsConfirmingCancel,
   });
 
+  const { analyzeResult } = analyzeState;
   return {
     stepsLoading,
     stepsFailed,
@@ -464,45 +152,44 @@ export function usePipelineDetailPage() {
     baseSteps: steps,
     draft,
     draftFrameMemory,
-    draftSave,
     /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
     draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,
-    dropdownOpenAt,
-    setDropdownOpenAt,
-    sseActive,
+    dropdownOpenAt: editor.dropdownOpenAt,
+    setDropdownOpenAt: editor.setDropdownOpenAt,
+    sseActive: editor.sseActive,
     sseData,
-    outputName,
-    setOutputName,
-    editingOutputName,
-    setEditingOutputName,
-    historyOpen,
-    openRunHistory,
-    ensureRunHistoryLoaded,
-    closeRunHistory,
-    retryRunHistory,
-    runHistoryView,
+    outputName: ui.outputName,
+    setOutputName: ui.setOutputName,
+    editingOutputName: ui.editingOutputName,
+    setEditingOutputName: ui.setEditingOutputName,
+    historyOpen: history.historyOpen,
+    openRunHistory: history.openRunHistory,
+    ensureRunHistoryLoaded: history.ensureRunHistoryLoaded,
+    closeRunHistory: history.closeRunHistory,
+    retryRunHistory: history.retryRunHistory,
+    runHistoryView: history.runHistoryView,
     retryPipelineLoad,
-    shareOpen,
-    setShareOpen,
-    scheduleOpen,
-    setScheduleOpen,
-    isConfirmingCancel,
-    runStatus,
-    runError,
-    runIsDry,
-    runResult,
-    runStepRowCounts,
-    runSourceRowCount,
-    runSourceTruncated,
-    runTruncationNotice,
+    shareOpen: ui.shareOpen,
+    setShareOpen: ui.setShareOpen,
+    scheduleOpen: ui.scheduleOpen,
+    setScheduleOpen: ui.setScheduleOpen,
+    isConfirmingCancel: ui.isConfirmingCancel,
+    runStatus: own.runStatus,
+    runError: own.runError,
+    runIsDry: own.runIsDry,
+    runResult: own.runResult,
+    runStepRowCounts: own.runStepRowCounts,
+    runSourceRowCount: own.runSourceRowCount,
+    runSourceTruncated: own.runSourceTruncated,
+    runTruncationNotice: own.runTruncationNotice,
     currentPipeline,
-    currentPipelineStatus,
-    currentPipelineError,
-    currentPipelineErrorKind,
-    updateStatus,
-    updateError,
-    pipelineSchedule,
-    runs,
+    currentPipelineStatus: own.currentPipelineStatus,
+    currentPipelineError: own.currentPipelineError,
+    currentPipelineErrorKind: own.currentPipelineErrorKind,
+    updateStatus: own.updateStatus,
+    updateError: own.updateError,
+    pipelineSchedule: analyzeState.pipelineSchedule,
+    runs: history.runs,
     isDirty,
     pipelineName,
     sourceByRootId,
@@ -514,49 +201,12 @@ export function usePipelineDetailPage() {
     // HEL-1096 design.md D5 — the whole verdict, so the footer's denial block can render
     // `reasons`/`canRun` itself; `null` while analyze hasn't returned yet (renders nothing).
     costVerdict: analyzeResult?.costVerdict ?? null,
-    handleRunToUpdate,
-    // HEL-1109 (pipeline-ai-step-authoring spec) — a rejected deferred-create's
-    // message, keyed by the draft's (still-temp) step id.
-    draftCreateErrors,
-    getAnalyzeColumns,
-    getAnalyzeSchema,
-    getAnalyzeOutputSchema,
-    hasOwnAnalyzeEntry,
-    getAnalyzeValidationError,
-    getAnalyzeWarnings,
-    outputsByStepId,
-    allOutputs,
-    previewRowCountByOutputId,
-    handleOpenOutput,
-    historyOutput,
-    handleOpenOutputHistory,
-    handleCloseOutputHistory,
-    handleAddOutput,
-    outputSheet,
-    handleCloseOutputSheet,
+    ...analyze,
+    ...outputSheets,
     handleEditSource,
     handleToggleScheduleEnabled,
-    laneGraph,
     roots,
-    handleAddRoot,
-    handleRemoveRoot,
-    handleAddStep,
-    handleAddLaneStep,
-    handleAddOutputViaAggregateTail,
-    handleInsertStep,
-    handleInstantiateShape,
-    handleStepConfigChange,
-    handleRemoveStep,
-    handleReorderSteps,
-    handleToggleStepEnabled,
-    handleDuplicateStep,
-    duplicatingStepIds,
-    creatingStepIds,
-    handleRunPipeline,
-    handleDryRun,
-    handleSave,
-    handleCancel,
-    confirmCancelDiscard,
-    dismissCancelConfirm,
+    ...stepActions,
+    ...saveWiring,
   };
 }

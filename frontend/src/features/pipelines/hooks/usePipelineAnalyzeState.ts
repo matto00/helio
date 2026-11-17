@@ -42,3 +42,5 @@ export function usePipelineAnalyzeState({ id }: { id: string | undefined }) {
     pipelineSchedule,
   };
 }
+
+export type PipelineAnalyzeState = ReturnType<typeof usePipelineAnalyzeState>;

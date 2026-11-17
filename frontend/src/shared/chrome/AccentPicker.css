@@ -41,8 +41,10 @@
   transition: transform var(--app-transition);
 }
 
-.accent-picker__swatch:hover .accent-picker__dot {
-  transform: scale(1.15);
+@media (hover: hover) {
+  .accent-picker__swatch:hover .accent-picker__dot {
+    transform: scale(1.15);
+  }
 }
 
 /* Tap-target expander (shared/ui/tapTarget.css pattern): an invisible 44x44 hit area centred on the swatch. Sized

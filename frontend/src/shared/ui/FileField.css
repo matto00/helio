@@ -28,8 +28,10 @@
     background-color var(--app-transition);
 }
 
-.ui-file-field__input:hover:not(:disabled)::file-selector-button {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .ui-file-field__input:hover:not(:disabled)::file-selector-button {
+    border-color: var(--app-border-strong);
+  }
 }
 
 .ui-file-field__input:focus-visible {

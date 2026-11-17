@@ -27,10 +27,12 @@
   color: var(--app-text-muted);
 }
 
-.ui-input:hover:not(:disabled),
-.ui-select__trigger:hover:not(:disabled),
-.ui-textarea:hover:not(:disabled) {
-  border-color: var(--app-border-strong);
+@media (hover: hover) {
+  .ui-input:hover:not(:disabled),
+  .ui-select__trigger:hover:not(:disabled),
+  .ui-textarea:hover:not(:disabled) {
+    border-color: var(--app-border-strong);
+  }
 }
 
 .ui-input:focus-visible,
@@ -142,9 +144,14 @@
   transition: background-color var(--app-transition);
 }
 
-.ui-select__option:hover,
 .ui-select__option--focused {
   background: var(--app-surface-soft);
+}
+
+@media (hover: hover) {
+  .ui-select__option:hover {
+    background: var(--app-surface-soft);
+  }
 }
 
 .ui-select__option--selected {

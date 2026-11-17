@@ -37,8 +37,10 @@ details[open] > .disclosure-summary::before {
   transform: rotate(45deg);
 }
 
-.disclosure-summary:hover {
-  color: var(--app-text);
+@media (hover: hover) {
+  .disclosure-summary:hover {
+    color: var(--app-text);
+  }
 }
 
 .disclosure-summary:focus-visible {
