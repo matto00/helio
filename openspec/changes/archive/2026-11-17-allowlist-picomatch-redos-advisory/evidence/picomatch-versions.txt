@@ -1,0 +1,21 @@
+# npm view picomatch versions (tail)
+{
+  "version": "4.0.7",
+  "dist-tags": {
+    "latest": "4.0.7"
+  }
+}
+  "4.0.4",
+  "4.0.5",
+  "4.0.6",
+  "4.0.7"
+]
+# root jest fixAvailable
+{"name":"jest","version":"30.2.0","isSemVerMajor":true} {"name":"picomatch","severity":"high","isDirect":false,"via":[{"source":1247710,"name":"picomatch","dependency":"picomatch","title":"picomatch vulnerable to ReDoS through single-branch repeated extglobs","url":"https://github.com/advisories/GHSA-fc5q-39xc-vjpf","severity":"high","cwe":["CWE-1333"],"cvss":{"score":7.5,"vectorString":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"},"range":"<=4.0.7"}],"effects":["@rollup/pluginutils","anymatch","fdir","jest-haste-map","jest-message-util","jest-util","rollup-plugin-visualizer","tinyglobby","vite"],"range":"*","nodes":["node_modules/anymatch/node_modules/picomatch","node_modules/picomatch"],"fixAvailable":{"name":"rollup-plugin-visualizer","version":"5.8.3","isSemVerMajor":true}}
+# jest@30.2.0 tree: picomatch dependency ranges (advisory range <=4.0.7 covers every published picomatch, latest 4.0.7)
+jest-util@30.2.0
+^4.0.2
+jest-message-util@30.2.0
+jest-haste-map@30.2.0
+anymatch@3.1.3
+^2.0.4

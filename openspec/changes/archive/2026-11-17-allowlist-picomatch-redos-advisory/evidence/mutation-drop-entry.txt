@@ -1,0 +1,10 @@
+## mutation: frontend/.audit-ci.jsonc minus the jest-util>* entry, real audit
+Failed security audit due to high vulnerabilities.
+GHSA-fc5q-39xc-vjpf|jest-util>picomatch>
+exit 1
+Failed security audit due to high vulnerabilities.
+GHSA-fc5q-39xc-vjpf|jest-util>picomatch>
+exit 1
+Failed security audit due to high vulnerabilities.
+GHSA-fc5q-39xc-vjpf|jest-util>picomatch>
+exit 1
