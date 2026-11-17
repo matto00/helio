@@ -16,8 +16,11 @@ import { usePipelineStepStructure } from "./usePipelineStepStructure";
 import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
 import { createDraftFrameMemory } from "./usePipelineDraftFrames";
 import { usePipelineDraftSave } from "./usePipelineDraftSave";
+import { useLatestCallback } from "./useLatestCallback";
 import { useRunHistory } from "./useRunHistory";
-import { isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
+import { liveTrunkIds, trunkAfterMove } from "../state/draftOps";
+import { computeInsertAnchor } from "../state/insertAnchor";
+import { defaultConfigFor, isTempStepId, pipelineStepToStep } from "../state/stepNarrowing";
 import { buildLaneGraph } from "../state/stepTree";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { usePipelineOutputSheets } from "./usePipelineOutputSheets";
@@ -29,6 +32,7 @@ import { useToast } from "../../toasts/hooks/useToast";
 import { canSampleShared } from "../../sources/hooks/useSourceSampleAccess";
 import { useSourceSamples } from "../../sources/hooks/useSourceSamples";
 import type { PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
+import type { OpType, Step } from "../types/step";
 
 // HEL-968 — stable empty-roots reference so `buildLaneGraph`'s `useMemo`
 // dependency doesn't churn on every render before `currentPipeline` loads.
@@ -285,9 +289,9 @@ export function usePipelineDetailPage() {
     syncStepsFromServer,
     draftCreateErrors,
     creatingStepIds,
-    handleInsertStep,
-    handleAddStep,
-    handleAddLaneStep,
+    handleInsertStep: handleInsertStepNow,
+    handleAddStep: handleAddStepNow,
+    handleAddLaneStep: handleAddLaneStepNow,
     clearDraftCreateError,
     createDraftIfComplete,
     markTempRemoved,
@@ -309,7 +313,7 @@ export function usePipelineDetailPage() {
   const {
     handleStepConfigChange: handleTempStepConfigChange,
     handleRemoveStep: handleRemoveSavedStep,
-    handleReorderSteps,
+    handleReorderSteps: handleReorderStepsNow,
   } = usePipelineStepMutations({
     id,
     roots,
@@ -326,7 +330,7 @@ export function usePipelineDetailPage() {
     handleAddRoot,
     handleRemoveRoot,
     handleToggleStepEnabled: handleToggleTempStepEnabled,
-    handleDuplicateStep,
+    handleDuplicateStep: handleDuplicateStepNow,
     duplicatingStepIds,
   } = usePipelineRootAndToggleActions({
     id,
@@ -362,6 +366,51 @@ export function usePipelineDetailPage() {
     },
     [handleToggleTempStepEnabled, setEnabled],
   );
+
+  // HEL-1684 (design.md D3): while a draft exists, the step structure actions record a draft op instead of writing; with no draft
+  // open each keeps its immediate path. Latest-closure callbacks keep the identities the memoised cards rely on (F-146).
+  const { insertStep, addLaneStep, duplicateStep, reorderTrunk } = draft;
+  const inDraft = draft.hasDraft;
+  const handleAddStep = useLatestCallback((opType: OpType) => {
+    const rootId = roots[0]?.id;
+    if (!inDraft || rootId === undefined) return handleAddStepNow(opType);
+    insertStep(opType.id, defaultConfigFor(opType.id), { append: rootId });
+  });
+  const handleInsertStep = useLatestCallback((opType: OpType, index: number): Promise<void> => {
+    const rootId = roots[0]?.id;
+    if (!inDraft || rootId === undefined) return handleInsertStepNow(opType, index);
+    // Anchored over the DRAFT lane (temp steps skipped), never `stepsRef`'s length: an index into a draft holding new steps can
+    // exceed the saved length without being an append.
+    const anchor = computeInsertAnchor(draftSteps, roots, index);
+    insertStep(
+      opType.id,
+      defaultConfigFor(opType.id),
+      anchor.kind === "head" ? { head: rootId } : { after: anchor.stepId },
+    );
+    return Promise.resolve();
+  });
+  const handleAddLaneStep = useLatestCallback(
+    (opType: OpType, parentStepId: string): Promise<void> => {
+      if (!inDraft) return handleAddLaneStepNow(opType, parentStepId);
+      if (!isTempStepId(parentStepId))
+        addLaneStep(opType.id, defaultConfigFor(opType.id), parentStepId);
+      return Promise.resolve();
+    },
+  );
+  const handleDuplicateStep = useLatestCallback((stepId: string) => {
+    if (!inDraft) return handleDuplicateStepNow(stepId);
+    if (!isTempStepId(stepId)) duplicateStep(stepId);
+  });
+  const handleReorderSteps = useLatestCallback((newOrder: Step[]): void | Promise<void> => {
+    if (!inDraft) return handleReorderStepsNow(newOrder);
+    for (const root of roots) {
+      const before = liveTrunkIds(draftSteps, root.id);
+      if (before.length < 2) continue;
+      const after = trunkAfterMove(newOrder, root.id, before);
+      if (after.length !== before.length || after.every((id, i) => id === before[i])) continue;
+      reorderTrunk(root.id, after);
+    }
+  });
 
   const {
     handleRunPipeline,

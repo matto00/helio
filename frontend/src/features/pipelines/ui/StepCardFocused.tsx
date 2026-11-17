@@ -97,8 +97,8 @@ export function StepCardFocused({
             type="button"
             className="step-focused__action"
             aria-label="Duplicate step"
-            disabled={isDuplicating || structuralBlockedReason !== null}
-            title={structuralBlockedReason ?? undefined}
+            disabled={isDuplicating || (structuralBlockedReason !== null && isDraft)}
+            title={isDraft ? (structuralBlockedReason ?? undefined) : undefined}
             onClick={() => onDuplicate(step.id)}
           >
             Duplicate

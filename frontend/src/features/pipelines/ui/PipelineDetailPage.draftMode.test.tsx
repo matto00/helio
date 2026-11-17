@@ -332,39 +332,44 @@ describe("draft mode: Discard", () => {
   });
 });
 
-describe("draft mode: structural operations are blocked while a draft exists", () => {
-  it("disables add, insert, branch, move, add-output and duplicate with the reason, and enables them again after Discard", async () => {
+describe("draft mode: what stays blocked while a draft exists", () => {
+  it("keeps roots, shapes and Outputs disabled with the reason, enables the step actions, and lifts the block after Discard", async () => {
     await renderDraftPage();
     editThreshold("240");
     const reason = "Save or discard your draft first";
 
     const add = within(spine()).getByRole("button", { name: "+ Add transformation step" });
-    expect(add).toBeDisabled();
-    expect(add).toHaveAccessibleDescription(reason);
-    expect(within(spine()).getByRole("button", { name: "New output" })).toBeDisabled();
+    expect(add).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Duplicate step" })).toBeEnabled();
+    const newOutput = within(spine()).getByRole("button", { name: "New output" });
+    expect(newOutput).toBeDisabled();
+    expect(newOutput).toHaveAccessibleDescription(reason);
     expect(within(spine()).getByRole("button", { name: "Add source" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Duplicate step" })).toBeDisabled();
+    expect(
+      within(spine()).getByRole("button", { name: "Add Outputs from a shape" }),
+    ).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Step actions for Filter rows" }));
     const menu = screen.getByRole("menu", { name: "Step actions for Filter rows" });
+    // An enabled item says nothing about saving first: no title, no accessible description.
     for (const name of [
       /^Move step down/,
       /^Insert step before/,
       /^Insert step after/,
       /^Branch from here/,
-      /^Add output/,
     ]) {
       const item = within(menu).getByRole("menuitem", { name });
-      expect(item).toBeDisabled();
-      expect(item).toHaveAttribute("title", reason);
+      expect(item).toBeEnabled();
+      expect(item).not.toHaveAttribute("title");
+      expect(item).toHaveAccessibleDescription("");
     }
+    const addOutput = within(menu).getByRole("menuitem", { name: /^Add output/ });
+    expect(addOutput).toBeDisabled();
+    expect(addOutput).toHaveAttribute("title", reason);
     fireEvent.keyDown(menu, { key: "Escape" });
 
     fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
-    expect(
-      within(spine()).getByRole("button", { name: "+ Add transformation step" }),
-    ).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Duplicate step" })).toBeEnabled();
+    expect(newOutput).toBeEnabled();
   });
 });
 

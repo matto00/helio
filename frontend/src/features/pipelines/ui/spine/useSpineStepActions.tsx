@@ -9,6 +9,7 @@ import type { ReactNode, RefObject } from "react";
 import type { ActionsMenuItem } from "../../../../shared/chrome/ActionsMenu";
 import { useLaneReorder } from "../../hooks/useLaneReorder";
 import { useLatestCallback } from "../../hooks/useLatestCallback";
+import { isTempStepId } from "../../state/stepNarrowing";
 import type { Lane, LaneGraph } from "../../state/stepTree";
 import type { ExpandPipelineShapeResponse } from "../../types/pipelineShape";
 import type { PipelineRoot } from "../../types/pipelineStep";
@@ -36,7 +37,7 @@ export interface SpineStepActionsArgs {
     anchorStepId?: string,
   ) => Promise<void>;
   onReorderSteps: (newOrder: Step[]) => void | Promise<void>;
-  /** HEL-1631 (design.md D2): while a draft exists the structural menu items are disabled with this reason. */
+  /** HEL-1631 (design.md D2): while a draft exists the menu items the draft does not carry (Add output) are disabled with this reason. */
   structuralBlockedReason?: string | null;
 }
 
@@ -132,8 +133,7 @@ export function useSpineStepActions({
         {
           label: "Move up",
           ariaLabel: `Move step up in ${laneLabel}`,
-          disabled: blocked || index === 0,
-          reason,
+          disabled: index === 0,
           onClick: () => {
             if (restoreFocus) restoreFocus();
             else focusRowAfterMoveRef.current = step.id;
@@ -143,8 +143,7 @@ export function useSpineStepActions({
         {
           label: "Move down",
           ariaLabel: `Move step down in ${laneLabel}`,
-          disabled: blocked || index === lane.steps.length - 1,
-          reason,
+          disabled: index === lane.steps.length - 1,
           onClick: () => {
             if (restoreFocus) restoreFocus();
             else focusRowAfterMoveRef.current = step.id;
@@ -160,15 +159,11 @@ export function useSpineStepActions({
       if (index === 0) {
         items.push({
           label: "Insert step before",
-          disabled: blocked,
-          reason,
           onClick: () => setPalette({ kind: "insert", index: 0 }),
         });
       }
       items.push({
         label: "Insert step after",
-        disabled: blocked,
-        reason,
         onClick: () =>
           setPalette(
             index === lane.steps.length - 1
@@ -180,8 +175,9 @@ export function useSpineStepActions({
     items.push(
       {
         label: "Branch from here",
-        disabled: blocked,
-        reason,
+        // A not-yet-created AI step has no saved row to branch from, so a draft cannot record a lane under it.
+        disabled: blocked && isTempStepId(step.id),
+        reason: blocked && isTempStepId(step.id) ? reason : undefined,
         onClick: () => setPalette({ kind: "branch", parentStepId: step.id }),
       },
       { label: "Add output", disabled: blocked, reason, onClick: () => onAddOutput(step.id) },

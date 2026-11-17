@@ -1,22 +1,28 @@
-// pipelineDraft -- HEL-1631 (design.md D1/D2): the pure model of the client-only draft on the pipeline detail page.
-// The draft is an OVERLAY on the saved steps: config edits, enabled toggles and step deletes. The saved steps are never
-// mutated, so Discard is "clear the overlay". Everything here is pure and unit-tested; the hooks only hold the state.
+// pipelineDraft -- HEL-1631 (design.md D1/D2), extended by HEL-1684: the pure model of the client-only draft on the pipeline detail
+// page. The draft is an OVERLAY on the saved steps: an ordered log of structure ops (delete, insert, "+ lane", duplicate, reorder;
+// `draftOps.ts`) plus config edits and enabled toggles keyed by a saved id or a client id. The saved steps are never mutated, so
+// Discard is "clear the overlay". Everything here is pure and unit-tested; the hooks only hold the state.
 
 import type { Output } from "../types/output";
 import type { PipelineStepConfig, PipelineStepKind } from "../types/pipelineStep";
 import type { DraftOutput, DraftStep } from "../types/draftSave";
 import type { Step } from "../types/step";
+import { applyOp, isDraftClientId, replayOps, structureKey } from "./draftOps";
+import type { DraftOp } from "./draftOps";
+
+export { deleteStep, removalOf } from "./draftOps";
 
 export interface DraftOverlay {
-  /** stepId -> the edited config (an entry equal to the saved config never exists). */
+  version: 2;
+  /** Structure ops in the order they were made, replayed over the saved steps. */
+  ops: readonly DraftOp[];
+  /** stepId or clientId -> the edited config (an entry equal to the step's pre-edit config never exists). */
   configs: Readonly<Record<string, PipelineStepConfig>>;
-  /** stepId -> the toggled flag (an entry equal to the saved flag never exists). */
+  /** stepId or clientId -> the toggled flag (an entry equal to the step's pre-toggle flag never exists). */
   enabled: Readonly<Record<string, boolean>>;
-  /** Deleted step ids, in the order they were deleted. */
-  deleted: readonly string[];
 }
 
-export const EMPTY_OVERLAY: DraftOverlay = { configs: {}, enabled: {}, deleted: [] };
+export const EMPTY_OVERLAY: DraftOverlay = { version: 2, ops: [], configs: {}, enabled: {} };
 
 /** Structural equality over JSON-shaped values (key order ignored). */
 export function jsonEqual(a: unknown, b: unknown): boolean {
@@ -33,59 +39,31 @@ export function jsonEqual(a: unknown, b: unknown): boolean {
   return ak.length === bk.length && ak.every((k) => k in bo && jsonEqual(ao[k], bo[k]));
 }
 
-/** What the server's `deleteInternal` removes and re-links, computed over the supplied steps (HEL-906 splice-on-delete):
- *  the FIRST child by `(position, id)` is promoted onto the deleted step's own slot; every other child and its whole
- *  subtree goes with it. */
-export function removalOf(
-  steps: readonly Step[],
-  deletedId: string,
-): { removed: ReadonlySet<string>; headChildId: string | null } {
-  const childrenOf = new Map<string, Step[]>();
-  for (const s of steps) {
-    if (s.parentStepId == null) continue;
-    const list = childrenOf.get(s.parentStepId);
-    if (list) list.push(s);
-    else childrenOf.set(s.parentStepId, [s]);
-  }
-  const ordered = (id: string): Step[] =>
-    [...(childrenOf.get(id) ?? [])].sort(
-      (a, b) => (a.position ?? 0) - (b.position ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-    );
-  const subtree = (id: string, into: Set<string>): void => {
-    into.add(id);
-    for (const child of ordered(id)) subtree(child.id, into);
-  };
-  const children = ordered(deletedId);
-  const removed = new Set<string>([deletedId]);
-  for (const tail of children.slice(1)) subtree(tail.id, removed);
-  return { removed, headChildId: children[0]?.id ?? null };
+export function isOverlayEmpty(overlay: DraftOverlay): boolean {
+  return (
+    overlay.ops.length === 0 &&
+    Object.keys(overlay.configs).length === 0 &&
+    Object.keys(overlay.enabled).length === 0
+  );
 }
 
-/** The steps after deleting `deletedId` the way the server does; unknown ids are a no-op. */
-export function deleteStep(steps: readonly Step[], deletedId: string): Step[] {
-  const deleted = steps.find((s) => s.id === deletedId);
-  if (!deleted) return [...steps];
-  const { removed, headChildId } = removalOf(steps, deletedId);
-  return steps
-    .filter((s) => !removed.has(s.id))
-    .map((s) =>
-      s.id === headChildId
-        ? {
-            ...s,
-            parentStepId: deleted.parentStepId,
-            rootId: deleted.rootId,
-            position: deleted.position,
-          }
-        : s,
-    );
+/** A draft exists exactly when the draft steps differ from the base (every write canonicalises an overlay that does not). */
+export function hasDraft(overlay: DraftOverlay): boolean {
+  return !isOverlayEmpty(overlay);
 }
 
-/** The draft steps: `base` with the overlay applied (deletes replayed in order, then config and enabled edits). */
-export function applyOverlay(base: readonly Step[], overlay: DraftOverlay): Step[] {
-  if (overlay === EMPTY_OVERLAY || isOverlayEmpty(overlay)) return base as Step[];
-  let steps: Step[] = [...base];
-  for (const id of overlay.deleted) steps = deleteStep(steps, id);
-  return steps.map((s) => {
+/** The overlay replayed over `base`: the draft steps, the ops that did not apply (their ids are gone from `base`), and the
+ *  config/enabled entries for steps that no longer exist. `dropped` is what the page reports. */
+export function replayOverlay(
+  base: readonly Step[],
+  overlay: DraftOverlay,
+): { steps: Step[]; droppedOps: DraftOp[]; droppedEntries: number; dropped: number } {
+  const replayed = replayOps(base, overlay.ops);
+  const ids = new Set(replayed.steps.map((s) => s.id));
+  const entryIds = new Set([...Object.keys(overlay.configs), ...Object.keys(overlay.enabled)]);
+  let droppedEntries = 0;
+  for (const id of entryIds) if (!ids.has(id)) droppedEntries += 1;
+  const steps = replayed.steps.map((s) => {
     const config = overlay.configs[s.id];
     const enabled = overlay.enabled[s.id];
     if (config === undefined && enabled === undefined) return s;
@@ -95,45 +73,41 @@ export function applyOverlay(base: readonly Step[], overlay: DraftOverlay): Step
       ...(enabled !== undefined ? { enabled } : {}),
     };
   });
+  const droppedOps = replayed.droppedOps;
+  return { steps, droppedOps, droppedEntries, dropped: droppedOps.length + droppedEntries };
 }
 
-export function isOverlayEmpty(overlay: DraftOverlay): boolean {
-  return (
-    overlay.deleted.length === 0 &&
-    Object.keys(overlay.configs).length === 0 &&
-    Object.keys(overlay.enabled).length === 0
-  );
+/** The draft steps: `base` with the overlay applied. */
+export function applyOverlay(base: readonly Step[], overlay: DraftOverlay): Step[] {
+  if (overlay === EMPTY_OVERLAY || isOverlayEmpty(overlay)) return base as Step[];
+  return replayOverlay(base, overlay).steps;
 }
 
-/** A draft exists exactly when the draft steps differ from the base. */
-export function hasDraft(overlay: DraftOverlay): boolean {
-  return !isOverlayEmpty(overlay);
-}
-
-/** Drops overlay entries that no longer change anything: an edit set back to its saved value, an entry for a step the
- *  base does not have, and entries for steps a delete removed. */
-export function pruneOverlay(base: readonly Step[], overlay: DraftOverlay): DraftOverlay {
-  const byId = new Map(base.map((s) => [s.id, s]));
-  const deleted = overlay.deleted.filter((id) => byId.has(id));
-  const gone = new Set<string>();
-  let steps: Step[] = [...base];
-  for (const id of deleted) {
-    const before = new Set(steps.map((s) => s.id));
-    steps = deleteStep(steps, id);
-    const after = new Set(steps.map((s) => s.id));
-    for (const b of before) if (!after.has(b)) gone.add(b);
-  }
+/** Drops what no longer changes anything (D2): ops that do not apply, ops that leave the tree as the base has it, and
+ *  config/enabled entries set back to the step's pre-edit value or for a step that is gone. A result with nothing left is the
+ *  canonical `EMPTY_OVERLAY`, so "a draft exists" is exactly "the draft differs from the saved pipeline". `keepOps` (a stale-restored
+ *  draft) leaves every op and entry in place, so "Reload the saved pipeline" can still count each one it drops. */
+export function pruneOverlay(
+  base: readonly Step[],
+  overlay: DraftOverlay,
+  keepOps = false,
+): DraftOverlay {
+  const replayed = replayOps(base, overlay.ops);
+  const noStructureChange = !keepOps && structureKey(replayed.steps) === structureKey(base);
+  const ops = keepOps ? overlay.ops : noStructureChange ? [] : replayed.keptOps;
+  const steps = noStructureChange ? [...base] : replayed.steps;
+  const byId = new Map(steps.map((s) => [s.id, s]));
   const configs: Record<string, PipelineStepConfig> = {};
   for (const [id, config] of Object.entries(overlay.configs)) {
-    const saved = byId.get(id);
-    if (saved && !gone.has(id) && !jsonEqual(saved.config, config)) configs[id] = config;
+    const step = byId.get(id);
+    if ((step || keepOps) && !(step && jsonEqual(step.config, config))) configs[id] = config;
   }
   const enabled: Record<string, boolean> = {};
   for (const [id, flag] of Object.entries(overlay.enabled)) {
-    const saved = byId.get(id);
-    if (saved && !gone.has(id) && saved.enabled !== flag) enabled[id] = flag;
+    const step = byId.get(id);
+    if ((step || keepOps) && !(step && step.enabled === flag)) enabled[id] = flag;
   }
-  const next: DraftOverlay = { configs, enabled, deleted };
+  const next: DraftOverlay = { version: 2, ops, configs, enabled };
   return isOverlayEmpty(next) ? EMPTY_OVERLAY : next;
 }
 
@@ -142,8 +116,13 @@ export function withConfig(
   overlay: DraftOverlay,
   stepId: string,
   config: PipelineStepConfig,
+  keepOps = false,
 ): DraftOverlay {
-  return pruneOverlay(base, { ...overlay, configs: { ...overlay.configs, [stepId]: config } });
+  return pruneOverlay(
+    base,
+    { ...overlay, configs: { ...overlay.configs, [stepId]: config } },
+    keepOps,
+  );
 }
 
 export function withEnabled(
@@ -151,17 +130,33 @@ export function withEnabled(
   overlay: DraftOverlay,
   stepId: string,
   enabled: boolean,
+  keepOps = false,
 ): DraftOverlay {
-  return pruneOverlay(base, { ...overlay, enabled: { ...overlay.enabled, [stepId]: enabled } });
+  return pruneOverlay(
+    base,
+    { ...overlay, enabled: { ...overlay.enabled, [stepId]: enabled } },
+    keepOps,
+  );
+}
+
+/** Appends `op` to the log; an op that does not apply to the current draft is not recorded. */
+export function withOp(
+  base: readonly Step[],
+  overlay: DraftOverlay,
+  op: DraftOp,
+  keepOps = false,
+): DraftOverlay {
+  if (applyOp(applyOverlay(base, overlay), op) === null) return overlay;
+  return pruneOverlay(base, { ...overlay, ops: [...overlay.ops, op] }, keepOps);
 }
 
 export function withDeleted(
   base: readonly Step[],
   overlay: DraftOverlay,
   stepId: string,
+  keepOps = false,
 ): DraftOverlay {
-  if (overlay.deleted.includes(stepId)) return overlay;
-  return pruneOverlay(base, { ...overlay, deleted: [...overlay.deleted, stepId] });
+  return withOp(base, overlay, { kind: "delete", stepId }, keepOps);
 }
 
 /** Step ids the draft removes (the deleted steps plus the tails a branch-point delete takes with it). */
@@ -179,26 +174,14 @@ export function outputsOnRemovedSteps(
   return outputs.filter((o) => o.nodeStepId !== undefined && removed.has(o.nodeStepId));
 }
 
-/** Re-bases an overlay onto a newly loaded base (Reload the saved pipeline): entries for steps that still exist are kept,
- *  the rest are dropped; `dropped` counts them. */
+/** Re-bases an overlay onto a newly loaded base (Reload the saved pipeline): every op whose ids still exist is kept (a dropped op
+ *  drops every later op that names its client id), the rest are dropped; `dropped` counts ops plus entries. */
 export function rebaseOverlay(
   newBase: readonly Step[],
   overlay: DraftOverlay,
 ): { overlay: DraftOverlay; dropped: number } {
-  const ids = new Set(newBase.map((s) => s.id));
-  const keys = new Set([
-    ...Object.keys(overlay.configs),
-    ...Object.keys(overlay.enabled),
-    ...overlay.deleted,
-  ]);
-  let dropped = 0;
-  for (const id of keys) if (!ids.has(id)) dropped += 1;
-  const next = pruneOverlay(newBase, {
-    configs: Object.fromEntries(Object.entries(overlay.configs).filter(([id]) => ids.has(id))),
-    enabled: Object.fromEntries(Object.entries(overlay.enabled).filter(([id]) => ids.has(id))),
-    deleted: overlay.deleted.filter((id) => ids.has(id)),
-  });
-  return { overlay: next, dropped };
+  const { dropped } = replayOverlay(newBase, overlay);
+  return { overlay: pruneOverlay(newBase, overlay), dropped };
 }
 
 /** The final tree as the draft-save body wants it. `enabled` is ALWAYS an explicit boolean: the server reads a missing
@@ -206,14 +189,17 @@ export function rebaseOverlay(
 export function toDraftSteps(draft: readonly Step[]): DraftStep[] {
   return draft.map((s) => {
     const step: DraftStep = {
-      id: s.id,
       type: s.opType.id as PipelineStepKind,
       config: s.config as unknown as Record<string, unknown>,
       enabled: s.enabled === true,
       position: s.position ?? 0,
     };
-    if (s.parentStepId != null) step.parentStepId = s.parentStepId;
-    else if (s.rootId != null) step.rootId = s.rootId;
+    if (isDraftClientId(s.id)) step.clientId = s.id;
+    else step.id = s.id;
+    if (s.parentStepId != null) {
+      if (isDraftClientId(s.parentStepId)) step.parentClientId = s.parentStepId;
+      else step.parentStepId = s.parentStepId;
+    } else if (s.rootId != null) step.rootId = s.rootId;
     return step;
   });
 }

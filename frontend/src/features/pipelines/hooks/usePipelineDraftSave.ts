@@ -1,5 +1,6 @@
 import { isAxiosError } from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
@@ -12,11 +13,13 @@ import {
   saveDraft,
 } from "../services/draftSaveService";
 import { dismissToast } from "../../toasts/state/toastsSlice";
+import { isDraftClientId } from "../state/draftOps";
+import { savedStepForDraftStep } from "../state/draftSelection";
 import { outputsReplaced } from "../state/outputsSlice";
 import {
-  applyOverlay,
   definitionMatchesBase,
   hasDraft as overlayHasDraft,
+  replayOverlay,
   toDraftOutputs,
   toDraftSteps,
 } from "../state/pipelineDraft";
@@ -38,6 +41,7 @@ import type { Output } from "../types/output";
 import type { PipelineRoot, PipelineStep } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { PipelineDraft } from "./usePipelineDraft";
+import { STEP_PARAM } from "./useStepSelection";
 
 /** What the page tells the user about a draft that is not (yet) saved. At most one at a time. */
 export type DraftNotice =
@@ -124,6 +128,13 @@ export function usePipelineDraftSave({
     };
   }, []);
 
+  const { droppedCount, clearDropped } = draft;
+  useEffect(() => {
+    if (droppedCount === 0) return;
+    setNotice({ kind: "dropped", count: droppedCount });
+    clearDropped();
+  }, [droppedCount, clearDropped]);
+
   const renderKeys = useCallback(
     (next: PipelineStep[]): Step[] => {
       const keys = new Map<string, string>();
@@ -184,8 +195,30 @@ export function usePipelineDraftSave({
     [draft, undo],
   );
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const stepParamRef = useRef<string | null>(null);
+  stepParamRef.current = searchParams.get(STEP_PARAM);
+
   const settleSaved = useCallback(
     (pipelineId: string, response: DraftSaveResponse) => {
+      // A selected new step has no saved id until now: keep the selection (and `?step=`) on the saved step it became (D6).
+      const selected = stepParamRef.current;
+      if (selected !== null && isDraftClientId(selected)) {
+        const savedId = savedStepForDraftStep(
+          draft.draftSteps,
+          selected,
+          response.saved.definition.steps,
+        );
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            if (savedId === undefined) next.delete(STEP_PARAM);
+            else next.set(STEP_PARAM, savedId);
+            return next;
+          },
+          { replace: true },
+        );
+      }
       adoptDefinition(pipelineId, response.saved.definition);
       draft.discard();
       setCascade(null);
@@ -230,6 +263,7 @@ export function usePipelineDraftSave({
       refreshRunHistoryAfterRun,
       refreshVisibleOutputPreviews,
       requestUndo,
+      setSearchParams,
       setSseActive,
     ],
   );
@@ -270,7 +304,13 @@ export function usePipelineDraftSave({
           setNotice({ kind: "stale" });
           return;
         }
-        const finalSteps = applyOverlay(savedSteps, draft.overlayRef.current);
+        // Replayed over the freshly read saved steps: if any op no longer applies nothing is sent, never a reduced tree.
+        const replay = replayOverlay(savedSteps, draft.overlayRef.current);
+        if (replay.dropped > 0) {
+          setNotice({ kind: "dropped", count: replay.dropped });
+          return;
+        }
+        const finalSteps = replay.steps;
         const request: DraftSaveRequest = {
           baseFingerprint: summary.fingerprint,
           steps: toDraftSteps(finalSteps),

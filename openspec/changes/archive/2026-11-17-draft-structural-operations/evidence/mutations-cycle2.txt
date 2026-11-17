@@ -1,0 +1,10 @@
+CR2: post() refusal. Mutation: deleted lines 309-312 of frontend/src/features/pipelines/hooks/usePipelineDraftSave.ts,
+i.e. the block   if (replay.dropped > 0) { setNotice({ kind: "dropped", count: replay.dropped }); return; }
+Test: hooks/usePipelineDraftSave.dropped.test.tsx
+With the mutation:  Expected number of calls: 0 / Received number of calls: 1   (Tests: 1 failed, 1 passed, 2 total)
+Restored; unmutated: 2 passed.
+
+CR3: lane/insert told apart in the Save & run body. Mutation: in hooks/usePipelineDetailPage.ts handleAddLaneStep, the draft branch
+  addLaneStep(opType.id, defaultConfigFor(opType.id), parentStepId)  ->  insertStep(opType.id, defaultConfigFor(opType.id), { after: parentStepId })
+Test: e2e "desktop, light + lane step: a draft entry ..." fails: expect(lane.position).toBeGreaterThanOrEqual(1): Expected >= 1, Received 0.
+(Same titles as an insert, so the old assertions passed.) Restored.
