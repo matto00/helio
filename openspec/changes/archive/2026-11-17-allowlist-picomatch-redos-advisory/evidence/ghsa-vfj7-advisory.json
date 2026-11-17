@@ -1,0 +1,2 @@
+{"ghsa_id":"GHSA-vfj7-8cjw-p6xm","published_at":"2026-09-18T18:31:41Z","severity":"high","updated_at":"2026-10-23T12:53:05Z","vulnerabilities":[{"first_patched_version":null,"package":{"ecosystem":"npm","name":"braces"},"vulnerable_functions":[],"vulnerable_version_range":"\u003c= 3.0.3"}],"withdrawn_at":"2026-10-23T12:53:02Z"}
+{"ghsa_id":"GHSA-fc5q-39xc-vjpf","vulnerabilities":[{"first_patched_version":null,"package":{"ecosystem":"npm","name":"picomatch"},"vulnerable_functions":[],"vulnerable_version_range":"\u003c= 4.0.7"}],"withdrawn_at":null}

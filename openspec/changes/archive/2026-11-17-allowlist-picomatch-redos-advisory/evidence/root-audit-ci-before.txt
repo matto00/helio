@@ -1,0 +1,919 @@
+[36mNPM audit report results:[0m
+{
+  "advisories": {
+    "@jest/console": {
+      "name": "@jest/console",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-message-util",
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/test-result"
+      ],
+      "range": ">=25.4.0",
+      "nodes": [
+        "node_modules/@jest/console"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/core": {
+      "name": "@jest/core",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/console",
+        "@jest/reporters",
+        "@jest/test-result",
+        "@jest/transform",
+        "jest-changed-files",
+        "jest-config",
+        "jest-haste-map",
+        "jest-message-util",
+        "jest-resolve",
+        "jest-resolve-dependencies",
+        "jest-runner",
+        "jest-runtime",
+        "jest-snapshot",
+        "jest-util",
+        "jest-watcher",
+        "micromatch"
+      ],
+      "effects": [
+        "jest"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/@jest/core"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/environment": {
+      "name": "@jest/environment",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/fake-timers",
+        "jest-mock"
+      ],
+      "effects": [
+        "@jest/globals"
+      ],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/@jest/environment"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/expect": {
+      "name": "@jest/expect",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "expect",
+        "jest-snapshot"
+      ],
+      "effects": [
+        "@jest/globals",
+        "jest-circus"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/@jest/expect"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/fake-timers": {
+      "name": "@jest/fake-timers",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-message-util",
+        "jest-mock",
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/environment",
+        "jest-runtime"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/@jest/fake-timers"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/globals": {
+      "name": "@jest/globals",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/environment",
+        "@jest/expect",
+        "jest-mock"
+      ],
+      "effects": [],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/@jest/globals"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/reporters": {
+      "name": "@jest/reporters",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/console",
+        "@jest/test-result",
+        "@jest/transform",
+        "jest-message-util",
+        "jest-util",
+        "jest-worker"
+      ],
+      "effects": [],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/@jest/reporters"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/test-result": {
+      "name": "@jest/test-result",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/console"
+      ],
+      "effects": [
+        "@jest/test-sequencer"
+      ],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/@jest/test-result"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/test-sequencer": {
+      "name": "@jest/test-sequencer",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/test-result",
+        "jest-haste-map"
+      ],
+      "effects": [],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/@jest/test-sequencer"
+      ],
+      "fixAvailable": true
+    },
+    "@jest/transform": {
+      "name": "@jest/transform",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-haste-map",
+        "jest-util",
+        "micromatch"
+      ],
+      "effects": [
+        "@jest/reporters",
+        "babel-jest",
+        "jest-runner",
+        "jest-snapshot"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/@jest/transform"
+      ],
+      "fixAvailable": true
+    },
+    "@types/jest": {
+      "name": "@types/jest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "expect"
+      ],
+      "effects": [],
+      "range": ">=29.0.0",
+      "nodes": [
+        "node_modules/@types/jest"
+      ],
+      "fixAvailable": {
+        "name": "@types/jest",
+        "version": "28.1.8",
+        "isSemVerMajor": true
+      }
+    },
+    "@typescript-eslint/eslint-plugin": {
+      "name": "@typescript-eslint/eslint-plugin",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/parser",
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/eslint-plugin"
+      ],
+      "fixAvailable": true
+    },
+    "@typescript-eslint/parser": {
+      "name": "@typescript-eslint/parser",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "effects": [],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/parser"
+      ],
+      "fixAvailable": true
+    },
+    "@typescript-eslint/type-utils": {
+      "name": "@typescript-eslint/type-utils",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/type-utils"
+      ],
+      "fixAvailable": true
+    },
+    "@typescript-eslint/typescript-estree": {
+      "name": "@typescript-eslint/typescript-estree",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "tinyglobby"
+      ],
+      "effects": [
+        "@typescript-eslint/parser",
+        "@typescript-eslint/type-utils",
+        "@typescript-eslint/utils",
+        "typescript-eslint"
+      ],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/typescript-estree"
+      ],
+      "fixAvailable": {
+        "name": "typescript-eslint",
+        "version": "8.47.0",
+        "isSemVerMajor": true
+      }
+    },
+    "@typescript-eslint/utils": {
+      "name": "@typescript-eslint/utils",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "effects": [
+        "@typescript-eslint/eslint-plugin"
+      ],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/@typescript-eslint/utils"
+      ],
+      "fixAvailable": true
+    },
+    "anymatch": {
+      "name": "anymatch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "picomatch"
+      ],
+      "effects": [
+        "jest-haste-map"
+      ],
+      "range": ">=3.0.0",
+      "nodes": [
+        "node_modules/anymatch"
+      ],
+      "fixAvailable": true
+    },
+    "babel-jest": {
+      "name": "babel-jest",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/transform"
+      ],
+      "effects": [],
+      "range": "25.0.0 - 30.2.0",
+      "nodes": [
+        "node_modules/babel-jest"
+      ],
+      "fixAvailable": true
+    },
+    "expect": {
+      "name": "expect",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-message-util",
+        "jest-mock",
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/expect",
+        "@types/jest",
+        "jest-snapshot"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/expect"
+      ],
+      "fixAvailable": {
+        "name": "@types/jest",
+        "version": "28.1.8",
+        "isSemVerMajor": true
+      }
+    },
+    "fdir": {
+      "name": "fdir",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "picomatch"
+      ],
+      "effects": [],
+      "range": ">=5.2.1",
+      "nodes": [
+        "node_modules/tinyglobby/node_modules/fdir"
+      ],
+      "fixAvailable": true
+    },
+    "jest": {
+      "name": "jest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@jest/core",
+        "jest-cli"
+      ],
+      "effects": [],
+      "range": ">=25.1.0",
+      "nodes": [
+        "node_modules/jest"
+      ],
+      "fixAvailable": true
+    },
+    "jest-changed-files": {
+      "name": "jest-changed-files",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/core"
+      ],
+      "range": ">=29.6.3",
+      "nodes": [
+        "node_modules/jest-changed-files"
+      ],
+      "fixAvailable": true
+    },
+    "jest-circus": {
+      "name": "jest-circus",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/environment",
+        "@jest/expect",
+        "@jest/test-result",
+        "jest-each",
+        "jest-message-util",
+        "jest-runtime",
+        "jest-snapshot",
+        "jest-util"
+      ],
+      "effects": [],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-circus"
+      ],
+      "fixAvailable": true
+    },
+    "jest-cli": {
+      "name": "jest-cli",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/core",
+        "@jest/test-result",
+        "jest-config",
+        "jest-util"
+      ],
+      "effects": [
+        "jest"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-cli"
+      ],
+      "fixAvailable": true
+    },
+    "jest-config": {
+      "name": "jest-config",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/test-sequencer",
+        "babel-jest",
+        "jest-circus",
+        "jest-environment-node",
+        "jest-resolve",
+        "jest-runner",
+        "jest-util",
+        "micromatch"
+      ],
+      "effects": [
+        "jest-cli"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-config"
+      ],
+      "fixAvailable": true
+    },
+    "jest-each": {
+      "name": "jest-each",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-util"
+      ],
+      "effects": [],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-each"
+      ],
+      "fixAvailable": true
+    },
+    "jest-environment-node": {
+      "name": "jest-environment-node",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/environment",
+        "@jest/fake-timers",
+        "jest-mock",
+        "jest-util"
+      ],
+      "effects": [
+        "jest-runner"
+      ],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-environment-node"
+      ],
+      "fixAvailable": true
+    },
+    "jest-haste-map": {
+      "name": "jest-haste-map",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "anymatch",
+        "jest-util",
+        "jest-worker",
+        "micromatch"
+      ],
+      "effects": [
+        "@jest/test-sequencer",
+        "jest-resolve",
+        "jest-runner",
+        "jest-runtime"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-haste-map"
+      ],
+      "fixAvailable": true
+    },
+    "jest-message-util": {
+      "name": "jest-message-util",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "micromatch"
+      ],
+      "effects": [
+        "@jest/console",
+        "@jest/fake-timers",
+        "@jest/reporters",
+        "expect",
+        "jest-circus",
+        "jest-snapshot"
+      ],
+      "range": "25.0.0 - 30.2.0",
+      "nodes": [
+        "node_modules/jest-message-util"
+      ],
+      "fixAvailable": {
+        "name": "@types/jest",
+        "version": "28.1.8",
+        "isSemVerMajor": true
+      }
+    },
+    "jest-mock": {
+      "name": "jest-mock",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/environment",
+        "@jest/fake-timers",
+        "@jest/globals",
+        "expect",
+        "jest-environment-node",
+        "jest-runtime"
+      ],
+      "range": ">=29.1.0",
+      "nodes": [
+        "node_modules/jest-mock"
+      ],
+      "fixAvailable": {
+        "name": "@types/jest",
+        "version": "28.1.8",
+        "isSemVerMajor": true
+      }
+    },
+    "jest-resolve": {
+      "name": "jest-resolve",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-haste-map",
+        "jest-util"
+      ],
+      "effects": [],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-resolve"
+      ],
+      "fixAvailable": true
+    },
+    "jest-resolve-dependencies": {
+      "name": "jest-resolve-dependencies",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-snapshot"
+      ],
+      "effects": [],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-resolve-dependencies"
+      ],
+      "fixAvailable": true
+    },
+    "jest-runner": {
+      "name": "jest-runner",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/console",
+        "@jest/environment",
+        "@jest/test-result",
+        "@jest/transform",
+        "jest-environment-node",
+        "jest-haste-map",
+        "jest-message-util",
+        "jest-resolve",
+        "jest-runtime",
+        "jest-util",
+        "jest-watcher",
+        "jest-worker"
+      ],
+      "effects": [
+        "jest-config"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-runner"
+      ],
+      "fixAvailable": true
+    },
+    "jest-runtime": {
+      "name": "jest-runtime",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/environment",
+        "@jest/fake-timers",
+        "@jest/globals",
+        "@jest/test-result",
+        "@jest/transform",
+        "jest-haste-map",
+        "jest-message-util",
+        "jest-mock",
+        "jest-resolve",
+        "jest-snapshot",
+        "jest-util"
+      ],
+      "effects": [],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-runtime"
+      ],
+      "fixAvailable": true
+    },
+    "jest-snapshot": {
+      "name": "jest-snapshot",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/transform",
+        "expect",
+        "jest-message-util",
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/expect",
+        "jest-resolve-dependencies"
+      ],
+      "range": ">=25.0.0",
+      "nodes": [
+        "node_modules/jest-snapshot"
+      ],
+      "fixAvailable": true
+    },
+    "jest-util": {
+      "name": "jest-util",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "picomatch"
+      ],
+      "effects": [
+        "@jest/console",
+        "@jest/core",
+        "@jest/fake-timers",
+        "@jest/reporters",
+        "@jest/transform",
+        "expect",
+        "jest-changed-files",
+        "jest-circus",
+        "jest-cli",
+        "jest-config",
+        "jest-each",
+        "jest-environment-node",
+        "jest-haste-map",
+        "jest-mock",
+        "jest-resolve",
+        "jest-runner",
+        "jest-runtime",
+        "jest-snapshot",
+        "jest-watcher",
+        "jest-worker",
+        "ts-jest"
+      ],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-util"
+      ],
+      "fixAvailable": {
+        "name": "ts-jest",
+        "version": "26.5.6",
+        "isSemVerMajor": true
+      }
+    },
+    "jest-watcher": {
+      "name": "jest-watcher",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "@jest/test-result",
+        "jest-util"
+      ],
+      "effects": [
+        "jest-runner"
+      ],
+      "range": ">=27.0.0-next.0",
+      "nodes": [
+        "node_modules/jest-watcher"
+      ],
+      "fixAvailable": true
+    },
+    "jest-worker": {
+      "name": "jest-worker",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "jest-util"
+      ],
+      "effects": [
+        "@jest/reporters",
+        "jest-haste-map",
+        "jest-runner"
+      ],
+      "range": ">=29.1.2",
+      "nodes": [
+        "node_modules/jest-worker"
+      ],
+      "fixAvailable": true
+    },
+    "micromatch": {
+      "name": "micromatch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "picomatch"
+      ],
+      "effects": [
+        "@jest/core",
+        "@jest/transform",
+        "jest-config",
+        "jest-haste-map",
+        "jest-message-util"
+      ],
+      "range": ">=4.0.0",
+      "nodes": [
+        "node_modules/micromatch"
+      ],
+      "fixAvailable": {
+        "name": "@types/jest",
+        "version": "28.1.8",
+        "isSemVerMajor": true
+      }
+    },
+    "picomatch": {
+      "name": "picomatch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1247710,
+          "name": "picomatch",
+          "dependency": "picomatch",
+          "title": "picomatch vulnerable to ReDoS through single-branch repeated extglobs",
+          "url": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+          "severity": "high",
+          "cwe": [
+            "CWE-1333"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=4.0.7"
+        }
+      ],
+      "effects": [
+        "anymatch",
+        "fdir",
+        "jest-util",
+        "micromatch",
+        "tinyglobby"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/jest-util/node_modules/picomatch",
+        "node_modules/picomatch",
+        "node_modules/tinyglobby/node_modules/picomatch"
+      ],
+      "fixAvailable": {
+        "name": "ts-jest",
+        "version": "26.5.6",
+        "isSemVerMajor": true
+      }
+    },
+    "tinyglobby": {
+      "name": "tinyglobby",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "fdir",
+        "picomatch"
+      ],
+      "effects": [
+        "@typescript-eslint/typescript-estree"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/tinyglobby"
+      ],
+      "fixAvailable": {
+        "name": "typescript-eslint",
+        "version": "8.47.0",
+        "isSemVerMajor": true
+      }
+    },
+    "ts-jest": {
+      "name": "ts-jest",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "jest-util"
+      ],
+      "effects": [],
+      "range": ">=27.0.0-alpha.0",
+      "nodes": [
+        "node_modules/ts-jest"
+      ],
+      "fixAvailable": {
+        "name": "ts-jest",
+        "version": "26.5.6",
+        "isSemVerMajor": true
+      }
+    },
+    "typescript-eslint": {
+      "name": "typescript-eslint",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "@typescript-eslint/typescript-estree",
+        "@typescript-eslint/utils"
+      ],
+      "effects": [],
+      "range": ">=8.47.1-alpha.0",
+      "nodes": [
+        "node_modules/typescript-eslint"
+      ],
+      "fixAvailable": {
+        "name": "typescript-eslint",
+        "version": "8.47.0",
+        "isSemVerMajor": true
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 43,
+      "critical": 0,
+      "total": 43
+    },
+    "dependencies": {
+      "prod": 83,
+      "dev": 543,
+      "optional": 27,
+      "peer": 3,
+      "peerOptional": 0,
+      "total": 628
+    }
+  }
+}
+[33mConsider not allowlisting path: GHSA-vfj7-8cjw-p6xm|*micromatch>braces*.[0m
+[33mFound vulnerable advisory paths:[0m
+GHSA-fc5q-39xc-vjpf|@jest/core>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|@jest/expect>jest-snapshot>@jest/transform>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|@jest/fake-timers>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|@jest/globals>@jest/environment>@jest/fake-timers>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|@jest/reporters>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|@jest/test-result>@jest/console>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>jest-haste-map>anymatch>picomatch
+GHSA-fc5q-39xc-vjpf|@jest/transform>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|@types/jest>expect>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|@typescript-eslint/eslint-plugin>@typescript-eslint/utils>@typescript-eslint/typescript-estree>tinyglobby>picomatch
+GHSA-fc5q-39xc-vjpf|@typescript-eslint/parser>@typescript-eslint/typescript-estree>tinyglobby>picomatch
+GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>@typescript-eslint/typescript-estree>tinyglobby>picomatch
+GHSA-fc5q-39xc-vjpf|babel-jest>@jest/transform>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|expect>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|fdir>picomatch
+GHSA-fc5q-39xc-vjpf|jest-changed-files>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-circus>@jest/expect>jest-snapshot>@jest/transform>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|jest-each>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|jest-environment-node>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-message-util>micromatch>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-mock>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-resolve-dependencies>jest-snapshot>@jest/transform>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|jest-resolve>jest-haste-map>anymatch>picomatch
+GHSA-fc5q-39xc-vjpf|jest-runtime>jest-haste-map>anymatch>picomatch
+GHSA-fc5q-39xc-vjpf|jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-watcher>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest-worker>jest-util>picomatch>
+GHSA-fc5q-39xc-vjpf|jest>jest-cli>jest-config>jest-runner>jest-haste-map>anymatch>picomatch
+GHSA-fc5q-39xc-vjpf|micromatch>picomatch>
+GHSA-fc5q-39xc-vjpf|ts-jest>jest-util>picomatch
+GHSA-fc5q-39xc-vjpf|typescript-eslint>@typescript-eslint/typescript-estree>tinyglobby>picomatch
+[31mFailed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf[0m
+[31mExiting...[0m
+exit 1

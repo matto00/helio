@@ -73,3 +73,5 @@ export function usePipelineOwnPipeline({ id }: { id: string | undefined }) {
     currentPipelineErrorKind,
   };
 }
+
+export type PipelineOwnPipeline = ReturnType<typeof usePipelineOwnPipeline>;

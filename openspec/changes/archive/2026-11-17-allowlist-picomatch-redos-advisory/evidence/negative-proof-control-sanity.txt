@@ -1,0 +1,4 @@
+## control sanity (frontend/): same shim, real-graph input, EMPTY config
+Counted GHSA-fc5q-39xc-vjpf paths reported: 35
+audit-ci exit code: 1
+=> the input does hit the advisory; the committed allowlist is what makes the control pass (exit 0 in negative-proof-shim.txt).
