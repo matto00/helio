@@ -1,3 +1,0 @@
-- `.audit-ci.jsonc` - HEL-1751 dev-only picomatch allowlist (43 head-anchored entries); removed withdrawn HEL-1246 braces entry
-- `frontend/.audit-ci.jsonc` - HEL-1751 dev-only picomatch allowlist (46 head-anchored entries)
-- `openspec/changes/allowlist-picomatch-redos-advisory/` - tasks, design note, evidence/
