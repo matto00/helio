@@ -1,0 +1,43 @@
+import { writeFileSync } from "node:fs";
+import { test } from "@playwright/test";
+import { evidencePath } from "./support/evidencePath";
+import { holdRequests, seedHome } from "./support/homeLoadProbe";
+
+// Throwaway probe (not committed): Home with web fonts blocked or allowed, platform font + font requests + screenshot.
+const TAG = process.env.PROBE_TAG ?? "head";
+for (const block of [true, false]) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const size of [{ width: 1280, height: 900 }, { width: 375, height: 812 }]) {
+      test(`probe ${TAG} blocked=${block} ${theme} ${size.width}`, async ({ page, request }) => {
+        await page.setViewportSize(size);
+        await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+        if (block) await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort());
+        const fontReqs: string[] = [];
+        page.on("request", (r) => {
+          if (r.resourceType() === "font" || /fonts\./.test(r.url()) || /fallback/i.test(r.url())) fontReqs.push(r.url().slice(0, 90));
+        });
+        await seedHome(page, request, `v${TAG}${block ? "b" : "f"}${theme}${size.width}`);
+        const gates = await holdRequests(page);
+        gates.releaseDashboards();
+        gates.releaseSummary();
+        await page.goto("/home");
+        await page.locator(".home-opening__sentence").waitFor();
+        await page.locator(".home-shelf__item").first().waitFor();
+        await page.waitForTimeout(block ? 1500 : 2500);
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("DOM.enable");
+        await cdp.send("CSS.enable");
+        const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
+        const out: Record<string, unknown> = { TAG, block, theme, size, fontReqs };
+        for (const sel of [".home-opening__sentence", ".home-section__head"]) {
+          const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: sel });
+          const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+          out[sel] = fonts.map((f) => `${f.familyName}${f.isCustomFont ? "[custom]" : ""}:${f.glyphCount}`);
+        }
+        console.log("PROBE " + JSON.stringify(out));
+        writeFileSync(evidencePath("HEL-1678", `probe-${TAG}-${block ? "blocked" : "fonts"}-${theme}-${size.width}.json`), JSON.stringify(out, null, 2));
+        await page.screenshot({ path: evidencePath("HEL-1678", `home-${TAG}-${block ? "blocked" : "fonts"}-${theme}-${size.width}.png`) });
+      });
+    }
+  }
+}

@@ -142,7 +142,7 @@ Grotesk): 40ch resolves to 600px and the ghost and real default sentence have id
 and the e2e asserts the real sentence's computed cap equals whatever `40ch` resolves to (environment-independent; red
 when the cap is changed, e.g. 24em gives 576px). With "Serif headings" the real sentence's box is back to base.
 The cold-load swap depends on the platform's fallback font, so it is recorded (evidence JSON `fontSwapSpread`, log) and not
-asserted. CI (ubuntu, DejaVu-like fallback) measured 8px at 375-540 and 22-26px at 620/1024/1280. A ghost `white-space: nowrap`
+asserted. CI (ubuntu, DejaVu-like fallback) measured 8px at 375-540 and 22-24px at 620/1024/1280. A ghost `white-space: nowrap`
 (cycle 6) and then a `--heading-sentence-wrap` theme token (cycle 7) were tried and removed by owner ruling (drop-nowrap):
 they needed a type-style token and still left 605-768px. Final measured numbers are in the table in
 `item2-owner-handoff.md` (docker + DejaVu: 8px at 375-540, 22-24px at 620-1280; base 4px; local 3-4px). Only a `size-adjust`

@@ -367,6 +367,11 @@ separates (Appendix A.4 for the worked example).
   sets `--font-heading: var(--font-display)`; nothing else reads
   `--font-display`. **[mechanical]** No ad-hoc `font-family`; no component
   reads `var(--font-display)` directly or hardcodes a family.
+  Each web face is followed in its `--font-face-*` stack by metric-matched
+  fallback faces (`@font-face` with `local()` sources and `size-adjust` plus
+  the ascent/descent/line-gap overrides, derived by
+  `scripts/fonts/fallback-metrics.py`) so the cold-load font swap does not
+  reflow the page; a new web face needs matched fallback faces too (HEL-1678).
 - Type scale: `--text-micro` 10px, `--text-xs` 12px, `--text-sm` 14px (body
   default), `--text-base` 16px, `--text-lg` 18px, `--text-xl` 20px,
   `--text-2xl` 24px, `--text-3xl` 30px.

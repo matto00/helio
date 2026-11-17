@@ -1,0 +1,9 @@
+- `frontend/src/theme/theme.css` — six local()-only metric-matched fallback @font-face rules (Arial/Courier/Times family and DejaVu per web face) and their entries in the --font-face-* stacks
+- `scripts/fonts/fallback-metrics.py` — dev-only derivation incl. the Fraunces size-adjust tune; prints the exact theme.css numbers
+- `frontend/src/theme/appearanceTokens.css.test.ts` — asserts stack order and local()-only + four overrides per fallback face
+- `frontend/src/features/home/ui/DashboardShelf.tsx` — drop the redundant nested aria-hidden in the hidden link slot
+- `DESIGN.md` — section 3 sentence: a new web face needs matched fallback faces
+- `e2e/hel1665-home-phone-stability.spec.ts` — assert fontSwapSpread <= 4; refresh the 605-615px comment
+- `e2e/hel1678-home-large-font.spec.ts` — Home under a 24px default font size (CDP Page.setFontSizes), light/dark, 375 and 1280
+- `openspec/changes/archive/2026-10-18-home-phone-timeline-stability/design.md` — 22-26px -> 22-24px (docs only)
+- `openspec/changes/metric-matched-fallback-fonts/**` — specs wording fix (2% is a mean), tasks, measurements.md and evidence/ (JSON, tools, screenshots)
