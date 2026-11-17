@@ -13,6 +13,7 @@ import {
   type Theme,
 } from "./support/motionRecorder";
 import { seedWorld, setMotion, setTheme } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1573 -- the shared motion primitives in a REAL browser (jsdom reads every token as 0 and cannot prove motion
 // timing): staggered entrance (dashboard list), layout slide (dashboard list FLIP), crossfade (panel body), indicator
@@ -59,7 +60,7 @@ async function drivePrimitives(page: Page, mode: Mode, theme: Theme, tag: string
   await expect(page.locator("li.dashboard-list__item")).toHaveCount(5);
   await page.waitForTimeout(120);
   await save(page, mode, theme, "1-stagger-midflight");
-  await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+  await waitForPanelGrid(page, 3);
   await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
   await page.waitForTimeout(1500);
   await save(page, mode, theme, "2-home-settled");

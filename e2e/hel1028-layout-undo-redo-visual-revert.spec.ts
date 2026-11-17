@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { registerAndLogin } from "./support/auth";
+import { waitForPanelStack } from "./support/panelGridReady";
 
 // HEL-1288 — parallel mode, scoped to this file: every test registers its own user and seeds its
 // own data (no shared user/dashboard, no beforeAll/afterAll), so tests are independently
@@ -307,6 +308,9 @@ test.describe("HEL-1028 layout undo/redo visually reverts the grid", () => {
     const dashboardId = await seedDashboard(request);
     try {
       await page.goto(`/dashboards/${dashboardId}`);
+      // HEL-1723: assert 0 only once the real phone stack is mounted (2 seeded panels) and the skeleton is gone;
+      // straight after `goto` a count of 0 passes before anything has mounted.
+      await waitForPanelStack(page, 2);
       await expect(page.locator(".panel-grid-card__handle")).toHaveCount(0);
       await expect(page.locator(".react-grid-item")).toHaveCount(0);
     } finally {

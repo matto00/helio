@@ -282,7 +282,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await setMotion(request, "full");
     const world = await seedWorld(request, "M-drag");
     await page.goto(`/dashboards/${world.dashboardId}`);
-    await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+    await waitForPanelGrid(page, 3);
     await page.waitForTimeout(1500);
     await page.getByRole("button", { name: "Edit layout" }).click();
 
@@ -386,7 +386,7 @@ test.describe("HEL-1573 panel grid vendor overrides (C2) and chart entrance (C1)
     await setMotion(request, "full");
     const world = await seedWorld(request, "M-fit");
     await page.goto(`/dashboards/${world.dashboardId}`);
-    await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+    await waitForPanelGrid(page, 3);
     await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
     await page.waitForTimeout(1200);
 
