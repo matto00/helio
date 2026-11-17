@@ -1,8 +1,42 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import "./ActionsMenu.css";
 import "./Popover.css";
-import { usePortalPopover } from "../../hooks/usePortalPopover";
+import { usePortalPopover, type PortalPopoverPos } from "../../hooks/usePortalPopover";
+import { fitPanelVertically, VIEWPORT_MARGIN } from "../ui/panelFit";
+
+/** Gap between the trigger and the panel (the viewport margin is the shared `VIEWPORT_MARGIN`). */
+const TRIGGER_GAP = 8;
+
+/** Where the mounted `panel` sits against `trigger` so every item is reachable (HEL-1750): vertically via the shared
+ *  fit (a `top` anchor below the trigger, a `bottom` anchor above it, the height capped to the room so the rest scrolls
+ *  inside the menu), horizontally aligned to the trigger's right edge but never closer than 8px to the left edge. With
+ *  no layout (jsdom) the panel keeps the requested side, uncapped. */
+function placeActionsMenu(
+  prefer: "below" | "above",
+  panel: HTMLElement,
+  trigger: DOMRect,
+): PortalPopoverPos {
+  const chrome = panel.offsetHeight - panel.clientHeight;
+  const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
+  const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
+    gap: TRIGGER_GAP,
+    prefer,
+  });
+  let right = window.innerWidth - trigger.right;
+  const width = panel.getBoundingClientRect().width;
+  if (width > 0) right = Math.max(0, Math.min(right, window.innerWidth - width - VIEWPORT_MARGIN));
+  const maxHeight = Number.isFinite(fit.maxHeight) ? fit.maxHeight : undefined;
+  return fit.side === "above"
+    ? { bottom: fit.bottom, right, maxHeight }
+    : { top: fit.top, right, maxHeight };
+}
 
 export interface ActionsMenuItem {
   label: string;
@@ -19,23 +53,20 @@ export interface ActionsMenuItem {
 interface ActionsMenuProps {
   label: string;
   items: ActionsMenuItem[];
-  /** Which side of the trigger the panel opens toward. Defaults to `"below"`
-   *  — unchanged behavior for every pre-existing consumer (`PanelCard`,
-   *  `DashboardList`, `SidebarItemList`), none of which pass this prop. Pass
-   *  `"above"` for a trigger pinned near the bottom of a fixed-height
-   *  container (e.g. a page footer) — opening below would render the panel
-   *  past the viewport's bottom edge, since `usePortalPopover` positions via
-   *  a one-shot `getBoundingClientRect()` read with no viewport-collision
-   *  detection. Mirrors this same page's `.pipeline-detail-page__cancel-
-   *  confirm` "dropup" idiom (PipelineDetailPage.css), the only other
-   *  upward-opening popover in the codebase — see HEL-719 scope amendment,
-   *  files-modified.md's Cycle 4 section for the root-cause writeup. */
+  /** The side of the trigger the panel opens toward when it fits there. Defaults to `"below"`. The menu measures
+   *  itself once mounted and fits the viewport (HEL-1750): it flips to the other side when that side has more room, and
+   *  caps its height to the room (scrolling inside itself) when neither side holds it, so this is a preference, never
+   *  a guarantee. Pass `"above"` for a trigger pinned near the bottom of a fixed-height container (HEL-719). */
   align?: "below" | "above";
 }
 
 export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps) {
-  const { triggerRef, panelRef, isOpen, panelPos, handleOpen, close } =
-    usePortalPopover<HTMLButtonElement>();
+  const place = useCallback(
+    (panel: HTMLElement, trigger: DOMRect) => placeActionsMenu(align, panel, trigger),
+    [align],
+  );
+  const { triggerRef, panelRef, isOpen, placed, panelPos, handleOpen, close } =
+    usePortalPopover<HTMLButtonElement>({ place });
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   // Inside an open <dialog> (e.g. a bottom sheet) the panel portals into that dialog, or it would render behind the
   // modal's top layer (HEL-1582); `Select` does the same. Elsewhere it is the body, as before.
@@ -46,7 +77,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
     .filter((index) => index !== -1);
 
   // Move real DOM focus onto the first enabled item as soon as the menu
-  // opens (WAI-ARIA menu-button pattern) — previously a keyboard-only user
+  // is placed (a `visibility: hidden` panel cannot take focus, HEL-1750) (WAI-ARIA menu-button pattern) — previously a keyboard-only user
   // had no way to reach the menu items at all: Enter opened the menu but
   // focus stayed on the trigger (HEL a11y sweep F-007). Arrow keys below
   // handle all internal navigation via explicit .focus() calls, so items
@@ -54,14 +85,14 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
   // Tab is reserved for leaving the menu, which usePortalPopover's
   // close-on-focusout now handles.
   useLayoutEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !placed) return;
     const firstIndex = enabledIndices[0];
     if (firstIndex !== undefined) itemRefs.current[firstIndex]?.focus();
-    // Only re-run when the menu opens/closes — re-focusing on every
+    // Only re-run when the menu is placed/closed — re-focusing on every
     // `items` identity change would yank focus away from wherever arrow-key
     // navigation left it during an unrelated re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, placed]);
 
   function handleToggle() {
     if (isOpen) {
@@ -69,14 +100,7 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
       return;
     }
     setPortalTarget(triggerRef.current?.closest("dialog[open]") ?? document.body);
-    if (align === "above") {
-      handleOpen((rect) => ({
-        bottom: window.innerHeight - rect.top + 8,
-        right: window.innerWidth - rect.right,
-      }));
-    } else {
-      handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
-    }
+    handleOpen();
   }
 
   function handleItemClick(item: ActionsMenuItem) {
@@ -132,6 +156,8 @@ export function ActionsMenu({ label, items, align = "below" }: ActionsMenuProps)
                 bottom: panelPos.bottom,
                 right: panelPos.right,
                 left: "auto",
+                maxHeight: panelPos.maxHeight,
+                visibility: placed ? undefined : "hidden",
               }}
             >
               {items.map((item, index) => (
