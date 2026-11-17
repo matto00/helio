@@ -1,0 +1,5 @@
+- `frontend/src/shared/ui/DataGrid.css` — resize handle `touch-action: pan-y` (was `none`) with HEL-1692 comment
+- `frontend/src/features/panels/ui/grid/MobilePanelStack.css` — delete dead `--table` cap rule; HEL-1022 comment updated
+- `frontend/src/features/panels/ui/grid/mobilePanelHeights.ts` — repoint cap citation to the live `--output` cap
+- `e2e/hel1692-table-header-touch-scroll.spec.ts` — new G1/G2/G3 guards and capped-body chaining test
+- `e2e/hel1656-pull-to-refresh.spec.ts` — correct the stale `touch-action: none` comment

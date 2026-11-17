@@ -326,7 +326,11 @@
   width: var(--space-2);
   transform: translateX(50%);
   cursor: col-resize;
-  touch-action: none;
+  /* HEL-1692: `pan-y`, not `none`. Resize is mouse-only (`onMouseDown`, DataGrid.tsx; no touch/pointer resize path),
+     so `touch-action: none` could only ever block panning, never enable a touch resize. A reported "drag from the
+     handle does not scroll the page" did NOT reproduce in Chromium (cycle-1 probe; see the e2e spec header and the PR
+     body); iOS WebKit is untested, so this is a defensive guard: no part of a Table header restricts vertical panning. */
+  touch-action: pan-y;
   user-select: none;
 }
 

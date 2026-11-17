@@ -37,7 +37,8 @@ export interface MobilePanelHeightPolicy {
 // through.
 
 // table: capped at `min(60dvh, intrinsic)` — applied in MobilePanelStack.css
-// (`.mobile-panel-stack__item--table .panel-content--table`), not here;
+// (`.mobile-panel-stack__item--output .panel-content`, HEL-1692: a Table is an
+// `output` panel; the vertical scroller inside the cap is `.ui-data-grid`), not here;
 // there is no meaningful pixel value to precompute without a live viewport.
 
 /** Chrome subtracted from the measured stack-container width to approximate
