@@ -137,6 +137,9 @@ export interface FetchOutputRowsResult {
    *  pipeline" affordance only when this is `false`. */
   materialized: boolean;
   metric?: FilteredMetric | null;
+  /** HEL-1705: the page's column order (the Output's schema names present, then other keys by code point). A parsed row's own
+   *  key order is not it: a browser lists integer-like keys first. Absent from an older server. */
+  columns?: string[];
 }
 
 /** HEL-1027 design.md D1 — `GET /api/outputs/:id/rows`'s `sort` query param shape. */

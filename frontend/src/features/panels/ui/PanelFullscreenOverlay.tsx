@@ -110,6 +110,7 @@ export function PanelFullscreenOverlay({
   noData,
   neverMaterialized,
   paginationRows,
+  columns,
   rowsTruncated,
   refresh,
   chartInspectConfig,
@@ -227,6 +228,7 @@ export function PanelFullscreenOverlay({
             noData={noData}
             neverMaterialized={neverMaterialized}
             paginationRows={paginationRows}
+            columns={columns}
             rowsTruncated={rowsTruncated}
             totalRowCount={totalRowCount}
             onDataPointSelect={handleDataPointSelect}

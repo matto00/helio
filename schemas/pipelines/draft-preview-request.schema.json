@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/draft-preview-request.schema.json",
   "title": "DraftPreviewRequest",
-  "description": "Request body for POST /api/pipelines/:id/draft-preview (HEL-1630): the draft step configs from the first server-evaluated step downward plus the input frames they need, all supplied by the client. The server evaluates only these frames and never reads a data source. Caps (each violation is a 413 naming the cap): body 4 MiB, 10,000 rows per frame, 8 roots, 8 lanes, 8 sources, 50 steps, ids 64 characters. Cells are value-encoded losslessly: a JVM Int is {\"$int\": n}, a Long is {\"$long\": \"n\"}, NaN/Infinity/-Infinity/negative zero are {\"$double\": \"...\"}, and every other JSON number is a double. `roots` are synthetic client labels for input frames (never stored roots); a parentless step names its frame by `rootId`. `lanes` hold frames for lane references to steps outside `steps` (keys must not equal a step id). `sources` hold a join/union/lookup source secondary's rows; `complete: false` marks a partial cache, which makes the step unavailable (the server never completes it by reading). `listFrame` is accepted and ignored. `rowsStepId` defaults to the trunk terminal of roots[0].",
+  "description": "Request body for POST /api/pipelines/:id/draft-preview (HEL-1630): the draft step configs from the first server-evaluated step downward plus the input frames they need, all supplied by the client. The server evaluates only these frames and never reads a data source. Caps (each violation is a 413 naming the cap): body 4 MiB, 10,000 rows per frame, 8 roots, 8 lanes, 8 sources, 50 steps, ids 64 characters. Cells are value-encoded losslessly: a JVM Int is {\"$int\": n}, a Long is {\"$long\": \"n\"}, NaN/Infinity/-Infinity/negative zero are {\"$double\": \"...\"}, and every other JSON number is a double. `roots` are synthetic client labels for input frames (never stored roots); a parentless step names its frame by `rootId`. `lanes` hold frames for lane references to steps outside `steps` (keys must not equal a step id). `sources` hold a join/union/lookup source secondary's rows; `complete: false` marks a partial cache, which makes the step unavailable (the server never completes it by reading). `listFrame` is accepted and ignored. `rowsStepId` defaults to the trunk terminal of roots[0]; `rowsStepIds` (at most 8) names further steps to return `rows` lines for on the same request.",
   "type": "object",
   "required": ["roots", "steps"],
   "properties": {
@@ -130,6 +130,16 @@
     "rowsStepId": {
       "type": ["string", "null"],
       "maxLength": 64
+    },
+    "rowsStepIds": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 64
+      },
+      "description": "HEL-1705: further steps (each naming a step in the request) to return a `rows` line for, after the `rowsStepId` line, in list order; an id equal to the primary is not repeated. A longer list, a duplicate, or an unknown id is a 400."
     }
   },
   "additionalProperties": false,

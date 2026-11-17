@@ -16,7 +16,9 @@ final case class DraftPreviewPlan(
     unavailable: Vector[DraftPreviewUnavailableLine],
     excluded: Set[String],
     walkSteps: Vector[PipelineStep],
-    rowsStepId: Option[String]
+    rowsStepId: Option[String],
+    /** HEL-1705: the further steps asked for, in request order, the primary excluded. */
+    extraRowsStepIds: Vector[String] = Vector.empty
 )
 
 /** HEL-1630 design.md D1/D3: the pure half of the preview. Marks, before any evaluation, every step that must not run
@@ -55,7 +57,8 @@ object DraftPreviewPlanner {
         unavailable = req.steps.map(_.id).filter(id => excluded.contains(id) && enabledIds.contains(id)).map(id => DraftPreviewUnavailableLine(id, reasonOf(id))),
         excluded = excluded,
         walkSteps = swapped.filterNot(s => excluded.contains(s.id.value)),
-        rowsStepId = req.rowsStepId.orElse(trunkTerminal(req))
+        rowsStepId = req.rowsStepId.orElse(trunkTerminal(req)),
+        extraRowsStepIds = req.rowsStepIds.filterNot(id => req.rowsStepId.orElse(trunkTerminal(req)).contains(id))
       )
     }
   }

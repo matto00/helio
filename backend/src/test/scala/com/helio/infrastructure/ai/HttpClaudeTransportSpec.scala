@@ -36,7 +36,7 @@ class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with HelioRouteT
   // also pass a ClaudeApiToolSpec.WebSearch entry; every existing Seq[ClaudeApiTool]-typed call site
   // above keeps compiling unchanged (Seq is covariant).
   private def toolRequest(messages: Seq[ClaudeApiToolMessage], tools: Seq[ClaudeApiToolSpec] = Seq.empty): ClaudeApiToolRequest =
-    ClaudeApiToolRequest(model = "claude-opus-4-8", maxTokens = 512, messages = messages, temperature = 1.0, tools = tools)
+    ClaudeApiToolRequest(model = "claude-opus-4-8", maxTokens = 512, messages = messages, temperature = Some(1.0), tools = tools)
 
   "HttpClaudeTransport.buildHttpRequest(ClaudeApiToolRequest)" should {
 
@@ -236,7 +236,7 @@ class HttpClaudeTransportSpec extends AnyWordSpec with Matchers with HelioRouteT
   }
 
   private def apiRequest(messages: Seq[ClaudeApiMessage]): ClaudeApiRequest =
-    ClaudeApiRequest(model = "claude-opus-4-8", maxTokens = 512, messages = messages, temperature = 1.0, stream = false)
+    ClaudeApiRequest(model = "claude-opus-4-8", maxTokens = 512, messages = messages, temperature = Some(1.0), stream = false)
 
   "HttpClaudeTransport.buildHttpRequest(ClaudeApiRequest)" should {
 

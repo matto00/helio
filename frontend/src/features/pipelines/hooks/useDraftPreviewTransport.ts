@@ -26,12 +26,18 @@ type Action =
   | { type: "failed"; key: string; failure: NonNullable<TransportView["failure"]> }
   | { type: "reset" };
 
-const INITIAL: State = { key: null, results: new Map(), rows: null, ended: false, failure: null };
+const INITIAL: State = {
+  key: null,
+  results: new Map(),
+  rows: new Map(),
+  ended: false,
+  failure: null,
+};
 
 function reducer(state: State, action: Action): State {
   if (action.type === "reset") return INITIAL;
   if (action.type === "sent") {
-    return { key: action.key, results: new Map(), rows: null, ended: false, failure: null };
+    return { key: action.key, results: new Map(), rows: new Map(), ended: false, failure: null };
   }
   if (action.type === "failed") {
     return action.key === state.key
@@ -48,10 +54,12 @@ function reducer(state: State, action: Action): State {
       return withResult(state, line.step, { kind: "error", message: line.message });
     case "unavailable":
       return withResult(state, line.step, { kind: "unavailable", reason: line.reason });
-    case "rows":
-      return line.step !== null && line.available
-        ? { ...state, rows: { stepId: line.step, rows: line.rows.map(decodeRow) } }
-        : state;
+    case "rows": {
+      if (line.step === null || !line.available) return state;
+      const rows = new Map(state.rows);
+      rows.set(line.step, { rows: line.rows.map(decodeRow), truncated: line.truncated });
+      return { ...state, rows };
+    }
     case "failed":
       return { ...state, ended: true, failure: { kind: "failed", message: FAILED_COPY } };
   }
@@ -148,7 +156,7 @@ export function useDraftPreviewTransport({
     return {
       pending: !(answered && state.ended),
       results: answered ? state.results : NO_TRANSPORT.results,
-      rows: answered ? state.rows : null,
+      rows: answered ? state.rows : NO_TRANSPORT.rows,
       failure: answered ? state.failure : null,
     };
   }, [enabled, builtKey, state]);

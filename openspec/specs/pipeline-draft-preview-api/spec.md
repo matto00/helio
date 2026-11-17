@@ -10,7 +10,9 @@ reading any source, calling any AI model, or recording a run.
 `POST /api/pipelines/:id/draft-preview` SHALL respond `200` with `Content-Type: application/x-ndjson` and a chunked body of
 newline-terminated JSON objects: every `unavailable` line decided before evaluation, then one `step` or `error` line per
 evaluated enabled step in evaluation order (each `error` line followed by `downstreamOfError` lines for its pruned subtree), then
-exactly one final `rows` line for the requested step (default: the trunk terminal of the full draft). Each line SHALL validate against
+one `rows` line for the requested step (default: the trunk terminal of the full draft), followed by one further `rows` line per
+additional id in `rowsStepIds` (see "Draft preview returns rows for several requested steps"); with no `rowsStepIds` there is
+exactly one final `rows` line. Each line SHALL validate against
 `schemas/pipelines/draft-preview-line.schema.json` and the request against `draft-preview-request.schema.json`.
 
 #### Scenario: Line order
@@ -63,7 +65,7 @@ before materialising its output; a `splittext`, `chunkbytokencount` or `extracth
 
 ### Requirement: A request's live memory is bounded
 The frames one draft preview holds at once SHALL stay within a live-cell budget (1,800,000): cells = rows x columns summed over
-every frame the walk still needs plus the frame a node just produced, with each distinct text value across those frames also
+every frame the walk still needs (including every frame retained for a requested `rows` line) plus the frame a node just produced, with each distinct text value across those frames also
 weighing its length (2 bytes a character at 46 bytes a cell) beyond the cell holding it. The draft walk SHALL finish a node's leaf
 children before descending, so a comb-shaped pipeline does not keep its spine alive. A node whose output would pass the budget SHALL
 be that step's `error` with a message naming the draft-preview memory limit, and its dependents SHALL be pruned as for any other step
@@ -148,7 +150,7 @@ history, or apply any write-back.
 ### Requirement: Draft preview bounds the request and keeps rows out of logs
 A body over 4 MiB, a frame over 10,000 rows, more than 8 root frames, more than 8 secondary frames, more than 50 steps, or a step id over 64
 characters SHALL be refused with `413` and a JSON error naming the cap. At most the configured number of requests per instance (default derived from a recorded heap measurement, never above 8)
-and 2 per principal SHALL be evaluating, and at most four times that many bodies SHALL be being read; another request SHALL get an immediate `429` with `Retry-After` and no queueing (past the reading or principal bound before its body is read, past the running bound once its body has been read). A client that is still sending its body SHALL NOT hold one of the evaluating slots. Once a walk has started, its evaluating slot and its principal slot SHALL be held until the walk itself has ended (its outcome logged), not until the response stream ends: a cancelled walk stops only at the next step boundary, and the node in progress keeps its memory. A request whose walk never started (refused, reset before the response was produced) SHALL give its slots back when its stream ends or its materialize grace expires. The final `rows` line SHALL carry at most 1,000 rows with `truncated` set when more existed.
+and 2 per principal SHALL be evaluating, and at most four times that many bodies SHALL be being read; another request SHALL get an immediate `429` with `Retry-After` and no queueing (past the reading or principal bound before its body is read, past the running bound once its body has been read). A client that is still sending its body SHALL NOT hold one of the evaluating slots. Once a walk has started, its evaluating slot and its principal slot SHALL be held until the walk itself has ended (its outcome logged), not until the response stream ends: a cancelled walk stops only at the next step boundary, and the node in progress keeps its memory. A request whose walk never started (refused, reset before the response was produced) SHALL give its slots back when its stream ends or its materialize grace expires. Each `rows` line SHALL carry at most 1,000 rows with `truncated` set when more existed.
 Request cell values SHALL NOT appear in server logs.
 
 #### Scenario: A reset request's walk still holds its slots
@@ -179,3 +181,22 @@ When the client cancels the response stream, the server SHALL evaluate no furthe
 #### Scenario: Abort after the first line
 - **WHEN** the client aborts after reading the first `step` line of a multi-step draft
 - **THEN** the server records the request as aborted and evaluates exactly one step
+
+### Requirement: Draft preview returns rows for several requested steps
+The request MAY carry `rowsStepIds`, a list of at most 8 distinct step ids, each naming a step in the request. The response SHALL end with one `rows` line for the `rowsStepId` step (or its default) followed by one `rows` line for each further id in `rowsStepIds`, in list order (an id equal to the primary is not repeated), each limited to 1,000 rows with its full count and `truncated` flag. A request without `rowsStepIds` SHALL behave exactly as before. A list longer than 8, a duplicate, or an id not in the request SHALL be refused with `400` before the response is committed. Holding the extra rows SHALL NOT raise the request's peak memory past the bound measured for the endpoint.
+
+#### Scenario: Two rows lines
+- **WHEN** a request names `rowsStepId` A and `rowsStepIds` [A, B]
+- **THEN** the stream ends with exactly one `rows` line for A followed by one for B
+
+#### Scenario: Unknown id
+- **WHEN** `rowsStepIds` names a step that is not in the request
+- **THEN** the response is `400` and nothing is evaluated
+
+#### Scenario: Extra id not previewable
+- **WHEN** `rowsStepIds` names a step below an AI step
+- **THEN** its `rows` line is `available: false` with no rows, and the other rows lines are unaffected
+
+#### Scenario: Old client
+- **WHEN** a request carries only `rowsStepId`
+- **THEN** the stream is the same as before this change

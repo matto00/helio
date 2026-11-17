@@ -54,9 +54,10 @@ export function usePanelCardInspect(
       columnOrderHint: {
         schema: output.schema.map((f) => f.name),
         columnOrder: readTableConfig(output.config).columnOrder,
+        columns: panelData.columns,
       },
     };
-  }, [output, panel.appearance.chart, panelData.paginationRows]);
+  }, [output, panel.appearance.chart, panelData.paginationRows, panelData.columns]);
 
   // HEL-588 design.md D4 / evaluation-1.md CR1 (cycle 2) / skeptic-final-1.md
   // CR1 (cycle 3) / evaluation-3.md CR1 (cycle 3) — the ALREADY

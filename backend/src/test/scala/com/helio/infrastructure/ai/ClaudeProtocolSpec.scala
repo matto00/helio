@@ -15,13 +15,13 @@ class ClaudeProtocolSpec extends AnyWordSpec with Matchers with ClaudeProtocol {
   "claudeApiToolRequestFormat" should {
 
     "emit no system key when the request carries no system blocks (byte-identical to before HEL-1718)" in {
-      val req = ClaudeApiToolRequest(model = "m", maxTokens = 10, messages = Seq.empty, temperature = 1.0, tools = Seq.empty)
+      val req = ClaudeApiToolRequest(model = "m", maxTokens = 10, messages = Seq.empty, temperature = Some(1.0), tools = Seq.empty)
       claudeApiToolRequestFormat.write(req).asJsObject.fields.keySet shouldBe Set("model", "max_tokens", "messages", "temperature", "tools")
     }
 
     "emit a top-level system array of text blocks, preserving cache_control, when present" in {
       val block = ClaudeApiContentBlock(blockType = "text", text = Some("be helpful"), cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
-      val req   = ClaudeApiToolRequest(model = "m", maxTokens = 10, system = Seq(block), messages = Seq.empty, temperature = 1.0, tools = Seq.empty)
+      val req   = ClaudeApiToolRequest(model = "m", maxTokens = 10, system = Seq(block), messages = Seq.empty, temperature = Some(1.0), tools = Seq.empty)
       claudeApiToolRequestFormat.write(req).asJsObject.fields("system") shouldBe JsArray(
         JsObject("type" -> JsString("text"), "text" -> JsString("be helpful"), "cache_control" -> JsObject("type" -> JsString("ephemeral")))
       )

@@ -11,6 +11,8 @@ export interface StoredWindow {
   hasMore: boolean;
   rows: Record<string, unknown>[];
   materialized: boolean;
+  /** HEL-1705 H: the window's column order; absent in a copy stored before it existed. */
+  columns?: string[];
   total: number;
   metric?: unknown;
   lastQuery?: PanelLastQuery;
@@ -52,6 +54,7 @@ export const WARM_WINDOW_KEYS = [
   "hasMore",
   "rows",
   "materialized",
+  "columns",
   "total",
   "metric",
   "lastQuery",

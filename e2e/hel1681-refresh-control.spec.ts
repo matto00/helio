@@ -1,9 +1,10 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page, type Request } from "@playwright/test";
 
 import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+import { LIVE_STACK_ITEMS, waitForPanelGrid, waitForPanelStack } from "./support/panelGridReady";
 
 // HEL-1681: the phone dashboard's visible "Refresh dashboard" button, the WCAG 2.5.1 single-pointer / keyboard
 // alternative to HEL-1656's pull. Rows requests are counted from the network, the button's tap area is MEASURED with
@@ -25,11 +26,19 @@ const TAP_FLOOR_PX = 44;
 function countRequests(page: Page) {
   const urls: string[] = [];
   const runs: string[] = [];
+  // Rows GETs started and not yet finished or failed: the dashboard's own initial loads are in this set until they land.
+  const inFlight = new Set<Request>();
+  const isRowsGet = (req: Request) => ROWS.test(req.url()) && req.method() === "GET";
   page.on("request", (req) => {
-    if (ROWS.test(req.url()) && req.method() === "GET") urls.push(req.url());
+    if (isRowsGet(req)) {
+      urls.push(req.url());
+      inFlight.add(req);
+    }
     if (/\/runs?\b/.test(req.url()) && req.method() === "POST") runs.push(req.url());
   });
-  return { urls, runs };
+  page.on("requestfinished", (req) => inFlight.delete(req));
+  page.on("requestfailed", (req) => inFlight.delete(req));
+  return { urls, runs, inFlight };
 }
 
 async function login(
@@ -64,11 +73,21 @@ async function openDashboard(
   });
   const seen = countRequests(page);
   await page.goto(`/dashboards/${world.dashboardId}`);
-  await expect(page.locator(".mobile-panel-stack")).toHaveCount(1);
-  await expect(page.locator(".mobile-panel-stack__item--output")).toHaveCount(3);
+  // 3 output cards + the markdown card, live layer only, with the loading skeleton unmounted (HEL-1731).
+  await waitForPanelStack(page, 4);
+  await expect(page.locator(`${LIVE_STACK_ITEMS}--output`)).toHaveCount(3);
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await expect.poll(() => seen.urls.length).toBeGreaterThanOrEqual(3);
   await expect(page.locator(".mobile-panel-stack__item--output .ui-spinner")).toHaveCount(0);
+  // HEL-1731: the spinner check above passes while the panels' initial loads are still in flight (the card shows no
+  // spinner then). A panel with a request in flight ignores `refresh()`, so a button press made now fans out to nothing:
+  // Enter sent 0 requests, and a tap's round ended with the in-flight load before `aria-disabled` was ever seen. Wait
+  // for every initial rows load to land, then two frames so the settled state has flushed through React.
+  await expect.poll(() => seen.inFlight.size).toBe(0);
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))),
+  );
   return { ...world, seen };
 }
 
@@ -246,18 +265,20 @@ for (const size of SIZES) {
     }) => {
       await login(page, request, size.width, size.height, `shift${size.width}`);
       const world = await seedWorld(page.request, `Pshift${size.width}`);
-      await page.addInitScript(() => {
+      // HEL-1731: sample the LIVE stack only. While the loading skeleton fades out both stacks are in the DOM, and the
+      // skeleton's own `.mobile-panel-stack` comes first and has stub items that satisfy a bare `>= 3` item count.
+      await page.addInitScript((liveItems: string) => {
         const w = window as unknown as { __tops: number[] };
         w.__tops = [];
         const tick = () => {
-          const stack = document.querySelector(".mobile-panel-stack");
-          if (stack && document.querySelectorAll(".mobile-panel-stack__item").length >= 3) {
+          const stack = document.querySelector(liveItems)?.closest(".mobile-panel-stack");
+          if (stack && document.querySelectorAll(liveItems).length >= 3) {
             w.__tops.push(Math.round(stack.getBoundingClientRect().top * 10) / 10);
           }
           requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
-      });
+      }, LIVE_STACK_ITEMS);
       await page.goto(`/dashboards/${world.dashboardId}`);
       await expect(refreshButton(page)).toBeVisible();
       for (let i = 0; i < 12; i += 1) await page.evaluate(() => new Promise(requestAnimationFrame));
@@ -304,7 +325,9 @@ test("Full motion: after a pull-started round the settling indicator reads Refre
   });
   const before = seen.urls.length;
   const cdp = await page.context().newCDPSession(page);
-  const card = (await page.locator(".mobile-panel-stack__item").first().boundingBox())!;
+  const card = await page.locator(LIVE_STACK_ITEMS).first().boundingBox();
+  if (card === null)
+    throw new Error("the first live phone-stack card has no box to start the pull on");
   const x = card.x + card.width / 2;
   const y = card.y + 24;
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
@@ -328,8 +351,10 @@ test("no refresh button at 1280", async ({ page, request }) => {
   })();
   await page.goto(`/dashboards/${world.dashboardId}`);
   await expect(page.locator(".panel-list__zoom-container")).toHaveCount(1);
+  // HEL-1731: the real grid first, so the count-0 check below runs against a mounted dashboard. Straight after `goto` it
+  // is satisfied by an empty page and tests nothing.
+  await waitForPanelGrid(page, 3);
   await expect(page.locator(".mobile-panel-stack")).toHaveCount(0);
-  await expect(page.locator(".panel-grid-card").first()).toBeVisible();
   await expect(refreshButton(page)).toHaveCount(0);
 });
 
@@ -340,7 +365,7 @@ test("crossing 768px keeps the same zoom container and a non-zero grid width", a
   await login(page, request, 1280, 900, "cross");
   const world = await seedWorld(page.request, "Pcross");
   await page.goto(`/dashboards/${world.dashboardId}`);
-  await expect(page.locator(".panel-grid-card").first()).toBeVisible();
+  await waitForPanelGrid(page, 3);
   await page.evaluate(() => {
     (window as unknown as { __zoom: Element }).__zoom = document.querySelector(
       ".panel-list__zoom-container",

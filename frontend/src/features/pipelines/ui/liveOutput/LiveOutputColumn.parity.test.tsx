@@ -13,7 +13,7 @@ import * as historyService from "../../../panels/history/outputHistoryService";
 import { OutputPanelContent } from "../../../panels/ui/OutputPanelContent";
 import { keyAggregate, recordsToPanelRows } from "../../../panels/ui/outputRenderInputs";
 import { evaluatePipeline, int, type Frame } from "../../evaluator";
-import { frameToRecords } from "../../state/liveOutput/frameRecords";
+import { frameColumns, frameToRecords } from "../../state/liveOutput/frameRecords";
 import type { Output } from "../../types/output";
 import { LiveOutputRender } from "./LiveOutputRender";
 
@@ -135,6 +135,14 @@ beforeEach(() => {
   fetchHistory.mockRejectedValue(new Error("no history"));
 });
 
+const METRIC = {
+  fieldMapping: {},
+  aggregation: { value: "amount", agg: "sum" },
+  label: "Total",
+};
+const metricText = () =>
+  document.querySelector(".panel-content__metric-value")?.textContent ?? null;
+
 describe("live render parity with the saved panel", () => {
   const records = frameToRecords(evaluated(), SCHEMA);
 
@@ -185,14 +193,6 @@ describe("live render parity with the saved panel", () => {
     }
   });
 
-  const METRIC = {
-    fieldMapping: {},
-    aggregation: { value: "amount", agg: "sum" },
-    label: "Total",
-  };
-  const metricText = () =>
-    document.querySelector(".panel-content__metric-value")?.textContent ?? null;
-
   it("shows the same metric value text and key aggregate", async () => {
     const o = output("metric", METRIC);
     const saved = renderSaved(o, records);
@@ -218,19 +218,195 @@ describe("live render parity with the saved panel", () => {
     expect(metricText()).toBe("68");
   });
 
-  it("orders columns by the Output's schema, not by the key order of the rows (the documented divergence)", () => {
+  it("orders columns by the Output's schema, not by the key order of the rows, and a saved panel given the server's columns agrees (HEL-1705 H)", () => {
     const reversed: Frame = evaluated().map((row) =>
       Object.fromEntries(Object.entries(row).reverse()),
     );
     const config = { chartType: "line", fieldMapping: {} };
     const liveRecords = frameToRecords(reversed, SCHEMA);
-    render(<LiveOutputRender kind="chart" config={config} schema={SCHEMA} records={liveRecords} />);
+    const columns = frameColumns(reversed, SCHEMA);
+    render(
+      <LiveOutputRender
+        kind="chart"
+        config={config}
+        schema={SCHEMA}
+        records={liveRecords}
+        columns={columns}
+      />,
+    );
     // No x-axis mapping: the first column is the x axis, and live it is the schema's first field.
     expect(captured.at(-1)!.headers).toEqual(["date", "region", "amount", "double_amount"]);
-    // The saved path takes whatever order the rows came in.
-    const savedHeaders = recordsToPanelRows(
-      reversed.map((r) => ({ ...r }) as Record<string, unknown>),
-    ).headers;
-    expect(savedHeaders?.[0]).toBe("double_amount");
+    // A saved panel's rows now arrive with the same `columns` (the server writes them in schema order), so its headers agree
+    // even though the parsed rows' own key order is the reverse.
+    const savedRows = reversed.map((r) => ({ ...r }) as Record<string, unknown>);
+    expect(recordsToPanelRows(savedRows, columns).headers).toEqual(captured.at(-1)!.headers);
+    // Without `columns` (an old cached window) the first row's key order stands, as before.
+    expect(recordsToPanelRows(savedRows).headers?.[0]).toBe("double_amount");
+  });
+
+  it("an integer-like column keeps the schema's place live and saved, in both the headers and the cells (HEL-1705 H)", () => {
+    const schema = ["zeta", "10", "alpha"].map((name) => ({ name, type: "string" }));
+    const frame: Frame = [{ alpha: "a", "10": "ten", zeta: "z" }];
+    const records = frameToRecords(frame, schema);
+    const columns = frameColumns(frame, schema);
+    expect(columns).toEqual(["zeta", "10", "alpha"]);
+    // The record itself cannot hold the order: an engine lists "10" first.
+    expect(Object.keys(records[0])[0]).toBe("10");
+    expect(recordsToPanelRows(records, columns)).toEqual({
+      headers: ["zeta", "10", "alpha"],
+      rawRows: [["z", "ten", "a"]],
+    });
+  });
+});
+
+// HEL-1705 E: the compare overlay and the metric comparison, from the same history, over the same rows.
+describe("compare parity with the saved panel", () => {
+  const records = frameToRecords(evaluated(), SCHEMA);
+  const SERIES: historyService.HistorySeries = {
+    mode: "rows",
+    x: "date",
+    y: "amount",
+    agg: null,
+    points: [
+      ["2026-01-01", 8],
+      ["2026-01-03", 25],
+    ],
+    totalPoints: 2,
+    downsampled: false,
+  };
+  const COMPARE_CHART = {
+    chartType: "line",
+    fieldMapping: { xAxis: "date", yAxis: "amount" },
+    compare: "7d",
+  };
+  const withSeries = () => {
+    const h = makeHistory();
+    return { ...h, baseline: { ...h.baseline!, series: SERIES } };
+  };
+  const overlayOf = () => captured.at(-1)!.overlay as { label: string; points: unknown } | null;
+
+  it("a chart Output with compare set draws an identical overlay series and label live and saved", async () => {
+    fetchHistory.mockResolvedValue(withSeries());
+    renderSaved(output("chart", COMPARE_CHART), records);
+    await waitFor(() => expect(overlayOf()).not.toBeNull());
+    const saved = overlayOf();
+    expect(saved).toMatchObject({ label: "vs 7d", points: SERIES.points });
+    captured.length = 0;
+    render(
+      <LiveOutputRender
+        kind="chart"
+        config={COMPARE_CHART}
+        schema={SCHEMA}
+        records={records}
+        history={withSeries()}
+        rowsTruncated={false}
+      />,
+    );
+    expect(overlayOf()).toEqual(saved);
+  });
+
+  it("hides the overlay when the rows are a truncated sample or a truncated rows line, as a dashboard does", () => {
+    render(
+      <LiveOutputRender
+        kind="chart"
+        config={COMPARE_CHART}
+        schema={SCHEMA}
+        records={records}
+        history={withSeries()}
+        rowsTruncated
+      />,
+    );
+    expect(overlayOf()).toBeNull();
+  });
+
+  const COMPARE_METRIC = { ...METRIC, compare: "7d" };
+  const trendText = () =>
+    document.querySelector(".panel-content__metric-trend")?.textContent?.replace(/\s+/g, " ") ??
+    null;
+  /** The draft rows' value (68) is the latest history value, so the saved panel and the live view measure the same thing. */
+  const agreeing = () =>
+    makeHistory({
+      current: { capturedAt: "2026-10-05T10:00:00Z", rowCount: 4, value: 68 },
+      baseline: { capturedAt: "2026-09-28T09:00:00Z", rowCount: 4, value: 60 },
+      delta: 8,
+      pct: (8 / 60) * 100,
+      points: [
+        {
+          capturedAt: "2026-10-05T10:00:00Z",
+          rowCount: 4,
+          summary: { metric: { field: "amount", agg: "sum", value: 68 } },
+        },
+      ],
+    });
+
+  it("a metric Output with compare set shows the identical comparison live and saved", async () => {
+    fetchHistory.mockResolvedValue(agreeing());
+    const saved = renderSaved(output("metric", COMPARE_METRIC), records);
+    await waitFor(() => expect(trendText()).not.toBeNull());
+    const savedText = trendText();
+    expect(savedText).toContain("vs 7d");
+    saved.unmount();
+    render(
+      <LiveOutputRender
+        kind="metric"
+        config={COMPARE_METRIC}
+        schema={SCHEMA}
+        records={records}
+        history={agreeing()}
+        rowsTruncated={false}
+      />,
+    );
+    expect(trendText()).toBe(savedText);
+  });
+
+  it("measures the difference from the draft rows' value, not the latest history value", () => {
+    // History says 1204 now and 1075 a week ago (+12%); the draft rows sum to 68, so live it is down against 1075.
+    render(
+      <LiveOutputRender
+        kind="metric"
+        config={COMPARE_METRIC}
+        schema={SCHEMA}
+        records={records}
+        history={makeHistory({ points: agreeing().points })}
+        rowsTruncated={false}
+      />,
+    );
+    expect(metricText()).toBe("68");
+    expect(trendText()).toContain("vs 7d");
+    expect(document.querySelector(".panel-content__metric-trend--down")).not.toBeNull();
+    expect(trendText()).toContain("93.7%");
+  });
+
+  it("still compares against the baseline when the latest history value is null", () => {
+    render(
+      <LiveOutputRender
+        kind="metric"
+        config={COMPARE_METRIC}
+        schema={SCHEMA}
+        records={records}
+        history={makeHistory({
+          current: { capturedAt: "2026-10-05T10:00:00Z", rowCount: 4, value: null },
+          delta: null,
+          pct: null,
+          points: agreeing().points,
+        })}
+        rowsTruncated={false}
+      />,
+    );
+    expect(document.querySelector(".panel-content__metric-trend--down")).not.toBeNull();
+  });
+
+  it("shows no comparison when the Output sets none", () => {
+    render(
+      <LiveOutputRender
+        kind="metric"
+        config={METRIC}
+        schema={SCHEMA}
+        records={records}
+        history={agreeing()}
+        rowsTruncated={false}
+      />,
+    );
+    expect(trendText()).toBeNull();
   });
 });

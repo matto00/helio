@@ -69,6 +69,7 @@ export function usePipelineDraftFrames({
   hasDraft,
   needBase = false,
   focusStepId,
+  outputNodeStepIds,
   memory,
 }: {
   pipelineId: string;
@@ -79,6 +80,9 @@ export function usePipelineDraftFrames({
   /** Walk the saved steps even without a draft (the pipeline has an Output to render). */
   needBase?: boolean;
   focusStepId: string | null;
+  /** HEL-1705: the displayed Output's node. Its rows ride on the same draft-preview request as the focused step's, so an
+   *  Output that is not selected stays current without another request. Keep the array's identity stable while the ids are. */
+  outputNodeStepIds?: readonly string[];
   memory: DraftFrameMemory;
 }): DraftFrames {
   const { walker, tracker } = memory;
@@ -127,8 +131,9 @@ export function usePipelineDraftFrames({
             rootFrames,
             sources,
             focusStepId,
+            outputNodeStepIds,
           }),
-    [draftDefs, draftWalk, rootFrames, sources, focusStepId],
+    [draftDefs, draftWalk, rootFrames, sources, focusStepId, outputNodeStepIds],
   );
   const transport = useDraftPreviewTransport({ pipelineId, enabled: hasDraft, built });
 

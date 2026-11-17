@@ -69,6 +69,7 @@ export function PanelDetailModal({
     noData,
     neverMaterialized,
     paginationRows,
+    columns,
     rowsTruncated,
     refresh,
     totalRowCount,
@@ -252,6 +253,7 @@ export function PanelDetailModal({
                 viewOutput ? () => navigate(`/pipelines/${viewOutput.pipelineId}`) : undefined
               }
               paginationRows={paginationRows}
+              columns={columns}
               // HEL-451 design D4/task 4.0: the detail modal has NO
               // pagination props (`rawRows`/`headers` only), so this is the
               // surface where `usingPagination && paginationHasMore` was

@@ -269,12 +269,16 @@ test.describe("HEL-1685 draft polish (live)", () => {
     });
     await openPipeline(page, pipelineId);
     await page.getByRole("button", { name: /^Step 3:/ }).click();
-    await page.getByRole("button", { name: "Remove step" }).click();
+    // HEL-1711: the URL moves before the focused card re-renders, so an unscoped click can hit Step 1's button.
+    const focused = page.getByRole("region", { name: /^Step 3 Compute/ });
+    await expect(focused).toBeVisible();
+    await focused.getByRole("button", { name: "Remove step" }).click();
     expect(stepIds.length).toBe(3);
     const before = requested.length;
     await page.getByRole("button", { name: "Save and run" }).click();
     const dialog = page.getByRole("dialog", { name: "Confirm removals" });
     await expect(dialog).toBeVisible();
+    await expect(dialog, "removal must name the watched Output").toContainText("Avg minutes");
     await dialog.getByRole("button", { name: "Remove and save" }).click();
     await expect(page.getByText("Draft · unsaved changes")).toHaveCount(0);
     await page.waitForLoadState("networkidle");

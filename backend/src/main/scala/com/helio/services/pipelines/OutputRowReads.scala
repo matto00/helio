@@ -64,7 +64,8 @@ private[pipelines] final class OutputRowReads(
                     for {
                       materialized <- materializedFor(output, paged, filterActive = resolvedFilter.isDefined)
                       metric       <- OutputFilteredMetric.compute(output, resolvedFilter, page.offset, outputRepo, nodeSnapshotRepo)
-                    } yield Right(OutputRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized, metric = metric))
+                      (items, columns) = RowColumnOrder.order(output.schema.map(_.name), paged.items)
+                    } yield Right(OutputRowsResponse(items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, materialized = materialized, metric = metric, columns = columns))
                   }
             }
         }

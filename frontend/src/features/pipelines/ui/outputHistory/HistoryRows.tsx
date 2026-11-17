@@ -114,6 +114,7 @@ export function HistoryRows({
         <TableRenderer
           outputId={outputId}
           paginationRows={rows}
+          columns={selectedRows?.status === "ready" ? selectedRows.columns : undefined}
           rowsTruncated={false}
           leadingColumns={leadingColumns}
           rowClassName={rowClassName}

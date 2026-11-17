@@ -1,6 +1,6 @@
 package com.helio.infrastructure.ai
 
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -61,6 +61,11 @@ object ClaudeError {
   /** The pre-flight input-token estimate exceeded `ClaudeConfig.maxInputTokens`; the transport was
    *  never invoked. */
   final case class GuardrailExceeded(reason: String) extends ClaudeError
+
+  /** HEL-1636 D6: the model produced no answer -- a `refusal` stop (with `stop_details.category`
+   *  when present), or a response with no usable text (`max_tokens`/`pause_turn` after thinking
+   *  only, an `end_turn` with nothing to show). Never surfaced as a successful empty answer. */
+  final case class NoAnswer(stopReason: Option[String], category: Option[String]) extends ClaudeError
 }
 
 /** Streaming Messages API surface exposed by [[ClaudeClient.stream]] (design.md D5), covering the
@@ -92,6 +97,9 @@ sealed trait ClaudeContentBlock
 object ClaudeContentBlock {
   final case class Text(text: String) extends ClaudeContentBlock
 
+  /** The one shared "no visible text" predicate (HEL-1636 D5/D6/D10): empty or whitespace only. */
+  def isBlankText(text: String): Boolean = text.trim.isEmpty
+
   /** Claude requesting a tool call. `input` is the tool's arguments as raw JSON — validated/decoded
    *  by the caller-supplied [[ClaudeToolExecutor]], never by `ClaudeClient` itself. */
   final case class ToolUse(id: String, name: String, input: JsValue) extends ClaudeContentBlock
@@ -118,6 +126,19 @@ object ClaudeContentBlock {
    *  `web_search_tool_result` block itself carries no `name` field, so callers constructing this
    *  from the wire shape supply the one constant name this ticket wires ("web_search"). */
   final case class ServerToolResult(toolUseId: String, name: String, result: JsValue) extends ClaudeContentBlock
+
+  /** HEL-1636 D2: a model `thinking` block, kept exactly as received (an omitted-display block has
+   *  `thinking == ""`; the `signature` holds the reasoning). Sent back unchanged within one tool
+   *  loop; never answer text and never persisted across turns. */
+  final case class Thinking(thinking: String, signature: String) extends ClaudeContentBlock
+
+  /** HEL-1636 D2: a `redacted_thinking` block, `data` kept exactly. Same handling as [[Thinking]]. */
+  final case class RedactedThinking(data: String) extends ClaudeContentBlock
+
+  /** HEL-1636 D2: any block type this client does not model, held as its complete original JSON
+   *  object (`blockType` is its `type`). Never turned into text. Sent back verbatim within a
+   *  loop, dropped from persisted turns. */
+  final case class Opaque(blockType: String, raw: JsObject) extends ClaudeContentBlock
 }
 
 /** A single tool-use-loop conversation turn — the `ClaudeToolRequest`/`ClaudeToolOutcome` analog of

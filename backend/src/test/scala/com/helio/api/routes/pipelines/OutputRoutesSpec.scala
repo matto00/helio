@@ -714,6 +714,28 @@ class OutputRoutesSpec
       }
     }
 
+    // HEL-1705 H (C2): the wire order of a row's keys is the Output's schema order, then extras in
+    // code-point order -- read off the RAW body, because the parsed object (a TreeMap, and a browser's
+    // integer-like-key reordering) can never show the wire order.
+    "write each row's keys and `columns` in the Output's schema order, with unnamed keys last (HEL-1705)" in {
+      val pipelineId = newSharedPipeline()
+      val output = await(outputRepo.insertInternal(pipelineId, None, owner.id, "order-out", OutputKind.Table, explicitRootId = None))
+      await(outputRepo.updateSchemaInternal(output.id, Vector(SchemaField("zeta", "string"), SchemaField("10", "integer"), SchemaField("alpha", "string"))))
+      await(nodeSnapshotRepo.overwriteRows(pipelineId.value, None, Seq(
+        JsObject("alpha" -> JsString("a"), "10" -> JsNumber(1), "zeta" -> JsString("z"), "extra" -> JsBoolean(true))
+      ), explicitRootId = None))
+
+      Get(s"/outputs/${output.id.value}/rows") ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+        val body = responseAs[String]
+        val rowText = body.substring(body.indexOf("["), body.indexOf("]"))
+        val positions = Vector("\"zeta\"", "\"10\"", "\"alpha\"", "\"extra\"").map(rowText.indexOf)
+        positions.forall(_ >= 0) shouldBe true
+        positions shouldEqual positions.sorted
+        responseAs[JsObject].fields("columns").convertTo[Vector[String]] shouldEqual Vector("zeta", "10", "alpha", "extra")
+      }
+    }
+
     // HEL-913 task 5.8b-iv-a: a root-bound Output's rows read must scope to ITS OWN root, never
     // every root's `node_step_id IS NULL` rows mixed together (design.md R12's named bug --
     // "whichever root writes second wipes/mixes with the other"). Before this fix,

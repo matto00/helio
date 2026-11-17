@@ -39,6 +39,24 @@ describe("inspectColumnKeys (HEL-1394)", () => {
   });
 });
 
+describe("inspectColumnKeys with the rows response's columns (HEL-1705)", () => {
+  it("uses `columns` for everything after the present columnOrder keys", () => {
+    expect(
+      inspectColumnKeys(["10", "alpha", "zeta", "x"], ["alpha"], ["x"], ["zeta", "10", "alpha"]),
+    ).toEqual(["x", "zeta", "10", "alpha"]);
+  });
+
+  it("still lists a key the columns omit, after them, and keeps the old order without columns", () => {
+    expect(inspectColumnKeys(["b", "a", "c"], [], undefined, ["c", "a"])).toEqual(["c", "a", "b"]);
+    expect(inspectColumnKeys(["b", "a", "c"], ["c"], undefined, undefined)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+    expect(inspectColumnKeys(["b", "a"], ["b"], undefined, [])).toEqual(["b", "a"]);
+  });
+});
+
 describe("inspectColumns", () => {
   it("is undefined without a hint or rows (DataGrid keeps its own behavior)", () => {
     expect(inspectColumns([{ a: 1 }], undefined)).toBeUndefined();

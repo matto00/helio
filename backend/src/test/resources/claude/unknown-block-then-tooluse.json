@@ -1,0 +1,18 @@
+{
+  "id": "msg_fixture_unknown_hop1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    { "type": "future_block_kind", "alpha": 1, "nested": { "beta": ["x", "y"], "gamma": null } },
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_u1",
+      "name": "find",
+      "input": { "query": "orders", "resourceTypes": ["dashboard"] }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_details": null,
+  "usage": { "input_tokens": 100, "output_tokens": 30 }
+}

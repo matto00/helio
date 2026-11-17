@@ -15,9 +15,21 @@ const def = (id: string, kind: string, parent: string | null, config: unknown): 
 });
 const CONVERT = { field: "n", from: "csv", to: "json" };
 
-function build(defs: StepDefinition[], focusStepId: string | null = null, sources = {}) {
+function build(
+  defs: StepDefinition[],
+  focusStepId: string | null = null,
+  sources = {},
+  outputNodeStepIds?: string[],
+) {
   const walk = evaluatePipeline(defs, ROOTS, { sources });
-  return buildDraftPreviewRequest({ defs, walk, rootFrames: ROOTS, sources, focusStepId });
+  return buildDraftPreviewRequest({
+    defs,
+    walk,
+    rootFrames: ROOTS,
+    sources,
+    focusStepId,
+    outputNodeStepIds,
+  });
 }
 
 describe("buildDraftPreviewRequest", () => {
@@ -49,6 +61,38 @@ describe("buildDraftPreviewRequest", () => {
     expect(build(defs, "b")!.request.rowsStepId).toBe("b");
     expect(build(defs, "zzz")!.request.rowsStepId).toBe("a");
     expect(build(defs, null)!.request.rowsStepId).toBe("a");
+  });
+
+  it("asks for the displayed Output's rows too (HEL-1705): server-resolved ids only, the primary never repeated, none when it is the focused step", () => {
+    const defs = [
+      def("a", "limit", null, { count: 2 }),
+      def("b", "convertformat", "a", CONVERT),
+      def("c", "limit", "b", { count: 1 }),
+    ];
+    expect(build(defs, "b", {}, ["c"])!.request).toMatchObject({
+      rowsStepId: "b",
+      rowsStepIds: ["c"],
+    });
+    expect(build(defs, "b", {}, ["b"])!.request.rowsStepIds).toBeUndefined();
+    // "a" is client-evaluated: the server holds no frame for it.
+    expect(build(defs, "b", {}, ["a"])!.request.rowsStepIds).toBeUndefined();
+    expect(build(defs, "b", {}, ["c", "c"])!.request.rowsStepIds).toEqual(["c"]);
+    expect(build(defs, "b")!.request.rowsStepIds).toBeUndefined();
+  });
+
+  it("keeps the key of a request without a displayed Output's rows, and changes it when one is added", () => {
+    const defs = [def("a", "convertformat", null, CONVERT), def("b", "limit", "a", { count: 1 })];
+    expect(build(defs, "a", {}, ["a"])!.key).toBe(build(defs, "a")!.key);
+    expect(build(defs, "a", {}, ["b"])!.key).not.toBe(build(defs, "a")!.key);
+  });
+
+  it("never names more than the server's 8", () => {
+    const defs = [
+      def("a", "convertformat", null, CONVERT),
+      ...Array.from({ length: 12 }, (_, i) => def(`n${i}`, "limit", "a", { count: 1 })),
+    ];
+    const ids = Array.from({ length: 12 }, (_, i) => `n${i}`);
+    expect(build(defs, "a", {}, ids)!.request.rowsStepIds).toHaveLength(8);
   });
 
   it("changes its key when an input frame changes even though no server step's config did", () => {

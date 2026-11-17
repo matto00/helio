@@ -2,22 +2,28 @@
 // evaluator's value model (`Integral` is a class), a panel record is plain JSON-shaped data.
 
 import { frameSchema, Integral, type Frame } from "../../evaluator";
+import { orderColumns } from "../../../panels/state/columnOrder";
 import type { OutputSchemaField } from "../../types/output";
 
-/** The column order of a live render. A saved panel's order is NOT reproducible client-side (stored rows are JSONB, then
- *  parsed into an unordered map), so the live view orders deterministically: the Output's declared schema fields that
- *  the frame has, then any extra frame keys in frame order. */
+/** The column order of a live render, and (HEL-1705) the order a saved panel's rows now arrive in: the Output's declared
+ *  schema fields that the frame has, then every other key in ascending code-point order. The server writes saved rows in this
+ *  same order (`RowColumnOrder`), so an order-dependent render is the same live and saved. */
 export function orderLiveColumns(
   frameKeys: readonly string[],
   schema: readonly OutputSchemaField[] | null | undefined,
 ): string[] {
-  const present = new Set(frameKeys);
-  const ordered: string[] = [];
-  for (const field of schema ?? []) {
-    if (present.delete(field.name)) ordered.push(field.name);
-  }
-  for (const key of frameKeys) if (present.has(key)) ordered.push(key);
-  return ordered;
+  return orderColumns(
+    frameKeys,
+    (schema ?? []).map((f) => f.name),
+  );
+}
+
+/** The columns of `frame` in `orderLiveColumns` order. */
+export function frameColumns(
+  frame: Frame,
+  schema: readonly OutputSchemaField[] | null | undefined,
+): string[] {
+  return orderLiveColumns(frameSchema(frame), schema);
 }
 
 /** The frame's rows as records in `orderLiveColumns` order: an `Integral` becomes its number, a column a row lacks is
@@ -42,14 +48,22 @@ export function frameToRecords(
   });
 }
 
-/** Saved rows (already plain records) in the same deterministic column order as a live frame. */
+/** The columns saved rows (plain records) render in: the same order as a live frame. */
+export function recordColumns(
+  records: readonly Record<string, unknown>[],
+  schema: readonly OutputSchemaField[] | null | undefined,
+): string[] {
+  const keys = new Set<string>();
+  for (const record of records) for (const key of Object.keys(record)) keys.add(key);
+  return orderLiveColumns([...keys], schema);
+}
+
+/** Saved rows in `columns` order (the server's, when the response carried one), else `recordColumns` order. */
 export function orderRecords(
   records: readonly Record<string, unknown>[],
   schema: readonly OutputSchemaField[] | null | undefined,
+  columns: readonly string[] = recordColumns(records, schema),
 ): Record<string, unknown>[] {
-  const keys = new Set<string>();
-  for (const record of records) for (const key of Object.keys(record)) keys.add(key);
-  const columns = orderLiveColumns([...keys], schema);
   return records.map((record) => {
     const ordered: Record<string, unknown> = {};
     for (const column of columns) {

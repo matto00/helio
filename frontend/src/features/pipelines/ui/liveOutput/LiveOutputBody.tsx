@@ -4,9 +4,14 @@
 
 import { memo, useMemo } from "react";
 
-import { keyAggregate } from "../../../panels/ui/outputRenderInputs";
+import { keyAggregate, latestYAggregate } from "../../../panels/ui/outputRenderInputs";
 import type { OutputHistory } from "../../../panels/history/outputHistoryService";
-import { frameToRecords, orderRecords } from "../../state/liveOutput/frameRecords";
+import {
+  frameColumns,
+  frameToRecords,
+  orderRecords,
+  recordColumns,
+} from "../../state/liveOutput/frameRecords";
 import type { LiveOutputSource } from "../../state/liveOutput/liveOutputSource";
 import type { Output } from "../../types/output";
 import type { SavedRowsState } from "../../hooks/useSavedOutputRows";
@@ -40,17 +45,38 @@ function LiveOutputBodyImpl({
   history,
   sampleTruncated,
 }: LiveOutputBodyProps) {
-  const records = useMemo(() => {
-    if (source.kind === "frame") return frameToRecords(source.rows, output.schema);
+  // The records and the column order they render in. The order is carried apart from the records: a record's own key order is
+  // not it (a browser lists integer-like keys first), so the renderers' headers come from `columns` (HEL-1705).
+  const shown = useMemo(() => {
+    if (source.kind === "frame") {
+      return {
+        records: frameToRecords(source.rows, output.schema),
+        columns: frameColumns(source.rows, output.schema),
+      };
+    }
     if (source.kind === "saved" && saved?.status === "ready") {
-      return orderRecords(saved.rows, output.schema);
+      const columns = saved.columns ?? recordColumns(saved.rows, output.schema);
+      return { records: orderRecords(saved.rows, output.schema, columns), columns };
     }
     return null;
   }, [source, saved, output.schema]);
+  const records = shown?.records ?? null;
+  // The second tile: a metric's or an aggregated chart's aggregate, else (HEL-1705) a plain chart's latest y.
+  const columns = shown?.columns;
   const aggregate = useMemo(
-    () => keyAggregate(output.kind, output.config, records),
-    [output.kind, output.config, records],
+    () =>
+      keyAggregate(output.kind, output.config, records) ??
+      latestYAggregate(output.kind, output.config, output.schema, records, columns),
+    [output.kind, output.config, output.schema, records, columns],
   );
+  // Whether `records` is the Output's complete set (the compare overlay needs it): a client frame is the sample's, a server
+  // frame the rows line's, a saved read the first page's. Fails closed.
+  const rowsTruncated =
+    source.kind === "frame"
+      ? sampleTruncated || source.truncated
+      : saved?.status === "ready"
+        ? saved.truncated
+        : true;
 
   if (source.kind === "loading" || (source.kind === "saved" && saved?.status === "loading")) {
     return <p className="live-output__hint">Loading the Output&hellip;</p>;
@@ -70,6 +96,9 @@ function LiveOutputBodyImpl({
           config={output.config}
           schema={output.schema}
           records={records}
+          history={history}
+          rowsTruncated={rowsTruncated}
+          columns={columns}
         />
       </div>
       <div className="live-output__tiles">

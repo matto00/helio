@@ -27,7 +27,8 @@ final case class OutputHistoryPayloadResponse(
     runId: Option[String],
     triggerSource: String,
     rowCount: Int,
-    rows: JsArray
+    rows: JsArray,
+    columns: Vector[String]
 )
 final case class SparklinePoint(capturedAt: Instant, value: Option[Double])
 final case class OutputHistoryResponse(
@@ -68,7 +69,7 @@ object OutputHistoryResponses {
     )
 
   def payload(outputId: String, r: OutputHistoryPayload): OutputHistoryPayloadResponse =
-    OutputHistoryPayloadResponse(r.point.id.toString, outputId, r.point.capturedAt, r.point.runId, r.point.triggerSource, r.rowCount, r.rows)
+    OutputHistoryPayloadResponse(r.point.id.toString, outputId, r.point.capturedAt, r.point.runId, r.point.triggerSource, r.rowCount, r.rows, r.columns)
 
   /** Built field by field -- never `authenticated(...)` with fields removed. */
   def public(r: OutputHistoryResolution): PublicOutputHistoryResponse =
@@ -142,7 +143,8 @@ trait OutputHistoryProtocol extends SprayJsonSupport with DefaultJsonProtocol {
       "runId"         -> str(r.runId),
       "triggerSource" -> JsString(r.triggerSource),
       "rowCount"      -> JsNumber(r.rowCount),
-      "rows"          -> r.rows
+      "rows"          -> r.rows,
+      "columns"       -> JsArray(r.columns.map(JsString(_)))
     )
   }
 

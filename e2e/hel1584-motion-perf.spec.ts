@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { registerAndLogin } from "./support/auth";
 import { post, setMotion } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1584 D13 -- the dashboard-load and panel-drag performance proof. A 12-panel seeded dashboard under Full motion:
 //   load: React commits (through __REACT_DEVTOOLS_GLOBAL_HOOK__.onCommitFiberRoot), CLS, long-task total and the time
@@ -180,7 +181,7 @@ test("HEL-1584 D13 performance: cold dashboard load and a three-cell drag, 12 pa
 
   // ---- cold load -------------------------------------------------------------------------------------------------
   await page.goto(`/dashboards/${dashboardId}`);
-  await expect(page.locator(".panel-grid-card")).toHaveCount(PANELS, { timeout: 30_000 });
+  await waitForPanelGrid(page, PANELS, { timeout: 30_000 });
   await page.waitForFunction(
     () => (window as unknown as { __content: { all: number } }).__content.all >= 0,
     undefined,

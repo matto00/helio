@@ -1,0 +1,41 @@
+{
+  "description": "HEL-1705: (current, baseline) -> (delta, pct) cases for OutputHistoryService.deltaAndPct (Scala) and its client port (frontend/src/features/panels/history/deltaAndPct.ts). delta = cur - base; pct = delta / |base| * 100, null when base is 0; a non-finite result or a null side is null. Both sides assert this one file.",
+  "cases": [
+    { "name": "increase", "current": 10, "baseline": 5, "delta": 5, "pct": 100 },
+    { "name": "decrease", "current": 5, "baseline": 10, "delta": -5, "pct": -50 },
+    { "name": "from zero current", "current": 0, "baseline": 10, "delta": -10, "pct": -100 },
+    { "name": "zero baseline has no pct", "current": 10, "baseline": 0, "delta": 10, "pct": null },
+    { "name": "both zero", "current": 0, "baseline": 0, "delta": 0, "pct": null },
+    {
+      "name": "negative baseline uses its magnitude",
+      "current": -10,
+      "baseline": -20,
+      "delta": 10,
+      "pct": 50
+    },
+    {
+      "name": "sign change across a negative baseline",
+      "current": 5,
+      "baseline": -10,
+      "delta": 15,
+      "pct": 150
+    },
+    { "name": "null current", "current": null, "baseline": 5, "delta": null, "pct": null },
+    { "name": "null baseline", "current": 5, "baseline": null, "delta": null, "pct": null },
+    { "name": "both null", "current": null, "baseline": null, "delta": null, "pct": null },
+    {
+      "name": "overflowing delta",
+      "current": 1e308,
+      "baseline": -1e308,
+      "delta": null,
+      "pct": null
+    },
+    {
+      "name": "overflowing pct keeps its delta",
+      "current": 1e308,
+      "baseline": 1e-300,
+      "delta": 1e308,
+      "pct": null
+    }
+  ]
+}

@@ -31,7 +31,7 @@ object DraftPreviewService {
   final case class SlotHooks(onStreamTerminated: () => Unit, onWalkStarted: () => Unit, onWalkEnded: () => Unit)
 
   /** One line per enabled step, plus the final `rows` and a possible `failed`. */
-  val QueueCapacity: Int = DraftPreviewLimits.MaxSteps + 2
+  val QueueCapacity: Int = DraftPreviewLimits.MaxSteps + 2 + DraftPreviewLimits.MaxRowsStepIds
 }
 
 /** HEL-1630: evaluates an unsaved draft's steps over client-supplied frames and streams the result as NDJSON. Never reads a
@@ -196,13 +196,13 @@ final class DraftPreviewService(
             onNodeFrame = onFrame,
             onNodeError = Some(onError),
             shouldContinue = () => !cancelled.get(),
-            retainOnly = Some(Set(plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_)))),
+            retainOnly = Some(retained(req, plan)),
             leafFirst = true
           )
           .map(_.nodeOutcomes)
       } catch { case NonFatal(e) => Future.failed(e) }
 
-    run.map { outcomes => if (!cancelled.get()) emit(rowsLine(req, plan, outcomes)) }.onComplete { result =>
+    run.map { outcomes => if (!cancelled.get()) rowsLines(req, plan, outcomes).foreach(emit) }.onComplete { result =>
       val outcome = outcomeOf(result.map(_ => Map.empty))
       if (outcome == "failed") {
         // The class only: a cause's message can carry the very cell that broke it.
@@ -223,13 +223,22 @@ final class DraftPreviewService(
     }
   }
 
-  private def rowsLine(req: DraftPreviewRequest, plan: DraftPreviewPlan, outcomes: Map[NodeKey, NodeOutcome]): DraftPreviewLine = {
-    val key: NodeKey = plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_))
+  /** The nodes whose frames stay held for a `rows` line: the primary and each extra id, so every retained frame is charged to the
+   *  engine's live-cell tally and the request stays inside the one budget (HEL-1705 design.md D2). */
+  private def retained(req: DraftPreviewRequest, plan: DraftPreviewPlan): Set[NodeKey] =
+    Set(plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_))) ++ plan.extraRowsStepIds.map(StepKey(_))
+
+  /** The primary `rows` line, then one per extra id in list order (HEL-1705). */
+  private def rowsLines(req: DraftPreviewRequest, plan: DraftPreviewPlan, outcomes: Map[NodeKey, NodeOutcome]): Vector[DraftPreviewLine] = {
+    val primaryKey: NodeKey = plan.rowsStepId.fold[NodeKey](RootKey(req.roots.head.id))(StepKey(_))
+    rowsLine(plan.rowsStepId, primaryKey, outcomes) +: plan.extraRowsStepIds.map(id => rowsLine(Some(id), StepKey(id), outcomes))
+  }
+
+  private def rowsLine(stepId: Option[String], key: NodeKey, outcomes: Map[NodeKey, NodeOutcome]): DraftPreviewLine =
     outcomes.get(key) match {
       case Some(o) =>
         val shown = o.rows.take(DraftPreviewLimits.MaxResponseRows)
-        DraftPreviewRowsLine(plan.rowsStepId, available = true, shown.map(DraftPreviewCells.encode).toVector, o.rows.size, truncated = o.rows.size > shown.size)
-      case None => DraftPreviewRowsLine(plan.rowsStepId, available = false, Vector.empty, 0, truncated = false)
+        DraftPreviewRowsLine(stepId, available = true, shown.map(DraftPreviewCells.encode).toVector, o.rows.size, truncated = o.rows.size > shown.size)
+      case None => DraftPreviewRowsLine(stepId, available = false, Vector.empty, 0, truncated = false)
     }
-  }
 }

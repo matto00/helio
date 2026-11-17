@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 
 import { renderWithStore } from "../../../../test/renderWithStore";
@@ -8,6 +9,7 @@ import { int, type Frame } from "../../evaluator";
 import * as outputService from "../../services/outputService";
 import type { DraftStepView } from "../../state/draftStepView";
 import type { SampleState } from "../../state/liveOutput/liveOutputSource";
+import type { OutputPick } from "../../state/liveOutput/resolveDisplayedOutput";
 import type { Output } from "../../types/output";
 import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
@@ -108,7 +110,12 @@ function parts(setup: Setup = {}) {
 const metricValue = { selector: ".panel-content__metric-value" };
 const findValue = (text: string) => screen.findByText(text, metricValue);
 const getValue = (text: string) => screen.getByText(text, metricValue);
-const column = (setup?: Setup) => <LiveOutputColumn {...parts(setup)} />;
+// The pick is held by the layout in the app (HEL-1705); this stands in for it, keeping state across a rerender.
+function PickHolder(props: Omit<React.ComponentProps<typeof LiveOutputColumn>, "pick" | "onPick">) {
+  const [pick, setPick] = useState<OutputPick | null>(null);
+  return <LiveOutputColumn {...props} pick={pick} onPick={setPick} />;
+}
+const column = (setup?: Setup) => <PickHolder {...parts(setup)} />;
 
 beforeEach(() => {
   resetHistoryCache();
@@ -390,5 +397,39 @@ describe("LiveOutputColumn", () => {
       expect(mockBodyRenders.count).toBe(before);
       await waitFor(() => expect(mockBodyRenders.count).toBeGreaterThan(before));
     });
+  });
+
+  // HEL-1705 E: a plain chart's second tile.
+  const plainChart = (over: Partial<Output["config"]> = {}) =>
+    output({
+      kind: "chart",
+      config: { chartType: "line", fieldMapping: { xAxis: "date", yAxis: "amount" }, ...over },
+    });
+
+  it("shows a LATEST <Y> tile for a plain line chart, from the last plotted point (HEL-1705)", async () => {
+    renderWithStore(column({ outputs: [plainChart()] }));
+    expect(await screen.findByText("LATEST AMOUNT")).toBeInTheDocument();
+    expect(screen.getByText("Rows out")).toBeInTheDocument();
+    expect(screen.getByText("LATEST AMOUNT").nextElementSibling).toHaveTextContent("30");
+  });
+
+  it("shows only the rows tile for an unaggregated pie chart (HEL-1705)", async () => {
+    renderWithStore(column({ outputs: [plainChart({ chartType: "pie" })] }));
+    expect(await screen.findByText("Rows out")).toBeInTheDocument();
+    expect(screen.queryByText(/^LATEST /)).not.toBeInTheDocument();
+  });
+
+  // HEL-1705 D: an Output that is not the selected step is current as soon as its rows line arrives.
+  it("renders an unfocused server-resolved Output live, with no select-this-step note, once its rows arrive", async () => {
+    renderWithStore(
+      column({
+        hasDraft: true,
+        selectedStepId: "s1",
+        outputs: [output({ nodeStepId: "s9" })],
+        views: new Map([["s9", view()]]),
+      }),
+    );
+    expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+    expect(screen.queryByText("Select this step to update it")).not.toBeInTheDocument();
   });
 });

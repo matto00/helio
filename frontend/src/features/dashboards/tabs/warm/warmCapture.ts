@@ -68,6 +68,7 @@ export function buildWarmEntry(
       hasMore: window.hasMore,
       rows: window.rows,
       materialized: window.materialized,
+      columns: window.columns,
       total: window.total,
       metric: window.metric,
       lastQuery: window.lastQuery,

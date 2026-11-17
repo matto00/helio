@@ -378,6 +378,23 @@ class AssistantConversationRoutesSpec
       }
     }
 
+    // HEL-1636 D6 / 5.4: a refusal is a 502 naming the refusal, and persists nothing.
+    "return 502 saying Claude declined the request on a refusal, and persist nothing (HEL-1636)" in {
+      cleanDb()
+      val detail    = await(conversationService.create(userA, None, title = None))
+      val assistant = assistantServiceWith(new FakeTransport(Future.successful(ClaudeFixtures.fixture("refusal.json"))))
+
+      Post(s"/assistant-conversations/${detail.record.id.value}/converse", jsonEntity("""{"message":"Hello"}""")) ~> routesFor(userA, Some(assistant)) ~> check {
+        status shouldBe StatusCodes.BadGateway
+        responseAs[String] should include("Claude declined this request (category: cyber)")
+      }
+
+      Get(s"/assistant-conversations/${detail.record.id.value}") ~> routesFor(userA, Some(assistant)) ~> check {
+        status shouldBe StatusCodes.OK
+        transcriptOf(responseAs[String]) shouldBe empty
+      }
+    }
+
     "return 503 when assistantServiceOpt is None, while GET /assistant-conversations still works normally (tasks.md 6.4)" in {
       cleanDb()
       val detail = await(conversationService.create(userA, None, title = None))

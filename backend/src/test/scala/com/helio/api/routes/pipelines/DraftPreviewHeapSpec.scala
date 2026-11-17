@@ -208,6 +208,16 @@ class DraftPreviewHeapSpec extends DraftPreviewApiFixture {
   private def pivotFanOutBody(): JsObject =
     fanOutOf("x" * 100000, stepJson("t1", "pivot", jobj("index" -> JsArray(Vector(jstr("side"))), "column" -> jstr("pad"), "values" -> jstr("i"), "agg" -> jstr("first")), Some("s0")))
 
+  /** HEL-1705 D2: eight extra `rowsStepIds`, each the output of its own `compute` leaf under one 1,000-row step, each frame of 1,000
+   *  distinct 6,000-character texts (about a fifth of the live-cell budget). Every requested frame stays held for its `rows` line, so
+   *  they add up against the one budget: the first few are returned, the later ones are refused with the memory-limit message. */
+  private val extraIds = (1 to 8).map(n => s"x$n").toVector
+  private def extraIdsBody(): JsObject = {
+    val root  = rootOf("r", Vector.tabulate(1000)(i => padRow(i, i, "p" + i + "x" * 3000)): _*)
+    val steps = limitStep("s0", 1000) +: extraIds.map(id => textCompute(id, id, "concat($pad, $pad)", "s0"))
+    draftBody(Vector(root), steps, "rowsStepId" -> jstr("s0"), "rowsStepIds" -> JsArray(extraIds.map(jstr)))
+  }
+
   private def stepIds(res: Preview, t: String) = res.ofType(t).map(_.fields("step").convertTo[String])
 
   // Measured once, shared by the tests below (each shape is three gc-heavy runs).
@@ -215,7 +225,8 @@ class DraftPreviewHeapSpec extends DraftPreviewApiFixture {
     measure("chain", chainSteps()), measure("comb", combSteps()), measure("lane-held", laneHeldSteps()), measure("select-held", selectHeldSteps()),
     measure("fresh-chain", freshChainSteps()), measure("doubling-5", doublingSteps(5)), measure("doubling-6", doublingSteps(6)),
     measureBody("fan-out-text", fanOutBody()), measureBody("split-fan-out", splitTextFanOutBody()),
-    measureBody("headings-fan-out", extractHeadingsFanOutBody()), measureBody("pivot-fan-out", pivotFanOutBody())
+    measureBody("headings-fan-out", extractHeadingsFanOutBody()), measureBody("pivot-fan-out", pivotFanOutBody()),
+    measureBody("extra-ids", extraIdsBody())
   )
 
   "the worst draft-preview shapes" should {
@@ -290,6 +301,23 @@ class DraftPreviewHeapSpec extends DraftPreviewApiFixture {
       pivot.errors shouldBe 1
       pivot.messages.head should include("Draft preview text limit")
       pivot.messages.head should not include "step execution failed"
+    }
+  }
+
+  "eight extra rowsStepIds (HEL-1705 D2)" should {
+    "hold each requested frame under the one budget: the later ones are refused, none is held outside it, and the peak stays at or under 96 MB" in {
+      val measured = shapes(11)
+      measured.peakMb should be <= 96.0
+      measured.errors should be >= 1
+      measured.messages.head should (include("Draft preview memory limit") or include("Draft preview text limit"))
+      val res  = preview(seedPipeline(), userA, extraIdsBody())
+      res.status shouldBe StatusCodes.OK
+      val rows = res.ofType("rows")
+      rows.map(_.fields("step").convertTo[String]) shouldBe "s0" +: extraIds
+      rows.head.fields("available") shouldBe JsTrue
+      rows.drop(1).head.fields("available") shouldBe JsTrue
+      rows.last.fields("available") shouldBe JsFalse
+      rows.map(_.fields("available")).count(_ == JsFalse) shouldBe res.ofType("error").size + res.ofType("unavailable").size
     }
   }
 

@@ -6,10 +6,13 @@ import { useMemo } from "react";
 
 import { defaultPanelAppearance } from "../../../../theme/appearance";
 import {
+  chartPlotOverlay,
   chartRenderInputs,
   metricLoadedValue,
   recordsToPanelRows,
 } from "../../../panels/ui/outputRenderInputs";
+import type { OutputHistory } from "../../../panels/history/outputHistoryService";
+import { selectDraftMetricComparison } from "../../../panels/history/metricHistoryView";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { CollectionRenderer } from "../../../panels/ui/renderers/CollectionRenderer";
 import { MarkdownRenderer } from "../../../panels/ui/renderers/MarkdownRenderer";
@@ -31,10 +34,28 @@ export interface LiveOutputRenderProps {
   config: Record<string, unknown>;
   schema: OutputSchemaField[] | null | undefined;
   records: Records;
+  /** The Output's history, for the compare overlay and the metric comparison (HEL-1705); `null` draws neither. */
+  history?: OutputHistory | null;
+  /** More rows exist than `records` holds (a truncated sample or rows line): the overlay compares against the Output's
+   *  complete set, so it is then hidden, exactly as on a dashboard. Fails closed when omitted. */
+  rowsTruncated?: boolean;
+  /** The column order of `records` (HEL-1705); absent, the first record's key order. */
+  columns?: readonly string[];
 }
 
-export function LiveOutputRender({ kind, config, schema, records }: LiveOutputRenderProps) {
-  const { headers, rawRows } = useMemo(() => recordsToPanelRows(records), [records]);
+export function LiveOutputRender({
+  kind,
+  config,
+  schema,
+  records,
+  history = null,
+  rowsTruncated = true,
+  columns,
+}: LiveOutputRenderProps) {
+  const { headers, rawRows } = useMemo(
+    () => recordsToPanelRows(records, columns),
+    [records, columns],
+  );
   const chart = useMemo(
     () =>
       kind === "chart"
@@ -42,6 +63,33 @@ export function LiveOutputRender({ kind, config, schema, records }: LiveOutputRe
         : null,
     [kind, config, schema, records],
   );
+  // The same overlay and comparison selectors a dashboard panel uses, over the draft rows (HEL-1705 D4).
+  const overlay = useMemo(
+    () =>
+      chart === null
+        ? null
+        : chartPlotOverlay({
+            history,
+            config,
+            aggregationSpec: chart.aggregationSpec,
+            chartAggregate: chart.chartAggregate,
+            ctx: { filterActive: false, rowsTruncated, rawRows, headers },
+          }),
+    [chart, history, config, rowsTruncated, rawRows, headers],
+  );
+  const metricValue = useMemo(
+    () => (kind === "metric" ? metricLoadedValue(config, records, rawRows, headers) : ""),
+    [kind, config, records, rawRows, headers],
+  );
+  const comparison = useMemo(() => {
+    if (kind !== "metric") return null;
+    const draftValue = metricValue.trim() === "" ? Number.NaN : Number(metricValue);
+    return selectDraftMetricComparison(
+      history,
+      config,
+      Number.isFinite(draftValue) ? draftValue : null,
+    );
+  }, [kind, history, config, metricValue]);
 
   if (kind === "chart" && chart) {
     return (
@@ -54,6 +102,7 @@ export function LiveOutputRender({ kind, config, schema, records }: LiveOutputRe
         aggregationSpec={chart.aggregationSpec}
         chartOptions={chart.chartOptions}
         annotation={chart.annotation}
+        overlay={overlay}
         referenceMarks={chart.referenceMarks}
         fieldTypes={chart.fieldTypes}
         compact
@@ -66,11 +115,12 @@ export function LiveOutputRender({ kind, config, schema, records }: LiveOutputRe
     return (
       <MetricRenderer
         data={{
-          value: metricLoadedValue(config, records, rawRows, headers),
+          value: metricValue,
           label: cfg.label ?? "",
           unit: cfg.unit ?? "",
         }}
         format={cfg.format}
+        comparison={comparison}
         conditionalFormats={cfg.conditionalFormats}
       />
     );

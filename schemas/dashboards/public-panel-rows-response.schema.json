@@ -37,8 +37,15 @@
       },
       "required": ["field", "agg", "value"],
       "additionalProperties": false
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "HEL-1705: the column order of this page: the Output's schema names present in at least one row (every schema name on an empty page), then every other key seen, in ascending code-point order. Each row's keys appear in the response body in this same order. Clients build headers from this list, not from a parsed row's key order."
     }
   },
-  "required": ["items", "total", "offset", "limit"],
+  "required": ["items", "total", "offset", "limit", "columns"],
   "additionalProperties": false
 }

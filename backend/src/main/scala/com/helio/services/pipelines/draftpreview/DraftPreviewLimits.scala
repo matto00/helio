@@ -13,6 +13,8 @@ object DraftPreviewLimits {
   val MaxLanes: Int     = 8
   val MaxSources: Int   = 8
   val MaxSteps: Int     = 50
+  /** HEL-1705: extra step ids a request may ask `rows` lines for, beyond `rowsStepId`. */
+  val MaxRowsStepIds: Int = 8
   val MaxIdLength: Int  = 64
 
   /** Rows on the final `rows` line. */

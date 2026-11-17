@@ -21,7 +21,7 @@ import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, O
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.infrastructure.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeApiContentBlock, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeFixtures, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, DashboardProposal}
 import com.helio.api.protocols.panels.CreatePanelRequest
@@ -264,6 +264,19 @@ class RefinementServiceSpec
       UUID.fromString(minted).toString shouldBe minted
       val persisted = await(conversationRepo.findById(AuthoringConversationId(response.conversationId), user)).get
       persisted.latestPatchSet.flatMap(_.proposalId) shouldBe Some(minted)
+    }
+
+    // HEL-1636 D6: a refusal maps to ModelFailure / 502 naming the refusal.
+    "map a refusal to a 502 naming the refusal" in {
+      val user = newUser()
+      val dash = createDashboardFor(user)
+      createPanelFor(dash.id, user)
+      val transport = new FakeClaudeTransport(Vector(Future.successful(ClaudeFixtures.fixture("refusal.json"))))
+
+      val result = await(newRefinementService(transport).refine(RefinementRequest(RefinementTarget("dashboard", dash.id.value), "rename the panel"), user))
+
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.BadGateway]
+      result.swap.toOption.get.serviceError.message should include("declined")
     }
 
     "reject a nonexistent dashboard target before any Claude call" in {

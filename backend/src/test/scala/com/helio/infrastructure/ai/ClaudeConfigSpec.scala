@@ -1,9 +1,14 @@
 package com.helio.infrastructure.ai
 
+import ch.qos.logback.classic.{Logger => LogbackLogger}
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import org.scalatest.matchers.should.Matchers
+import org.slf4j.LoggerFactory
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.{Map => JMap}
+import scala.jdk.CollectionConverters._
 
 /** Coverage for `ClaudeConfig.fromEnv()` (HEL-390 tasks 6.1): key present/absent/blank,
  *  model/temperature/max-tokens/max-input-tokens defaults + overrides, and that the API key
@@ -16,6 +21,22 @@ import java.util.{Map => JMap}
 class ClaudeConfigSpec extends AnyWordSpec with Matchers {
 
   "ClaudeConfig.fromEnv" should {
+
+    // HEL-1636 D7: Haiku 5.5 rejects non-default sampling, so a non-1.0 temperature on it is a WARN.
+    "WARN once for a claude-haiku-5 model with a non-default CLAUDE_TEMPERATURE, and not for 1.0" in {
+      val logger   = LoggerFactory.getLogger(ClaudeConfig.getClass).asInstanceOf[LogbackLogger]
+      val appender = new ListAppender[ILoggingEvent]()
+      appender.start()
+      logger.addAppender(appender)
+      try {
+        withEnv("ANTHROPIC_API_KEY" -> "sk-ant-test", "CLAUDE_MODEL" -> "claude-haiku-5-5", "CLAUDE_TEMPERATURE" -> "0.5") { ClaudeConfig.fromEnv() }
+        appender.list.asScala.map(_.getFormattedMessage).count(_.contains("not 1.0")) shouldBe 1
+        appender.list.clear()
+        withEnv("ANTHROPIC_API_KEY" -> "sk-ant-test", "CLAUDE_MODEL" -> "claude-haiku-5-5", "CLAUDE_TEMPERATURE" -> "1.0") { ClaudeConfig.fromEnv() }
+        withEnv("ANTHROPIC_API_KEY" -> "sk-ant-test", "CLAUDE_MODEL" -> "claude-opus-4-8", "CLAUDE_TEMPERATURE" -> "0.5") { ClaudeConfig.fromEnv() }
+        appender.list.asScala.map(_.getFormattedMessage).exists(_.contains("not 1.0")) shouldBe false
+      } finally logger.detachAppender(appender)
+    }
 
     "return Right(config) with apiKey set from a non-blank ANTHROPIC_API_KEY" in {
       withEnv("ANTHROPIC_API_KEY" -> "sk-ant-test-key-12345") {

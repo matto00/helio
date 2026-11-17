@@ -63,6 +63,7 @@ export function usePanelDetailData(panel: Panel) {
     noData,
     neverMaterialized,
     paginationRows,
+    columns,
     rowsTruncated,
     refresh,
   } = usePanelData(panel, controlFilterOps, crossFilterEq);
@@ -88,6 +89,7 @@ export function usePanelDetailData(panel: Panel) {
     noData,
     neverMaterialized,
     paginationRows,
+    columns,
     rowsTruncated,
     refresh,
     totalRowCount,
