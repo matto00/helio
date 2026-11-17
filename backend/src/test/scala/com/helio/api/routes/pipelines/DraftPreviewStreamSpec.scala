@@ -70,6 +70,50 @@ class DraftPreviewStreamSpec extends DraftPreviewApiFixture {
     }
   }
 
+  // HEL-1705 D: one request can return rows for several steps, so an unfocused Output refreshes without another request.
+  "rowsStepIds" should {
+    val chain    = Vector(limitStep("a", 5), limitStep("b", 1, Some("a")), limitStep("c", 1, Some("b")))
+    val aiConfig = jobj("inputField" -> jstr("name"), "instruction" -> jstr("shout"), "outputField" -> jstr("out"))
+
+    "end the stream with the primary rows line then one per further id in list order, never repeating the primary" in {
+      val seed = seedPipeline()
+      val body = draftBody(Vector(suppliedRoot), chain, "rowsStepId" -> jstr("a"), "rowsStepIds" -> JsArray(jstr("a"), jstr("c"), jstr("b")))
+      assertValidRequest(body)
+      val res = preview(seed, userA, body)
+      res.status shouldBe StatusCodes.OK
+      res.types shouldBe Vector("step", "step", "step", "rows", "rows", "rows")
+      res.ofType("rows").map(l => l.fields("step").convertTo[String] -> l.fields("count").convertTo[Int]) shouldBe Vector("a" -> 2, "c" -> 1, "b" -> 1)
+      res.ofType("rows").forall(_.fields("available") == JsTrue) shouldBe true
+    }
+
+    "answer an old client (no rowsStepIds) with the same single rows line as before" in {
+      val seed = seedPipeline()
+      val res  = preview(seed, userA, draftBody(Vector(suppliedRoot), chain))
+      res.types shouldBe Vector("step", "step", "step", "rows")
+      res.rowsLine.fields("step") shouldBe jstr("c")
+    }
+
+    "give an id below an AI step an available:false rows line and leave the others alone" in {
+      val seed = seedPipeline()
+      val steps = Vector(limitStep("a", 5), stepJson("ai", "generatetext", aiConfig, Some("a")), limitStep("below", 1, Some("ai")))
+      val res = preview(seed, userA, draftBody(Vector(suppliedRoot), steps, "rowsStepId" -> jstr("a"), "rowsStepIds" -> JsArray(jstr("below"))))
+      res.status shouldBe StatusCodes.OK
+      val rows = res.ofType("rows")
+      rows.map(_.fields("step")) shouldBe Vector(jstr("a"), jstr("below"))
+      rows.map(_.fields("available")) shouldBe Vector(JsTrue, JsFalse)
+    }
+
+    "refuse 400, evaluating nothing, a list over 8, a duplicate, an unknown id and a non-string" in {
+      val seed = seedPipeline()
+      def refused(ids: JsValue) = preview(seed, userA, draftBody(Vector(suppliedRoot), chain, "rowsStepIds" -> ids)).status
+      refused(JsArray((1 to 9).map(i => jstr(s"s$i")): _*)) shouldBe StatusCodes.BadRequest
+      refused(JsArray(jstr("a"), jstr("a"))) shouldBe StatusCodes.BadRequest
+      refused(JsArray(jstr("zzz"))) shouldBe StatusCodes.BadRequest
+      refused(JsArray(JsNumber(1))) shouldBe StatusCodes.BadRequest
+      refused(JsArray(jstr("a"), jstr("b"))) shouldBe StatusCodes.OK
+    }
+  }
+
   "the never-read guarantee (ruling C2)" should {
     "answer a join from the supplied secondary, never the persisted one, with zero data-source access" in {
       val seed   = seedWithPersistedSources()

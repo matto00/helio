@@ -7,7 +7,7 @@ import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository}
 import com.helio.services.ServiceError
 import com.helio.services.panels.PublicOutputControlScope
-import com.helio.services.pipelines.{OutputFilterCapability, OutputFilteredMetric, OutputRowsQuery}
+import com.helio.services.pipelines.{OutputFilterCapability, OutputFilteredMetric, OutputRowsQuery, RowColumnOrder}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -87,7 +87,8 @@ final class PublicPanelRowsResolver(
                                 )
                                 .flatMap { paged =>
                                   OutputFilteredMetric.compute(output, resolvedFilter, page.offset, outputRepo, nodeSnapshotRepo).map { metric =>
-                                    Right(PublicPanelRowsResponse(paged.items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, metric))
+                                    val (items, columns) = RowColumnOrder.order(output.schema.map(_.name), paged.items)
+                                    Right(PublicPanelRowsResponse(items.map(identity[JsValue]), paged.total, paged.offset, paged.limit, metric, columns))
                                   }
                                 }
                           }

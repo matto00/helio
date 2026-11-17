@@ -470,6 +470,9 @@ export interface PanelPaginationState {
    *  Defaults to `true` before the first fetch resolves, so nothing flashes
    *  a "run the pipeline" prompt while loading. */
   materialized: boolean;
+  /** HEL-1705 H: the window's column order (schema names, then other keys by code point), merged across pages. Absent for a
+   *  window fetched from an older server or restored from an older warm copy: it then renders as before. */
+  columns?: string[];
   /** HEL-1027 design.md D5/D7 — the server's row count for the CURRENT `sort`/`filter` (the
    *  Output's raw row count when no filter is active, the filtered count otherwise) — the same
    *  value `hasMore` is derived from. Distinct from `rows.length`, which is only how many rows

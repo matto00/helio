@@ -103,13 +103,13 @@ final case class UpdateOutputRequest(name: Option[String], config: Option[JsObje
  *  node that ran and legitimately produced zero rows. See
  *  `PipelineRunRepository.latestSuccessfulCompletedAtInternal` for the
  *  derivation. */
-final case class OutputRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, materialized: Boolean, metric: Option[JsValue] = None)
+final case class OutputRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, materialized: Boolean, metric: Option[JsValue] = None, columns: Vector[String] = Vector.empty)
 
 /** `GET /api/dashboards/:dashboardId/panels/:panelId/rows` response (public/optional-auth). Same
  *  keys as the generic paged shape it replaced (`items`, `total`, `offset`, `limit`), plus the
  *  optional filtered `metric` (HEL-1326) -- declared LAST, with the same presence rule as
  *  `OutputRowsResponse.metric`. */
-final case class PublicPanelRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, metric: Option[JsValue] = None)
+final case class PublicPanelRowsResponse(items: Vector[JsValue], total: Int, offset: Int, limit: Int, metric: Option[JsValue] = None, columns: Vector[String] = Vector.empty)
 
 final case class OutputPanelPlacementResponse(panelId: String, dashboardId: String)
 
@@ -148,8 +148,8 @@ trait OutputProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val outputResponseFormat: RootJsonFormat[OutputResponse]                       = jsonFormat14(OutputResponse.apply)
   implicit val outputsResponseFormat: RootJsonFormat[OutputsResponse]                     = jsonFormat1(OutputsResponse)
   implicit val createOutputRequestFormat: RootJsonFormat[CreateOutputRequest]             = jsonFormat5(CreateOutputRequest)
-  implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat6(OutputRowsResponse)
-  implicit val publicPanelRowsResponseFormat: RootJsonFormat[PublicPanelRowsResponse]   = jsonFormat5(PublicPanelRowsResponse)
+  implicit val outputRowsResponseFormat: RootJsonFormat[OutputRowsResponse]               = jsonFormat7(OutputRowsResponse)
+  implicit val publicPanelRowsResponseFormat: RootJsonFormat[PublicPanelRowsResponse]   = jsonFormat6(PublicPanelRowsResponse)
   implicit val outputPanelPlacementResponseFormat: RootJsonFormat[OutputPanelPlacementResponse] = jsonFormat2(OutputPanelPlacementResponse)
   implicit val deleteOutputResponseFormat: RootJsonFormat[DeleteOutputResponse]           = jsonFormat1(DeleteOutputResponse)
   implicit val outputFilterCapabilityColumnResponseFormat: RootJsonFormat[OutputFilterCapabilityColumnResponse] = jsonFormat3(OutputFilterCapabilityColumnResponse)

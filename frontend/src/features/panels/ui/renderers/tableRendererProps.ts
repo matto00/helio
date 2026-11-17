@@ -25,6 +25,8 @@ export interface TableRendererProps {
   headers?: string[] | null;
   /** Rows from the paginated execute endpoint (keyed by column name). */
   paginationRows?: Record<string, unknown>[] | null;
+  /** HEL-1705 H: `paginationRows`' column order, from the rows response; absent, a natural sort of the keys. */
+  columns?: string[];
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
   /** HEL-451 design D4: branch-independent truncation signal from

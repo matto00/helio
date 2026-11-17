@@ -13,7 +13,12 @@ import type { StepPreviewResponse } from "../services/pipelineService";
  * models, the editor column lists and the structural-control reason. Both layouts call this with the step they are focused on
  * (the one whose rows the server should return when it has to resolve it).
  */
-export function usePipelineDraftPresentation(page: PipelinePageState, focusStepId: string | null) {
+export function usePipelineDraftPresentation(
+  page: PipelinePageState,
+  focusStepId: string | null,
+  /** HEL-1705: the displayed Output's node, so its rows come back on the same draft-preview request (see `usePipelineDraftFrames`). */
+  outputNodeStepIds?: readonly string[],
+) {
   const { draft, baseSteps, roots, draftBlockReason } = page;
   const hasDraft = draft.hasDraft;
   const frames = usePipelineDraftFrames({
@@ -24,6 +29,7 @@ export function usePipelineDraftPresentation(page: PipelinePageState, focusStepI
     hasDraft,
     needBase: page.allOutputs.length > 0,
     focusStepId,
+    outputNodeStepIds,
     memory: page.draftFrameMemory,
   });
   const { views, baseCounts, baseRows, sampleTruncated } = frames;

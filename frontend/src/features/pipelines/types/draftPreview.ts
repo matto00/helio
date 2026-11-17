@@ -48,6 +48,8 @@ export interface DraftPreviewRequest {
   lanes?: Record<string, DraftPreviewFrame>;
   sources?: Record<string, DraftPreviewSource>;
   rowsStepId?: string | null;
+  /** HEL-1705: further steps (at most 8, distinct, each in `steps`) to return a `rows` line for, after the `rowsStepId` line. */
+  rowsStepIds?: string[];
 }
 
 export type DraftPreviewColumnType =

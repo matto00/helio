@@ -21,6 +21,7 @@ import type { TableRendererProps } from "./tableRendererProps";
 type UseTableRowsParams = Pick<
   TableRendererProps,
   | "paginationRows"
+  | "columns"
   | "rawRows"
   | "headers"
   | "schema"
@@ -34,6 +35,7 @@ type UseTableRowsParams = Pick<
 
 export function useTableRows({
   paginationRows,
+  columns: responseColumns,
   rawRows,
   headers,
   schema,
@@ -65,7 +67,7 @@ export function useTableRows({
   const naturalKeys = useMemo(() => {
     if (usingPagination) {
       const rows = paginationRows as Record<string, unknown>[];
-      if (rows.length > 0) return deriveKeys(rows);
+      if (rows.length > 0) return deriveKeys(rows, responseColumns);
       // Zero rows -- `deriveKeys` has nothing to infer column keys FROM (inferring a schema
       // from row data is a MISTAKES.md trap in the first place). Fall back to the Output's own
       // DECLARED schema (already resolved by the caller, no new fetch) so a zero-match filtered
@@ -75,7 +77,7 @@ export function useTableRows({
     }
     if (usingRaw) return headers ?? (rawRows as string[][])[0].map((_, i) => String(i + 1));
     return [];
-  }, [usingPagination, usingRaw, paginationRows, headers, rawRows, schema]);
+  }, [usingPagination, usingRaw, paginationRows, responseColumns, headers, rawRows, schema]);
 
   const columns = useMemo<ColumnDef[]>(
     () => orderedColumns(naturalKeys, columnOrder),

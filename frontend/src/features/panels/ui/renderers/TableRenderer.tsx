@@ -17,6 +17,7 @@ export function TableRenderer({
   rawRows,
   headers,
   paginationRows,
+  columns: responseColumns,
   paginationIsLoadingMore,
   onLoadMore,
   rowsTruncated = false,
@@ -64,6 +65,7 @@ export function TableRenderer({
     displayRows,
   } = useTableRows({
     paginationRows,
+    columns: responseColumns,
     rawRows,
     headers,
     schema,

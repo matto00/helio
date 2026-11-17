@@ -9,7 +9,7 @@ import type {
 
 // HEL-1630: the client half of `POST /api/pipelines/:id/draft-preview`. The response is NDJSON, one object per line: an
 // `unavailable` line per step the server will not evaluate, a `step` or `error` line per evaluated step as it finishes, then
-// one final `rows` line. Over HTTP/2 an abort is an RST_STREAM on a live connection; over HTTP/1.1 it closes the connection,
+// `rows` line for the requested step and one per further `rowsStepIds` id (HEL-1705). Over HTTP/2 an abort is an RST_STREAM on a live connection; over HTTP/1.1 it closes the connection,
 // so a superseded request costs a reconnect (docs/live-draft-preview.md section 6.3) -- correctness is unaffected.
 
 /** The response was not a clean 200 NDJSON stream. `status` is the HTTP status, or 0 for a malformed body. */

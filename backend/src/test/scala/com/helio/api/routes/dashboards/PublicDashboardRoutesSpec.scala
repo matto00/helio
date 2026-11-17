@@ -398,6 +398,40 @@ class PublicDashboardRoutesSpec
       }
     }
 
+    // HEL-1705 H (C2): the wire key order of the public rows route, read off the raw body.
+    "write each row's keys and `columns` in the Output's schema order (HEL-1705)" in {
+      val dashId     = seedDashboardWithPublicGrant()
+      val pipelineId = newPipelineWithLastRunAt(Instant.now())
+      val output = await(outputRepo.insertInternal(
+        pipelineId, None, owner.id, "Ordered Output", OutputKind.Table,
+        schema = Vector(SchemaField("zeta", "string"), SchemaField("10", "integer"), SchemaField("alpha", "string")),
+        explicitRootId = None
+      ))
+      import PostgresProfile.api._
+      val panelId = UUID.randomUUID().toString
+      await(db.run(
+        sqlu"""INSERT INTO panels (id, dashboard_id, title, created_by, created_at, last_updated, appearance, kind, output_id, owner_id)
+                 VALUES ($panelId, $dashId, 'Ordered Panel', $ownerId, now(), now(),
+                         '{"background":"transparent","color":"inherit","transparency":0.0}',
+                         'output', ${output.id.value}, ${ownerId}::uuid)"""
+      ))
+      await(nodeSnapshotRepo.overwriteRows(
+        pipelineId.value, None,
+        Seq(JsObject("alpha" -> JsString("a"), "10" -> JsNumber(1), "zeta" -> JsString("z"), "extra" -> JsBoolean(true))),
+        explicitRootId = None
+      ))
+
+      Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> routes() ~> check {
+        status shouldBe StatusCodes.OK
+        val body      = responseAs[String]
+        val rowText   = body.substring(body.indexOf("["), body.indexOf("]"))
+        val positions = Vector("\"zeta\"", "\"10\"", "\"alpha\"", "\"extra\"").map(rowText.indexOf)
+        positions.forall(_ >= 0) shouldBe true
+        positions shouldEqual positions.sorted
+        responseAs[JsObject].fields("columns").convertTo[Vector[String]] shouldEqual Vector("zeta", "10", "alpha", "extra")
+      }
+    }
+
     "return an authorization error for a non-shared dashboard" in {
       import PostgresProfile.api._
       val dashId = UUID.randomUUID().toString

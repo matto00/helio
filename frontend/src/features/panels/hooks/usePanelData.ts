@@ -47,6 +47,9 @@ export interface PanelDataResult {
   /** HEL-1351 design D2 — the loaded row RECORDS `rawRows` is derived from (typed values, `null`
    *  kept), for an aggregated chart Output to group client-side. `null` while nothing is loaded. */
   paginationRows?: Record<string, unknown>[] | null;
+  /** HEL-1705 H — the window's column order (the Output's schema names, then other keys by code point); absent for a window
+   *  with none (an older server or warm copy), which renders as before. */
+  columns?: string[];
   /** Reset the fetch-deduplication key and trigger a fresh data fetch. A
    *  no-op while a fetch for the current key is already in flight (design.md
    *  D2) — guards the manual-refresh, poll, and SSE-fan-out callers uniformly
@@ -319,7 +322,8 @@ export function usePanelData(
 
   const rows = useMemo(() => paginationEntry?.rows ?? [], [paginationEntry]);
 
-  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows), [rows]);
+  const columns = paginationEntry?.columns;
+  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows, columns), [rows, columns]);
 
   if (!currentFetchKey) {
     return {
@@ -361,6 +365,7 @@ export function usePanelData(
     noData,
     neverMaterialized,
     paginationRows: rows.length > 0 ? rows : null,
+    columns,
     rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
     isRefreshing,

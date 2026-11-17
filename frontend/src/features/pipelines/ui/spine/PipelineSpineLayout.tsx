@@ -10,11 +10,13 @@ import { useCallback, useRef, useState } from "react";
 
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
+import { useDisplayedOutputNodeIds } from "../../hooks/useDisplayedOutputNodeIds";
 import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import type { usePipelineDetailPage } from "../../hooks/usePipelineDetailPage";
 import { selectAfterRemoval, useStepSelection } from "../../hooks/useStepSelection";
 import { createInFlightDedupe } from "../../state/inFlightDedupe";
+import type { OutputPick } from "../../state/liveOutput/resolveDisplayedOutput";
 import { StepSaveContext } from "../../state/stepSaveContext";
 import { stepRowCount, stepRowCountSource } from "../../state/stepRowCount";
 import { stepRenderKey } from "../../state/stepTree";
@@ -74,7 +76,10 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
     onReorderSteps: page.handleReorderSteps,
     structuralBlockedReason: page.draftBlockReason,
   });
-  const presentation = usePipelineDraftPresentation(page, selectedStepId);
+  // The explicit Output pick lives here so the displayed Output's node rides on the draft request (HEL-1705).
+  const [outputPick, setOutputPick] = useState<OutputPick | null>(null);
+  const outputNodeStepIds = useDisplayedOutputNodeIds(page.allOutputs, outputPick, selectedStepId);
+  const presentation = usePipelineDraftPresentation(page, selectedStepId, outputNodeStepIds);
   const bodyRef = useRef<HTMLDivElement>(null);
   const threeColumns = useThreeColumnLayout(bodyRef);
   // The narrow-desktop Output section is collapsed until opened, per page session.
@@ -301,6 +306,8 @@ export function PipelineSpineLayout({ page }: { page: PipelinePageState }) {
               page={page}
               presentation={presentation}
               selectedStepId={selectedStepId}
+              pick={outputPick}
+              onPick={setOutputPick}
               layout={threeColumns ? "column" : "disclosure"}
               expanded={outputOpen}
               onToggle={toggleOutput}

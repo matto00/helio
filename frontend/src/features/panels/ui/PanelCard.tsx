@@ -310,6 +310,7 @@ export const PanelCard = React.memo(function PanelCard({
           noData={panelData.noData}
           neverMaterialized={panelData.neverMaterialized}
           paginationRows={panelData.paginationRows}
+          columns={panelData.columns}
           inspectRecords={crossFilteredRecords}
           rowsTruncated={panelData.rowsTruncated}
           refresh={panelData.refresh}

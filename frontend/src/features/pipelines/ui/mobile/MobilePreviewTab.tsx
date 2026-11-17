@@ -8,6 +8,7 @@ import { EmptyState } from "../../../../shared/ui/EmptyState";
 import { Select, type SelectOption } from "../../../../shared/ui/Select";
 import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import type { InFlightDedupe } from "../../state/inFlightDedupe";
+import type { OutputPick } from "../../state/liveOutput/resolveDisplayedOutput";
 import type { LaneGraph } from "../../state/stepTree";
 import type { PipelineRoot } from "../../types/pipelineStep";
 import type { PipelinePageState } from "../spine/PipelineSpineLayout";
@@ -24,6 +25,20 @@ export function defaultPreviewStepId(laneGraph: LaneGraph, roots: PipelineRoot[]
   );
 }
 
+/** The step the Preview tab shows for `chosenId`: the pick if it is a step, else the default, else the first step; `null` with
+ *  no steps. The tab and the layout (which resolves the displayed Output against it, HEL-1705) both read this one function. */
+export function resolvePreviewStepId(
+  laneGraph: LaneGraph,
+  roots: PipelineRoot[],
+  chosenId: string | null,
+): string | null {
+  const ids = laneGraph.lanes.flatMap((lane) => lane.steps.map((s) => s.id));
+  if (ids.length === 0) return null;
+  if (chosenId !== null && ids.includes(chosenId)) return chosenId;
+  const defaultId = defaultPreviewStepId(laneGraph, roots) ?? ids[0];
+  return ids.includes(defaultId) ? defaultId : ids[0];
+}
+
 export function MobilePreviewTab({
   page,
   dedupe,
@@ -31,6 +46,8 @@ export function MobilePreviewTab({
   presentation,
   chosenId,
   onChoose,
+  outputPick,
+  onPickOutput,
 }: {
   page: PipelinePageState;
   dedupe: InFlightDedupe;
@@ -39,6 +56,9 @@ export function MobilePreviewTab({
   /** The user's pick, or `null` for the default step. Held by the layout, which needs it for the draft transport. */
   chosenId: string | null;
   onChoose: (stepId: string) => void;
+  /** The explicit Output pick, held by the layout with the draft transport (HEL-1705). */
+  outputPick: OutputPick | null;
+  onPickOutput: (pick: OutputPick) => void;
 }) {
   const { laneGraph, roots } = page;
 
@@ -56,11 +76,8 @@ export function MobilePreviewTab({
     );
   }
 
-  const defaultId = defaultPreviewStepId(laneGraph, roots) ?? entries[0].step.id;
-  const chosen =
-    entries.find((e) => e.step.id === chosenId) ??
-    entries.find((e) => e.step.id === defaultId) ??
-    entries[0];
+  const resolvedId = resolvePreviewStepId(laneGraph, roots, chosenId);
+  const chosen = entries.find((e) => e.step.id === resolvedId) ?? entries[0];
   const options: SelectOption[] = entries.map((e) => ({
     value: e.step.id,
     label: `Step ${e.index + 1} · ${e.step.label}`,
@@ -95,6 +112,8 @@ export function MobilePreviewTab({
         page={page}
         presentation={presentation}
         selectedStepId={chosen.step.id}
+        pick={outputPick}
+        onPick={onPickOutput}
         layout="phone"
       />
     </div>

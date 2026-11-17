@@ -1,6 +1,7 @@
 package com.helio.api.routes.pipelines
 
 import com.helio.api.JsonProtocols
+import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.testkit.HelioRouteTest
 import com.helio.testsupport.{JsonSchemaValidation, NodePayloadFixtures}
@@ -100,6 +101,19 @@ class OutputHistoryPayloadRoutesSpec
       st2 shouldBe StatusCodes.OK
       JsonSchemaValidation.validationErrors(payloadSchema, raw2) shouldBe Vector.empty
       raw2.parseJson.asJsObject.fields("runId") shouldBe JsNull
+    }
+
+    // HEL-1705 H (C2): the payload is JSONB too, so its keys parse alphabetical; the wire order is the Output's schema.
+    "write each row's keys and `columns` in the Output's schema order, read off the raw body (HEL-1705)" in {
+      val fx = runOnce()
+      awaitDb(outputRepo.updateSchemaInternal(OutputId(fx.optedOutput), Vector(SchemaField("label", "string"), SchemaField("amount", "string"))))
+      val pid       = points(fx.optedOutput).head.fields("id").convertTo[String]
+      val (st, raw) = rowsOf(fx.optedOutput, pid)
+      st shouldBe StatusCodes.OK
+      JsonSchemaValidation.validationErrors(payloadSchema, raw) shouldBe Vector.empty
+      val rowText = raw.substring(raw.indexOf("\"rows\":["), raw.indexOf("]", raw.indexOf("\"rows\":[")))
+      rowText.indexOf("\"label\"") should be < rowText.indexOf("\"amount\"")
+      raw.parseJson.asJsObject.fields("columns").convertTo[Vector[String]] shouldBe Vector("label", "amount")
     }
 
     "return 200 for a grantee of the pipeline, under a non-BYPASSRLS app pool" in {

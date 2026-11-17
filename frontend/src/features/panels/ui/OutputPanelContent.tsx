@@ -41,6 +41,7 @@ export function OutputPanelContent({
   headers,
   appearance,
   paginationRows,
+  columns,
   paginationIsLoadingMore,
   onLoadMore,
   rowsTruncated,
@@ -62,6 +63,8 @@ export function OutputPanelContent({
   headers?: string[] | null;
   appearance: PanelAppearance;
   paginationRows?: Record<string, unknown>[] | null;
+  /** HEL-1705 H: `paginationRows`' column order, passed to a table so its headers follow the Output's schema. */
+  columns?: string[];
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
   rowsTruncated?: boolean;
@@ -196,6 +199,7 @@ export function OutputPanelContent({
         rawRows={filteredRawRows}
         headers={headers}
         paginationRows={filteredPaginationRows}
+        columns={columns}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         rowsTruncated={rowsTruncated ?? false}

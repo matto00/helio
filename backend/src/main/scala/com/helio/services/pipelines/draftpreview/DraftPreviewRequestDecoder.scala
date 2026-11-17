@@ -17,7 +17,7 @@ object DraftPreviewRequestDecoder {
   private def bad(msg: String): ServiceError    = ServiceError.BadRequest(msg)
   private def tooLarge(msg: String): ServiceError = ServiceError.PayloadTooLarge(msg)
 
-  private val TopKeys    = Set("roots", "steps", "lanes", "sources", "rowsStepId")
+  private val TopKeys    = Set("roots", "steps", "lanes", "sources", "rowsStepId", "rowsStepIds")
   private val RootKeys   = Set("id", "rows", "listFrame")
   private val FrameKeys  = Set("rows", "listFrame")
   private val SourceKeys = Set("rows", "complete")
@@ -37,9 +37,22 @@ object DraftPreviewRequestDecoder {
       lanes   <- keyed(obj, "lanes", MaxLanes)(decodeFrame)
       sources <- keyed(obj, "sources", MaxSources)(decodeSource)
       rowsId  <- optString(obj, "rowsStepId", "body")
-      req      = DraftPreviewRequest(roots, steps, lanes, sources, rowsId)
+      extraIds <- rowsStepIds(obj)
+      req      = DraftPreviewRequest(roots, steps, lanes, sources, rowsId, extraIds)
       _       <- structure(req)
     } yield req
+
+  /** HEL-1705: `rowsStepIds`, at most [[MaxRowsStepIds]] distinct strings (whether each names a step is checked in `structure`). */
+  private def rowsStepIds(obj: JsObject): Result[Vector[String]] =
+    array(obj, "rowsStepIds", required = false).flatMap { items =>
+      if (items.size > MaxRowsStepIds) Left(bad(s"rowsStepIds may name at most $MaxRowsStepIds steps"))
+      else
+        items.foldLeft[Result[Vector[String]]](Right(Vector.empty)) {
+          case (Right(acc), JsString(s)) => Right(acc :+ s)
+          case (Right(_), _)             => Left(bad("rowsStepIds must hold strings"))
+          case (left, _)                 => left
+        }.flatMap(ids => if (ids.distinct.size != ids.size) Left(bad("rowsStepIds must not repeat a step")) else Right(ids))
+    }
 
   private def onlyKeys(obj: JsObject, allowed: Set[String], where: String): Result[Unit] =
     if (obj.fields.keysIterator.forall(allowed.contains)) Right(()) else Left(bad(s"$where has an unsupported field"))
@@ -196,6 +209,7 @@ object DraftPreviewRequestDecoder {
     else if (rootIds.distinct.size != rootIds.size) Left(bad("Root ids must be unique"))
     else if (req.lanes.keysIterator.exists(byId.contains)) Left(bad("A lane frame cannot share an id with a step in the request"))
     else if (req.rowsStepId.exists(!byId.contains(_))) Left(bad("rowsStepId must name a step in the request"))
+    else if (req.rowsStepIds.exists(!byId.contains(_))) Left(bad("rowsStepIds must name steps in the request"))
     else
       req.steps.zipWithIndex.collectFirst {
         case (s, i) if s.parentStepId.isEmpty && s.rootId.isEmpty =>

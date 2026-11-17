@@ -120,10 +120,48 @@ describe("mapStepView (design D3's table)", () => {
     const v = view(
       "a",
       w,
-      transport({ results: [["a", { kind: "ok", count: 1 }]], rows: { stepId: "a", rows } }),
+      transport({
+        results: [["a", { kind: "ok", count: 1 }]],
+        rows: new Map([["a", { rows, truncated: false }]]),
+      }),
     );
     expect(v).toMatchObject({ status: "ok", count: 1 });
     expect(v.rows).toBe(rows);
+  });
+
+  it("each server-resolved step reads its own rows line, so an unfocused step is not stale (HEL-1705 D)", () => {
+    const w = walk(
+      def("a", "convertformat", null, { field: "n", from: "csv", to: "json" }),
+      def("b", "limit", "a", limit(1)),
+    );
+    const aRows = frame({ n: 1 });
+    const bRows = frame({ n: 2 });
+    const t = transport({
+      results: [
+        ["a", { kind: "ok", count: 1 }],
+        ["b", { kind: "ok", count: 1 }],
+      ],
+      rows: new Map([
+        ["a", { rows: aRows, truncated: false }],
+        ["b", { rows: bRows, truncated: true }],
+      ]),
+    });
+    expect(view("a", w, t)).toMatchObject({ frameStale: false, truncated: false });
+    const b = view("b", w, t);
+    expect(b).toMatchObject({ status: "ok", frameStale: false, truncated: true });
+    expect(b.rows).toBe(bRows);
+  });
+
+  it("a step with no rows line of its own keeps its last good frame and is marked stale", () => {
+    const w = walk(
+      def("a", "convertformat", null, { field: "n", from: "csv", to: "json" }),
+      def("b", "limit", "a", limit(1)),
+    );
+    const t = transport({
+      results: [["b", { kind: "ok", count: 1 }]],
+      rows: new Map([["a", { rows: frame({ n: 1 }), truncated: false }]]),
+    });
+    expect(view("b", w, t, { count: 1, rows: ROOT })).toMatchObject({ frameStale: true });
   });
 
   it("a server error line is an error; an unavailable AI line is not previewed; a downstream-of-error line is stale", () => {

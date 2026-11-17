@@ -12,10 +12,12 @@ import { useSearchParams } from "react-router-dom";
 import { PageStatus } from "../../../../shared/ui/PageStatus";
 import type { StepDeepLink } from "../../hooks/useStepDeepLink";
 import { STEP_PARAM, useAddedStepId } from "../../hooks/useStepSelection";
+import { useDisplayedOutputNodeIds } from "../../hooks/useDisplayedOutputNodeIds";
 import { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
 import { useStepSaveSeam } from "../../hooks/useStepSaveSeam";
 import { resolveStepParam } from "../../state/resolveStepParam";
 import { createInFlightDedupe } from "../../state/inFlightDedupe";
+import type { OutputPick } from "../../state/liveOutput/resolveDisplayedOutput";
 import { stepRowCount, stepRowCountSource } from "../../state/stepRowCount";
 import { StepSaveContext } from "../../state/stepSaveContext";
 import { stepRenderKey } from "../../state/stepTree";
@@ -29,7 +31,7 @@ import { MobilePipelineActions } from "./MobilePipelineActions";
 import { MobilePipelineHeader } from "./MobilePipelineHeader";
 import { MobilePipelineTabs, tabId, tabPanelId } from "./MobilePipelineTabs";
 import type { MobileTab } from "./MobilePipelineTabs";
-import { MobilePreviewTab, defaultPreviewStepId } from "./MobilePreviewTab";
+import { MobilePreviewTab, resolvePreviewStepId } from "./MobilePreviewTab";
 import { MobileRunsTab } from "./MobileRunsTab";
 import { MobileStepSheet } from "./MobileStepSheet";
 import type { OpenStep } from "./MobileStepSheet";
@@ -126,11 +128,13 @@ export function PipelineMobileLayout({
     );
   }, [deepLinkConsumed, urlStep, openStepId, setSearchParams]);
 
-  const focusStepId =
-    tab === "preview"
-      ? (previewChosenId ?? defaultPreviewStepId(laneGraph, roots))
-      : (open?.step.id ?? null);
-  const presentation = usePipelineDraftPresentation(page, focusStepId);
+  // The Output the live column shows resolves against the Preview tab's step on every tab (never the open sheet's step), and its
+  // node id rides on the draft request whether or not the tab is visible (HEL-1705).
+  const previewStepId = resolvePreviewStepId(laneGraph, roots, previewChosenId);
+  const [outputPick, setOutputPick] = useState<OutputPick | null>(null);
+  const outputNodeStepIds = useDisplayedOutputNodeIds(page.allOutputs, outputPick, previewStepId);
+  const focusStepId = tab === "preview" ? previewStepId : (open?.step.id ?? null);
+  const presentation = usePipelineDraftPresentation(page, focusStepId, outputNodeStepIds);
 
   if (currentPipeline === null) return null;
 
@@ -228,6 +232,8 @@ export function PipelineMobileLayout({
                 presentation={presentation}
                 chosenId={previewChosenId}
                 onChoose={setPreviewChosenId}
+                outputPick={outputPick}
+                onPickOutput={setOutputPick}
               />
             ) : stepsLoading ? (
               <PipelineRiverSkeleton ariaLabel="Loading steps" />

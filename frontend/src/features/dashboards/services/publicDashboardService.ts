@@ -37,6 +37,8 @@ export interface PublicPanelRowsResult {
   limit: number;
   /** HEL-1326: see `FilteredMetric`. */
   metric?: FilteredMetric | null;
+  /** HEL-1705: the page's column order (see `FetchOutputRowsResult.columns`). */
+  columns?: string[];
 }
 
 /** HEL-1190 design.md D1/D6 — `GET /api/dashboards/:dashboardId/panels/:panelId/rows`, extended

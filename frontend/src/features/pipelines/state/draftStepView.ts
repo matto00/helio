@@ -20,6 +20,9 @@ export interface DraftStepView {
   /** The count/rows are the last good ones, not the current draft's. */
   frameStale: boolean;
   message: string | null;
+  /** The server's `rows` line for this step was cut at its 1,000-row cap (HEL-1705): the frame is a sample of the step's output.
+   *  Absent for a client frame, whose truncation is the root sample's (`sampleTruncated`). */
+  truncated?: boolean;
 }
 
 export type ServerStepResult =
@@ -32,22 +35,30 @@ export interface TransportView {
   /** A request for the current draft is queued, in flight or waiting out a 429. */
   pending: boolean;
   results: ReadonlyMap<string, ServerStepResult>;
-  /** The `rows` line, decoded, for the step the request asked rows of. */
-  rows: { stepId: string; rows: Frame } | null;
+  /** The `rows` lines, decoded, by step id: the step the request asked rows of, then each further `rowsStepIds` id (HEL-1705).
+   *  `truncated` is the line's own flag (more than the 1,000 rows shown existed). */
+  rows: ReadonlyMap<string, TransportRows>;
   /** The request ended without an answer for the step: a failure, or the request was over a cap. */
   failure: { kind: "failed" | "tooLarge"; message: string } | null;
+}
+
+export interface TransportRows {
+  rows: Frame;
+  truncated: boolean;
 }
 
 export const NO_TRANSPORT: TransportView = {
   pending: false,
   results: new Map(),
-  rows: null,
+  rows: new Map(),
   failure: null,
 };
 
 export interface GoodFrame {
   count: number;
   rows: Frame | null;
+  /** The frame was a server `rows` line cut at its cap (HEL-1705). */
+  truncated?: boolean;
 }
 
 const UNAVAILABLE_COPY: Record<DraftPreviewUnavailableReason, string> = {
@@ -76,6 +87,7 @@ const stale = (good: GoodFrame | undefined) => ({
   count: good?.count ?? null,
   rows: good?.rows ?? null,
   frameStale: good !== undefined,
+  truncated: good?.truncated === true,
 });
 
 export function mapStepView(input: ViewInput): DraftStepView {
@@ -121,13 +133,14 @@ function mapServerResolved(
 ): DraftStepView {
   const result = transport.results.get(stepId);
   if (result?.kind === "ok") {
-    const rows = transport.rows?.stepId === stepId ? transport.rows.rows : null;
+    const rows = transport.rows.get(stepId)?.rows ?? null;
     return {
       status: "ok",
       count: result.count,
       rows: rows ?? lastGood?.rows ?? null,
       frameStale: rows === null && lastGood?.rows != null,
       message: null,
+      truncated: transport.rows.get(stepId)?.truncated ?? false,
     };
   }
   if (result?.kind === "error") {
@@ -188,7 +201,11 @@ export function createViewTracker(): ViewTracker {
         });
         views.set(id, view);
         if (view.status === "ok" && view.count !== null && !view.frameStale) {
-          good.set(id, { count: view.count, rows: view.rows ?? good.get(id)?.rows ?? null });
+          good.set(id, {
+            count: view.count,
+            rows: view.rows ?? good.get(id)?.rows ?? null,
+            truncated: view.truncated,
+          });
         }
       }
       return views;

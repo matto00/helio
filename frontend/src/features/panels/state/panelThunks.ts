@@ -27,6 +27,8 @@ import {
 import { isAxiosError } from "axios";
 
 import { currentGeneration } from "./outputFreshness";
+import { getOutputMetaCached } from "./outputMetaCache";
+
 import { serverNowMs } from "../../dashboards/tabs/serverClock";
 
 import {
@@ -334,6 +336,10 @@ export const fetchPanelPage = createAsyncThunk<
     materialized: boolean;
     total: number;
     metric?: FilteredMetric | null;
+    /** HEL-1705 H: the page's column order, and the Output's declared schema names (from its cached meta) the reducer merges
+     *  pages with. */
+    columns?: string[];
+    schemaNames?: string[];
     /** HEL-1392 — `outputFreshness` generation at the moment this request started. */
     generation?: number;
   },
@@ -384,6 +390,8 @@ export const fetchPanelPage = createAsyncThunk<
         materialized: result.materialized,
         total: result.total,
         metric: result.metric,
+        columns: result.columns,
+        schemaNames: getOutputMetaCached(outputId)?.schema.map((f) => f.name),
         generation,
       };
     } catch (err: unknown) {

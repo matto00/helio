@@ -9,7 +9,7 @@ import { getOutputRows } from "../services/outputService";
  */
 export type SavedRowsState =
   | { status: "loading" }
-  | { status: "ready"; rows: Record<string, unknown>[] }
+  | { status: "ready"; rows: Record<string, unknown>[]; columns?: string[]; truncated: boolean }
   | { status: "error" };
 
 // The rows route clamps `limit` to its page maximum (500), so one read is the first page, as a panel loads.
@@ -41,7 +41,13 @@ function load(outputId: string): void {
   Promise.resolve(getOutputRows(outputId, 0, SAVED_ROW_LIMIT)).then(
     (result) => {
       if (cache.get(outputId)?.status !== "loading") return;
-      cache.set(outputId, { status: "ready", rows: result?.items ?? [] });
+      const items = result?.items ?? [];
+      cache.set(outputId, {
+        status: "ready",
+        rows: items,
+        columns: result?.columns,
+        truncated: (result?.total ?? 0) > items.length,
+      });
       notify();
     },
     () => {

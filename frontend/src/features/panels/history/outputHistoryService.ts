@@ -89,10 +89,12 @@ export async function fetchOutputHistory(
 export async function fetchHistoryPointRows(
   outputId: string,
   pointId: string,
-): Promise<{ rows: Record<string, unknown>[]; rowCount: number }> {
-  const response = await httpClient.get<{ rows: Record<string, unknown>[]; rowCount: number }>(
-    `/api/outputs/${outputId}/history/${pointId}/rows`,
-  );
+): Promise<{ rows: Record<string, unknown>[]; rowCount: number; columns?: string[] }> {
+  const response = await httpClient.get<{
+    rows: Record<string, unknown>[];
+    rowCount: number;
+    columns?: string[];
+  }>(`/api/outputs/${outputId}/history/${pointId}/rows`);
   return response.data;
 }
 

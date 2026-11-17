@@ -259,6 +259,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         noData={effectiveNoData}
         neverMaterialized={neverMaterialized}
         paginationRows={paginationEntry?.rows ?? null}
+        columns={paginationEntry?.columns}
         paginationIsLoadingMore={paginationEntry?.isLoadingMore ?? false}
         onLoadMore={handleLoadMore}
         // HEL-451 design D4/task 4.0: `rowsTruncated` (from `usePanelData`) is
