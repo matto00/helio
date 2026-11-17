@@ -56,6 +56,15 @@ updates:
         versions: [">=10"]
       - dependency-name: "js-yaml"
         versions: [">=5"]
+      # HEL-1728: react-grid-layout 2.3.0 regressed drag/resize: the item lags
+      # until the pointer crosses half a grid step, then jumps (GridItem memo
+      # #2240 plus the stable onDragStop from eb35b82c). Upstream:
+      # https://github.com/react-grid-layout/react-grid-layout/issues/2303,
+      # fixed by PR #2304 (commit 1468c0f), unreleased as of 2026-11-17.
+      # Remove this rule once a release contains 1468c0f and
+      # hel1573-motion-grid-chart.spec.ts:275 passes 20/20 on it.
+      - dependency-name: "react-grid-layout"
+        versions: [">=2.3.0"]
     groups:
       # Co-versioned families: each shares a compile-time or runtime contract,
       # so a member raised alone is typechecked against its siblings' old

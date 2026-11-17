@@ -1,0 +1,70 @@
+##### root control
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/typescript-estree>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-environment-node>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|picomatch>*, GHSA-fc5q-39xc-vjpf|tinyglobby>*.
+Passed npm security audit.
+exit 0
+##### root prod-micromatch
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/typescript-estree>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-environment-node>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|picomatch>*, GHSA-fc5q-39xc-vjpf|tinyglobby>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|prod-lib>micromatch>picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
+##### root prod-tinyglobby
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/typescript-estree>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-environment-node>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|picomatch>*, GHSA-fc5q-39xc-vjpf|tinyglobby>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|prod-lib2>tinyglobby>picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
+##### root direct
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/type-utils>*, GHSA-fc5q-39xc-vjpf|@typescript-eslint/typescript-estree>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-environment-node>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|picomatch>*, GHSA-fc5q-39xc-vjpf|tinyglobby>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
+##### fe control
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*, GHSA-fc5q-39xc-vjpf|@rollup/plugin-babel>*, GHSA-fc5q-39xc-vjpf|@rollup/pluginutils>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|workbox-build>*.
+Passed npm security audit.
+exit 0
+##### fe prod-micromatch
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*, GHSA-fc5q-39xc-vjpf|@rollup/plugin-babel>*, GHSA-fc5q-39xc-vjpf|@rollup/pluginutils>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|workbox-build>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|prod-lib>micromatch>picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
+##### fe prod-tinyglobby
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*, GHSA-fc5q-39xc-vjpf|@rollup/plugin-babel>*, GHSA-fc5q-39xc-vjpf|@rollup/pluginutils>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|workbox-build>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|prod-lib2>tinyglobby>picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
+##### fe direct
+NPM audit report results:
+Consider not allowlisting paths: GHSA-fc5q-39xc-vjpf|@jest/console>*, GHSA-fc5q-39xc-vjpf|@jest/core>*, GHSA-fc5q-39xc-vjpf|@jest/environment>*, GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*, GHSA-fc5q-39xc-vjpf|@rollup/plugin-babel>*, GHSA-fc5q-39xc-vjpf|@rollup/pluginutils>*, GHSA-fc5q-39xc-vjpf|anymatch>*, GHSA-fc5q-39xc-vjpf|babel-jest>*, GHSA-fc5q-39xc-vjpf|expect>*, GHSA-fc5q-39xc-vjpf|jest-haste-map>*, GHSA-fc5q-39xc-vjpf|workbox-build>*.
+Found vulnerable advisory paths:
+GHSA-fc5q-39xc-vjpf|picomatch
+Failed security audit due to high vulnerabilities.
+Vulnerable advisories are:
+https://github.com/advisories/GHSA-fc5q-39xc-vjpf
+Exiting...
+exit 1
