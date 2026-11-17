@@ -28,12 +28,14 @@ final case class DraftPreviewStepDef(
     config: JsValue
 )
 
+/** `rowsStepIds` (HEL-1705): further steps to return a `rows` line for, after the primary, in list order. */
 final case class DraftPreviewRequest(
     roots: Vector[DraftPreviewRoot],
     steps: Vector[DraftPreviewStepDef],
     lanes: Map[String, DraftPreviewFrame],
     sources: Map[String, DraftPreviewSource],
-    rowsStepId: Option[String]
+    rowsStepId: Option[String],
+    rowsStepIds: Vector[String] = Vector.empty
 )
 
 /** One NDJSON line of the response. `toJson` is the committed wire shape; the field names are the contract. */

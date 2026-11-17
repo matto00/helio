@@ -19,7 +19,8 @@ import { paginationHydrated } from "../../../panels/state/panelsSlice";
 import type { DashboardChange } from "../tabTypes";
 import { clearWarmState, getListEntry, getOwnWriteAt, setWarmStoreForTests } from "./warmCache";
 import { applyWarmEntry } from "./warmRestore";
-import { MemoryWarmStore } from "./warmStore";
+import { buildWarmEntry } from "./warmCapture";
+import { MemoryWarmStore, sanitizeEntry, WARM_WINDOW_KEYS } from "./warmStore";
 
 jest.mock("../../../panels/services/panelService", () => ({ fetchPanels: jest.fn() }));
 jest.mock("../dashboardChangesService", () => ({ fetchDashboardChanges: jest.fn() }));
@@ -85,6 +86,24 @@ describe("applyWarmEntry (HEL-1575 D5 restore on reload)", () => {
     // A pipeline run observed after the restore invalidates the window.
     invalidatePipeline("pipe-1");
     expect(isReusable(window, query)).toBe(false);
+  });
+
+  // HEL-1705 H: the window's column order survives the browser copy, so a restored table keeps the Output's order.
+  it("keeps a window's columns through the store's allow-list, capture and restore", () => {
+    const columns = ["zeta", "10", "alpha"];
+    const entry = fixtures();
+    entry.rows.p1 = { ...storedWindow("o1", 6_000, 0), columns };
+    expect(sanitizeEntry(entry).rows.p1.columns).toEqual(columns);
+    expect(WARM_WINDOW_KEYS).toContain("columns");
+
+    const { dispatch, getState } = makeTabsStore({});
+    applyWarmEntry({ dispatch, entry, signal: signal(), tabOwnWriteAt: null });
+    expect(getState().panels.paginationState.p1.columns).toEqual(columns);
+    // A copy stored before columns existed restores without any, and renders as before.
+    expect(getState().panels.paginationState.p2.columns).toBeUndefined();
+
+    const captured = buildWarmEntry(getState(), "user-1", "d1", entry.panels, 5_000);
+    expect(captured.rows.p1.columns).toEqual(columns);
   });
 
   it("restamps the generation with the page's own counters, not the stored ones", () => {

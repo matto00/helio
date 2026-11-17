@@ -30,7 +30,10 @@ const naturalKeyCollator = new Intl.Collator(undefined, { numeric: true, sensiti
 /** Union of keys across the first 50 rows, in natural-sorted order — matches
  *  `DataGrid.deriveColumns` so the natural (unordered) column set is identical
  *  whether or not `columnOrder` is applied. */
-export function deriveKeys(rows: Record<string, unknown>[]): string[] {
+export function deriveKeys(rows: Record<string, unknown>[], columns?: readonly string[]): string[] {
+  // HEL-1705 H: the rows response's own column order (the Output's schema, then other keys by code point) wins; without it
+  // (an older server or warm copy) the natural sort below keeps its HEL-127 behaviour.
+  if (columns !== undefined && columns.length > 0) return [...columns];
   const seen = new Set<string>();
   for (const row of rows.slice(0, 50)) {
     for (const key of Object.keys(row)) seen.add(key);

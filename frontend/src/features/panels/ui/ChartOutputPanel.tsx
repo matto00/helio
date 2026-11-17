@@ -4,7 +4,6 @@ import type { PanelAppearance } from "../types/panel";
 import type { OutputSchemaField } from "../../pipelines/types/output";
 import { readChartConfig } from "../../pipelines/ui/outputEditor/outputConfigTypes";
 import type { ChartClickSelection } from "../../../utils/chartClickSelection";
-import { selectChartOverlay } from "../history/chartOverlay";
 import { configCompare } from "../history/metricHistoryView";
 import { useOutputHistory, type HistorySource } from "../history/useOutputHistory";
 import { toChartFieldTypes } from "../../../utils/chartTimeAxis";
@@ -12,6 +11,7 @@ import { sanitizeReferenceMarks } from "../../../utils/referenceMarks";
 import {
   buildChartAggregate,
   chartGroupingSpec,
+  chartPlotOverlay,
   resolveChartAppearance,
 } from "./outputRenderInputs";
 import { resolvePanelChartType } from "./resolvePanelChartType";
@@ -109,13 +109,25 @@ export function ChartOutputPanel({
   );
   // An aggregated Output only overlays its grouped baseline over the grouped plot; with no record
   // rows to group from, the panel falls back to raw rows and must not draw the grouped overlay.
-  const groupedPlot = aggregationSpec === null || chartAggregate !== null;
   const overlay = useMemo(
     () =>
-      groupedPlot
-        ? selectChartOverlay(history, config, { filterActive, rowsTruncated, rawRows, headers })
-        : null,
-    [groupedPlot, history, config, filterActive, rowsTruncated, rawRows, headers],
+      chartPlotOverlay({
+        history,
+        config,
+        aggregationSpec,
+        chartAggregate,
+        ctx: { filterActive, rowsTruncated, rawRows, headers },
+      }),
+    [
+      history,
+      config,
+      aggregationSpec,
+      chartAggregate,
+      filterActive,
+      rowsTruncated,
+      rawRows,
+      headers,
+    ],
   );
   return (
     <ChartRenderer

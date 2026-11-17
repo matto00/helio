@@ -33,7 +33,7 @@ final case class OutputHistoryResolution(
 )
 
 /** HEL-1276: a stored payload with the history point it was read through. */
-final case class OutputHistoryPayload(point: OutputHistoryPoint, rowCount: Int, rows: JsArray)
+final case class OutputHistoryPayload(point: OutputHistoryPoint, rowCount: Int, rows: JsArray, columns: Vector[String] = Vector.empty)
 
 /** HEL-1273: the one comparison-resolution routine behind both history routes (owner ruling D6).
  *  Reuses L1's `OutputHistoryRepository` reads as-is (no new SQL). Statement budget, independent of
@@ -63,7 +63,7 @@ final class OutputHistoryService(
   def payloadRows(id: OutputId, pointId: UUID, user: AuthenticatedUser): Future[Either[ServiceError, OutputHistoryPayload]] =
     outputRepo.findById(id, user).flatMap {
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-      case Some(_) =>
+      case Some(output) =>
         historyRepo.findPoint(id.value, pointId).flatMap {
           case None => Future.successful(Left(ServiceError.NotFound("History point not found")))
           case Some(point) =>
@@ -72,7 +72,11 @@ final class OutputHistoryService(
               case Some(pid) =>
                 payloadRepo.findById(pid).map {
                   case None          => Left(ServiceError.NotFound("History point has no stored payload"))
-                  case Some(payload) => Right(OutputHistoryPayload(point, payload.rowCount, payload.rows))
+                  case Some(payload) =>
+                    // HEL-1705 H: the stored payload is JSONB, so its keys parse alphabetical; order them like every rows read.
+                    val parsed = payload.rows.elements.collect { case o: JsObject => o }
+                    val (ordered, columns) = RowColumnOrder.order(output.schema.map(_.name), parsed)
+                    Right(OutputHistoryPayload(point, payload.rowCount, JsArray(ordered), columns))
                 }
             }
         }

@@ -1,0 +1,92 @@
+- `CLAUDE.md` — endpoint docs: rowsStepIds, columns, heap shape count
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/DraftPreviewProtocol.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputHistoryProtocol.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputProtocol.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/api/routes/dashboards/PublicPanelRowsResolver.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/OutputHistoryService.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/OutputRowReads.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/RowColumnOrder.scala` — the one schema-order rule (VectorMap-backed rows, columns list)
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewConfig.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewLimits.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewPlanner.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewRequestDecoder.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/main/scala/com/helio/services/pipelines/draftpreview/DraftPreviewService.scala` — HEL-1705 backend: schema-ordered rows reads, columns, draft-preview rowsStepIds
+- `backend/src/test/scala/com/helio/api/routes/dashboards/PublicDashboardRoutesSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewHeapSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/DraftPreviewStreamSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputFilteredMetricRoutesSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputHistoryPayloadRoutesSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputRoutesSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/services/pipelines/DeltaAndPctFixtureSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `backend/src/test/scala/com/helio/services/pipelines/RowColumnOrderSpec.scala` — tests for HEL-1705 (wire order, rowsStepIds, heap, fixture)
+- `frontend/src/features/dashboards/services/publicDashboardService.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/dashboards/tabs/warm/warmCapture.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/dashboards/tabs/warm/warmRestore.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/dashboards/tabs/warm/warmRestore.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/dashboards/tabs/warm/warmStore.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/dashboards/ui/PublicDashboardViewerPage.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/history/deltaAndPct.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/panels/history/deltaAndPct.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/history/metricHistoryView.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/history/outputHistoryService.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/hooks/usePanelCardInspect.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/hooks/usePanelData.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/hooks/usePublicPanelData.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/state/columnOrder.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/panels/state/columnOrder.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/state/panelThunks.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/state/panelsSlice.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/types/panel.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/ChartOutputPanel.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/OutputPanelContent.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/PanelCard.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/PanelCardBody.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/PanelContent.columnOrder.test.tsx` — tests for HEL-1705 (frontend)
+- `frontend/src/features/panels/ui/PanelContent.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/PanelFullscreenOverlay.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/detailModal/PanelDetailModal.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/detailModal/usePanelDetailData.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/inspectColumnOrder.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/panels/ui/inspectColumnOrder.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/outputRenderInputs.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/panels/ui/outputRenderInputs.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/renderers/TableRenderer.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/renderers/tableRendererModel.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/renderers/tableRendererProps.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/panels/ui/renderers/useTableRows.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/hooks/useDisplayedOutputNodeIds.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/hooks/useDisplayedOutputNodeIds.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/hooks/useDraftPreviewTransport.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/hooks/usePipelineDraftFrames.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/hooks/usePipelineDraftFrames.unfocusedOutput.test.tsx` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/hooks/usePipelineDraftPresentation.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/hooks/useSavedOutputRows.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/services/draftPreviewClient.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/services/outputService.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/state/draftPreviewRequest.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/state/draftPreviewRequest.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/state/draftStepView.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/state/draftStepView.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/state/liveOutput/frameRecords.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/state/liveOutput/frameRecords.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/state/liveOutput/liveOutputSource.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/state/liveOutput/liveOutputSource.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/types/draftPreview.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputBody.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.parity.test.tsx` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.test.tsx` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputColumn.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/liveOutput/LiveOutputRender.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/mobile/MobilePreviewTab.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/mobile/PipelineMobileLayout.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/mobile/resolvePreviewStepId.test.ts` — tests for HEL-1705 (frontend)
+- `frontend/src/features/pipelines/ui/outputHistory/HistoryRows.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/outputHistory/useOutputHistoryView.ts` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `frontend/src/features/pipelines/ui/spine/PipelineSpineLayout.tsx` — HEL-1705 frontend: rows ordering by columns, unfocused Output refresh, compare overlay, LATEST tile
+- `schemas/dashboards/public-panel-rows-response.schema.json` — JSON schema for the new columns / rowsStepIds fields
+- `schemas/outputs/output-history-payload-response.schema.json` — JSON schema for the new columns / rowsStepIds fields
+- `schemas/outputs/output-rows-response.schema.json` — JSON schema for the new columns / rowsStepIds fields
+- `schemas/pipelines/draft-preview-line.schema.json` — JSON schema for the new columns / rowsStepIds fields
+- `schemas/pipelines/draft-preview-request.schema.json` — JSON schema for the new columns / rowsStepIds fields
+- `shared-test-fixtures/delta-and-pct.json` — shared deltaAndPct fixture (Scala + jest)
+- `e2e/hel1705-live-output-refresh.spec.ts` — running-app e2e for unfocused refresh, overlay, LATEST tile and column order (committed in bcf8691db)

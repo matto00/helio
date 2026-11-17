@@ -8,6 +8,9 @@ import { encodeRow } from "../evaluator/wire";
 import type { DraftPreviewRequest, DraftPreviewStep, WireRow } from "../types/draftPreview";
 import { serverResolvedStepIds } from "./draftEvaluation";
 
+/** The endpoint refuses a longer `rowsStepIds` (HEL-1705). */
+const MAX_ROWS_STEP_IDS = 8;
+
 const frameIds = new WeakMap<object, number>();
 let nextFrameId = 1;
 /** A small stable id per frame object: a request key changes when an INPUT frame changes, not only a step config. */
@@ -64,8 +67,11 @@ export function buildDraftPreviewRequest(args: {
   sources: SourceFrames;
   /** The step the user is looking at: its rows come back when the server resolves it. */
   focusStepId: string | null;
+  /** HEL-1705: the displayed Output's node, when it is not the focused step. Its rows come back on the same request (one more
+   *  `rows` line, never another request) when the server resolves it. */
+  outputNodeStepIds?: readonly string[];
 }): BuiltDraftPreview | null {
-  const { defs, walk, rootFrames, sources, focusStepId } = args;
+  const { defs, walk, rootFrames, sources, focusStepId, outputNodeStepIds = [] } = args;
   const serverIds = serverResolvedStepIds(walk);
   if (serverIds.size === 0) return null;
 
@@ -118,6 +124,11 @@ export function buildDraftPreviewRequest(args: {
   const rowsStepId =
     focusStepId !== null && serverIds.has(focusStepId) ? focusStepId : (steps[0]?.id ?? null);
 
+  // The server's own cap, and the request's "no duplicate" rule: server-resolved ids only, the primary left to `rowsStepId`.
+  const rowsStepIds = [...new Set(outputNodeStepIds)]
+    .filter((id) => serverIds.has(id) && id !== rowsStepId)
+    .slice(0, MAX_ROWS_STEP_IDS);
+
   const request: DraftPreviewRequest = {
     roots: [...roots.values()].map((r) => ({ id: r.id, rows: encodeFrame(r.frame) })),
     steps: wireSteps,
@@ -139,6 +150,7 @@ export function buildDraftPreviewRequest(args: {
         }
       : {}),
     rowsStepId,
+    ...(rowsStepIds.length > 0 ? { rowsStepIds } : {}),
   };
 
   const key = JSON.stringify({
@@ -147,6 +159,7 @@ export function buildDraftPreviewRequest(args: {
     lanes: Object.entries(lanes).map(([id, f]) => [id, frameIdOf(f)]),
     sources: Object.entries(sourceFrames).map(([id, s]) => [id, frameIdOf(s.rows), s.complete]),
     rowsStepId,
+    rowsStepIds,
   });
   return { request, key, stepIds: new Set(steps.map((s) => s.id)) };
 }

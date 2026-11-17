@@ -120,6 +120,7 @@ function PublicOutputPanelBody({
         error={panelData.error}
         noData={panelData.noData}
         paginationRows={panelData.paginationRows}
+        columns={panelData.columns}
         totalRowCount={panelData.total}
         rowsTruncated={panelData.rowsTruncated}
         filteredMetric={panelData.filteredMetric}

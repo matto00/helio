@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/draft-preview-line.schema.json",
   "title": "DraftPreviewLine",
-  "description": "One NDJSON line of the POST /api/pipelines/:id/draft-preview response (HEL-1630), discriminated by `type`. Order: every `unavailable` line decided before evaluation, then a `step` or `error` line per evaluated enabled step in evaluation order (each `error` immediately followed by `downstreamOfError` `unavailable` lines for the subtree it pruned), then exactly one `rows` line. A `failed` line replaces `rows` only on an internal failure after the 200 was committed. `rows.count` is the full size of the step's frame; `rows.rows` holds at most 1,000 (`truncated` is true when more existed); `available: false` carries no rows. Row cells use the same lossless encoding as the request.",
+  "description": "One NDJSON line of the POST /api/pipelines/:id/draft-preview response (HEL-1630), discriminated by `type`. Order: every `unavailable` line decided before evaluation, then a `step` or `error` line per evaluated enabled step in evaluation order (each `error` immediately followed by `downstreamOfError` `unavailable` lines for the subtree it pruned), then one `rows` line for the requested step followed by one per further id in the request's `rowsStepIds` (exactly one when it has none). A `failed` line replaces `rows` only on an internal failure after the 200 was committed. `rows.count` is the full size of the step's frame; `rows.rows` holds at most 1,000 (`truncated` is true when more existed); `available: false` carries no rows. Row cells use the same lossless encoding as the request.",
   "oneOf": [
     {
       "type": "object",

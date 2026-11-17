@@ -7,8 +7,8 @@ const SCHEMA = [
 ];
 
 describe("orderLiveColumns", () => {
-  it("is the schema's order for columns the frame has, then extras in frame order", () => {
-    expect(orderLiveColumns(["amount", "extra", "date", "other"], SCHEMA)).toEqual([
+  it("is the schema's order for columns the frame has, then extras in code-point order", () => {
+    expect(orderLiveColumns(["other", "amount", "extra", "date"], SCHEMA)).toEqual([
       "date",
       "amount",
       "extra",
@@ -16,9 +16,20 @@ describe("orderLiveColumns", () => {
     ]);
   });
 
-  it("drops a schema field the frame lacks and keeps frame order without a schema", () => {
-    expect(orderLiveColumns(["b", "a"], [{ name: "z", type: "string" }])).toEqual(["b", "a"]);
-    expect(orderLiveColumns(["b", "a"], null)).toEqual(["b", "a"]);
+  it("drops a schema field the frame lacks and sorts everything by code point without a schema", () => {
+    expect(orderLiveColumns(["b", "a"], [{ name: "z", type: "string" }])).toEqual(["a", "b"]);
+    expect(orderLiveColumns(["b", "a"], null)).toEqual(["a", "b"]);
+    expect(orderLiveColumns(["a", "B", "10", "2"], null)).toEqual(["10", "2", "B", "a"]);
+  });
+
+  it("keeps an integer-like schema name where the schema puts it (HEL-1705)", () => {
+    const schema = ["zeta", "10", "alpha"].map((name) => ({ name, type: "string" }));
+    expect(orderLiveColumns(["alpha", "10", "extra", "zeta"], schema)).toEqual([
+      "zeta",
+      "10",
+      "alpha",
+      "extra",
+    ]);
   });
 });
 
@@ -28,7 +39,7 @@ describe("frameToRecords", () => {
       { amount: int(5), date: "2026-01-01", ratio: 0.5, big: long(7), flag: true, none: null },
     ];
     const [record] = frameToRecords(frame, SCHEMA);
-    expect(Object.keys(record)).toEqual(["date", "amount", "ratio", "big", "flag", "none"]);
+    expect(Object.keys(record)).toEqual(["date", "amount", "big", "flag", "none", "ratio"]);
     expect(record).toMatchObject({ amount: 5, big: 7, ratio: 0.5, flag: true, none: null });
   });
 

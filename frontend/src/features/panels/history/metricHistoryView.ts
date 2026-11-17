@@ -1,3 +1,4 @@
+import { deltaAndPct } from "./deltaAndPct";
 import type { HistoryPoint, OutputHistory } from "./outputHistoryService";
 
 /** The metric field/aggregation the server's `OutputSummaryReducer.metric` would resolve for a
@@ -97,6 +98,46 @@ function compareWords(compare: string): string {
   return `versus ${n} ${unit}${n === 1 ? "" : "s"} earlier`;
 }
 
+/** The delta / available-from comparison for a history that passed the identity and compare-window guards, given the
+ *  difference to show. The server's `delta`/`pct` (latest point against its baseline) for a saved panel, or one measured from a
+ *  draft's value (`selectDraftMetricComparison`); everything else is shared, so the two cannot drift. */
+function comparisonFrom(
+  history: OutputHistory,
+  resolved: ServerMetricField,
+  compare: string,
+  delta: number | null,
+  pct: number | null,
+): MetricComparison | null {
+  const { baseline, availableFrom } = history;
+  // HEL-1326 design D4 — the baseline's own stored identity decides, wherever it lies (a window
+  // baseline can be older than every returned point); a response without it falls back to the
+  // returned point with the same capture time, as before.
+  const baselineInPoints = baseline
+    ? history.points.find((p) => p.capturedAt === baseline.capturedAt)
+    : undefined;
+  const baselineStale =
+    baseline && baseline.metric !== undefined
+      ? !identityMatches(baseline.metric, resolved)
+      : baselineInPoints !== undefined && !pointMatches(baselineInPoints, resolved);
+  if (baseline && delta !== null && baseline.value !== null) {
+    if (baselineStale) return null;
+    return {
+      kind: "delta",
+      direction: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
+      pct: pct === null ? null : Math.abs(pct),
+      absDelta: Math.abs(delta),
+      label: compareLabel(compare),
+      words: compareWords(compare),
+      baselineAt: baseline.capturedAt,
+      baselineValue: baseline.value,
+    };
+  }
+  if (!baseline && availableFrom !== null) {
+    return { kind: "availableFrom", label: compareLabel(compare), availableFrom };
+  }
+  return null;
+}
+
 /** HEL-1275 design.md D2/D3 — everything a metric panel needs from its history response, with the
  *  metric-identity guard (a point only counts when its stored field/agg equals what the CURRENT
  *  config resolves to) and the filtered-state rule (headline stays the loaded rows; delta, note and
@@ -129,36 +170,10 @@ export function selectMetricHistoryView(
     .map((s) => s.value as number);
   const sparkline = values.length >= 2 ? values : null;
 
-  let comparison: MetricComparison | null = null;
-  const { compare, baseline, delta, pct, availableFrom } = history;
-  if (compare !== null) {
-    // HEL-1326 design D4 — the baseline's own stored identity decides, wherever it lies (a window
-    // baseline can be older than every returned point); a response without it falls back to the
-    // returned point with the same capture time, as before.
-    const baselineInPoints = baseline
-      ? history.points.find((p) => p.capturedAt === baseline.capturedAt)
-      : undefined;
-    const baselineStale =
-      baseline && baseline.metric !== undefined
-        ? !identityMatches(baseline.metric, resolved)
-        : baselineInPoints !== undefined && !pointMatches(baselineInPoints, resolved);
-    if (baseline && delta !== null && baseline.value !== null) {
-      if (!baselineStale) {
-        comparison = {
-          kind: "delta",
-          direction: delta > 0 ? "up" : delta < 0 ? "down" : "flat",
-          pct: pct === null ? null : Math.abs(pct),
-          absDelta: Math.abs(delta),
-          label: compareLabel(compare),
-          words: compareWords(compare),
-          baselineAt: baseline.capturedAt,
-          baselineValue: baseline.value,
-        };
-      }
-    } else if (!baseline && availableFrom !== null) {
-      comparison = { kind: "availableFrom", label: compareLabel(compare), availableFrom };
-    }
-  }
+  const comparison =
+    history.compare === null
+      ? null
+      : comparisonFrom(history, resolved, history.compare, history.delta, history.pct);
 
   if (filterActive) {
     return {
@@ -168,4 +183,22 @@ export function selectMetricHistoryView(
     };
   }
   return { headline: history.current.value, sparkline, comparison };
+}
+
+/** HEL-1705 D4 -- the comparison the pipeline page's live Output shows for a metric Output: the draft rows' value measured
+ *  against the history baseline, with the same guards a saved metric panel applies (the stored metric is the one the config
+ *  resolves to, the cached comparison window is the config's). Unlike a saved panel it does not need the latest history value:
+ *  a null latest value with a valid baseline still compares the draft value. No sparkline, no filtered state. `draftValue` is
+ *  `null` when the rows give no number. */
+export function selectDraftMetricComparison(
+  history: OutputHistory | null,
+  config: Record<string, unknown>,
+  draftValue: number | null,
+): MetricComparison | null {
+  const compare = configCompare(config);
+  if (!history || compare === null || (history.compare ?? null) !== compare) return null;
+  const resolved = resolveServerMetricField(config);
+  if (!resolved || !pointMatches(history.points[0], resolved)) return null;
+  const { delta, pct } = deltaAndPct(draftValue, history.baseline?.value ?? null);
+  return comparisonFrom(history, resolved, compare, delta, pct);
 }

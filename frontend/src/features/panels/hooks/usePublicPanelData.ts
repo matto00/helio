@@ -18,6 +18,8 @@ export interface PublicPanelDataResult {
   rawRows: string[][] | null;
   headers: string[] | null;
   paginationRows: Record<string, unknown>[] | null;
+  /** HEL-1705 H — the page's column order; absent when the server sent none. */
+  columns?: string[];
   isLoading: boolean;
   error: string | null;
   noData: boolean;
@@ -62,6 +64,7 @@ export function usePublicPanelData(
   const [output, setOutput] = useState<PublicOutputMeta | null>(null);
   const [outputMetaLoading, setOutputMetaLoading] = useState(outputId !== null);
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
+  const [columns, setColumns] = useState<string[] | undefined>(undefined);
   const [total, setTotal] = useState(0);
   const [filteredMetric, setFilteredMetric] = useState<FilteredMetric | null | undefined>(
     undefined,
@@ -114,6 +117,7 @@ export function usePublicPanelData(
         // `panelsSlice.ts`'s `latestFetchRequestId`) must never overwrite a newer request's result.
         if (requestSeqRef.current !== mySeq) return;
         setRows(result.items);
+        setColumns(result.columns);
         setTotal(result.total);
         setFilteredMetric(result.metric);
         setError(null);
@@ -130,7 +134,7 @@ export function usePublicPanelData(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputId, dashboardId, panelId, token, sortKey, filterKey]);
 
-  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows), [rows]);
+  const { headers, rawRows } = useMemo(() => recordsToPanelRows(rows, columns), [rows, columns]);
 
   const noData = rows !== null && rows.length === 0 && !error;
 
@@ -138,6 +142,7 @@ export function usePublicPanelData(
     rawRows,
     headers,
     paginationRows: rows,
+    columns,
     isLoading,
     error,
     noData,

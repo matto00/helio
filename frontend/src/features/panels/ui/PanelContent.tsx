@@ -58,6 +58,8 @@ export interface PanelContentProps {
   appearance?: PanelAppearance;
   /** Rows from the paginated execute endpoint for table panels. */
   paginationRows?: Record<string, unknown>[] | null;
+  /** HEL-1705 H: `paginationRows`' column order (the rows response's `columns`). */
+  columns?: string[];
   paginationIsLoadingMore?: boolean;
   onLoadMore?: () => void;
   /** HEL-451 design D4: branch-independent truncation signal from
@@ -149,6 +151,7 @@ function PanelContentBody({
   onGoToPipeline,
   appearance,
   paginationRows,
+  columns,
   paginationIsLoadingMore,
   onLoadMore,
   rowsTruncated,
@@ -223,6 +226,7 @@ function PanelContentBody({
         headers={headers}
         appearance={appearance ?? panel.appearance}
         paginationRows={paginationRows}
+        columns={columns}
         paginationIsLoadingMore={paginationIsLoadingMore}
         onLoadMore={onLoadMore}
         rowsTruncated={rowsTruncated}

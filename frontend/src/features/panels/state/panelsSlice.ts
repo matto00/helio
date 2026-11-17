@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import { duplicateDashboard, importDashboard } from "../../dashboards/state/dashboardsSlice";
 import { markDashboardPanelsStale } from "./panelActions";
+import { mergeColumns } from "./columnOrder";
 import {
   CROSS_FILTER_EQ_REJECTED,
   createPanel,
@@ -369,6 +370,7 @@ const panelsSlice = createSlice({
           isLoadingMore: true,
           rows: existing?.rows ?? [],
           materialized: existing?.materialized ?? true,
+          columns: existing?.columns,
           total: existing?.total ?? 0,
           metric: existing?.metric,
           // HEL-1191 design.md D9a-i — ONLY a page-0 request (re)writes `lastQuery`; a load-more
@@ -387,8 +389,18 @@ const panelsSlice = createSlice({
         };
       })
       .addCase(fetchPanelPage.fulfilled, (state, action) => {
-        const { panelId, page, rows, hasMore, materialized, total, metric, generation } =
-          action.payload;
+        const {
+          panelId,
+          page,
+          rows,
+          hasMore,
+          materialized,
+          total,
+          metric,
+          generation,
+          columns,
+          schemaNames,
+        } = action.payload;
         // HEL-1027 skeptic-final-1.md CR2 (Defect 2) — a response whose OWN dispatch is no
         // longer the latest one recorded for this panel is STALE (a newer request has already
         // superseded it, regardless of which one's promise happens to settle first) and must
@@ -409,6 +421,7 @@ const panelsSlice = createSlice({
           isLoadingMore: false,
           rows: updatedRows,
           materialized,
+          columns: page > 0 ? mergeColumns(existing?.columns, columns, schemaNames) : columns,
           total,
           // HEL-1326 design.md D6 — only a page-0 response (re)writes the filtered metric, and one
           // WITHOUT it clears it (no stale value after a filter is removed); a load-more keeps it.

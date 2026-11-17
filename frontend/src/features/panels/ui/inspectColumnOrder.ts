@@ -13,6 +13,9 @@ export interface InspectColumnOrderHint {
    *  (V117), while Inspect exists only for chart Outputs, so for real data this is always empty and
    *  the schema order applies. Kept so the ruling (columnOrder, then schema) is honoured literally. */
   columnOrder?: string[];
+  /** HEL-1705 H: the rows response's column order (the Output's schema names present, then other keys by code point). When
+   *  present it replaces the schema-plus-natural-extras tail; `columnOrder` keys still lead. */
+  columns?: string[];
 }
 
 /** HEL-1394 -- Inspect's column keys: present `columnOrder` keys (in order, deduped, non-string
@@ -23,6 +26,7 @@ export function inspectColumnKeys(
   rowKeys: readonly string[],
   schemaNames: readonly string[],
   columnOrder?: readonly unknown[],
+  columns?: readonly string[],
 ): string[] {
   const present = new Set(rowKeys);
   const out: string[] = [];
@@ -33,7 +37,9 @@ export function inspectColumnKeys(
     out.push(key);
   };
   columnOrder?.forEach(emit);
-  schemaNames.forEach(emit);
+  // The server's order for the rest (HEL-1705); without it the schema names, then a natural sort of what remains.
+  if (columns !== undefined && columns.length > 0) columns.forEach(emit);
+  else schemaNames.forEach(emit);
   const rest = rowKeys.filter((key) => !emitted.has(key));
   rest.sort((a, b) => naturalKeyCollator.compare(a, b));
   rest.forEach(emit);
@@ -50,7 +56,9 @@ export function inspectColumns(
   if (!hint || rows.length === 0) return undefined;
   const seen = new Set<string>();
   for (const row of rows.slice(0, 50)) for (const key of Object.keys(row)) seen.add(key);
-  return inspectColumnKeys(Array.from(seen), hint.schema, hint.columnOrder).map((key) => ({
-    key,
-  }));
+  return inspectColumnKeys(Array.from(seen), hint.schema, hint.columnOrder, hint.columns).map(
+    (key) => ({
+      key,
+    }),
+  );
 }

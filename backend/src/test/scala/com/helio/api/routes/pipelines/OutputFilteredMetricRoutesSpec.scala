@@ -163,7 +163,7 @@ class OutputFilteredMetricRoutesSpec
     "GUARD: omit the `metric` key when no filter applies" in {
       val (_, oid) = seedOutput(OutputKind.Metric, metricConfig(sumConfig))
       Get(s"/outputs/$oid/rows") ~> authRoutes() ~> check {
-        responseAs[JsObject].fields.keySet shouldBe Set("items", "total", "offset", "limit", "materialized")
+        responseAs[JsObject].fields.keySet shouldBe Set("items", "total", "offset", "limit", "materialized", "columns")
       }
       // A filter that resolves to none (empty quick term) also applies nothing.
       Get(s"/outputs/$oid/rows?filter=${encode("""{"quick":""}""")}") ~> authRoutes() ~> check {
@@ -196,19 +196,19 @@ class OutputFilteredMetricRoutesSpec
         status shouldBe StatusCodes.OK
         val raw  = responseAs[String]
         val body = raw.parseJson.asJsObject
-        body.fields.keySet shouldBe Set("items", "total", "offset", "limit", "metric")
+        body.fields.keySet shouldBe Set("items", "total", "offset", "limit", "metric", "columns")
         body.fields("total") shouldBe JsNumber(eastRows.size)
         body.fields("metric") shouldBe JsObject("field" -> JsString("amount"), "agg" -> JsString("sum"), "value" -> JsNumber(eastSum))
         JsonSchemaValidation.validationErrors(publicSchema, raw) shouldBe Vector.empty
       }
     }
 
-    "GUARD: an unfiltered public response keeps EXACTLY the four original keys" in {
+    "GUARD: an unfiltered public response keeps EXACTLY the four original keys plus `columns` (HEL-1705)" in {
       val (_, oid)          = seedOutput(OutputKind.Metric, metricConfig(sumConfig))
       val (dashId, panelId) = seedPublicPanel(oid)
       Get(s"/dashboards/$dashId/panels/$panelId/rows") ~> publicRoutes() ~> check {
         val raw = responseAs[String]
-        raw.parseJson.asJsObject.fields.keySet shouldBe Set("items", "total", "offset", "limit")
+        raw.parseJson.asJsObject.fields.keySet shouldBe Set("items", "total", "offset", "limit", "columns")
         JsonSchemaValidation.validationErrors(publicSchema, raw) shouldBe Vector.empty
       }
     }

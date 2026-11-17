@@ -68,6 +68,7 @@ export function applyWarmEntry(args: {
       isLoadingMore: false,
       rows: window.rows,
       materialized: window.materialized,
+      columns: window.columns,
       total: window.total,
       metric: window.metric as PanelPaginationState["metric"],
       lastQuery: window.lastQuery,

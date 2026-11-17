@@ -13,7 +13,7 @@ export const HISTORY_VIEW_LIMIT = 100;
 export type PointRowsState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "ready"; rows: HistoryRow[] };
+  | { status: "ready"; rows: HistoryRow[]; columns?: string[] };
 
 export type HistoryLoadState = "loading" | "error" | "ready";
 
@@ -82,7 +82,10 @@ export function useOutputHistoryView(outputId: string): OutputHistoryView {
       fetchHistoryPointRows(outputId, pointId).then(
         (res) => {
           if (!mounted.current) return;
-          setPayloads((prev) => ({ ...prev, [pointId]: { status: "ready", rows: res.rows } }));
+          setPayloads((prev) => ({
+            ...prev,
+            [pointId]: { status: "ready", rows: res.rows, columns: res.columns },
+          }));
         },
         () => {
           // Allow a re-selection to retry; the failure itself is shown, never read as "removed".

@@ -90,7 +90,21 @@ describe("liveOutputSource (design.md D3 table)", () => {
       marker: "live",
       caption: DRAFT_CAPTION,
       note: null,
+      truncated: false,
     });
+  });
+
+  it("carries the rows line's own truncation, including onto a stale or updating frame (HEL-1705)", () => {
+    expect(source({ view: view({ truncated: true }) })).toMatchObject({
+      marker: "live",
+      truncated: true,
+    });
+    expect(
+      source({ view: view({ status: "error", rows: BASE, frameStale: true, truncated: true }) }),
+    ).toMatchObject({ marker: "stale", truncated: true });
+    expect(
+      source({ view: view({ status: "pending", rows: BASE, frameStale: true, truncated: true }) }),
+    ).toMatchObject({ marker: "updating", truncated: true });
   });
 
   it("is updating on the last good frame while a server fallback is pending", () => {
@@ -119,6 +133,7 @@ describe("liveOutputSource (design.md D3 table)", () => {
         marker: "stale",
         caption: DRAFT_CAPTION,
         note: LAST_GOOD_NOTE,
+        truncated: false,
       });
     }
     // The base frame stands in when the view has none.

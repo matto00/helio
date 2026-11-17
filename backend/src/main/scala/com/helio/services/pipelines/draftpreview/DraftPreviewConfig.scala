@@ -28,7 +28,7 @@ object DraftPreviewConfig {
    *  `DraftPreviewLimits.MaxLiveCells` fails the node that would pass the live-cell budget (text priced by length), and a
    *  `compute`/`stringops`/`splittext`/`extractheadings`/`chunkbytokencount`/`convertformat` node (and a `cast` to string, and a `pivot`'s column names) emits under a
    *  text budget (owner rulings C7, C8, C9). The kinds that only share or relabel existing text are priced once their frame lands.
-   *  Arithmetic: 768 MB prod heap x 25 % = 192 MB; measured maximum 74.5 MB over eleven shapes; floor(192 / 74.5) = 2. Bodies still being
+   *  Arithmetic: 768 MB prod heap x 25 % = 192 MB; measured maximum 74.6 MB over twelve shapes; floor(192 / 74.6) = 2. Bodies still being
    *  read are bounded separately: `maxReading = 4 x maxInFlight`, each at most 4 MiB. */
   val DefaultMaxInFlight: Int = 2
 

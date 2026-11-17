@@ -5,17 +5,50 @@
   "description": "Response for GET /api/outputs/:id/history/:point/rows (HEL-1276): the stored full row payload of one history point. Authenticated only (never public); readable by the Output's owner and pipeline grantees. An unknown or inaccessible Output, a point of another Output and a point with no stored payload all return 404. `capturedAt`, `runId` and `triggerSource` are the history point's; `rowCount` and `rows` the payload's (rows in their original order, at most the configured row cap). Every nullable field is present as an explicit null.",
   "type": "object",
   "properties": {
-    "pointId": { "type": "string", "format": "uuid" },
-    "outputId": { "type": "string" },
-    "capturedAt": { "type": "string", "format": "date-time" },
-    "runId": { "type": ["string", "null"] },
-    "triggerSource": { "type": "string" },
-    "rowCount": { "type": "integer", "minimum": 0 },
+    "pointId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "outputId": {
+      "type": "string"
+    },
+    "capturedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "runId": {
+      "type": ["string", "null"]
+    },
+    "triggerSource": {
+      "type": "string"
+    },
+    "rowCount": {
+      "type": "integer",
+      "minimum": 0
+    },
     "rows": {
       "type": "array",
-      "items": { "type": "object" }
+      "items": {
+        "type": "object"
+      }
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "HEL-1705: the column order of this page: the Output's schema names present in at least one row (every schema name on an empty page), then every other key seen, in ascending code-point order. Each row's keys appear in the response body in this same order. Clients build headers from this list, not from a parsed row's key order."
     }
   },
-  "required": ["pointId", "outputId", "capturedAt", "runId", "triggerSource", "rowCount", "rows"],
+  "required": [
+    "pointId",
+    "outputId",
+    "capturedAt",
+    "runId",
+    "triggerSource",
+    "rowCount",
+    "rows",
+    "columns"
+  ],
   "additionalProperties": false
 }

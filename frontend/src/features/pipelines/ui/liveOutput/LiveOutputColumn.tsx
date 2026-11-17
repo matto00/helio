@@ -3,7 +3,7 @@
 // a caption, two summary tiles and the one-time last-run baseline. It writes nothing and reads nothing per edit.
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo } from "react";
 
 import { Select } from "../../../../shared/ui/Select";
 import type { usePipelineDraftPresentation } from "../../hooks/usePipelineDraftPresentation";
@@ -50,6 +50,10 @@ interface LiveOutputColumnProps {
   page: PipelinePageState;
   presentation: ReturnType<typeof usePipelineDraftPresentation>;
   selectedStepId: string | null;
+  /** The explicit Output pick. Held by the layout (HEL-1705), which resolves the displayed Output too so the draft request
+   *  asks for its rows; the column only reads and sets it. */
+  pick: OutputPick | null;
+  onPick: (pick: OutputPick) => void;
   layout?: LiveOutputLayout;
   /** `disclosure` only: whether the body is open. */
   expanded?: boolean;
@@ -57,7 +61,7 @@ interface LiveOutputColumnProps {
 }
 
 export function LiveOutputColumn(props: LiveOutputColumnProps) {
-  const { page, presentation, selectedStepId, layout, expanded, onToggle } = props;
+  const { page, presentation, selectedStepId, pick, onPick, layout, expanded, onToggle } = props;
   const fresh = useMemo(
     () => ({ page, presentation, selectedStepId }),
     [page, presentation, selectedStepId],
@@ -67,8 +71,6 @@ export function LiveOutputColumn(props: LiveOutputColumnProps) {
   // selected step shows at once.
   const coalesced = useIdleCoalesced(fresh);
   const shown = coalesced.selectedStepId === selectedStepId ? coalesced : fresh;
-  // The explicit pick lives here (its setter is stable) so the view's Output can be resolved on both sides.
-  const [pick, setPick] = useState<OutputPick | null>(null);
   const displayed = resolveDisplayedOutput(shown.page.allOutputs, pick, shown.selectedStepId);
   const settling = isSettling(displayed, fresh.presentation.frames, shown.presentation.frames);
   return (
@@ -77,7 +79,7 @@ export function LiveOutputColumn(props: LiveOutputColumnProps) {
       presentation={shown.presentation}
       selectedStepId={shown.selectedStepId}
       pick={pick}
-      onPick={setPick}
+      onPick={onPick}
       settling={settling}
       layout={layout}
       expanded={expanded}

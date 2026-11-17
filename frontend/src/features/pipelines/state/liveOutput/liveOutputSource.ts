@@ -21,7 +21,16 @@ export type SampleState = "loading" | "ready" | "unusable";
 
 export type LiveOutputSource =
   | { kind: "loading" }
-  | { kind: "frame"; rows: Frame; marker: LiveMarker; caption: string; note: string | null }
+  | {
+      kind: "frame";
+      rows: Frame;
+      marker: LiveMarker;
+      caption: string;
+      note: string | null;
+      /** The server's `rows` line for this frame was cut at its 1,000-row cap (HEL-1705); a client frame's truncation is
+       *  the root sample's, which the caller knows. */
+      truncated: boolean;
+    }
   | { kind: "saved"; marker: LiveMarker; caption: string; note: string | null };
 
 export interface LiveOutputSourceInput {
@@ -51,7 +60,14 @@ export function liveOutputSource(input: LiveOutputSourceInput): LiveOutputSource
   if (output.nodeStepId === undefined && output.rootId !== undefined) {
     return rootFrame === null
       ? saved(hasDraft, LAST_RUN_CAPTION)
-      : { kind: "frame", rows: rootFrame, marker: "none", caption: SAMPLE_CAPTION, note: null };
+      : {
+          kind: "frame",
+          rows: rootFrame,
+          marker: "none",
+          caption: SAMPLE_CAPTION,
+          note: null,
+          truncated: false,
+        };
   }
 
   if (!hasDraft) {
@@ -63,6 +79,7 @@ export function liveOutputSource(input: LiveOutputSourceInput): LiveOutputSource
           marker: "none",
           caption: SAVED_PIPELINE_CAPTION,
           note: null,
+          truncated: false,
         };
   }
 
@@ -73,17 +90,38 @@ export function liveOutputSource(input: LiveOutputSourceInput): LiveOutputSource
   const staleFrame = (note: string | null): LiveOutputSource =>
     lastGood === null
       ? saved(true, DRAFT_CAPTION, note)
-      : { kind: "frame", rows: lastGood, marker: "stale", caption: DRAFT_CAPTION, note };
+      : {
+          kind: "frame",
+          rows: lastGood,
+          marker: "stale",
+          caption: DRAFT_CAPTION,
+          note,
+          truncated: view.truncated === true,
+        };
 
   if (view.status === "ok") {
     if (view.rows === null) return saved(true, DRAFT_CAPTION, SELECT_STEP_HINT);
     if (view.frameStale) return staleFrame(SELECT_STEP_HINT);
-    return { kind: "frame", rows: view.rows, marker: "live", caption: DRAFT_CAPTION, note: null };
+    return {
+      kind: "frame",
+      rows: view.rows,
+      marker: "live",
+      caption: DRAFT_CAPTION,
+      note: null,
+      truncated: view.truncated === true,
+    };
   }
   if (view.status === "pending") {
     return lastGood === null
       ? saved(true, DRAFT_CAPTION, null, "updating")
-      : { kind: "frame", rows: lastGood, marker: "updating", caption: DRAFT_CAPTION, note: null };
+      : {
+          kind: "frame",
+          rows: lastGood,
+          marker: "updating",
+          caption: DRAFT_CAPTION,
+          note: null,
+          truncated: view.truncated === true,
+        };
   }
   // error | stale: the last good frame; the step's message is not repeated here (LAST_GOOD_NOTE).
   return staleFrame(lastGood === null ? null : LAST_GOOD_NOTE);
