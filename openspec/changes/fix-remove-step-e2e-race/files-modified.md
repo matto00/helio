@@ -1,3 +1,0 @@
-- `e2e/hel1685-draft-polish.spec.ts` — wait for the focused Step 3 region, scope Remove step to it, assert the dialog names "Avg minutes"
-- `e2e/hel1631-draft-mode.spec.ts` — same scoped wait before Remove step
-- `openspec/changes/fix-remove-step-e2e-race/evidence.md` — probe, forced-race and fixed-run evidence
