@@ -36,6 +36,9 @@ HELIO_EMAIL_FROM="${HELIO_EMAIL_FROM:?HELIO_EMAIL_FROM is not set; add it to inf
 # as necessary after this migration as before it — do not raise this without a fresh, explicit
 # capacity decision (Non-Goals reserves that for HEL-751/HEL-752).
 #
+# HEL-1636: prod CLAUDE_MODEL is claude-haiku-5-5 (kept in step with .github/workflows/cd-backend.yml,
+# which is what actually deploys).
+#
 # HEL-749 cycle 2: HELIO_UPLOADS_BACKEND, HELIO_UPLOADS_BUCKET, and CLAUDE_MODEL are hardcoded
 # literals below (not sourced from .env.deploy) because, unlike GOOGLE_CLIENT_ID/
 # GOOGLE_REDIRECT_URI/CORS_ALLOWED_ORIGINS, they are stable, non-environment-specific production
@@ -117,7 +120,7 @@ gcloud run deploy helio-backend \
   --subnet=helio-run-egress \
   --vpc-egress=private-ranges-only \
   --service-account=helio-backend-sa@helio-493120.iam.gserviceaccount.com \
-  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-4-5-20251001|CONNECTOR_MASTER_KEY_ID=env-2026-08|HELIO_EMAIL_FROM=${HELIO_EMAIL_FROM}" \
+  --set-env-vars="^|^DATABASE_URL=jdbc:postgresql://10.8.0.3:5432/helio?sslmode=require|DB_USER=helio|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}|CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}|COOKIE_SECURE=true|LOG_FORMAT=json|HELIO_OWNER_EMAILS=${HELIO_OWNER_EMAILS}|HELIO_BETA_DAILY_MESSAGE_LIMIT=${HELIO_BETA_DAILY_MESSAGE_LIMIT}|HELIO_UPLOADS_BACKEND=gcs|HELIO_UPLOADS_BUCKET=helio-uploads-prod|CLAUDE_MODEL=claude-haiku-5-5|CONNECTOR_MASTER_KEY_ID=env-2026-08|HELIO_EMAIL_FROM=${HELIO_EMAIL_FROM}" \
   --set-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest,RESEND_API_KEY=helio-resend-api-key:latest \
   --memory=1Gi \
   --cpu=1 \

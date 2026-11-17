@@ -106,6 +106,21 @@ class ClaudeAiStepClientSpec extends AnyWordSpec with Matchers {
       gate.checkInvocations.get() shouldBe 0
     }
 
+    // HEL-1636 D6 / 5.7: a refused model call fails the step loudly instead of writing "".
+    "fail the step with Api(0, <refusal message>) when the model refuses, writing no output" in {
+      val refusing = new ClaudeTransport {
+        override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] = Future.successful(ClaudeFixtures.fixture("refusal.json"))
+        override def stream(request: ClaudeApiRequest): Source[ClaudeStreamEvent, NotUsed] = throw new UnsupportedOperationException("n/a")
+      }
+      val client = new ClaudeAiStepClient(new ClaudeClient(config(), refusing), new PermittingGate)
+
+      val result = await(client.complete(request()))
+      result match {
+        case Left(AiStepFailure.Api(0, message)) => message should include("declined")
+        case other                               => fail(s"expected Left(Api(0, ...)), got $other")
+      }
+    }
+
     // 4.3: QuotaExceeded is distinguishable from the other four AiStepFailure variants.
     "return a QuotaExceeded distinct from Unavailable/Guardrail/Api/Transport" in {
       val transport = new CountingTransport

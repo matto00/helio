@@ -89,7 +89,7 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {
           model = "claude-opus-4-8",
           maxTokens = 100,
           messages = Seq(ClaudeApiMessage("user", "What is 2+2?", cacheControl = Some(ClaudeApiCacheControl.Ephemeral))),
-          temperature = 0.2,
+          temperature = Some(0.2),
           stream = false
         )
       )
@@ -127,7 +127,8 @@ class ClaudeClientSpec extends AnyWordSpec with Matchers with HelioRouteTest {
       await(client.send(request))
 
       transport.lastRequest.map(_.maxTokens) shouldBe Some(4096)
-      transport.lastRequest.map(_.temperature) shouldBe Some(1.0)
+      // HEL-1636 D7: the API default (1.0) is omitted from the wire request.
+      transport.lastRequest.map(_.temperature) shouldBe Some(None)
     }
 
     "clamp an over-ceiling requested maxTokens down to the ceiling rather than rejecting" in {

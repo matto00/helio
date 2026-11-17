@@ -1,0 +1,13 @@
+{
+  "id": "msg_fixture_unknown_text",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    { "type": "future_block_kind", "alpha": 1, "nested": { "beta": ["x", "y"], "gamma": null } },
+    { "type": "text", "text": "Done." }
+  ],
+  "stop_reason": "end_turn",
+  "stop_details": null,
+  "usage": { "input_tokens": 100, "output_tokens": 30 }
+}

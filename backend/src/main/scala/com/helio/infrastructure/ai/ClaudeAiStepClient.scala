@@ -40,6 +40,12 @@ class ClaudeAiStepClient(client: ClaudeClient, quotaGate: AiPipelineQuotaGate)(i
       case Left(ClaudeError.GuardrailExceeded(reason)) => Left(AiStepFailure.Guardrail(reason))
       case Left(ClaudeError.ApiError(status, body))    => Left(AiStepFailure.Api(status, body))
       case Left(ClaudeError.TransportFailure(message)) => Left(AiStepFailure.Transport(message))
+      // HEL-1636 D6: a blank `end_turn` keeps its pre-existing handling -- the step itself rejects an
+      // empty response with its own named `response-empty` reason, so no empty output is written.
+      case Left(ClaudeError.NoAnswer(Some("end_turn"), _)) => Right("")
+      // HEL-1636 D6: status 0 is the existing "no HTTP status" sentinel; the step fails loudly
+      // instead of writing an empty output.
+      case Left(ClaudeError.NoAnswer(reason, category)) => Left(AiStepFailure.Api(0, ClaudeErrorMessages.noAnswerMessage(reason, category)))
     }
   }
 }

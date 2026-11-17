@@ -1,0 +1,14 @@
+{
+  "id": "msg_fixture_thinking_text",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    { "type": "thinking", "thinking": "", "signature": "SIG_S1_opaque" },
+    { "type": "text", "text": "Hi, how can I help with your dashboards?" }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": { "input_tokens": 120, "output_tokens": 40 }
+}

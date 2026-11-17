@@ -67,11 +67,17 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
       entity = HttpEntity(ContentTypes.`application/json`, request.toJson.compactPrint)
     )
 
+  /** HEL-1636 D9: one INFO line per response -- status and the `request-id` header value only, so a
+   *  prod 400 is traceable. Never the body, never any request header (one carries the key). */
+  private[ai] def logResponse(response: HttpResponse): Unit =
+    log.info(s"Claude API response status=${response.status.intValue()} request-id=${response.headers.find(_.lowercaseName == "request-id").map(_.value).getOrElse("none")}")
+
   override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
     Http(system.classicSystem)
       .singleRequest(buildHttpRequest(request.copy(stream = false)), settings = poolSettings)
       .flatMap { response =>
         response.entity.toStrict(ResponseReadTimeout).flatMap { entity =>
+          logResponse(response)
           val body = entity.data.utf8String
           if (response.status.isSuccess()) {
             Try(body.parseJson.convertTo[ClaudeApiResponse]) match {
@@ -95,6 +101,7 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
       .singleRequest(buildHttpRequest(request), settings = poolSettings)
       .flatMap { response =>
         response.entity.toStrict(ResponseReadTimeout).flatMap { entity =>
+          logResponse(response)
           val body = entity.data.utf8String
           if (response.status.isSuccess()) {
             Try(body.parseJson.convertTo[ClaudeApiResponse]) match {
@@ -114,6 +121,7 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
       Http(system.classicSystem)
         .singleRequest(buildHttpRequest(request.copy(stream = true)), settings = poolSettings)
         .flatMap { response =>
+          logResponse(response)
           if (response.status.isSuccess()) {
             Future.successful(ClaudeSseAssembler.assemble(response.entity.dataBytes))
           } else {

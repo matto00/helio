@@ -139,6 +139,11 @@ final class AssistantService(
       executor: AssistantToolExecutor,
       history: Seq[ClaudeToolMessage]
   ): Either[ClaudeError, AssistantTurnResult] = outcome match {
+    // HEL-1636 D6: a final response with no visible text and no captured proposal is an error, never
+    // a persisted empty answer. With a proposal the turn succeeds (propose_* then an empty end_turn
+    // is the assistant's normal way to finish).
+    case ClaudeToolOutcome.FinalResponse(text, _, _) if ClaudeContentBlock.isBlankText(text) && executor.proposal.isEmpty =>
+      Left(ClaudeError.NoAnswer(Some("end_turn"), None))
     case ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
       Right(
         AssistantTurnResult(
@@ -148,7 +153,7 @@ final class AssistantService(
           hopBudgetExhausted = false,
           searchedWithNoResults = computeSearchedWithNoResults(executor.proposal, fullHistory, history),
           usage,
-          fullHistory,
+          persistable(fullHistory),
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
           proposeValidationFailures = executor.proposeValidationFailures
@@ -163,7 +168,7 @@ final class AssistantService(
           hopBudgetExhausted = true,
           searchedWithNoResults = false,
           usage,
-          fullHistory,
+          persistable(fullHistory),
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
           proposeValidationFailures = executor.proposeValidationFailures
@@ -205,6 +210,24 @@ final class AssistantService(
     Try(content.parseJson) match {
       case Success(JsArray(elements)) => elements.isEmpty
       case _                            => false
+    }
+
+  /** HEL-1636 D4: what `converse` returns for persistence. Thinking, redacted-thinking and unrecognised
+   *  blocks are model-internal (their signatures are bound to a prefix that changes between turns,
+   *  see HEL-1718) and empty text blocks are the very defect this ticket fixes; both are removed
+   *  from EVERY turn. The number of turns is unchanged, because the route slices the result by the
+   *  prior history length.
+   *
+   *  Dropping an `Opaque` block could orphan a future server-tool result paired with a kept
+   *  `server_tool_use`; only `web_search` is offered and its result type is modelled, so no such
+   *  pairing exists today. Revisit if another server tool is added. */
+  private def persistable(fullHistory: Seq[ClaudeToolMessage]): Seq[ClaudeToolMessage] =
+    fullHistory.map { m =>
+      m.copy(content = m.content.filter {
+        case _: ClaudeContentBlock.Thinking | _: ClaudeContentBlock.RedactedThinking | _: ClaudeContentBlock.Opaque => false
+        case ClaudeContentBlock.Text(t)                                                                               => !ClaudeContentBlock.isBlankText(t)
+        case _                                                                                                        => true
+      })
     }
 
   private def toolCallCount(history: Seq[ClaudeToolMessage]): Int =

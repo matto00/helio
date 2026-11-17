@@ -17,7 +17,7 @@ import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, O
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.infrastructure.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeApiContentBlock, ClaudeApiException, ClaudeApiRequest, ClaudeApiResponse, ClaudeApiUsage, ClaudeClient, ClaudeConfig, ClaudeError, ClaudeFixtures, ClaudeMessage, ClaudeRole, ClaudeStreamEvent, ClaudeTransport}
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.proposals.{AuthoringDisplayTurn, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardProposal}
 import com.helio.api.protocols.patchsets.PatchSet
@@ -388,6 +388,31 @@ class DashboardAuthoringServiceSpec
       result shouldBe a[Left[_, _]]
       result.swap.toOption.get.serviceError shouldBe a[ServiceError.BadGateway]
       transport.sendInvocations.get() shouldBe 1
+    }
+
+    // HEL-1636 D6 / 5.7: a refusal is a 502 naming the refusal.
+    "map a refusal to 502 Bad Gateway naming the refusal" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(Vector(Future.successful(ClaudeFixtures.fixture("refusal.json"))))
+
+      val result = await(newAuthoringService(transport).author(DashboardAuthoringRequest(goal, None), user))
+
+      result.swap.toOption.get.serviceError shouldBe a[ServiceError.BadGateway]
+      result.swap.toOption.get.serviceError.message should include("declined")
+    }
+
+    // HEL-1636 D6 / 5.7: a stream that delivers no text ends in an error event and makes NO repair call.
+    "end a stream with blank text in a fail event and make no repair send" in {
+      val user = newUser()
+      insertPipelineOutputType(user)
+      val transport = new FakeClaudeTransport(streamResponses = Vector(Seq(ClaudeStreamEvent.MessageStop)))
+
+      val events = await(newAuthoringService(transport).authorStreaming(DashboardAuthoringRequest(goal, None), user).runWith(Sink.seq))
+
+      events should have size 1
+      events.head shouldBe a[AuthoringStreamEvent.Error]
+      transport.sendInvocations.get() shouldBe 0
     }
 
     "map a transport-level failure (TransportFailure) to 502 Bad Gateway" in {

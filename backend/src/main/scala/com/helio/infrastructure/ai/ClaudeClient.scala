@@ -48,7 +48,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
           .send(toApiRequest(request, stream = false))
           .transform {
             case Success(apiResponse) =>
-              Success(Right(toClaudeResponse(apiResponse)))
+              Success(toClaudeResponse(apiResponse))
             case Failure(ClaudeApiException(status, body)) =>
               log.warn(s"Claude API request failed with status $status")
               Success(Left(ClaudeError.ApiError(status, body)))
@@ -89,14 +89,24 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
    *  `executor.execute` (design.md D2's "AssistantToolExecutor must never see one"). */
   def sendWithTools(request: ClaudeToolRequest, executor: ClaudeToolExecutor): Future[ClaudeToolOutcome] = {
 
-    def loop(history: Seq[ClaudeToolMessage], hopsUsed: Int, usage: TokenUsage, webSearchUsed: Int): Future[ClaudeToolOutcome] =
+    def loop(
+        carried: Seq[ClaudeToolMessage],
+        hopsUsed: Int,
+        usage: TokenUsage,
+        webSearchUsed: Int,
+        prevToolsJson: Option[JsValue]
+    ): Future[ClaudeToolOutcome] = {
+      // HEL-1636 D3a: a strip point rewrites the carried history itself, so a thinking block produced
+      // before it is never sent again in this loop (and never returned in `FinalResponse.history`).
+      val hop     = prepareHop(request, carried, webSearchUsed, prevToolsJson)
+      val history = hop.history
       guardrailRejectTool(request.system, history) match {
         case Some(reason) =>
           Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)))
         case None =>
           val thisHop = hopsUsed + 1
           transport
-            .sendTool(toApiToolRequest(request, history, webSearchUsed))
+            .sendTool(hop.apiRequest)
             .transform {
               case Success(apiResponse) =>
                 Success(Right(apiResponse))
@@ -118,10 +128,19 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                 val newWebSearchUsed = webSearchUsed + webSearchCalls.size
                 val assistantTurn   = ClaudeToolMessage(ClaudeRole.Assistant, blocks)
 
-                if (toolUses.isEmpty) {
-                  Future.successful(
-                    ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)
-                  )
+                if (apiResponse.stopReason.contains("refusal")) {
+                  Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
+                } else if (toolUses.isEmpty) {
+                  // HEL-1636 D6: an `end_turn` with no text stays a (possibly empty) FinalResponse --
+                  // after a tool result that is the assistant's normal way to finish. Running out of
+                  // tokens or pausing with nothing visible is a failure, never a blank answer.
+                  val noVisibleText = !blocks.exists { case ClaudeContentBlock.Text(t) => !ClaudeContentBlock.isBlankText(t); case _ => false }
+                  if (noVisibleText && apiResponse.stopReason.exists(r => r == "max_tokens" || r == "pause_turn"))
+                    Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
+                  else
+                    Future.successful(
+                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)
+                    )
                 } else if (thisHop > request.maxHops) {
                   Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage))
                 } else {
@@ -135,13 +154,23 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     }
                     .flatMap { toolResults =>
                       val userTurn = ClaudeToolMessage(ClaudeRole.User, toolResults)
-                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage, newWebSearchUsed)
+                      loop(history :+ assistantTurn :+ userTurn, thisHop, totalUsage, newWebSearchUsed, Some(hop.toolsJson))
                     }
                 }
             }
       }
+    }
 
-    loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0), webSearchUsed = 0)
+    loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0), webSearchUsed = 0, prevToolsJson = None)
+  }
+
+  /** `NoAnswer` for a response with no usable answer; the refusal `category` comes from
+   *  `stop_details.category` (null/absent -> None). */
+  private def noAnswer(apiResponse: ClaudeApiResponse): ClaudeError.NoAnswer = {
+    val category = apiResponse.stopDetails.collect { case o: JsObject => o }.flatMap(_.fields.get("category")).collect {
+      case JsString(c) => c
+    }
+    ClaudeError.NoAnswer(apiResponse.stopReason, category)
   }
 
   /** HEL-1639 D5: within ONE response, the first `tool_use` among the tools named in `oncePerResponse` (block order) runs;
@@ -195,8 +224,17 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       // The wire block carries no `name` field (see ServerToolResult's own doc comment) — "web_search"
       // is the only server-tool result shape this ticket wires, so it's the constant supplied here.
       ClaudeContentBlock.ServerToolResult(b.toolUseId.getOrElse(""), name = "web_search", result = b.serverToolResult.getOrElse(JsObject.empty))
-    case _ =>
+    case "text" =>
       ClaudeContentBlock.Text(b.text.getOrElse(""))
+    // HEL-1636 D1/D2: model-internal blocks are kept exactly; never reduced to text.
+    case "thinking" =>
+      ClaudeContentBlock.Thinking(b.thinking.getOrElse(""), b.signature.getOrElse(""))
+    case "redacted_thinking" =>
+      ClaudeContentBlock.RedactedThinking(b.data.getOrElse(""))
+    case other =>
+      // Names the type only -- never the content.
+      log.warn(s"Preserving an unmodeled Claude content block of type '$other' verbatim")
+      ClaudeContentBlock.Opaque(other, b.raw.getOrElse(JsObject("type" -> JsString(other))))
   }
 
   private def toApiContentBlock(b: ClaudeContentBlock): ClaudeApiContentBlock = b match {
@@ -210,6 +248,12 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       ClaudeApiContentBlock(blockType = "server_tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))
     case ClaudeContentBlock.ServerToolResult(toolUseId, _, result) =>
       ClaudeApiContentBlock(blockType = "web_search_tool_result", text = None, toolUseId = Some(toolUseId), serverToolResult = Some(result))
+    case ClaudeContentBlock.Thinking(thinking, signature) =>
+      ClaudeApiContentBlock(blockType = "thinking", text = None, thinking = Some(thinking), signature = Some(signature))
+    case ClaudeContentBlock.RedactedThinking(data) =>
+      ClaudeApiContentBlock(blockType = "redacted_thinking", text = None, data = Some(data))
+    case ClaudeContentBlock.Opaque(blockType, raw) =>
+      ClaudeApiContentBlock(blockType = blockType, text = None, raw = Some(raw))
   }
 
   /** Marks the stable prefix's two cache breakpoints (design.md D3): the last CUSTOM `tools`
@@ -225,20 +269,44 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
    *  that hop's `max_uses` down from `config.webSearchMaxUses`; once the remaining budget hits `0`
    *  the tool is dropped from the outbound list entirely (design.md D3) rather than sent with
    *  `max_uses = 0`. */
-  private def toApiToolRequest(request: ClaudeToolRequest, history: Seq[ClaudeToolMessage], webSearchUsed: Int): ClaudeApiToolRequest = {
-    val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
-    val apiTools         = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
+  private def prepareHop(
+      request: ClaudeToolRequest,
+      carried: Seq[ClaudeToolMessage],
+      webSearchUsed: Int,
+      prevToolsJson: Option[JsValue]
+  ): PreparedHop = {
+    val tools     = buildTools(request, webSearchUsed)
+    val toolsJson: JsValue = JsArray(tools.map(t => ClaudeProtocol.claudeApiToolSpecFormat.write(t)).toVector)
+    val (normalised, alteredThinking) = ClaudeHistoryNormalizer.normalise(carried)
+    val strip = alteredThinking || prevToolsJson.exists(_ != toolsJson)
+    val history = if (strip) ClaudeHistoryNormalizer.stripAllThinking(carried) else carried
+    val wire    = if (strip) ClaudeHistoryNormalizer.normalise(history)._1 else normalised
+    PreparedHop(toApiToolRequest(request, wire, tools), history, toolsJson)
+  }
+
+  /** HEL-757 design.md D2a/D3 -- `markedTools` is built EXACTLY as before: typed `Seq[ClaudeApiTool]`,
+   *  the last custom tool cache-marked; the `web_search` entry (when `request.webSearch`) is appended
+   *  AFTER it with no `cacheControl`, sized to the remaining cross-hop budget and dropped once that
+   *  hits `0`. */
+  private def buildTools(request: ClaudeToolRequest, webSearchUsed: Int): Seq[ClaudeApiToolSpec] = {
+    val apiTools = request.tools.map(t => ClaudeApiTool(t.name, t.description, t.inputSchema))
     val markedTools = apiTools match {
       case Seq() => apiTools
       case _     => apiTools.init :+ apiTools.last.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
     }
     val remainingWebSearchBudget = math.max(0, config.webSearchMaxUses - webSearchUsed)
-    val finalTools: Seq[ClaudeApiToolSpec] =
-      if (request.webSearch && remainingWebSearchBudget > 0)
-        markedTools :+ ClaudeApiToolSpec.WebSearch(remainingWebSearchBudget)
-      else
-        markedTools
-    val apiMessages = history.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock)))
+    if (request.webSearch && remainingWebSearchBudget > 0)
+      markedTools :+ ClaudeApiToolSpec.WebSearch(remainingWebSearchBudget)
+    else
+      markedTools
+  }
+
+  /** Marks the stable prefix's cache breakpoints (design.md D3 of assistant-prompt-caching): the last
+   *  custom tool (in `finalTools`) and the last content block of the first message. `messages` is
+   *  already normalised (HEL-1636 D5: no empty text block, no empty message). */
+  private def toApiToolRequest(request: ClaudeToolRequest, messages: Seq[ClaudeToolMessage], finalTools: Seq[ClaudeApiToolSpec]): ClaudeApiToolRequest = {
+    val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
+    val apiMessages = messages.map(m => ClaudeApiToolMessage(m.role, m.content.map(toApiContentBlock)))
     val markedMessages = apiMessages match {
       case Seq() => apiMessages
       case first +: rest =>
@@ -256,10 +324,14 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       model = config.model,
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
-      temperature = request.temperature.getOrElse(config.temperature),
+      temperature = wireTemperature(request.temperature),
       tools = finalTools
     )
   }
+
+  /** HEL-1636 D7: the API default (1.0) is omitted; Haiku 5.5 rejects any other sampling value. */
+  private def wireTemperature(requested: Option[Double]): Option[Double] =
+    Some(requested.getOrElse(config.temperature)).filter(_ != ClaudeConfig.DefaultTemperature)
 
   /** Approximates block content as flattened text for the pre-flight guardrail estimate
    *  (design.md D6) — `ClaudeTokenEstimator.estimate` takes `Seq[ClaudeMessage]` (`content:
@@ -274,6 +346,9 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
           case ClaudeContentBlock.ToolResult(_, content, _)      => content
           case ClaudeContentBlock.ServerToolUse(_, _, input)     => input.compactPrint
           case ClaudeContentBlock.ServerToolResult(_, _, result) => result.compactPrint
+          case ClaudeContentBlock.Thinking(thinking, signature)  => thinking + signature
+          case ClaudeContentBlock.RedactedThinking(data)         => data
+          case ClaudeContentBlock.Opaque(_, raw)                 => raw.compactPrint
         }
         .mkString
       ClaudeMessage(m.role, flattened)
@@ -301,7 +376,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
    *  system-prompt-carrying turn shared identically across repeat calls. Guarded on non-empty. */
   private def toApiRequest(request: ClaudeRequest, stream: Boolean): ClaudeApiRequest = {
     val clampedMaxTokens = math.min(request.maxTokens.getOrElse(config.maxOutputTokens), config.maxOutputTokens)
-    val apiMessages       = request.messages.map(m => ClaudeApiMessage(m.role, m.content))
+    val apiMessages       = ClaudeHistoryNormalizer.normaliseText(request.messages).map(m => ClaudeApiMessage(m.role, m.content))
     val markedMessages = apiMessages match {
       case Seq()         => apiMessages
       case first +: rest => first.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral)) +: rest
@@ -310,23 +385,30 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       model = config.model,
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
-      temperature = request.temperature.getOrElse(config.temperature),
+      temperature = wireTemperature(request.temperature),
       stream = stream
     )
   }
 
-  private def toClaudeResponse(apiResponse: ClaudeApiResponse): ClaudeResponse = {
+  /** HEL-1636 D6: a refusal, or any response with no non-empty text, is `NoAnswer` -- every `send`
+   *  caller needs text. */
+  private def toClaudeResponse(apiResponse: ClaudeApiResponse): Either[ClaudeError, ClaudeResponse] = {
     val text = apiResponse.content.flatMap(_.text).mkString
-    ClaudeResponse(
-      id = apiResponse.id,
-      text = text,
-      stopReason = apiResponse.stopReason,
-      usage = TokenUsage(
-        inputTokens = apiResponse.usage.inputTokens,
-        outputTokens = apiResponse.usage.outputTokens,
-        cacheCreationInputTokens = apiResponse.usage.cacheCreationInputTokens,
-        cacheReadInputTokens = apiResponse.usage.cacheReadInputTokens
+    if (apiResponse.stopReason.contains("refusal") || ClaudeContentBlock.isBlankText(text))
+      Left(noAnswer(apiResponse))
+    else
+      Right(
+        ClaudeResponse(
+          id = apiResponse.id,
+          text = text,
+          stopReason = apiResponse.stopReason,
+          usage = TokenUsage(
+            inputTokens = apiResponse.usage.inputTokens,
+            outputTokens = apiResponse.usage.outputTokens,
+            cacheCreationInputTokens = apiResponse.usage.cacheCreationInputTokens,
+            cacheReadInputTokens = apiResponse.usage.cacheReadInputTokens
+          )
+        )
       )
-    )
   }
 }

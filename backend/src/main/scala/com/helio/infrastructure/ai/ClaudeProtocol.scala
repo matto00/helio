@@ -45,11 +45,12 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
 
   implicit val claudeApiRequestFormat: RootJsonFormat[ClaudeApiRequest] = new RootJsonFormat[ClaudeApiRequest] {
     def write(r: ClaudeApiRequest): JsValue = JsObject(
-      "model"       -> JsString(r.model),
-      "max_tokens"  -> JsNumber(r.maxTokens),
-      "messages"    -> r.messages.toJson,
-      "temperature" -> JsNumber(r.temperature),
-      "stream"      -> JsBoolean(r.stream)
+      Map(
+        "model"      -> JsString(r.model),
+        "max_tokens" -> JsNumber(r.maxTokens),
+        "messages"   -> r.messages.toJson,
+        "stream"     -> JsBoolean(r.stream)
+      ) ++ r.temperature.map(t => "temperature" -> JsNumber(t))
     )
 
     // Outbound-only — this ticket never needs to decode a request it built itself.
@@ -105,8 +106,18 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
           case "web_search_tool_result" =>
             b.toolUseId.map(v => "tool_use_id" -> JsString(v)).toMap ++
               b.serverToolResult.map(v => "content" -> v).toMap
-          case _ =>
+          // HEL-1636 D1: model-internal blocks are written back field-for-field.
+          case "thinking" =>
+            b.thinking.map(v => "thinking" -> JsString(v)).toMap ++
+              b.signature.map(v => "signature" -> JsString(v)).toMap
+          case "redacted_thinking" =>
+            b.data.map(v => "data" -> JsString(v)).toMap
+          case "text" =>
             b.text.map(v => "text" -> JsString(v)).toMap
+          case _ =>
+            // An unmodeled type: its complete original object, verbatim (minus its own `type`,
+            // which `typeField` already carries).
+            b.raw.map(_.fields - "type").getOrElse(Map.empty[String, JsValue])
         }
         // cache_control (design.md D2) is orthogonal to blockType -- any block shape can carry a
         // breakpoint, so it's appended unconditionally on top of the shape-specific fields above.
@@ -141,11 +152,27 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
               toolUseId = obj.fields.get("tool_use_id").map(_.convertTo[String]),
               serverToolResult = obj.fields.get("content")
             )
-          case _ =>
+          case "thinking" =>
+            ClaudeApiContentBlock(
+              blockType = blockType,
+              text = None,
+              thinking = obj.fields.get("thinking").map(_.convertTo[String]),
+              signature = obj.fields.get("signature").map(_.convertTo[String])
+            )
+          case "redacted_thinking" =>
+            ClaudeApiContentBlock(
+              blockType = blockType,
+              text = None,
+              data = obj.fields.get("data").map(_.convertTo[String])
+            )
+          case "text" =>
             ClaudeApiContentBlock(
               blockType = blockType,
               text = obj.fields.get("text").map(_.convertTo[String])
             )
+          // Never reduce an unknown block to its `text` (the HEL-1636 trap): keep it whole.
+          case _ =>
+            ClaudeApiContentBlock(blockType = blockType, text = None, raw = Some(obj))
         }
       }
     }
@@ -209,13 +236,14 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
 
   implicit val claudeApiToolRequestFormat: RootJsonFormat[ClaudeApiToolRequest] =
     new RootJsonFormat[ClaudeApiToolRequest] {
-      def write(r: ClaudeApiToolRequest): JsValue = JsObject(Map[String, JsValue](
-        "model"       -> JsString(r.model),
-        "max_tokens"  -> JsNumber(r.maxTokens),
-        "messages"    -> r.messages.toJson,
-        "temperature" -> JsNumber(r.temperature),
-        "tools"       -> r.tools.toJson
-      ) ++ systemField(r.system))
+      def write(r: ClaudeApiToolRequest): JsValue = JsObject(
+        Map[String, JsValue](
+          "model"      -> JsString(r.model),
+          "max_tokens" -> JsNumber(r.maxTokens),
+          "messages"   -> r.messages.toJson,
+          "tools"      -> r.tools.toJson
+        ) ++ r.temperature.map(t => "temperature" -> JsNumber(t)) ++ systemField(r.system)
+      )
 
       // Outbound-only — this ticket never decodes a request it built itself (mirrors
       // claudeApiRequestFormat's identical rationale).
@@ -225,10 +253,12 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
 
   implicit val claudeApiResponseFormat: RootJsonFormat[ClaudeApiResponse] = new RootJsonFormat[ClaudeApiResponse] {
     def write(r: ClaudeApiResponse): JsValue = JsObject(
-      "id"      -> JsString(r.id),
-      "content" -> r.content.toJson,
-      "stop_reason" -> r.stopReason.map(JsString(_)).getOrElse(JsNull),
-      "usage"   -> r.usage.toJson
+      Map(
+        "id"          -> JsString(r.id),
+        "content"     -> r.content.toJson,
+        "stop_reason" -> r.stopReason.map(JsString(_)).getOrElse(JsNull),
+        "usage"       -> r.usage.toJson
+      ) ++ r.stopDetails.map(d => "stop_details" -> d)
     )
 
     def read(json: JsValue): ClaudeApiResponse = {
@@ -241,7 +271,8 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
           case JsString(s) => Some(s)
           case other   => Some(other.toString)
         },
-        usage = obj.fields.get("usage").map(_.convertTo[ClaudeApiUsage]).getOrElse(ClaudeApiUsage(0, 0))
+        usage = obj.fields.get("usage").map(_.convertTo[ClaudeApiUsage]).getOrElse(ClaudeApiUsage(0, 0)),
+        stopDetails = obj.fields.get("stop_details").filter(_ != JsNull)
       )
     }
   }

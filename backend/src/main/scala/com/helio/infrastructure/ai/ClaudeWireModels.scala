@@ -1,6 +1,6 @@
 package com.helio.infrastructure.ai
 
-import spray.json.JsValue
+import spray.json.{JsObject, JsValue}
 
 /** Wire-format types mirroring the Anthropic Messages API's own JSON shape (`model`,
  *  `max_tokens`, `messages`, `temperature`, `stream`, `content`, `usage`) — see
@@ -24,7 +24,8 @@ final case class ClaudeApiRequest(
     model: String,
     maxTokens: Int,
     messages: Seq[ClaudeApiMessage],
-    temperature: Double,
+    // HEL-1636 D7: None = omit the field (the API default of 1.0 applies).
+    temperature: Option[Double],
     stream: Boolean
 )
 
@@ -59,14 +60,24 @@ final case class ClaudeApiContentBlock(
     toolUseId: Option[String] = None,
     isError: Option[Boolean] = None,
     cacheControl: Option[ClaudeApiCacheControl] = None,
-    serverToolResult: Option[JsValue] = None
+    serverToolResult: Option[JsValue] = None,
+    // HEL-1636 D1: `thinking`/`signature` (blockType "thinking"), `data` ("redacted_thinking") and
+    // `raw` (the complete original object of any block type this client does not model) are kept
+    // exactly as received so they can be sent back unchanged. An empty `thinking` stays Some("").
+    thinking: Option[String] = None,
+    signature: Option[String] = None,
+    data: Option[String] = None,
+    raw: Option[JsObject] = None
 )
 
 final case class ClaudeApiResponse(
     id: String,
     content: Seq[ClaudeApiContentBlock],
     stopReason: Option[String],
-    usage: ClaudeApiUsage
+    usage: ClaudeApiUsage,
+    // HEL-1636 D6: the raw `stop_details` object (a refusal carries `type`/`category`/`explanation`);
+    // null/absent on every other stop reason.
+    stopDetails: Option[JsValue] = None
 )
 
 /** Closed set of tool-entry shapes `sendWithTools` may offer Claude in one request's `tools` array
@@ -120,7 +131,8 @@ final case class ClaudeApiToolRequest(
     maxTokens: Int,
     system: Seq[ClaudeApiContentBlock] = Seq.empty,
     messages: Seq[ClaudeApiToolMessage],
-    temperature: Double,
+    // HEL-1636 D7: None = omit the field (the API default of 1.0 applies).
+    temperature: Option[Double],
     tools: Seq[ClaudeApiToolSpec]
 )
 
