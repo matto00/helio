@@ -4,6 +4,7 @@ import { registerAndLogin } from "./support/auth";
 import { evidencePath } from "./support/evidencePath";
 import { isolateLivePage } from "./support/isolateLivePage";
 import { post, seedWorld, setMotion } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid } from "./support/panelGridReady";
 
 // HEL-1681: the phone dashboard's visible "Refresh dashboard" button, the WCAG 2.5.1 single-pointer / keyboard
 // alternative to HEL-1656's pull. Rows requests are counted from the network, the button's tap area is MEASURED with
@@ -329,7 +330,7 @@ test("no refresh button at 1280", async ({ page, request }) => {
   await page.goto(`/dashboards/${world.dashboardId}`);
   await expect(page.locator(".panel-list__zoom-container")).toHaveCount(1);
   await expect(page.locator(".mobile-panel-stack")).toHaveCount(0);
-  await expect(page.locator(".panel-grid-card").first()).toBeVisible();
+  await waitForPanelGrid(page, 3);
   await expect(refreshButton(page)).toHaveCount(0);
 });
 
@@ -340,7 +341,7 @@ test("crossing 768px keeps the same zoom container and a non-zero grid width", a
   await login(page, request, 1280, 900, "cross");
   const world = await seedWorld(page.request, "Pcross");
   await page.goto(`/dashboards/${world.dashboardId}`);
-  await expect(page.locator(".panel-grid-card").first()).toBeVisible();
+  await waitForPanelGrid(page, 3);
   await page.evaluate(() => {
     (window as unknown as { __zoom: Element }).__zoom = document.querySelector(
       ".panel-list__zoom-container",
