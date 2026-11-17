@@ -115,3 +115,23 @@ or mocks the hook with `placed: false`). Each new unit test is shown red against
 
 - Self-approved: new capability spec instead of modifying `portal-popover-hook` (behaviour belongs to the menu).
 - Self-approved: `align` prop kept as the preferred side for backward compatibility.
+
+**D10 — Rail phantom page scroll (found after delivery, HEL-1750 CI e2e).** The desktop e2e hovering the rail's last row
+hung in CI ("element is not stable"). Root cause, probe-confirmed (evaluator, re-probed by the executor): the rail rows'
+visually-hidden three-dot wrappers are `position: absolute` (`DashboardList.css`, `.dashboard-list__item-row .popover.actions-menu`)
+inside a `.dashboard-list` scroller that was not positioned, so they resolved against the page, escaped the scroller and
+stretched the document's scroll height (538 at 1280x400, innerHeight 400). Hovering a row revealed its wrapper in flow
+(`position: relative`), the phantom scroll shrank and rows jumped about 34px under the pointer. Fix: `position: relative`
+on `.dashboard-list` (a product CSS bug, separate from the menu fit). Guards (red on the old CSS at 538 > 400, green after,
+light and dark): `rail: no phantom page scroll and no row shift on hover` in `e2e/hel1750-actions-menu-viewport-fit.spec.ts`;
+the desktop case is back on the real mouse path (hover the last row, click its trigger). Probed after the fix: every one of
+12 rows reveals a 24x24 trigger inside the row on hover, flush right, in both themes (the other absolute elements in this
+stylesheet already sit in positioned wrappers or are zero-size hidden inputs). The phone has no rail (MobileNavSheet).
+The unit and e2e reds of the menu fit were re-confirmed against the unfixed ActionsMenu.tsx after this change.
+
+**AC3 audit addendum:** SidebarItemList renders an ActionsMenu only when `onDelete` is passed and its only production
+consumer (AssistantContextList) passes none, so that site is dormant and covered by the shared component. Live-probed
+sites: DashboardList, PanelCardHeader, SpineStepRow, MobileStepSheet (in a dialog), SpineOutputs (one item, cannot breach).
+
+**Follow-up candidates (not fixed here):** other popovers that may share the short-viewport overflow exposure and were not
+probed: UserMenu, DashboardAppearanceEditor and the panel provenance popover.

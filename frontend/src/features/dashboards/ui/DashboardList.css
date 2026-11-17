@@ -6,6 +6,11 @@
   box-shadow: none;
   flex: 1;
   overflow-y: auto;
+  /* The scroller's own positioning context: the rows' visually-hidden three-dot wrappers are `position: absolute`
+     (see `.dashboard-list__item-row .popover.actions-menu`), and without this they resolved against the page, escaped
+     this scroller and stretched the page's scroll height (a phantom page scroll that shrank on row hover and jumped
+     the rows under the pointer, HEL-1750). */
+  position: relative;
 }
 
 .dashboard-list__header {
