@@ -270,6 +270,27 @@
   --font-sans: var(--font-mono);
 }
 
+/* Home opening-sentence tokens (HEL-1737). A separate block so the type-style blocks above stay font tokens only. */
+:root {
+  /* Home's opening sentence (HEL-1737): its max width in `em`, equal to the web font's own 40ch at 24px for the
+     active style (Sans 600px, Serif 640px, Mono 560px), so the cap does not change when the web font replaces the
+     fallback (`ch` follows the rendered face). A new web face or size token needs it re-measured. And whether the
+     hidden loading placeholder is held to one line from the 605px wrap point (the fallback faces render the Sans
+     default sentence a whole pixel wider than the web font); Serif and Mono keep their own wraps. */
+  --home-sentence-measure: 25em;
+  --home-ghost-white-space: nowrap;
+}
+
+:root[data-type-style="serif"] {
+  --home-sentence-measure: 26.6667em;
+  --home-ghost-white-space: normal;
+}
+
+:root[data-type-style="mono"] {
+  --home-sentence-measure: 23.3333em;
+  --home-ghost-white-space: normal;
+}
+
 /* Density. Compact is strictly tighter than Comfortable in each token. */
 :root[data-density="compact"] {
   --density-grid-gap: var(--space-2);

@@ -1,0 +1,14 @@
+{
+  "width": 1024,
+  "theme": "dark",
+  "facesBefore": [
+    {
+      "familyName": "Liberation Sans",
+      "isCustomFont": false
+    }
+  ],
+  "linesBefore": 1,
+  "linesAfter": 1,
+  "runsTopSpread": 0,
+  "sentenceHeightSpread": 0
+}

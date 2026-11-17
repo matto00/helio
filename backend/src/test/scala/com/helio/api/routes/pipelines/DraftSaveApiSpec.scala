@@ -101,6 +101,18 @@ class DraftSaveApiSpec extends DraftSaveApiFixture {
     }
   }
 
+  "an Output edit (HEL-1733)" should {
+    "rename an Output whose stored config carries a legacy key (validated against the stored config, like PATCH /api/outputs/:id)" in {
+      val seed = seedPipeline()
+      exec(s"UPDATE outputs SET config='{\"seriesColors\":[]}' WHERE id='${seed.oc}'")
+      val (fingerprint, definition) = read(seed)
+      val draft = withOutputs(draftOf(fingerprint, definition), replacing(outputsOf(draftOf(fingerprint, definition)), seed.oc)(o => set(o, "name", JsString("renamed"))))
+      val (code, body) = save(seed, userA, draft)
+      withClue(body.compactPrint)(code shouldBe StatusCodes.OK)
+      outputRows(seed).exists(r => r.startsWith(s"${seed.oc}|renamed|")) shouldBe true
+    }
+  }
+
   "a stale base" should {
     "answer 409 PATCH_SET_STALE naming the pipeline and the current fingerprint, and write nothing" in {
       val seed = seedPipeline()

@@ -51,6 +51,7 @@ function setup(overlay: DraftOverlay) {
         roots: [],
         allOutputsRef: { current: [] },
         draftSaveInFlightRef: { current: false },
+        setOutputPickRemap: jest.fn(),
         outputsLoaded: false,
         setSseActive: jest.fn(),
         refreshRunHistoryAfterRun: jest.fn(),

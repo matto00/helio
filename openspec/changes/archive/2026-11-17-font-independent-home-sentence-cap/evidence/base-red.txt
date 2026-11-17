@@ -1,0 +1,14 @@
+Base 6432e69e0 CSS, CI-like env (playwright v1.55.1-noble + fonts-dejavu, Liberation kept), run-server on 127.0.0.1:9371,
+new e2e cases, `-g "data before the web font|1440x900|web font's 40ch"`. Pre-swap face proven by CDP
+CSS.getPlatformFontsForNode: Liberation Sans (isCustomFont false). JSON per case: base-ci/data-before-font-*.json.
+
+RED  Home data before the web font (1024x900 light): runs card top across the font swap  expected <= 4, received 30
+RED  Home data before the web font (1280x900 light): ... received 30
+RED  Home data before the web font (1440x900 light): ... received 30
+RED  Home data before the web font (1024x900 dark):  ... received 30
+RED  Home data before the web font (1280x900 dark):  ... received 30
+RED  Home data before the web font (1440x900 dark):  ... received 30
+     (linesBefore 2 -> linesAfter 1 in every case: the sentence wraps in the fallback, then reflows)
+GUARD (green on base, kept): Home load 1440x900 light/dark x both orders (4 passed): the ghost's cap was already 25em.
+GUARD (green on base, kept): "keeps the web font's 40ch width and its line count" sans/serif/mono x light/dark (6 passed):
+  base cap is literally 40ch; it fails if the em values drift from the web font's 40ch.

@@ -1,6 +1,6 @@
 import type { PipelineStep } from "../types/pipelineStep";
 import type { Step } from "../types/step";
-import { savedStepForDraftStep } from "./draftSelection";
+import { remapCreatedOutputs, savedStepForDraftStep } from "./draftSelection";
 import { OP_TYPES } from "./stepNarrowing";
 
 const limit = OP_TYPES.find((o) => o.id === "limit")!;
@@ -57,5 +57,38 @@ describe("savedStepForDraftStep", () => {
       draft("draft-1", { parentStepId: "a", position: 1 }),
     ];
     expect(savedStepForDraftStep(steps, "draft-1", [saved("a", { rootId: "r1" })])).toBe("a");
+  });
+});
+
+describe("remapCreatedOutputs (HEL-1733 D10)", () => {
+  const out = (id: string, nodeStepId: string | undefined, name = "N", kind = "table") =>
+    ({
+      id,
+      pipelineId: "p",
+      ownerId: "u",
+      name,
+      kind,
+      config: {},
+      schema: [],
+      createdAt: "",
+      updatedAt: "",
+      ...(nodeStepId !== undefined ? { nodeStepId } : {}),
+    }) as never;
+
+  it("maps a created Output to the new saved Output at the same node, kind and name, never one that was already there", () => {
+    const created = out("draft-o", "s1", "N");
+    const map = remapCreatedOutputs(
+      [],
+      [created, out("kept", "s1", "N")],
+      new Set(["kept"]),
+      [] as never,
+      [out("kept", "s1", "N"), out("new-1", "s1", "N"), out("new-2", "s1", "Other")],
+    );
+    expect([...map.entries()]).toEqual([["draft-o", "new-1"]]);
+  });
+
+  it("has no entry for a created Output the save did not produce, so the default resolution applies", () => {
+    const map = remapCreatedOutputs([], [out("draft-o", "s1")], new Set(), [] as never, []);
+    expect(map.size).toBe(0);
   });
 });

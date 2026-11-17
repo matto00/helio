@@ -67,6 +67,7 @@ export function PipelineMobileLayout({
     onInstantiateShape: page.handleInstantiateShape,
     onReorderSteps: page.handleReorderSteps,
     structuralBlockedReason: page.draftBlockReason,
+    outputBlockedReason: page.draftOutputBlockReason,
   });
   // The Preview tab's chosen step lives here so the draft transport knows which step's rows to ask the server for.
   const [previewChosenId, setPreviewChosenId] = useState<string | null>(null);
@@ -132,7 +133,13 @@ export function PipelineMobileLayout({
   // node id rides on the draft request whether or not the tab is visible (HEL-1705).
   const previewStepId = resolvePreviewStepId(laneGraph, roots, previewChosenId);
   const [outputPick, setOutputPick] = useState<OutputPick | null>(null);
-  const outputNodeStepIds = useDisplayedOutputNodeIds(page.allOutputs, outputPick, previewStepId);
+  const outputNodeStepIds = useDisplayedOutputNodeIds(
+    page.draftOutputs,
+    outputPick,
+    previewStepId,
+    page.sheetNodeStepId,
+    page.outputPickRemap,
+  );
   const focusStepId = tab === "preview" ? previewStepId : (open?.step.id ?? null);
   const presentation = usePipelineDraftPresentation(page, focusStepId, outputNodeStepIds);
 
@@ -200,13 +207,15 @@ export function PipelineMobileLayout({
                 roots={roots}
                 pipelineId={page.id ?? ""}
                 sourceByRootId={page.sourceByRootId}
-                outputs={page.allOutputs}
+                outputs={page.draftOutputs}
                 selectedStepId={open?.step.id ?? null}
                 stepCount={steps.length}
                 rowCountFor={(stepId) => stepRowCount(stepId, runStepRowCounts, persistedCounts)}
                 draftFor={presentation.draftFor}
                 draftCountsOverSample={presentation.draftCountsOverSample}
                 structuralBlockedReason={presentation.structuralBlockedReason}
+                outputBlockedReason={page.draftOutputBlockReason}
+                editedOutputIds={page.draftOutputEditedIds}
                 countsPartial={countsPartial}
                 getAnalyzeValidationError={page.getAnalyzeValidationError}
                 getAnalyzeWarnings={page.getAnalyzeWarnings}

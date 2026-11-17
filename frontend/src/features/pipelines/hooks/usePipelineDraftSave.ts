@@ -11,6 +11,7 @@ import type { Output } from "../types/output";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { buildDraftSaveRequest, noticeForSaveError } from "./draftSaveRequest";
+import { overlayHasOutputChange } from "../state/pipelineDraft";
 import type { DraftCascadePrompt, DraftNotice } from "./draftSaveRequest";
 import type { PipelineDraft } from "./usePipelineDraft";
 import { usePipelineDraftAdopt } from "./usePipelineDraftAdopt";
@@ -30,6 +31,7 @@ type SaveArgs = {
   allOutputsRef: MutableRefObject<Output[]>;
   /** Shared with the run stream: true while a Save & run is posted and its response is not yet processed. */
   draftSaveInFlightRef: MutableRefObject<boolean>;
+  setOutputPickRemap: Dispatch<SetStateAction<ReadonlyMap<string, string>>>;
   outputsLoaded: boolean;
   setSseActive: Dispatch<SetStateAction<boolean>>;
   refreshRunHistoryAfterRun: () => void;
@@ -54,6 +56,7 @@ export function usePipelineDraftSave({
   roots,
   allOutputsRef,
   draftSaveInFlightRef,
+  setOutputPickRemap,
   outputsLoaded,
   setSseActive,
   refreshRunHistoryAfterRun,
@@ -94,6 +97,8 @@ export function usePipelineDraftSave({
     dispatch,
     pushToast,
     adoptDefinition,
+    allOutputsRef,
+    setOutputPickRemap,
     dismissSavedToast,
     savedToastRef,
     requestUndo,
@@ -111,6 +116,15 @@ export function usePipelineDraftSave({
       // A draft restored over a pipeline that changed while it was away is never saved over it: reload first.
       if (draft.staleRestoredRef.current) {
         setNotice({ kind: "stale" });
+        return;
+      }
+      // Output ops are never judged against an Output list this page has not loaded (D15): refuse, and say why.
+      if (!outputsLoaded && overlayHasOutputChange(draft.overlayRef.current)) {
+        setNotice({
+          kind: "error",
+          message: "Outputs could not be loaded; reload to save this draft",
+          stepName: null,
+        });
         return;
       }
       draftSaveInFlightRef.current = true;
@@ -160,6 +174,7 @@ export function usePipelineDraftSave({
           steps: stepsRef.current,
           outputs: allOutputsRef.current,
           draftSteps: draft.draftSteps,
+          draftOutputs: draft.draftOutputs,
         });
         if ("cascade" in mapped) setCascade(mapped.cascade);
         else setNotice(mapped.notice);
@@ -204,8 +219,9 @@ export function usePipelineDraftSave({
     try {
       const summary = await getPipelineWithDefinition(id);
       if (!mountedRef.current || !summary.definition) return;
-      const next = adoptDefinition(id, summary.definition);
-      const dropped = draft.rebase(next);
+      const definition = summary.definition;
+      const next = adoptDefinition(id, definition);
+      const dropped = draft.rebase(next, outputsLoaded ? definition.outputs : null);
       setNotice(dropped > 0 ? { kind: "dropped", count: dropped } : null);
     } catch (err: unknown) {
       setNotice({
@@ -214,7 +230,7 @@ export function usePipelineDraftSave({
         stepName: null,
       });
     }
-  }, [id, adoptDefinition, draft]);
+  }, [id, adoptDefinition, draft, outputsLoaded]);
 
   const dismissNotice = useCallback(() => setNotice(null), []);
 

@@ -524,7 +524,7 @@ test.describe("HEL-1631 draft mode (live)", () => {
     expect(sent[0]).toBe(`GET /api/pipelines/${pipelineId}/steps/${stepIds[2]}/preview`);
   });
 
-  test("roots, shapes and Outputs stay disabled with a reason while a draft exists; the step actions are enabled (HEL-1684)", async ({
+  test("only the roots stay disabled with a reason while a draft exists; the step, Output and shape actions are enabled (HEL-1684, HEL-1733)", async ({
     page,
     request,
   }) => {
@@ -536,10 +536,10 @@ test.describe("HEL-1631 draft mode (live)", () => {
     const addSource = page.getByRole("button", { name: "Add source" });
     await expect(addSource).toBeDisabled();
     await expect(addSource).toHaveAttribute("title", reason);
+    // HEL-1733: shapes and Outputs are draft entries now, so only add/remove source is blocked.
     const shape = page.getByRole("button", { name: "Add Outputs from a shape" });
-    await expect(shape).toBeDisabled();
-    await expect(shape).toHaveAttribute("title", reason);
-    await expect(page.getByRole("button", { name: "New output" })).toBeDisabled();
+    await expect(shape).toBeEnabled();
+    await expect(page.getByRole("button", { name: "New output" })).toBeEnabled();
     const add = page.getByRole("button", { name: "+ Add transformation step" });
     await expect(add).toBeEnabled();
     await expect(page.getByRole("button", { name: "Duplicate step" })).toBeEnabled();

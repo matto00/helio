@@ -93,6 +93,7 @@ function parts(setup: Setup = {}) {
     id: "p1",
     roots: [],
     allOutputs: outputs,
+    draftOutputs: outputs,
     runStatus: setup.runStatus ?? null,
     runIsDry: false,
   } as unknown as PipelinePageState;
@@ -431,5 +432,32 @@ describe("LiveOutputColumn", () => {
     );
     expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
     expect(screen.queryByText("Select this step to update it")).not.toBeInTheDocument();
+  });
+});
+
+describe("LiveOutputColumn with an Output the draft created (HEL-1733 D10)", () => {
+  const created = output({ id: "draft-abc12345", name: "New one", nodeStepId: "s1" });
+
+  it("renders it from its node's draft rows, with the live marker, and requests nothing by its client id", async () => {
+    renderWithStore(
+      column({ outputs: [created], hasDraft: true, views: new Map([["s1", view()]]) }),
+    );
+    expect(await findValue("30")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Output is live")).toBeInTheDocument();
+    expect(getOutputRows).not.toHaveBeenCalled();
+    expect(fetchHistory).not.toHaveBeenCalled();
+  });
+
+  it("even when its node cannot be previewed it never reads saved rows or history for the client id", async () => {
+    renderWithStore(
+      column({
+        outputs: [created],
+        hasDraft: true,
+        views: new Map([["s1", view({ status: "notPreviewed", rows: null })]]),
+      }),
+    );
+    await screen.findByText("Not previewed (AI step): showing the last run's data.");
+    expect(getOutputRows).not.toHaveBeenCalled();
+    expect(fetchHistory).not.toHaveBeenCalled();
   });
 });

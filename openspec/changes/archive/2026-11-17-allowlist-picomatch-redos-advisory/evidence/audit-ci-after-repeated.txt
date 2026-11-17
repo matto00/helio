@@ -1,0 +1,10 @@
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751 run1 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751 run2 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751 run3 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751 run4 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751 run5 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751/frontend run1 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751/frontend run2 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751/frontend run3 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751/frontend run4 exit 0 ; 0
+/home/matt/Development/helio/.claude/worktrees/bug/allowlist-picomatch-redos-advisory/hel-1751/frontend run5 exit 0 ; 0

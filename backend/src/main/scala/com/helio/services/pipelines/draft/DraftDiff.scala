@@ -7,7 +7,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository.OutputRow
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.PipelineStepRow
 import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputWrite, StepWrite}
 import com.helio.services.ServiceError
-import com.helio.services.pipelines.{OutputService, PipelineCreatePreflight}
+import com.helio.services.pipelines.{OutputConfigWritePolicy, OutputService, PipelineCreatePreflight}
 import spray.json._
 
 import scala.annotation.tailrec
@@ -282,6 +282,9 @@ object DraftDiff {
       val dup = all.groupBy(_._2).collect { case (k, v) if v.size > 1 => k }
       if (dup.nonEmpty) bad(s"Duplicate Output id or clientId in the draft: ${dup.toVector.sorted.mkString(", ")}")
       else {
+        // HEL-1733 D12: an edit is judged against the STORED config (the PATCH tolerance rule); undo restoring a
+        // journaled definition re-judges nothing it writes back, as patch-set rollback does.
+        val writePolicy = if (allowExplicitIds) OutputConfigWritePolicy.RestorePriorStored else OutputConfigWritePolicy.ValidateWrite
         val survivorIds = all.collect { case (_, _, id, false, _, _) => id }.toSet
         val perOutput = all.map { case (o, key, id, created, kind, (nodeStep, root)) =>
           val config = o.config.getOrElse(JsObject.empty)
@@ -292,8 +295,8 @@ object DraftDiff {
               else if (cur.nodeStepId != write.nodeStepId || cur.rootId != write.rootId)
                 bad(s"Output '$key': an Output cannot move to another node or root; remove it and add a new one")
               else if (cur.name == write.name && cur.config == write.config) Right((None, None))
-              else OutputService.validateConfig(kind, config, JsObject.empty).map(_ => (None, Some(write)))
-            case _ => OutputService.validateConfig(kind, config, JsObject.empty).map(_ => (Some(write), None))
+              else OutputService.validateConfig(kind, config, cur.config, writePolicy).map(_ => (None, Some(write)))
+            case _ => OutputService.validateConfig(kind, config, JsObject.empty, writePolicy).map(_ => (Some(write), None))
           }
         }
         sequence(perOutput).map { results =>

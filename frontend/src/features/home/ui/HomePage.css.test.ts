@@ -36,17 +36,48 @@ describe("HomePage.css — load stability (HEL-1665)", () => {
     expect(css).not.toMatch(/home-opening__skeleton-line\s*\{[^}]*calc\(/);
   });
 
-  it("keeps the real opening sentence at 40ch and gives only the hidden placeholder an em cap", () => {
+  it("caps the real sentence and the placeholder with one font-independent em measure per type style (HEL-1737)", () => {
     const real = findRuleBody(css, ".home-opening__sentence");
-    expect(real).toMatch(/max-width:\s*40ch\s*;/);
+    // Not `ch`: the digit advance follows the rendered face, so the cap would change when the web font replaces the fallback.
+    expect(real).toMatch(/max-width:\s*var\(--home-sentence-measure\)\s*;/);
+    expect(real).not.toMatch(/\bch\b/);
     // Shared typography: the real sentence and the placeholder render in the same face and size.
     expect(css).toMatch(
       /\.home-opening__sentence,\s*\.home-opening__ghost\s*\{[^}]*font-family:\s*var\(--font-heading\)/,
     );
-    expect(ghostRule).toMatch(/max-width:\s*25em\s*;/);
-    // The ghost wraps like the real sentence in every type style; no nowrap, no type-style selector in Home CSS.
+    expect(ghostRule).toMatch(/max-width:\s*var\(--home-sentence-measure\)\s*;/);
+    // The base placeholder rule wraps like the real sentence in every type style; no nowrap.
     expect(ghostRule).not.toMatch(/white-space/);
+    // DESIGN.md: a type style is a token override in theme.css, never a component branch.
     expect(css).not.toMatch(/data-type-style/);
+  });
+
+  it("sets the per-style measure and the Sans-only nowrap switch as theme.css tokens (HEL-1737)", () => {
+    const theme = fs.readFileSync(path.join(__dirname, "../../../theme/theme.css"), "utf-8");
+    expect(theme).toMatch(
+      /:root \{[^}]*--home-sentence-measure:\s*25em\s*;[^}]*--home-ghost-white-space:\s*nowrap\s*;/,
+    );
+    for (const [style, em] of [
+      ["serif", "26.6667"],
+      ["mono", "23.3333"],
+    ]) {
+      const body = [
+        ...theme.matchAll(new RegExp(`:root\\[data-type-style="${style}"\\] \\{([^}]*)\\}`, "g")),
+      ]
+        .map((m) => m[1])
+        .join("\n");
+      expect(body).toMatch(new RegExp(`--home-sentence-measure:\\s*${em}em\\s*;`));
+      expect(body).toMatch(/--home-ghost-white-space:\s*normal\s*;/);
+    }
+  });
+
+  it("holds only the Sans placeholder to one line from the web font's wrap point (605px at 16px) up (HEL-1737)", () => {
+    const band = findMediaBlock(css, "min-width: 37.8125em");
+    const rule = findRuleBody(band, ".home-opening__ghost");
+    expect(rule).toMatch(/white-space:\s*var\(--home-ghost-white-space\)\s*;/);
+    expect(rule).toMatch(/overflow:\s*hidden\s*;/);
+    // The real sentence is never nowrap: the loaded rendering is unchanged.
+    expect(findRuleBody(css, ".home-opening__sentence")).not.toMatch(/white-space/);
   });
 
   it("hides the shelf's reserved link slot without removing its line", () => {

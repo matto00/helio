@@ -1,0 +1,8 @@
+{
+  "style": "sans",
+  "text": "Two runs failed, one run looks stuck and one scheduled run was missed, everything else is quiet.",
+  "settledMax": 600,
+  "ch40": 600,
+  "width": 600,
+  "lines": 2
+}

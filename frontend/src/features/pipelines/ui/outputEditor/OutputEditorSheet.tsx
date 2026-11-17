@@ -14,19 +14,14 @@ import { useEffect, useId, useMemo, useState } from "react";
 
 import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
-import { useAppDispatch, useAppSelector } from "../../../../hooks/reduxHooks";
 import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
-import {
-  createOutput,
-  deleteOutput,
-  fetchNodeCapabilities,
-  previewOutput,
-  selectNodeCapabilities,
-  updateOutput,
-} from "../../state/outputsSlice";
 import type { Output, OutputKind } from "../../types/output";
 import type { AggregateConfig } from "../../types/pipelineStep";
-import { useOutputPreview, useUnsavedStepPreview } from "../../hooks/usePipelinePreviewCache";
+import {
+  useOutputImmediateActions,
+  type OutputActions,
+} from "../../hooks/useOutputImmediateActions";
+import { isDraftOutput } from "../../state/draftOutputs";
 import type { Step } from "../../types/step";
 import { aggColumnOptions, columnOptions } from "./outputConfigTypes";
 import {
@@ -42,6 +37,8 @@ import { OutputPlacementsList } from "./OutputPlacementsList";
 import { OutputSheetPreviewCard } from "./OutputSheetPreviewCard";
 import { useOutputKindState } from "./useOutputKindState";
 import { useOutputSavedStatus } from "./useOutputSavedStatus";
+import { useOutputSheetNode } from "./useOutputSheetNode";
+import { PICK_STEP_HINT, draftSheetState, type OutputSheetDraft } from "./outputSheetDraft";
 import "./OutputEditorSheet.css";
 
 const KIND_OPTIONS: SelectOption[] = [
@@ -78,6 +75,12 @@ interface OutputEditorSheetProps {
    *  warning banner's affordance. Omitted in contexts that don't wire it
    *  (e.g. tests), same convention as `onAddAsTailWithAggregate`. */
   onRunPipeline?: () => void;
+  /** HEL-1733 D3: the page's routed Output writes (a draft entry while a draft exists, an immediate write otherwise). Omitted in
+   *  contexts that do not wire the page (tests): the sheet then writes immediately itself. */
+  actions?: OutputActions;
+  /** HEL-1733: given only while a pipeline draft exists. Save/Delete then record draft entries, the columns and preview come from the
+   *  draft, and nothing is written or read by a draft-only id. */
+  draft?: OutputSheetDraft;
 }
 
 export function OutputEditorSheet({
@@ -89,9 +92,14 @@ export function OutputEditorSheet({
   steps,
   onAddAsTailWithAggregate,
   onRunPipeline,
+  actions,
+  draft,
 }: OutputEditorSheetProps) {
-  const dispatch = useAppDispatch();
+  const immediate = useOutputImmediateActions(pipelineId);
+  const write = actions ?? immediate;
   const isCreate = output === null;
+  // A created Output has no server row (its id is a client id): treated like a create for every stored-resource read.
+  const hasServerRow = !isCreate && output !== null && !isDraftOutput(output);
   const kindHintId = useId();
 
   const [nodeStepId, setNodeStepId] = useState<string | undefined>(
@@ -119,20 +127,21 @@ export function OutputEditorSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, output?.id]);
 
-  const capabilities = useAppSelector((state) =>
-    selectNodeCapabilities(state, pipelineId, nodeStepId),
-  );
-  useEffect(() => {
-    if (!open) return;
-    void dispatch(fetchNodeCapabilities({ pipelineId, stepId: nodeStepId }));
-  }, [open, dispatch, pipelineId, nodeStepId]);
+  const { capabilities, typing, previewRows } = useOutputSheetNode({
+    open,
+    pipelineId,
+    output,
+    nodeStepId,
+    steps,
+    draft,
+  });
 
   const previewFieldTypes = useMemo(
     () => toChartFieldTypes(capabilities?.columns.map((c) => ({ name: c.name, type: c.dataType }))),
     [capabilities],
   );
 
-  const { placements, neverMaterialized } = useOutputSavedStatus(open, isCreate, output);
+  const { placements, neverMaterialized } = useOutputSavedStatus(open, !hasServerRow, output);
 
   const config = useMemo(() => output?.config ?? {}, [output]);
   const kindState = useOutputKindState(
@@ -149,24 +158,6 @@ export function OutputEditorSheet({
   const aggFieldOptions = aggColumnOptions(capabilities);
   // HEL-1311 -- the server's own "numeric for a chart value" list (the `yAxis` slot's eligibility).
   const numericColumns = capabilities?.capabilities.chart?.eligibleColumns.yAxis ?? [];
-
-  // task 5.5 -- live preview, saved vs. unsaved arm (design.md decision 6a).
-  const savedPreview = useOutputPreview(pipelineId, output?.id ?? "");
-  const unsavedPreview = useUnsavedStepPreview(pipelineId, nodeStepId ?? "__root__");
-  const previewEntry = isCreate ? unsavedPreview : savedPreview;
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = setTimeout(() => {
-      void previewEntry.refresh();
-    }, 400);
-    return () => clearTimeout(handle);
-    // Debounced re-fetch on open + whenever the target node changes. The
-    // preview endpoints don't apply in-progress config server-side (decision
-    // 6a) so field/kind edits re-render client-side against the same rows
-    // without re-fetching -- only a node/save-state change needs a refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isCreate, output?.id, nodeStepId]);
 
   function buildConfig(): Record<string, unknown> {
     return buildOutputConfig(kindState.params(kind));
@@ -196,42 +187,32 @@ export function OutputEditorSheet({
     setSaving(true);
     setSaveError(null);
     try {
-      if (isCreate) {
-        const created = await dispatch(
-          createOutput({
-            pipelineId,
-            payload: {
-              nodeStepId,
-              kind,
-              name: name.trim() || "Untitled output",
-              config: buildConfig(),
-            },
-          }),
-        ).unwrap();
-        // HEL-908 Cycle 13 -- the preview fetched while creating (above,
-        // `unsavedPreview`) is cached under the unsaved `step:<stepId>` key,
-        // not the new Output's real id. Without this, the rail chip for a
-        // freshly-created Output shows no preview until its sheet is
-        // reopened (`OutputsRail` never fetches on its own).
-        void dispatch(previewOutput({ pipelineId, outputId: created.id }));
-      } else if (output) {
+      if (output === null) {
+        await write.create({
+          nodeStepId,
+          kind,
+          name: name.trim() || "Untitled output",
+          config: buildConfig(),
+        });
+      } else {
         const patch = withHistoryPayloads(buildEditConfig());
-        await dispatch(
-          updateOutput({
-            outputId: output.id,
-            // `config` is omitted entirely when nothing in it changed.
-            payload: {
-              name: name.trim(),
-              ...(Object.keys(patch).length > 0 ? { config: patch } : {}),
-            },
-          }),
-        ).unwrap();
+        // `config` is omitted entirely when nothing in it changed.
+        await write.update(output, {
+          name: name.trim(),
+          ...(Object.keys(patch).length > 0 ? { config: patch } : {}),
+        });
       }
       onClose();
     } catch (err) {
       // The thunks reject with the server's message (`rejectWithValue`), which names a rejected
       // config key/aggregation (HEL-1313); anything else keeps the generic text.
-      setSaveError(typeof err === "string" && err ? err : "Failed to save output.");
+      setSaveError(
+        typeof err === "string" && err
+          ? err
+          : err instanceof Error
+            ? err.message
+            : "Failed to save output.",
+      );
     } finally {
       setSaving(false);
     }
@@ -241,7 +222,7 @@ export function OutputEditorSheet({
     if (!output) return;
     setSaving(true);
     try {
-      await dispatch(deleteOutput({ outputId: output.id, pipelineId })).unwrap();
+      await write.remove(output);
       onClose();
     } catch {
       setSaveError("Failed to delete output.");
@@ -249,10 +230,14 @@ export function OutputEditorSheet({
     }
   }
 
-  const stepOptions: SelectOption[] = [
-    { value: "", label: "Pipeline source" },
-    ...steps.map((s) => ({ value: s.id, label: s.label })),
-  ];
+  const { stepOptions, needsStepPick, saveWaits, hint } = draftSheetState({
+    draft,
+    steps,
+    isCreate,
+    nodeStepId,
+    kind,
+    typing,
+  });
 
   // task 5.6 -- "Add as tail with aggregate": only meaningful while
   // creating, against a real node (an aggregate step needs a `parentStepId`
@@ -303,7 +288,8 @@ export function OutputEditorSheet({
           onSave={() => void handleSave()}
           saveBlocked={
             rulesInvalid ||
-            (kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid))
+            (kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid)) ||
+            saveWaits
           }
         />
       }
@@ -330,9 +316,14 @@ export function OutputEditorSheet({
               id="output-step"
               ariaLabel="Target step"
               value={nodeStepId ?? ""}
-              onChange={(v) => setNodeStepId(v === "" ? undefined : v)}
+              onChange={(v) => {
+                const next = v === "" ? undefined : v;
+                setNodeStepId(next);
+                draft?.onNodeChange(next);
+              }}
               options={stepOptions}
             />
+            {needsStepPick && <p className="output-editor-sheet__field-hint">{PICK_STEP_HINT}</p>}
           </div>
         )}
 
@@ -356,6 +347,11 @@ export function OutputEditorSheet({
             </p>
           )}
         </div>
+        {hint !== null && (
+          <p className="output-editor-sheet__draft-hint" role="status">
+            {hint}
+          </p>
+        )}
       </div>
 
       <OutputKindConfigCard
@@ -381,7 +377,7 @@ export function OutputEditorSheet({
       <OutputSheetPreviewCard
         kind={kind}
         kindState={kindState}
-        rows={previewEntry.result}
+        rows={previewRows}
         neverMaterialized={neverMaterialized}
         fieldTypes={previewFieldTypes}
         onRunPipeline={onRunPipeline}

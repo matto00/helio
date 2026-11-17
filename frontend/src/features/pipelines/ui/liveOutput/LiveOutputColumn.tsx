@@ -11,6 +11,7 @@ import { useIdleCoalesced } from "../../hooks/useIdleCoalesced";
 import { useLiveOutputBaseline } from "../../hooks/useLiveOutputBaseline";
 import { useLiveSampleState } from "../../hooks/useLiveSampleState";
 import { clearSavedOutputRows, useSavedOutputRows } from "../../hooks/useSavedOutputRows";
+import { isDraftOutput } from "../../state/draftOutputs";
 import { liveOutputSource, type LiveMarker } from "../../state/liveOutput/liveOutputSource";
 import {
   isSettling,
@@ -71,7 +72,12 @@ export function LiveOutputColumn(props: LiveOutputColumnProps) {
   // selected step shows at once.
   const coalesced = useIdleCoalesced(fresh);
   const shown = coalesced.selectedStepId === selectedStepId ? coalesced : fresh;
-  const displayed = resolveDisplayedOutput(shown.page.allOutputs, pick, shown.selectedStepId);
+  const displayed = resolveDisplayedOutput(
+    shown.page.draftOutputs,
+    pick,
+    shown.selectedStepId,
+    shown.page.outputPickRemap,
+  );
   const settling = isSettling(displayed, fresh.presentation.frames, shown.presentation.frames);
   return (
     <LiveOutputColumnView
@@ -111,8 +117,8 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
   expanded?: boolean;
   onToggle?: () => void;
 }) {
-  const outputs = page.allOutputs;
-  const output = resolveDisplayedOutput(outputs, pick, selectedStepId);
+  const outputs = page.draftOutputs;
+  const output = resolveDisplayedOutput(outputs, pick, selectedStepId, page.outputPickRemap);
 
   const { frames, hasDraft } = presentation;
   const sample = useLiveSampleState(page.roots, page.id ?? "");
@@ -136,8 +142,10 @@ const LiveOutputColumnView = memo(function LiveOutputColumnView({
     [output, hasDraft, sample, frames],
   );
 
-  const saved = useSavedOutputRows(output?.id ?? null, source?.kind === "saved");
-  const history = useLiveOutputBaseline(output?.id ?? null, output?.config ?? null, {
+  // A created Output has no server row: never a request naming its client id (HEL-1733 D10).
+  const serverOutputId = output !== undefined && !isDraftOutput(output) ? output.id : null;
+  const saved = useSavedOutputRows(serverOutputId, source?.kind === "saved");
+  const history = useLiveOutputBaseline(serverOutputId, output?.config ?? null, {
     status: page.runStatus,
     isDry: page.runIsDry === true,
   });

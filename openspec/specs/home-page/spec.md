@@ -191,10 +191,14 @@ On a cold load (before the web fonts arrive) the page renders in metric-matched 
 heading and mono fonts arrive the runs card top SHALL move by at most 4px at 375, 430, 480, 540, 620, 1024 and 1280px
 wide, in light and dark themes, under the CI-like font set (Ubuntu noble with Liberation and DejaVu installed, as on CI's
 e2e legs) and with DejaVu as the only fallback; at those widths the hidden default sentence SHALL have the same line
-count in the fallback as in the web font. At other widths (for example the 605-615px band, where the default sentence
-is close to its wrap point) the swap MAY be larger if the fallback wraps that sentence differently; the measured value
-at 610px is recorded in the HEL-1678 evidence. The swap is asserted by the e2e at the listed widths as well as recorded
-in its evidence; the measured numbers, base versus this change, are in the HEL-1678 change's evidence.
+count in the fallback as in the web font. The same bound (at most 4px) SHALL hold under the CI-like font set and with DejaVu
+as the only fallback at every width from 605 to 613px and at 1440px, light and dark. In the Sans type style, from 37.8125em wide (605px at a 16px default font size, the width where the web font's default sentence first fits one line) upward, the hidden loading placeholder SHALL be held to one line (`white-space: nowrap`), because the fallback faces render the default sentence a whole pixel wider than the web font and a size-adjust cannot close that; the real opening sentence is not changed. Across every viewport width from 320 to 1300px the placeholder SHALL have the same height in each fallback face as in the web font. The opening sentence's and its placeholder's maximum width SHALL
+be a font-independent measure (in `em`, per type style) equal to the web font's own `40ch` for that style, so the cap
+does not change when the web font replaces the fallback, and with the web fonts loaded the settled sentence wraps as it
+did with a `40ch` cap. When the summary data has settled before the web fonts arrive, the run timeline card's top edge
+SHALL move by at most 4px when they arrive, at 1024, 1280 and 1440px wide, in light and dark themes, under the
+CI-like font set. The swap is asserted by the e2e at the listed widths as well as recorded in its evidence; the measured
+numbers, base versus each change, are in the HEL-1678 and HEL-1737 changes' evidence.
 Under a larger browser default font size (Home is sized in rem) Home SHALL render without horizontal scroll at
 375px and 1280px, and the 0px-after-fonts-load rule above SHALL hold.
 
@@ -223,9 +227,19 @@ Under a larger browser default font size (Home is sized in rem) Home SHALL rende
 - **THEN** the "All N" shelf link and the "+N more" runs link each have a hit region of at least 44×44px
 
 #### Scenario: Cold-load web-font swap is bounded
-- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` on a cold load at 375, 430, 480, 540, 620, 1024 or 1280px wide, in light or dark theme, under the CI-like font set (Liberation and DejaVu installed) or with DejaVu as the only fallback
+- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` on a cold load at 375, 430, 480, 540, 605 to 613, 620, 1024, 1280 or 1440px wide, in light or dark theme, under the CI-like font set (Liberation and DejaVu installed) or with DejaVu as the only fallback
 - **THEN** the run timeline card's top edge moves by at most 4px between the first frame rendered in the fallback faces and the frame after the web fonts have loaded
 
 #### Scenario: Larger browser default font size
 - **WHEN** the browser's default font size is larger than 16px and the user opens `/home` at 375×812 or 1280×900, in light or dark theme
 - **THEN** Home's text is rendered larger than at the default size, the document does not scroll horizontally, and the run timeline card does not move once the web fonts have loaded
+
+#### Scenario: Data before the web font does not reflow the sentence
+- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` on a cold load at 1024, 1280 or 1440px wide, in light or dark theme, under the CI-like font set, and the dashboards list and home summary settle before the web fonts arrive
+- **THEN** the run timeline card's top edge moves by at most 4px when the web fonts arrive, and the opening sentence keeps its line count
+
+#### Scenario: The settled measure equals the web font's 40ch
+- **WHEN** Home has settled with the web fonts loaded at 1280x900, under the Sans, Serif or Mono type style
+- **THEN** the opening sentence's computed maximum width equals that style's web font `40ch` within 0.5px, and a long sentence keeps its line count
+
+Known accepted residual (not a requirement): In data-first order (dashboards list and summary arriving before the web fonts), Sans, light and dark, the run timeline moves per fallback face as follows. Liberation-matched face (CI-like font set), 605-613px: the change moves it twice (the one-line placeholder, then the two-line fallback sentence, +30px, then the one-line web-font sentence, -30px) where base moved once; the first move is added by the placeholder rule. DejaVu-matched face (DejaVu only), 606-613px: the change does not move it (0px) where base moved it twice (placeholder one line, fallback sentence two lines, web-font sentence one line). At 605px the change moves it twice where base moved once (the placeholder rule adds the first move, as in the Liberation case). The fonts-first cold load moves 0px at every width. The owner accepted this as it behaves (rulings accept-residual-with-followup and accept-double-shift-and-document); it is tracked by follow-up HEL-1748 and is not asserted.

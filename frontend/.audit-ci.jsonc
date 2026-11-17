@@ -3,8 +3,66 @@
   // (matches helio-mcp/, HEL-1204; a "high" threshold stayed green on moderate advisories). Accepted,
   // un-fixable advisories go in `allowlist` below as `"<GHSA>|<path-scope>*"` with an inline comment
   // carrying the ticket, reason, dependency path and a review-by date (HEL-1246 pattern) — never a
-  // bare GHSA id or a package-wide wildcard. The allowlist is empty; the frontend/ tree is clean at
-  // the moderate threshold (HEL-1320).
+  // bare GHSA id or a package-wide wildcard.
   "moderate": true,
-  "allowlist": [],
+  "allowlist": [
+    // HEL-1751: GHSA-fc5q-39xc-vjpf (picomatch ReDoS via single-branch repeated extglobs, <= 4.0.7) —
+    // dev-only: `npm audit --omit=dev` is 0, every path below runs through dev/build tooling
+    // (jest/jest-util/jest-message-util (via jest-haste-map>anymatch), vite/tinyglobby/fdir,
+    // rollup plugins (@rollup/pluginutils), vite-plugin-pwa>workbox-build, rollup-plugin-visualizer).
+    // No patched release: 4.0.7 is the latest picomatch. audit-ci reports each path as a head-anchored
+    // "a>b>picomatch" string whose head and trailing ">" vary run to run (npm audit key order), so a
+    // verbatim per-path list is flaky. Instead there is one entry per package in picomatch's dev-only
+    // transitive effects set (all "dev": true in the lockfile), each as "<full package name>>*": a path
+    // must START at one of these dev packages. A production path starts at a production package, which
+    // is not listed, so it still fails. Do NOT loosen to "picomatch*", "jest*" or a leading "*".
+    // Re-derive the set from `npm audit --json` if the lockfile changes.
+    // Review-by 2026-12-17; remove once picomatch > 4.0.7 ships.
+    "GHSA-fc5q-39xc-vjpf|@jest/console>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/core>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/environment>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/environment-jsdom-abstract>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/expect>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/fake-timers>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/globals>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/reporters>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/test-result>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/test-sequencer>*",
+    "GHSA-fc5q-39xc-vjpf|@jest/transform>*",
+    "GHSA-fc5q-39xc-vjpf|@rollup/plugin-babel>*",
+    "GHSA-fc5q-39xc-vjpf|@rollup/plugin-node-resolve>*",
+    "GHSA-fc5q-39xc-vjpf|@rollup/plugin-replace>*",
+    "GHSA-fc5q-39xc-vjpf|@rollup/pluginutils>*",
+    "GHSA-fc5q-39xc-vjpf|@types/jest>*",
+    "GHSA-fc5q-39xc-vjpf|anymatch>*",
+    "GHSA-fc5q-39xc-vjpf|babel-jest>*",
+    "GHSA-fc5q-39xc-vjpf|expect>*",
+    "GHSA-fc5q-39xc-vjpf|fdir>*",
+    "GHSA-fc5q-39xc-vjpf|jest>*",
+    "GHSA-fc5q-39xc-vjpf|jest-changed-files>*",
+    "GHSA-fc5q-39xc-vjpf|jest-circus>*",
+    "GHSA-fc5q-39xc-vjpf|jest-cli>*",
+    "GHSA-fc5q-39xc-vjpf|jest-config>*",
+    "GHSA-fc5q-39xc-vjpf|jest-each>*",
+    "GHSA-fc5q-39xc-vjpf|jest-environment-jsdom>*",
+    "GHSA-fc5q-39xc-vjpf|jest-environment-node>*",
+    "GHSA-fc5q-39xc-vjpf|jest-haste-map>*",
+    "GHSA-fc5q-39xc-vjpf|jest-message-util>*",
+    "GHSA-fc5q-39xc-vjpf|jest-mock>*",
+    "GHSA-fc5q-39xc-vjpf|jest-resolve>*",
+    "GHSA-fc5q-39xc-vjpf|jest-resolve-dependencies>*",
+    "GHSA-fc5q-39xc-vjpf|jest-runner>*",
+    "GHSA-fc5q-39xc-vjpf|jest-runtime>*",
+    "GHSA-fc5q-39xc-vjpf|jest-snapshot>*",
+    "GHSA-fc5q-39xc-vjpf|jest-util>*",
+    "GHSA-fc5q-39xc-vjpf|jest-watcher>*",
+    "GHSA-fc5q-39xc-vjpf|jest-worker>*",
+    "GHSA-fc5q-39xc-vjpf|picomatch>*",
+    "GHSA-fc5q-39xc-vjpf|rollup-plugin-visualizer>*",
+    "GHSA-fc5q-39xc-vjpf|tinyglobby>*",
+    "GHSA-fc5q-39xc-vjpf|ts-jest>*",
+    "GHSA-fc5q-39xc-vjpf|vite>*",
+    "GHSA-fc5q-39xc-vjpf|vite-plugin-pwa>*",
+    "GHSA-fc5q-39xc-vjpf|workbox-build>*",
+  ],
 }

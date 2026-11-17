@@ -1,7 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
-import { useAppSelector } from "../../../hooks/reduxHooks";
 import type { useToast } from "../../toasts/hooks/useToast";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { PipelineDraft } from "./usePipelineDraft";
@@ -22,6 +21,7 @@ export function usePipelineDetailSaveWiring({
   draft,
   roots,
   draftSaveInFlightRef,
+  setOutputPickRemap,
   refreshRunHistoryAfterRun,
   outputName,
   isDirty,
@@ -35,6 +35,7 @@ export function usePipelineDetailSaveWiring({
   draft: PipelineDraft;
   roots: PipelineRoot[];
   draftSaveInFlightRef: Parameters<typeof usePipelineDraftSave>[0]["draftSaveInFlightRef"];
+  setOutputPickRemap: Parameters<typeof usePipelineDraftSave>[0]["setOutputPickRemap"];
   refreshRunHistoryAfterRun: () => void;
   outputName: string;
   isDirty: boolean;
@@ -62,9 +63,8 @@ export function usePipelineDetailSaveWiring({
     setIsConfirmingCancel,
   });
 
-  const outputsLoaded = useAppSelector(
-    (state) => id !== undefined && state.outputs.listStatus[id] === "succeeded",
-  );
+  // One source of truth for "loaded" (D15): this page's own fetch, the same status the draft judges Output ops by.
+  const outputsLoaded = draft.outputsStatus === "loaded";
   const draftSave = usePipelineDraftSave({
     id,
     dispatch,
@@ -75,6 +75,7 @@ export function usePipelineDetailSaveWiring({
     roots,
     allOutputsRef,
     draftSaveInFlightRef,
+    setOutputPickRemap,
     outputsLoaded,
     setSseActive,
     refreshRunHistoryAfterRun,

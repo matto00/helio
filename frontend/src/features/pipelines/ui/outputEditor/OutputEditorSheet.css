@@ -61,6 +61,14 @@
   color: var(--app-text-muted);
 }
 
+/* HEL-1733: the draft hint is its own block at the end of the header group (Name / Step / Kind), read before Save; the group's
+   gap spaces it from the field above and `__group + __group` from the config card below. */
+.output-editor-sheet__draft-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
 .output-editor-sheet__type-hint {
   margin: 0;
   font-size: var(--text-sm);
