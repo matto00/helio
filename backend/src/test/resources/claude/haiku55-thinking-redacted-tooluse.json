@@ -1,0 +1,19 @@
+{
+  "id": "msg_fixture_hop1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    { "type": "thinking", "thinking": "", "signature": "SIG_S1_opaque" },
+    { "type": "redacted_thinking", "data": "DATA_D1_opaque" },
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_1",
+      "name": "find",
+      "input": { "query": "standings", "resourceTypes": ["dashboard"] }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_details": null,
+  "usage": { "input_tokens": 130, "output_tokens": 55 }
+}

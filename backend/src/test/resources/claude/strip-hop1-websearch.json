@@ -1,0 +1,49 @@
+{
+  "id": "msg_strip1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-haiku-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "SIG_S1"
+    },
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_fixture_1",
+      "name": "web_search",
+      "input": {
+        "query": "league standings"
+      }
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_fixture_1",
+      "content": [
+        {
+          "type": "web_search_result",
+          "url": "https://example.com/a",
+          "title": "A",
+          "encrypted_content": "ENC_A",
+          "page_age": null
+        }
+      ]
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_fixture_find",
+      "name": "find",
+      "input": {
+        "query": "standings",
+        "resourceTypes": ["dashboard"]
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 50,
+    "output_tokens": 20
+  }
+}

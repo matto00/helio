@@ -11,8 +11,17 @@ import { MessageComposer } from "./MessageComposer";
 import { MessageTurn } from "./MessageTurn";
 import { ProposalHandoff } from "./ProposalHandoff";
 import { ToolCallIndicator } from "./ToolCallIndicator";
-import type { ClaudeToolMessageDto, ClaudeToolResultBlockDto } from "../types";
+import type {
+  ClaudeContentBlockDto,
+  ClaudeToolMessageDto,
+  ClaudeToolResultBlockDto,
+} from "../types";
 import { MessagesSquare } from "lucide-react";
+
+/** HEL-1636: a text block with something to show (not empty or whitespace only). */
+function isVisibleTextBlock(block: ClaudeContentBlockDto | undefined): boolean {
+  return block?.blockType === "text" && block.text.trim() !== "";
+}
 
 /** Every `tool_result` block across the whole transcript, keyed by `toolUseId` — a `tool_use`
  *  block's paired result can land in a LATER turn (the backend's tool loop appends a separate
@@ -173,7 +182,7 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
     // decorate in that case, so a standalone fallback bubble below is what actually carries the
     // "couldn't finish in time" message to the user (AC: "surface a clear message... not a
     // silent failure").
-    const lastTurnHasTrailingText = lastTurn?.content[lastBlockIndex]?.blockType === "text";
+    const lastTurnHasTrailingText = isVisibleTextBlock(lastTurn?.content[lastBlockIndex]);
     const showHopBudgetFallback =
       Boolean(lastTurnOutcome?.hopBudgetExhausted) && !lastTurnHasTrailingText;
 
@@ -199,6 +208,9 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
             turn.content.map((block, blockIndex) => {
               const key = `${turnIndex}-${blockIndex}`;
               if (block.blockType === "text") {
+                // HEL-1636: a blank text block (saved by a model that opened with an omitted
+                // thinking block) renders no bubble; the same predicate gates the fallback below.
+                if (!isVisibleTextBlock(block)) return null;
                 const isMostRecentTurn = key === lastBlockKey;
                 return (
                   <MessageTurn

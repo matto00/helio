@@ -86,6 +86,32 @@ describe("ActiveConversationPanel", () => {
     expect(screen.getByTestId("active-conversation-message-count")).toHaveTextContent("3 messages");
   });
 
+  // HEL-1636 D10: a transcript saved before the backend fix can hold empty assistant text blocks;
+  // they render no bubble.
+  it("renders no bubble for an empty or whitespace-only text block", async () => {
+    getConversationMock.mockResolvedValueOnce({
+      ...summaryOne,
+      transcript: [
+        { role: "user", content: [{ blockType: "text", text: "Hello" }] },
+        {
+          role: "assistant",
+          content: [
+            { blockType: "text", text: "" },
+            { blockType: "text", text: "   " },
+            { blockType: "text", text: "Real reply" },
+          ],
+        },
+      ],
+    });
+
+    const { container } = renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+    });
+
+    await waitFor(() => expect(screen.getByText("Real reply")).toBeInTheDocument());
+    expect(container.querySelectorAll(".message-turn")).toHaveLength(2);
+  });
+
   it("falls back to the first item when no explicit selection is set", async () => {
     getConversationMock.mockResolvedValueOnce(detailOf(summaryOne, 1));
 

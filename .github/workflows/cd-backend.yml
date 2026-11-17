@@ -56,6 +56,8 @@ jobs:
           # session cookie (SameSite=None) — see HEL-287 / docs/deployment.md.
           # CLAUDE_MODEL pins the ClaudeConfig default away from ClaudeConfig's
           # own claude-opus-4-8 default (cost) — see CLAUDE.md's env var table.
+          # Prod runs claude-haiku-5-5 (HEL-1636): the client keeps its thinking
+          # blocks intact and omits the default temperature that model rejects.
           # HELIO_OWNER_EMAILS assigns the `owner` tier (unlimited assistant
           # access) to this allowlist at signup/login on both auth paths — see
           # HEL-703/UserTierConfig.fromEnv. Promote-only; unset/empty is a no-op.
@@ -96,4 +98,4 @@ jobs:
           # intact. It lives on the service (set by infra/deploy-backend.sh from
           # infra/.env.deploy, or `gcloud run services update --update-env-vars`),
           # and --update-env-vars below preserves it like DATABASE_URL.
-          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-4-5-20251001,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest,RESEND_API_KEY=helio-resend-api-key:latest --max-instances=2 --no-cpu-throttling"
+          flags: "--update-env-vars=COOKIE_SECURE=true,CLAUDE_MODEL=claude-haiku-5-5,HELIO_OWNER_EMAILS=mattheworr018@gmail.com,CONNECTOR_MASTER_KEY_ID=env-2026-08,LOG_FORMAT=json --update-secrets=DB_PASSWORD=helio-db-password:latest,GOOGLE_CLIENT_SECRET=helio-google-client-secret:latest,ANTHROPIC_API_KEY=helio-anthropic-api-key:latest,CONNECTOR_MASTER_KEY=helio-connector-master-key:latest,RESEND_API_KEY=helio-resend-api-key:latest --max-instances=2 --no-cpu-throttling"

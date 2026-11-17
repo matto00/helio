@@ -3,7 +3,7 @@ package com.helio.services.patchsets
 import com.helio.services.proposals.{AuthoringErrorKind, AuthoringHistoryBudget}
 import com.helio.services.ServiceError
 import com.helio.services.proposals.AuthoringError
-import com.helio.infrastructure.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, TokenUsage}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeError, ClaudeErrorMessages, ClaudeMessage, ClaudeRequest, ClaudeRole, TokenUsage}
 import com.helio.api.protocols.patchsets.{PatchSet, RefinementRequest, RefinementResponse}
 import com.helio.domain.model.{AuthenticatedUser, AuthoringConversationId}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
@@ -138,6 +138,7 @@ final class RefinementService(
     case ClaudeError.ApiError(status, body)    => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(s"Claude API error ($status): $body"))
     case ClaudeError.TransportFailure(message) => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(message))
     case ClaudeError.GuardrailExceeded(reason) => AuthoringError.kinded(AuthoringErrorKind.BudgetExceeded, ServiceError.UnprocessableEntity(reason))
+    case ClaudeError.NoAnswer(reason, category) => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(ClaudeErrorMessages.noAnswerMessage(reason, category)))
   }
 
   private def totalTokensOf(outcome: AttemptOutcome): Int = outcome.tokens.inputTokens + outcome.tokens.outputTokens

@@ -7,7 +7,7 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeError, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeError, ClaudeErrorMessages, ClaudeToolMessage}
 import com.helio.api.http.RequestValidation
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment
@@ -116,6 +116,7 @@ final class AssistantConversationRoutes(
     case ClaudeError.ApiError(status, body)    => ServiceError.BadGateway(s"Claude API error ($status): $body")
     case ClaudeError.TransportFailure(message) => ServiceError.BadGateway(message)
     case ClaudeError.GuardrailExceeded(reason) => ServiceError.UnprocessableEntity(reason)
+    case ClaudeError.NoAnswer(reason, category) => ServiceError.BadGateway(ClaudeErrorMessages.noAnswerMessage(reason, category))
   }
 
   /** design.md D3's converse -> (on success) append -> re-fetch flow, given the conversation's

@@ -4,7 +4,7 @@ import com.helio.services.workspace.WorkspaceContextBudget
 import com.helio.services.panels.PanelCapabilityService
 import com.helio.services.workspace.WorkspaceContextService
 import com.helio.services.ServiceError
-import com.helio.infrastructure.ai.{ClaudeClient, ClaudeError, ClaudeMessage, ClaudeRequest, ClaudeRole, ClaudeStreamEvent, TokenUsage}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeErrorMessages, ClaudeMessage, ClaudeRequest, ClaudeRole, ClaudeStreamEvent, TokenUsage}
 import com.helio.api.protocols.proposals.{AuthoringContextOptions, AuthoringConversationView, AuthoringStreamEvent, DashboardAuthoringRequest, DashboardAuthoringResponse, DashboardProposal}
 import com.helio.api.protocols.panels.PanelCapabilitiesResponse
 import com.helio.api.protocols.workspace.{WorkspaceContextOutput, WorkspaceContextResponse}
@@ -315,6 +315,7 @@ final class DashboardAuthoringService(
     case ClaudeError.ApiError(status, body)    => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(s"Claude API error ($status): $body"))
     case ClaudeError.TransportFailure(message) => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(message))
     case ClaudeError.GuardrailExceeded(reason) => AuthoringError.kinded(AuthoringErrorKind.BudgetExceeded, ServiceError.UnprocessableEntity(reason))
+    case ClaudeError.NoAnswer(reason, category) => AuthoringError.kinded(AuthoringErrorKind.ModelFailure, ServiceError.BadGateway(ClaudeErrorMessages.noAnswerMessage(reason, category)))
   }
 
   // ── Telemetry (HEL-401 design.md D3/D4) — the terminal-outcome helpers themselves live in
@@ -405,7 +406,13 @@ final class DashboardAuthoringService(
       goal: String,
       mdcSnapshot: JMap[String, String]
   ): Future[Source[AuthoringStreamEvent, NotUsed]] =
-    parseAndValidate(fullText, user).flatMap {
+    // HEL-1636 D6: a refusal (or any empty stream) delivers no text; fail it directly rather than
+    // sending a repair request that carries an empty assistant message.
+    if (ClaudeContentBlock.isBlankText(fullText))
+      Future.successful(Source.single[AuthoringStreamEvent](
+        AuthoringOutcomeHelpers.failStreamEvent(mdcSnapshot, mapClaudeError(ClaudeError.NoAnswer(None, None)), claudeClient.modelId, goal)
+      ))
+    else parseAndValidate(fullText, user).flatMap {
       case Right(proposal) =>
         val outcome = AttemptOutcome(proposal, warnings, fullText, tokensSoFar)
         persistTurn(outcome).map {

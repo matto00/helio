@@ -1,5 +1,7 @@
 package com.helio.infrastructure.ai
 
+import org.slf4j.LoggerFactory
+
 import scala.util.Try
 
 /** Env-sourced configuration for the Claude Messages API client (HEL-390, design.md D6/D7).
@@ -39,6 +41,7 @@ object ClaudeConfig {
   val DefaultWebSearchMaxUses: Int   = 3
 
   private val ApiKeyEnvVar: String = "ANTHROPIC_API_KEY"
+  private val log = LoggerFactory.getLogger(getClass)
 
   /** Reads `ANTHROPIC_API_KEY` (required, non-blank), `CLAUDE_MODEL` (default
    *  [[DefaultModel]]), `CLAUDE_TEMPERATURE` (default [[DefaultTemperature]]),
@@ -54,11 +57,16 @@ object ClaudeConfig {
       case None =>
         Left(s"Missing required environment variable $ApiKeyEnvVar")
       case Some(apiKey) =>
+        val model       = sys.env.getOrElse("CLAUDE_MODEL", DefaultModel)
+        val temperature = doubleEnv("CLAUDE_TEMPERATURE", DefaultTemperature)
+        // HEL-1636 D7: Haiku 5.5 rejects non-default sampling with a 400 on a later API version.
+        if (model.startsWith("claude-haiku-5") && temperature != DefaultTemperature)
+          log.warn(s"CLAUDE_TEMPERATURE=$temperature is not 1.0, which $model rejects; unset CLAUDE_TEMPERATURE")
         Right(
           ClaudeConfig(
             apiKey = apiKey,
-            model = sys.env.getOrElse("CLAUDE_MODEL", DefaultModel),
-            temperature = doubleEnv("CLAUDE_TEMPERATURE", DefaultTemperature),
+            model = model,
+            temperature = temperature,
             maxOutputTokens = intEnv("CLAUDE_MAX_TOKENS", DefaultMaxOutputTokens),
             maxInputTokens = intEnv("CLAUDE_MAX_INPUT_TOKENS", DefaultMaxInputTokens),
             webSearchMaxUses = intEnv("CLAUDE_WEB_SEARCH_MAX_USES", DefaultWebSearchMaxUses)

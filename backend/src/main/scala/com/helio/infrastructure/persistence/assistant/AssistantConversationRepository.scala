@@ -194,6 +194,15 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
             "name"      -> JsString(name),
             "result"    -> result
           )
+        // HEL-1636 D4: `AssistantService` strips these before persisting, so they should never be
+        // written; the cases keep the sealed match exhaustive and the round trip lossless if one
+        // ever does arrive.
+        case ClaudeContentBlock.Thinking(thinking, signature) =>
+          JsObject("blockType" -> JsString("thinking"), "thinking" -> JsString(thinking), "signature" -> JsString(signature))
+        case ClaudeContentBlock.RedactedThinking(data) =>
+          JsObject("blockType" -> JsString("redacted_thinking"), "data" -> JsString(data))
+        case ClaudeContentBlock.Opaque(blockType, raw) =>
+          JsObject("blockType" -> JsString("opaque"), "type" -> JsString(blockType), "raw" -> raw)
       }
 
       def read(json: JsValue): ClaudeContentBlock = {
@@ -225,6 +234,15 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
               name      = obj.fields("name").convertTo[String],
               result    = obj.fields("result")
             )
+          case Some("thinking") =>
+            ClaudeContentBlock.Thinking(
+              thinking  = obj.fields("thinking").convertTo[String],
+              signature = obj.fields("signature").convertTo[String]
+            )
+          case Some("redacted_thinking") =>
+            ClaudeContentBlock.RedactedThinking(obj.fields("data").convertTo[String])
+          case Some("opaque") =>
+            ClaudeContentBlock.Opaque(obj.fields("type").convertTo[String], obj.fields("raw").asJsObject)
           case other =>
             deserializationError(s"Unknown ClaudeContentBlock blockType: $other")
         }
