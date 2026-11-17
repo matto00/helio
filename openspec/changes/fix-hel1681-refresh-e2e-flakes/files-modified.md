@@ -1,0 +1,3 @@
+- `e2e/hel1681-refresh-control.spec.ts` — wait for live stack + all initial rows loads in openDashboard (root cause of :129/:164), scope Full-motion box read to LIVE_STACK_ITEMS, scope shift sampler to the live stack, move the 1280 count-0 check after waitForPanelGrid
+- `openspec/changes/fix-hel1681-refresh-e2e-flakes/root-cause.md` — probe, forced repro, mechanism
+- `openspec/changes/fix-hel1681-refresh-e2e-flakes/sweep.md` — per-hit verdicts (D5)
