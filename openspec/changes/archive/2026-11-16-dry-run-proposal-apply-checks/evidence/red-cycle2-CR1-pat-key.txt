@@ -1,0 +1,9 @@
+[info] - should draw a PAT caller from the pat:<tokenId> bucket the route directive uses *** FAILED ***
+[info] - should draw a session caller from the user:<id> bucket
+[info] - should keep a PAT caller's bucket separate from its owner's session bucket *** FAILED ***
+[info] Tests: succeeded 1, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.services.ratelimit.SourceFetchBudgetSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 1 s, cache 93%, 27 disk cache hits, 2 onsite tasks

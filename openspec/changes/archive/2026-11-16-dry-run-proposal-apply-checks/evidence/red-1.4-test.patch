@@ -1,0 +1,26 @@
+diff --git a/backend/src/test/scala/com/helio/services/proposals/DashboardProposalServiceValidateSpec.scala b/backend/src/test/scala/com/helio/services/proposals/DashboardProposalServiceValidateSpec.scala
+index bb8f2e68e..066e773c9 100644
+--- a/backend/src/test/scala/com/helio/services/proposals/DashboardProposalServiceValidateSpec.scala
++++ b/backend/src/test/scala/com/helio/services/proposals/DashboardProposalServiceValidateSpec.scala
+@@ -116,5 +116,21 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
+ 
+       result shouldBe a[Left[_, _]]
+     }
++
++    // HEL-1638 task 1.4: apply builds the panel through `PanelCreateBuilder.buildForCreate`, whose `panel.validateConfig` rejects
++    // a form with a duplicate `sourceField`; validate must reject it with that same message.
++    "reject a form panel whose config panel.validateConfig rejects (duplicate sourceField), with apply's message" in {
++      val field = JsObject("sourceField" -> JsString("amount"), "control" -> JsString("number"))
++      val form = metricPanel(outputTypeId, `type` = "form").copy(
++        outputId     = None,
++        fieldMapping = None,
++        dataSourceId = Some(UUID.randomUUID().toString),
++        config       = Some(JsObject("fields" -> spray.json.JsArray(field, field)))
++      )
++      val result = await(newService().validate(DashboardProposal("Sales", Vector(form)), user))
++
++      result shouldBe a[Left[_, _]]
++      result.swap.toOption.get.message should include("duplicate sourceField: amount")
++    }
+   }
+ }

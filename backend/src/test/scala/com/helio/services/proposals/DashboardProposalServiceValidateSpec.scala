@@ -9,7 +9,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import spray.json.{JsObject, JsString}
+import spray.json.{JsArray, JsObject, JsString}
 
 import java.time.Instant
 import java.util.UUID
@@ -115,6 +115,22 @@ class DashboardProposalServiceValidateSpec extends AnyWordSpec with Matchers {
       val result = await(newService().validate(proposal, user))
 
       result shouldBe a[Left[_, _]]
+    }
+
+    // HEL-1638 task 1.4: apply builds the panel through `PanelCreateBuilder.buildForCreate`, whose `panel.validateConfig` rejects
+    // a form with a duplicate `sourceField`; validate must reject it with that same message.
+    "reject a form panel whose config panel.validateConfig rejects (duplicate sourceField), with apply's message" in {
+      val field = JsObject("sourceField" -> JsString("amount"), "control" -> JsString("number"))
+      val form = metricPanel(outputTypeId, `type` = "form").copy(
+        outputId     = None,
+        fieldMapping = None,
+        dataSourceId = Some(UUID.randomUUID().toString),
+        config       = Some(JsObject("fields" -> JsArray(field, field)))
+      )
+      val result = await(newService().validate(DashboardProposal("Sales", Vector(form)), user))
+
+      result shouldBe a[Left[_, _]]
+      result.swap.toOption.get.message should include("duplicate sourceField: amount")
     }
   }
 }

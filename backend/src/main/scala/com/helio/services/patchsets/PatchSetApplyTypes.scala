@@ -2,9 +2,11 @@ package com.helio.services.patchsets
 
 import com.helio.services.auth.AccessChecker
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.PanelService
-import com.helio.services.pipelines.{OutputService, PipelineService}
-import com.helio.services.sources.DataSourceService
+import com.helio.services.panels.{OutputControlsValidator, PanelCreateDryRun, PanelService}
+import com.helio.services.pipelines.{OutputService, PipelineRootDryRun, PipelineService}
+import com.helio.services.ratelimit.SourceFetchBudget
+import com.helio.services.sources.{DataSourceService, SourceService}
+import scala.concurrent.ExecutionContext
 import com.helio.api.protocols.dashboards.{CreateDashboardRequest, UpdateDashboardRequest}
 import com.helio.api.protocols.panels.{CreatePanelRequest, UpdatePanelRequest}
 import com.helio.api.protocols.pipelines.{CreateOutputRequest, CreatePipelineRequest, CreatePipelineStepRequest, UpdateOutputRequest, UpdatePipelineRequest, UpdatePipelineStepRequest}
@@ -117,7 +119,15 @@ private[services] final case class PatchSetApplyContext(
     // HEL-1239: NO `= null` default -- a construction site that omits a collaborator must fail to
     // compile instead of silently reaching a resolver NPE. HEL-1337: non-null is also asserted at
     // construction (below), so a null repo fails loudly here rather than as a later NPE.
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    // HEL-1638 D1b: resolves an inline pipeline-create root's schema for the create dry run. `chargeFetches` is true for
+    // preview only (the propose-time fetch is charged to the source-fetch budget; apply's re-run of resolve is not, exactly
+    // as `PipelineProposalService.apply`).
+    rootDryRun: PipelineRootDryRun,
+    chargeFetches: Boolean,
+    // HEL-1638 D3: runs `PanelService.create`/`update`'s own checks at resolve. Its controls validator has no node-snapshot
+    // repo, so a `dropdown` control's eq/in cardinality check stays apply-only.
+    panelDryRun: PanelCreateDryRun
 ) {
   require(outputRepo != null, "PatchSetApplyContext requires an OutputRepository")
 }
@@ -126,7 +136,9 @@ private[services] object PatchSetApplyContext {
 
   /** The ONE construction path for the context -- both [[PatchSetApplyService]] and
    *  [[PatchSetPreviewService]] build through here, so a collaborator one of them omits is a
-   *  compile error (every parameter is required) and the structural parity test can exercise it. */
+   *  compile error (every parameter is required) and the structural parity test can exercise it.
+   *  This overload CHARGES live fetches (preview): the `sourceFetchBudget` is required so a new construction site cannot
+   *  silently get a private, unshared budget (HEL-1638, C12). */
   def build(
       panelRepo: PanelRepository,
       dashboardRepo: DashboardRepository,
@@ -134,9 +146,34 @@ private[services] object PatchSetApplyContext {
       pipelineRepo: PipelineRepository,
       pipelineStepRepo: PipelineStepRepository,
       accessChecker: AccessChecker,
-      outputRepo: OutputRepository
-  ): PatchSetApplyContext =
-    PatchSetApplyContext(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+      outputRepo: OutputRepository,
+      sourceService: SourceService,
+      sourceFetchBudget: SourceFetchBudget,
+      chargeFetches: Boolean
+  )(implicit ec: ExecutionContext): PatchSetApplyContext = {
+    // The context's own message must win over the nested OutputControlsValidator's (HEL-1337), so check before building it.
+    require(outputRepo != null, "PatchSetApplyContext requires an OutputRepository")
+    PatchSetApplyContext(
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo,
+      new PipelineRootDryRun(dataSourceRepo, sourceService, sourceFetchBudget), chargeFetches,
+      new PanelCreateDryRun(outputRepo, dataSourceRepo, new OutputControlsValidator(outputRepo, null))
+    )
+  }
+
+  /** The apply-side context: `chargeFetches = false`, so the budget is never consulted (the preview that preceded apply
+   *  paid; apply's one fetch is `createRest`/`createSql`'s own). An inert budget is supplied instead of a parameter. */
+  def buildUncharged(
+      panelRepo: PanelRepository,
+      dashboardRepo: DashboardRepository,
+      dataSourceRepo: DataSourceRepository,
+      pipelineRepo: PipelineRepository,
+      pipelineStepRepo: PipelineStepRepository,
+      accessChecker: AccessChecker,
+      outputRepo: OutputRepository,
+      sourceService: SourceService = null
+  )(implicit ec: ExecutionContext): PatchSetApplyContext =
+    build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, sourceService,
+      SourceFetchBudget.default(), chargeFetches = false)
 }
 
 /** The existing per-resource services [[PatchSetApplyService]]'s forward-

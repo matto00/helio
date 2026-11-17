@@ -1,0 +1,7 @@
+PatchSetPipelineCreateDryRunSpec on the code before D1b (resolvePipelineCreate ran only PipelineCreatePreflight):
+[info] - should be rejected on preview and apply with the column message, creating nothing (existing-source root) *** FAILED ***
+[info]   "" did not start with substring "edit 0: "
+[info] - should accept a mapped existing column on an inline static root, and reject a missing one *** FAILED ***
+[info]   "" did not start with substring "edit 0: "
+(empty message = the edit resolved Right; preview accepted an Output mapping a missing column)
+After: [info] Tests: succeeded 2, failed 0

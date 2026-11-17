@@ -1,7 +1,7 @@
 package com.helio.services.proposals
 
 import com.helio.services.dashboards.DashboardService
-import com.helio.services.panels.{ItemSize, OutputControlsValidator, PanelService}
+import com.helio.services.panels.{ItemSize, OutputControlsValidator, PanelCreateBuilder, PanelCreateDryRun, PanelService}
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.{DashboardLayoutItemPayload, DashboardLayoutPatchPayload, UpdateDashboardRequest}
 import com.helio.api.protocols.proposals.{DashboardProposal, ProposalPanel}
@@ -62,7 +62,31 @@ final class DashboardProposalService(
   def validate(proposal: DashboardProposal, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     validateStructure(proposal) match {
       case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_)  => validateBindingsAndControls(proposal.panels, user)
+      case Right(_) =>
+        validateBindingsAndControls(proposal.panels, user).flatMap {
+          case Left(err) => Future.successful(Left(err))
+          case Right(_)  => dryRunPanels(proposal.panels, user, _ => false)
+        }
+    }
+
+  private val panelDryRun = new PanelCreateDryRun(outputRepo, dataSourceRepo, controlsValidator)
+
+  /** HEL-1638 D3: every panel built exactly as `apply` builds it (`PanelService.create`'s build checks, via
+   *  [[PanelCreateBuilder.dryRunForCreate]]), in proposal order, short-circuiting on the first failure with apply's
+   *  message. A panel for which `isSentinel` holds is bound to the Output its own pipeline will create, so its Output
+   *  existence and controls are checked at apply only (combined proposals). */
+  private[services] def dryRunPanels(
+      panels: Vector[ProposalPanel],
+      user: AuthenticatedUser,
+      isSentinel: ProposalPanel => Boolean
+  ): Future[Either[ServiceError, Unit]] =
+    panels.foldLeft[Future[Either[ServiceError, Unit]]](Future.successful(Right(()))) { (accF, panel) =>
+      accF.flatMap {
+        case Left(err) => Future.successful(Left(err))
+        case Right(_) =>
+          val binding = if (isSentinel(panel)) PanelCreateBuilder.Binding.Sentinel else PanelCreateBuilder.Binding.Real
+          panelDryRun.check(ProposalPanelSupport.buildCreateRequest(PanelCreateDryRun.PlaceholderDashboardId, panel), user, binding)
+      }
     }
 
   /** Shared by `validate` and the combined-proposal path: bindings first (a missing Output is the
@@ -75,6 +99,15 @@ final class DashboardProposalService(
       case Left(err) => Future.successful(Left(err))
       case Right(_)  => ProposalPanelSupport.preValidateControls(panels, user, controlsValidator)
     }
+
+  /** HEL-1638: combined proposals run apply's binding check (`preValidateBindings`, whose messages apply returns) over the panels
+   *  already bound to a real Output; sentinel-bound panels have none until the pipeline is applied. */
+  private[services] def validateBindingsExcluding(
+      panels: Vector[ProposalPanel],
+      isSentinel: ProposalPanel => Boolean,
+      user: AuthenticatedUser
+  ): Future[Either[ServiceError, Unit]] =
+    ProposalPanelSupport.preValidateBindings(panels.filterNot(isSentinel), user, outputRepo, dataSourceRepo)
 
   /** Combined proposals: panels already bound to a real Output id get the same control check at
    *  propose time; sentinel-bound panels only exist after the pipeline is applied, so they are

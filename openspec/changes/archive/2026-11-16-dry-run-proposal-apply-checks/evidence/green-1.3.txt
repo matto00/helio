@@ -1,0 +1,1 @@
+[info] Tests: succeeded 32, failed 0, canceled 0, ignored 0, pending 0

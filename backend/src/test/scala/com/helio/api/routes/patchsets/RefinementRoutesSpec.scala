@@ -1,6 +1,7 @@
 package com.helio.api.routes.patchsets
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.api.routes.patchsets.RefinementRoutes
@@ -120,7 +121,7 @@ class RefinementRoutesSpec
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     patchSetPreviewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
     refinementGrounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     conversationRepo    = new AuthoringConversationRepository(ctx)

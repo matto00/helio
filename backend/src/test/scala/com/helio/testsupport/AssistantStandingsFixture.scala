@@ -1,6 +1,7 @@
 package com.helio.testsupport
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.panels.CreatePanelRequest
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest}
@@ -126,7 +127,7 @@ trait AssistantStandingsFixture
       outputRepo, outputService
     )
     patchSetPreviewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
     patchSetUndoService = new PatchSetUndoService(
       panelService, dashboardService, dataSourceService, pipelineService,
@@ -135,7 +136,7 @@ trait AssistantStandingsFixture
     )
     // `validate` (the only PipelineProposalService method a propose tool calls) touches only
     // `dataSourceRepo` and `outputRepo`.
-    pipelineProposalService = new PipelineProposalService(null, null, pipelineService, null, dataSourceRepo, outputRepo)
+    pipelineProposalService = new PipelineProposalService(null, null, pipelineService, null, dataSourceRepo, outputRepo, SourceFetchBudget.default())
     dashboardProposalService = new DashboardProposalService(dashboardService, panelService, outputRepo, null, dataSourceRepo)
     workspaceContextService = new WorkspaceContextService(
       dashboardService, dataSourceService, outputRepo, pipelineService,

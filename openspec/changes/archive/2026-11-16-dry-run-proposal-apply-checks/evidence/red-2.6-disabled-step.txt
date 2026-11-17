@@ -1,0 +1,4 @@
+[info] - should be accepted when that step is disabled (transparent) *** FAILED ***
+[info] - should GUARD: be rejected with the column message when the step is enabled
+[info] Tests: succeeded 1, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

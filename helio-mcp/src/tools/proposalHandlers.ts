@@ -61,6 +61,10 @@ export async function proposeDashboardHandler(
 ): Promise<{ proposal: DashboardProposal; warnings: string[]; applyReady: boolean }> {
   const proposal: DashboardProposal = { dashboardName, panels };
 
+  // HEL-1638: the server's propose-side dry run; a rejection throws a HelioApiError carrying the backend message, which
+  // `proposal.ts`'s `guarded` returns as an isError result.
+  await api.validateDashboardProposal(proposal);
+
   const outputs = await fetchAllOutputs(api);
   const outputsById = new Map(outputs.map((o) => [o.id, o]));
   const needsSources = panels.some((p) => p.type === "form" && p.dataSourceId);

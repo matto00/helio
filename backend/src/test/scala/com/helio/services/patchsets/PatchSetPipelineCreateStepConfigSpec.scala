@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, UpdatePipelineRequest}
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataSourceRequest}
 import com.helio.domain.model._
@@ -89,7 +90,7 @@ class PatchSetPipelineCreateStepConfigSpec
       accessChecker, new PatchSetApplicationRepository(ctx), outputRepo
     )
     previewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
 
     import PostgresProfile.api._

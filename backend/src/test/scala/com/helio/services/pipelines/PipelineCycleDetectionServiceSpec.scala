@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines._
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.domain.SelectConfig
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
@@ -341,7 +342,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
       val unrelated = newSource(owner, "pp-unrelated")
       val proposalService = new PipelineProposalService(
         sourceService = null, dataSourceService = null, pipelineService = service,
-        pipelineRunService = pipelineRunService, dataSourceRepo = dataSourceRepo, outputRepo = outputRepo
+        pipelineRunService = pipelineRunService, dataSourceRepo = dataSourceRepo, outputRepo = outputRepo, SourceFetchBudget.default()
       )
       val proposal = PipelineProposal(
         pipelineName = "proposal-unrelated",
@@ -754,7 +755,7 @@ class PipelineCycleDetectionServiceSpec extends AnyWordSpec with Matchers with B
     def newProposalService(owner: AuthenticatedUser): PipelineProposalService =
       new PipelineProposalService(
         sourceService = null, dataSourceService = null, pipelineService = service,
-        pipelineRunService = pipelineRunService, dataSourceRepo = dataSourceRepo, outputRepo = outputRepo
+        pipelineRunService = pipelineRunService, dataSourceRepo = dataSourceRepo, outputRepo = outputRepo, SourceFetchBudget.default()
       )
 
     "reject a proposal whose roots + upsertsource step form a DIRECT self-cycle" in {

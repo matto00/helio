@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.infrastructure.persistence.pipelines.OutputRepository
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource}
 import com.helio.api.protocols.sources.SqlSourceConfigPayload
 import com.helio.domain.connectors.RestApiConnectorDriver
@@ -59,7 +60,7 @@ class PipelineInlineSqlShapeSpec extends AnyWordSpec with Matchers with HelioRou
   "PipelineProposalService.validate inline sql source" should {
     badShapes.foreach { case (label, source) =>
       s"refuse $label with BadRequest" in {
-        val service = new PipelineProposalService(null, null, null, null, mock(classOf[DataSourceRepository]), null)
+        val service = new PipelineProposalService(null, null, null, null, mock(classOf[DataSourceRepository]), null, SourceFetchBudget.default())
         val err     = await(service.validate(proposal(source), user)).swap.toOption.get
         err shouldBe a[ServiceError.BadRequest]
       }

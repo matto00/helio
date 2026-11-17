@@ -2,8 +2,10 @@ package com.helio.services.pipelines
 
 
 import com.helio.services.ServiceError
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.pipelines.PipelineProposalService
-import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalSource}
+import com.helio.api.protocols.pipelines.{CreatePipelineTransactionalOutputRequest, CreatePipelineTransactionalStepRequest, PipelineProposal, PipelineProposalSource}
+import com.helio.domain.engine.SchemaField
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -37,7 +39,7 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
   private val user    = AuthenticatedUser(ownerId)
 
   private def newService(dataSourceRepo: DataSourceRepository): PipelineProposalService =
-    new PipelineProposalService(null, null, null, null, dataSourceRepo, null)
+    new PipelineProposalService(null, null, null, null, dataSourceRepo, null, SourceFetchBudget.default())
 
   private def existingSource(source: DataSourceId): DataSource =
     DatasetSource(source, "Existing", ownerId, now, now)
@@ -60,6 +62,29 @@ class PipelineProposalServiceValidateSpec extends AnyWordSpec with Matchers {
     PipelineProposal(pipelineName, Vector(source), steps = Vector.empty, outputs = Vector.empty)
 
   "PipelineProposalService.validate" should {
+
+    // HEL-1638 task 1.1 (red first): propose must reject what apply's OutputFieldMappingCheck rejects.
+    "reject an Output mapping a column dropped by an upstream select, and one never in the source, with apply's column message (HEL-1638)" in {
+      val sourceId = DataSourceId(UUID.randomUUID().toString)
+      val dsRepo   = mock(classOf[DataSourceRepository])
+      val schema   = Vector(SchemaField("team", "string"), SchemaField("wins", "integer"), SchemaField("losses", "integer"))
+      when(dsRepo.findByIdOwned(sourceId, user)).thenReturn(Future.successful(Some(DatasetSource(sourceId, "Existing", ownerId, now, now, inferredSchema = schema))))
+      val select = CreatePipelineTransactionalStepRequest("sel", "select", """{"fields":["team","wins"]}""".parseJson.asJsObject)
+      def withMapping(col: String) = proposal(existingSourceRef(sourceId.value)).copy(
+        steps = Vector(select),
+        outputs = Vector(CreatePipelineTransactionalOutputRequest(
+          nodeStepClientId = Some("sel"), kind = "chart", name = "Wins",
+          config = Some(s"""{"chartType":"bar","fieldMapping":{"xAxis":"team","yAxis":"$col"}}""".parseJson.asJsObject)))
+      )
+      val service = newService(dsRepo)
+      await(service.validate(withMapping("wins"), user)) shouldBe Right(())
+      Seq("losses", "display_name").foreach { col =>
+        val err = await(service.validate(withMapping(col), user)).swap.toOption.getOrElse(fail(s"$col accepted"))
+        err.message should include("fieldMapping references column(s) not present at this node")
+        err.message should include(col)
+        err.message should include("Available columns: team, wins")
+      }
+    }
 
     "accept a structurally valid proposal referencing an existing, owned source" in {
       val sourceId = DataSourceId(UUID.randomUUID().toString)

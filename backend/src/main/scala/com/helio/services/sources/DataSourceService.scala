@@ -171,78 +171,25 @@ final class DataSourceService(
 
 
   def createStatic(req: StaticDataSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, DataSource]] =
-    if (req.name.trim.isEmpty)
-      Future.successful(Left(ServiceError.BadRequest("name is required")))
-    else if (req.rows.size > staticMaxRows)
-      Future.successful(Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $staticMaxRows rows")))
-    else RequestValidation.validateTag(req.tag) match {
-      case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
-      case Right(tag) =>
-      // HEL-906 cycle 5 (coordinator ruling, AC-3 "boundary validation"): every column's
-      // caller-supplied `type` (POST /api/data-sources/static) must resolve to a canonical
-      // DataFieldType or the whole request is rejected with a 400 naming the valid types --
-      // `canonicalizeLegacy` alone (cycle 4) only normalized KNOWN synonyms and silently passed
-      // an unrecognized string (e.g. "banana") straight through, which is exactly the gap this
-      // closes. Collected up front (not per-field .map) so every bad column is named at once.
-      val invalidColumns = req.columns.flatMap { col =>
-        DataFieldType.validateAndCanonicalize(col.`type`) match {
-          case Left(_)  => Some(col.name -> col.`type`)
-          case Right(_) => None
+    DataSourceService.validateStatic(req, staticMaxRows) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(checked) =>
+        val now      = Instant.now()
+        val sourceId = DataSourceId(UUID.randomUUID().toString)
+        val source   = DatasetSource(
+          id        = sourceId,
+          name      = req.name.trim,
+          ownerId   = user.id,
+          createdAt = now,
+          updatedAt = now,
+          tag       = checked.tag
+        )
+        // HEL-1074: the {columns, rows} payload is written into `dataset_rows` + `dataset_schema` (declared columns),
+        // atomically alongside the `data_sources` insert (design.md Decision 7).
+        dataSourceRepo.insertDatasetSource(source, checked.declaredColumns, checked.validatedRows, checked.fields, user).map { ds =>
+          audit("data_source.create", Some(ds.id.value), user)
+          Right(ds)
         }
-      }
-      if (invalidColumns.nonEmpty) {
-        val detail = invalidColumns.map { case (name, badType) => s"'$name': '$badType'" }.mkString(", ")
-        Future.successful(Left(ServiceError.BadRequest(
-          s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"
-        )))
-      } else {
-      // HEL-1076 design.md Decision 1/6: build the richer declaration (name/type/required/
-      // default) from the wire payload -- `col.\`type\`` is validated above (a legacy synonym
-      // like "double" is ACCEPTED, not rejected) but not yet canonicalized, so canonicalize here.
-      val declaredColumns = req.columns.map { c =>
-        val fieldType = DataFieldType.fromString(
-          DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`)
-        ).getOrElse(DataFieldType.StringType)
-        DatasetFieldDeclaration(c.name, fieldType, c.required.getOrElse(false), c.default)
-      }.toVector
-      // design.md Decision 6: a field's default must itself satisfy its declared type, checked
-      // at declaration time, before any row is validated or persisted.
-      val defaultErrors = declaredColumns.flatMap(f => DatasetRowValidator.validateDefault(f).left.toOption)
-      if (defaultErrors.nonEmpty) {
-        Future.successful(Left(ServiceError.BadRequest(defaultErrors.map(DatasetRowValidator.renderDefaultError).mkString("; "))))
-      } else {
-      DatasetRowValidator.validate(declaredColumns, req.rows) match {
-        case Left(errors) =>
-          Future.successful(Left(ServiceError.BadRequest(errors.mkString("; "))))
-        case Right(validatedRows) =>
-      val now      = Instant.now()
-      val sourceId = DataSourceId(UUID.randomUUID().toString)
-      val source   = DatasetSource(
-        id        = sourceId,
-        name      = req.name.trim,
-        ownerId   = user.id,
-        createdAt = now,
-        updatedAt = now,
-        tag       = tag
-      )
-      // HEL-1074: the {columns, rows} payload is written into `dataset_rows` +
-      // `dataset_schema` (declared columns), atomically alongside the `data_sources` insert
-      // (design.md Decision 7) -- `config` is no longer used for `dataset`-kind sources.
-      // HEL-893 design D2: the registered schema reports the type the stored rows actually
-      // materialize (via `PipelineRowJson.staticColumnRuntimeType`, the same conversion
-      // `parseStaticRows` applies), not the caller-declared `columns[].type` -- that declared
-      // type was never consulted when materializing rows and could disagree with every cell.
-      val fields  = req.columns.zipWithIndex.map { case (col, i) =>
-        val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
-        SchemaField(col.name, PipelineRowJson.staticColumnRuntimeType(col.`type`, cells))
-      }.toVector
-      dataSourceRepo.insertDatasetSource(source, declaredColumns, validatedRows, fields, user).map { ds =>
-        audit("data_source.create", Some(ds.id.value), user)
-        Right(ds)
-      }
-        }
-      }
-      }
     }
 
 
@@ -1421,6 +1368,47 @@ final class DataSourceService(
 }
 
 object DataSourceService {
+  /** HEL-1638: the outcome of [[validateStatic]] -- everything `createStatic` writes, computed without touching the DB. */
+  final case class StaticChecked(tag: Option[String], declaredColumns: Vector[DatasetFieldDeclaration], validatedRows: Vector[Vector[JsValue]], fields: Vector[SchemaField])
+
+  /** HEL-1638: every pre-insert check of `createStatic` (name, row cap, tag, column types, defaults, row validation) as a
+   *  pure function that `createStatic` itself calls, so the propose-time dry run cannot drift from it. `fields` is the
+   *  registered schema, typed from the stored rows (`PipelineRowJson.staticColumnRuntimeType`, HEL-893 D2), not from the
+   *  declared `columns[].type`. */
+  def validateStatic(req: StaticDataSourceRequest, maxRows: Int): Either[ServiceError, StaticChecked] =
+    if (req.name.trim.isEmpty) Left(ServiceError.BadRequest("name is required"))
+    else if (req.rows.size > maxRows) Left(ServiceError.BadRequest(s"Payload exceeds the maximum of $maxRows rows"))
+    else RequestValidation.validateTag(req.tag).left.map(ServiceError.BadRequest(_)).flatMap { tag =>
+      // HEL-906 cycle 5: every column's `type` must resolve to a canonical DataFieldType; every bad column is named at once.
+      val invalidColumns = req.columns.flatMap { col =>
+        DataFieldType.validateAndCanonicalize(col.`type`) match {
+          case Left(_)  => Some(col.name -> col.`type`)
+          case Right(_) => None
+        }
+      }
+      if (invalidColumns.nonEmpty) {
+        val detail = invalidColumns.map { case (name, badType) => s"'$name': '$badType'" }.mkString(", ")
+        Left(ServiceError.BadRequest(s"Invalid column type(s): $detail. Valid types: ${DataFieldType.CanonicalWireValues.mkString(", ")}"))
+      } else {
+        // HEL-1076 design.md Decision 1/6: the richer declaration (name/type/required/default); a default must satisfy its type.
+        val declaredColumns = req.columns.map { c =>
+          val fieldType = DataFieldType.fromString(DataFieldType.validateAndCanonicalize(c.`type`).getOrElse(c.`type`)).getOrElse(DataFieldType.StringType)
+          DatasetFieldDeclaration(c.name, fieldType, c.required.getOrElse(false), c.default)
+        }.toVector
+        val defaultErrors = declaredColumns.flatMap(f => DatasetRowValidator.validateDefault(f).left.toOption)
+        if (defaultErrors.nonEmpty) Left(ServiceError.BadRequest(defaultErrors.map(DatasetRowValidator.renderDefaultError).mkString("; ")))
+        else DatasetRowValidator.validate(declaredColumns, req.rows) match {
+          case Left(errors) => Left(ServiceError.BadRequest(errors.mkString("; ")))
+          case Right(validatedRows) =>
+            val fields = req.columns.zipWithIndex.map { case (col, i) =>
+              val cells = validatedRows.map(_.lift(i).getOrElse(JsNull))
+              SchemaField(col.name, PipelineRowJson.staticColumnRuntimeType(col.`type`, cells))
+            }.toVector
+            Right(StaticChecked(tag, declaredColumns, validatedRows, fields))
+        }
+      }
+    }
+
   /** HEL-1100 design.md D6: the dataset row-count cap, promoted from a private val here to a
    *  public companion constant so `PipelineRunService`/`DataSourceRepository.applyWriteBacks`
    *  can share the SAME value rather than duplicating the literal `500`. Unchanged in value. */

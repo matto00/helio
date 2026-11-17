@@ -35,39 +35,78 @@ private[panels] final class PanelCreateBuilder(
       dashboardId: DashboardId,
       request: CreatePanelRequest,
       user: AuthenticatedUser
-  ): Future[Either[ServiceError, Panel]] = {
-    val resolved = for {
+  ): Future[Either[ServiceError, Panel]] =
+    run(dashboardId, request, user, PanelCreateBuilder.Binding.Real)
+
+  /** HEL-1638 D3: [[buildForCreate]]'s checks as a dry run for a request whose Output may not exist yet. `Real` is exactly
+   *  `buildForCreate`; `Sentinel` (a combined proposal's panel bound to the Output its own pipeline will create) skips the
+   *  Output existence check and, per the 0.2 decision, the controls check (`OutputControlsValidator` reads a persisted
+   *  Output), which stay apply-only. Writes nothing. */
+  private[services] def dryRunForCreate(
+      dashboardId: DashboardId,
+      request: CreatePanelRequest,
+      user: AuthenticatedUser,
+      binding: PanelCreateBuilder.Binding
+  ): Future[Either[ServiceError, Panel]] = run(dashboardId, request, user, binding)
+
+  /** The pure half: config + appearance resolution (no I/O). */
+  private def resolveCreate(request: CreatePanelRequest): Either[ServiceError, (PanelConfigCodec.CreateConfig, PanelAppearance)] =
+    (for {
       createConfig <- resolveCreateConfig(request)
       appearance   <- resolveCreateAppearance(request.appearance)
-    } yield (createConfig, appearance)
-    resolved match {
-      case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(err)))
+    } yield (createConfig, appearance)).left.map(err => ServiceError.BadRequest(err))
+
+  /** The pure half: construct the panel and run `panel.validateConfig` (no I/O). */
+  private def constructPanel(
+      dashboardId: DashboardId,
+      request: CreatePanelRequest,
+      user: AuthenticatedUser,
+      createConfig: PanelConfigCodec.CreateConfig,
+      appearance: PanelAppearance
+  ): Either[ServiceError, Panel] = {
+    val now = Instant.now()
+    val panel = buildNewPanel(
+      id           = PanelId(UUID.randomUUID().toString),
+      dashboardId  = dashboardId,
+      title        = RequestValidation.normalizePanelTitle(request.title),
+      meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
+      appearance   = appearance,
+      ownerId      = user.id,
+      createConfig = createConfig
+    )
+    panel.validateConfig.left.map(msg => ServiceError.BadRequest(msg)).map(_ => panel)
+  }
+
+  /** The binding half (reads only), in `buildForCreate`'s order. */
+  private def run(
+      dashboardId: DashboardId,
+      request: CreatePanelRequest,
+      user: AuthenticatedUser,
+      binding: PanelCreateBuilder.Binding
+  ): Future[Either[ServiceError, Panel]] =
+    resolveCreate(request) match {
+      case Left(err) => Future.successful(Left(err))
       case Right((createConfig, appearance)) =>
-        rejectMissingOutput(outputIdFromCreateConfig(createConfig), user).flatMap {
+        val outputCheck =
+          if (binding == PanelCreateBuilder.Binding.Real) rejectMissingOutput(outputIdFromCreateConfig(createConfig), user)
+          else Future.successful(Right(()))
+        outputCheck.flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right(_)  => rejectMissingDataSource(dataSourceIdFromCreateConfig(createConfig), user)
         }.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(_)  =>
-            val now = Instant.now()
-            val panel = buildNewPanel(
-              id           = PanelId(UUID.randomUUID().toString),
-              dashboardId  = dashboardId,
-              title        = RequestValidation.normalizePanelTitle(request.title),
-              meta         = ResourceMeta(createdBy = user.id.value, createdAt = now, lastUpdated = now),
-              appearance   = appearance,
-              ownerId      = user.id,
-              createConfig = createConfig
-            )
-            panel.validateConfig match {
-              case Left(msg) => Future.successful(Left(ServiceError.BadRequest(msg)))
-              case Right(_)  =>
+          case Right(_) =>
+            constructPanel(dashboardId, request, user, createConfig, appearance) match {
+              case Left(err) => Future.successful(Left(err))
+              case Right(panel) =>
                 // HEL-1189 design.md D4: create has no pre-existing persisted controls, so every
                 // entry in a new panel's `controls` is "new" and gets validated.
-                outputControlsValidator.reject(outputIdOf(panel), controlsOf(panel), Vector.empty, user).flatMap {
+                val controls: Future[Either[ServiceError, Unit]] =
+                  if (binding == PanelCreateBuilder.Binding.Sentinel || outputControlsValidator == null) Future.successful(Right(()))
+                  else outputControlsValidator.reject(outputIdOf(panel), controlsOf(panel), Vector.empty, user)
+                controls.flatMap {
                   case Left(err) => Future.successful(Left(err))
-                  case Right(_)  =>
+                  case Right(_) =>
                     rejectInconsistentForm(formConfigOf(panel), user).map {
                       case Left(err) => Left(err)
                       case Right(_)  => Right(panel)
@@ -76,7 +115,6 @@ private[panels] final class PanelCreateBuilder(
             }
         }
     }
-  }
 
   /** Sequentially `buildForCreate` every request for `dashboardId`, short-
    *  circuiting on the first failure — zero DB writes for ANY item until every
@@ -111,5 +149,16 @@ private[panels] final class PanelCreateBuilder(
           }
       }
     loop(requests.zipWithIndex, Vector.empty)
+  }
+}
+
+private[services] object PanelCreateBuilder {
+  /** How a dry run treats the panel's Output binding. */
+  sealed trait Binding
+  object Binding {
+    /** The Output exists (or is not bound): the checks `buildForCreate` makes. */
+    case object Real extends Binding
+    /** The Output is the one a combined proposal's own pipeline will create: its existence and controls are apply-only. */
+    case object Sentinel extends Binding
   }
 }

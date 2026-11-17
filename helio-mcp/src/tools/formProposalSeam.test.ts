@@ -50,6 +50,7 @@ describe("form-proposal shared wire fixture (MCP side)", () => {
 
   it("propose_dashboard's handler reports no warnings for a form bound to a known dataset source", async () => {
     const api = {
+      validateDashboardProposal: async () => ({ valid: true }),
       listAllOutputs: async () => ({ items: [], total: 0 }),
       listDataSources: async () => ({
         items: [{ id: SOURCE_ID, name: "orders", type: "dataset" }],

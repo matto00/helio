@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.testkit.TempDirectorySupport
 import com.helio.services.ServiceError
 import com.helio.api.protocols.dashboards.UpdateDashboardRequest
@@ -109,7 +110,7 @@ class PatchSetPreviewOutputContextSpec
     outputService     = new OutputService(outputRepo, panelRepo, accessChecker)
 
     previewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
     applyService = new PatchSetApplyService(
       panelService, dashboardService, dataSourceService, pipelineService,
@@ -255,10 +256,14 @@ class PatchSetPreviewOutputContextSpec
         supplied("panelRepo").asInstanceOf[PanelRepository], supplied("dashboardRepo").asInstanceOf[DashboardRepository],
         supplied("dataSourceRepo").asInstanceOf[DataSourceRepository], supplied("pipelineRepo").asInstanceOf[PipelineRepository],
         supplied("pipelineStepRepo").asInstanceOf[PipelineStepRepository], accessChecker,
-        supplied("outputRepo").asInstanceOf[OutputRepository]
+        supplied("outputRepo").asInstanceOf[OutputRepository], null, SourceFetchBudget.default()
       )
       def assertParity(label: String, built: PatchSetApplyContext): Unit = {
-        val fields = built.productElementNames.zip(built.productIterator).toVector
+        val all = built.productElementNames.zip(built.productIterator).toVector
+        // HEL-1638: the dry-run collaborator and its charge flag are built by the context, not supplied repos.
+        val derived = Set("rootDryRun", "chargeFetches", "panelDryRun")
+        all.filter(f => derived(f._1)).foreach(f => (f._2 == null) shouldBe false)
+        val fields = all.filterNot(f => derived(f._1))
         fields.map(_._1).toSet shouldBe supplied.keySet // a NEW context field must be wired + added here deliberately
         fields.foreach { case (name, value) =>
           withClue(s"$label: context field '$name' ") {

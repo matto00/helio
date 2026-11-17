@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
 import com.helio.api.protocols.pipelines._
 import com.helio.api.protocols.sources.{StaticColumnPayload, StaticDataPayload}
@@ -111,7 +112,7 @@ class ConditionalFormatsWriteSpec
   "the patch-set preview of an Output update" should {
     "reject an invalid list with the same validation the apply path uses (apply itself: PatchSetApplyServiceSpec)" in {
       val (_, oid) = seedMetricOutput(ownerId, None)
-      val preview  = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, stepRepo, accessChecker, outputRepo)(harnessEc)
+      val preview  = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, stepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default())(harnessEc)
       def edit(c: JsObject) = PatchSet(None, Vector(
         Edit(EditTarget("output", Some(oid), None), "update", None, None, None, None, None, None, Some(UpdateOutputRequest(None, Some(c))))
       ))

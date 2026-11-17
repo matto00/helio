@@ -3,7 +3,7 @@ package com.helio.services.sources
 import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.domain.connectors.{ConnectorResolveContext, SqlConnectorDriver}
-import com.helio.domain.engine.JsonFlattener
+import com.helio.domain.engine.{JsonFlattener, SchemaField}
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.api.protocols.sources.{CreateSourceRequest, CreateSourceResponse, InferredFieldResponse, InferredSchemaResponse, PreviewSourceResponse, RestApiConfigPayload, SqlCreateSourceRequest, SqlInferRequest, SqlSourceConfigPayload, TestConnectionResponse}
 import com.helio.domain.model._
@@ -77,42 +77,46 @@ final class SourceService(
         }
     }
 
-  def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] = {
+  /** HEL-1638: createSql's pre-insert checks (query shape, config shape, create-time egress), extracted so the propose-time
+   *  dry run runs the SAME function `createSql` calls. Disallowed/Invalid are fatal, Unresolvable is tolerated (HEL-952
+   *  design.md Decision 3); the connect-time guard remains the actual security boundary. */
+  private[services] def validateSqlCreate(request: SqlCreateSourceRequest): Either[ServiceError, SqlSourceConfig] = {
     val sqlConfig = SqlSourceConfigPayload.toDomain(request.config)
-    SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig)) match {
-      case Left(err) =>
-        Future.successful(Left(ServiceError.BadRequest(err)))
-      case Right(_) =>
-        // HEL-952 design.md Decision 3: create-time UX check — Disallowed/Invalid are fatal,
-        // Unresolvable is tolerated (a not-yet-provisioned host, or a transient DNS blip, must
-        // still be creatable). The connect-time guard (Decision 2) is the actual security
-        // boundary and re-validates on every real use, so nothing escapes this tolerance.
-        SqlConnectorDriver.checkConfigEgress(sqlConfig, sqlResolveHost, sqlIsBlocked, failOnUnresolvable = false) match {
-          case Left(err) =>
-            Future.successful(Left(ServiceError.BadRequest(err)))
-          case Right(()) =>
-            val now = Instant.now()
-            val source = SqlSource(
-              id        = DataSourceId(UUID.randomUUID().toString),
-              name      = request.name,
-              ownerId   = user.id,
-              createdAt = now,
-              updatedAt = now,
-              config    = sqlConfig
-            )
-            dataSourceRepo.insert(source, user).flatMap { inserted =>
-              cleaningUpOnFailure(inserted, user) {
-                CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user, resolveHost = sqlResolveHost, isBlocked = sqlIsBlocked).map { response =>
-                  audit(Some(inserted.id.value), user)
-                  Right(response)
-                }
-              }
-            }
-        }
-    }
+    SqlConnectorDriver.checkQuery(sqlConfig.query).flatMap(_ => SqlConnectorDriver.validateConfigShape(sqlConfig))
+      .left.map(ServiceError.BadRequest(_))
+      .flatMap(_ => SqlConnectorDriver.checkConfigEgress(sqlConfig, sqlResolveHost, sqlIsBlocked, failOnUnresolvable = false).left.map(ServiceError.BadRequest(_)))
+      .map(_ => sqlConfig)
   }
 
-  def createRest(request: CreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] =
+  def createSql(request: SqlCreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] =
+    validateSqlCreate(request) match {
+      case Left(err) =>
+        Future.successful(Left(err))
+      case Right(sqlConfig) =>
+        val now = Instant.now()
+        val source = SqlSource(
+          id        = DataSourceId(UUID.randomUUID().toString),
+          name      = request.name,
+          ownerId   = user.id,
+          createdAt = now,
+          updatedAt = now,
+          config    = sqlConfig
+        )
+        dataSourceRepo.insert(source, user).flatMap { inserted =>
+          cleaningUpOnFailure(inserted, user) {
+            CreateSourceEnvelope.build(SqlConnectorDriver, sqlConfig, inserted, now, dataSourceRepo, user, resolveHost = sqlResolveHost, isBlocked = sqlIsBlocked).map { response =>
+              audit(Some(inserted.id.value), user)
+              Right(response)
+            }
+          }
+        }
+    }
+
+
+  /** HEL-1638: createRest's pre-insert checks (auth reject, connectorId xor url, `toDomain`, `rejectBodyOnSafeMethod`,
+   *  `checkConnectorKind`, `checkConnectorPending`) and the config build (url split + `queryParams` merge + `parameters`),
+   *  extracted so `createRest` and the propose-time dry run share one function. Persists nothing. */
+  private[services] def validateRestCreate(request: CreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, SourceService.RestCreatePlan]] =
     if (request.`type` != DataSourceKind.RestApi)
       Future.successful(Left(ServiceError.BadRequest(s"Expected type='${DataSourceKind.RestApi}', got '${request.`type`}'")))
     else if (request.config.auth.isDefined)
@@ -133,78 +137,122 @@ final class SourceService(
                 case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
                 case Right(()) => checkConnectorKind(restConfig.connectorId, user).flatMap {
                   case Left(err) => Future.successful(Left(err))
-                  case Right(()) => checkConnectorPending(restConfig.connectorId, user).flatMap {
-                    case Left(err) => Future.successful(Left(err))
-                    case Right(()) => createRestWithConfig(request, restConfig, user)
+                  case Right(()) => checkConnectorPending(restConfig.connectorId, user).map {
+                    case Left(err) => Left(err)
+                    case Right(()) => Right(SourceService.RestCreatePlan(restConfig, implicitBaseUrl = None))
                   }
                 }
               }
           }
         case (None, Some(url)) =>
-          // HEL-822 design.md Decision 1 (revised, round-2 CR4): a bare-`url` create
-          // synthesizes an implicit no-auth Connector via the shared `ImplicitConnectorConfig`
-          // helper, persisted through `ConnectorRepository.create` directly (not
-          // `ConnectorEntityService.create` — there is no incoming `ConnectorCreateRequest` to
-          // validate for a server-synthesized value), still inside the request's existing
-          // `AuthenticatedUser` context.
+          // HEL-822 design.md Decision 1 (revised, round-2 CR4): a bare-`url` create synthesizes an implicit no-auth
+          // Connector (persisted by `createRest`, built unpersisted by the dry run).
           if (connectorRepo == null)
             Future.successful(Left(ServiceError.BadRequest("REST sources require a Connector; legacy url-only create is unavailable")))
           else
-            // HEL-826 evaluation-1.md cycle-2 CR1: the belt-and-braces
-            // rejectBodyOnSafeMethod check must run BEFORE connectorRepo.create — otherwise a
-            // rejected GET+body request still persists an orphaned implicit Connector row
-            // (including an encrypted-credential write) before being rejected. Checked here,
-            // against the raw request payload, before any persistence occurs.
+            // HEL-826 evaluation-1.md cycle-2 CR1: the belt-and-braces rejectBodyOnSafeMethod check must run BEFORE
+            // anything is persisted — otherwise a rejected GET+body request still persists an orphaned implicit Connector.
             RestApiConfig.rejectBodyOnSafeMethod(request.config.method.getOrElse("GET"), request.config.body) match {
               case Left(err) => Future.successful(Left(ServiceError.BadRequest(err)))
               case Right(()) =>
                 val (baseUrl, endpoint, urlQueryParams) = RestSourceConnectorMigration.splitUrl(url)
-                val (name, configJson, credentialPlaintext, credentialName) =
-                  ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
-                connectorRepo
-                  .create(
-                    ownerId             = user.id,
-                    name                = name,
-                    kind                = DataSourceKind.RestApi,
-                    baseUrl             = baseUrl,
-                    config              = configJson,
-                    credentialPlaintext = credentialPlaintext,
-                    credentialName      = credentialName
-                  )
-                  .flatMap { createdConnector =>
-                    // HEL-1475: the Connector is committed BEFORE the source insert, so any failure from here on
-                    // (the insert itself, or createRestWithConfig's own post-insert cleanup having already removed
-                    // the source) must also remove the Connector this call made. Source first, then Connector.
-                    // HEL-844 design.md D6a: the pairs `splitUrl` pulled off the bare URL's own
-                    // query string are carried through here (concatenated with any explicit
-                    // `request.config.queryParams`) — previously discarded outright, the fourth
-                    // silent collapse point in this ticket's widened repro.
-                    val urlAndConfigQueryParams =
-                      QueryParams(urlQueryParams.pairs ++ request.config.queryParams.map(_.pairs).getOrElse(Vector.empty))
-                    val restConfig = RestApiConfig(
-                      connectorId     = createdConnector.id.value,
-                      endpoint        = endpoint,
-                      method          = request.config.method.getOrElse("GET"),
-                      queryParams     = urlAndConfigQueryParams,
-                      headers         = request.config.headers.getOrElse(Map.empty),
-                      body            = request.config.body,
-                      bodyContentType = request.config.bodyContentType,
-                      rootSelector    = request.config.rootSelector,
-                      // HEL-983: this hand-rolled constructor omitted `parameters` entirely,
-                      // silently dropping the caller-supplied HEL-823 template values, leaving
-                      // the persisted source dead on arrival at the unresolved-variable guard.
-                      parameters      = request.config.parameters.getOrElse(Map.empty)
-                    )
-                    Future.unit.flatMap(_ => createRestWithConfig(request, restConfig, user)).transformWith {
-                      case Success(result) => Future.successful(result)
-                      case Failure(ex) =>
-                        new ImplicitConnectorCleanup(dataSourceRepo, connectorRepo)
-                          .deleteIfUnadoptedImplicit(createdConnector.id, user, "createRest cleanup")
-                          .transform(_ => Failure(ex))
-                    }
-                  }
+                // HEL-844 design.md D6a: the pairs `splitUrl` pulled off the bare URL's own query string are carried
+                // through (concatenated with any explicit `request.config.queryParams`).
+                val urlAndConfigQueryParams =
+                  QueryParams(urlQueryParams.pairs ++ request.config.queryParams.map(_.pairs).getOrElse(Vector.empty))
+                val restConfig = RestApiConfig(
+                  connectorId     = "",
+                  endpoint        = endpoint,
+                  method          = request.config.method.getOrElse("GET"),
+                  queryParams     = urlAndConfigQueryParams,
+                  headers         = request.config.headers.getOrElse(Map.empty),
+                  body            = request.config.body,
+                  bodyContentType = request.config.bodyContentType,
+                  rootSelector    = request.config.rootSelector,
+                  // HEL-983: the caller-supplied HEL-823 template values must reach the persisted source.
+                  parameters      = request.config.parameters.getOrElse(Map.empty)
+                )
+                Future.successful(Right(SourceService.RestCreatePlan(restConfig, implicitBaseUrl = Some(baseUrl))))
             }
       }
+
+  def createRest(request: CreateSourceRequest, user: AuthenticatedUser): Future[Either[ServiceError, CreateSourceResponse]] =
+    validateRestCreate(request, user).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(SourceService.RestCreatePlan(restConfig, None)) => createRestWithConfig(request, restConfig, user)
+      case Right(SourceService.RestCreatePlan(planned, Some(baseUrl))) =>
+        val (name, configJson, credentialPlaintext, credentialName) =
+          ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
+        connectorRepo
+          .create(
+            ownerId             = user.id,
+            name                = name,
+            kind                = DataSourceKind.RestApi,
+            baseUrl             = baseUrl,
+            config              = configJson,
+            credentialPlaintext = credentialPlaintext,
+            credentialName      = credentialName
+          )
+          .flatMap { createdConnector =>
+            // HEL-1475: the Connector is committed BEFORE the source insert, so any failure from here on (the insert
+            // itself, or createRestWithConfig's own post-insert cleanup having already removed the source) must also
+            // remove the Connector this call made. Source first, then Connector.
+            Future.unit.flatMap(_ => createRestWithConfig(request, planned.copy(connectorId = createdConnector.id.value), user)).transformWith {
+              case Success(result) => Future.successful(result)
+              case Failure(ex) =>
+                new ImplicitConnectorCleanup(dataSourceRepo, connectorRepo)
+                  .deleteIfUnadoptedImplicit(createdConnector.id, user, "createRest cleanup")
+                  .transform(_ => Failure(ex))
+            }
+          }
+    }
+
+
+  /** HEL-1638: dry run of `createRest` for an inline REST root: its pre-insert checks, then `beforeFetch` (the C12 source-
+   *  fetch budget; a `Left` refuses with no fetch), then the schema inferred through ONE request composition
+   *  ([[RestApiConnectorDriver.inferSchemaForConnector]]) from the unpersisted Auto connector (url) or the owned connector
+   *  (connectorId). Persists nothing. */
+  def dryRunRestSchema(request: CreateSourceRequest, user: AuthenticatedUser, beforeFetch: () => Either[ServiceError, Unit]): Future[Either[ServiceError, SourceService.InlineDryRunSchema]] =
+    validateRestCreate(request, user).flatMap {
+      case Left(err) => Future.successful(Left(err))
+      case Right(plan) =>
+        beforeFetch() match {
+          case Left(err) => Future.successful(Left(err))
+          case Right(()) =>
+            val resolved: Future[Option[(RestApiConfig, Connector, String)]] = plan.implicitBaseUrl match {
+              case Some(baseUrl) =>
+                val (name, configJson, credentialPlaintext, _) = ImplicitConnectorConfig.forLegacySource(s"Auto: ${request.name}", baseUrl, RestApiAuth.NoAuth)
+                val now = Instant.now()
+                val auto = Connector(ConnectorId(UUID.randomUUID().toString), user.id, name, DataSourceKind.RestApi, baseUrl, configJson, None, now, now)
+                Future.successful(Some((plan.config.copy(connectorId = auto.id.value), auto, credentialPlaintext)))
+              case None =>
+                // The owned connector: `validateRestCreate` just proved it exists, is rest_api and not pending.
+                connectorRepo.findByIdOwned(ConnectorId(plan.config.connectorId), user).map(_.map(c => (plan.config, c, "")))
+            }
+            resolved.flatMap {
+              case None => Future.successful(Right(SourceService.InlineDryRunSchema(Vector.empty, Some("Connector not found"))))
+              case Some((config, conn, credential)) =>
+                (if (plan.implicitBaseUrl.isDefined) connector.inferSchemaForConnector(config, conn, credential)
+                 else connector.inferSchemaForResolvedConnector(config, conn)).map {
+                  case Left(err) => Right(SourceService.InlineDryRunSchema(Vector.empty, Some(err)))
+                  case Right(schema) =>
+                    Right(SourceService.InlineDryRunSchema(SchemaInferenceFacade.toSchemaFields(schema, request.fieldOverrides.getOrElse(Vector.empty).map(o => o.name -> o).toMap), None))
+                }
+            }
+        }
+    }
+
+  /** HEL-1638: dry run of `createSql` for an inline SQL root: `validateSqlCreate`, `beforeFetch`, then the same
+   *  `inferSchema` call `CreateSourceEnvelope.build` makes, projected through the same `toSchemaFields`. */
+  def dryRunSqlSchema(request: SqlCreateSourceRequest, user: AuthenticatedUser, beforeFetch: () => Either[ServiceError, Unit]): Future[Either[ServiceError, SourceService.InlineDryRunSchema]] =
+    validateSqlCreate(request).flatMap(sqlConfig => beforeFetch().map(_ => sqlConfig)) match {
+      case Left(err) => Future.successful(Left(err))
+      case Right(sqlConfig) =>
+        SqlConnectorDriver.inferSchema(sqlConfig, ConnectorResolveContext.Owned(user), sqlResolveHost, sqlIsBlocked).map {
+          case Left(err)     => Right(SourceService.InlineDryRunSchema(Vector.empty, Some(err)))
+          case Right(schema) => Right(SourceService.InlineDryRunSchema(SchemaInferenceFacade.toSchemaFields(schema), None))
+        }
+    }
 
   /** HEL-845 design.md Decision 2a: the create-time guarantee against binding a REST source to
    *  a non-`rest_api` Connector. Owner-scoped (`findByIdOwned`) so it cannot be used as an
@@ -480,4 +528,15 @@ final class SourceService(
     ).toVector
     InferredSchemaResponse(fields)
   }
+}
+
+object SourceService {
+  /** HEL-1638: what `createRest` would persist, from its pre-insert checks. `implicitBaseUrl` is `Some` for a bare-`url`
+   *  request (the config's `connectorId` is then a placeholder `""`: `createRest` persists the Auto connector and fills it
+   *  in; the dry run builds the unpersisted equivalent from the same `ImplicitConnectorConfig.forLegacySource`). */
+  private[services] final case class RestCreatePlan(config: RestApiConfig, implicitBaseUrl: Option[String])
+
+  /** HEL-1638: the inline source's schema as `create*` would persist it, for the propose-time dry run. `schema` is empty
+   *  and `fetchError` set when the fetch failed (apply keeps such a source with an empty schema). */
+  final case class InlineDryRunSchema(schema: Vector[SchemaField], fetchError: Option[String])
 }

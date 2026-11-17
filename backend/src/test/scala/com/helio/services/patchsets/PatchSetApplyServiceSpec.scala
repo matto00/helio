@@ -1330,12 +1330,12 @@ class PatchSetApplyServiceSpec extends AnyWordSpec with Matchers with HelioRoute
         Edit(EditTarget("panel", Some(plain.id.value)), "update", Some(UpdatePanelRequest(Some("Changed title"), None, None, None)), None, None, None, None, None),
         Edit(EditTarget("panel", Some(outputPanel.id.value)), "update", Some(UpdatePanelRequest(None, None, None, Some(badControls))), None, None, None, None, None)
       )
-      val response = await(validatingService.apply(PatchSet(None, edits), userA)) match {
-        case Right(r)  => r
-        case Left(err) => fail(s"expected a reported failure, got Left($err)")
+      // HEL-1638 D3: the update's own validation chain now runs at resolve, so the same message surfaces BEFORE any edit
+      // applies (it used to surface as a mid-set failure after the first edit was applied and rolled back).
+      await(validatingService.apply(PatchSet(None, edits), userA)) match {
+        case Left(ServiceError.BadRequest(msg)) => msg shouldBe "edit 1: control not eligible: column 'region', kind 'date-range'"
+        case other                              => fail(s"expected a resolve-time 400, got $other")
       }
-
-      response.failure.map(_.toString).getOrElse(fail("expected a failure")) should include("control not eligible: column 'region', kind 'date-range'")
       await(panelRepo.findByIdInternal(plain.id)).map(_.title) shouldBe Some("Original title")
     }
   }

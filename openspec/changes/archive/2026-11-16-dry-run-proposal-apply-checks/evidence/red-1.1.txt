@@ -1,0 +1,6 @@
+[info] - should reject an Output mapping a column dropped by an upstream select, and one never in the source, with apply's column message (HEL-1638) *** FAILED ***
+[info]   losses accepted (PipelineProposalServiceValidateSpec.scala:81)
+[info] - should accept a structurally valid proposal referencing an existing, owned source
+[info] - should accept a structurally valid inline source without touching the data source repository
+[info] Tests: succeeded 10, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

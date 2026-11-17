@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{NewConnectorDraft, PipelineProposal, PipelineProposalApplyResponse, PipelineProposalSource, ProposalRestApiConfig}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.domain.connectors.{ConnectorAuthShape, RestApiConnectorDriver}
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.DbContext
@@ -72,7 +73,7 @@ class PipelineProposalRollbackConnectorSpec extends AnyWordSpec with Matchers wi
       pipelineRepo, stepRepo, dataSourceRepo, new PipelineRunRepository(ctx), new PipelineRunCache, registry = null, fs,
       outputRepo = outputRepo, nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
     )
-    proposalService = new PipelineProposalService(sourceService, dataSourceService, pipelineService, runService, dataSourceRepo, outputRepo)
+    proposalService = new PipelineProposalService(sourceService, dataSourceService, pipelineService, runService, dataSourceRepo, outputRepo, SourceFetchBudget.default())
   }
 
   override def afterAll(): Unit = {

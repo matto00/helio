@@ -16,6 +16,7 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.auth.{ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
+import com.helio.services.pipelines.PipelineRunGuardConfig
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
 import com.helio.testkit.HelioRouteTest
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -147,11 +148,15 @@ abstract class CombinedApplyProposalSpecBase
       pipelineRunRepo = pipelineRunRepo,
       // HEL-904 task 3.9: wires a real OutputRepository so an "output"-kind
       // panel's binding validates against it.
-      dbContext = ctx
+      dbContext = ctx,
+      pipelineRunGuardConfig = guardConfig
     ).routes
 
     seedFixtures()
   }
+
+  /** HEL-1638: overridable so a route spec can pin a tiny source-fetch budget. */
+  protected def guardConfig: PipelineRunGuardConfig = PipelineRunGuardConfig.fromEnv()
 
   private def seedFixtures(): Unit = {
     val otherSrcId  = UUID.randomUUID().toString

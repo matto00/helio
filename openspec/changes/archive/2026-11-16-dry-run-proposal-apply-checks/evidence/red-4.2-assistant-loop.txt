@@ -1,0 +1,5 @@
+AssistantColumnLoopSpec with the propose-time Output column check disabled (outputMappingProblem returns Right: the propose-time behaviour before HEL-1638, where hop 1 was accepted and the error surfaced only at apply):
+[info] - should feed back a column error naming the node's columns, then capture the lookup proposal *** FAILED ***
+[info]   Some(false) was not equal to Some(true) (AssistantColumnLoopSpec.scala:77)
+[info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
+[info] *** 1 TEST FAILED ***

@@ -10,6 +10,7 @@ import com.helio.api.JsonProtocols
 // object yet (HEL-379 added the protocol trait but no route consumed it until
 // now) — import directly from its authoritative package.
 import com.helio.api.protocols.pipelines.PipelineProposal
+import com.helio.api.protocols.proposals.ProposalValidateResponse
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.services.pipelines.PipelineProposalService
 
@@ -33,6 +34,16 @@ final class PipelineProposalRoutes(
 
   val routes: Route =
     pathPrefix("pipelines") {
+      // HEL-1638 (D4): the propose-side dry run (see CombinedProposalRoutes for why it has no rate-limit directive of its own).
+      path("validate-proposal") {
+        post {
+          entity(as[PipelineProposal]) { proposal =>
+            ServiceResponse.run(proposalService.validate(proposal, user).map(_.map(_ => ProposalValidateResponse(valid = true)))) {
+              response => StatusCodes.OK -> response
+            }
+          }
+        }
+      } ~
       path("apply-proposal") {
         post {
           entity(as[PipelineProposal]) { proposal =>

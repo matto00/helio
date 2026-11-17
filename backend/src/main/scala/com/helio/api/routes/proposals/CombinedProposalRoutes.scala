@@ -6,7 +6,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.proposals.CombinedProposal
+import com.helio.api.protocols.proposals.{CombinedProposal, ProposalValidateResponse}
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.services.proposals.CombinedProposalService
 
@@ -33,6 +33,18 @@ final class CombinedProposalRoutes(
 
   val routes: Route =
     pathPrefix("proposals") {
+      // HEL-1638 (D4): the propose-side dry run. No own rate-limit directive: the live source fetch it may issue is charged
+      // once, inside `validate`, to the shared source-fetch budget; wrapping it in `sourceFetchRateLimitDirective` as well
+      // would draw one request twice from the same bucket.
+      path("validate") {
+        post {
+          entity(as[CombinedProposal]) { combined =>
+            ServiceResponse.run(combinedProposalService.validate(combined, user).map(_.map(_ => ProposalValidateResponse(valid = true)))) {
+              response => StatusCodes.OK -> response
+            }
+          }
+        }
+      } ~
       path("apply") {
         post {
           entity(as[CombinedProposal]) { combined =>

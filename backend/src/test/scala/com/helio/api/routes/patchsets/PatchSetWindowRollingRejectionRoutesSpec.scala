@@ -1,6 +1,7 @@
 package com.helio.api.routes.patchsets
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.patchsets.{Edit, EditTarget, PatchSet}
 import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineRootRequest, CreatePipelineStepRequest, UpdatePipelineStepRequest}
@@ -93,7 +94,7 @@ class PatchSetWindowRollingRejectionRoutesSpec
       accessChecker, new PatchSetApplicationRepository(ctx)(routeEc), outputRepo
     )
     previewService = new PatchSetPreviewService(
-      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo
+      panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
 
     import PostgresProfile.api._

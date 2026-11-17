@@ -1,0 +1,14 @@
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 9525
+[info] Suites: completed 691, aborted 0
+[info] Tests: succeeded 9525, failed 0, canceled 5, ignored 0, pending 0
+[info] All tests passed.
+EXIT 0
+(first run: 1 failure OutputRepositoryRequiredSpec, root-caused to PatchSetApplyContext.build constructing OutputControlsValidator before the null check; fixed, rerun above)
+--- cycle 2 ---
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Total number of tests run: 9528
+[info] Suites: completed 692, aborted 0
+[info] Tests: succeeded 9528, failed 0, canceled 5, ignored 0, pending 0
+[info] All tests passed.
+EXIT 0

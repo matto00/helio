@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/proposals/proposal-validate-response.schema.json",
+  "title": "ProposalValidateResponse",
+  "description": "200 body of POST /api/pipelines/validate-proposal, POST /api/dashboards/validate-proposal and POST /api/proposals/validate (HEL-1638): the proposal passes the same checks its apply route runs before writing. A failing proposal is the matching apply route's own error status and message, never a body with valid false.",
+  "type": "object",
+  "properties": {
+    "valid": { "type": "boolean", "const": true }
+  },
+  "required": ["valid"],
+  "additionalProperties": false
+}

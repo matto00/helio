@@ -1,0 +1,6 @@
+[info] - should reject a sentinel panel when the pipeline creates two Outputs, with apply's message (HEL-1638) *** FAILED ***
+[info]   accepted (CombinedProposalServiceValidateSpec.scala:102)
+[info] - should reject overlapping panel layouts, with apply's layout message (HEL-1638) *** FAILED ***
+[info]   accepted (CombinedProposalServiceValidateSpec.scala:113)
+[info] Tests: succeeded 4, failed 2, canceled 0, ignored 0, pending 0
+[info] *** 2 TESTS FAILED ***

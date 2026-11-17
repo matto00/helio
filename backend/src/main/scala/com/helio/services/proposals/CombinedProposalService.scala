@@ -54,13 +54,31 @@ final class CombinedProposalService(
         validateDashboardStructure(combined.dashboard) match {
           case Left(err) => Future.successful(Left(err))
           case Right(_) =>
-            pipelineProposalService.validate(combined.pipeline, user).flatMap {
+            // HEL-1638: in apply's order -- pipeline, then the sentinel count (`resolveSentinelOutputId`, statically knowable),
+            // then the dashboard's layout check -- so propose reports the message apply would.
+            def staticChecks: Either[ServiceError, Unit] =
+              resolveSentinelOutputId(
+                combined.dashboard.panels,
+                combined.pipeline.outputs.map(o => ProposalOutputSummary("placeholder", o.name, o.kind, None))
+              ).flatMap(_ => ProposalLayoutSupport.validate(combined.dashboard.panels).left.map(ServiceError.BadRequest(_)))
+            (pipelineProposalService.validate(combined.pipeline, user).map(_.flatMap(_ => staticChecks))
+            ).flatMap {
               case Left(err) => Future.successful(Left(err))
               case Right(_) =>
                 dashboardProposalService.validateSourceBindings(combined.dashboard.panels, user).flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(_) =>
-                    dashboardProposalService.validateControlsExcludingSentinel(combined.dashboard.panels, OutputRefSentinel, user)
+                    // HEL-1638 (parity corpus): apply's binding check first (its message), for the panels bound to a real Output.
+                    dashboardProposalService.validateBindingsExcluding(combined.dashboard.panels, panelReferencesSentinel, user).flatMap {
+                      case Left(err) => Future.successful(Left(err))
+                      case Right(_) =>
+                        dashboardProposalService.validateControlsExcludingSentinel(combined.dashboard.panels, OutputRefSentinel, user).flatMap {
+                          case Left(err) => Future.successful(Left(err))
+                          // HEL-1638 D3: non-sentinel panels are built as apply builds them (Real); sentinel-bound panels get the
+                          // same build minus the Output existence/controls checks, which exist only after the pipeline is applied.
+                          case Right(_)  => dashboardProposalService.dryRunPanels(combined.dashboard.panels, user, panelReferencesSentinel)
+                        }
+                    }
                 }
             }
         }

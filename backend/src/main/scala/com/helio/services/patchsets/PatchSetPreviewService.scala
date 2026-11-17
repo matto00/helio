@@ -5,6 +5,8 @@ import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.patchsets.{EditPreview, PatchSet, PatchSetPreviewResponse}
 import com.helio.domain.model.AuthenticatedUser
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
+import com.helio.services.sources.SourceService
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -34,11 +36,14 @@ final class PatchSetPreviewService(
     pipelineRepo: PipelineRepository,
     pipelineStepRepo: PipelineStepRepository,
     accessChecker: AccessChecker,
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    // HEL-1638 D1b: resolves (and, via the budget, charges) an inline rest/sql pipeline-create root's schema fetch.
+    sourceService: SourceService,
+    sourceFetchBudget: SourceFetchBudget
 )(implicit ec: ExecutionContext) {
 
   private[services] val context: PatchSetApplyContext =
-    PatchSetApplyContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+    PatchSetApplyContext.build(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, sourceService, sourceFetchBudget, chargeFetches = true)
 
   def preview(patchSet: PatchSet, user: AuthenticatedUser): Future[Either[ServiceError, PatchSetPreviewResponse]] =
     PatchSetApplyResolvers.resolveAll(patchSet.edits, user, context).flatMap {

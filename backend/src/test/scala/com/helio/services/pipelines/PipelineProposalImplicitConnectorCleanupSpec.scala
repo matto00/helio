@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.api.protocols.pipelines.{PipelineProposal, PipelineProposalSource, ProposalRestApiConfig}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.domain.connectors.RestApiConnectorDriver
 import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.infrastructure.persistence.DbContext
@@ -60,7 +61,7 @@ class PipelineProposalImplicitConnectorCleanupSpec extends AnyWordSpec with Matc
       new PipelineRepository(ctx, dataSourceRepo), new PipelineStepRepository(ctx), dataSourceRepo,
       outputRepo = outputRepo, sourceService = sourceService, dataSourceService = dataSourceService
     )
-    proposalService = new PipelineProposalService(sourceService, dataSourceService, pipelineService, null, dataSourceRepo, outputRepo)
+    proposalService = new PipelineProposalService(sourceService, dataSourceService, pipelineService, null, dataSourceRepo, outputRepo, SourceFetchBudget.default())
     await(db.run(sqlu"""INSERT INTO users (id, email, created_at) VALUES ($ownerId::uuid, ${s"p-$ownerId@helio.test"}, now())"""))
   }
 

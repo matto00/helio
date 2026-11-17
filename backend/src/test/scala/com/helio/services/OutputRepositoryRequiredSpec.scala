@@ -1,6 +1,7 @@
 package com.helio.services
 
 import com.helio.services.panels.OutputControlsValidator
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import org.scalatest.matchers.should.Matchers
@@ -33,7 +34,7 @@ class OutputRepositoryRequiredSpec extends AnyWordSpec with Matchers {
 
     "make the patch-set apply context (via preview and apply) reject null at construction" in {
       val preview = intercept[IllegalArgumentException] {
-        new PatchSetPreviewService(null, null, null, null, null, null, null)
+        new PatchSetPreviewService(null, null, null, null, null, null, null, null, SourceFetchBudget.default())
       }
       preview.getMessage should include("PatchSetApplyContext requires an OutputRepository")
       val apply = intercept[IllegalArgumentException] {

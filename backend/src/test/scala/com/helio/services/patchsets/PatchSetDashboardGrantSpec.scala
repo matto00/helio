@@ -1,6 +1,7 @@
 package com.helio.services.patchsets
 
 import com.helio.testkit.HelioRouteTest
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.testkit.TempDirectorySupport
 
 import com.helio.services.ServiceError
@@ -109,7 +110,7 @@ class PatchSetDashboardGrantSpec extends AnyWordSpec with Matchers with HelioRou
     )
     previewService = new PatchSetPreviewService(
       panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo,
-      accessChecker, outputRepo
+      accessChecker, outputRepo, null, SourceFetchBudget.default()
     )
 
     seedUsers()

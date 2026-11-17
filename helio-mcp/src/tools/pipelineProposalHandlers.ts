@@ -32,7 +32,8 @@ import { computePipelineProposalWarnings } from "./pipelineProposalValidation.js
 
 /** `propose_pipeline`'s handler: assembles the typed `PipelineProposal` from
  *  plain input, resolves the caller's data source ids ONCE (read-only), and
- *  computes warnings via `computePipelineProposalWarnings` — writes nothing. */
+ *  computes warnings via `computePipelineProposalWarnings` — writes nothing. A proposal the
+ *  server's dry run rejects throws (HEL-1638). */
 export async function proposePipelineHandler(
   api: HelioApi,
   input: {
@@ -48,6 +49,10 @@ export async function proposePipelineHandler(
     steps: input.steps,
     outputs: input.outputs ?? [],
   };
+
+  // HEL-1638: the server's propose-side dry run runs the checks apply runs; a rejection throws a HelioApiError carrying the
+  // backend message, which the tool shell's `guarded` returns as an isError result.
+  await api.validatePipelineProposal(proposal);
 
   const sourcesPage = await api.listDataSources();
   const sourceIds = new Set(sourcesPage.items.map((s) => s.id));

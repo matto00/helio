@@ -1,6 +1,7 @@
 package com.helio.services.firstrun
 
 import com.helio.domain.model.{AuthenticatedUser, DataSourceId, UserId}
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository, PipelineRootRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
@@ -59,7 +60,7 @@ class FirstRunDashboardServiceRollbackSpec extends AnyWordSpec with Matchers wit
       pipelineRepo, stepRepo, dataSourceRepo, new PipelineRunRepository(ctx), new PipelineRunCache, registry = null, fs,
       outputRepo = outputRepo, nodeSnapshotRepo = new NodeSnapshotRepository(ctx)
     )
-    proposalService = new PipelineProposalService(null, dataSourceService, pipelineService, runService, dataSourceRepo, outputRepo)
+    proposalService = new PipelineProposalService(null, dataSourceService, pipelineService, runService, dataSourceRepo, outputRepo, SourceFetchBudget.default())
   }
 
   override def afterAll(): Unit = { db.close(); embeddedPostgres.close(); actorSystem.terminate(); super.afterAll() }

@@ -1,0 +1,5 @@
+C12 (bounded propose-time fetches), implemented in slice 2.
+- `services/ratelimit/SourceFetchBudget.scala` charges the SAME `InMemoryRateLimiter` instance `ApiRoutes.sourceFetchRateLimitDirective` uses (now `sourceFetchLimiter`), limit `SOURCE_FETCH_RATE_LIMIT_PER_WINDOW`, window `RATE_LIMIT_WINDOW_SECONDS`, key = the one RateLimitDirective builds: `user:<id>` for a session caller, `pat:<tokenId>` for a PAT caller (cycle 2, evaluation-1 CR1: the budget first keyed every caller by user, so a PAT agent drew from a different bucket than its preview/infer calls; SourceFetchBudgetSpec, red in evidence/red-cycle2-CR1-pat-key.txt).
+- Charged by `PipelineProposalService.validate`'s dry run after the root's validate* checks pass and before each inline rest/sql fetch (one charge per fetching root). Exhaustion: `ServiceError.TooManyRequests` (429-class, Retry-After), no fetch. The assistant sees a Left -> is_error.
+- Apply's own dry-run call does not charge (C12-note). Apply's create-time fetch remains as before.
+- Test: ProposalDryRunRestSchemaSpec "refuse the (N+1)th propose-time fetch ..."; mutation (charge removed) red in red-mutations-2.1-2.2a-C12.txt.

@@ -1,6 +1,7 @@
 package com.helio.api.routes.proposals
 
 import com.helio.api.JsonProtocols
+import com.helio.services.ratelimit.SourceFetchBudget
 import com.helio.domain.util.Clock
 import com.helio.api.http.{AccessCheckerImpl, ResourceTypeRegistry, ResourceType => AclResourceType}
 import com.helio.api.protocols.assistant.TierErrorResponse
@@ -132,7 +133,7 @@ class ClaudeRoutesChatGateSpec
     val workspaceContextService = new WorkspaceContextService(dashboardService, dataSourceService, outputRepo, pipelineService)
     val panelCapabilityService  = new PanelCapabilityService(outputRepo, nodeSnapshotRepo)
     val proposalService         = new DashboardProposalService(null, null, outputRepo)
-    val previewService = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo)
+    val previewService = new PatchSetPreviewService(panelRepo, dashboardRepo, dataSourceRepo, pipelineRepo, pipelineStepRepo, accessChecker, outputRepo, null, SourceFetchBudget.default())
     val grounding = new RefinementGrounding(dashboardRepo, panelRepo, pipelineService, workspaceContextService, panelCapabilityService)
     val authoringConvRepo = new AuthoringConversationRepository(ctx)
     authoringService  = client => new DashboardAuthoringService(workspaceContextService, panelCapabilityService, proposalService, client, authoringConvRepo)(trackedEc)
