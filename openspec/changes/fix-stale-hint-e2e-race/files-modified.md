@@ -1,2 +1,0 @@
-- `e2e/hel1562-landing-page.spec.ts` — stale-hint test seeds from the app-free landing page, avoids `load` waits, polls URL and hint clear
-- `openspec/changes/fix-stale-hint-e2e-race/proofs.md` — proof record
