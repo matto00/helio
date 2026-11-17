@@ -1,0 +1,25 @@
+
+Running 2 tests using 1 worker
+
+[1A[2K[1/2] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 446f8cae-f47c-4049-98dc-346f64a42b83; tier set for 446f8cae-f47c-4049-98dc-346f64a42b83
+
+[1A[2K[HEL-1277 e2e] created source 28e64d6d-b49a-44c2-9b33-e3988bc057d2 pipeline c247c224-8c96-4a73-aa9b-b5f042e6b1da output f998caaa-384d-4689-a8d5-9cd4a6e216dc
+
+[1A[2K[D3] points after 50692 ms wait: 3
+
+[1A[2K[HEL-1277 e2e] deleting pipeline c247c224-8c96-4a73-aa9b-b5f042e6b1da / source 28e64d6d-b49a-44c2-9b33-e3988bc057d2
+
+[1A[2K[2/2] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user ee3506a0-66c9-4cfe-99a0-e5d3d1ca11ec; tier set for ee3506a0-66c9-4cfe-99a0-e5d3d1ca11ec
+
+[1A[2K[HEL-1277 e2e] created source ffdbc093-6327-4a06-82c7-213d14398d58 pipeline b6eec276-efbb-4401-b8d1-c3921c434002 output cf1ddbaf-07cd-40b8-b82f-a1479eeae704
+
+[1A[2K[D3] points after 50839 ms wait: 3
+
+[1A[2K[HEL-1277 e2e] deleting pipeline b6eec276-efbb-4401-b8d1-c3921c434002 / source ffdbc093-6327-4a06-82c7-213d14398d58
+
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+[1A[2K  2 passed (1.9m)

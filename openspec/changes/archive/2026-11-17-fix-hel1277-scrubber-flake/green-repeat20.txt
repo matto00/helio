@@ -1,0 +1,663 @@
+
+Running 80 tests using 2 workers
+
+[1A[2K[1/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[2/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user ef934d9f-8b23-4d52-a70d-84382392782e; tier set for ef934d9f-8b23-4d52-a70d-84382392782e
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user ff052bb2-55ed-4597-a1ca-79fe4ced89e8; tier set for ff052bb2-55ed-4597-a1ca-79fe4ced89e8
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 446de495-69e6-410f-9970-97b8c0c31728 pipeline 6639ff09-eee3-4ba6-b994-85942ecdbb42 output e63f6d56-fc4c-4b42-9cb1-b4247940d35c
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 39558314-4609-41d9-96ca-d41b5f69209e pipeline 9d2e08d7-86a7-4c1f-97cd-c7bf06cf660a output 85f5865d-0123-473b-a2e4-267b4ad2c7e0
+
+[1A[2K[HEL-1277 e2e] deleting pipeline 9d2e08d7-86a7-4c1f-97cd-c7bf06cf660a / source 39558314-4609-41d9-96ca-d41b5f69209e
+
+[1A[2K[3/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 6639ff09-eee3-4ba6-b994-85942ecdbb42 / source 446de495-69e6-410f-9970-97b8c0c31728
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 73c33fd2-dd1a-465f-9079-69792319531a; tier set for 73c33fd2-dd1a-465f-9079-69792319531a
+
+[1A[2K[4/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 1b9b3b84-b091-41bc-acb6-8fe3459485dd; tier set for 1b9b3b84-b091-41bc-acb6-8fe3459485dd
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 10af7dc8-a5ce-4ed2-a2f8-a68899494879 pipeline 3b9bc4dd-2a2d-43da-a1ea-e4e8a1af1627 output 8e10dac4-736d-48b2-bd71-a5880405e5dc dashboard 2b734a97-a39b-4fc8-85db-23a858a8054d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 53975ae6-3d1f-4690-8586-e1a83e22fb27 pipeline 0eaebebf-5311-4a65-b8ff-13ff3fb061b7 output 3dcf6cf0-0fd9-4b85-956e-7ab1c3d2398b dashboard 9429930b-9f87-44cc-8567-3d32821759a2
+
+[1A[2K[5/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[6/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user b63fe97a-7c80-4675-acb2-6752794679c8; tier set for b63fe97a-7c80-4675-acb2-6752794679c8
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user d1b16712-b67b-465d-b001-104f8c6cd6ec; tier set for d1b16712-b67b-465d-b001-104f8c6cd6ec
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 55800e64-d7ef-49e3-af57-a9a102c05698 pipeline 3f99e3ea-59b2-4841-946d-02a850215b9d output bcb2b3c2-9d96-4622-b01d-e54b5b6ac9ee
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source ba01a615-67e2-42c5-a501-9b0427708753 pipeline 576117f7-edc1-40ae-9e73-9a11a611953d output ad3bcee9-6e20-46c5-b69a-d86c8c9a5503
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 3f99e3ea-59b2-4841-946d-02a850215b9d / source 55800e64-d7ef-49e3-af57-a9a102c05698
+
+[1A[2K[7/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 576117f7-edc1-40ae-9e73-9a11a611953d / source ba01a615-67e2-42c5-a501-9b0427708753
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 222f47e8-fea1-46ff-b62b-50304f56d34c; tier set for 222f47e8-fea1-46ff-b62b-50304f56d34c
+
+[1A[2K[8/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user cc3341d5-42b7-4eb9-adf0-a4d38f5d0521; tier set for cc3341d5-42b7-4eb9-adf0-a4d38f5d0521
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 967fd876-80b2-4f54-a737-aded36b6323f pipeline fc2f16a7-4096-4fcc-ac32-0511cc9fa07f output e7135869-22d5-4571-8a15-ec9981bbeb31 dashboard 391fb91a-12e8-4124-97af-6e817da5a7ef
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source f3528ecd-14a5-4de6-baef-b18c563707c0 pipeline 6d338212-eac9-4205-8a89-216cd70d6e24 output 800bd2a2-6693-4fe6-9aca-72071a6504f9 dashboard 9674228a-df6c-4424-9879-5c532d994303
+
+[1A[2K[9/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[10/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 82708ac0-5357-4864-8ef7-53263d233968; tier set for 82708ac0-5357-4864-8ef7-53263d233968
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 668f319c-17c6-424c-9c35-43a9b2b6af7b; tier set for 668f319c-17c6-424c-9c35-43a9b2b6af7b
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 78512574-112d-4fc4-9846-f5591cb7eec8 pipeline 44be99a7-ef3c-41a2-93fd-a8fd7c5850f1 output 6dd02106-7a06-43fa-8739-09cd8d4ebbc0
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 795dc095-46cf-4f95-9d8f-dc7e5f2b0aab pipeline 6e5b92fa-23d9-4c4c-94aa-a044b36195c0 output d8a5fdcc-9c98-4fbf-b6bf-d899146bbb01
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 44be99a7-ef3c-41a2-93fd-a8fd7c5850f1 / source 78512574-112d-4fc4-9846-f5591cb7eec8
+
+[1A[2K[11/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 6e5b92fa-23d9-4c4c-94aa-a044b36195c0 / source 795dc095-46cf-4f95-9d8f-dc7e5f2b0aab
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user a61313b6-f969-4f9f-a94d-f7e26b89a977; tier set for a61313b6-f969-4f9f-a94d-f7e26b89a977
+
+[1A[2K[12/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 310749bc-9aea-43b4-9f7a-9c7c77e5f936; tier set for 310749bc-9aea-43b4-9f7a-9c7c77e5f936
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source f5b04829-1a01-47a5-a2b1-978a2d555f29 pipeline 1710e67a-0d6f-4e00-9b09-5f76e242d661 output f7427038-0880-40f5-b281-e80941c65cc4 dashboard f8605d7b-5816-480f-a9c4-71e9f45400b3
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source ce34dfae-552e-4bd1-ab39-2eec5213c788 pipeline 75eb4be1-54e7-4cad-bc75-efe3b2090b36 output fa747481-ded4-46bc-ac30-e1df23d970d0 dashboard 31831e9d-233f-4ec7-a9b8-771dac6edf10
+
+[1A[2K[13/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 8cc3773d-96a4-4b72-9e16-92f0ad1fa0cd; tier set for 8cc3773d-96a4-4b72-9e16-92f0ad1fa0cd
+
+[1A[2K[14/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 58da227a-9abd-4b33-9358-dfe15627edef; tier set for 58da227a-9abd-4b33-9358-dfe15627edef
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source ad00809f-bd7f-4456-b6e3-738a017fd98d pipeline 9b2cc057-44b4-41ed-89a1-9a561bc825c8 output 46ef8ffb-5828-449b-a054-9952d01eb263
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 4128b543-92a5-442a-bfc8-d760d3303fac pipeline 38f55a29-073f-4137-b374-3baca28f827d output 81b02427-9ec5-4d74-a661-aad47a94bb27
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 9b2cc057-44b4-41ed-89a1-9a561bc825c8 / source ad00809f-bd7f-4456-b6e3-738a017fd98d
+
+[1A[2K[15/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 38f55a29-073f-4137-b374-3baca28f827d / source 4128b543-92a5-442a-bfc8-d760d3303fac
+
+[1A[2K[16/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 099ad892-61c6-46bc-805b-c543a4e952d8; tier set for 099ad892-61c6-46bc-805b-c543a4e952d8
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 42823682-6366-4d7c-abd7-54aa22581074; tier set for 42823682-6366-4d7c-abd7-54aa22581074
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 4634d74d-bfc9-41a5-a631-cb7abcb54c51 pipeline ee0a5ed3-2595-4ff1-a1ec-46868583617d output e2f139b3-a082-41f7-b3a7-0bebff16a72e dashboard f63176ba-1925-456e-8051-f72b8799510a
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source dde9368f-1c3b-4b83-a9d5-395d34b6b2d7 pipeline ae357d48-894c-4ea7-ba1f-a7b782b94a88 output c599b717-0067-4e7f-9489-2cc4bd5fe8ef dashboard 3eedfe13-6e15-4c7f-8cb8-4bab9c8098bd
+
+[1A[2K[17/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[18/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 57b94c0a-f76f-46a1-a6ea-cf5c2ed365aa; tier set for 57b94c0a-f76f-46a1-a6ea-cf5c2ed365aa
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 6fe4eb4d-03e8-414b-8064-41ee517b14ad; tier set for 6fe4eb4d-03e8-414b-8064-41ee517b14ad
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 22559874-b07d-4a96-9c61-765f96b96da1 pipeline 41ad2e08-5943-400d-9c20-947006388edb output 3c0b5fd8-b21e-406a-89ad-0580650c40ea
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 830c17d9-cbd2-4eee-b261-3fb962820c24 pipeline 57148563-ad65-45a6-9e06-2ace1151b2ce output ba99eb6d-bb16-4005-88c7-764a7d96fa25
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 41ad2e08-5943-400d-9c20-947006388edb / source 22559874-b07d-4a96-9c61-765f96b96da1
+
+[1A[2K[19/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 57148563-ad65-45a6-9e06-2ace1151b2ce / source 830c17d9-cbd2-4eee-b261-3fb962820c24
+
+[1A[2K[20/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user cec830ac-54f3-4563-abc6-02e9f07fce1c; tier set for cec830ac-54f3-4563-abc6-02e9f07fce1c
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user feb745f8-9825-43ea-8f64-8ffa5f081167; tier set for feb745f8-9825-43ea-8f64-8ffa5f081167
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 9355e344-9592-4c16-92e2-3b09d177d750 pipeline 83ff13f2-3575-4411-b56b-eb19cec8ed47 output 273bdd90-2e78-48c9-917b-0f8fe1075c96 dashboard 7fa98229-3f69-4a92-a367-5d1bda4aad97
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source d6e739c5-37d2-4c8c-b6fd-95676c5ed665 pipeline a89a0ed1-a717-4096-8986-84547cb8babf output 4ed4c65c-5e79-43db-903a-e734dbc50406 dashboard 8202805d-6f47-4876-a527-46025ca63588
+
+[1A[2K[21/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user ecd529f5-f2e7-44e6-bef7-2358ef6b13df; tier set for ecd529f5-f2e7-44e6-bef7-2358ef6b13df
+
+[1A[2K[22/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user f69ba7f7-e9db-4dec-98e3-62e644de4600; tier set for f69ba7f7-e9db-4dec-98e3-62e644de4600
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 08f7e833-2cde-4613-ab6b-4be91da3d8af pipeline 3ad2a378-22d3-45da-ba71-13c09585296d output 89a0c3e7-0800-49ba-95be-62e94d950073
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source a4237f50-a162-4014-ac26-b64af385ce04 pipeline 5593cb47-a667-418c-a758-0982d733fe67 output 82752ca3-43cd-42cc-a202-0760ac7b7cf3
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 3ad2a378-22d3-45da-ba71-13c09585296d / source 08f7e833-2cde-4613-ab6b-4be91da3d8af
+
+[1A[2K[23/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 68b33053-8bc6-483d-99e3-a8115e5d82cb; tier set for 68b33053-8bc6-483d-99e3-a8115e5d82cb
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 5593cb47-a667-418c-a758-0982d733fe67 / source a4237f50-a162-4014-ac26-b64af385ce04
+
+[1A[2K[24/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user d99e60a0-20e0-41f5-8a07-37da6d0c9c1d; tier set for d99e60a0-20e0-41f5-8a07-37da6d0c9c1d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 3e544316-f6bb-49f0-b29b-830c4d6a08a7 pipeline 9cfbc74c-8608-4b5a-873a-6c910268e251 output 2d418897-0ca4-40d1-95e9-78a27cd25bbf dashboard 92f50d10-e7cc-49b0-9c0f-3fe63c785773
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 2b60973a-62fd-4ab3-8fb7-b238202df60d pipeline 43046280-9f7a-4fa6-b3ae-f089a649cd59 output 4f77c009-b40f-4d3f-8ea0-7545769d0889 dashboard 893be392-311a-446b-a910-7caf1acbeba7
+
+[1A[2K[25/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 02e4488c-2790-48fd-b66c-b5d2b90c9eff; tier set for 02e4488c-2790-48fd-b66c-b5d2b90c9eff
+
+[1A[2K[26/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 4c388971-f8f8-464b-8440-3ac4fa83fe7a; tier set for 4c388971-f8f8-464b-8440-3ac4fa83fe7a
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 799c7b6e-b106-4f32-af21-6390ef44cc80 pipeline dea65f50-ff99-42d9-aa4b-0e2097aa981a output f06bdb88-3c62-4037-b4c6-492ea9c2709d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source c1ea6815-3e90-4efb-8b98-8f832c00d805 pipeline ea0e57e1-0dd5-48bb-a0ca-21a2c0399a8a output 19922bcf-4b0c-47f6-8129-102429b994a3
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline dea65f50-ff99-42d9-aa4b-0e2097aa981a / source 799c7b6e-b106-4f32-af21-6390ef44cc80
+
+[1A[2K[27/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 9d8d04b5-064b-44a2-9bd9-18d22a1f523c; tier set for 9d8d04b5-064b-44a2-9bd9-18d22a1f523c
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline ea0e57e1-0dd5-48bb-a0ca-21a2c0399a8a / source c1ea6815-3e90-4efb-8b98-8f832c00d805
+
+[1A[2K[28/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 9d90d7b6-044c-4fc5-9d3e-ba3e352be9a1; tier set for 9d90d7b6-044c-4fc5-9d3e-ba3e352be9a1
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source f1ba3b8a-d9a0-4f86-ab80-521cf7d8502c pipeline 4868465e-fb73-4f6f-8170-4458a1034a40 output b2ddc4d6-73f3-4768-abba-7bba65979a7e dashboard beaf3252-46b9-486c-b3df-deec7fd476d2
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 7c247b73-7e21-40f2-81a9-9c614cacdfb0 pipeline 7c0b0855-e9c4-4657-b1ba-5da4a1c8dfe6 output 96ea330e-03aa-4b0c-8459-7ed51f5a4a79 dashboard 471b0875-afd9-4b52-912c-a5a2fa0ded17
+
+[1A[2K[29/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user b5b45466-edd4-495f-b1ab-d6c5cdfccef7; tier set for b5b45466-edd4-495f-b1ab-d6c5cdfccef7
+
+[1A[2K[HEL-1277 e2e] created source d7347ed7-37c4-4a6e-9fa6-056db3362c92 pipeline 52159674-e2c2-41f1-bfa0-fb8f7270d2b4 output d3de63b8-d16c-4b2b-94ed-c10da7f11f25
+
+[1A[2K[30/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 85e0c54c-d10f-4a33-b5a2-91cbab62829e; tier set for 85e0c54c-d10f-4a33-b5a2-91cbab62829e
+
+[1A[2K[HEL-1277 e2e] created source 4a10c3fc-10fe-4d34-8c2b-8063c89b637d pipeline bbce1708-935d-4057-9f33-2bf0624b4bf5 output af09755f-043e-4b21-8a84-1e95605c7c8b
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 52159674-e2c2-41f1-bfa0-fb8f7270d2b4 / source d7347ed7-37c4-4a6e-9fa6-056db3362c92
+
+[1A[2K[31/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 5ffc4fc9-e8fb-47d6-81b7-8fbe060b7f50; tier set for 5ffc4fc9-e8fb-47d6-81b7-8fbe060b7f50
+
+[1A[2K[HEL-1277 e2e] created source a2376018-7027-469e-951d-622da0445008 pipeline a8c27812-bd72-4ad5-9197-22ed742175d7 output cbe60959-6b58-4d20-a670-b390d2882abc dashboard 9fe54f6d-c38a-4e55-94cb-ea0a2333f865
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline bbce1708-935d-4057-9f33-2bf0624b4bf5 / source 4a10c3fc-10fe-4d34-8c2b-8063c89b637d
+
+[1A[2K[32/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user d9dbe4fd-eef2-41ed-a16c-79f531a71df9; tier set for d9dbe4fd-eef2-41ed-a16c-79f531a71df9
+
+[1A[2K[HEL-1277 e2e] created source d692f121-73ba-4d8c-b229-8bb3c7d2f97f pipeline 23a4a038-ebdf-4aa7-a41f-6650ad587085 output bc186634-9bd2-4c7b-a63d-b6963acc5bb2 dashboard 9b82c89b-cd7d-4b61-ade7-31be59e0d5f8
+
+[1A[2K[33/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 250f5857-945e-42d8-b771-fb5f20412dc2; tier set for 250f5857-945e-42d8-b771-fb5f20412dc2
+
+[1A[2K[34/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[HEL-1277 e2e] created source b5e78b4d-d8ff-45bf-a8e5-2ffcdad0f1c4 pipeline 64eb3568-9d48-4aa6-8582-deb4a2042642 output 24e28794-0a5c-482c-bd47-209abd8e3da1
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 0dfc204b-f51e-4349-96dd-8e2429a48f54; tier set for 0dfc204b-f51e-4349-96dd-8e2429a48f54
+
+[1A[2K[HEL-1277 e2e] created source e8c4cd76-189a-4bee-b42f-00f4fb380113 pipeline 0ab40488-ea7a-4f3d-8a9c-a9212e8fda7a output 3a3dd00a-2be3-478a-b379-1523e550de1d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 64eb3568-9d48-4aa6-8582-deb4a2042642 / source b5e78b4d-d8ff-45bf-a8e5-2ffcdad0f1c4
+
+[1A[2K[35/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 1cc5202a-ab57-426b-9ea5-65e1e3cf2db4; tier set for 1cc5202a-ab57-426b-9ea5-65e1e3cf2db4
+
+[1A[2K[HEL-1277 e2e] created source 2196d3e6-e55b-4678-b988-971bef98cd9c pipeline ed7334b3-f7e4-4006-8342-ba6449d176b1 output 110d3b7c-760b-4edc-a882-52c64661d9c4 dashboard f025b34d-d6c6-4f1a-a7cb-53ce637b2335
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 0ab40488-ea7a-4f3d-8a9c-a9212e8fda7a / source e8c4cd76-189a-4bee-b42f-00f4fb380113
+
+[1A[2K[36/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 4a82c90c-a4cd-40ad-b3d3-2ae5900c5cf4; tier set for 4a82c90c-a4cd-40ad-b3d3-2ae5900c5cf4
+
+[1A[2K[HEL-1277 e2e] created source 605c3c6a-5b01-432a-9709-79c9be2c2042 pipeline 5d671e5e-2712-45ad-ad87-a8a369bf7a0e output 49134c1b-496d-433b-b734-117ac0355f74 dashboard b783def2-e647-4e56-a9f0-c7d683d48862
+
+[1A[2K[37/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 77abae00-8081-46cb-ba21-e7fb0195b01e; tier set for 77abae00-8081-46cb-ba21-e7fb0195b01e
+
+[1A[2K[HEL-1277 e2e] created source 14f24433-efb9-4310-921f-61c65470489c pipeline faa12b0f-065e-4727-a6bd-109181851118 output e0e79e27-e689-4d39-aa7b-105204a26af9
+
+[1A[2K[38/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user e7924840-1515-45df-a3ca-3af2324ce59b; tier set for e7924840-1515-45df-a3ca-3af2324ce59b
+
+[1A[2K[HEL-1277 e2e] created source 5e20cc06-0a16-4383-95b4-1ae30fd42ab1 pipeline f1d1a086-fbe6-4b49-9b57-881aa5b38dc2 output 213516d0-1ec9-485b-8f13-01fc490f46d0
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline faa12b0f-065e-4727-a6bd-109181851118 / source 14f24433-efb9-4310-921f-61c65470489c
+
+[1A[2K[39/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 7d108823-8472-44cf-8d2a-632bcdcecf5d; tier set for 7d108823-8472-44cf-8d2a-632bcdcecf5d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline f1d1a086-fbe6-4b49-9b57-881aa5b38dc2 / source 5e20cc06-0a16-4383-95b4-1ae30fd42ab1
+
+[1A[2K[40/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source cba17507-b783-4dc7-a95f-b21e051dfea0 pipeline 8fc18c8e-676e-418d-a941-ba349fad5339 output 873390ae-eafe-4a71-bd85-b82eb79b9f2f dashboard 744d2f56-3588-4fc8-94b9-d94ec8e78a13
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 30c117e0-f9f4-4b11-971a-8238dbf99cd8; tier set for 30c117e0-f9f4-4b11-971a-8238dbf99cd8
+
+[1A[2K[HEL-1277 e2e] created source 25782e5d-2b67-4a99-b511-e2cfd7f9a24b pipeline 1c024fb6-42d9-45ed-829a-9715331b8c60 output cf3b531a-47e6-4c85-a681-6af7ed4566bb dashboard aaffa074-96e7-4255-8f69-cb91204bac4c
+
+[1A[2K[41/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 4956593f-a19b-419d-89bf-bd9a108c7b0c; tier set for 4956593f-a19b-419d-89bf-bd9a108c7b0c
+
+[1A[2K[42/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[HEL-1277 e2e] created source 2d43528b-c933-4068-b631-9c6481f782b2 pipeline d1c38abb-5d0b-4772-a729-aadfb5677e41 output 0a32626b-2c47-4f39-8d44-9a9f57afaa40
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 39ac9e19-80d6-4019-a9c2-77e974798a39; tier set for 39ac9e19-80d6-4019-a9c2-77e974798a39
+
+[1A[2K[HEL-1277 e2e] created source f391d4fc-704e-4d99-8981-86a733d3a19f pipeline fdc078e2-8ccd-4cb4-bc99-e9a1b4075a2f output e913106b-b3d3-488f-9e06-084e6efb4de9
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline d1c38abb-5d0b-4772-a729-aadfb5677e41 / source 2d43528b-c933-4068-b631-9c6481f782b2
+
+[1A[2K[43/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 104e4d47-69e5-4f9a-aecd-0902481ee31b; tier set for 104e4d47-69e5-4f9a-aecd-0902481ee31b
+
+[1A[2K[HEL-1277 e2e] created source 28b934e9-b7dc-4431-8301-1758789d28e4 pipeline ac46b718-7b5b-45fe-ad51-607d8619b1e2 output 82bacdca-027c-4629-abec-e8414714504d dashboard be99b06a-b38d-467c-b9cb-b3d69b5f9955
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline fdc078e2-8ccd-4cb4-bc99-e9a1b4075a2f / source f391d4fc-704e-4d99-8981-86a733d3a19f
+
+[1A[2K[44/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 979bf704-ff6b-4e85-b76f-4191e2e68017; tier set for 979bf704-ff6b-4e85-b76f-4191e2e68017
+
+[1A[2K[HEL-1277 e2e] created source d91d9696-26b6-4e6a-97f2-d74f583b35ca pipeline d432ac47-c33f-4ec5-be47-07090f9bf102 output 81cd2490-8298-49c0-a2f4-4c58e041be50 dashboard 8fb5e9f0-45d2-4353-8df7-5929bbdbc2fe
+
+[1A[2K[45/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user c7bbf6c1-ece0-42ab-9f25-c911c7851fdd; tier set for c7bbf6c1-ece0-42ab-9f25-c911c7851fdd
+
+[1A[2K[HEL-1277 e2e] created source 06fe3619-cc4d-4691-a935-fd3dd6708929 pipeline a7062990-9fd0-4b83-a8b3-caae53157bec output f9c8fcd2-7e9f-43e6-a29c-c997f1080734
+
+[1A[2K[46/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 06f240c9-11e9-40b0-8cc7-49e7b012e295; tier set for 06f240c9-11e9-40b0-8cc7-49e7b012e295
+
+[1A[2K[HEL-1277 e2e] created source 30e95c9b-b813-45ff-8821-99c6ae423389 pipeline dc730f6c-05d0-4bb0-9c83-13f4e7c8d689 output 9c053ca0-e0ce-4e08-bfe5-0886f35ef2a5
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline a7062990-9fd0-4b83-a8b3-caae53157bec / source 06fe3619-cc4d-4691-a935-fd3dd6708929
+
+[1A[2K[47/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 40dab3f1-554e-4a8c-bb86-7d3d79a6f268; tier set for 40dab3f1-554e-4a8c-bb86-7d3d79a6f268
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline dc730f6c-05d0-4bb0-9c83-13f4e7c8d689 / source 30e95c9b-b813-45ff-8821-99c6ae423389
+
+[1A[2K[48/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source da6f61b0-ce0b-4ec4-af36-9039386f0296 pipeline 5564a76f-bac0-4220-a62d-6b2442f02d71 output 2ddb9578-ff90-42b3-b458-0fb7e898ce3e dashboard 716b2ad7-1942-4ea5-9c7d-c96d4fda9250
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 786eccdd-6577-4014-b6e7-f20810701572; tier set for 786eccdd-6577-4014-b6e7-f20810701572
+
+[1A[2K[HEL-1277 e2e] created source 5264c0a9-90a0-4e15-b206-122a168e89df pipeline 536a4702-352a-4550-b3a4-4e2cfa7aa5dc output 036f27e3-1e90-41e9-9c0b-47cbfb05439a dashboard af4ac756-36c0-4133-9729-1b18fdd5feed
+
+[1A[2K[49/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user feb14d01-94a6-473f-a3fc-e0046eefb00c; tier set for feb14d01-94a6-473f-a3fc-e0046eefb00c
+
+[1A[2K[50/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[HEL-1277 e2e] created source 49302fde-a685-4b64-9eb3-ab73e6dbf984 pipeline 11277b5b-5028-47fa-88b8-4058b7dda890 output 02df7bdb-7dbc-421a-8a70-c9eac04ead11
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 817674bd-99dd-4a54-8839-4921be414ab6; tier set for 817674bd-99dd-4a54-8839-4921be414ab6
+
+[1A[2K[HEL-1277 e2e] created source 70d37aff-9c40-4a11-ba76-edb8509cef01 pipeline 9f950f18-1eca-4a29-bd8e-20914c7a55ce output 0c6702cd-b26e-49de-8bd1-2db3af3d2561
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 11277b5b-5028-47fa-88b8-4058b7dda890 / source 49302fde-a685-4b64-9eb3-ab73e6dbf984
+
+[1A[2K[51/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 045d38ef-e418-4488-9522-16c5ba9ec597; tier set for 045d38ef-e418-4488-9522-16c5ba9ec597
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 9f950f18-1eca-4a29-bd8e-20914c7a55ce / source 70d37aff-9c40-4a11-ba76-edb8509cef01
+
+[1A[2K[52/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 0bcd817d-fdd8-414e-bac5-0aa66e748afa pipeline a0ca1c0b-fafe-4c80-be86-039e9a8d6353 output 9abba13a-b3bd-4a99-b938-133b636baed8 dashboard e24a95bb-c08b-43df-9b41-4229ca8191ee
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user cbc54af6-0a25-48e5-9c70-ef782b920930; tier set for cbc54af6-0a25-48e5-9c70-ef782b920930
+
+[1A[2K[HEL-1277 e2e] created source 7b9b1878-ca34-42ae-87b4-fb78835ff36f pipeline d3f2ce20-95e7-494f-9255-6caf5d7b314d output bcd4238d-194f-4da5-903a-d2f7c79a2728 dashboard 9582574f-110f-4a3c-9f72-969bc2511621
+
+[1A[2K[53/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 4fc6b77c-9cf2-4c87-85ac-16e436b389ad; tier set for 4fc6b77c-9cf2-4c87-85ac-16e436b389ad
+
+[1A[2K[54/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user cc98ff19-e35d-486a-a613-216a1c16753f; tier set for cc98ff19-e35d-486a-a613-216a1c16753f
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source e85cecc8-97d2-4b2d-9868-04af6217ae9b pipeline 45106978-b5a4-420c-a91b-77eb4aab3ee9 output 3c1a57f4-6701-455a-bca0-cf02b848ae93
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source c73eb41f-884e-4aba-8426-6d7836ae447c pipeline 0a5b5569-a476-4031-a399-3a7d7c4445d4 output e01df1bb-f56d-4ba7-9801-d7f47a7ac8cc
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 45106978-b5a4-420c-a91b-77eb4aab3ee9 / source e85cecc8-97d2-4b2d-9868-04af6217ae9b
+
+[1A[2K[55/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 10d7beef-87fe-4d84-8c22-05049c6fabef; tier set for 10d7beef-87fe-4d84-8c22-05049c6fabef
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 0a5b5569-a476-4031-a399-3a7d7c4445d4 / source c73eb41f-884e-4aba-8426-6d7836ae447c
+
+[1A[2K[56/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 26a5f657-da6c-44d6-a4ca-8225dfad5ede; tier set for 26a5f657-da6c-44d6-a4ca-8225dfad5ede
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 06d717f3-3b95-44b9-bcf8-f63df3b3ab3a pipeline 755462e7-af23-4989-bb02-ddf645510b0e output 22d24572-ebe3-4662-8a2f-daea7a382270 dashboard 3bb3cac2-1fdf-4b89-bc71-92209abff5a0
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 9727a2ca-7c01-4b2f-a2fd-1bc08f0b3897 pipeline 95c2029d-3afc-4038-a42f-c0248afb9fcd output dc54324e-3dcb-492d-b7b2-3e32af56b4cb dashboard 023fab6e-39a9-4d0f-9cef-0c554752a514
+
+[1A[2K[57/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[58/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 7c335232-9d24-4440-bdea-cc013bdf8560; tier set for 7c335232-9d24-4440-bdea-cc013bdf8560
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user ea514b47-a9e3-4cfb-b29c-acf4842beb94; tier set for ea514b47-a9e3-4cfb-b29c-acf4842beb94
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source d94ff33a-068a-4039-8324-1ab521aab6f2 pipeline 0ce09306-4aa3-4a1d-a29d-fb536c234738 output 25c83218-5e8c-4935-95b9-34a6cebc487d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 5c4ccd8b-3418-4c5c-bce4-87f786d9d7ec pipeline bbf72525-2ded-4c5e-8ad0-5d39294dafc5 output 0cd3b350-6000-4c76-9b80-1674ddc7d3cd
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 0ce09306-4aa3-4a1d-a29d-fb536c234738 / source d94ff33a-068a-4039-8324-1ab521aab6f2
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline bbf72525-2ded-4c5e-8ad0-5d39294dafc5 / source 5c4ccd8b-3418-4c5c-bce4-87f786d9d7ec
+
+[1A[2K[59/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[60/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 992606e6-672a-4705-8a19-683ef6d3756d; tier set for 992606e6-672a-4705-8a19-683ef6d3756d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user e8a43daf-95a3-42a5-b652-74c84414f749; tier set for e8a43daf-95a3-42a5-b652-74c84414f749
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source b9dc5391-2280-47e3-a82f-215a5df55769 pipeline b5ccdb26-de9c-4f17-841f-e36bdadd9bcf output 820eac0c-df4c-4508-b29e-e6a8f2e05417 dashboard a050cb2e-8055-4232-861e-7848078492b0
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 774f53c0-9264-4862-93a4-d00c2c554651 pipeline 01115d69-d98f-4f33-93e4-cdada89bb807 output e85a81f7-f2ae-45b2-bceb-61c9bedc4bed dashboard a5c7f1ab-c2d7-4e2a-9551-fa5293885b63
+
+[1A[2K[61/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[62/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 6f3c9904-dd7f-4aea-9ded-e100bb61bb07; tier set for 6f3c9904-dd7f-4aea-9ded-e100bb61bb07
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 08c59f45-c204-4b1e-9347-3b9db1bacfee; tier set for 08c59f45-c204-4b1e-9347-3b9db1bacfee
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 0c14130d-00dc-4b8e-8ec4-21b3d9c3334c pipeline 3df5bb14-d712-483b-9da2-ad6b9a34fbc6 output 90c6e136-9ff4-4d8c-898f-d78a30d7ff5a
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 4a4db324-9c83-4dbe-a759-dee1d54647b6 pipeline 7a5c8baa-c603-4bf3-829f-ef0049d544d9 output a3881789-ef1d-4fe7-ac5c-9d3c2ee4d440
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 3df5bb14-d712-483b-9da2-ad6b9a34fbc6 / source 0c14130d-00dc-4b8e-8ec4-21b3d9c3334c
+
+[1A[2K[63/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 7a5c8baa-c603-4bf3-829f-ef0049d544d9 / source 4a4db324-9c83-4dbe-a759-dee1d54647b6
+
+[1A[2K[64/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 9652add5-969e-4178-a605-10519908e1d5; tier set for 9652add5-969e-4178-a605-10519908e1d5
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 673a5df6-821c-4007-b3d4-32ea7230477e; tier set for 673a5df6-821c-4007-b3d4-32ea7230477e
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source dc690381-2cd9-4d6c-b5e4-2e3d6d87da53 pipeline 3a6ae2b1-9c74-446e-a246-f3cdc346ce9e output 1d49bc44-9216-4617-97a8-6e331ee26b3e dashboard 6a939c53-36dd-4618-b5fc-54d83fd39b8d
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source e35b051f-8475-4f47-ac28-66f13708346e pipeline ba0df70d-7e7d-4a56-a3aa-29a392db32f2 output 80aad7bf-3974-45f3-b935-c9f8d58bcdf4 dashboard 919d8921-dd7c-4f60-8dd4-558ff98a373f
+
+[1A[2K[65/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[66/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 4f6447a6-f2b6-430d-a4bc-06ed832fa1c4; tier set for 4f6447a6-f2b6-430d-a4bc-06ed832fa1c4
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user b4abed63-c03b-46b5-b524-d4498922141a; tier set for b4abed63-c03b-46b5-b524-d4498922141a
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 9ae57061-6a68-4bf8-bae1-25c62bc84c26 pipeline adcfb931-b35a-4443-ae5b-e8a3a084bce6 output 2ff82ac5-870a-49bd-94eb-d08e770469c6
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 7dc9134e-cabc-4f1f-84ff-5e6d8cb01a6e pipeline ed53aded-142c-4f18-8dec-60e863e0f994 output 0eb8e2b1-9599-4799-b667-8472c57af399
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline adcfb931-b35a-4443-ae5b-e8a3a084bce6 / source 9ae57061-6a68-4bf8-bae1-25c62bc84c26
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline ed53aded-142c-4f18-8dec-60e863e0f994 / source 7dc9134e-cabc-4f1f-84ff-5e6d8cb01a6e
+
+[1A[2K[67/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[68/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user 63cfe44c-078c-4336-9123-40cf5d5e62cc; tier set for 63cfe44c-078c-4336-9123-40cf5d5e62cc
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user bb44b823-43e5-4c16-a43c-bf00fca64357; tier set for bb44b823-43e5-4c16-a43c-bf00fca64357
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 1d299b6c-428b-4084-94f9-fb7a110852ad pipeline 4acef48b-7965-4435-8ba2-9efe3fa49fdc output 46f5ac01-7ac3-4c8d-a5c1-f64f69305f3f dashboard 6492275b-201b-4446-a2df-3ad68a88df4c
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 3f3eac9f-2678-426a-adf0-fbe9f98581fb pipeline 5370e93c-b05e-4a2a-b3e8-683dbf4bd30f output 17186fbd-93b0-4678-bb67-f2792064a52c dashboard 4b059fda-529e-495b-9e4e-9f3b043fd063
+
+[1A[2K[69/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user bb327e71-2e4f-49b8-9c72-f7fc82cee8e7; tier set for bb327e71-2e4f-49b8-9c72-f7fc82cee8e7
+
+[1A[2K[70/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user a27c86b9-5255-4a5b-a594-476025392b3f; tier set for a27c86b9-5255-4a5b-a594-476025392b3f
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 54468cec-8fc7-4fd4-9fb1-494ff0d3bbc2 pipeline 357b72cb-6ea5-48d9-ae56-e7a605c3253e output f749fba4-233a-44a4-8754-67a008bf93e2
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 415e69a2-baea-489a-8d99-7208d5ebf8ff pipeline c665d470-5b2c-4975-ac3c-82384e374f6a output 59cd282f-2cb6-4b95-bf69-d660150d8584
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 357b72cb-6ea5-48d9-ae56-e7a605c3253e / source 54468cec-8fc7-4fd4-9fb1-494ff0d3bbc2
+
+[1A[2K[71/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user 459533aa-7c9a-4edf-947f-8bc7cb765ae9; tier set for 459533aa-7c9a-4edf-947f-8bc7cb765ae9
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline c665d470-5b2c-4975-ac3c-82384e374f6a / source 415e69a2-baea-489a-8d99-7208d5ebf8ff
+
+[1A[2K[72/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user c215e158-c964-4d4a-b783-879c344e8d70; tier set for c215e158-c964-4d4a-b783-879c344e8d70
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source ce9b8287-ae3f-4185-8989-7ff026bf09ed pipeline 33a34adf-1887-427f-9eaa-851e5685d288 output 5ee6a2fb-89f3-4b9a-8522-1e2c6d277dee dashboard 0466a55f-b4df-46bf-89c7-c5ea7764c8cf
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source ed233646-feb9-4b45-be94-ecde1f3c612b pipeline 368bda9b-9b06-407b-8915-a20191af4c40 output 0ae1518c-ef04-4aee-aea0-385b1d569b8a dashboard 162eef9d-6255-4995-aaa1-023460ba1c58
+
+[1A[2K[73/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 2ab62f51-cd4e-4e93-8502-135bb4a157fb; tier set for 2ab62f51-cd4e-4e93-8502-135bb4a157fb
+
+[1A[2K[74/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user c18339c2-d84a-4dff-8fbe-4cb188594a28; tier set for c18339c2-d84a-4dff-8fbe-4cb188594a28
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source 83467ec4-a694-4e63-afe5-50a636d1b592 pipeline 15ee4ed5-1a37-4e9f-a12f-0a3c50727048 output f11ba665-ed66-45ec-b8af-89ee9bc77dcf
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created source a3424dc0-13ac-4e43-bcdb-5f8044b9d091 pipeline db2bf30f-370a-4324-ae22-cecf4a6e9cb6 output d06b9e5e-66e9-4ccd-bc0a-e08e1de415b9
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline 15ee4ed5-1a37-4e9f-a12f-0a3c50727048 / source 83467ec4-a694-4e63-afe5-50a636d1b592
+
+[1A[2K[75/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user e193baf4-8564-4c2b-9121-480da586b328; tier set for e193baf4-8564-4c2b-9121-480da586b328
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] deleting pipeline db2bf30f-370a-4324-ae22-cecf4a6e9cb6 / source a3424dc0-13ac-4e43-bcdb-5f8044b9d091
+
+[1A[2K[76/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created user a7842119-d651-4be5-b077-61de1b475b81; tier set for a7842119-d651-4be5-b077-61de1b475b81
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source a50d4103-d957-4a2e-b612-66e4fbfe58cf pipeline 11b04e27-9df4-43fb-b26b-acf23d9fcc77 output 44e2401e-8e13-46c9-91e9-ad1ecc78ce64 dashboard 38603d84-eb89-4946-900e-8064868ddc3e
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (light)
+[HEL-1277 e2e] created source 19193c25-a7d9-4205-a8be-6586a32cf49a pipeline a5120778-ba46-460f-8d0f-2d0fc8e2bd22 output 64452d8a-05f5-4c34-aa93-d32dc0ab3730 dashboard 24a54ce9-f44e-4663-a131-5294c37a5b6f
+
+[1A[2K[77/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 29c883cf-f8e8-4e8c-a5e4-536e95813645; tier set for 29c883cf-f8e8-4e8c-a5e4-536e95813645
+
+[1A[2K[78/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user 1580fe72-a48b-4839-846f-304e776b9bb6; tier set for 1580fe72-a48b-4839-846f-304e776b9bb6
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source d633e39d-0c0a-4b76-9d03-6b8ea5ba998b pipeline 6f603e6c-c271-45ec-9cba-1e4f5ba268e5 output e612a298-6330-4764-9e43-bbcae603225e
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created source 41e760ad-ecda-4ddb-a835-b0abf88fe8bb pipeline 3eb5b89f-c938-4d74-ba8d-1609ff65d9fc output f6d5f70c-4ae9-49c3-8c4d-c51b24c1828f
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 6f603e6c-c271-45ec-9cba-1e4f5ba268e5 / source d633e39d-0c0a-4b76-9d03-6b8ea5ba998b
+
+[1A[2K[79/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user e684880c-8649-45bf-bd06-eb382332961c; tier set for e684880c-8649-45bf-bd06-eb382332961c
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] deleting pipeline 3eb5b89f-c938-4d74-ba8d-1609ff65d9fc / source 41e760ad-ecda-4ddb-a835-b0abf88fe8bb
+
+[1A[2K[80/80] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created user afbe8282-dab8-4095-a3d6-91d9568283c5; tier set for afbe8282-dab8-4095-a3d6-91d9568283c5
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 957e17ca-1ae3-4899-b491-99c6f305af8f pipeline c8b5a96d-24a6-4578-b09c-f4d0eaca16df output 485c8ab6-b9df-4b40-a352-25ac0392be23 dashboard 904328a5-a3d2-4344-9885-f964c7ebd606
+
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:199:7 › dashboard chart panel draws a labelled "vs" overlay from config.compare (dark)
+[HEL-1277 e2e] created source 49da560f-8082-42ae-b465-4fae5a5db500 pipeline c9942b96-dd3e-4923-9096-1ebdfcd7f3ca output 00eec37c-3420-4786-bd83-f38d65fc17c0 dashboard 01b8a389-cd69-41f1-b659-58eafb81223b
+
+[HEL-1301 e2e] deleted 80 recorded throwaway user(s)
+[1A[2K  80 passed (4.3m)
