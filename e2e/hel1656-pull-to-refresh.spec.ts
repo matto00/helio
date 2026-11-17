@@ -108,7 +108,8 @@ const STABLE_FRAMES = 6;
 /**
  * The first Notes (markdown) card whose visible band leaves room for a 150px downward drag above the bottom nav, as a
  * touch point inside its content box. Markdown cards carry no nested scroller on the phone stack, so a drag from one
- * can only pan the page (the Table panel's resize handles are `touch-action: none` and its body scrolls on its own).
+ * can only pan the page (a Table panel's body scrolls on its own, inside `.ui-data-grid`; its resize handles are
+ * `touch-action: pan-y` since HEL-1692, see e2e/hel1692-table-header-touch-scroll.spec.ts).
  */
 async function notesTouchPoint(page: Page, drag: number) {
   const point = await page.evaluate((reach) => {
