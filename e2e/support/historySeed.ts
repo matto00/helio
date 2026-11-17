@@ -73,3 +73,27 @@ export function setUserTierForTest(userId: string, tier: "beta" | "owner"): stri
   }
   return ids[0];
 }
+
+/** HEL-1729 — a dataset write (`PUT /api/data-sources/:id/rows`) arms a debounced auto-run of every
+ *  downstream pipeline (`pipeline_auto_run_debounce`, fire_at = write + DATASET_WRITE_DEBOUNCE_SECONDS),
+ *  which the scheduler tick later fires as an extra `auto-run` history point. A spec that counts its own
+ *  history points cancels the row its own write armed: selected by the exact pipeline id, unclaimed rows
+ *  only, with `SET LOCAL app.current_user_id` for the FORCE RLS owner policy. Throws unless exactly that
+ *  one pipeline's row was deleted, so "armed and now gone" is a checked fact (and a future change that
+ *  stops arming it fails loudly instead of passing silently). */
+export function cancelPendingAutoRun(pipelineId: string, userId: string): void {
+  if (!SAFE_ID.test(pipelineId) || !UUID.test(userId)) {
+    throw new Error("historySeed: refusing an unsafe pipeline or user id");
+  }
+  const ids = psql(
+    `BEGIN;
+SET LOCAL app.current_user_id = '${userId}';
+DELETE FROM pipeline_auto_run_debounce WHERE pipeline_id = '${pipelineId}' AND claimed_at IS NULL RETURNING pipeline_id;
+COMMIT;`,
+  ).filter((l) => l === pipelineId);
+  if (ids.length !== 1) {
+    throw new Error(
+      `historySeed: expected to cancel exactly one pending auto-run for pipeline ${pipelineId}, deleted ${ids.length}`,
+    );
+  }
+}

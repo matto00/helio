@@ -1,0 +1,3 @@
+- `e2e/support/historySeed.ts` — add `cancelPendingAutoRun(pipelineId, userId)` (exact-id DELETE of the spec's own armed debounce row, asserts exactly one)
+- `e2e/hel1277-output-history-scrubber.spec.ts` — call it after every `putRows` (both tests)
+- `openspec/changes/fix-hel1277-scrubber-flake/{probe-evidence.md,red-forced-repro.txt,green-forced-wait.txt,green-repeat20.txt}` — evidence

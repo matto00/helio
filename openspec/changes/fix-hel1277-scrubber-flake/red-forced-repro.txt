@@ -1,0 +1,103 @@
+
+Running 2 tests using 1 worker
+
+[1A[2K[1/2] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light)
+[HEL-1277 e2e] created user 843d9f64-d1f6-4315-86af-126720ee3a0b; tier set for 843d9f64-d1f6-4315-86af-126720ee3a0b
+
+[1A[2K[HEL-1277 e2e] created source 856d0b33-558f-4b97-9ce2-8dd95c7f3c2f pipeline 1b54313d-7125-4f77-9b7c-28751a487676 output 4a92dd35-52e1-4054-88c9-5707e6edb9ca
+
+[1A[2K[D0.3] 4th point after 6372 ms: [["2026-11-17T07:41:50.797985Z","auto-run"],["2026-11-17T07:41:45.289469Z","manual"],["2026-11-17T07:41:45.056996Z","manual"],["2026-11-17T07:41:44.839283Z","manual"]]
+
+[1A[2K[D0.3] points after wait: 4
+
+[1A[2K[HEL-1277 e2e] deleting pipeline 1b54313d-7125-4f77-9b7c-28751a487676 / source 856d0b33-558f-4b97-9ce2-8dd95c7f3c2f
+
+[1A[2K  1) [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveValue[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByRole('dialog', { name: /HEL-1277 Orders history/ }).getByRole('slider', { name: 'Recorded runs' })
+    Expected string: [32m"2"[39m
+    Received string: [31m"3"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveValue" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog', { name: /HEL-1277 Orders history/ }).getByRole('slider', { name: 'Recorded runs' })[22m
+    [2m    7 × locator resolved to <input min="0" max="3" step="1" value="3" type="range" aria-label="Recorded runs" class="output-history__range" aria-valuetext="Nov 16, 11:41:50 PM, 2 rows"/>[22m
+    [2m      - unexpected value "3"[22m
+
+
+      158 |       // Newest point (run 3): summary only, no highlight, no removal count.
+      159 |       const scrubber = dialog.getByRole("slider", { name: "Recorded runs" });
+    > 160 |       await expect(scrubber).toHaveValue("2");
+          |                              ^
+      161 |       await expect(dialog.getByText(/Rows weren.t stored for this run/)).toBeVisible();
+      162 |       await expect(dialog.getByText("New or changed")).toHaveCount(0);
+      163 |       await expect(dialog.getByText(/no longer present/)).toHaveCount(0);
+        at /home/matt/Development/helio/.claude/worktrees/bug/hel1277-history-scrubber-flake/HEL-1729/e2e/hel1277-output-history-scrubber.spec.ts:160:30
+
+    Error Context: test-results/hel1277-output-history-scr-54f81-t-summary-only-point-light--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1277-output-history-scr-54f81-t-summary-only-point-light--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1277-output-history-scr-54f81-t-summary-only-point-light--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[2/2] [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[1A[2K[dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark)
+[HEL-1277 e2e] created user cae0bb8c-5f12-41b9-8062-18e2236abcbf; tier set for cae0bb8c-5f12-41b9-8062-18e2236abcbf
+
+[1A[2K[HEL-1277 e2e] created source 3dc0a2e2-928e-4a95-bc81-86f0ab023e90 pipeline a95adfca-0a77-4bb5-b726-06ad14dfe4e4 output 9d70572c-d894-4d55-95d1-97e1cf14946e
+
+[1A[2K[D0.3] 4th point after 18963 ms: [["2026-11-17T07:42:20.833777Z","auto-run"],["2026-11-17T07:42:02.069079Z","manual"],["2026-11-17T07:42:01.873295Z","manual"],["2026-11-17T07:42:01.745908Z","manual"]]
+
+[1A[2K[D0.3] points after wait: 4
+
+[1A[2K[HEL-1277 e2e] deleting pipeline a95adfca-0a77-4bb5-b726-06ad14dfe4e4 / source 3dc0a2e2-928e-4a95-bc81-86f0ab023e90
+
+[1A[2K  2) [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark) 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveValue[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: getByRole('dialog', { name: /HEL-1277 Orders history/ }).getByRole('slider', { name: 'Recorded runs' })
+    Expected string: [32m"2"[39m
+    Received string: [31m"3"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveValue" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('dialog', { name: /HEL-1277 Orders history/ }).getByRole('slider', { name: 'Recorded runs' })[22m
+    [2m    6 × locator resolved to <input min="0" max="3" step="1" value="3" type="range" aria-label="Recorded runs" class="output-history__range" aria-valuetext="Nov 16, 11:42:20 PM, 2 rows"/>[22m
+    [2m      - unexpected value "3"[22m
+
+
+      158 |       // Newest point (run 3): summary only, no highlight, no removal count.
+      159 |       const scrubber = dialog.getByRole("slider", { name: "Recorded runs" });
+    > 160 |       await expect(scrubber).toHaveValue("2");
+          |                              ^
+      161 |       await expect(dialog.getByText(/Rows weren.t stored for this run/)).toBeVisible();
+      162 |       await expect(dialog.getByText("New or changed")).toHaveCount(0);
+      163 |       await expect(dialog.getByText(/no longer present/)).toHaveCount(0);
+        at /home/matt/Development/helio/.claude/worktrees/bug/hel1277-history-scrubber-flake/HEL-1729/e2e/hel1277-output-history-scrubber.spec.ts:160:30
+
+    Error Context: test-results/hel1277-output-history-scr-b1fe4-ht-summary-only-point-dark--dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1277-output-history-scr-b1fe4-ht-summary-only-point-dark--dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1277-output-history-scr-b1fe4-ht-summary-only-point-dark--dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[HEL-1301 e2e] deleted 2 recorded throwaway user(s)
+[1A[2K  2 failed
+    [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (light) 
+    [dev] › e2e/hel1277-output-history-scrubber.spec.ts:57:7 › History view: scrub, changed-rows highlight, summary-only point (dark) 
