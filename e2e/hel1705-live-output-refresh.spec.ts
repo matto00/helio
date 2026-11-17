@@ -145,6 +145,12 @@ test.describe("HEL-1705 live Output column", () => {
 
     // Step 3 (the first convertformat) is selected; the "Converted" Output hangs off the SECOND convertformat.
     await page.getByRole("button", { name: /^Step 3:/ }).click();
+    // An explicit Output pick holds only for the step it was made on, so the selection must have landed before the pick
+    // (under a slow CPU the click returns first: the pick was then made for step 1 and dropped when step 3 arrived).
+    await expect(page.getByRole("button", { name: /^Step 3:/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     await pickOutput(page, "Converted");
     await expect(column(page).getByText("Converted").first()).toBeVisible();
 

@@ -92,3 +92,19 @@ Finding: the engine derives Output schemas alphabetically, so a hand-ordered sch
 
 jest 771 suites / 9472 tests pass; lint, format:check, typecheck, `npm --prefix frontend run build`, helio-mcp types, schema-drift pass; `sbt testFull`:
 9547 succeeded, 5 canceled (pre-existing), 3 failed on first run (key-set guards in `OutputFilteredMetricRoutesSpec` that did not expect `columns`), fixed and re-run green.
+
+## 7. CI cycle 2 (PR #1134, run 44020064430)
+
+### hel1705 spec "D" failure: a spec race, product correct (probe-confirmed)
+Reproduced locally only under 6x CPU throttling (CDP `Emulation.setCPUThrottlingRate`): 13 of 16 runs failed with `rowsStepIds` undefined.
+Probe (the selected spine row and the Displayed Output select, read after the pick): `after-pick: select=Converted cur=1Filter rows` then
+`after-fill: select=Run duration cur=3Convert format`. The Step 3 click had returned before the selection landed, so the pick was made for step 1
+and, by design ("an explicit pick holds only for the step it was made on"), dropped when step 3 became selected; the request then correctly had
+no extra id. Fix: the spec waits for Step 3's `aria-current` before picking. Verified under the same 6x throttle: 12 of 12 pass (was 3 of 16).
+No product change; the one-extra-pick-per-step rule is unchanged.
+
+### hel1681 :129 "keyboard: Enter ... refreshes once": not caused by this diff
+No path from the diff to the refresh button's row requests: `refresh()` in `usePanelData` and the `fetchPanelPage` dispatch are untouched; the diff adds
+`columns`/`schemaNames` only to the fulfilled payload and the window reducer. Repeated runs of that one test (24 and 96 repeats at workers 2, nice 19):
+main (origin/main 1d2fa5ab1, throwaway worktree frontend, same backend) 0 failures in 144 runs; this branch 1 failure in 144 runs (a 30 s timeout, not
+the CI "Received 0" mode). Both rates are consistent with a rare pre-existing flake on a path the diff does not touch; no fix made.
