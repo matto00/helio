@@ -1,8 +1,0 @@
-- `e2e/hel1028-layout-undo-redo-visual-revert.spec.ts` — xs test waits for the mounted phone stack (waitForPanelStack) before asserting 0 handles
-- `e2e/hel1573-motion-grid-chart.spec.ts` — two bare `.panel-grid-card` counts become waitForPanelGrid
-- `e2e/hel1573-motion-primitives.spec.ts` — bare count becomes waitForPanelGrid (+ import)
-- `e2e/hel1584-motion-perf.spec.ts` — bare count becomes waitForPanelGrid (+ import)
-- `e2e/hel1584-motion-surfaces.spec.ts` — openDashboard (viewport-aware) and four counts wait out the skeleton (+ import)
-- `e2e/hel1681-refresh-control.spec.ts` — only :332/:343 plus one import line: waitForPanelGrid (overlap risk with HEL-1692)
-- `openspec/changes/wait-out-panel-card-reads/sweep.md` — per-hit verdicts and run summaries
-- `openspec/changes/wait-out-panel-card-reads/mutation-hel1028.md` — red-first mutation proof
