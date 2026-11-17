@@ -79,11 +79,15 @@ test.describe("HEL-1562 landing page", () => {
   });
 
   test("a stale hint bounces once through /home to /login and clears itself", async ({ page }) => {
-    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    // HEL-1623: seed the hint from the static landing page, which runs no app code, so no booting app's own
+    // session check (401) can clear it between this write and the next document's inline head script. The
+    // navigations never wait on `load`, which the fonts stylesheet (media="print") can hold, so every wait
+    // here is `domcontentloaded` or `commit`.
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.evaluate((k) => localStorage.setItem(k, "1"), HINT_KEY);
-    await page.goto("/");
-    await page.waitForURL("/login");
-    expect(await page.evaluate((k) => localStorage.getItem(k), HINT_KEY)).toBeNull();
+    await page.goto("/", { waitUntil: "commit" });
+    await page.waitForURL("/login", { waitUntil: "commit" });
+    await expect.poll(() => page.evaluate((k) => localStorage.getItem(k), HINT_KEY)).toBeNull();
   });
 
   test("Request beta access as a signed-out visitor offers the free account, via the real endpoint", async ({
