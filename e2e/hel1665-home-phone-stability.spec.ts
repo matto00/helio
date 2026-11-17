@@ -6,9 +6,11 @@ import { assertTypeStyleActive, seedTypeStyle, type TypeStyle } from "./support/
 import { bisectHitExtent, measureBox } from "./support/touchTargetProbe";
 import {
   framesWithRunsCard,
+  holdFonts,
   holdRequests,
   installRecorder,
   recorded,
+  renderedFaces,
   seedHome,
   spread,
   type Sample,
@@ -31,12 +33,20 @@ const VIEWPORTS = [
   // Inside the 431-604px band, still the phone shell, where the default sentence is two lines (HEL-1665 cycle 2).
   { width: 480, height: 900, sentenceLines: 2 },
   { width: 540, height: 900, sentenceLines: 2 },
-  // 620 is just above the 605-615px band where the cold-load fallback font still wraps the default sentence (the
-  // 40ch measure follows the fallback's digit width; a disclosed residual, 610px measured 30px after HEL-1678 versus
-  // 24px on base, not asserted); 1024 is a tablet-landscape desktop layout.
+  // HEL-1737: 605-613 is the band where the fallback-rendered default sentence is wider than the content box while the
+  // web font's still fits, so the loading placeholder wrapped to two lines before the font arrived (30px).
+  { width: 605, height: 900, sentenceLines: 1 },
+  { width: 606, height: 900, sentenceLines: 1 },
+  { width: 608, height: 900, sentenceLines: 1 },
+  { width: 610, height: 900, sentenceLines: 1 },
+  { width: 612, height: 900, sentenceLines: 1 },
+  { width: 613, height: 900, sentenceLines: 1 },
+  // 620 is just above the band; 1024 is a tablet-landscape desktop layout.
   { width: 620, height: 900, sentenceLines: 1 },
   { width: 1024, height: 900, sentenceLines: 1 },
   { width: 1280, height: 900, sentenceLines: 1 },
+  // HEL-1737: 1440 is a wide desktop (already 0 on base while the placeholder is on screen: a guard).
+  { width: 1440, height: 900, sentenceLines: 1 },
 ] as const;
 
 type Order = "dashboards-first" | "summary-first";
@@ -413,59 +423,159 @@ test("Home at 375px: the All N and +N more links keep a 44px hit region without 
   expect(headHeight).toBeLessThan(30);
 });
 
-// Final-gate fix: the REAL opening sentence keeps base's 40ch measure at desktop (only the hidden placeholder has an
-// em cap), so a settled desktop Home is unchanged for every sentence, not just the default one.
+// HEL-1737: the REAL opening sentence keeps the web font's own 40ch width and line count at desktop (the cap is now a
+// font-independent `em` measure equal to the web font's 40ch, so it no longer follows the rendered face). The
+// precondition proves the web face rendered (CDP), because with a fallback `ch` would be a different width.
+// Guard on base (green there: base's cap is literally 40ch); it fails if the em values drift from the web font's 40ch.
+const MEASURE_CASES: { style: TypeStyle; web: string; lines: number }[] = [
+  { style: "sans", web: "Schibsted Grotesk", lines: 2 },
+  { style: "serif", web: "Fraunces", lines: 2 },
+  { style: "mono", web: "JetBrains Mono", lines: 3 },
+];
 for (const theme of ["light", "dark"] as const) {
-  test(`Home settled at 1280x900 (${theme}): a long opening sentence keeps the 40ch measure and its line count`, async ({
-    page,
-    request,
-  }) => {
-    await setup(page, theme, { width: 1280, height: 900 });
-    await seedHome(page, request, `long${theme}`);
-    const gates = await holdRequests(page, (body) => {
-      const item = (kind: string, id: number) => ({
-        kind,
-        pipelineId: `00000000-0000-4000-8000-00000000000${id}`,
-        pipelineName: `long-${id}`,
-        runId: null,
-        at: new Date().toISOString(),
-        reason: null,
-        resolvedAt: null,
-        inFlight: false,
+  for (const { style, web, lines } of MEASURE_CASES) {
+    test(`Home settled at 1280x900 (${style} ${theme}): a long opening sentence keeps the web font's 40ch width and its line count`, async ({
+      page,
+      request,
+    }) => {
+      await setup(page, theme, { width: 1280, height: 900 });
+      await seedHome(page, request, `long${style}${theme}`);
+      await seedTypeStyle(page.request, style);
+      const gates = await holdRequests(page, (body) => {
+        const item = (kind: string, id: number) => ({
+          kind,
+          pipelineId: `00000000-0000-4000-8000-00000000000${id}`,
+          pipelineName: `long-${id}`,
+          runId: null,
+          at: new Date().toISOString(),
+          reason: null,
+          resolvedAt: null,
+          inFlight: false,
+        });
+        body.attention = [
+          item("failed", 1),
+          item("failed", 2),
+          item("stuck", 3),
+          item("missed", 4),
+        ];
       });
-      body.attention = [item("failed", 1), item("failed", 2), item("stuck", 3), item("missed", 4)];
+      gates.releaseDashboards();
+      gates.releaseSummary();
+      await page.goto("/home");
+      const sentence = page.locator(".home-opening__sentence");
+      await expect(sentence).toContainText("everything else is quiet");
+      await assertTypeStyleActive(page, style);
+      await page.evaluate(() => document.fonts.ready.then(() => undefined));
+      // Precondition: the web face is what rendered (poll: the swap lands a moment after the data).
+      await expect
+        .poll(async () =>
+          (await renderedFaces(page, ".home-opening__sentence")).map((f) => f.familyName),
+        )
+        .toContain(web);
+      // ...and no font load is still in flight, so `40ch` is read from a settled font set.
+      await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe("loaded");
+      const measure = () =>
+        page.evaluate(() => {
+          const el = document.querySelector<HTMLElement>(".home-opening__sentence")!;
+          const style = getComputedStyle(el);
+          const settledMax = parseFloat(style.maxWidth);
+          const box = el.getBoundingClientRect();
+          el.style.maxWidth = "40ch";
+          const ch40 = parseFloat(getComputedStyle(el).maxWidth);
+          el.style.maxWidth = "";
+          return {
+            text: el.textContent,
+            settledMax,
+            ch40,
+            width: box.width,
+            lines: Math.round(box.height / parseFloat(style.lineHeight)),
+          };
+        });
+      const m = await measure();
+      console.log(`HEL1665-LONG ${JSON.stringify({ style, ...m })}`);
+      writeFileSync(
+        evidencePath("HEL-1665", `long-sentence-1280-${style}-${theme}.json`),
+        JSON.stringify({ style, ...m }, null, 2),
+      );
+      expect(Math.abs(m.settledMax - m.ch40), "cap equals the web font's 40ch").toBeLessThanOrEqual(
+        0.5,
+      );
+      expect(m.lines).toBe(lines);
     });
-    gates.releaseDashboards();
-    gates.releaseSummary();
-    await page.goto("/home");
-    const sentence = page.locator(".home-opening__sentence");
-    await expect(sentence).toContainText("everything else is quiet");
-    await page.evaluate(() => document.fonts.ready.then(() => undefined));
-    const m = await page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>(".home-opening__sentence")!;
-      const style = getComputedStyle(el);
-      const settledMax = style.maxWidth;
-      const box = el.getBoundingClientRect();
-      el.style.maxWidth = "40ch";
-      const ch40 = getComputedStyle(el).maxWidth;
-      el.style.maxWidth = "";
-      return {
-        text: el.textContent,
-        settledMax,
-        ch40,
-        width: box.width,
-        lines: Math.round(box.height / parseFloat(style.lineHeight)),
+  }
+}
+
+// HEL-1737: data BEFORE the web font. The runs timeline must not move when the web font replaces the fallback while
+// the loaded sentence is already on screen (base: the sentence's `40ch` was narrower in the fallback, so it wrapped to
+// two lines and reflowed to one, about 30px). The font requests are held until both APIs have settled and the loaded
+// sentence has rendered in the fallback face (CDP proves which face), then released.
+for (const theme of ["light", "dark"] as const) {
+  for (const width of [1024, 1280, 1440] as const) {
+    test(`Home data before the web font (${width}x900 ${theme}): the timeline does not move when the font arrives`, async ({
+      page,
+      request,
+    }) => {
+      await setup(page, theme, { width, height: 900 });
+      await seedHome(page, request, `dbf${width}${theme}`);
+      await installRecorder(page);
+      const fonts = await holdFonts(page);
+      const gates = await holdRequests(page);
+      gates.releaseDashboards();
+      gates.releaseSummary();
+      await page.goto("/home", { waitUntil: "commit" });
+      const home = page.getByRole("region", { name: "Home" });
+      await expect(home.locator(".home-shelf__item")).toHaveCount(4);
+      await expect(home.locator(".home-opening__sentence")).toHaveText(
+        "All quiet: nothing has changed, failed or been missed.",
+      );
+      await expect(home.locator('[aria-label="Pipeline runs, last 24 hours"]')).toBeVisible();
+      await expect.poll(() => fonts.held(), { timeout: 15_000 }).toBeGreaterThan(0);
+      await page.waitForTimeout(500);
+      const before = await renderedFaces(page, ".home-opening__sentence");
+      const preSamples = (await recorded(page)).samples;
+      const lineHeight = await page.evaluate(() =>
+        parseFloat(getComputedStyle(document.querySelector(".home-opening__sentence")!).lineHeight),
+      );
+      const linesBefore = Math.round(preSamples[preSamples.length - 1].sentenceH! / lineHeight);
+      const releaseIndex = preSamples.length - 1;
+      await fonts.release();
+      await expect
+        .poll(
+          async () =>
+            (await renderedFaces(page, ".home-opening__sentence")).map((f) => f.familyName),
+          {
+            timeout: 30_000,
+          },
+        )
+        .toContain("Schibsted Grotesk");
+      await page.waitForTimeout(600);
+      const after = await recorded(page);
+      const frames = after.samples.slice(releaseIndex);
+      const last = frames[frames.length - 1];
+      const linesAfter = Math.round(last.sentenceH! / lineHeight);
+      const result = {
+        width,
+        theme,
+        facesBefore: before,
+        linesBefore,
+        linesAfter,
+        runsTopSpread: spread(frames.map((s) => s.runsTop)),
+        sentenceHeightSpread: spread(frames.map((s) => s.sentenceH)),
       };
+      console.log(`HEL1737-DATAFIRST ${JSON.stringify(result)}`);
+      writeFileSync(
+        evidencePath("HEL-1737", `data-before-font-${width}-${theme}.json`),
+        JSON.stringify(result, null, 2),
+      );
+      // Non-vacuity: the sentence really rendered in a fallback face before the release, and in the web face after.
+      expect(
+        before.some((f) => f.isCustomFont),
+        "pre-swap face is a fallback",
+      ).toBe(false);
+      expect(linesAfter).toBe(1);
+      expect(result.runsTopSpread, "runs card top across the font swap").toBeLessThanOrEqual(4);
     });
-    console.log(`HEL1665-LONG ${JSON.stringify(m)}`);
-    writeFileSync(
-      evidencePath("HEL-1665", `long-sentence-1280-${theme}.json`),
-      JSON.stringify(m, null, 2),
-    );
-    // Environment-independent: the settled cap is whatever 40ch resolves to in this font, as on base.
-    expect(m.settledMax).toBe(m.ch40);
-    expect(m.lines).toBe(2);
-  });
+  }
 }
 
 // Type styles change the default sentence's wrap (Mono: two lines at 1280), so the hidden placeholder, which is the

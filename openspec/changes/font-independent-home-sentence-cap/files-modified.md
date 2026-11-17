@@ -1,0 +1,10 @@
+- `frontend/src/features/home/ui/HomePage.css` — sentence and placeholder cap become the per-type-style `--home-sentence-measure` (em, equal to the web font's 40ch)
+- `e2e/hel1665-home-phone-stability.spec.ts` — 1440 cold-load guard, data-before-web-font cases (1024/1280/1440), restated web-font-40ch measure test for Sans/Serif/Mono
+- `e2e/support/homeLoadProbe.ts` — `holdFonts` and `renderedFaces` (CDP platform fonts) helpers
+- `openspec/changes/font-independent-home-sentence-cap/**` — spec delta (band deferred), tasks, evidence
+- `frontend/src/features/home/ui/HomePage.css.test.ts` — stylesheet guard restated for the em measure
+- `frontend/src/features/home/ui/HomePage.css` — (also) Sans-only nowrap band rule on the hidden placeholder from 37.8125em (owner ruling)
+- `e2e/hel1665-home-phone-stability.spec.ts` — (also) 605/606/608/610/612/613 cold-load cases
+- `frontend/src/theme/theme.css` — `--home-sentence-measure` and `--home-ghost-white-space` tokens per type style (moved out of HomePage.css)
+- `openspec/changes/font-independent-home-sentence-cap/design.md`, `tasks.md`, `specs/home-page/spec.md`, `evidence/measurements.md` — cycle 3: owner-accepted residual (HEL-1748), deferred polish (HEL-1749), withdrawn flake claim
+- `openspec/changes/font-independent-home-sentence-cap/{specs/home-page/spec.md,design.md,evidence/measurements.md}` — final-gate round 2: per-face DejaVu facts corrected (owner ruling 3); `frontend/src/features/home/ui/HomePage.css` — comment-only merge

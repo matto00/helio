@@ -1,0 +1,775 @@
+
+Running 24 tests using 2 workers
+
+[HEL-1300 e2e] throwaway user: hel1665h-605lightd-1794933937712-30155@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-605lights-1794933937712-90422@example.com
+HEL1665-SHIFT {"viewport":{"width":605,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":83,"framesBeforeLoadSeries":78,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.4375,"layoutShifts":[{"value":0.028737067646158552,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026722222222222224,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":605,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":83,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.4375,"layoutShifts":[{"value":0.028737067646158552,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026722222222222224,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘   1 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light summary-first): the timeline and the shelf do not move (6.5s)
+  ✘   2 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light dashboards-first): the timeline and the shelf do not move (6.5s)
+[HEL-1300 e2e] throwaway user: hel1665h-606lightd-1794933944653-65897@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-606lights-1794933944659-80590@example.com
+HEL1665-SHIFT {"viewport":{"width":606,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":73,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.875,"layoutShifts":[{"value":0.0287375626451534,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026585185185185187,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":606,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":82,"framesBeforeLoadSeries":81,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.875,"layoutShifts":[{"value":0.0287375626451534,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026585185185185187,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘   3 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light dashboards-first): the timeline and the shelf do not move (5.1s)
+  ✘   4 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light summary-first): the timeline and the shelf do not move (5.3s)
+[HEL-1300 e2e] throwaway user: hel1665h-608lightd-1794933950233-67772@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-608lights-1794933950370-30734@example.com
+HEL1665-SHIFT {"viewport":{"width":608,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":562.75,"layoutShifts":[{"value":0.028736415692007796,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026448148148148148,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":608,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":80,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":562.75,"layoutShifts":[{"value":0.028736415692007796,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026448148148148148,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘   5 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light dashboards-first): the timeline and the shelf do not move (5.0s)
+  ✘   6 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light summary-first): the timeline and the shelf do not move (5.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-610lightd-1794933955722-60212@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-610lights-1794933955848-65445@example.com
+HEL1665-SHIFT {"viewport":{"width":610,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":76,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563.625,"layoutShifts":[{"value":0.02873740133576199,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026311111111111115,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":610,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":82,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563.625,"layoutShifts":[{"value":0.02873740133576199,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026311111111111115,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘   7 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light dashboards-first): the timeline and the shelf do not move (5.5s)
+  ✘   8 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light summary-first): the timeline and the shelf do not move (5.5s)
+[HEL-1300 e2e] throwaway user: hel1665h-612lightd-1794933961717-68388@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-612lights-1794933961788-36230@example.com
+HEL1665-SHIFT {"viewport":{"width":612,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.5,"layoutShifts":[{"value":0.028736262406197047,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":612,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":81,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.5,"layoutShifts":[{"value":0.028736262406197047,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘   9 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light dashboards-first): the timeline and the shelf do not move (4.9s)
+  ✘  10 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light summary-first): the timeline and the shelf do not move (5.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-613lightd-1794933967103-81977@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-613lights-1794933967176-24555@example.com
+HEL1665-SHIFT {"viewport":{"width":613,"height":900,"sentenceLines":1},"theme":"light","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.9375,"layoutShifts":[{"value":0.028736753066279982,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","span.ui-skeleton.ui-skeleton--line","div.home-page__grid","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":613,"height":900,"sentenceLines":1},"theme":"light","order":"summary-first","frames":81,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.9375,"layoutShifts":[{"value":0.028736753066279982,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","span.ui-skeleton.ui-skeleton--line","div.home-page__grid","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  11 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light dashboards-first): the timeline and the shelf do not move (4.9s)
+  ✘  12 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light summary-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-605darkd-1794933972445-21991@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-605darks-1794933972537-44165@example.com
+HEL1665-SHIFT {"viewport":{"width":605,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.4375,"layoutShifts":[{"value":0.028737067646158552,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026722222222222224,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":605,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":82,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.4375,"layoutShifts":[{"value":0.028737067646158552,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026722222222222224,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  13 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark dashboards-first): the timeline and the shelf do not move (4.9s)
+  ✘  14 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-606darkd-1794933977830-35957@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-606darks-1794933977874-61598@example.com
+HEL1665-SHIFT {"viewport":{"width":606,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":81,"framesBeforeLoadSeries":78,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.875,"layoutShifts":[{"value":0.0287375626451534,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026585185185185187,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":606,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":80,"framesBeforeLoadSeries":78,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":561.875,"layoutShifts":[{"value":0.0287375626451534,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026585185185185187,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  16 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+  ✘  15 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark dashboards-first): the timeline and the shelf do not move (5.0s)
+[HEL-1300 e2e] throwaway user: hel1665h-608darkd-1794933983257-81632@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-608darks-1794933983271-69818@example.com
+HEL1665-SHIFT {"viewport":{"width":608,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":82,"framesBeforeLoadSeries":76,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":562.75,"layoutShifts":[{"value":0.028736415692007796,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026448148148148148,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":608,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":78,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":562.75,"layoutShifts":[{"value":0.028736415692007796,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026448148148148148,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  18 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+  ✘  17 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark dashboards-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-610darkd-1794933988614-61584@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-610darks-1794933988655-83819@example.com
+HEL1665-SHIFT {"viewport":{"width":610,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563.625,"layoutShifts":[{"value":0.02873740133576199,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026311111111111115,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":610,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":81,"framesBeforeLoadSeries":76,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":563.625,"layoutShifts":[{"value":0.02873740133576199,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026311111111111115,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  19 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark dashboards-first): the timeline and the shelf do not move (4.9s)
+  ✘  20 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-612darkd-1794933993932-54468@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-612darks-1794933993970-6323@example.com
+HEL1665-SHIFT {"viewport":{"width":612,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":81,"framesBeforeLoadSeries":74,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.5,"layoutShifts":[{"value":0.028736262406197047,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":612,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":81,"framesBeforeLoadSeries":76,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.5,"layoutShifts":[{"value":0.028736262406197047,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","div.home-page__grid","span.ui-skeleton.ui-skeleton--line","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  21 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark dashboards-first): the timeline and the shelf do not move (4.8s)
+  ✘  22 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+[HEL-1300 e2e] throwaway user: hel1665h-613darkd-1794933999168-71245@example.com
+[HEL-1300 e2e] throwaway user: hel1665h-613darks-1794933999299-17045@example.com
+HEL1665-SHIFT {"viewport":{"width":613,"height":900,"sentenceLines":1},"theme":"dark","order":"dashboards-first","frames":82,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.9375,"layoutShifts":[{"value":0.028736753066279982,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","span.ui-skeleton.ui-skeleton--line","div.home-page__grid","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+HEL1665-SHIFT {"viewport":{"width":613,"height":900,"sentenceLines":1},"theme":"dark","order":"summary-first","frames":81,"framesBeforeLoadSeries":75,"fontSwapSpread":30,"fontsAtFirstFrame":"loading","fontsAtLastFrame":"loaded","settledSentenceLines":1,"runsTopSpread":0,"contentTopSpread":0,"shelfTopSpread":0,"shelfHeadHeightSpread":0,"shelfCardHeightSpread":0,"runsHeadHeightSpread":0,"openingHeightSpread":0,"runsTopSettled":564.9375,"layoutShifts":[{"value":0.028736753066279982,"sources":["span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line","section.home-section","span.ui-skeleton.ui-skeleton--line","div.home-page__grid","span.ui-skeleton.ui-skeleton--line"]},{"value":0.026174074074074075,"sources":["div.home-page__side","section.home-card-panel.home-upnext"]}]}
+  ✘  23 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark dashboards-first): the timeline and the shelf do not move (4.9s)
+  ✘  24 [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark summary-first): the timeline and the shelf do not move (4.9s)
+[HEL-1301 e2e] deleted 24 recorded throwaway user(s)
+
+
+  1) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-18d4e-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-18d4e-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-18d4e-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-c4809-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-c4809-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-c4809-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-c2b85-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-c2b85-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-c2b85-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-33bad-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-33bad-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-33bad-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-3dcfd-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-3dcfd-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-3dcfd-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-bf6c8-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-bf6c8-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-bf6c8-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-c64b4-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-c64b4-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-c64b4-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-04539-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-04539-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-04539-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-c82f2-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-c82f2-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-c82f2-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-cef74-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-cef74-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-cef74-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-c6db7-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-c6db7-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-c6db7-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-7ca09-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-7ca09-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-7ca09-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-2d585-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-2d585-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-2d585-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-2b0ef-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-2b0ef-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-2b0ef-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-f6af6-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-f6af6-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-f6af6-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-b3413-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-b3413-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-b3413-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-e2a15-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-e2a15-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-e2a15-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-dbca1-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-dbca1-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-dbca1-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-b9d70-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-b9d70-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-b9d70-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-2e2d1-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-2e2d1-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-2e2d1-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-ddabe-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-ddabe-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-ddabe-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-76891-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-76891-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-76891-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  23) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark dashboards-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-6ca07-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-6ca07-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-6ca07-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  24) [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark summary-first): the timeline and the shelf do not move 
+
+    Error: cold-load font swap
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBeLessThanOrEqual[2m([22m[32mexpected[39m[2m)[22m
+
+    Expected: <= [32m4[39m
+    Received:    [31m30[39m
+
+      162 |         // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+      163 |         // base measures 3-4, so this assertion cannot go red there.
+    > 164 |         expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
+          |                                                              ^
+      165 |         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
+      166 |         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
+      167 |         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);
+        at /home/matt/Development/helio/.claude/worktrees/bug/home-sentence-font-independent-cap/HEL-1737/e2e/hel1665-home-phone-stability.spec.ts:164:62
+
+    Error Context: test-results/hel1665-home-phone-stabili-50abd-e-and-the-shelf-do-not-move-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1665-home-phone-stabili-50abd-e-and-the-shelf-do-not-move-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1665-home-phone-stabili-50abd-e-and-the-shelf-do-not-move-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  24 failed
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 light summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (605x900 dark summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (606x900 dark summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (608x900 dark summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (610x900 dark summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (612x900 dark summary-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark dashboards-first): the timeline and the shelf do not move 
+    [dev] › e2e/hel1665-home-phone-stability.spec.ts:104:11 › Home load (613x900 dark summary-first): the timeline and the shelf do not move 
