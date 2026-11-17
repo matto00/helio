@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { VIEWPORT_MARGIN } from "../shared/ui/panelFit";
+
 export type PortalPopoverPos = {
   /** Distance from the viewport top. Mutually exclusive with `bottom` in
    *  practice (a consumer's `computePos` sets one or the other depending on
@@ -21,9 +23,6 @@ export type PortalPopoverPos = {
 /** An opt-in placement function (HEL-1668): called once the panel is mounted and its real size is measurable, and again on
  *  window resize, with the mounted panel and the trigger's current rect. */
 export type PortalPopoverPlace = (panel: HTMLElement, triggerRect: DOMRect) => PortalPopoverPos;
-
-/** Minimum gap kept between a portalled panel and the viewport edge. */
-const VIEWPORT_MARGIN = 8;
 
 /** Encapsulates trigger ref, open/close state, and panel position calculation
  * for portal-rendered popovers. All popover components use this hook to avoid
