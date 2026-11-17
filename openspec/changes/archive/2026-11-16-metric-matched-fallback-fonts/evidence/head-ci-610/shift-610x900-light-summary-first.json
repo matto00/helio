@@ -1,0 +1,42 @@
+{
+  "viewport": {
+    "width": 610,
+    "height": 900,
+    "sentenceLines": 1
+  },
+  "theme": "light",
+  "order": "summary-first",
+  "frames": 87,
+  "framesBeforeLoadSeries": 180,
+  "fontSwapSpread": 30,
+  "fontsAtFirstFrame": "loading",
+  "fontsAtLastFrame": "loaded",
+  "settledSentenceLines": 1,
+  "runsTopSpread": 0,
+  "contentTopSpread": 0,
+  "shelfTopSpread": 0,
+  "shelfHeadHeightSpread": 0,
+  "shelfCardHeightSpread": 0,
+  "runsHeadHeightSpread": 0,
+  "openingHeightSpread": 0,
+  "runsTopSettled": 563.625,
+  "layoutShifts": [
+    {
+      "value": 0.02873740133576199,
+      "sources": [
+        "span.ui-skeleton.ui-skeleton--line.home-opening__skeleton-line",
+        "section.home-section",
+        "div.home-page__grid",
+        "span.ui-skeleton.ui-skeleton--line",
+        "span.ui-skeleton.ui-skeleton--line"
+      ]
+    },
+    {
+      "value": 0.026311111111111115,
+      "sources": [
+        "div.home-page__side",
+        "section.home-card-panel.home-upnext"
+      ]
+    }
+  ]
+}

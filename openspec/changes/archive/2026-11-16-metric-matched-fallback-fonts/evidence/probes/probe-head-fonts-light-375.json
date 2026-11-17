@@ -1,0 +1,28 @@
+{
+  "TAG": "head",
+  "block": false,
+  "theme": "light",
+  "size": {
+    "width": 375,
+    "height": 812
+  },
+  "fontReqs": [
+    "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..14",
+    "http://localhost:7110/src/shared/ui/SuspenseFallback.tsx",
+    "http://localhost:7110/src/shared/ui/SuspenseFallback.css",
+    "https://fonts.gstatic.com/s/schibstedgrotesk/v7/Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Gayo.woff2",
+    "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwB",
+    "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..14",
+    "http://localhost:7110/src/shared/ui/SuspenseFallback.tsx",
+    "http://localhost:7110/src/shared/ui/SuspenseFallback.css",
+    "https://fonts.gstatic.com/s/schibstedgrotesk/v7/Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Gayo.woff2",
+    "https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwB"
+  ],
+  ".home-opening__sentence": [
+    "Schibsted Grotesk (Fontations)[custom]:53"
+  ],
+  ".home-section__head": [
+    "Schibsted Grotesk (Fontations)[custom]:6",
+    "JetBrains Mono (Fontations)[custom]:10"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 900,
+    "sentenceLines": 1
+  },
+  "theme": "dark",
+  "order": "dashboards-first",
+  "frames": 82,
+  "framesBeforeLoadSeries": 127,
+  "fontSwapSpread": 0,
+  "fontsAtFirstFrame": "loading",
+  "fontsAtLastFrame": "loaded",
+  "settledSentenceLines": 1,
+  "runsTopSpread": 0,
+  "contentTopSpread": 0,
+  "shelfTopSpread": 0,
+  "shelfHeadHeightSpread": 0,
+  "shelfCardHeightSpread": 0,
+  "runsHeadHeightSpread": 0,
+  "openingHeightSpread": 0,
+  "runsTopSettled": 393,
+  "layoutShifts": [
+    {
+      "value": 0.00291767578125,
+      "sources": [
+        "section.home-card-panel.home-upnext"
+      ]
+    }
+  ]
+}

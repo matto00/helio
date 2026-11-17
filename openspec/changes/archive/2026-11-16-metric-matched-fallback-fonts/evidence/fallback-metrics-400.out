@@ -1,0 +1,65 @@
+/* fetched 2026-11-16 from https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Schibsted+Grotesk:wght@400..900&family=JetBrains+Mono:wght@400;600 */
+/* Fraunces: https://fonts.gstatic.com/s/fraunces/v38/6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib1603gg7S2nfgRYIctxujDg.ttf */
+/* JetBrains Mono: https://fonts.gstatic.com/s/jetbrainsmono/v24/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxjPQ.ttf */
+/* Schibsted Grotesk: https://fonts.gstatic.com/s/schibstedgrotesk/v7/JqzK5SSPQuCQF3t8uOwiUL-taUTtarVKQ9vZ6pJJWlMNIsEATw.ttf */
+/* static instances at weight 400 as served to a UA-less request; Fraunces opsz is whatever that instance carries */
+
+/* Schibsted Grotesk Fallback Arial: size-adjust 1.0494 */
+@font-face {
+  font-family: "Schibsted Grotesk Fallback Arial";
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 104.94%;
+  ascent-override: 93.06%;
+  descent-override: 24.57%;
+  line-gap-override: 0.00%;
+}
+
+/* Schibsted Grotesk Fallback DejaVu: size-adjust 0.9142 */
+@font-face {
+  font-family: "Schibsted Grotesk Fallback DejaVu";
+  src: local("DejaVu Sans"), local("DejaVuSans");
+  size-adjust: 91.42%;
+  ascent-override: 106.82%;
+  descent-override: 28.20%;
+  line-gap-override: 0.00%;
+}
+
+/* JetBrains Mono Fallback Courier: size-adjust 0.9998 */
+@font-face {
+  font-family: "JetBrains Mono Fallback Courier";
+  src: local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono"), local("LiberationMono"), local("Cousine");
+  size-adjust: 99.98%;
+  ascent-override: 102.02%;
+  descent-override: 30.00%;
+  line-gap-override: 0.00%;
+}
+
+/* JetBrains Mono Fallback DejaVu: size-adjust 0.9966 */
+@font-face {
+  font-family: "JetBrains Mono Fallback DejaVu";
+  src: local("DejaVu Sans Mono"), local("DejaVuSansMono");
+  size-adjust: 99.66%;
+  ascent-override: 102.35%;
+  descent-override: 30.10%;
+  line-gap-override: 0.00%;
+}
+
+/* Fraunces Fallback Times: size-adjust 1.1390 */
+@font-face {
+  font-family: "Fraunces Fallback Times";
+  src: local("Times New Roman"), local("TimesNewRomanPSMT"), local("Liberation Serif"), local("LiberationSerif"), local("Tinos");
+  size-adjust: 113.90%;
+  ascent-override: 85.86%;
+  descent-override: 22.39%;
+  line-gap-override: 0.00%;
+}
+
+/* Fraunces Fallback DejaVu: size-adjust 0.8970 */
+@font-face {
+  font-family: "Fraunces Fallback DejaVu";
+  src: local("DejaVu Serif"), local("DejaVuSerif");
+  size-adjust: 89.70%;
+  ascent-override: 109.03%;
+  descent-override: 28.43%;
+  line-gap-override: 0.00%;
+}

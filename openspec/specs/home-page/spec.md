@@ -187,11 +187,16 @@ unchanged by these rules; with zero dashboards the shelf heading MAY be up to th
 On a short phone (375×667) in light and dark, the pipeline-run timeline's heading and the top of its first row SHALL be
 visible above the bottom nav's top edge on first load without scrolling; the rest of the timeline is reached by scrolling
 (owner ruling: item 2 accepted as is, no short-phone layout change).
-The rule does not cover the residual cold-load web-font swap: when the heading and mono fonts arrive the runs card MAY
-move by an amount that depends on the platform's fallback font. Measured (runs card top spread before the web fonts
-arrive; base 647734111 versus this change): 2-4px on base; with this change 3-4px locally and, with DejaVu Sans as the
-fallback (as on CI), 8px at 375-540px and 22-24px at 620-1280px, where the hidden default sentence wraps in the wider
-fallback font. Only a `size-adjust` fallback could remove it. This is recorded in the e2e evidence, not asserted.
+On a cold load (before the web fonts arrive) the page renders in metric-matched fallback faces, so when the
+heading and mono fonts arrive the runs card top SHALL move by at most 4px at 375, 430, 480, 540, 620, 1024 and 1280px
+wide, in light and dark themes, under the CI-like font set (Ubuntu noble with Liberation and DejaVu installed, as on CI's
+e2e legs) and with DejaVu as the only fallback; at those widths the hidden default sentence SHALL have the same line
+count in the fallback as in the web font. At other widths (for example the 605-615px band, where the default sentence
+is close to its wrap point) the swap MAY be larger if the fallback wraps that sentence differently; the measured value
+at 610px is recorded in the HEL-1678 evidence. The swap is asserted by the e2e at the listed widths as well as recorded
+in its evidence; the measured numbers, base versus this change, are in the HEL-1678 change's evidence.
+Under a larger browser default font size (Home is sized in rem) Home SHALL render without horizontal scroll at
+375px and 1280px, and the 0px-after-fonts-load rule above SHALL hold.
 
 #### Scenario: Timeline visible at 375px
 - **WHEN** a user with four dashboards and at least one pipeline opens `/home` at 375×800, in light or dark theme
@@ -202,7 +207,7 @@ fallback font. Only a `size-adjust` fallback could remove it. This is recorded i
 - **THEN** the shelf shows two rows of two cards, the run timeline's top edge is above the bottom nav's top edge, and the document does not scroll horizontally
 
 #### Scenario: Timeline does not move on load
-- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` while the dashboards list and the home summary are still loading, at 375×667, 375×812, 430×932, 480×900, 540×900 or 1280×900, in light or dark theme, with the two responses arriving in either order
+- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` while the dashboards list and the home summary are still loading, at 375×667, 375×812, 430×932, 480×900, 540×900, 620×900, 1024×900 or 1280×900, in light or dark theme, with the two responses arriving in either order
 - **THEN** neither the run timeline card's top edge nor the top of its content moves (0px) at any point between the loading state and the settled state with the "All N" link shown
 
 #### Scenario: A longer opening sentence moves the timeline by its extra line only
@@ -216,3 +221,11 @@ fallback font. Only a `size-adjust` fallback could remove it. This is recorded i
 #### Scenario: Section-head link keeps its touch target
 - **WHEN** Home renders on a coarse pointer or at ≤768px wide
 - **THEN** the "All N" shelf link and the "+N more" runs link each have a hit region of at least 44×44px
+
+#### Scenario: Cold-load web-font swap is bounded
+- **WHEN** a user with four dashboards, at least one pipeline and the default opening sentence opens `/home` on a cold load at 375, 430, 480, 540, 620, 1024 or 1280px wide, in light or dark theme, under the CI-like font set (Liberation and DejaVu installed) or with DejaVu as the only fallback
+- **THEN** the run timeline card's top edge moves by at most 4px between the first frame rendered in the fallback faces and the frame after the web fonts have loaded
+
+#### Scenario: Larger browser default font size
+- **WHEN** the browser's default font size is larger than 16px and the user opens `/home` at 375×812 or 1280×900, in light or dark theme
+- **THEN** Home's text is rendered larger than at the default size, the document does not scroll horizontally, and the run timeline card does not move once the web fonts have loaded

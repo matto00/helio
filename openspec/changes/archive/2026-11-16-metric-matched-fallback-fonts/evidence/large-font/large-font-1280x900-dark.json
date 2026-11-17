@@ -1,0 +1,14 @@
+{
+  "theme": "dark",
+  "size": {
+    "width": 1280,
+    "height": 900
+  },
+  "fontSizeDefault16": 24,
+  "fontSizeDefault24": 36,
+  "runsTopSpread": 0,
+  "overflow": {
+    "doc": 0,
+    "body": 0
+  }
+}

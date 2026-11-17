@@ -1,0 +1,51 @@
+{
+  "viewport": {
+    "width": 375,
+    "height": 812,
+    "sentenceLines": 2
+  },
+  "theme": "dark",
+  "order": "summary-first",
+  "frames": 90,
+  "framesBeforeLoadSeries": 129,
+  "fontSwapSpread": 8,
+  "fontsAtFirstFrame": "loading",
+  "fontsAtLastFrame": "loaded",
+  "settledSentenceLines": 2,
+  "runsTopSpread": 0,
+  "contentTopSpread": 0,
+  "shelfTopSpread": 0,
+  "shelfHeadHeightSpread": 0,
+  "shelfCardHeightSpread": 0,
+  "runsHeadHeightSpread": 0,
+  "openingHeightSpread": 0,
+  "runsTopSettled": 480.8125,
+  "layoutShifts": [
+    {
+      "value": 0.004720871805916183,
+      "sources": [
+        "div.home-card.home-card--skeleton",
+        "span.ui-skeleton.ui-skeleton--line",
+        "div.home-page__grid",
+        "span.ui-skeleton.ui-skeleton--line",
+        "div.home-card.home-card--skeleton"
+      ]
+    },
+    {
+      "value": 0.0027698156551562362,
+      "sources": [
+        "ul.tl-legend",
+        "span.tl-shape.tl-shape--failed",
+        "div.home-runs__skeleton",
+        "div.home-page__side"
+      ]
+    },
+    {
+      "value": 0.02060381227401781,
+      "sources": [
+        "div.home-page__side",
+        "section.home-card-panel.home-upnext"
+      ]
+    }
+  ]
+}

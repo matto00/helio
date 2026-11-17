@@ -31,8 +31,9 @@ const VIEWPORTS = [
   // Inside the 431-604px band, still the phone shell, where the default sentence is two lines (HEL-1665 cycle 2).
   { width: 480, height: 900, sentenceLines: 2 },
   { width: 540, height: 900, sentenceLines: 2 },
-  // 620 is just above the 605-615px band where the cold-load fallback font wraps the default sentence (a disclosed
-  // residual, not asserted); 1024 is a tablet-landscape desktop layout.
+  // 620 is just above the 605-615px band where the cold-load fallback font still wraps the default sentence (the
+  // 40ch measure follows the fallback's digit width; a disclosed residual, 610px measured 30px after HEL-1678 versus
+  // 24px on base, not asserted); 1024 is a tablet-landscape desktop layout.
   { width: 620, height: 900, sentenceLines: 1 },
   { width: 1024, height: 900, sentenceLines: 1 },
   { width: 1280, height: 900, sentenceLines: 1 },
@@ -145,8 +146,12 @@ for (const theme of ["light", "dark"] as const) {
         expect(sentenceLines).toBe(viewport.sentenceLines);
         expect(settled.link, "the settled shelf shows its All N link").toBe(true);
         expect(settled.legend, "the settled runs card shows its legend").toBe(true);
-        // The cold-load web-font swap (`fontSwapSpread`) depends on the platform's fallback font: it is recorded in the
-        // evidence JSON and the log, never asserted (HEL-1665 design.md, Decision 5).
+        // The cold-load web-font swap (`fontSwapSpread`): the metric-matched fallback faces (HEL-1678) keep it within
+        // 4px at every width here (measured 0 on CI-like noble + Liberation and on a DejaVu-only noble; base was 8-24).
+        // Already-cached fonts give 0, so this only fails on a real wide swap.
+        // Red proof: base in a DejaVu-class fallback environment (8 at 375-540, 22-26 at 620+); on a Liberation-only host
+        // base measures 3-4, so this assertion cannot go red there.
+        expect(result.fontSwapSpread, "cold-load font swap").toBeLessThanOrEqual(4);
         expect(result.runsTopSpread, "runs card top").toBeLessThanOrEqual(TOLERANCE);
         expect(result.contentTopSpread, "runs card content start").toBeLessThanOrEqual(TOLERANCE);
         expect(result.shelfTopSpread, "shelf top").toBeLessThanOrEqual(TOLERANCE);

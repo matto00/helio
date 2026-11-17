@@ -76,6 +76,56 @@ describe("type-style tokens (font tokens only)", () => {
     expect(body.trim()).toBe("--font-sans: var(--font-mono);");
   });
 
+  // HEL-1678: every web face is followed by metric-matched, local()-only fallback faces before the system entries.
+  const FALLBACKS: Record<string, { web: string; faces: string[]; system: string }> = {
+    "--font-face-sans": {
+      web: "Schibsted Grotesk",
+      faces: ["Schibsted Grotesk Fallback Arial", "Schibsted Grotesk Fallback DejaVu"],
+      system: "system-ui",
+    },
+    "--font-face-mono": {
+      web: "JetBrains Mono",
+      faces: ["JetBrains Mono Fallback Courier", "JetBrains Mono Fallback DejaVu"],
+      system: "ui-monospace",
+    },
+    "--font-face-serif": {
+      web: "Fraunces",
+      faces: ["Fraunces Fallback Times", "Fraunces Fallback DejaVu"],
+      system: "Iowan Old Style",
+    },
+  };
+
+  it.each(Object.entries(FALLBACKS))(
+    "%s lists its web face, then the matched Arial-family and DejaVu fallbacks, then the system entries",
+    (token, { web, faces, system }) => {
+      const stack = decl(rule(":root"), token).replace(/\s+/g, " ");
+      const order = [web, ...faces, system].map((name) => stack.indexOf(name));
+      expect(order.every((i) => i >= 0)).toBe(true);
+      expect([...order].sort((a, b) => a - b)).toEqual(order);
+      expect(stack.startsWith(`"${web}",`)).toBe(true);
+    },
+  );
+
+  it.each(Object.values(FALLBACKS).flatMap(({ faces }) => faces))(
+    "fallback face %s is local()-only and sets all four metric overrides",
+    (family) => {
+      const start = css.indexOf(`font-family: "${family}"`);
+      expect(start).toBeGreaterThan(-1);
+      const body = css.slice(css.lastIndexOf("@font-face", start), css.indexOf("}", start));
+      const src = decl(body, "src");
+      expect(src).toMatch(/^local\(/);
+      expect(src).not.toMatch(/url\(/);
+      for (const prop of [
+        "size-adjust",
+        "ascent-override",
+        "descent-override",
+        "line-gap-override",
+      ]) {
+        expect(decl(body, prop)).toMatch(/^[\d.]+%$/);
+      }
+    },
+  );
+
   it("raw face tokens are declared once and are never rebound by a style", () => {
     for (const name of ["--font-face-sans", "--font-face-mono", "--font-face-serif"]) {
       expect(css.match(new RegExp(`${name}:`, "g"))).toHaveLength(1);
