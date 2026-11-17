@@ -48,7 +48,7 @@ and two animation frames so the settled state has flushed, before returning. No 
 ## Green after (NEW spec, same forcing)
 
 Delay 1500 ms: 39/39 green (all 13 `refresh button` tests x3). Hold-until-1500 ms: 39/39 green. Delay 800 ms: 38/39, one
-`single tap` failure that did not reproduce in 16 further forced runs (see the final repeat-each result in the report).
+`single tap` failure that did not reproduce in 16 further forced runs (see "Repeat-run results" below).
 
 ## The axios 1.21 / cookieStore hypothesis
 
@@ -58,3 +58,12 @@ delay. Slower XHRs on CI (any cause, including this) only widen the same window.
 ## Env
 
 `frontend/node_modules/axios` = 1.21.1 in this worktree (checked before measuring).
+
+## Repeat-run results (recorded by the orchestrator from the agents' reports)
+
+- Executor, whole spec `--repeat-each 20 --workers=2 --trace retain-on-failure`, `nice -n 19`: 300 passed (12.9 m), load
+  average 3.06 -> 7.25 (transcript not pasted into this dir).
+- Final-gate skeptic, same command: 294 passed, 6 failed (16.0 m), load average 6 -> 18.2 with other lanes running. All 6
+  were environmental (Vite dev-server dynamic-import fetch failures, `/login` load timeouts, five in one repeat window);
+  none showed a targeted signature (0 requests, `aria-disabled` never "true", null box). Targeted tests re-run
+  `--repeat-each 20`: 140 passed, 0 failed. See skeptic-final-1.md.
