@@ -249,7 +249,10 @@ test.describe("HEL-1631 draft mode (live)", () => {
     await timedFilterEdit(page, "300");
     await page.getByRole("button", { name: "Disable step" }).click();
     await page.getByRole("button", { name: /^Step 3:/ }).click();
-    await page.getByRole("button", { name: "Remove step" }).click();
+    // HEL-1711: wait for Step 3's card so Remove step cannot hit the previously focused step.
+    const focused = page.getByRole("region", { name: /^Step 3 / });
+    await expect(focused).toBeVisible();
+    await focused.getByRole("button", { name: "Remove step" }).click();
     await expect(page.locator(".spine-row")).toHaveCount(2);
 
     const recording = recordApi(page);
