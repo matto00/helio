@@ -1,0 +1,86 @@
+[dev] › e2e/hel1631-draft-mode.spec.ts:221:7 › HEL-1631 draft mode (live) › Discard restores the saved pipeline exactly, with zero requests
+[dev] › e2e/hel1631-draft-mode.spec.ts:273:7 › HEL-1631 draft mode (live) › Save & run is ONE draft save with a run and ONE journal row; Undo restores the saved definition; a disabled step stays disabled
+[dev] › e2e/hel1631-draft-mode.spec.ts:346:7 › HEL-1631 draft mode (live) › a server-only step updates through the draft-preview transport: pending, paced, never a run endpoint
+[dev] › e2e/hel1631-draft-mode.spec.ts:384:7 › HEL-1631 draft mode (live) › a base that changed under the draft offers ONLY 'Reload the saved pipeline', and the draft survives the reload
+[dev] › e2e/hel1631-draft-mode.spec.ts:421:7 › HEL-1631 draft mode (live) › a run the guard refused after the save committed says so, with the retry time and a Run now action
+[dev] › e2e/hel1631-draft-mode.spec.ts:452:7 › HEL-1631 draft mode (live) › Back with a draft open does not lose it: forward again shows the same draft (skeptic-final-1 CR1)
+[dev] › e2e/hel1631-draft-mode.spec.ts:473:7 › HEL-1631 draft mode (live) › a draft kept across Back is NOT silently saved over a change made while away: the stale path applies (skeptic-final-2)
+[dev] › e2e/hel1631-draft-mode.spec.ts:508:7 › HEL-1631 draft mode (live) › after Discard, a step first opened during the draft fetches exactly its own saved preview and nothing else
+[dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › only the roots stay disabled with a reason while a draft exists; the step, Output and shape actions are enabled (HEL-1684, HEL-1733)
+[dev] › e2e/hel1631-draft-mode.spec.ts:555:7 › HEL-1631 draft mode on a phone (live) › 375px: the draft status fills the action bar's slot and the pills become Discard and Save & run
+[dev] › e2e/hel1632-live-output.spec.ts:216:7 › HEL-1632 live Output column › one baseline history read at load, then a burst of edits sends nothing and the Output follows the draft
+[dev] › e2e/hel1632-live-output.spec.ts:294:7 › HEL-1632 live Output column › an error above the Output's node keeps the last good render and shows stale
+[dev] › e2e/hel1632-live-output.spec.ts:311:7 › HEL-1632 live Output column › a server-only step shows updating, then live; Discard returns to the saved render with zero requests
+[dev] › e2e/hel1632-live-output.spec.ts:338:7 › HEL-1632 live Output column › an Output below an AI step shows its saved data labelled stale
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 1280 dark
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 1280 light
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 375 dark
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 375 light
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 430 dark
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 430 light
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 900 dark
+[dev] › e2e/hel1632-live-output.spec.ts:363:11 › HEL-1632 live Output column › screenshots 900 light
+[dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion full
+[dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion off
+[dev] › e2e/hel1632-live-output.spec.ts:393:9 › HEL-1632 live Output column › screenshot motion subtle
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › add step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › drag reorder: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › Move down: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: desktop, light (live) › Move up: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › add step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › duplicate step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › insert step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › + lane step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › Move down: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, dark (live) › Move up: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:372:11 › HEL-1684 draft structure actions: phone, light (live) › insert step: a draft entry, saved atomically with the structure the draft showed
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › add step: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › duplicate step: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › insert step: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › + lane step: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › Move down: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:427:13 › HEL-1684 draft structure actions: desktop, light (live) › Move up: Discard restores the saved pipeline with no request
+[dev] › e2e/hel1684-draft-structural.spec.ts:479:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a draft with an inserted step survives Back and Forward and is shown again
+[dev] › e2e/hel1684-draft-structural.spec.ts:500:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › [guard] a draft kept in the earlier format (deleted ids) still restores
+[dev] › e2e/hel1684-draft-structural.spec.ts:539:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › a kept draft with a new step over a base that changed is restored as stale; Reload keeps the step
+[dev] › e2e/hel1684-draft-structural.spec.ts:579:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › Undo after saving an insert and a Move down restores the pre-draft structure, selection on a surviving step
+[dev] › e2e/hel1684-draft-structural.spec.ts:617:7 › HEL-1684 draft structure: kept drafts, stale base, undo, delete (live) › deleting a step inserted after a step that has a tail removes the tail, and Save & run asks to confirm it by name
+[dev] › e2e/hel1685-draft-polish.spec.ts:110:7 › HEL-1685 draft polish (live) › 1280x800: a refused save's notice takes only its own height and the page does not scroll (item 4)
+[dev] › e2e/hel1685-draft-polish.spec.ts:150:9 › HEL-1685 draft polish (live) › 375px: an Output card's menu never takes a tap meant for the floating action bar (item 5)
+[dev] › e2e/hel1685-draft-polish.spec.ts:150:9 › HEL-1685 draft polish (live) › 430px: an Output card's menu never takes a tap meant for the floating action bar (item 5)
+[dev] › e2e/hel1685-draft-polish.spec.ts:207:7 › HEL-1685 draft polish (live) › 900px wide: with the Output section open the step editor shows its first input row with no inner scroll (addendum G)
+[dev] › e2e/hel1685-draft-polish.spec.ts:252:7 › HEL-1685 draft polish (live) › 1280x800: Save & run that removes an Output requests no preview of it (item 7)
+[dev] › e2e/hel1704-narrow-preview-title.spec.ts:62:7 › HEL-1704 narrow-desktop step preview title (live) › with the Output section open, the preview title and the editor's first condition row both stay visible
+[dev] › e2e/hel1705-live-output-refresh.spec.ts:131:7 › HEL-1705 live Output column › D: an unfocused server-resolved Output refreshes from the one draft-preview request
+[dev] › e2e/hel1705-live-output-refresh.spec.ts:175:9 › HEL-1705 live Output column › E: plain-chart LATEST tile and the compare overlay, desktop and phone (dark)
+[dev] › e2e/hel1705-live-output-refresh.spec.ts:175:9 › HEL-1705 live Output column › E: plain-chart LATEST tile and the compare overlay, desktop and phone (light)
+[dev] › e2e/hel1705-live-output-refresh.spec.ts:242:7 › HEL-1705 live Output column › H: a saved table panel and the live column lay columns out in the Output's schema order
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:404:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:447:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:490:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › a draft with a created Output survives Back and Forward and shows it again
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:509:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › [guard] a draft kept in the v2 format (no Outputs in it) restores, and is NOT stale
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:547:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › a stale base keeps an Output edit: Reload re-applies it and Save & run sends it
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:584:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › Undo after saving a created Output and an edit of it restores the prior Outputs
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:617:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › the sheet on a draft-new step lists the draft's columns from the server projection and names no draft id in any request
+[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:651:7 › HEL-1733 draft Outputs: kept drafts, stale base, undo, the draft-aware sheet, a shape with an Output (live) › (stubbed /expand) a shape with an Output is one draft entry: the step and the Output are saved together

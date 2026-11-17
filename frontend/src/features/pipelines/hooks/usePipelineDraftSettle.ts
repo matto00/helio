@@ -5,7 +5,7 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { useToast } from "../../toasts/hooks/useToast";
 import { isDraftClientId } from "../state/draftOps";
-import { savedStepForDraftStep } from "../state/draftSelection";
+import { remapCreatedOutputs, savedStepForDraftStep } from "../state/draftSelection";
 import { draftSaveRunSettled, fetchPipelineById } from "../state/pipelinesSlice";
 import type { DraftSaveResponse } from "../types/draftSave";
 import type { Output } from "../types/output";
@@ -22,6 +22,8 @@ export function usePipelineDraftSettle({
   dispatch,
   pushToast,
   adoptDefinition,
+  allOutputsRef,
+  setOutputPickRemap,
   dismissSavedToast,
   savedToastRef,
   requestUndo,
@@ -39,6 +41,8 @@ export function usePipelineDraftSettle({
     pipelineId: string,
     definition: { steps: PipelineStep[]; outputs: Output[] },
   ) => Step[];
+  allOutputsRef: MutableRefObject<Output[]>;
+  setOutputPickRemap: Dispatch<SetStateAction<ReadonlyMap<string, string>>>;
   dismissSavedToast: () => void;
   savedToastRef: MutableRefObject<{ toastId: string; applicationId: string } | null>;
   requestUndo: (applicationId: string) => void;
@@ -76,6 +80,16 @@ export function usePipelineDraftSettle({
           { replace: true },
         );
       }
+      // An explicit pick of an Output this draft created follows it to the saved Output it became (D10).
+      setOutputPickRemap(
+        remapCreatedOutputs(
+          draft.draftSteps,
+          draft.draftOutputs,
+          new Set(allOutputsRef.current.map((o) => o.id)),
+          response.saved.definition.steps,
+          response.saved.definition.outputs,
+        ),
+      );
       adoptDefinition(pipelineId, response.saved.definition);
       draft.discard();
       setCascade(null);
@@ -112,6 +126,8 @@ export function usePipelineDraftSettle({
     },
     [
       adoptDefinition,
+      allOutputsRef,
+      setOutputPickRemap,
       dismissSavedToast,
       dispatch,
       draft,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import type { SpineRowDraft } from "../ui/spine/SpineStepRow";
 import type { StepPreviewDraft } from "../ui/spine/StepPreviewTable";
@@ -33,6 +33,16 @@ export function usePipelineDraftPresentation(
     memory: page.draftFrameMemory,
   });
   const { views, baseCounts, baseRows, sampleTruncated } = frames;
+
+  // HEL-1733 (D5 wiring): while the Output editor sheet is open the layout hands the page the draft frames and the sheet's node, so
+  // the sheet (a sibling of the layout) reads its draft columns and rows. Written only while a sheet is open, and only when the
+  // memoised frames or the node change; appended after this hook's existing effects.
+  const { outputSheet, sheetNodeStepId, setSheetDraftNode } = page;
+  const sheetOpen = outputSheet !== null;
+  useLayoutEffect(() => {
+    if (!sheetOpen) return;
+    setSheetDraftNode({ frames, nodeStepId: sheetNodeStepId });
+  }, [sheetOpen, frames, sheetNodeStepId, setSheetDraftNode]);
 
   /** The saved steps' enabled flags: the saved-preview fetch follows these, never the draft's. */
   const savedEnabledBits = useMemo(

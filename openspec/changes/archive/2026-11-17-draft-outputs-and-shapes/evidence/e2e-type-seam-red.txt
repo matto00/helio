@@ -1,0 +1,59 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:787:7 › HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) › the sheet's histogram field follows the DRAFT's column types from the real analyze-proposal: a draft cast makes a text column offerable
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:787:7 › HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) › the sheet's histogram field follows the DRAFT's column types from the real analyze-proposal: a draft cast makes a text column offerable
+[HEL-1300 e2e] throwaway user: hel1733-typeseam-1794945683821-55714@example.test
+
+[1A[2K  1) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:787:7 › HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) › the sheet's histogram field follows the DRAFT's column types from the real analyze-proposal: a draft cast makes a text column offerable 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at histogramOffers (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:806:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:817:12
+
+    Error Context: test-results/hel1733-draft-outputs-shap-84695-kes-a-text-column-offerable-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-84695-kes-a-text-column-offerable-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-84695-kes-a-text-column-offerable-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[HEL-1301 e2e] deleted 1 recorded throwaway user(s)
+[1A[2K  1 failed
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:787:7 › HEL-1733 draft Outputs: the Live Output column, Discard of everything, the type seam (live) › the sheet's histogram field follows the DRAFT's column types from the real analyze-proposal: a draft cast makes a text column offerable 

@@ -17,7 +17,15 @@ export function useDisplayedOutputNodeIds(
   outputs: readonly Output[],
   pick: OutputPick | null,
   selectedStepId: string | null,
+  /** HEL-1733: the Output editor sheet's node while it is open, so its draft rows ride on the same request. */
+  sheetNodeStepId?: string,
+  remap?: ReadonlyMap<string, string>,
 ): readonly string[] {
-  const nodeStepId = resolveDisplayedOutput(outputs, pick, selectedStepId)?.nodeStepId;
-  return useMemo(() => (nodeStepId === undefined ? NONE : [nodeStepId]), [nodeStepId]);
+  const nodeStepId = resolveDisplayedOutput(outputs, pick, selectedStepId, remap)?.nodeStepId;
+  return useMemo(() => {
+    const ids = [nodeStepId, sheetNodeStepId].filter(
+      (id, i, all): id is string => id !== undefined && all.indexOf(id) === i,
+    );
+    return ids.length === 0 ? NONE : ids;
+  }, [nodeStepId, sheetNodeStepId]);
 }

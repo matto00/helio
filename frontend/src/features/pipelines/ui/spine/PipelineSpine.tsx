@@ -15,6 +15,7 @@ import { useMemo } from "react";
 import { EmptyState } from "../../../../shared/ui/EmptyState";
 import type { DataSource } from "../../../sources/types/dataSource";
 import { nodePath } from "../../state/nodePath";
+import { isTempStepId } from "../../state/stepNarrowing";
 import type { LaneGraph } from "../../state/stepTree";
 import type { Output } from "../../types/output";
 import type { AnalyzeWarning, PipelineRoot } from "../../types/pipelineStep";
@@ -50,6 +51,11 @@ interface PipelineSpineProps {
   /** HEL-1631 (design.md D2): while a draft exists, the controls the draft does not carry (roots, shapes, Outputs) are disabled
    *  with this reason. HEL-1684: add, insert, duplicate, "+ lane" and reorder are draft entries and stay enabled. */
   structuralBlockedReason?: string | null;
+  /** HEL-1733: while a draft exists and the page's Outputs are not loaded ("Outputs are still loading"): the Output, shape and
+   *  aggregate-tail actions wait. `null` otherwise (Outputs and shapes are draft entries now). */
+  outputBlockedReason?: string | null;
+  /** HEL-1733: Output ids the draft edited (the card reads "Edited"); a client id reads "New · not saved". */
+  editedOutputIds?: ReadonlySet<string>;
   countsPartial: boolean;
   getAnalyzeValidationError: (stepId: string) => string | undefined;
   getAnalyzeWarnings: (stepId: string) => AnalyzeWarning[];
@@ -78,6 +84,8 @@ export function PipelineSpine({
   draftFor,
   draftCountsOverSample = false,
   structuralBlockedReason = null,
+  outputBlockedReason = null,
+  editedOutputIds,
   countsPartial,
   getAnalyzeValidationError,
   getAnalyzeWarnings,
@@ -97,6 +105,17 @@ export function PipelineSpine({
     laneGraph.lanes.find((l) => l.parentStepId === undefined && l.rootId === rootId);
   const rootZeroTrunk = firstRootId !== undefined ? trunkOf(firstRootId) : undefined;
   const rootZeroSteps = rootZeroTrunk?.steps ?? [];
+  // HEL-1733: in a draft the shape anchors on the last REAL trunk step of root 0 (a not-yet-created `step-N` has no row to splice
+  // under); with no draft the anchor is the last step, as before. A trunk of only temp steps has no anchor: the button waits.
+  const inDraft = structuralBlockedReason !== null;
+  const shapeAnchorStep = inDraft
+    ? [...rootZeroSteps].reverse().find((s) => !isTempStepId(s.id))
+    : rootZeroSteps[rootZeroSteps.length - 1];
+  const shapeBlockedReason =
+    outputBlockedReason ??
+    (inDraft && rootZeroSteps.length > 0 && shapeAnchorStep === undefined
+      ? structuralBlockedReason
+      : null);
 
   const nodePathByStepId = useMemo(() => {
     const entries: Record<string, string> = {};
@@ -231,13 +250,9 @@ export function PipelineSpine({
             <button
               type="button"
               className="spine-ghost-btn"
-              disabled={structuralBlockedReason !== null}
-              title={structuralBlockedReason ?? undefined}
-              onClick={() =>
-                actions.openShapePicker(
-                  hasSteps ? rootZeroSteps[rootZeroSteps.length - 1]?.id : undefined,
-                )
-              }
+              disabled={shapeBlockedReason !== null}
+              title={shapeBlockedReason ?? undefined}
+              onClick={() => actions.openShapePicker(hasSteps ? shapeAnchorStep?.id : undefined)}
             >
               Add Outputs from a shape
             </button>
@@ -253,7 +268,8 @@ export function PipelineSpine({
         onOpenOutput={onOpenOutput}
         onOpenHistory={onOpenOutputHistory}
         onAddOutput={() => onAddOutput()}
-        blockedReason={structuralBlockedReason}
+        blockedReason={outputBlockedReason}
+        editedOutputIds={editedOutputIds}
       />
     </div>
   );

@@ -54,6 +54,9 @@ const EXPECTED_KEYS: string[] = [
   "draftBlockReason",
   "draftCreateErrors",
   "draftFrameMemory",
+  "draftOutputBlockReason",
+  "draftOutputEditedIds",
+  "draftOutputs",
   "draftSave",
   "dropdownOpenAt",
   "duplicatingStepIds",
@@ -73,6 +76,8 @@ const EXPECTED_KEYS: string[] = [
   "handleCancel",
   "handleCloseOutputHistory",
   "handleCloseOutputSheet",
+  "handleCreateOutput",
+  "handleDeleteOutput",
   "handleDryRun",
   "handleDuplicateStep",
   "handleEditSource",
@@ -89,6 +94,7 @@ const EXPECTED_KEYS: string[] = [
   "handleStepConfigChange",
   "handleToggleScheduleEnabled",
   "handleToggleStepEnabled",
+  "handleUpdateOutput",
   "hasOwnAnalyzeEntry",
   "historyOpen",
   "historyOutput",
@@ -99,6 +105,7 @@ const EXPECTED_KEYS: string[] = [
   "laneGraph",
   "openRunHistory",
   "outputName",
+  "outputPickRemap",
   "outputSheet",
   "outputsByStepId",
   "pipelineName",
@@ -124,7 +131,11 @@ const EXPECTED_KEYS: string[] = [
   "setOutputName",
   "setScheduleOpen",
   "setShareOpen",
+  "setSheetDraftNode",
+  "setSheetNodeStepId",
   "shareOpen",
+  "sheetDraftNode",
+  "sheetNodeStepId",
   "sourceByRootId",
   "sseActive",
   "sseData",
@@ -161,14 +172,14 @@ function renderPage() {
 }
 
 describe("[guard] usePipelineDetailPage returned keys", () => {
-  it("returns exactly the keys recorded on main", () => {
+  it("returns exactly the keys recorded on main plus the HEL-1733 draft Output keys", () => {
     const { result } = renderPage();
     expect(Object.keys(result.current).sort()).toEqual(EXPECTED_KEYS);
   });
 });
 
 describe("[guard] usePipelineDraftSave returned keys", () => {
-  it("returns exactly the keys recorded on main", () => {
+  it("returns exactly the keys recorded on main plus the HEL-1733 draft Output keys", () => {
     const { result } = renderHook(
       () =>
         usePipelineDraftSave({
@@ -188,6 +199,7 @@ describe("[guard] usePipelineDraftSave returned keys", () => {
           roots: [],
           allOutputsRef: { current: [] },
           draftSaveInFlightRef: { current: false },
+          setOutputPickRemap: jest.fn(),
           outputsLoaded: false,
           setSseActive: jest.fn(),
           refreshRunHistoryAfterRun: jest.fn(),

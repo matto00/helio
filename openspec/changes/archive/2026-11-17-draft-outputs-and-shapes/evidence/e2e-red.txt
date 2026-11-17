@@ -1,0 +1,979 @@
+
+Running 19 tests using 1 worker
+
+[1A[2K[1/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonasavedstep-1794936531444-63253@example.test
+
+[1A[2K  1) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:248:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-1de51-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-1de51-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-1de51-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[2/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputontheroot-1794936552476-16773@example.test
+
+[1A[2K  2) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'New output' })
+        - locator resolved to <button disabled type="button" class="spine-ghost-btn" aria-label="New output" title="Save or discard your draft first">+ Output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      260 |     run: async (page) => {
+      261 |       await closeStepSheet(page);
+    > 262 |       await page.getByRole("button", { name: "New output" }).click();
+          |                                                              ^
+      263 |       await createTable(page, NEW);
+      264 |     },
+      265 |     verifyBody: (body) => {
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:262:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-3f67d-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-3f67d-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-3f67d-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[3/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonadraftnewstep-1794936572293-97475@example.test
+
+[1A[2K  3) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:282:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-b98a7-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-b98a7-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-b98a7-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[4/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-editanOutput-1794936592951-8264@example.test
+
+[1A[2K  4) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Open hel1733 saved chart output' })
+        - locator resolved to <button disabled type="button" class="spine-card__open" title="Save or discard your draft first" aria-label="Open hel1733 saved chart output">…</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      294 |     run: async (page) => {
+      295 |       await closeStepSheet(page);
+    > 296 |       await page.getByRole("button", { name: `Open ${SAVED_OUTPUT} output` }).click();
+          |                                                                               ^
+      297 |       const s = outputSheet(page);
+      298 |       await sheetReady(page);
+      299 |       await s.getByLabel("Name").fill("hel1733 renamed");
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:296:79)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-bd47f-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-bd47f-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-bd47f-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[5/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-deleteanOutputboundtoapanel-1794936612568-15476@example.test
+
+[1A[2K  5) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Open hel1733 saved chart output' })
+        - locator resolved to <button disabled type="button" class="spine-card__open" title="Save or discard your draft first" aria-label="Open hel1733 saved chart output">…</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not enabled
+      - retrying click action
+        - waiting 100ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      - retrying click action
+        - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      312 |     run: async (page) => {
+      313 |       await closeStepSheet(page);
+    > 314 |       await page.getByRole("button", { name: `Open ${SAVED_OUTPUT} output` }).click();
+          |                                                                               ^
+      315 |       const s = outputSheet(page);
+      316 |       await sheetReady(page);
+      317 |       await s.getByRole("button", { name: "Delete", exact: true }).click();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:314:79)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-5a621-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-5a621-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-5a621-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[6/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-deleteanOutputcreatedinthedraft-1794936632274-15920@example.test
+
+[1A[2K  6) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:329:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-425df-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-425df-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-425df-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[7/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-shape-1794936651936-26527@example.test
+
+[1A[2K  7) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Add Outputs from a shape' })
+        - locator resolved to <button disabled type="button" class="spine-ghost-btn" title="Save or discard your draft first">Add Outputs from a shape</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      346 |       if (viewport === "desktop") {
+      347 |         await closeStepSheet(page);
+    > 348 |         await page.getByRole("button", { name: "Add Outputs from a shape" }).click();
+          |                                                                              ^
+      349 |       } else {
+      350 |         await page.getByRole("button", { name: /^Pipeline actions|^More/ }).click();
+      351 |         await page.getByRole("menuitem", { name: "Add Outputs from a shape" }).click();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:348:78)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-9e23e-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-9e23e-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-9e23e-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[8/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-aggregatetail-1794936671662-58617@example.test
+
+[1A[2K  8) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:369:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-a4785-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-a4785-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-a4785-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[9/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:443:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:443:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request
+[HEL-1300 e2e] throwaway user: hel1733-discard-1794936691324-5506@example.test
+
+[1A[2K  9) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:443:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:248:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:448:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-3cf25-ated-Output-with-no-request-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-3cf25-ated-Output-with-no-request-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-3cf25-ated-Output-with-no-request-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[10/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonasavedstep-1794936710905-72147@example.test
+
+[1A[2K  10) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      174 |     .getByRole("button", { name: /^Step actions for / })
+      175 |     .click();
+    > 176 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      177 | }
+      178 |
+      179 | const outputSheet = (page: Page) => page.getByRole("dialog").last();
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:176:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:248:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-64889-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-64889-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-64889-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[11/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputontheroot-1794936731409-77430@example.test
+
+[1A[2K  11) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'New output' })
+        - locator resolved to <button disabled type="button" class="spine-ghost-btn" aria-label="New output" title="Save or discard your draft first">+ Output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      260 |     run: async (page) => {
+      261 |       await closeStepSheet(page);
+    > 262 |       await page.getByRole("button", { name: "New output" }).click();
+          |                                                              ^
+      263 |       await createTable(page, NEW);
+      264 |     },
+      265 |     verifyBody: (body) => {
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:262:62)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-4fe68-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-4fe68-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-4fe68-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[12/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonadraftnewstep-1794936751666-5598@example.test
+
+[1A[2K  12) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      174 |     .getByRole("button", { name: /^Step actions for / })
+      175 |     .click();
+    > 176 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      177 | }
+      178 |
+      179 | const outputSheet = (page: Page) => page.getByRole("dialog").last();
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:176:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:282:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-4fc26-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-4fc26-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-4fc26-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[13/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-editanOutput-1794936773648-72088@example.test
+
+[1A[2K  13) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Open hel1733 saved chart output' })
+        - locator resolved to <button disabled type="button" class="spine-card__open" title="Save or discard your draft first" aria-label="Open hel1733 saved chart output">…</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      294 |     run: async (page) => {
+      295 |       await closeStepSheet(page);
+    > 296 |       await page.getByRole("button", { name: `Open ${SAVED_OUTPUT} output` }).click();
+          |                                                                               ^
+      297 |       const s = outputSheet(page);
+      298 |       await sheetReady(page);
+      299 |       await s.getByLabel("Name").fill("hel1733 renamed");
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:296:79)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-19582-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-19582-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-19582-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[14/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-deleteanOutputboundtoapanel-1794936793732-37073@example.test
+
+[1A[2K  14) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: 'Open hel1733 saved chart output' })
+        - locator resolved to <button disabled type="button" class="spine-card__open" title="Save or discard your draft first" aria-label="Open hel1733 saved chart output">…</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        29 × waiting for element to be visible, enabled and stable
+           - element is not enabled
+         - retrying click action
+           - waiting 500ms
+
+
+      312 |     run: async (page) => {
+      313 |       await closeStepSheet(page);
+    > 314 |       await page.getByRole("button", { name: `Open ${SAVED_OUTPUT} output` }).click();
+          |                                                                               ^
+      315 |       const s = outputSheet(page);
+      316 |       await sheetReady(page);
+      317 |       await s.getByRole("button", { name: "Delete", exact: true }).click();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:314:79)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-bdaf0-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-bdaf0-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-bdaf0-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[15/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-deleteanOutputcreatedinthedraft-1794936813878-42050@example.test
+
+[1A[2K  15) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      174 |     .getByRole("button", { name: /^Step actions for / })
+      175 |     .click();
+    > 176 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      177 | }
+      178 |
+      179 | const outputSheet = (page: Page) => page.getByRole("dialog").last();
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:176:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:329:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-c7883-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-c7883-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-c7883-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[16/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-shape-1794936834270-43717@example.test
+
+[1A[2K  16) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add Outputs from a shape' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add Outputs from a shape</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      349 |       } else {
+      350 |         await page.getByRole("button", { name: /^Pipeline actions|^More/ }).click();
+    > 351 |         await page.getByRole("menuitem", { name: "Add Outputs from a shape" }).click();
+          |                                                                                ^
+      352 |       }
+      353 |       const modal = page.getByRole("dialog", { name: "Add Outputs from a shape" });
+      354 |       await modal.getByRole("button", { name: /Passthrough/ }).click();
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:351:80)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-1ff68-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-1ff68-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-1ff68-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[17/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-aggregatetail-1794936854412-29717@example.test
+
+[1A[2K  17) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      174 |     .getByRole("button", { name: /^Step actions for / })
+      175 |     .click();
+    > 176 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      177 | }
+      178 |
+      179 | const outputSheet = (page: Page) => page.getByRole("dialog").last();
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:176:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:369:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-25b0f-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-25b0f-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-25b0f-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[18/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-desktop-createOutputonasavedstep-1794936874923-61152@example.test
+
+[1A[2K  18) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+       at support/pipelineSpine.ts:45
+
+      43 | ): Promise<void> {
+      44 |   const item = await rowMenuItem(page, index, name);
+    > 45 |   await item.click();
+         |              ^
+      46 | }
+      47 |
+      48 | /** The focused editor's quiet text action (Disable/Enable, Duplicate, Remove) for the selected step. */
+        at clickRowMenuItem (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/support/pipelineSpine.ts:45:14)
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:167:5)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:248:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-f11b4-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-f11b4-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-f11b4-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[1A[2K[19/19] [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically
+[1A[2K[dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically
+[HEL-1300 e2e] throwaway user: hel1733-phone-createOutputonasavedstep-1794936894551-96635@example.test
+
+[1A[2K  19) [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically 
+
+    TimeoutError: locator.click: Timeout 15000ms exceeded.
+    Call log:
+      - waiting for getByRole('menuitem', { name: 'Add output' })
+        - locator resolved to <button disabled type="button" tabindex="-1" role="menuitem" class="actions-menu__item" title="Save or discard your draft first">Add output</button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not stable
+        - retrying click action
+        - waiting 20ms
+        - waiting for element to be visible, enabled and stable
+        - element is not stable
+      2 × retrying click action
+          - waiting 100ms
+          - waiting for element to be visible, enabled and stable
+          - element is not enabled
+      28 × retrying click action
+           - waiting 500ms
+           - waiting for element to be visible, enabled and stable
+           - element is not enabled
+      - retrying click action
+        - waiting 500ms
+
+
+      174 |     .getByRole("button", { name: /^Step actions for / })
+      175 |     .click();
+    > 176 |   await page.getByRole("menuitem", { name: item }).click();
+          |                                                    ^
+      177 | }
+      178 |
+      179 | const outputSheet = (page: Page) => page.getByRole("dialog").last();
+        at stepMenu (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:176:52)
+        at Object.run (/home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:248:7)
+        at /home/matt/Development/helio/.claude/worktrees/feature/draft-outputs-and-shapes/HEL-1733/e2e/hel1733-draft-outputs-shapes.spec.ts:413:9
+
+    Error Context: test-results/hel1733-draft-outputs-shap-d8335-raft-entry-saved-atomically-dev/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1733-draft-outputs-shap-d8335-raft-entry-saved-atomically-dev/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/hel1733-draft-outputs-shap-d8335-raft-entry-saved-atomically-dev/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[HEL-1301 e2e] deleted 19 recorded throwaway user(s)
+[1A[2K  19 failed
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a saved step: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on the root: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › create Output on a draft-new step: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › edit an Output: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output bound to a panel: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › delete an Output created in the draft: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › shape: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › aggregate tail: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:443:11 › HEL-1733 draft Outputs and shapes: desktop, light (live) › Discard drops a created Output with no request 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a saved step: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on the root: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › create Output on a draft-new step: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › edit an Output: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output bound to a panel: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › delete an Output created in the draft: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › shape: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, dark (live) › aggregate tail: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: desktop, dark (live) › create Output on a saved step: a draft entry, saved atomically 
+    [dev] › e2e/hel1733-draft-outputs-shapes.spec.ts:403:11 › HEL-1733 draft Outputs and shapes: phone, light (live) › create Output on a saved step: a draft entry, saved atomically 
