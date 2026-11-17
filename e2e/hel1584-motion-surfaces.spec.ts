@@ -13,6 +13,7 @@ import {
   type Theme,
 } from "./support/motionRecorder";
 import { post, seedWorld, setMotion, setTheme } from "./support/motionPrimitivesSeed";
+import { waitForPanelGrid, waitForPanelStack } from "./support/panelGridReady";
 
 // HEL-1584 -- the motion pass on the product surfaces, in a REAL browser (jsdom reads every token as 0): the panel grid
 // (cold-load entrance, drag lift and settle), the panel detail modal (backdrop, grow-from-card) and the command palette
@@ -58,7 +59,11 @@ async function start(
 
 async function openDashboard(page: Page, id: string, cards = 3) {
   await page.goto(`/dashboards/${id}`);
-  await expect(page.locator(".panel-grid-card")).toHaveCount(cards);
+  // HEL-1723: wait out the skeleton's stub cards (they are `.panel-grid-card`s too); the stack below 768px.
+  // This branches on the viewport width; the product branches on the container width (PanelGrid.tsx:73). They agree at
+  // the 1440 / 375 px widths this spec uses.
+  const phone = (page.viewportSize()?.width ?? 1280) < 768;
+  await (phone ? waitForPanelStack : waitForPanelGrid)(page, cards);
 }
 
 /** Sampled animation/transition properties of the open dialog and its backdrop, straight from the cascade. */
@@ -98,7 +103,7 @@ async function driveSurfaces(page: Page, mode: Mode, theme: Theme, world: { dash
   await page.goto(`/dashboards/${world.dashboardId}`);
   await page.waitForTimeout(250);
   await shot("1-grid-entrance-midflight");
-  await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+  await waitForPanelGrid(page, 3);
   await expect(page.locator(".chart-panel__canvas canvas").first()).toBeVisible();
   await page.waitForTimeout(1500);
   await collect("load");
@@ -368,7 +373,7 @@ test.describe("HEL-1584 when the grid enters", () => {
     await page.waitForTimeout(900);
     await clearLog(page);
     await page.getByRole("tab", { name: "M-warm Primary" }).click();
-    await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+    await waitForPanelGrid(page, 3);
     await page.waitForTimeout(1200);
     expect(cardEnters(await log(page)), "warm switch plays no entrance").toEqual([]);
     expect(
@@ -382,7 +387,7 @@ test.describe("HEL-1584 when the grid enters", () => {
     await page.waitForTimeout(500);
     await clearLog(page);
     await page.getByRole("link", { name: "Dashboards" }).first().click();
-    await expect(page.locator(".panel-grid-card")).toHaveCount(3);
+    await waitForPanelGrid(page, 3);
     await page.waitForTimeout(1200);
     expect(cardEnters(await log(page)), "Home round trip plays no entrance").toEqual([]);
 
@@ -427,7 +432,7 @@ test.describe("HEL-1584 when the grid enters", () => {
     await page.waitForTimeout(500);
     await clearLog(page);
     await page.getByRole("link", { name: "Dashboards" }).first().click();
-    await expect(page.locator(".panel-grid-card")).toHaveCount(4);
+    await waitForPanelGrid(page, 4);
     await page.waitForTimeout(1200);
     expect(cardEnters(await log(page)), "add-panel then Home round trip plays no entrance").toEqual(
       [],
