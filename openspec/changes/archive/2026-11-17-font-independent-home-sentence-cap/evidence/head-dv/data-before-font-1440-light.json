@@ -1,0 +1,14 @@
+{
+  "width": 1440,
+  "theme": "light",
+  "facesBefore": [
+    {
+      "familyName": "DejaVu Sans",
+      "isCustomFont": false
+    }
+  ],
+  "linesBefore": 1,
+  "linesAfter": 1,
+  "runsTopSpread": 0,
+  "sentenceHeightSpread": 0
+}

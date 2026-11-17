@@ -181,3 +181,55 @@ export function spread(values: (number | null)[]): number {
   const present = values.filter((v): v is number => v !== null);
   return present.length === 0 ? 0 : Math.max(...present) - Math.min(...present);
 }
+
+export interface FontGate {
+  /** Releases every held web-font request (and lets later ones through). */
+  release: () => Promise<void>;
+  /** How many web-font requests were held so far (non-vacuity: a green swap case must have held at least one). */
+  held: () => number;
+}
+
+/** HEL-1737: holds the Google Fonts CSS and font-file requests so the page renders in its fallback faces until
+ *  `release()`; the data requests are independent. Call BEFORE `page.goto`. */
+export async function holdFonts(page: Page): Promise<FontGate> {
+  const pending: { continue: () => Promise<void> }[] = [];
+  let open = false;
+  let count = 0;
+  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, async (route) => {
+    count += 1;
+    if (open) return route.continue();
+    pending.push({ continue: () => route.continue() });
+  });
+  return {
+    held: () => count,
+    release: async () => {
+      open = true;
+      for (const held of pending.splice(0)) await held.continue().catch(() => undefined);
+    },
+  };
+}
+
+export interface RenderedFace {
+  familyName: string;
+  isCustomFont: boolean;
+}
+
+/** The faces Chromium actually rasterised an element's text with (CDP `CSS.getPlatformFontsForNode`), so "the
+ *  fallback rendered" and "the web font rendered" are proven rather than assumed. */
+export async function renderedFaces(page: Page, selector: string): Promise<RenderedFace[]> {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send("DOM.enable");
+    await cdp.send("CSS.enable");
+    const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
+    const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector });
+    const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+    // Newer Chromium appends the font backend ("Schibsted Grotesk (Fontations)"); keep only the family.
+    return fonts.map((f) => ({
+      familyName: f.familyName.replace(/ \([^)]*\)$/, ""),
+      isCustomFont: f.isCustomFont,
+    }));
+  } finally {
+    await cdp.detach();
+  }
+}

@@ -23,10 +23,15 @@
   color: var(--app-text-muted);
 }
 
-/* The real sentence's measure. The hidden placeholder (`.home-opening__ghost`) is a separate class so nothing that
- * selects the sentence (tests, `querySelector`) can land on the placeholder (HEL-1665). */
+/* The real sentence's measure, in `em` (`--home-sentence-measure`, theme.css, per type style): the web font's own 40ch
+ * width at this size (Sans 25em = 600px at 24px, Serif 640px, Mono 560px). `ch` is the advance of the RENDERED face's
+ * `0`, so a `40ch` cap was about 560px in the metric-matched fallback faces and 600px in the web font: the sentence
+ * wrapped to two lines before the web font arrived and reflowed to one when it did (about 30px, HEL-1737). `em`
+ * follows the sentence's own font size and the user's default font size but not which face renders, and it equals the
+ * web font's 40ch, so a settled Home is as before. Shared by the placeholder (`.home-opening__ghost`, a separate class
+ * so nothing that selects the sentence, tests or `querySelector`, can land on it: HEL-1665). */
 .home-opening__sentence {
-  max-width: 40ch;
+  max-width: var(--home-sentence-measure);
 }
 
 .home-opening__sentence,
@@ -48,12 +53,23 @@
 
 .home-opening__ghost {
   visibility: hidden;
-  /* Only the placeholder takes an em cap: `ch` follows the rendered font, so in the fallback font 40ch is narrower
-   * than the default sentence and the hidden ghost would wrap a line early before the web font arrives (a cold-load
-   * swap). 25em (600px at 24px) holds the fallback-font default sentence, and once the web font loads the default
-   * sentence is narrower than both caps, so the ghost and the real sentence break identically. The real sentence
-   * keeps 40ch, so a settled sentence is exactly as on base (HEL-1665). */
-  max-width: 25em;
+  /* The same measure as the real sentence in every type style (HEL-1737), so the placeholder and the sentence break
+   * identically in the fallback face and in the web font. */
+  max-width: var(--home-sentence-measure);
+}
+
+/* From the web font's wrap point upward the default sentence is one line in the web font (580.05px against a 581px
+ * content box at a 605px viewport), but the fallback faces render it a whole-pixel wider (589px Liberation, 581px
+ * DejaVu: Chromium rounds a size-adjusted size to whole pixels, so no size-adjust can give 580px), which wrapped this
+ * hidden placeholder to two lines in 605-613px and moved the timeline 30px when the font arrived (HEL-1737). Holding
+ * the hidden placeholder to one line is what the web font does at every width from here up. `em` in a media query is
+ * the browser's default font size, so the start (605px at 16px) scales with it. Sans only, through the
+ * `--home-ghost-white-space` token (theme.css: `normal` under Serif and Mono, which keep their own wraps). The real sentence is untouched. */
+@media (min-width: 37.8125em) {
+  .home-opening__ghost {
+    white-space: var(--home-ghost-white-space);
+    overflow: hidden;
+  }
 }
 
 .home-opening__loading .home-opening__skeleton-line {
