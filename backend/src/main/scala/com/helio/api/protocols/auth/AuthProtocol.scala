@@ -13,7 +13,8 @@ final case class DashboardTabPref(id: String, lastViewedAt: Option[String], ownW
 final case class DashboardTabsPref(tabs: Vector[DashboardTabPref], activeId: Option[String])
 /** HEL-1574: `contextListWidth`/`contextListCollapsed` are the shell layout; absent means never set. HEL-1572:
  *  `typeStyle`/`density`/`motion` are the appearance keys, likewise absent until set (no `motion` = follow the OS).
- *  HEL-1575: `dashboardTabs` is the saved tab set, absent until the user first opens a tab. */
+ *  HEL-1575: `dashboardTabs` is the saved tab set, absent until the user first opens a tab. HEL-1755: `assistantModel` is
+ *  the default assistant model id, absent until set. */
 final case class UserPreferences(
     accentColor: Option[String],
     zoomLevels: Map[String, Double],
@@ -22,7 +23,8 @@ final case class UserPreferences(
     typeStyle: Option[String] = None,
     density: Option[String] = None,
     motion: Option[String] = None,
-    dashboardTabs: Option[DashboardTabsPref] = None
+    dashboardTabs: Option[DashboardTabsPref] = None,
+    assistantModel: Option[String] = None
 )
 final case class UserResponse(
     id: String,
@@ -65,7 +67,7 @@ trait AuthProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val loginRequestFormat: RootJsonFormat[LoginRequest]       = jsonFormat2(LoginRequest.apply)
   implicit val dashboardTabPrefFormat: RootJsonFormat[DashboardTabPref]   = jsonFormat3(DashboardTabPref.apply)
   implicit val dashboardTabsPrefFormat: RootJsonFormat[DashboardTabsPref] = jsonFormat2(DashboardTabsPref.apply)
-  implicit val userPreferencesFormat: RootJsonFormat[UserPreferences]     = jsonFormat8(UserPreferences.apply)
+  implicit val userPreferencesFormat: RootJsonFormat[UserPreferences]     = jsonFormat9(UserPreferences.apply)
   implicit val userResponseFormat: RootJsonFormat[UserResponse]       = jsonFormat7(UserResponse.apply)
   implicit val authResponseFormat: RootJsonFormat[AuthResponse]       = jsonFormat2(AuthResponse.apply)
 

@@ -6,7 +6,8 @@ Top-level workspace assistant chat surface: conversation state
 assistant replies (`proposalExtraction.ts`), and the chat UI (`ui/`:
 `ChatPage`, `MessageComposer`, `MessageTurn`, `StreamingText`,
 `ToolCallIndicator`, `QuickLauncherOverlay`, `ProposalHandoff`,
-`ActiveConversationPanel`).
+`ActiveConversationPanel`, and `ModelPicker`, the composer's model picker over
+`state/assistantModelsSlice.ts` and `modelOptions.ts`; HEL-1755).
 
 **Belongs here:** the assistant conversation surface and its wire types
 (`types.ts`).

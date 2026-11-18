@@ -268,7 +268,12 @@ describe("ActiveConversationPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     // HEL-698 — MessageComposer now always sends a client-generated idempotency key.
-    expect(converseMock).toHaveBeenCalledWith("conv-1", "What's our revenue?", expect.any(String));
+    expect(converseMock).toHaveBeenCalledWith(
+      "conv-1",
+      "What's our revenue?",
+      expect.any(String),
+      undefined,
+    );
     await waitFor(() => expect(screen.getByText("What's our revenue?")).toBeInTheDocument());
     expect(screen.getByText("Revenue is $42,000.")).toBeInTheDocument();
     // The composer clears its input on a successful send (a separate local-state render pass from
@@ -408,6 +413,50 @@ describe("ActiveConversationPanel", () => {
     expect(screen.queryByText("Asking a follow-up")).not.toBeInTheDocument();
   });
 
+  // HEL-1755: one muted model label per ANSWER GROUP, under its last visible text bubble.
+  it("labels each answer group once with the model that answered it", async () => {
+    const transcript: AssistantConversationDetail["transcript"] = [
+      { role: "user", content: [{ blockType: "text", text: "first question" }] },
+      {
+        role: "assistant",
+        content: [{ blockType: "tool_use", id: "t1", name: "find", input: {} }],
+        model: "claude-haiku-5-5",
+      },
+      {
+        role: "user",
+        content: [{ blockType: "tool_result", toolUseId: "t1", content: "[]", isError: false }],
+      },
+      {
+        role: "assistant",
+        content: [{ blockType: "text", text: "first answer" }],
+        model: "claude-haiku-5-5",
+      },
+      { role: "user", content: [{ blockType: "text", text: "second question" }] },
+      {
+        role: "assistant",
+        content: [{ blockType: "text", text: "second answer" }],
+        model: "claude-opus-4-8",
+      },
+    ];
+    getConversationMock.mockResolvedValueOnce({ ...detailOf(summaryOne, 0), transcript });
+    renderWithStore(<ActiveConversationPanel />, {
+      assistantConversations: { items: [summaryOne], selectedConversationId: "conv-1" },
+      assistantModels: {
+        status: "succeeded",
+        data: {
+          models: [{ id: "claude-haiku-5-5", label: "Haiku 5.5", betaWeight: 1 }],
+          serverDefault: { id: "claude-opus-4-8" },
+          defaultModel: { id: "claude-opus-4-8" },
+        },
+      },
+    });
+
+    await screen.findByText("second answer");
+    const labels = screen.getAllByTestId("message-turn-model").map((n) => n.textContent);
+    // Catalog label for Haiku; the raw id for a model the catalog does not know.
+    expect(labels).toEqual(["Haiku 5.5", "claude-opus-4-8"]);
+  });
+
   // HEL-665 (reopened composer ticket) tasks.md 6.8 — sending with NO conversation selected
   // creates one, explicitly selects it (design-gate round-1 fix), and converses against it in one
   // action -- the new conversation becomes the active selection, showing the sent message and its
@@ -449,7 +498,12 @@ describe("ActiveConversationPanel", () => {
     );
     // HEL-698 — MessageComposer now always sends a client-generated idempotency key.
     await waitFor(() =>
-      expect(converseMock).toHaveBeenCalledWith("new-conv", "Hello there", expect.any(String)),
+      expect(converseMock).toHaveBeenCalledWith(
+        "new-conv",
+        "Hello there",
+        expect.any(String),
+        undefined,
+      ),
     );
     await waitFor(() => expect(screen.getByText("Hello there")).toBeInTheDocument());
     expect(screen.getByText("Hi! How can I help?")).toBeInTheDocument();

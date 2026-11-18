@@ -10,8 +10,8 @@ import {
 import type { AssistantConversationDetail, AssistantConversationSummary } from "../types";
 
 function toSummary(detail: AssistantConversationDetail): AssistantConversationSummary {
-  const { id, title, pinned, updatedAt } = detail;
-  return { id, title, pinned, updatedAt };
+  const { id, title, pinned, updatedAt, model, effectiveModel } = detail;
+  return { id, title, pinned, updatedAt, model, effectiveModel };
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {
@@ -95,6 +95,12 @@ interface AssistantConversationsState {
     hopBudgetExhausted: boolean;
     searchedWithNoResults: boolean;
   } | null;
+  /** HEL-1755 D10 — the model picked in the composer BEFORE any conversation exists. Held here (not component
+   *  state) so `startConversationWithMessage` can send it as `model` on the first converse; cleared once that
+   *  send lands (the conversation then stores it) and on a fresh "New chat". */
+  pendingModel: string | null;
+  /** HEL-1755 — the last model-change PATCH failure, shown by the picker; cleared on the next change. */
+  modelError: string | null;
 }
 
 const initialState: AssistantConversationsState = {
@@ -109,6 +115,8 @@ const initialState: AssistantConversationsState = {
     error: null,
   },
   lastTurnOutcome: null,
+  pendingModel: null,
+  modelError: null,
 };
 
 export const fetchConversations = createAsyncThunk<
@@ -155,13 +163,13 @@ export const selectConversation = createAsyncThunk<
  * with a retry now idempotency-protected via the key. */
 export const converse = createAsyncThunk<
   AssistantConversationDetail,
-  { id: string; message: string; idempotencyKey?: string },
+  { id: string; message: string; idempotencyKey?: string; model?: string },
   { rejectValue: ConverseErrorPayload }
 >(
   "assistantConversations/converse",
-  async ({ id, message, idempotencyKey }, { rejectWithValue }) => {
+  async ({ id, message, idempotencyKey, model }, { rejectWithValue }) => {
     try {
-      return await converseRequest(id, message, idempotencyKey);
+      return await converseRequest(id, message, idempotencyKey, model);
     } catch (err: unknown) {
       // HEL-703 design.md D9 — the rich `{ code?, message, limit? }` payload (not a plain string)
       // so MessageComposer can distinguish TIER_FORBIDDEN/CHAT_LIMIT_REACHED from a generic/network
@@ -193,6 +201,29 @@ export const togglePinned = createAsyncThunk<
   }
 });
 
+/** HEL-1755 D10 — the composer picker's change on an EXISTING conversation. Optimistic: the reducer applies
+ * `model`/`optimisticEffective` on `pending` and restores `previous` on `rejected`; `fulfilled` takes the server's
+ * `model` + `effectiveModel` (the only authority on the resolved model). `model: null` is the "Server default"
+ * choice (clears the stored model). */
+export interface SetConversationModelArgs {
+  id: string;
+  model: string | null;
+  optimisticEffective: string;
+  previous: { model: string | null; effectiveModel: string };
+}
+
+export const setConversationModel = createAsyncThunk<
+  AssistantConversationSummary,
+  SetConversationModelArgs,
+  { rejectValue: string }
+>("assistantConversations/setConversationModel", async ({ id, model }, { rejectWithValue }) => {
+  try {
+    return await updateConversationRequest(id, { model });
+  } catch (err: unknown) {
+    return rejectWithValue(extractErrorMessage(err, "Failed to change the model."));
+  }
+});
+
 /** HEL-693 design.md D6 — mirrors `togglePinned`'s shape, but rejects with the server's message
  * (via `extractErrorMessage`) rather than a constant: a rename failure is surfaced inline next to
  * the row being edited (`SidebarItemList`'s `onRename` error state), so the caller benefits from
@@ -219,6 +250,12 @@ const assistantConversationsSlice = createSlice({
     },
     startNewConversation(state) {
       state.startingNewConversation = true;
+      state.pendingModel = null;
+      state.modelError = null;
+    },
+    /** HEL-1755: the composer's pick while no conversation exists; `null` forgets it. */
+    setPendingModel(state, action: { payload: string | null }) {
+      state.pendingModel = action.payload;
     },
     /** `MessageComposer`'s null-`conversationId` send path calls `createConversation` directly
      *  (outside any thunk lifecycle here), so the sidebar's `items` list -- populated once by
@@ -254,6 +291,8 @@ const assistantConversationsSlice = createSlice({
         // all, for a GET) is about to replace whatever's here; never let a prior selection's badge
         // survive into this one.
         state.lastTurnOutcome = null;
+        // A model-change failure belongs to the conversation it happened in.
+        state.modelError = null;
       })
       .addCase(selectConversation.fulfilled, (state, action) => {
         state.activeConversation.data = action.payload;
@@ -283,7 +322,34 @@ const assistantConversationsSlice = createSlice({
         // outcome badge describing the PREVIOUS turn is stale the instant a new one is in flight.
         state.lastTurnOutcome = null;
       })
+      .addCase(setConversationModel.pending, (state, action) => {
+        state.modelError = null;
+        const { id, model, optimisticEffective } = action.meta.arg;
+        if (state.activeConversation.data?.id === id) {
+          state.activeConversation.data.model = model;
+          state.activeConversation.data.effectiveModel = optimisticEffective;
+        }
+      })
+      .addCase(setConversationModel.fulfilled, (state, action) => {
+        const { id, model, effectiveModel } = action.payload;
+        if (state.activeConversation.data?.id === id) {
+          state.activeConversation.data.model = model;
+          state.activeConversation.data.effectiveModel = effectiveModel;
+        }
+        const idx = state.items.findIndex((c) => c.id === id);
+        if (idx !== -1) state.items[idx] = action.payload;
+      })
+      .addCase(setConversationModel.rejected, (state, action) => {
+        const { id, previous } = action.meta.arg;
+        if (state.activeConversation.data?.id === id) {
+          state.activeConversation.data.model = previous.model;
+          state.activeConversation.data.effectiveModel = previous.effectiveModel;
+        }
+        state.modelError = action.payload ?? "Failed to change the model.";
+      })
       .addCase(converse.fulfilled, (state, action) => {
+        // The conversation now stores whatever the first send picked.
+        state.pendingModel = null;
         state.activeConversation.data = action.payload;
         state.activeConversation.status = "succeeded";
         state.activeConversation.error = null;
@@ -295,6 +361,10 @@ const assistantConversationsSlice = createSlice({
   },
 });
 
-export const { setSelectedConversationId, startNewConversation, conversationCreated } =
-  assistantConversationsSlice.actions;
+export const {
+  setSelectedConversationId,
+  startNewConversation,
+  conversationCreated,
+  setPendingModel,
+} = assistantConversationsSlice.actions;
 export const assistantConversationsReducer = assistantConversationsSlice.reducer;

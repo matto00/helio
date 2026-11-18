@@ -12,7 +12,8 @@ import com.helio.infrastructure.ai._
 import com.helio.api.http.TraceContextDirective
 import com.helio.api.JsonProtocols
 import com.helio.domain.model._
-import com.helio.services.assistant.AssistantConversationService
+import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy}
+import com.helio.infrastructure.ai.{ClaudeConfig, ClaudeModelCatalog}
 import com.helio.services.assistant.AssistantService
 import com.helio.services.auth.ChatAccessService
 import com.helio.services.auth.UserTierConfig
@@ -159,7 +160,10 @@ class AssistantTelemetrySpec
 
   private def tracedRoutesFor(user: AuthenticatedUser, assistantOpt: Option[AssistantService]): Route =
     traceDirective.withTraceContext {
-      new AssistantConversationRoutes(conversationService, assistantOpt, chatAccessService, user).routes
+      new AssistantConversationRoutes(
+        conversationService, assistantOpt, chatAccessService, user,
+        new AssistantModelPolicy(ClaudeModelCatalog.all, assistantOpt.map(_.modelId).getOrElse(ClaudeConfig.DefaultModel)), _ => Future.successful(None)
+      ).routes
     }
 
   private def tracedPost(path: String, body: String) =

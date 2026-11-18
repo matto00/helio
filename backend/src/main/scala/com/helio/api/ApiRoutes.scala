@@ -8,7 +8,7 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, ClaudeTransport, HttpClaudeTransport}
+import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, ClaudeModelCatalog, ClaudeTransport, HttpClaudeTransport}
 import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
 import com.helio.api.routes.HealthRoutes
@@ -34,7 +34,7 @@ import com.helio.infrastructure.email.{EmailConfig, EmailSender, HttpResendEmail
 import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserResponseAssembler, UserTierConfig}
-import com.helio.services.assistant.{AssistantConversationService, AssistantService}
+import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService}
 import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
 import com.helio.services.firstrun.FirstRunDashboardService
 import com.helio.services.home.HomeSummaryService
@@ -801,6 +801,13 @@ final class ApiRoutes(
         Some(new AssistantService(claudeClient, workspaceSearchService, panelCapabilityService, proposalService, pipelineProposalService, combinedProposalService, patchSetPreviewService, sourceService))
     }
 
+  // HEL-1755: the allow-list/weights (shared catalog) and the server default (`CLAUDE_MODEL`), read once at wiring.
+  private val assistantModelPolicy: AssistantModelPolicy =
+    new AssistantModelPolicy(
+      ClaudeModelCatalog.fromEnv(),
+      claudeConfigProvider().toOption.map(_.model).getOrElse(ClaudeConfig.DefaultModel)
+    )
+
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
   // HEL-702: constructed once (like auth/oauth above), not per-request — its
@@ -936,7 +943,7 @@ final class ApiRoutes(
                           val updateFuture = Future.sequence(futures.toSeq)
                           onComplete(updateFuture.flatMap(_ => userPreferenceRepo.getPreferences(userId))) {
                             case Success(prefs) =>
-                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed, prefs.typeStyle, prefs.density, prefs.motion, prefs.dashboardTabs))
+                              complete(StatusCodes.OK, UserPreferences(prefs.accentColor, prefs.zoomLevels, prefs.contextListWidth, prefs.contextListCollapsed, prefs.typeStyle, prefs.density, prefs.motion, prefs.dashboardTabs, prefs.assistantModel))
                             case Failure(ex) =>
                               // HEL-311: log the full exception server-side; never echo
                               // raw exception text in the client-facing body.
@@ -947,7 +954,7 @@ final class ApiRoutes(
                       }
                     }
                   },
-                  new UserPreferencesRoutes(userPreferenceRepo, authenticatedUser).routes,
+                  new UserPreferencesRoutes(userPreferenceRepo, authenticatedUser, assistantModelPolicy.catalog).routes,
                   new DashboardProposalRoutes(proposalService, authenticatedUser).routes,
                   new DashboardContentsRoutes(dashboardContentsService, authenticatedUser).routes,
                   new AutoLayoutRoutes(autoLayoutService, authenticatedUser).routes,
@@ -1045,7 +1052,14 @@ final class ApiRoutes(
                   // design.md D3/D4: assistantServiceOpt is passed in as an independently
                   // nullable dependency — only the POST /:id/converse route checks it and
                   // degrades to its own 503 when it's None.
-                  new AssistantConversationRoutes(assistantConversationService, assistantServiceOpt, chatAccessService, authenticatedUser).routes,
+                  new AssistantConversationRoutes(
+                    assistantConversationService, assistantServiceOpt, chatAccessService, authenticatedUser,
+                    assistantModelPolicy, userId => userPreferenceRepo.getPreferences(userId).map(_.assistantModel)
+                  ).routes,
+                  new AssistantModelRoutes(
+                    assistantModelPolicy, chatAccessService, authenticatedUser,
+                    userId => userPreferenceRepo.getPreferences(userId).map(_.assistantModel)
+                  ).routes,
                   // HEL-371: WorkspaceRoutes takes the teardown service as an Option (its own
                   // optionality is unchanged by this ticket) and gates only its `.../teardown`
                   // sub-route on it (design.md D2).

@@ -21,6 +21,8 @@ export interface UserPreferences {
   /** HEL-1575: the saved open-tab set. Absent until the user first opens a tab; the server omits unset
    *  `lastViewedAt`/`ownWriteAt`/`activeId`, so every one of those may be missing (normalise on read). */
   dashboardTabs?: DashboardTabsWire;
+  /** HEL-1755: the default assistant model id for new conversations. Absent = the server default. */
+  assistantModel?: string;
 }
 
 /** Body of `PATCH /api/users/me/preferences`: any non-empty subset. */
@@ -36,8 +38,15 @@ export interface AppearancePreferencesPatch {
   motion?: Motion | null;
 }
 
+/** HEL-1755: `assistantModel` of the same endpoint; `null` removes the saved default (the server default applies). */
+export interface AssistantPreferencesPatch {
+  assistantModel?: string | null;
+}
+
 /** The whole `PATCH /api/users/me/preferences` body. */
-export type PreferencesPatch = ShellPreferencesPatch & AppearancePreferencesPatch;
+export type PreferencesPatch = ShellPreferencesPatch &
+  AppearancePreferencesPatch &
+  AssistantPreferencesPatch;
 
 // HEL-703: gates chat/assistant access — `free` (default) is denied every assistant endpoint,
 // `beta` is capped per UTC day, `owner` is unlimited. Rides every existing user payload

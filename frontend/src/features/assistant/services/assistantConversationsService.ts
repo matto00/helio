@@ -2,6 +2,7 @@ import { httpClient } from "../../../services/httpClient";
 import type {
   AssistantConversationDetail,
   AssistantConversationSummary,
+  AssistantModelsResponse,
   ClaudeToolMessageDto,
 } from "../types";
 
@@ -21,6 +22,15 @@ export interface CreateConversationRequest {
 export interface UpdateConversationRequest {
   pinned?: boolean;
   title?: string;
+  /** HEL-1755: a selectable id sets the model, `null` clears it (back to the effective default). */
+  model?: string | null;
+}
+
+/** `GET /api/assistant-models` (HEL-1755): the selectable models, the server default and the caller's resolved
+ * default for a new conversation. */
+export async function fetchAssistantModels(): Promise<AssistantModelsResponse> {
+  const response = await httpClient.get<AssistantModelsResponse>("/api/assistant-models");
+  return response.data;
 }
 
 export async function listConversations(): Promise<AssistantConversationSummary[]> {
@@ -69,15 +79,19 @@ export async function updateConversation(
  *
  * `idempotencyKey` (HEL-698 design.md D5/D6) — optional client-generated retry key. Omitted from
  * the request body entirely when `undefined` (mirrors every other optional field in this file),
- * matching the backend's `Option[String]` -> spray-json-omits-`None` wire contract. */
+ * matching the backend's `Option[String]` -> spray-json-omits-`None` wire contract.
+ *
+ * `model` (HEL-1755) — the id picked before the conversation existed; omitted when `undefined`, so a send that
+ * picked nothing uses the conversation's `effectiveModel`. */
 export async function converse(
   id: string,
   message: string,
   idempotencyKey?: string,
+  model?: string,
 ): Promise<AssistantConversationDetail> {
   const response = await httpClient.post<AssistantConversationDetail>(
     `${BASE_PATH}/${id}/converse`,
-    { message, idempotencyKey },
+    { message, idempotencyKey, model },
   );
   return response.data;
 }

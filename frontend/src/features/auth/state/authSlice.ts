@@ -248,6 +248,18 @@ const authSlice = createSlice({
       else if (motion !== undefined) next.motion = motion;
       state.currentUser.preferences = next;
     },
+    /** HEL-1755: applies the default assistant model locally (optimistic); `null` removes it, mirroring the server. */
+    applyAssistantModelPreference(state, action: PayloadAction<string | null>) {
+      if (state.currentUser === null) return;
+      const next = {
+        accentColor: null,
+        zoomLevels: {},
+        ...state.currentUser.preferences,
+      };
+      if (action.payload === null) delete next.assistantModel;
+      else next.assistantModel = action.payload;
+      state.currentUser.preferences = next;
+    },
     clearAuth(state) {
       state.currentUser = null;
       state.status = "unauthenticated";
@@ -344,6 +356,11 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAuth, clearAuth, applyShellPreferences, applyAppearancePreferences } =
-  authSlice.actions;
+export const {
+  setAuth,
+  clearAuth,
+  applyShellPreferences,
+  applyAppearancePreferences,
+  applyAssistantModelPreference,
+} = authSlice.actions;
 export const authReducer = authSlice.reducer;

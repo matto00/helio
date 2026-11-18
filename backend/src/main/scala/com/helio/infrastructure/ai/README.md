@@ -13,6 +13,9 @@ those wire types (not a wire type itself) — `ClaudeClient` translates
 between the two model sets. `ClaudeAiStepClient` is the production
 `com.helio.domain.ai.AiStepClient` adapter over `ClaudeClient`, the single
 call point every pipeline AI step's model call passes through.
+`ClaudeModelCatalog` (HEL-1755) is the one shared allow-list of selectable models,
+their beta cost weights and the per-model request rules; every surface that lets a
+caller pick a model validates against it.
 
 Not a domain — this is structural infrastructure: an outbound third-party
 HTTP integration, the same kind of concern as `infrastructure/storage/`.

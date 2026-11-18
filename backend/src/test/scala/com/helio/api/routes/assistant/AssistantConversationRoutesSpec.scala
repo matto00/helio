@@ -15,7 +15,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.storage.LocalFileSystem
 import com.helio.infrastructure.persistence.auth.UserRepository
-import com.helio.services.assistant.{AssistantConversationService, AssistantService, AssistantSystemPrompt}
+import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService, AssistantSystemPrompt}
 import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.services.workspace.{WorkspaceContextService, WorkspaceSearchService}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -239,7 +239,10 @@ class AssistantConversationRoutesSpec
   // default, while still sharing the SAME userRepo/usageRepo instances (and therefore the same
   // underlying tables) every other helper in this file uses.
   private def routesForWithChatAccess(user: AuthenticatedUser, assistantOpt: Option[AssistantService], chatAccess: ChatAccessService): Route =
-    new AssistantConversationRoutes(conversationService, assistantOpt, chatAccess, user).routes
+    new AssistantConversationRoutes(
+      conversationService, assistantOpt, chatAccess, user,
+      new AssistantModelPolicy(ClaudeModelCatalog.all, "claude-test"), _ => Future.successful(None)
+    ).routes
 
   // HEL-703 tasks.md 6.4 — a `ChatAccessService` sharing the SAME userRepo/usageRepo (and
   // therefore the same underlying tables) as `chatAccessService`, but with a caller-chosen daily

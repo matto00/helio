@@ -22,7 +22,7 @@ import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, O
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.LocalFileSystem
-import com.helio.services.assistant.{AssistantConversationService, AssistantService}
+import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService}
 import com.helio.services.auth.{ChatAccessService, UserTierConfig}
 import com.helio.services.dashboards.DashboardService
 import com.helio.services.panels.{PanelCapabilityService, PanelService}
@@ -213,7 +213,8 @@ class ClaudeRoutesChatGateSpec
     concat(
       new DashboardAuthoringRoutes(Some(authoringService(c)), f.user, chatOpt)(routeEc).routes,
       new RefinementRoutes(Some(refinementService(c)), f.user, chatOpt)(routeEc).routes,
-      new AssistantConversationRoutes(conversationService, Some(new AssistantService(c, null, null, null, null, null, null, null)(routeEc)), converseChat, f.user).routes
+      new AssistantConversationRoutes(conversationService, Some(new AssistantService(c, null, null, null, null, null, null, null)(routeEc)), converseChat, f.user,
+        new AssistantModelPolicy(ClaudeModelCatalog.all, "claude-test"), _ => Future.successful(None)).routes
     )
   }
 

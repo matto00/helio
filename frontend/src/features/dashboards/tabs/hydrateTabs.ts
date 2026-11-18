@@ -136,14 +136,17 @@ export const hydrateTabs = createAsyncThunk<
     const user = state.auth.currentUser;
     if (!user) return;
     const saved = normalizeSavedTabs(user.preferences?.dashboardTabs);
-    const plan = planHydration({
+    const dashboardIds = new Set(state.dashboards.items.map((d) => d.id));
+    const currentDeepLink = () =>
+      options?.deepLinkId !== undefined
+        ? options.deepLinkId
+        : deepLinkDashboardId(window.location.pathname);
+    const startDeepLink = currentDeepLink();
+    let plan = planHydration({
       saved,
-      dashboardIds: new Set(state.dashboards.items.map((d) => d.id)),
+      dashboardIds,
       autoSelectedId: state.dashboards.selectedDashboardId,
-      deepLinkId:
-        options?.deepLinkId !== undefined
-          ? options.deepLinkId
-          : deepLinkDashboardId(window.location.pathname),
+      deepLinkId: startDeepLink,
     });
     // Other users' stored copies are deleted at startup (D5).
     void getWarmStore().purgeOtherUsers(user.id);
@@ -175,6 +178,29 @@ export const hydrateTabs = createAsyncThunk<
           }, HYDRATE_RESTORE_TIMEOUT_MS),
         ),
       ]);
+    }
+
+    // The awaits above can take seconds. A navigation made meanwhile (a Home card, the dashboard list, a URL)
+    // changes the location, and the dashboard the user opened wins over the saved active tab: re-plan with
+    // the fresh location and auto-selection. Only a location change counts as a navigation, so a bare
+    // selection write can never hijack hydration. The re-planned target is not restored here; its warm
+    // copy goes through `showDashboardPanels`' own validity check when it is shown.
+    const latestDeepLink = currentDeepLink();
+    if (latestDeepLink !== startDeepLink) {
+      const adoptedStamps = new Map(plan.tabs.map((t) => [t.id, t.lastViewedAt]));
+      const replanned = planHydration({
+        saved,
+        dashboardIds,
+        autoSelectedId: getState().dashboards.selectedDashboardId,
+        deepLinkId: latestDeepLink,
+      });
+      plan = {
+        ...replanned,
+        tabs: replanned.tabs.map((t) => ({
+          ...t,
+          lastViewedAt: adoptedStamps.get(t.id) ?? t.lastViewedAt,
+        })),
+      };
     }
 
     dispatch(setSelectedDashboardId(plan.target));

@@ -6,6 +6,8 @@ import { selectConversation, TierRequestAccessCopy } from "../state/assistantCon
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { EmptyState } from "../../../shared/ui/EmptyState";
 import { Spinner } from "../../../shared/ui/Spinner";
+import { answerGroupModels } from "../answerModels";
+import { modelLabelFor } from "../modelOptions";
 import { extractProposal } from "../proposalExtraction";
 import { MessageComposer } from "./MessageComposer";
 import { MessageTurn } from "./MessageTurn";
@@ -76,6 +78,7 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
     activeConversation,
     lastTurnOutcome,
   } = useAppSelector((state) => state.assistantConversations);
+  const assistantModels = useAppSelector((state) => state.assistantModels.data);
 
   // HEL-703 design.md D9 — proactive half of the tier gate: a `free`-tier user never fetches or
   // renders a conversation at all, short-circuiting to a dedicated, CTA-less request-access state
@@ -167,6 +170,7 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
     const transcript = data.transcript;
     const toolResultsById = buildToolResultsById(transcript);
     const proposalExtraction = extractProposal(transcript);
+    const answerModels = answerGroupModels(transcript, isVisibleTextBlock);
 
     // HEL-667 design.md D5 — `lastTurnOutcome` describes the MOST RECENTLY completed turn (the
     // one this very converse call just produced), never a historical one (cleared on
@@ -222,6 +226,11 @@ export function ActiveConversationPanel({ initialDraft }: { initialDraft?: strin
                     }
                     searchedWithNoResults={
                       isMostRecentTurn && Boolean(lastTurnOutcome?.searchedWithNoResults)
+                    }
+                    modelLabel={
+                      answerModels.has(key)
+                        ? modelLabelFor(assistantModels, answerModels.get(key)!)
+                        : undefined
                     }
                   />
                 );
