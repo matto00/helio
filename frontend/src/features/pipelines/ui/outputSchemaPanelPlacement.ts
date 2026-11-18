@@ -1,6 +1,7 @@
 // outputSchemaPanelPlacement -- HEL-1668 D4: where the output schema panel opens, decided from its REAL rendered size
 // (measured width, content height) and from its CSS-declared limits, never from literal pixel copies of the CSS.
 import type { PortalPopoverPos } from "../../../hooks/usePortalPopover";
+import { readBottomInset } from "../../../shared/ui/panelFit";
 
 /** Gap between the trigger and the panel. */
 const TRIGGER_GAP = 8;
@@ -66,12 +67,11 @@ export function placeSchemaPanel(input: PanelPlacementInput): PortalPopoverPos {
   };
 }
 
-/** Measures the mounted `panel` and places it against `trigger`. The bottom nav caps the room below on a page outside
- *  an open dialog (the step sheet covers the nav). */
+/** Measures the mounted `panel` and places it against `trigger`. The shared bottom inset (the bottom nav, outside an
+ *  open dialog, or the safe area) caps the room below. */
 export function placeMountedPanel(panel: HTMLElement, trigger: DOMRect): PortalPopoverPos {
   const limits = readPanelLimits(panel);
-  const nav = panel.closest("dialog[open]") ? null : document.querySelector(".bottom-nav");
-  const navRect = nav?.getBoundingClientRect();
+  const inset = readBottomInset(panel);
   return placeSchemaPanel({
     trigger,
     viewport: { width: window.innerWidth, height: window.innerHeight },
@@ -79,6 +79,6 @@ export function placeMountedPanel(panel: HTMLElement, trigger: DOMRect): PortalP
     contentHeight: panel.scrollHeight,
     maxHeight: limits.maxHeight,
     edgeMargin: limits.edgeMargin,
-    navTop: navRect && navRect.height > 0 ? navRect.top : null,
+    navTop: inset > 0 ? window.innerHeight - inset : null,
   });
 }

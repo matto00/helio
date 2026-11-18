@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { usePortalPopover, type PortalPopoverPos } from "../../../hooks/usePortalPopover";
-import { fitPanelVertically, VIEWPORT_MARGIN } from "../../../shared/ui/panelFit";
+import { fitPanelVertically, readBottomInset, VIEWPORT_MARGIN } from "../../../shared/ui/panelFit";
 import { useTheme } from "../../../theme/ThemeProvider";
 import {
   dashboardAppearanceEditorFallback,
@@ -48,6 +48,7 @@ function placeAppearanceEditor(panel: HTMLElement, trigger: DOMRect): PortalPopo
   const chrome = panel.offsetHeight - panel.clientHeight;
   const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
   const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
+    bottomInset: readBottomInset(panel),
     gap: TRIGGER_GAP,
     prefer: "below",
   });

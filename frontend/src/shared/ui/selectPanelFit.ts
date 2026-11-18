@@ -20,11 +20,13 @@ export function fitSelectPanel(
   trigger: { top: number; bottom: number },
   naturalHeight: number,
   viewportHeight: number,
+  bottomInset = 0,
 ): SelectPanelFit {
   const { top, maxHeight } = fitPanelVertically(trigger, naturalHeight, viewportHeight, {
     gap: TRIGGER_GAP,
     cap: SELECT_PANEL_MAX_HEIGHT,
     prefer: "below",
+    bottomInset,
   });
   return { top, maxHeight };
 }
