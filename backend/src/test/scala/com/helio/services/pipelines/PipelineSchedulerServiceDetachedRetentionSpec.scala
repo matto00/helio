@@ -1,7 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository, OutputInsightRepository}
 import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
@@ -28,7 +28,7 @@ class PipelineSchedulerServiceDetachedRetentionSpec extends AnyWordSpec with Mat
       val started   = Promise[Unit]()
       val retention = new OutputHistoryRetentionService(
         new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock,
-        new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults
+        new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults, new OutputInsightRepository(historyCtx)
       ) {
         override def purgeIfDue(now: Instant): Future[Option[Int]] = { started.trySuccess(()); neverEnds.future }
       }
@@ -49,7 +49,7 @@ class PipelineSchedulerServiceDetachedRetentionSpec extends AnyWordSpec with Mat
         cleanDb(); seedUser()
         val retention = new OutputHistoryRetentionService(
           new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock,
-          new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults
+          new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults, new OutputInsightRepository(historyCtx)
         ) {
           override def purgeIfDue(now: Instant): Future[Option[Int]] = failure
         }

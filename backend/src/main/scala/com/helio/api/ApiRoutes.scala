@@ -48,6 +48,7 @@ import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
 import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveService}
 import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewGate, DraftPreviewService}
+import com.helio.services.insights.OutputInsightReadService
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -71,7 +72,7 @@ import com.helio.services.telemetry.AdminUsageService
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, ConnectorCredentialRepository, InviteCodeRepository, MfaRepository, OAuthStateRepository, ResourcePermissionRepository, UserPreferenceRepository, UserRepository, UserSessionRepository}
 import com.helio.infrastructure.persistence.assistant.{AssistantConversationRepository, AssistantDailyUsageRepository}
 import com.helio.infrastructure.persistence.proposals.AuthoringConversationRepository
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, NodeSnapshotRepository, OutputHistoryRepository, OutputInsightRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRootRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.dashboards.{DashboardChangesRepository, DashboardFolderRepository, DashboardRepository}
 import com.helio.infrastructure.persistence.sources.{DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
 import com.helio.infrastructure.persistence.DbContext
@@ -528,6 +529,9 @@ final class ApiRoutes(
   // HEL-1273: history + comparison read.
   private val outputHistoryService: OutputHistoryService =
     new OutputHistoryService(outputRepo, resolvedOutputHistoryRepo, resolvedNodePayloadHistoryRepo)
+  // HEL-1742: insight render read. Takes only the two DB-backed repositories: no model client is reachable.
+  private val outputInsightReadService: OutputInsightReadService =
+    new OutputInsightReadService(outputRepo, new OutputInsightRepository(dbContext))
   // HEL-1206: provenance read (authenticated route + public variant below). Absent only when no
   // PipelineRunRepository was passed (the one genuinely optional input).
   private val provenanceServiceOpt: Option[ProvenanceService] =
@@ -879,7 +883,7 @@ final class ApiRoutes(
               pathPrefix("auth") { concat(auth.routes, oauth.routes, mfaRoutesOpt.fold(reject: Route)(_.verifyRoute)) },
               authDirectives.optionalAuthenticate { userOpt =>
                 concat(
-                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepo, Option(pipelineRepo), Some(nodeSnapshotRepo), provenanceServiceOpt, Some(outputHistoryService)).routes,
+                  new PublicDashboardRoutes(panelRepo, aclDirective, userOpt, outputRepo, Option(pipelineRepo), Some(nodeSnapshotRepo), provenanceServiceOpt, Some(outputHistoryService), Some(outputInsightReadService)).routes,
                   imageUploadServiceOpt.fold(reject: Route)(svc => new PublicUploadRoutes(svc).routes),
                   // HEL-955 design.md D5: optional-auth so an unauthenticated human can complete
                   // a pending Connector out-of-band, while an authenticated caller is still
@@ -1011,7 +1015,7 @@ final class ApiRoutes(
                   new PipelineRoutes(pipelineService, authenticatedUser, Some(draftSaveService)).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.
-                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig))).routes,
+                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig)), Some(outputInsightReadService)).routes,
                   provenanceServiceOpt.fold(reject: Route)(svc => new ProvenanceRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md

@@ -18,7 +18,7 @@ import com.helio.infrastructure.persistence.agents.{AgentMemoryRepository, Agent
 import com.helio.infrastructure.persistence.alerts.{AlertEventRepository, AlertRuleRepository}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.auth.{ApiTokenRepository, MfaRepository, ResourcePermissionRepository, SlickUserSessionRepository, UserPreferenceRepository, UserRepository}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputInsightRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.{Database, DbContext}
 import com.helio.infrastructure.persistence.dashboards.DashboardRepository
 import com.helio.infrastructure.persistence.sources.{ConnectorRepository, DataSourceRepository, ImageUploadRepository, StoredObjectDeletionRepository}
@@ -288,7 +288,7 @@ object Main {
         new ProductEventRollupService(new ProductEventRepository(ctx), ProductTelemetryConfig.fromEnv(), SystemClock)
       val outputHistoryRetentionService =
         new OutputHistoryRetentionService(
-          outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock, nodePayloadHistoryRepo, payloadHistoryConfig
+          outputHistoryRepo, OutputHistoryRetentionConfig.fromEnv(), SystemClock, nodePayloadHistoryRepo, payloadHistoryConfig, new OutputInsightRepository(ctx)
         )
       // HEL-1434: drains the stored-object deletion queue (V128) over the SAME FileSystem the uploads are written to.
       val storedObjectDeletionService =

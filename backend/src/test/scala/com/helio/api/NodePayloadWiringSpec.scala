@@ -8,7 +8,7 @@ import com.helio.domain.model.{AuthenticatedUser, UserId}
 import com.helio.domain.util.SystemClock
 import com.helio.infrastructure.crypto.TokenHashing
 import com.helio.infrastructure.persistence.auth.{UserPreferenceRepository, UserRepository, UserSessionRepository}
-import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository, OutputInsightRepository}
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.services.pipelines.{OutputHistoryRetentionConfig, OutputHistoryRetentionService}
 import com.helio.spark.{PipelineRunCache, SparkJobSubmitter}
@@ -150,14 +150,14 @@ class NodePayloadWiringSpec extends AnyWordSpec with Matchers with HelioRouteTes
       payloadCount(fx.pid.value) shouldBe 1
       val svc = new OutputHistoryRetentionService(
         new OutputHistoryRepository(ctx), OutputHistoryRetentionConfig.fromEnv(), SystemClock,
-        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.fromEnv()
+        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.fromEnv(), new OutputInsightRepository(ctx)
       )(harnessEc)
       awaitDb(svc.purgeIfDue(Instant.now())) shouldBe defined
       payloadCount(fx.pid.value) shouldBe 1 // still owner tier: kept
       awaitDb(db.run(sqlu"UPDATE users SET tier = 'free' WHERE id = $owner::uuid"))
       val svc2 = new OutputHistoryRetentionService(
         new OutputHistoryRepository(ctx), OutputHistoryRetentionConfig.fromEnv(), SystemClock,
-        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.fromEnv()
+        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.fromEnv(), new OutputInsightRepository(ctx)
       )(harnessEc)
       awaitDb(svc2.purgeIfDue(Instant.now())) shouldBe defined
       payloadCount(fx.pid.value) shouldBe 0

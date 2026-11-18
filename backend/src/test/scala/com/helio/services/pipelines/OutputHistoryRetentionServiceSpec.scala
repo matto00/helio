@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model.UserTier
 import com.helio.infrastructure.persistence.RetentionLockKey
-import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, HistoryThinningPolicy, NodePayloadHistoryRepository, RetentionPassOutcome, ThinBatchLimits}
+import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, HistoryThinningPolicy, NodePayloadHistoryRepository, RetentionPassOutcome, ThinBatchLimits, OutputInsightRepository}
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputHistoryRepository
@@ -87,7 +87,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       seedPoints(oF, pF); seedPoints(oO, pO)
       historyCount(oF) shouldBe 1923
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, new OutputInsightRepository(new DbContext(db, db)), protectedNewest = 0)
 
       val started = System.nanoTime()
       awaitDb(svc.tickAt(now))
@@ -109,7 +109,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
       val (pid, oid) = seedPipelineWithOutput(seedUser("free"))
       val clock = new FakeClock(now)
-      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      val svc   = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), clock, new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, new OutputInsightRepository(new DbContext(db, db)), protectedNewest = 0)
       awaitDb(svc.purgeIfDue(now)) shouldBe Some(0)
 
       // New thinnable points AFTER the first purge: two in one [now+10m, now+15m) bucket.
@@ -127,7 +127,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
 
     "allow only one of several concurrent due callers to run the purge" in {
       awaitDb(db.run(sqlu"DELETE FROM output_snapshot_history"))
-      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      val svc = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, new OutputInsightRepository(new DbContext(db, db)), protectedNewest = 0)
       val results = awaitDb(Future.sequence((1 to 8).map(_ => Future(svc.purgeIfDue(now)).flatten)))
       results.count(_.isDefined) shouldBe 1
     }
@@ -141,7 +141,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       val config = OutputHistoryRetentionConfig.fromEnv(Map.empty)
       val retry  = config.lockRetry
       retry shouldBe Duration.ofSeconds(120)
-      val svc = new OutputHistoryRetentionService(repo, config, new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      val svc = new OutputHistoryRetentionService(repo, config, new FakeClock(now), new NodePayloadHistoryRepository(new DbContext(db, db)), PayloadHistoryConfig.Defaults, new OutputInsightRepository(new DbContext(db, db)), protectedNewest = 0)
 
       val holder = embeddedPostgres.getPostgresDatabase.getConnection
       try {
@@ -173,7 +173,7 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
   /** Stub repositories that COUNT invocations: "ran" is a count increment, "not run" an unchanged count,
    *  never `purgeIfDue`'s return (None means both "not due" and "ran and failed"). `history` sees the cursor
    *  the service resumed from, recorded in `startAfters`. */
-  private class Stubs(history: Option[String] => HistoryPassOutcome, payload: () => RetentionPassOutcome) {
+  private class Stubs(history: Option[String] => HistoryPassOutcome, payload: () => RetentionPassOutcome, insight: () => Future[Int] = () => Future.successful(0)) {
     val historyCalls = new AtomicInteger(0)
     val payloadCalls = new AtomicInteger(0)
     val startAfters  = new ConcurrentLinkedQueue[Option[String]]()
@@ -191,8 +191,11 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
         Future(payload())
       }
     }
+    val insightRepo: OutputInsightRepository = new OutputInsightRepository(c) {
+      override def purge(n: Instant, caps: Map[UserTier, Duration]): Future[Int] = insight()
+    }
     def service: OutputHistoryRetentionService =
-      new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, insightRepo, protectedNewest = 0)
     def counts: (Int, Int) = (historyCalls.get, payloadCalls.get)
     def cursors: List[Option[String]] = startAfters.asScala.toList
   }
@@ -221,6 +224,20 @@ class OutputHistoryRetentionServiceSpec extends AnyWordSpec with Matchers with B
       val st = new Stubs(boomH, busy); val svc = st.service
       awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
+    }
+
+    "let an insight-part failure win over a lock-held payload part (full interval)" in {
+      val st = new Stubs(doneH, busy, () => Future.failed(new IllegalStateException("insight boom"))); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(retryAt)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
+    }
+
+    "let an insight-part failure win over a budget-exhausted history pass (no next-tick continuation)" in {
+      val st = new Stubs(moreH, purged, () => Future.failed(new IllegalStateException("insight boom"))); val svc = st.service
+      awaitDb(svc.purgeIfDue(now)); st.counts shouldBe ((1, 1))
+      awaitDb(svc.purgeIfDue(nextTick)); st.counts shouldBe ((1, 1))
       awaitDb(svc.purgeIfDue(intervalAt)); st.counts shouldBe ((2, 2))
     }
 

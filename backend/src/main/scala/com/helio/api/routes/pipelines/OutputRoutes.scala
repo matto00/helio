@@ -11,7 +11,8 @@ import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
 import com.helio.services.pipelines.{OutputHistoryService, OutputService}
-import com.helio.api.protocols.pipelines.OutputHistoryResponses
+import com.helio.api.protocols.pipelines.{OutputHistoryResponses, OutputInsightHistoryResponse, OutputInsightResponse}
+import com.helio.services.insights.OutputInsightReadService
 import spray.json.JsObject
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,7 +33,9 @@ class OutputRoutes(
     historyService: Option[OutputHistoryService] = None,
     // HEL-1331: when present, every REST Output response carries `historyPayloadsAvailable`
     // (pipeline owner's tier). Absent in bare fixtures, which then omit the field.
-    payloadAvailability: Option[(NodePayloadHistoryRepository, PayloadHistoryConfig)] = None
+    payloadAvailability: Option[(NodePayloadHistoryRepository, PayloadHistoryConfig)] = None,
+    // HEL-1742: absent in fixtures that build no insight repository; then the insight routes are not served.
+    insightReadService: Option[OutputInsightReadService] = None
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -139,6 +142,28 @@ class OutputRoutes(
           get {
             historyService.fold(reject: Route) { svc =>
               ServiceResponse.run(svc.payloadRows(outputId, pointId, user))(r => OutputHistoryResponses.payload(outputId.value, r))
+            }
+          }
+        },
+        // HEL-1742: latest good render + last attempt status. Read-only; a stranger, an unknown id and a
+        // non-insight Output all get the same 404 (`findById` ACL + kind check inside the service).
+        path("insight") {
+          get {
+            insightReadService.fold(reject: Route) { svc =>
+              ServiceResponse.run(svc.read(outputId, user))(r => OutputInsightResponse(outputId.value, r.render, r.lastAttempt))
+            }
+          }
+        },
+        path("insight" / "history") {
+          get {
+            parameters("limit".optional, "since".optional) { (limitRaw, sinceRaw) =>
+              OutputHistoryQueryParsing.parse(limitRaw, sinceRaw) match {
+                case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                case Right(q) =>
+                  insightReadService.fold(reject: Route) { svc =>
+                    ServiceResponse.run(svc.history(outputId, user, q.limit, q.since))(items => OutputInsightHistoryResponse(outputId.value, items))
+                  }
+              }
             }
           }
         },

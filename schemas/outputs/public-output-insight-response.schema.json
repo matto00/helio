@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/public-output-insight-response.schema.json",
+  "title": "PublicOutputInsightResponse",
+  "description": "Response for GET /api/dashboards/:dashboardId/panels/:panelId/insight (HEL-1742, public / optional-auth, same dashboard gate and ?token= as the history route). An allowlist: the newest ok render's markdown, creation time and citations reduced to id, field, number, date, capturedAt and isPct. It never carries cost, model, token counts, a run id, the input digest, the trigger, a row id, an attempt status or a cited Output id. render is null when the insight Output has no ok render yet.",
+  "type": "object",
+  "properties": {
+    "render": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "markdown": { "type": "string" },
+            "citations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "field": { "type": "string" },
+                  "number": { "type": "number" },
+                  "date": { "type": "string", "format": "date-time" },
+                  "capturedAt": { "type": "string", "format": "date-time" },
+                  "isPct": { "type": "boolean" }
+                },
+                "required": ["id", "field", "isPct"],
+                "additionalProperties": false
+              }
+            },
+            "renderedAt": { "type": "string", "format": "date-time" }
+          },
+          "required": ["markdown", "citations", "renderedAt"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["render"],
+  "additionalProperties": false
+}

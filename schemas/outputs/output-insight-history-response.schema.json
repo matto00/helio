@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-insight-history-response.schema.json",
+  "title": "OutputInsightHistoryResponse",
+  "description": "Response for GET /api/outputs/:id/insight/history?limit=&since= (HEL-1742): every render attempt of one insight Output, newest first (ties broken by id, descending). limit is 1..100 (default 30) and since an ISO-8601 instant, inclusive and applied before limit; out-of-range values are 400, never clamped. markdown is present only for an ok attempt.",
+  "type": "object",
+  "properties": {
+    "outputId": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "failed", "skipped_quota", "skipped_unchanged", "skipped_budget"]
+          },
+          "markdown": { "type": "string" },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "outputId": { "type": "string" },
+                "field": { "type": "string" },
+                "number": { "type": "number" },
+                "date": { "type": "string", "format": "date-time" },
+                "capturedAt": { "type": "string", "format": "date-time" },
+                "isPct": { "type": "boolean" }
+              },
+              "required": ["id", "outputId", "field", "isPct"],
+              "additionalProperties": false
+            }
+          },
+          "trigger": { "type": "string", "enum": ["on_run", "daily", "manual", "pin"] },
+          "runId": { "type": "string" },
+          "inputDigest": { "type": "string" },
+          "model": { "type": "string" },
+          "inputTokens": { "type": "integer", "minimum": 0 },
+          "outputTokens": { "type": "integer", "minimum": 0 },
+          "cacheCreationTokens": { "type": "integer", "minimum": 0 },
+          "cacheReadTokens": { "type": "integer", "minimum": 0 },
+          "costMicros": { "type": "integer", "minimum": 0 },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "status", "citations", "trigger", "createdAt"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["outputId", "items"],
+  "additionalProperties": false
+}
