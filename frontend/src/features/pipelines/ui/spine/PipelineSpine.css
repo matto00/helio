@@ -330,10 +330,21 @@
   text-decoration: line-through;
 }
 
-/* The row menu is quiet: visible on hover/focus and always on the selected row. */
+/* The row menu is quiet (HEL-1671, the one rule for the spine's three-dot menu): a Source or Output card's is always
+   visible; a step row's is always visible on the SELECTED row and otherwise shows on hover or keyboard focus. Hidden
+   means `opacity: 0` (never `visibility`/`display`: it stays in the tab order so focus reveals it). Revealed for
+   OPACITY (row hover, row focus-within, selected) and enabled for POINTER input (selected, focus inside the menu
+   itself, and row hover only on hover-capable pointers) are two different state sets: a state the press itself
+   creates (sticky touch hover, the select's own focus) must never enable the hidden trigger before the click is
+   targeted, so on a no-hover device a tap where a hidden menu sits selects the row. */
 .spine-row__menu {
+  position: relative;
+  z-index: 1;
+  /* A flex box, so the wrapper hugs the trigger (a block wrapper measured ~6px taller, which overhung the title). */
+  display: flex;
   flex: none;
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--app-transition);
 }
 
@@ -341,6 +352,33 @@
 .spine-row:focus-within .spine-row__menu,
 .spine-row--selected .spine-row__menu {
   opacity: 1;
+}
+
+.spine-row--selected .spine-row__menu,
+.spine-row__menu:focus-within {
+  pointer-events: auto;
+}
+
+@media (hover: hover) {
+  .spine-row:hover .spine-row__menu {
+    pointer-events: auto;
+  }
+}
+
+/* An empty markers slot takes no space on a desktop row (phone rows are untouched). */
+.spine-row:not(.spine-row--phone) .spine-row__markers:empty {
+  display: none;
+}
+
+/* Regular (one-line) rows: the select's hit box runs under the menu's slot, so a press on a HIDDEN menu (pointer-events
+   none) lands on the select and selects the row instead of falling through to the row div. The extension is a negative
+   right margin plus equal padding, so the content box (title, summary, count) is unchanged to the pixel. Compact rows
+   need none (their menu is absolute over a full-width select); `width > 226px` is the complement of the compact query. */
+@container spine-column (width > 226px) {
+  .spine-row:has(> .spine-row__menu) > .spine-row__select {
+    margin-right: calc(-1 * var(--control-sm));
+    padding-right: calc(var(--space-2) + var(--control-sm));
+  }
 }
 
 .spine-empty {
@@ -422,25 +460,44 @@
 
 /* HEL-1608: compact rows. When the spine column's own content box is 226px or less (a track of about 259px; only
    the 180px track at narrow pages and its short growth, never 1280x800) the title would be squeezed to nothing, so
-   the row sheds width in order: the empty markers slot leaves the flow, the select regrids so the row count sits on
-   the summary line at its own width, and the row menu overlays the row's right end instead of reserving width. The hidden menu is
-   `opacity: 0` AND `pointer-events: none` (never `visibility`/`display`: it must stay in the tab order so keyboard
-   focus reveals it, and a tap beside the title must select the step, not hit an invisible button). Scoped to the
-   named container, which only the desktop layout creates: phone rows (`spine-row--phone`) are untouched. */
+   the row sheds width in order: the select regrids so the row count sits on the summary line at its own width (an
+   empty markers slot drops its track, HEL-1671), and the row menu leaves the flow instead of reserving width. HEL-1671:
+   the SELECTED row's menu is permanent again (the spine's one menu rule, above) on the end of the summary line, in a
+   trailing grid track of its own, so the title keeps the full width of line one and the menu covers neither the count
+   nor the summary. An unselected row's menu overlays the row's right end on hover/focus; hidden it is `opacity: 0` AND
+   `pointer-events: none` (never `visibility`/`display`) so a tap beside the title selects the step. Which states enable
+   it for pointer input is the base rules' set (selected, focus inside the menu, hover on hover-capable pointers); it
+   is not restated here. Scoped to the named container, which only the desktop layout creates: phone rows
+   (`spine-row--phone`) are untouched. */
 @container spine-column (max-width: 226px) {
-  .spine-row__markers:empty {
-    display: none;
-  }
-
   /* The select becomes a grid: the number spans both lines, the title spans every column of line one, and line two
-     holds the summary (the flexible column), the markers and the count, each at its own intrinsic width, so a long
-     count ("12,345") can never overprint the summary. `.spine-row__text` dissolves into the grid. */
+     holds the summary (the flexible column), the markers (only when there are any) and the count, each at its own
+     intrinsic width, so a long count ("12,345") can never overprint the summary. `.spine-row__text` dissolves into
+     the grid. */
   .spine-row__select {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto auto;
+    /* Line two is at least a trigger tall on EVERY compact row (selecting causes no height shift), so the selected
+       row's menu sits wholly inside line two and never reaches the title's box (HEL-1671). */
+    grid-template-rows: auto minmax(var(--control-sm), auto);
+    padding-bottom: var(--space-1);
     column-gap: var(--space-2);
     row-gap: 0;
     align-items: center;
+  }
+
+  .spine-row__select:has(> .spine-row__markers:empty) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  /* The selected row's trailing track is where its menu sits: the menu is `--control-sm` wide at the row's right edge,
+     the select's own padding already covers `--space-2` of it. */
+  .spine-row--selected .spine-row__select {
+    grid-template-columns: auto minmax(0, 1fr) auto auto calc(var(--control-sm) - var(--space-2));
+  }
+
+  .spine-row--selected .spine-row__select:has(> .spine-row__markers:empty) {
+    grid-template-columns: auto minmax(0, 1fr) auto calc(var(--control-sm) - var(--space-2));
   }
 
   .spine-row__text {
@@ -454,7 +511,7 @@
 
   .spine-row__title {
     grid-row: 1;
-    grid-column: 2 / 5;
+    grid-column: 2 / -1;
     min-width: 0;
   }
 
@@ -475,6 +532,10 @@
     min-width: 0;
   }
 
+  .spine-row__select:has(> .spine-row__markers:empty) .spine-row__count {
+    grid-column: 3;
+  }
+
   .spine-row__menu {
     position: absolute;
     top: 50%;
@@ -482,21 +543,18 @@
     transform: translateY(-50%);
     border-radius: var(--app-radius-sm);
     background: var(--app-bg);
-    pointer-events: none;
   }
 
-  /* The selected row's menu is no longer permanent here: it shows on hover/focus like every other row's. */
+  /* The selected row's menu: centred on line two (its band is `--control-sm` tall, the select's bottom padding
+     `--space-1` below it), over the empty trailing track, with no backing of its own (nothing sits under it). */
   .spine-row--selected .spine-row__menu {
-    opacity: 0;
+    top: auto;
+    bottom: var(--space-1);
+    transform: none;
+    background: transparent;
   }
 
-  .spine-row:hover .spine-row__menu,
-  .spine-row:focus-within .spine-row__menu {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  /* The revealed menu is backed by the row's own tone (the select's hover / selected rungs), layered over the
+  /* The revealed (unselected) menu is backed by the row's own tone (the select's hover rung), layered over the
      canvas so the title under it never shows through. */
   .spine-row:hover .spine-row__select {
     background: var(--app-surface-raised);
@@ -506,16 +564,12 @@
     background: var(--app-surface-raised);
   }
 
-  .spine-row--selected .spine-row__menu {
-    background: linear-gradient(var(--app-accent-dim), var(--app-accent-dim)), var(--app-bg);
-  }
-
   .spine-row--selected:hover .spine-row__select {
     background: var(--app-accent-mid);
   }
 
   .spine-row--selected:hover .spine-row__menu {
-    background: linear-gradient(var(--app-accent-mid), var(--app-accent-mid)), var(--app-bg);
+    background: transparent;
   }
 }
 

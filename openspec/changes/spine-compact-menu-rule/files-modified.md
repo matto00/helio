@@ -1,0 +1,3 @@
+- `frontend/src/features/pipelines/ui/spine/PipelineSpine.css` — one menu rule (selected row always visible, unselected on hover/focus), pointer-events restore set, hit-box extension under the menu slot, selected compact row's menu on line 2 with a trailing grid track, empty markers leave the flow
+- `e2e/hel1608-spine-count-overlap.spec.ts` — compact-is-on guard, menu rule, marker gap, empty-markers, no-hover tap tests (shared seed helpers)
+- `openspec/changes/spine-compact-menu-rule/tasks.md` — tasks ticked
