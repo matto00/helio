@@ -39,5 +39,5 @@
 - [x] 3.5 drift-mutations.md: one recorded red run per pinned site and one per exclusion; sources restored after
 - [x] 3.6 Jest component tests: insight panel and live column show "Not yet rendered"; KeysDoc specs updated
 - [x] 3.7 Grep proof of no model call: no ClaudeClient/InsightModelClient reference in the diff
-- [ ] 3.8 (NOT RUN, environmental: shared dev DB has a migration above V141, Flyway refuses it out-of-order so the backend cannot boot; covered by jest component tests) Manual UI check: insight placed on a dashboard, light + dark, desktop + phone; screenshots under scratch
+- [x] 3.8 Manual UI check: insight placed on a dashboard (and in the editor preview), light + dark, desktop + phone; done by the evaluator (evaluation-1, evaluation-2) and the final-gate skeptic on the lane-private DB helio_hel1740, because the shared dev DB had V140 applied
 - [x] 3.9 Delete own dev-DB residue (pipelines/outputs/dashboards created for checks) by exact id; list ids
