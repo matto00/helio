@@ -115,10 +115,10 @@ const show = (steps: Step[], block: Block, extra: Partial<Parameters<typeof Harn
 const button = (name: string) => screen.getByRole("button", { name });
 
 describe("PipelineSpine controls in a draft (D3 consumer table)", () => {
-  it("Add source stays blocked in a draft and is enabled with no draft", () => {
+  it("Add source is a draft action (HEL-1734): enabled in a draft and with no draft", () => {
     const { unmount } = show(SAVED, { structural: REASON });
-    expect(button("Add source")).toBeDisabled();
-    expect(button("Add source")).toHaveAccessibleDescription(REASON);
+    expect(button("Add source")).toBeEnabled();
+    expect(button("Add source")).toHaveAccessibleDescription("");
     unmount();
     show(SAVED, {});
     expect(button("Add source")).toBeEnabled();
@@ -226,9 +226,9 @@ describe("MobilePipelineHeader menu in a draft (D3)", () => {
   }
   const item = (name: string) => screen.getByRole("menuitem", { name });
 
-  it("Add source is blocked in a draft; the shape item is enabled and anchors on the last real trunk step", () => {
+  it("Add source is a draft action (HEL-1734); the shape item is enabled and anchors on the last real trunk step", () => {
     const actions = header({ steps: TEMP_LAST, draftBlockReason: REASON });
-    expect(item("Add source")).toBeDisabled();
+    expect(item("Add source")).toBeEnabled();
     expect(item("Add Outputs from a shape")).toBeEnabled();
     fireEvent.click(item("Add Outputs from a shape"));
     expect(actions.openShapePicker).toHaveBeenCalledWith("s2");

@@ -1,8 +1,8 @@
 package com.helio.services.pipelines.draft
 
-import com.helio.api.protocols.pipelines.{DraftSaveProtocol, OutputResponse, PipelineStepResponse}
+import com.helio.api.protocols.pipelines.{DraftSaveProtocol, OutputResponse, PipelineRootSummaryResponse, PipelineStepResponse}
 import com.helio.domain.model.PipelineId
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineStepRepository}
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
 
@@ -12,11 +12,14 @@ import scala.concurrent.ExecutionContext
  *  wrote and `GET /api/pipelines/:id?definition=true` returns them from the SAME snapshot as the fingerprint (HEL-1629). */
 private[draft] final class DraftDefinitionReads(
     stepRepo: PipelineStepRepository,
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    pipelineRepo: PipelineRepository
 )(implicit ec: ExecutionContext) extends DraftSaveProtocol {
 
-  def definition(pipelineId: PipelineId): DBIO[(Vector[PipelineStepResponse], Vector[OutputResponse])] =
+  /** The steps, Outputs and (HEL-1734) roots of one pipeline, roots in position order. */
+  def definition(pipelineId: PipelineId): DBIO[(Vector[PipelineStepResponse], Vector[OutputResponse], Vector[PipelineRootSummaryResponse])] =
     for {
+      roots         <- pipelineRepo.rootsAction(pipelineId)
       stepsAndRoots <- stepRepo.listWithRootIdsAction(pipelineId)
       outs          <- outputRepo.listByPipelineAction(pipelineId)
       configs       <- outputRepo.findConfigsByIdsAction(outs.map(_.id.value))
@@ -24,7 +27,8 @@ private[draft] final class DraftDefinitionReads(
       val rootOf = stepsAndRoots._2.map { case (step, root) => step.value -> root.value }
       (
         stepsAndRoots._1.map(PipelineStepResponse.fromDomain(_, rootOf)),
-        outs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty)))
+        outs.map(o => outputResponseFrom(o, configs.getOrElse(o.id.value, JsObject.empty))),
+        roots.map(r => PipelineRootSummaryResponse(r.id, r.dataSourceId, r.dataSourceName))
       )
     }
 

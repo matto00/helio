@@ -19,6 +19,8 @@ object DraftSaveJournal {
       "pipelineId" -> JsString(pipelineId),
       "definition" -> definition,
       "roots"      -> JsArray(rows.rootIds.map(JsString(_))),
+      // HEL-1734: the roots with their sources and positions, so undo can recreate a removed root under its original id.
+      "rootDefs"   -> JsArray(rootDefsOf(definition, rows)),
       "steps"      -> JsArray(rows.steps.map(s =>
         JsObject(
           "id" -> JsString(s.id), "type" -> JsString(s.op), "config" -> parsedOrText(s.config), "enabled" -> JsBoolean(s.enabled),
@@ -34,6 +36,12 @@ object DraftSaveJournal {
         )
       ))
     )
+
+  private def rootDefsOf(definition: JsObject, rows: DefinitionRows): Vector[JsValue] =
+    definition.fields.get("roots").collect { case JsArray(rs) => rs }.getOrElse(Vector.empty).zipWithIndex.collect {
+      case (r: JsObject, idx) if r.fields.contains("id") && r.fields.contains("dataSourceId") =>
+        JsObject("id" -> r.fields("id"), "dataSourceId" -> r.fields("dataSourceId"), "position" -> JsNumber(idx))
+    }
 
   def resultingState(pipelineId: String, fingerprint: String): JsObject =
     JsObject("pipelineId" -> JsString(pipelineId), "fingerprint" -> JsString(fingerprint))

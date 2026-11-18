@@ -8,6 +8,7 @@ import { labelForKind } from "../../../sources/utils/labelForKind";
 import type { DataSource } from "../../../sources/types/dataSource";
 import { useSourceSampleLabel } from "../../../sources/hooks/useSourceSampleLabel";
 import { SourceSampleLabelView } from "../../../sources/ui/SourceSampleLabel";
+import { isDraftClientId } from "../../state/draftOps";
 import type { PipelineRoot } from "../../types/pipelineStep";
 
 interface SpineSourceCardProps {
@@ -21,9 +22,8 @@ interface SpineSourceCardProps {
   source: DataSource | undefined;
   /** 1-based ordinal, shown only when the pipeline has more than one source. */
   ordinal: number | null;
+  /** False for the pipeline's last source (counted over the draft's roots while a draft exists). */
   canRemove: boolean;
-  /** HEL-1631: set while a draft exists; why "Remove from pipeline" is unavailable. */
-  removeBlockedReason?: string | null;
   onEditSource: (sourceId: string) => void;
   onRemoveRoot: (rootId: string) => void;
 }
@@ -35,7 +35,6 @@ export function SpineSourceCard({
   source,
   ordinal,
   canRemove,
-  removeBlockedReason = null,
   onEditSource,
   onRemoveRoot,
 }: SpineSourceCardProps) {
@@ -65,12 +64,14 @@ export function SpineSourceCard({
       label: "Remove from pipeline",
       ariaLabel: `Remove source ${root.dataSourceName} from this pipeline`,
       disabled: !canRemove,
-      reason: removeBlockedReason ?? undefined,
       onClick: () => onRemoveRoot(root.id),
     },
   ];
   return (
-    <div className="spine-card spine-source-card">
+    <div
+      className="spine-card spine-source-card"
+      data-draft-root={isDraftClientId(root.id) ? "true" : undefined}
+    >
       <div className="spine-card__text">
         {variant === "phone" && source ? (
           // The button itself must not clip (overflow would cut off its hit expander); the name inside ellipsizes.
@@ -86,6 +87,7 @@ export function SpineSourceCard({
           <span className="spine-card__name">{nameContent}</span>
         )}
         {kind !== null && !labelNamesKind && <span className="spine-card__meta">{kind}</span>}
+        {isDraftClientId(root.id) && <span className="spine-card__meta">New · not saved</span>}
         <SourceSampleLabelView
           label={sampleLabel}
           sourceId={root.dataSourceId}

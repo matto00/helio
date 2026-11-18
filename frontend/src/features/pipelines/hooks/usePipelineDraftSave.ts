@@ -175,6 +175,7 @@ export function usePipelineDraftSave({
           outputs: allOutputsRef.current,
           draftSteps: draft.draftSteps,
           draftOutputs: draft.draftOutputs,
+          roots,
         });
         if ("cascade" in mapped) setCascade(mapped.cascade);
         else setNotice(mapped.notice);
@@ -208,6 +209,7 @@ export function usePipelineDraftSave({
       outputIds: impact.outputIds,
       panelIds: impact.panelIds,
       alertRuleIds: impact.alertRuleIds,
+      rootIds: impact.rootIds,
     });
   }, [cascade, post]);
 
@@ -220,8 +222,8 @@ export function usePipelineDraftSave({
       const summary = await getPipelineWithDefinition(id);
       if (!mountedRef.current || !summary.definition) return;
       const definition = summary.definition;
-      const next = adoptDefinition(id, definition);
-      const dropped = draft.rebase(next, outputsLoaded ? definition.outputs : null);
+      const next = adoptDefinition(id, { ...definition, roots: summary.roots });
+      const dropped = draft.rebase(next, outputsLoaded ? definition.outputs : null, summary.roots);
       setNotice(dropped > 0 ? { kind: "dropped", count: dropped } : null);
     } catch (err: unknown) {
       setNotice({

@@ -51,8 +51,6 @@ export function MobilePipelineHeader({
       : []),
     {
       label: "Add source",
-      disabled: page.draftBlockReason !== null,
-      reason: page.draftBlockReason ?? undefined,
       onClick: actions.openAddRoot,
     },
     {

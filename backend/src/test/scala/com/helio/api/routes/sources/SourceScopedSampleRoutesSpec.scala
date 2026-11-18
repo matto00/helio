@@ -126,6 +126,18 @@ class SourceScopedSampleRoutesSpec extends TwoUserRlsApiFixture {
       j.fields("live") shouldBe JsBoolean(false)
     }
 
+    "serve an editor the sample of their OWN source that is not a root of P (a draft root, HEL-1734), and refuse a foreign non-root" in {
+      val root    = seedDataset(userA, "root-draft")
+      val own     = seedDataset(userB, "editor-draft-root")
+      val foreign = seedDataset(userA, "foreign-non-root")
+      val p       = seedPipeline(root)
+      grant(p, userB, "editor")
+      val (status, body, _) = get(scopedPath(own, p), userB)
+      status shouldBe 200
+      JsonSchemaValidation.validationErrors(schema, body) shouldBe empty
+      assertDenied(scopedPath(foreign, p), "foreign source that P does not use")
+    }
+
     "serve join, union and lookup SECONDARY sources, including a third user's, as an editor (disabled steps too)" in {
       val root   = seedDataset(userA, "root2")
       val joinS  = seedDataset(userA, "join-src")

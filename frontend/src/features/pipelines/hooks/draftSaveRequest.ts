@@ -10,6 +10,7 @@ import {
 } from "../state/pipelineDraft";
 import type { DraftOverlay } from "../state/pipelineDraft";
 import { isDraftClientId } from "../state/draftOps";
+import { hasRootChange, replayRoots, toDraftRoots } from "../state/draftRoots";
 import { pipelineStepToStep } from "../state/stepNarrowing";
 import type {
   DraftCascadeConfirmation,
@@ -34,6 +35,8 @@ export interface DraftCascadePrompt {
   /** Names for the ids the server listed, resolved from the page's steps and Outputs. */
   stepNames: string[];
   outputNames: string[];
+  /** HEL-1734: the sources the draft removes. */
+  rootNames: string[];
 }
 
 export function runRefusedMessage(run: Extract<DraftRunOutcome, { started: false }>): string {
@@ -55,6 +58,14 @@ export function stepNamedBy(
   return out ? out.name : null;
 }
 
+/** Whether two root lists are the same roots on the same sources in the same order. */
+function sameRoots(a: readonly PipelineRoot[], b: readonly PipelineRoot[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((r, i) => r.id === b[i].id && r.dataSourceId === b[i].dataSourceId)
+  );
+}
+
 export type DraftSaveBuild =
   | { kind: "unreadable" }
   | { kind: "stale" }
@@ -68,6 +79,7 @@ export type DraftSaveBuild =
 export function buildDraftSaveRequest(args: {
   summary: {
     fingerprint?: string;
+    roots?: PipelineRoot[];
     definition?: { steps: PipelineStep[]; outputs: Output[] };
   };
   persistedSteps: Step[];
@@ -89,15 +101,35 @@ export function buildDraftSaveRequest(args: {
   ) {
     return { kind: "stale" };
   }
+  // HEL-1734: the roots are part of the base too. A pipeline whose roots changed since the draft was made (another tab, an
+  // assistant) is stale, never saved over, exactly as for steps and Outputs.
+  if (summary.roots !== undefined && !sameRoots(summary.roots, roots)) return { kind: "stale" };
   const replay = replayOverlay(savedSteps, overlay, definition.outputs);
-  if (replay.dropped > 0) return { kind: "dropped", count: replay.dropped };
+  // HEL-1734: the roots as the freshly read pipeline has them; a root op that cannot apply to them is dropped and counted, and
+  // nothing is sent. A step still naming a root the draft removed (or never had) is the same kind of loss.
+  const savedRoots = summary.roots ?? roots;
+  const rootReplay = replayRoots(savedRoots, overlay.ops);
+  const rootDropped = rootReplay.droppedOps.filter((op) => !replay.droppedOps.includes(op)).length;
+  const finalRootIds = new Set(rootReplay.roots.map((r) => r.id));
+  const orphaned = hasRootChange(overlay.ops)
+    ? replay.steps.filter((s) => !s.parentStepId && s.rootId != null && !finalRootIds.has(s.rootId))
+        .length
+    : 0;
+  if (replay.dropped + rootDropped + orphaned > 0)
+    return { kind: "dropped", count: replay.dropped + rootDropped + orphaned };
   const finalSteps = replay.steps;
+  const draftRoots = toDraftRoots(overlay.ops, rootReplay.roots);
   return {
     kind: "ready",
     request: {
       baseFingerprint: summary.fingerprint,
       steps: toDraftSteps(finalSteps),
-      outputs: toDraftOutputs(replay.outputs ?? definition.outputs, finalSteps, roots[0]?.id),
+      outputs: toDraftOutputs(
+        replay.outputs ?? definition.outputs,
+        finalSteps,
+        rootReplay.roots[0]?.id ?? roots[0]?.id,
+      ),
+      ...(draftRoots ? { roots: draftRoots } : {}),
       runAfterSave: "run",
       ...(confirm ? { confirmCascade: confirm } : {}),
     },
@@ -112,6 +144,8 @@ export function noticeForSaveError(
     outputs: readonly Output[];
     draftSteps: readonly Step[];
     draftOutputs?: readonly Output[];
+    /** The saved roots, for naming the sources a removal lists (HEL-1734). */
+    roots?: readonly PipelineRoot[];
   },
 ): { cascade: DraftCascadePrompt } | { notice: DraftNotice } {
   const conflict = extractDraftSaveConflict(err);
@@ -119,11 +153,13 @@ export function noticeForSaveError(
   if (conflict?.kind === "cascadeRequired") {
     const stepName = new Map(ctx.steps.map((s) => [s.id, s.label]));
     const outputName = new Map(ctx.outputs.map((o) => [o.id, o.name]));
+    const rootName = new Map((ctx.roots ?? []).map((r) => [r.id, r.dataSourceName]));
     return {
       cascade: {
         impact: conflict.impact,
         stepNames: conflict.impact.stepIds.map((s) => stepName.get(s) ?? "A step"),
         outputNames: conflict.impact.outputIds.map((o) => outputName.get(o) ?? "An Output"),
+        rootNames: conflict.impact.rootIds.map((r) => rootName.get(r) ?? "A source"),
       },
     };
   }

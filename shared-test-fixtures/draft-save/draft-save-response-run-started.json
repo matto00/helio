@@ -21,6 +21,13 @@
           "updatedAt": "2026-10-16T12:00:00Z"
         }
       ],
+      "roots": [
+        {
+          "dataSourceId": "ds1",
+          "dataSourceName": "Orders",
+          "id": "r1"
+        }
+      ],
       "steps": [
         {
           "config": {

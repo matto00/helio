@@ -125,6 +125,7 @@ const EXPECTED_KEYS: string[] = [
   "runStepRowCounts",
   "runTruncationNotice",
   "runs",
+  "savedRoots",
   "scheduleOpen",
   "setDropdownOpenAt",
   "setEditingOutputName",

@@ -117,7 +117,7 @@ const definitionOf = (steps: PipelineStep[], outputs: Output[] = []): PipelineSu
 const savedResponse = (run: DraftSaveResponse["run"], steps = threeSteps()): DraftSaveResponse => ({
   saved: {
     fingerprint: "v1:" + "b".repeat(64),
-    definition: { steps, outputs: [] },
+    definition: { steps, outputs: [], roots: SPINE_PIPELINE.roots },
     applicationId: "app-1",
   },
   run,
@@ -340,10 +340,9 @@ describe("draft mode: Discard", () => {
 });
 
 describe("draft mode: what stays blocked while a draft exists", () => {
-  it("keeps only the roots disabled with the reason; the step, Output and shape actions are draft entries (HEL-1733), and the block lifts after Discard", async () => {
+  it("keeps nothing disabled by the draft reason now (HEL-1734: a source is a draft entry too); the step, Output and shape actions are draft entries (HEL-1733), and the block lifts after Discard", async () => {
     await renderDraftPage();
     editThreshold("240");
-    const reason = "Save or discard your draft first";
 
     const add = within(spine()).getByRole("button", { name: "+ Add transformation step" });
     expect(add).toBeEnabled();
@@ -351,8 +350,8 @@ describe("draft mode: what stays blocked while a draft exists", () => {
     const newOutput = within(spine()).getByRole("button", { name: "New output" });
     expect(newOutput).toBeEnabled();
     const addSource = within(spine()).getByRole("button", { name: "Add source" });
-    expect(addSource).toBeDisabled();
-    expect(addSource).toHaveAccessibleDescription(reason);
+    expect(addSource).toBeEnabled();
+    expect(addSource).toHaveAccessibleDescription("");
     expect(within(spine()).getByRole("button", { name: "Add Outputs from a shape" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Step actions for Filter rows" }));
@@ -603,6 +602,7 @@ describe("draft mode: Save & run", () => {
       outputIds: ["o1"],
       panelIds: ["p1", "p2"],
       alertRuleIds: ["a1"],
+      rootIds: [],
     });
   });
 

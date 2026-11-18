@@ -1,0 +1,8 @@
+MUTATION add-source-blocked: frontend/src/features/pipelines/ui/spine/PipelineSpine.tsx: [            onClick={actions.openAddRoot}] -> [            disabled={structuralBlockedReason !== null}
+            onClick={actions.openAddRoot}]
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+[1A[2K  4 failed
+  3 passed (55.2s)

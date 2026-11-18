@@ -1,5 +1,5 @@
 import type { Output } from "./output";
-import type { PipelineStep, PipelineStepKind } from "./pipelineStep";
+import type { PipelineRoot, PipelineStep, PipelineStepKind } from "./pipelineStep";
 
 // HEL-1629: wire shapes for `POST /api/pipelines/:id/draft/save`, the atomic bulk save of a client-side pipeline
 // draft (mirrors `backend/.../protocols/pipelines/DraftSaveProtocol.scala`; contract
@@ -21,6 +21,8 @@ export interface DraftStep {
   parentStepId?: string;
   parentClientId?: string;
   rootId?: string;
+  /** HEL-1734: a parentless step on a root the draft adds (`roots[].clientId`). */
+  rootClientId?: string;
   position: number;
 }
 
@@ -33,7 +35,16 @@ export interface DraftOutput {
   nodeStepId?: string;
   nodeStepClientId?: string;
   rootId?: string;
+  /** HEL-1734: an Output on a root the draft adds. */
+  rootClientId?: string;
   config?: Record<string, unknown>;
+}
+
+/** HEL-1734: one root of the FINAL roots. A saved root is `{id}`; a new one is `{clientId, sourceId}` (a source the caller owns). */
+export interface DraftRoot {
+  id?: string;
+  clientId?: string;
+  sourceId?: string;
 }
 
 /** What the user has seen and accepts being removed with the save; a removal not listed here answers 422. */
@@ -42,6 +53,8 @@ export interface DraftCascadeConfirmation {
   outputIds?: string[];
   panelIds?: string[];
   alertRuleIds?: string[];
+  /** HEL-1734: the roots (sources) the draft removes. */
+  rootIds?: string[];
 }
 
 export interface DraftSaveRequest {
@@ -50,6 +63,8 @@ export interface DraftSaveRequest {
   baseFingerprint: string;
   steps: DraftStep[];
   outputs: DraftOutput[];
+  /** HEL-1734: the FINAL roots, in order. Absent when the draft changes no root (the stored roots are then left alone). */
+  roots?: DraftRoot[];
   /** Submit a run through the unchanged HEL-505 guard AFTER the save has committed. */
   runAfterSave?: "run" | "dryRun" | null;
   confirmCascade?: DraftCascadeConfirmation;
@@ -64,7 +79,7 @@ export type DraftRunOutcome =
 export interface DraftSaveResponse {
   saved: {
     fingerprint: string;
-    definition: { steps: PipelineStep[]; outputs: Output[] };
+    definition: { steps: PipelineStep[]; outputs: Output[]; roots: PipelineRoot[] };
     /** The journal row `POST /api/patch-sets/:id/undo` restores. */
     applicationId: string;
   };
@@ -88,6 +103,8 @@ export interface DraftSaveCascadeRequired {
     panelIds: string[];
     alertRuleIds: string[];
     hints: string[];
+    /** The roots (sources) the draft removes. */
+    rootIds: string[];
   };
 }
 

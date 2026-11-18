@@ -265,6 +265,11 @@ class PipelineRepository(
       PipelineRootSummary(rid, dsId, dsName)
     }.toVector).toMap)
 
+  /** HEL-1734: the roots of one pipeline in position order, each with its source's name, as a composable `DBIO` (the draft
+   *  save returns them from the transaction that wrote them). Same join as the summary's. */
+  def rootsAction(id: PipelineId): DBIO[Vector[PipelineRootSummary]] =
+    rootsByPipelineId(Set(id.value)).map(_.getOrElse(id.value, Vector.empty))
+
   private def rowToSummary(p: PipelineRow, sourceDataSourceId: String, srcName: String, roots: Vector[PipelineRootSummary], lastRunTruncated: Option[Boolean], lastRunStepRowCounts: Option[String]): PipelineSummary =
     PipelineSummary(
       id                   = p.id,

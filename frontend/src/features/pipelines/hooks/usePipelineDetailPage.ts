@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { useToast } from "../../toasts/hooks/useToast";
 import type { PipelineRoot } from "../types/pipelineStep";
+import { hasRootChange, replayRoots } from "../state/draftRoots";
 import { selectOutputsForPipeline } from "../state/outputsSlice";
 import { DRAFT_BLOCK_REASON, usePipelineDraft } from "./usePipelineDraft";
 import { createDraftFrameMemory } from "./usePipelineDraftFrames";
@@ -92,7 +93,14 @@ export function usePipelineDetailPage() {
     loadRunHistoryWhenTruncated: history.loadRunHistoryWhenTruncated,
   });
 
-  const roots = currentPipeline?.roots ?? EMPTY_ROOTS;
+  // HEL-1734: `savedRoots` are the pipeline's stored roots; `roots` what the page shows, with the draft's added and removed sources
+  // applied (the saved list itself, same identity, while the draft changes no root).
+  const savedRoots = currentPipeline?.roots ?? EMPTY_ROOTS;
+  const draftOps = draft.overlay.ops;
+  const roots = useMemo(
+    () => (hasRootChange(draftOps) ? replayRoots(savedRoots, draftOps).roots : savedRoots),
+    [savedRoots, draftOps],
+  );
   const analyze = usePipelineDetailAnalyze({
     id,
     dispatch,
@@ -131,6 +139,7 @@ export function usePipelineDetailPage() {
     pushToast,
     draft,
     draftSteps,
+    sources: own.sources,
   });
 
   const saveWiring = usePipelineDetailSaveWiring({
@@ -140,7 +149,7 @@ export function usePipelineDetailPage() {
     pushToast,
     editor,
     draft,
-    roots,
+    roots: savedRoots,
     draftSaveInFlightRef,
     setOutputPickRemap,
     refreshRunHistoryAfterRun,
@@ -171,7 +180,7 @@ export function usePipelineDetailPage() {
     draftFrameMemory,
     /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
     draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,
-    // HEL-1733 D3/D15: roots stay blocked in a draft (HEL-1734); Output, shape and aggregate-tail actions are draft entries, and wait
+    // HEL-1733 D3/D15 (HEL-1734: adding and removing a source are draft entries too): Output, shape and aggregate-tail actions wait
     // only while the page's own Outputs fetch has not landed (never judged against an Output list that has not loaded).
     draftOutputBlockReason: outputBlockReason,
     /** The Outputs the page shows: the saved ones with the draft laid over them (the saved list itself with no draft). */
@@ -230,6 +239,7 @@ export function usePipelineDetailPage() {
     handleEditSource,
     handleToggleScheduleEnabled,
     roots,
+    savedRoots,
     ...stepActions,
     ...saveWiring,
   };

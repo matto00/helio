@@ -1,7 +1,7 @@
 package com.helio.api.protocols
 
 import com.helio.api.JsonProtocols
-import com.helio.api.protocols.pipelines.{DraftCascadeImpactResponse, DraftCascadeRequiredResponse, DraftRunNotStarted, DraftRunStarted, DraftSaveRequest, DraftSaveResponse, DraftSavedDefinitionResponse, DraftSavedResponse, PipelineStepResponse}
+import com.helio.api.protocols.pipelines.{DraftCascadeImpactResponse, DraftCascadeRequiredResponse, DraftRunNotStarted, DraftRunStarted, DraftSaveRequest, DraftSaveResponse, DraftSavedDefinitionResponse, DraftSavedResponse, PipelineRootSummaryResponse, PipelineStepResponse}
 import com.helio.domain.model.{NodeRef, Output, OutputId, OutputKind, PipelineId, PipelineStepId, UserId}
 import com.helio.domain.steps.{LimitConfig, LimitStep}
 import com.helio.testsupport.JsonSchemaValidation
@@ -37,7 +37,7 @@ class DraftSaveSeamSpec extends AnyWordSpec with Matchers with JsonProtocols {
     Output(OutputId("o1"), "Out", UserId("00000000-0000-0000-0000-0000000000a1"), NodeRef(PipelineId("p1"), Some(PipelineStepId("s1")), None), OutputKind.Table, at, at),
     JsObject.empty
   )
-  private def saved = DraftSavedResponse(fingerprint, DraftSavedDefinitionResponse(Vector(step), Vector(output)), "application-1")
+  private def saved = DraftSavedResponse(fingerprint, DraftSavedDefinitionResponse(Vector(step), Vector(output), Vector(PipelineRootSummaryResponse("r1", "ds1", "Orders"))), "application-1")
 
   private val noRun    = DraftSaveResponse(saved, None).toJson
   private val started  = DraftSaveResponse(saved, Some(DraftRunStarted(Some("run-1"), "succeeded"))).toJson
@@ -48,7 +48,7 @@ class DraftSaveSeamSpec extends AnyWordSpec with Matchers with JsonProtocols {
   ).toJson
   private val cascade = DraftCascadeRequiredResponse(
     "The draft removes more than was confirmed; nothing was saved.", "CASCADE_CONFIRMATION_REQUIRED",
-    DraftCascadeImpactResponse(Vector("s2"), Vector("o2"), Vector("panel-1"), Vector("rule-1"), Vector("Removes 1 step(s).", "Removes 1 Output(s)."))
+    DraftCascadeImpactResponse(Vector("s2"), Vector("o2"), Vector("panel-1"), Vector("rule-1"), Vector("Removes 1 source(s).", "Removes 1 step(s).", "Removes 1 Output(s)."), Vector("r2"))
   ).toJson
 
   private def fixture(name: String, produced: JsValue): JsValue = {
@@ -67,7 +67,9 @@ class DraftSaveSeamSpec extends AnyWordSpec with Matchers with JsonProtocols {
       val request = Files.readString(dir.resolve("draft-save-request.json")).parseJson
       errors(requestSchema, request) shouldBe empty
       val parsed = request.convertTo[DraftSaveRequest]
-      parsed.steps.map(s => s.id.orElse(s.clientId).get) shouldBe Vector("s1", "n1")
+      parsed.steps.map(s => s.id.orElse(s.clientId).get) shouldBe Vector("s1", "n1", "n2")
+      parsed.roots.map(_.map(r => r.id.orElse(r.clientId).get)) shouldBe Some(Vector("r1", "nr1"))
+      parsed.confirmCascade.map(_.rootIds) shouldBe Some(Vector("r9"))
       parsed.confirmCascade.map(_.stepIds) shouldBe Some(Vector("s9"))
       parsed.toJson shouldBe request
     }

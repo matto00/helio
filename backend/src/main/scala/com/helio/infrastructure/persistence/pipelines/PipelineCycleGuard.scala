@@ -135,6 +135,32 @@ object PipelineCycleGuard {
       _              <- failOrNoop(result, actingUserId)
     } yield ()
 
+  /** The draft save's root-add check (HEL-1734, design D4): the caller ALREADY holds the cycle advisory lock (it took it
+   *  before the pipeline row), so this is the read-and-validate half only. Every new read source is checked against every
+   *  write target this pipeline will have after the save (`finalWriteTargets`), over the stored read and write edges, which
+   *  is conservative about edges the same save removes. */
+  def checkAddedReadsHoldingLockAction(
+      rootRepo: PipelineRootRepository,
+      stepRepo: PipelineStepRepository,
+      actingUserId: String,
+      pipelineId: PipelineId,
+      pipelineName: String,
+      newReadSources: Seq[DataSourceId],
+      finalWriteTargets: Seq[DataSourceId]
+  )(implicit ec: ExecutionContext): DBIO[Unit] =
+    if (newReadSources.isEmpty || finalWriteTargets.isEmpty) DBIO.successful(())
+    else
+      for {
+        readEdges  <- rootRepo.findReadEdgesVisibleTo(actingUserId)
+        writeEdges <- stepRepo.findUpsertWriteEdges(actingUserId)
+        result      = finalWriteTargets.distinct.foldLeft[Either[PipelineCycleValidator.CycleError, Unit]](Right(())) {
+          case (Right(()), target) =>
+            PipelineCycleValidator.checkNoCycle(readEdges, writeEdges, newReadSources.toSet, target, pipelineId, pipelineName)
+          case (left, _) => left
+        }
+        _          <- failOrNoop(result, actingUserId)
+      } yield ()
+
   /** `addStep`/`updateStep`'s shape (task 3.4): a NEW or UPDATED `upsertsource` write target is
    *  being set on an ALREADY-EXISTING pipeline. `readSources` is that SAME pipeline's own
    *  currently-visible read sources (derived from `readEdges`, filtered to `pipelineId`) -- the

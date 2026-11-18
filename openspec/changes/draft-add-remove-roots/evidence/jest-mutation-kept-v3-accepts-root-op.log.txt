@@ -1,0 +1,3 @@
+MUTATION kept-v3-accepts-root-op: src/features/pipelines/state/keptDraft.ts: replaced [if (o.version !== 4 && isRootOp(op)) return null;] with []
+  ● kept draft v3 (HEL-1684, HEL-1733) › rejects a root op inside a v2 or v3 draft, and a malformed root op in a v4 draft
+Tests:       1 failed, 14 passed, 15 total

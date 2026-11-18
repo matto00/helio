@@ -5,6 +5,7 @@ import type { DraftOp, DraftOutputNode } from "../state/draftOps";
 import { draftMerge, outputFromCreate } from "../state/draftOutputs";
 import { computeInsertAnchor } from "../state/insertAnchor";
 import { defaultConfigFor, isTempStepId } from "../state/stepNarrowing";
+import type { DataSource } from "../../sources/types/dataSource";
 import type { Output } from "../types/output";
 import type { OutputActions } from "./useOutputImmediateActions";
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
@@ -15,6 +16,9 @@ import type { PipelineDraft } from "./usePipelineDraft";
 
 /** The immediate (no draft open) path of each action; `usePipelineDraftRouting` decides between it and a draft op. */
 export interface ImmediateStepHandlers {
+  /** HEL-1734: the immediate add / remove of a source (a root) when no draft is open. */
+  handleAddRootNow: (sourceId: string) => Promise<void>;
+  handleRemoveRootNow: (rootId: string) => Promise<void>;
   handleTempStepConfigChange: (stepId: string, config: PipelineStepConfig) => void;
   handleRemoveSavedStep: (stepId: string) => void;
   handleToggleTempStepEnabled: (stepId: string, enabled: boolean) => Promise<void>;
@@ -50,14 +54,18 @@ export function usePipelineDraftRouting({
   draft,
   roots,
   draftSteps,
+  sources,
   handlers,
 }: {
   draft: PipelineDraft;
   roots: PipelineRoot[];
   draftSteps: Step[];
+  sources: readonly DataSource[];
   handlers: ImmediateStepHandlers;
 }) {
   const {
+    handleAddRootNow,
+    handleRemoveRootNow,
     handleTempStepConfigChange,
     handleRemoveSavedStep,
     handleToggleTempStepEnabled,
@@ -135,6 +143,20 @@ export function usePipelineDraftRouting({
       if (after.length !== before.length || after.every((id, i) => id === before[i])) continue;
       reorderTrunk(root.id, after);
     }
+  });
+
+  // ── HEL-1734: adding and removing a source (a root) are draft entries while a draft exists ──
+  const { addRoot, removeRoot } = draft;
+  const handleAddRoot = useLatestCallback((sourceId: string): Promise<void> => {
+    if (!inDraft) return handleAddRootNow(sourceId);
+    if (sourceId === "") return Promise.resolve();
+    addRoot(sourceId, sources.find((s) => s.id === sourceId)?.name ?? "Source");
+    return Promise.resolve();
+  });
+  const handleRemoveRoot = useLatestCallback((rootId: string): Promise<void> => {
+    if (!inDraft) return handleRemoveRootNow(rootId);
+    removeRoot(rootId);
+    return Promise.resolve();
   });
 
   // ── HEL-1733: Output create/edit/delete, shapes and the aggregate tail are draft entries while a draft exists ──
@@ -245,6 +267,8 @@ export function usePipelineDraftRouting({
   );
 
   return {
+    handleAddRoot,
+    handleRemoveRoot,
     handleCreateOutput,
     handleUpdateOutput,
     handleDeleteOutput,

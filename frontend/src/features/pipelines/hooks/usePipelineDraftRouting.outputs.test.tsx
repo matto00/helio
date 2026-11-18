@@ -9,6 +9,7 @@ import { pipelineStepToStep } from "../state/stepNarrowing";
 import type { ExpandPipelineShapeResponse } from "../types/pipelineShape";
 import type { PipelineRoot } from "../types/pipelineStep";
 import { makeOutput, threeSteps } from "../ui/pipelineSpineTestKit";
+import type { DataSource } from "../../sources/types/dataSource";
 import type { PipelineDraft } from "./usePipelineDraft";
 import { usePipelineDraftRouting } from "./usePipelineDraftRouting";
 
@@ -29,8 +30,12 @@ function setup(hasDraft: boolean, roots: PipelineRoot[] = [root("r1")]) {
     addLaneStep: jest.fn(),
     duplicateStep: jest.fn(),
     reorderTrunk: jest.fn(),
+    addRoot: jest.fn(),
+    removeRoot: jest.fn(),
   } as unknown as PipelineDraft;
   const handlers = {
+    handleAddRootNow: jest.fn().mockResolvedValue(undefined),
+    handleRemoveRootNow: jest.fn().mockResolvedValue(undefined),
     handleTempStepConfigChange: jest.fn(),
     handleRemoveSavedStep: jest.fn(),
     handleToggleTempStepEnabled: jest.fn(),
@@ -44,10 +49,40 @@ function setup(hasDraft: boolean, roots: PipelineRoot[] = [root("r1")]) {
     outputActionsNow: { create: jest.fn(), update: jest.fn(), remove: jest.fn() },
   };
   const { result } = renderHook(() =>
-    usePipelineDraftRouting({ draft, roots, draftSteps: steps, handlers }),
+    usePipelineDraftRouting({ draft, roots, draftSteps: steps, sources: SOURCES, handlers }),
   );
   return { draft, handlers, routed: result.current };
 }
+
+const SOURCES = [{ id: "ds9", name: "Orders" }] as unknown as DataSource[];
+
+describe("routed source (root) handlers (HEL-1734)", () => {
+  it("record a source add and a removal in the draft, naming the added source from the caller's sources", () => {
+    const { draft, handlers, routed } = setup(true);
+    routed.handleAddRoot("ds9");
+    expect(draft.addRoot).toHaveBeenCalledWith("ds9", "Orders");
+    routed.handleRemoveRoot("r1");
+    expect(draft.removeRoot).toHaveBeenCalledWith("r1");
+    expect(handlers.handleAddRootNow).not.toHaveBeenCalled();
+    expect(handlers.handleRemoveRootNow).not.toHaveBeenCalled();
+  });
+
+  it("write immediately, recording nothing, when no draft is open", () => {
+    const { draft, handlers, routed } = setup(false);
+    routed.handleAddRoot("ds9");
+    routed.handleRemoveRoot("r1");
+    expect(handlers.handleAddRootNow).toHaveBeenCalledWith("ds9");
+    expect(handlers.handleRemoveRootNow).toHaveBeenCalledWith("r1");
+    expect(draft.addRoot).not.toHaveBeenCalled();
+    expect(draft.removeRoot).not.toHaveBeenCalled();
+  });
+
+  it("record nothing for an empty source id", () => {
+    const { draft, routed } = setup(true);
+    routed.handleAddRoot("");
+    expect(draft.addRoot).not.toHaveBeenCalled();
+  });
+});
 
 describe("routed Output handlers", () => {
   it("record a created Output on a step, and on the ONLY root when no step is named", () => {

@@ -1,0 +1,3 @@
+MUTATION request-omits-roots: frontend/src/features/pipelines/hooks/draftSaveRequest.ts: [...(draftRoots ? { roots: draftRoots } : {}),] -> []
+[1A[2K  6 failed
+  1 passed (43.2s)

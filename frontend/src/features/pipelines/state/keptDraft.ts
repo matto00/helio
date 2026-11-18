@@ -2,7 +2,7 @@
 // Settings) does not lose it. It is stored WITH the saved pipeline it was made against: a return over a different saved
 // pipeline must take the stale-base path, never silently re-base. Cleared on logout (keys are per pipeline id, not per user).
 
-import { isOutputOp } from "./draftOps";
+import { isOutputOp, isRootOp } from "./draftOps";
 import type { DraftOp } from "./draftOps";
 import type { DraftOverlay } from "./pipelineDraft";
 
@@ -62,6 +62,12 @@ function parseOp(raw: unknown): DraftOp | null {
     }
     case "outputDelete":
       return isString(raw.outputId) ? { kind: "outputDelete", outputId: raw.outputId } : null;
+    case "rootAdd":
+      return isString(raw.clientId) && isString(raw.sourceId) && isString(raw.dataSourceName)
+        ? (raw as unknown as DraftOp)
+        : null;
+    case "rootRemove":
+      return isString(raw.rootId) ? { kind: "rootRemove", rootId: raw.rootId } : null;
     case "reorder":
       return isString(raw.rootId) && Array.isArray(raw.trunk) && raw.trunk.every(isString)
         ? (raw as unknown as DraftOp)
@@ -82,7 +88,7 @@ function parseOutputEdits(raw: unknown): DraftOverlay["outputEdits"] | null {
   return edits;
 }
 
-/** Version 3 and 2 are validated op by op (v2 restores as v3 with no Output edits and no `outputsBase`); a draft kept with no
+/** Versions 4, 3 and 2 are validated op by op (all restore as v4; v2 with no Output edits and no `outputsBase`; a root op is refused in a v2/v3 draft); a draft kept with no
  *  `version` (`{configs, enabled, deleted}`) is the earliest format and restores as delete ops. Anything else reads as absent. */
 export function readKeptDraft(pipelineId: string): KeptDraft | null {
   try {
@@ -97,24 +103,27 @@ export function readKeptDraft(pipelineId: string): KeptDraft | null {
     if (o.version === undefined) {
       if (!Array.isArray(o.deleted) || !o.deleted.every(isString)) return null;
       const ops = o.deleted.map((stepId): DraftOp => ({ kind: "delete", stepId }));
-      return { base: v.base, overlay: { version: 3, ops, configs, enabled, outputEdits: {} } };
+      return { base: v.base, overlay: { version: 4, ops, configs, enabled, outputEdits: {} } };
     }
-    if ((o.version !== 2 && o.version !== 3) || !Array.isArray(o.ops)) return null;
+    if ((o.version !== 2 && o.version !== 3 && o.version !== 4) || !Array.isArray(o.ops))
+      return null;
     const ops: DraftOp[] = [];
     for (const item of o.ops) {
       const op = parseOp(item);
       if (op === null) return null;
       // A v2 draft never held an Output op: one in it is not a draft this build wrote.
       if (o.version === 2 && isOutputOp(op)) return null;
+      // A v2/v3 draft never held a root op (HEL-1734): one in it is not a draft this build wrote.
+      if (o.version !== 4 && isRootOp(op)) return null;
       ops.push(op);
     }
-    const outputEdits = o.version === 3 ? parseOutputEdits(o.outputEdits) : {};
+    const outputEdits = o.version !== 2 ? parseOutputEdits(o.outputEdits) : {};
     if (outputEdits === null) return null;
     if (v.outputsBase !== undefined && !isString(v.outputsBase)) return null;
     return {
       base: v.base,
-      ...(o.version === 3 && v.outputsBase !== undefined ? { outputsBase: v.outputsBase } : {}),
-      overlay: { version: 3, ops, configs, enabled, outputEdits },
+      ...(o.version !== 2 && v.outputsBase !== undefined ? { outputsBase: v.outputsBase } : {}),
+      overlay: { version: 4, ops, configs, enabled, outputEdits },
     };
   } catch {
     return null;

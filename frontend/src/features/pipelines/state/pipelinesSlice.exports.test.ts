@@ -26,6 +26,7 @@ describe("pipelinesSlice public export surface", () => {
       "fetchPipelineSchedule",
       "fetchPipelineSteps",
       "fetchPipelines",
+      "pipelineRootsReplaced",
       "pipelineStepsReplaced",
       "pipelinesReducer",
       "savePipelineSchedule",

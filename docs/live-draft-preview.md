@@ -489,7 +489,7 @@ show itself red. Evidence is kept in `openspec/changes/archive/2026-10-17-atomic
 
 **Order O\*** (every transaction that takes more than one of these takes them in this order):
 
-0. `data_sources` rows (`FOR UPDATE` by a source delete or a teardown of tagged sources; `FOR KEY SHARE` by a root add)
+0. `data_sources` rows (`FOR UPDATE` by a source delete or a teardown of tagged sources; `FOR KEY SHARE` by a root add, and, since HEL-1734, by a draft save that adds roots: `LockSite.SaveRootSources`, one statement per added source in id order, taken before `lockDefinition`; a source gone by then answers 404 `Data source not found` (409 "Undo refused" on an undo), never an FK error)
 1. `PanelRowLocks.lockForDeletion`: panels, then dashboards, **once and first** (`hel1498_lock_panels`)
 2. the cycle advisory lock (`PipelineCycleValidator.AdvisoryLockKey`), only when an `upsertsource` ExistingSource edge is added or changed
 3. the pipeline row `FOR NO KEY UPDATE`, through the SECURITY DEFINER `hel1629_lock_pipelines(text[], text[])` (migration **V137**)
@@ -499,6 +499,8 @@ show itself red. Evidence is kept in `openspec/changes/archive/2026-10-17-atomic
 The save runs on the privileged pool after a service-level owner-or-editor check, because an editor's RLS view hides panels on a third user's dashboard and
 alert rules owned by someone else; a lock that silently matched zero rows there would be no lock at all (V137 returns the locked count; the save asserts it).
 The fingerprint is compared **after** the locks are taken, the plan is re-derived from the locked state, and only then does the cascade gate run.
+
+**Roots in the save (HEL-1734).** A save carrying `roots` adds lock (0) first (above), then the unchanged (1), the cycle advisory lock whenever a root is added, (3)-(5). After the locks the plan is re-derived and a plan whose added sources are not a subset of the pre-lock plan's answers 409 `PATCH_SET_STALE` rather than lock (0) out of order. The cycle check for an added root runs inside the transaction under the advisory lock it already holds (read edges against this pipeline's final write targets; conservative about edges the same save removes). The `pipeline_roots` row writes (the delete of a removed root and the position updates) happen **after** (5): `UNIQUE (pipeline_id, position)` makes a position `UPDATE` take a key-update lock that conflicts with `FOR KEY SHARE` from FK inserts, the same exposure the standalone remove has through `compactPositions`. New roots are inserted past every stored position, removed roots are deleted after their steps and Outputs, then every root is moved to its final index through distinct negative temporaries. Specs: `DraftSaveRootsRaceSpec` (root add / root remove / source delete / dataset append against root-adding and root-removing saves, each with a control), `DraftSaveDeadlockSpec` "a root-adding save against a source delete of a source the pipeline already roots" (control: `LockSite.SaveRootSourcesFirst` off, which takes (0) after (3) and deadlocks with `40P01`). The dataset writers (`appendRows`, `replaceRows`, refresh, form submit, schema update) take `data_sources` `FOR UPDATE` and touch no pipeline, panel, Output or alert-rule row, so they cannot form a cycle with (1)-(5); they exclude a root-adding save through (0).
 
 **Amendments to the candidate, each confirmed by a probe or a red spec, not by reading code:**
 

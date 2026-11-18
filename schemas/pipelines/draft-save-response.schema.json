@@ -13,8 +13,22 @@
         "fingerprint": { "type": "string", "pattern": "^v1:[0-9a-f]{64}$" },
         "definition": {
           "type": "object",
-          "required": ["steps", "outputs"],
+          "required": ["steps", "outputs", "roots"],
           "properties": {
+            "roots": {
+              "type": "array",
+              "description": "HEL-1734: the saved roots in position order.",
+              "items": {
+                "type": "object",
+                "required": ["id", "dataSourceId", "dataSourceName"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "dataSourceId": { "type": "string", "minLength": 1 },
+                  "dataSourceName": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
             "steps": { "type": "array", "items": { "$ref": "#/$defs/SavedStep" } },
             "outputs": {
               "type": "array",

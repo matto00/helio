@@ -55,6 +55,7 @@ export function extractDraftSaveConflict(err: unknown): DraftSaveConflict | null
         panelIds: list("panelIds"),
         alertRuleIds: list("alertRuleIds"),
         hints: list("hints"),
+        rootIds: list("rootIds"),
       },
     };
   }

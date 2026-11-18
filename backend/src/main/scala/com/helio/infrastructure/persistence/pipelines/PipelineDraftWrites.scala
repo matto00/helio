@@ -5,7 +5,7 @@ import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import com.helio.infrastructure.persistence.panels.PanelRowLocks
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.{OutputRow, OutputTable}
 import com.helio.infrastructure.persistence.pipelines.PipelineRepository.PipelineTable
-import com.helio.infrastructure.persistence.pipelines.PipelineRootRepository.PipelineRootTable
+import com.helio.infrastructure.persistence.pipelines.PipelineRootRepository.{PipelineRootRow, PipelineRootTable}
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.{PipelineStepRow, PipelineStepTable}
 import slick.jdbc.PostgresProfile.api._
 // After the wildcard on purpose: an explicit import only shadows the profile's own `instantColumnType` when it is inner.
@@ -38,6 +38,9 @@ final case class OutputWrite(
     rootId: Option[String],
     config: JsObject
 )
+
+/** A root the draft adds: its id (minted, or explicit on an undo restore), its source and its final index. */
+final case class RootWrite(id: String, sourceId: String, finalIndex: Int)
 
 /** The raw rows a draft save plans against, read in the transaction. `rootIds` are in `position` order. */
 final case class DefinitionRows(
@@ -77,6 +80,24 @@ final class PipelineDraftWrites(
           outputRows <- outputs.filter(_.pipelineId === pipelineId).sortBy(o => (o.position, o.id)).result
         } yield Some(DefinitionRows(name, owner, rootIds.toVector, stepRows.toVector, outputRows.toVector))
     }
+
+  /** Lock (0) of the save (HEL-1734): every source the save adds as a root, `FOR KEY SHARE`, one statement per id in id order,
+   *  BEFORE any other lock. A source delete takes the same row `FOR UPDATE` before it reads which pipelines are rooted on it,
+   *  so the rooted set cannot grow between its read and its delete. Returns the ids that still exist, so the caller can answer
+   *  "source gone" instead of letting the root insert fail on its foreign key. An inactive site locks nothing and reports every
+   *  id present (the spec control: the race then shows what the lock prevents). */
+  def lockAddedSources(sourceIds: Vector[String], afterLock: LockSite => DBIO[Unit] = _ => DBIO.successful(())): DBIO[Set[String]] =
+    if (sourceIds.isEmpty) DBIO.successful(Set.empty)
+    else
+      locks.choose(
+        LockSite.SaveRootSources,
+        DBIO.sequence(sourceIds.distinct.sorted.map(id => sql"SELECT id FROM data_sources WHERE id = $id FOR KEY SHARE".as[String])).map(_.flatten.toSet),
+        DBIO.successful(sourceIds.toSet)
+      ).flatMap(found => afterLock(LockSite.SaveRootSources).map(_ => found))
+
+  /** True in production: lock (0) precedes every other lock. Inactive only in the deadlock spec's control (the order a source
+   *  delete deadlocks with). */
+  def sourcesFirst: Boolean = locks.active(LockSite.SaveRootSourcesFirst)
 
   /** Takes the save's locks in the verified order O* and returns `false` when the pipeline no longer exists (the caller
    *  answers 404). (1) panels then dashboards, once, first; (2) the cycle advisory lock, only when the plan adds or changes
@@ -210,6 +231,54 @@ final class PipelineDraftWrites(
       outputs.filter(_.id === w.id).map(o => (o.name, o.config, o.updatedAt)).update((w.name, w.config, now))
     }: _*)
   }
+
+  // ── Roots (HEL-1734, design D5) ───────────────────────────────────────────────────────────────────────────────────────
+
+  /** Inserts the new roots at positions past every stored one (`UNIQUE (pipeline_id, position)` is not deferrable, so a root
+   *  can never be inserted at its final index while another still holds it); [[placeRoots]] moves everything to its final
+   *  index once the removed roots are gone. */
+  def insertRoots(pipelineId: String, creates: Vector[RootWrite]): DBIO[Unit] =
+    if (creates.isEmpty) DBIO.successful(())
+    else {
+      val now = Instant.now()
+      roots.filter(_.pipelineId === pipelineId).map(_.position).max.result.flatMap { maxPos =>
+        val base = maxPos.getOrElse(-1) + 1
+        DBIO.seq(creates.zipWithIndex.map { case (c, i) =>
+          (roots += PipelineRootRow(c.id, pipelineId, c.sourceId, base + i, now)).map(_ => ())
+        }: _*)
+      }
+    }
+
+  /** Deletes the node snapshots of a removed root (as `removeRootCascadeAction` does: by each removed step under it and by
+   *  `root_id` with no node step; `node_snapshots` has no foreign key to either), then the root rows. The steps and Outputs
+   *  themselves are already gone through [[deleteRemoved]]. */
+  def deleteRoots(pipelineId: String, removedRootIds: Vector[String], stepRows: Vector[PipelineStepRow], removedStepIds: Set[String]): DBIO[Unit] =
+    if (removedRootIds.isEmpty) DBIO.successful(())
+    else {
+      // Steps under a removed root that the draft keeps (relinked to a survivor) keep their snapshots: they are not removed.
+      val stepIdsUnderRemoved = removedRootIds.flatMap(rid => PipelineStepRepository.descendantsOfRoot(stepRows, rid)).toSet.intersect(removedStepIds)
+      for {
+        _ <- DBIO.sequence(stepIdsUnderRemoved.toVector.sorted.map(sid =>
+          sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND node_step_id = $sid"))
+        _ <- DBIO.sequence(removedRootIds.map(rid =>
+          sqlu"DELETE FROM node_snapshots WHERE pipeline_id = $pipelineId AND root_id = $rid AND node_step_id IS NULL"))
+        _ <- roots.filter(r => r.pipelineId === pipelineId && r.id.inSet(removedRootIds)).delete
+      } yield ()
+    }
+
+  /** Moves every root to its final index (its place in `finalOrder`). When a root is not yet at its index the whole set goes
+   *  through distinct negative temporaries first, so two roots never share a position at any statement boundary, whatever
+   *  the permutation (an undo can restore a root to a slot a survivor currently holds). */
+  def placeRoots(pipelineId: String, finalOrder: Vector[String]): DBIO[Unit] =
+    roots.filter(_.pipelineId === pipelineId).map(r => (r.id, r.position)).result.flatMap { current =>
+      val currentPos = current.toMap
+      if (finalOrder.zipWithIndex.forall { case (id, idx) => currentPos.get(id).contains(idx) }) DBIO.successful(())
+      else
+        for {
+          _ <- DBIO.seq(finalOrder.zipWithIndex.map { case (id, idx) => roots.filter(_.id === id).map(_.position).update(-1 - idx).map(_ => ()) }: _*)
+          _ <- DBIO.seq(finalOrder.zipWithIndex.map { case (id, idx) => roots.filter(_.id === id).map(_.position).update(idx).map(_ => ()) }: _*)
+        } yield ()
+    }
 
   /** Fresh id for a created row. */
   def newId(): String = UUID.randomUUID().toString
