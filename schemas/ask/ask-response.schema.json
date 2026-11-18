@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/ask/ask-response.schema.json",
+  "title": "AskQuestionResponse",
+  "description": "200 response of the ask routes (HEL-1745). Never carries a model id, token count or cost. Neither the question nor the answer is stored.",
+  "type": "object",
+  "required": ["answer", "citations", "citedOutputs", "pin"],
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "At most 6 sentences and 1200 characters; every number and date is traced to a citation in its sentence."
+    },
+    "citations": {
+      "type": "array",
+      "description": "Exactly the citations the answer uses, in order of first use.",
+      "items": {
+        "type": "object",
+        "required": ["id", "outputId", "field", "isPct"],
+        "properties": {
+          "id": { "type": "string", "description": "The marker id used in the answer, e.g. c3." },
+          "outputId": { "type": "string" },
+          "field": { "type": "string" },
+          "number": { "type": "number" },
+          "date": { "type": "string", "format": "date-time" },
+          "capturedAt": { "type": "string", "format": "date-time" },
+          "isPct": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "citedOutputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pin": {
+      "description": "Null unless every cited Output is on one pipeline the caller can edit and 1..8 non-insight Outputs were cited. Creating it does not render.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["pipelineId", "request"],
+          "properties": {
+            "pipelineId": { "type": "string" },
+            "request": {
+              "type": "object",
+              "description": "A POST /api/pipelines/:pipelineId/outputs body: kind insight, config.prompt = the question, config.reads.outputs = the cited non-insight Output ids, config.refresh = manual. Holds no answer text."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

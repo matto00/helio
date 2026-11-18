@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { usePortalPopover, type PortalPopoverPlace } from "./usePortalPopover";
 
@@ -77,5 +77,94 @@ describe("usePortalPopover reposition (HEL-1756)", () => {
     const first = get().reposition;
     act(() => get().handleOpen());
     expect(get().reposition).toBe(first);
+  });
+});
+
+// HEL-1759: a keyboard Tab out of the panel returns focus to the trigger; nothing else does.
+function FocusHarness({ withPanelRef = true }: { withPanelRef?: boolean }) {
+  const { triggerRef, panelRef, isOpen, handleOpen } = usePortalPopover<HTMLButtonElement>();
+  return (
+    <div>
+      <button ref={triggerRef} type="button" onClick={() => handleOpen()}>
+        trigger
+      </button>
+      {isOpen && (
+        <div
+          ref={(el) => {
+            if (withPanelRef) panelRef.current = el;
+          }}
+        >
+          <button type="button">inside</button>
+        </div>
+      )}
+      <button type="button">outside</button>
+    </div>
+  );
+}
+
+function openFocusHarness(withPanelRef = true) {
+  render(<FocusHarness withPanelRef={withPanelRef} />);
+  const trigger = screen.getByRole("button", { name: "trigger" });
+  fireEvent.click(trigger);
+  const inside = screen.getByRole("button", { name: "inside" });
+  const outside = screen.getByRole("button", { name: "outside" });
+  return { trigger, inside, outside };
+}
+
+describe("usePortalPopover return focus to trigger (HEL-1759)", () => {
+  it("returns focus to the trigger when Tab moves focus from inside the panel to outside", async () => {
+    const { trigger, inside, outside } = openFocusHarness();
+    act(() => inside.focus());
+    fireEvent.keyDown(document.body, { key: "Tab", shiftKey: true });
+    await act(async () => outside.focus());
+    expect(screen.queryByRole("button", { name: "inside" })).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("does not refocus the trigger when focus leaves from the trigger itself", async () => {
+    const { trigger, outside } = openFocusHarness();
+    act(() => trigger.focus());
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    await act(async () => outside.focus());
+    expect(screen.queryByRole("button", { name: "inside" })).toBeNull();
+    expect(outside).toHaveFocus();
+  });
+
+  it("does not refocus the trigger for a pointer-initiated focus move", async () => {
+    const { inside, outside } = openFocusHarness();
+    act(() => inside.focus());
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    fireEvent.pointerDown(outside);
+    await act(async () => outside.focus());
+    expect(outside).toHaveFocus();
+  });
+
+  it("does not refocus the trigger when the last key was not Tab", async () => {
+    const { inside, outside } = openFocusHarness();
+    act(() => inside.focus());
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    await act(async () => outside.focus());
+    expect(outside).toHaveFocus();
+  });
+
+  it("does not refocus the trigger for a Tab that moved no focus (the flag expires)", async () => {
+    const { inside, outside } = openFocusHarness();
+    act(() => inside.focus());
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    await act(async () => outside.focus());
+    expect(outside).toHaveFocus();
+  });
+
+  it("leaves a consumer without panelRef untouched", async () => {
+    const { inside, outside } = openFocusHarness(false);
+    act(() => inside.focus());
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    await act(async () => outside.focus());
+    expect(screen.getByRole("button", { name: "inside" })).toBeInTheDocument();
+    expect(outside).toHaveFocus();
   });
 });

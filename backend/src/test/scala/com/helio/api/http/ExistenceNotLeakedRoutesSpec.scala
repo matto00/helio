@@ -448,6 +448,11 @@ object ExistenceNotLeakedRoutesSpec {
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"update","patch":{"name":"renamed"}}]}"""), patchKinds = Set("output:update")),
     Row("POST patch-set preview: output delete", HttpMethods.POST, "/api/patch-sets/preview", OutputT, Set("PatchSetOutputResolvers.scala"),
       Json("""{"edits":[{"target":{"kind":"output","id":"{id}"},"op":"delete"}]}"""), patchKinds = Set("output:delete")),
+    // ask (HEL-1745): the access gate runs before the model-client and tier checks, so a stranger's 404 is identical for a
+    // foreign and an absent id even with no model client configured. AskPinBuilder only decides the pin of an answer a
+    // caller already got; it is listed because it calls requireAccess("pipeline") (never reachable by a stranger probe).
+    Row("POST dashboard ask", HttpMethods.POST, "/api/dashboards/{id}/ask", Dashboard, Set("AskAccess.scala", "AskPinBuilder.scala"), Json("""{"question":"q"}""")),
+    Row("POST output ask", HttpMethods.POST, "/api/outputs/{id}/ask", OutputT, Set("AskAccess.scala"), Json("""{"question":"q"}""")),
     // pipeline-scoped
     Row("GET pipeline outputs", HttpMethods.GET, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala")),
     Row("POST pipeline outputs", HttpMethods.POST, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala"),

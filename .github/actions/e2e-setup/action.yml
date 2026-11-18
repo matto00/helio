@@ -38,6 +38,14 @@ runs:
         distribution: temurin
         java-version: 21
     - uses: sbt/setup-sbt@v1
+    # HEL-1758 D1: the key comes from git's index (scripts/ci-backend-cache-key.sh), not `hashFiles('**/build.sbt')`, which
+    # walks the whole workspace under the runner's 120 s limit. The caller has already checked out, so the index exists.
+    - name: Compute backend cache keys
+      id: backend-key
+      shell: bash
+      run: |
+        git rev-parse HEAD
+        scripts/ci-backend-cache-key.sh
     # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
     - name: Restore sbt dependency cache
       uses: actions/cache/restore@v6
@@ -46,7 +54,7 @@ runs:
           ~/.sbt
           ~/.ivy2/cache
           ~/.cache/coursier
-        key: sbt-${{ hashFiles('**/build.sbt') }}
+        key: sbt-${{ steps.backend-key.outputs.deps }}
         restore-keys: sbt-
     # HEL-1288 — the backend (sbt compile + boot, ~85 s) is the longest non-test step, so it
     # is started in the background right after the sbt cache restores and overlaps the npm /
