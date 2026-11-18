@@ -9,14 +9,16 @@ import { PanelSuspenseFallback } from "../../../../shared/ui/SuspenseFallback";
 import type { ChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import { resolveChartPlan, timeAxisOmittedNote } from "../../../../utils/chartTimePlan";
 import { binHistogram } from "../../../../utils/histogramBins";
+import { loadChartPanel } from "./chartPanelModule";
 
 // HEL-512 — `echarts`/`echarts-for-react` (see `ChartPanel.tsx`'s own docblock) is loaded via a
 // dynamic `import()` so its module graph lands in a separate, non-entry chunk instead of the
 // initial JS payload. `ChartPanel` is a named export (not default), so `React.lazy` — which
 // requires a promise resolving to a `{ default }` shape — needs this adapter. See design.md
 // Decision 1: only this internal import becomes lazy; `ChartRenderer`'s own export/signature (and
-// `ChartOutputPanel.tsx`'s static import of it) are unchanged.
-const ChartPanel = lazy(() => import("../ChartPanel").then((m) => ({ default: m.ChartPanel })));
+// `ChartOutputPanel.tsx`'s static import of it) are unchanged. HEL-1760: the `import()` itself lives in
+// `chartPanelModule.ts` so the Output-metadata cache can preload the same chunk before this mounts.
+const ChartPanel = lazy(() => loadChartPanel().then((m) => ({ default: m.ChartPanel })));
 
 interface ChartRendererProps {
   appearance?: PanelAppearance;
