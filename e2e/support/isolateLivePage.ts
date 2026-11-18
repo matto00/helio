@@ -22,16 +22,21 @@ export async function isolateLivePage(page: Page): Promise<void> {
   await page.goto("about:blank");
 }
 
-/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/home`. Never isolates. */
+/** The standard UI form login: `/login`, fill, submit, wait for the post-login `/home`. Never isolates.
+ *
+ *  HEL-1754: both navigations wait for `domcontentloaded`, not the default `load`. A stylesheet link (the
+ *  non-render-blocking Google Fonts one included) still delays the window `load` event, so one unanswered
+ *  third-party request made `goto("/login")` time out after the form had rendered. `fill` waits for the field
+ *  it uses, so nothing here needs `load`. */
 export async function uiLogin(
   page: Page,
   credentials: { email: string; password: string },
 ): Promise<void> {
-  await page.goto("/login");
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await page.fill("#email", credentials.email);
   await page.fill("#password", credentials.password);
   await page.click("button[type=submit]");
-  await page.waitForURL("/home");
+  await page.waitForURL("/home", { waitUntil: "domcontentloaded" });
 }
 
 /** The UI login (`uiLogin`), then idle the post-login `/home` on `about:blank`. */

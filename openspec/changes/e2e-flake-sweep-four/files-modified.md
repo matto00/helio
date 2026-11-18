@@ -1,0 +1,4 @@
+- `frontend/src/features/dashboards/tabs/hydrateTabs.ts` — re-plan with the current location after the awaits so a mid-hydration navigation wins
+- `frontend/src/features/dashboards/tabs/hydrateTabs.test.ts` — jest: navigation during hydration, no-navigation path, re-planned target left to showDashboardPanels
+- `e2e/support/isolateLivePage.ts` — uiLogin waits for domcontentloaded (not the fonts-delayed load event)
+- `e2e/hel1668-schema-panel-copy.spec.ts` — item 5 waits on the tapped row's selected class and menu opacity 1, not the pre-selected first row

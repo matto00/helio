@@ -228,3 +228,110 @@ describe("hydrateTabs honours the browser copy's lastViewedAt (HEL-1575 final-ga
     expect(harness.getState().dashboardTabs.tabs[0].lastViewedAt).toBe(new Date(old).toISOString());
   });
 });
+
+describe("hydrateTabs: a navigation made while hydration awaits wins (HEL-1754)", () => {
+  type ChangesResult = Awaited<ReturnType<typeof fetchDashboardChanges>>;
+  let releaseSignals: (value: ChangesResult) => void;
+
+  beforeEach(async () => {
+    window.history.pushState({}, "", "/home");
+    changesMock.mockReset();
+    changesMock.mockImplementation(
+      () =>
+        new Promise<ChangesResult>((resolve) => {
+          releaseSignals = resolve;
+        }),
+    );
+    await clearWarmState();
+  });
+  afterEach(() => window.history.pushState({}, "", "/"));
+
+  const signals = (): ChangesResult => ({
+    serverNow: new Date().toISOString(),
+    items: [
+      {
+        dashboardId: "a",
+        contentUpdatedAt: "2026-01-01T00:00:00Z",
+        dataUpdatedAt: null,
+        outputs: [],
+      },
+      {
+        dashboardId: "b",
+        contentUpdatedAt: "2026-01-01T00:00:00Z",
+        dataUpdatedAt: null,
+        outputs: [],
+      },
+    ],
+  });
+
+  function savedStore() {
+    return makeTabsStore({
+      dashboards: [dash("a"), dash("b")],
+      selected: "a",
+      hydrated: false,
+      user: testUser({ tabs: [{ id: "a" }, { id: "b" }], activeId: "b" }),
+    });
+  }
+
+  it("the dashboard opened (location change) during the signal fetch stays selected and active", async () => {
+    const harness = savedStore();
+    const done = harness.dispatch(hydrateTabs());
+    await Promise.resolve();
+    window.history.pushState({}, "", "/dashboards/a");
+    releaseSignals(signals());
+    await done;
+    const state = harness.getState();
+    expect(state.dashboards.selectedDashboardId).toBe("a");
+    expect(state.dashboardTabs.activeId).toBe("a");
+    expect(state.dashboardTabs.hydrated).toBe(true);
+  });
+
+  it("a navigation to a dashboard that is not an open tab opens it as the active tab", async () => {
+    const harness = makeTabsStore({
+      dashboards: [dash("a"), dash("b"), dash("c")],
+      selected: "a",
+      hydrated: false,
+      user: testUser({ tabs: [{ id: "a" }, { id: "b" }], activeId: "b" }),
+    });
+    const done = harness.dispatch(hydrateTabs());
+    await Promise.resolve();
+    window.history.pushState({}, "", "/dashboards/c");
+    releaseSignals(signals());
+    await done;
+    const tabs = harness.getState().dashboardTabs;
+    expect(tabs.activeId).toBe("c");
+    expect(tabs.tabs.map((t) => t.id)).toEqual(["a", "b", "c"]);
+    expect(harness.getState().dashboards.selectedDashboardId).toBe("c");
+  });
+
+  it("no navigation: the saved active tab is still restored (selection alone is not a navigation)", async () => {
+    const harness = savedStore();
+    const done = harness.dispatch(hydrateTabs());
+    await Promise.resolve();
+    releaseSignals(signals());
+    await done;
+    const state = harness.getState();
+    expect(state.dashboards.selectedDashboardId).toBe("b");
+    expect(state.dashboardTabs.activeId).toBe("b");
+  });
+
+  // GUARD, not a red-first test: it passes on the base code too. It pins that hydration never applies a warm copy for the
+  // re-planned target itself, so that copy is only ever served through showDashboardPanels' signal validity check.
+  it("guard: hydration does not restore the re-planned target's warm copy (left to showDashboardPanels' validity check)", async () => {
+    const harness = savedStore();
+    await getWarmStore().write(
+      storedEntry({
+        dashboardId: "a",
+        contentCapturedAt: Date.now() - 3_600_000,
+        lastViewedAt: Date.now() - 30_000,
+        panels: [outputPanel("pa1", "a", "o1")],
+      }),
+    );
+    const done = harness.dispatch(hydrateTabs());
+    await Promise.resolve();
+    window.history.pushState({}, "", "/dashboards/a");
+    releaseSignals(signals());
+    await done;
+    expect(getListEntry("a")).toBeUndefined();
+  });
+});
