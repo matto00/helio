@@ -33,6 +33,7 @@ import { useIsPhoneShell } from "../../../../app/shell/useIsPhoneShell";
 import { usePullToRefresh } from "../../../../shared/motion/usePullToRefresh";
 import { entranceClassProps, useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
 import { getOutputId } from "../../state/panelNarrowing";
+import { useInsightChrome } from "../../insight/insightChromeStore";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputRetention } from "../../hooks/useOutputRetention";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
@@ -70,10 +71,12 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
   const mountOwnership = useRef(false);
   const panelData = usePanelData(panel, [], null, { mountOwnership });
   // HEL-1656: only output-bound panels join the pull-to-refresh fan-out; every other kind has nothing to re-request.
+  // HEL-1744: an insight panel's refresh re-reads its stored insight (published by its body), not its rows.
+  const insightChrome = useInsightChrome(outputId);
   usePullRefreshRegistration(
     panel.id,
     outputId !== null,
-    panelData.refresh,
+    insightChrome ? insightChrome.refetch : panelData.refresh,
     panelData.isRefreshing === true,
   );
   // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own

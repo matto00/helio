@@ -18,6 +18,7 @@ import {
 import {
   readChartConfig,
   readCollectionConfig,
+  readInsightConfig,
   readMarkdownConfig,
   readMetricConfig,
   readTableConfig,
@@ -48,6 +49,8 @@ export function openingParams(
   kind: OutputKind,
   config: Record<string, unknown>,
   fieldKeys: string[],
+  /** The insight checklist's same-node default (HEL-1744); unused by every other kind. */
+  insightDefaultReads: string[] = [],
 ): BuildOutputConfigParams {
   const chart = readChartConfig(config);
   const table = readTableConfig(config);
@@ -55,6 +58,7 @@ export function openingParams(
   const markdown = readMarkdownConfig(config);
   const collection = readCollectionConfig(config);
   const timeline = readTimelineConfig(config);
+  const insight = readInsightConfig(config);
   return {
     kind,
     chartType: chart.chartType,
@@ -102,6 +106,18 @@ export function openingParams(
         : kind === "collection"
           ? collection.conditionalFormats
           : metric.conditionalFormats,
+    insightPreset: insight.preset ?? "auto",
+    insightRefresh: insight.refresh ?? "on_run",
+    insightPrompt: insight.prompt ?? "",
+    insightReads: insight.readsOutputs,
+    insightDefaultReads,
+    insightWindows: insight.readsWindows,
+    insightStored: {
+      preset: insight.preset !== undefined,
+      refresh: insight.refresh !== undefined,
+      prompt: insight.prompt !== undefined,
+      reads: config.reads !== undefined && config.reads !== null,
+    },
     conditionalFormatsStored:
       (kind === "table"
         ? table.conditionalFormats
@@ -183,6 +199,7 @@ export function buildBaselineConfig(
   kind: OutputKind,
   config: Record<string, unknown>,
   fieldKeys: string[],
+  insightDefaultReads: string[] = [],
 ): Record<string, unknown> {
-  return buildOutputConfig(openingParams(kind, config, fieldKeys));
+  return buildOutputConfig(openingParams(kind, config, fieldKeys, insightDefaultReads));
 }

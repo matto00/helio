@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/public-output-insight-response.schema.json",
   "title": "PublicOutputInsightResponse",
-  "description": "Response for GET /api/dashboards/:dashboardId/panels/:panelId/insight (HEL-1742, public / optional-auth, same dashboard gate and ?token= as the history route). An allowlist: the newest ok render's markdown, creation time and citations reduced to id, field, number, date, capturedAt and isPct. It never carries cost, model, token counts, a run id, the input digest, the trigger, a row id, an attempt status or a cited Output id. render is null when the insight Output has no ok render yet.",
+  "description": "Response for GET /api/dashboards/:dashboardId/panels/:panelId/insight (HEL-1742, public / optional-auth, same dashboard gate and ?token= as the history route). An allowlist: the newest ok render's markdown, creation time and citations reduced to id, field, number, date, capturedAt and isPct, plus an optional panelId (HEL-1744): the id of a panel on this same dashboard bound to the cited Output, chosen deterministically (lowest panel id), present only when such a panel exists. It never carries cost, model, token counts, a run id, the input digest, the trigger, a row id, an attempt status or a cited Output id. render is null when the insight Output has no ok render yet.",
   "type": "object",
   "properties": {
     "render": {
@@ -22,7 +22,8 @@
                   "number": { "type": "number" },
                   "date": { "type": "string", "format": "date-time" },
                   "capturedAt": { "type": "string", "format": "date-time" },
-                  "isPct": { "type": "boolean" }
+                  "isPct": { "type": "boolean" },
+                  "panelId": { "type": "string" }
                 },
                 "required": ["id", "field", "isPct"],
                 "additionalProperties": false

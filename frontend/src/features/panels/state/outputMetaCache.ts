@@ -21,7 +21,18 @@ interface Entry {
 }
 
 const cache = new Map<string, Entry>();
-onFreshnessReset(() => cache.clear());
+/** HEL-1744: an Output's kind never changes after it is created, so a resolved kind outlives the metadata's freshness (a run's
+ *  invalidation drops the held value, not the kind). It lets a panel know it is an insight and skip rows after a run. */
+const knownKinds = new Map<string, string>();
+onFreshnessReset(() => {
+  cache.clear();
+  knownKinds.clear();
+});
+
+/** The kind this session has resolved for `outputId`, or `undefined` if it never has. */
+export function getKnownOutputKind(outputId: string): string | undefined {
+  return knownKinds.get(outputId);
+}
 
 function isServable(outputId: string, entry: Entry): boolean {
   return entry.generation === currentGeneration(outputId) && isRetained(outputId);
@@ -44,6 +55,7 @@ export function fetchOutputMeta(outputId: string): Promise<Output> {
   entry.promise = getOutputById(outputId).then(
     (output) => {
       registerOutputPipeline(outputId, output.pipelineId);
+      knownKinds.set(outputId, output.kind);
       // An invalidation that landed while this was in flight means the result may predate a write:
       // hand it to the callers that asked, but never serve it to a later mount.
       if (currentInvalidationSequence() !== sequenceAtStart) {
@@ -73,6 +85,7 @@ export function peekOutputMeta(outputId: string): Output | undefined {
  *  restart at zero on a page load, so the generation it was fetched under is meaningless now. */
 export function seedOutputMeta(outputId: string, meta: Output): void {
   registerOutputPipeline(outputId, meta.pipelineId);
+  knownKinds.set(outputId, meta.kind);
   cache.set(outputId, {
     promise: Promise.resolve(meta),
     value: meta,

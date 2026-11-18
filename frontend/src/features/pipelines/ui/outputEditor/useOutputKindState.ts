@@ -80,9 +80,23 @@ export interface OutputKindState {
   ) => void;
   collectionFormat: string;
   setCollectionFormat: (v: string) => void;
+  // Insight (HEL-1744)
+  insightPreset: string;
+  setInsightPreset: (v: string) => void;
+  insightRefresh: string;
+  setInsightRefresh: (v: string) => void;
+  insightPrompt: string;
+  setInsightPrompt: (v: string) => void;
+  /** The ticked Output ids the user chose, or `null` while the checklist follows the same-node default. */
+  insightReads: string[] | null;
+  setInsightReads: (ids: string[] | null) => void;
+  /** The same-node default for this insight's node (the hook's `insightDefaultReads` argument). */
+  insightDefaultReads: string[];
   /** The builder inputs for the current state, for `kind`. */
   params: (kind: OutputKind) => BuildOutputConfigParams;
 }
+
+const NO_IDS: string[] = [];
 
 function isFormatKind(kind: OutputKind): kind is ConditionalFormatKind {
   return kind === "metric" || kind === "collection" || kind === "table";
@@ -96,6 +110,8 @@ export function useOutputKindState(
   /** The Output's kind when editing (seeds the kind-specific `conditionalFormats` read); create mode has no
    *  config, so the default is immaterial there. */
   kind: OutputKind = "chart",
+  /** HEL-1744: the insight checklist's same-node default (it follows the node, which a create sheet can change). */
+  insightDefaultReads: string[] = NO_IDS,
 ): OutputKindState {
   // Only the kind-independent fields are read from the seed, so the kind argument is immaterial.
   const seed = useMemo(() => openingParams("chart", config, []), [config]);
@@ -166,6 +182,12 @@ export function useOutputKindState(
   const [timelineFieldMapping, setTimelineFieldMapping] = useState(seed.timelineFieldMapping);
   const [collectionFormat, setCollectionFormat] = useState<string>(seed.collectionFormat);
 
+  // Insight (HEL-1744)
+  const [insightPreset, setInsightPreset] = useState<string>(seed.insightPreset ?? "auto");
+  const [insightRefresh, setInsightRefresh] = useState<string>(seed.insightRefresh ?? "on_run");
+  const [insightPrompt, setInsightPrompt] = useState<string>(seed.insightPrompt ?? "");
+  const [insightReads, setInsightReads] = useState<string[] | null>(seed.insightReads ?? null);
+
   return {
     chartType,
     setChartType,
@@ -208,6 +230,15 @@ export function useOutputKindState(
     setTimelineFieldMapping,
     collectionFormat,
     setCollectionFormat,
+    insightPreset,
+    setInsightPreset,
+    insightRefresh,
+    setInsightRefresh,
+    insightPrompt,
+    setInsightPrompt,
+    insightReads,
+    setInsightReads,
+    insightDefaultReads,
     params: (kind) => ({
       kind,
       chartType,
@@ -234,6 +265,13 @@ export function useOutputKindState(
       timelineFieldMapping,
       conditionalFormats: isFormatKind(kind) ? conditionalFormats.rulesFor(kind) : undefined,
       conditionalFormatsStored: conditionalFormats.storedKey,
+      insightPreset,
+      insightRefresh,
+      insightPrompt,
+      insightReads,
+      insightDefaultReads,
+      insightWindows: seed.insightWindows,
+      insightStored: seed.insightStored,
     }),
   };
 }

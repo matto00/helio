@@ -1,42 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type MouseEvent,
-  type KeyboardEvent,
-} from "react";
+import { useCallback, type KeyboardEvent } from "react";
 import { Info } from "lucide-react";
 
-import { usePortalPopover, type PortalPopoverPos } from "../../../hooks/usePortalPopover";
-import { fitPanelVertically, VIEWPORT_MARGIN } from "../../../shared/ui/panelFit";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import "./ProvenanceTrigger.css";
 import { fetchOutputProvenance, fetchPublicProvenance, type Provenance } from "./provenanceService";
-import { subscribeToPipelineTerminal } from "../services/pipelineRunFanout";
-import {
-  getCachedProvenance,
-  invalidateProvenance,
-  outputProvenanceKey,
-  publicProvenanceKey,
-  subscribeProvenance,
-} from "./provenanceCache";
-import { onProvenanceOpened, type ProvenanceVariant } from "./provenanceTelemetry";
-import { ProvenancePopover } from "./ProvenancePopover";
-import { useProvenance } from "./useProvenance";
-import {
-  comparisonStoreKey,
-  getPublishedComparison,
-  subscribeComparisons,
-} from "../history/metricComparisonStore";
-
-const POPOVER_MAX_WIDTH = 360;
-/** Gap between the trigger and the popover. */
-const TRIGGER_GAP = 8;
-/** The CSS design cap (`ProvenancePopover.css`: `min(70vh, 480px)`), mirrored so the inline `maxHeight` never exceeds it. */
-const POPOVER_MAX_HEIGHT = 480;
+import { outputProvenanceKey, publicProvenanceKey } from "./provenanceCache";
+import type { ProvenanceVariant } from "./provenanceTelemetry";
+import { useProvenancePopoverHost } from "./useProvenancePopoverHost";
+import { comparisonStoreKey } from "../history/metricComparisonStore";
 
 export interface ProvenanceTriggerProps {
   panelId: string;
@@ -53,28 +25,6 @@ export interface ProvenanceTriggerProps {
   className?: string;
 }
 
-/** Where the mounted popover sits against its trigger so all of it is reachable (HEL-1756): below the trigger when it
- *  fits, above when that side has more room, else capped to the roomier side so it scrolls inside itself. Horizontally
- *  it keeps an 8px margin on both sides. With no layout (jsdom) it keeps the preferred side, uncapped. */
-function placeProvenance(panel: HTMLElement, trigger: DOMRect): PortalPopoverPos {
-  const width = Math.min(POPOVER_MAX_WIDTH, window.innerWidth - 40);
-  const left = Math.max(
-    VIEWPORT_MARGIN,
-    Math.min(trigger.left, window.innerWidth - width - VIEWPORT_MARGIN),
-  );
-  const chrome = panel.offsetHeight - panel.clientHeight;
-  const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
-  const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
-    gap: TRIGGER_GAP,
-    cap: Math.min(0.7 * window.innerHeight, POPOVER_MAX_HEIGHT),
-    prefer: "below",
-  });
-  const maxHeight = Number.isFinite(fit.maxHeight) ? fit.maxHeight : undefined;
-  return fit.side === "above"
-    ? { bottom: fit.bottom, left, width, maxHeight }
-    : { top: fit.top, left, width, maxHeight };
-}
-
 /** HEL-1207 — the shared provenance trigger: one component per render path (desktop card footer,
  *  mobile stack header, public viewer row, fullscreen/detail modal), owning open state, the lazy
  *  cached read and the popover. Event isolation (A2): its own click/keydown never bubble to the
@@ -89,13 +39,6 @@ export function ProvenanceTrigger({
   invalidBadge = false,
   className,
 }: ProvenanceTriggerProps) {
-  const { triggerRef, panelRef, isOpen, placed, panelPos, handleOpen, close, reposition } =
-    usePortalPopover<HTMLButtonElement>({ place: placeProvenance });
-  const [focusChecks, setFocusChecks] = useState(false);
-  const [container, setContainer] = useState<HTMLElement>(() => document.body);
-  /** Whichever control opened the popover (icon or badge) — focus returns there on close. */
-  const openerRef = useRef<HTMLElement | null>(null);
-
   const isPublic = variant === "public";
   const key =
     isPublic && dashboardId
@@ -108,60 +51,16 @@ export function ProvenanceTrigger({
         : fetchOutputProvenance(outputId),
     [isPublic, dashboardId, panelId, token, outputId],
   );
-  const state = useProvenance(key, fetcher, isOpen);
-  // HEL-1275 design.md D5 — the comparison the panel body resolved (null when hidden/absent).
-  const comparison = useSyncExternalStore(subscribeComparisons, () =>
-    getPublishedComparison(comparisonStoreKey(variant, panelId)),
-  );
-
-  // A cached chain goes stale when its pipeline next succeeds or fails: evict so the next open
-  // refetches. Subscribes only once a chain is loaded (nothing to go stale before that; the fan-out
-  // baselines its first observation without firing) and only for the authenticated variant.
-  // Read from the cache (not the popover state, which is idle while closed): the subscription must
-  // outlive the popover, since the staleness happens while it is closed.
-  const loadedPipelineId = useSyncExternalStore(
-    subscribeProvenance,
-    () => getCachedProvenance(key)?.pipeline.id,
-  );
-  useEffect(() => {
-    if (isPublic || !loadedPipelineId) return;
-    return subscribeToPipelineTerminal(loadedPipelineId, () => invalidateProvenance(key));
-  }, [isPublic, loadedPipelineId, key]);
-
-  const open = useCallback(
-    (checks: boolean) => {
-      setFocusChecks(checks);
-      handleOpen();
-      onProvenanceOpened({ panelId, variant });
-    },
-    [handleOpen, panelId, variant],
-  );
-
-  function toggle(event: MouseEvent<HTMLElement>, checks: boolean) {
-    event.stopPropagation();
-    if (isOpen) {
-      close();
-      return;
-    }
-    openerRef.current = event.currentTarget;
-    // Inside a native `<dialog>` Modal the popover must portal INTO the dialog (top layer + its
-    // focus scope); elsewhere it goes to <body>. Resolved here, at open time, not during render.
-    setContainer(event.currentTarget.closest("dialog") ?? document.body);
-    open(checks);
-  }
+  const { triggerRef, isOpen, toggle, popover } = useProvenancePopoverHost({
+    variant,
+    panelId,
+    cacheKey: key,
+    fetcher,
+    label: panelTitle ? `Data provenance for ${panelTitle}` : "Data provenance",
+    outputId,
+    comparisonKey: comparisonStoreKey(variant, panelId),
+  });
   const stopKey = (event: KeyboardEvent<HTMLElement>) => event.stopPropagation();
-
-  const handleClose = useCallback(() => {
-    close();
-    // The Invalid-data badge can unmount while the popover is open; fall back to the icon.
-    const opener = openerRef.current;
-    (opener?.isConnected ? opener : triggerRef.current)?.focus();
-  }, [close, triggerRef]);
-
-  const pipelineHref =
-    !isPublic && state.status === "ready" && state.data.pipeline.id
-      ? `/pipelines/${state.data.pipeline.id}?outputId=${outputId}`
-      : null;
 
   return (
     <span
@@ -194,22 +93,7 @@ export function ProvenanceTrigger({
           Invalid data
         </button>
       )}
-      {isOpen && panelPos ? (
-        <ProvenancePopover
-          label={panelTitle ? `Data provenance for ${panelTitle}` : "Data provenance"}
-          variant={variant}
-          pos={panelPos}
-          placed={placed}
-          panelRef={panelRef}
-          reposition={reposition}
-          state={state}
-          comparison={comparison}
-          focusChecks={focusChecks}
-          pipelineHref={pipelineHref}
-          container={container}
-          onClose={handleClose}
-        />
-      ) : null}
+      {popover}
     </span>
   );
 }

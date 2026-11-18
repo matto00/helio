@@ -31,8 +31,11 @@ import {
 } from "./buildOutputConfig";
 import { buildBaselineConfig, buildConfigPatch } from "./configPatch";
 import { HistoryPayloadsField } from "./HistoryPayloadsField";
+import { sameIdSet } from "./insightNode";
+import { useInsightEditorState } from "./useInsightEditorState";
+import { INSIGHT_MAX_READ_OUTPUTS } from "./outputConfigTypes";
 import { OutputEditorFooter } from "./OutputEditorFooter";
-import { kindOptionsFor } from "./outputKinds";
+import { CREATABLE_KIND_OPTIONS } from "./outputKinds";
 import { OutputKindConfigCard } from "./OutputKindConfigCard";
 import { OutputPlacementsList } from "./OutputPlacementsList";
 import { OutputSheetPreviewCard } from "./OutputSheetPreviewCard";
@@ -73,6 +76,9 @@ interface OutputEditorSheetProps {
   /** HEL-1733: given only while a pipeline draft exists. Save/Delete then record draft entries, the columns and preview come from the
    *  draft, and nothing is written or read by a draft-only id. */
   draft?: OutputSheetDraft;
+  /** HEL-1744: the signed-in user owns this pipeline (never "created the Output"). With the free tier it shows the insight
+   *  card's upsell, since renders are charged to the pipeline owner. Omitted in contexts that do not know: no upsell. */
+  isPipelineOwner?: boolean;
 }
 
 export function OutputEditorSheet({
@@ -86,6 +92,7 @@ export function OutputEditorSheet({
   onRunPipeline,
   actions,
   draft,
+  isPipelineOwner = false,
 }: OutputEditorSheetProps) {
   const immediate = useOutputImmediateActions(pipelineId);
   const write = actions ?? immediate;
@@ -135,12 +142,28 @@ export function OutputEditorSheet({
 
   const { placements, neverMaterialized } = useOutputSavedStatus(open, !hasServerRow, output);
 
+  // HEL-1744 D2 -- the insight card's candidates, node and same-node default.
+  const { insightCandidates, insightNode, insightDefaultReads, tier } = useInsightEditorState({
+    pipelineId,
+    output,
+    nodeStepId,
+    isCreate,
+    draft,
+  });
+
   const config = useMemo(() => output?.config ?? {}, [output]);
   const kindState = useOutputKindState(
     config,
     capabilities ? capabilities.columns.map((c) => c.name) : [],
     (output?.kind as OutputKind) ?? "chart",
+    insightDefaultReads,
   );
+  const insightTicked = kindState.insightReads;
+  const insightTooMany =
+    kind === "insight" &&
+    insightTicked !== null &&
+    !sameIdSet(insightTicked, insightDefaultReads) &&
+    insightTicked.length > INSIGHT_MAX_READ_OUTPUTS;
   // HEL-1307 -- a rule the server would reject blocks Save (the editor mirrors the server's checks).
   const rulesInvalid =
     (kind === "metric" || kind === "collection" || kind === "table") &&
@@ -171,7 +194,7 @@ export function OutputEditorSheet({
     const built = buildConfig();
     if (!output || kind !== output.kind) return built;
     const fieldKeys = capabilities ? capabilities.columns.map((c) => c.name) : [];
-    const baseline = buildBaselineConfig(kind, output.config ?? {}, fieldKeys);
+    const baseline = buildBaselineConfig(kind, output.config ?? {}, fieldKeys, insightDefaultReads);
     return buildConfigPatch(kind, built, baseline, output.config ?? {}) ?? {};
   }
 
@@ -281,6 +304,7 @@ export function OutputEditorSheet({
           saveBlocked={
             rulesInvalid ||
             (kind === "chart" && (kindState.binCountInvalid || kindState.referenceMarksInvalid)) ||
+            insightTooMany ||
             saveWaits
           }
         />
@@ -328,7 +352,7 @@ export function OutputEditorSheet({
             ariaLabel="Output kind"
             value={kind}
             onChange={(v) => setKind(v as OutputKind)}
-            options={kindOptionsFor(kind)}
+            options={CREATABLE_KIND_OPTIONS}
             disabled={!isCreate}
             ariaDescribedBy={isCreate ? undefined : kindHintId}
           />
@@ -352,6 +376,16 @@ export function OutputEditorSheet({
         aggFieldOptions={aggFieldOptions}
         fieldOptions={fieldOptions}
         numericColumns={numericColumns}
+        insight={
+          kind === "insight"
+            ? {
+                candidates: insightCandidates,
+                node: insightNode,
+                showUpsell: isPipelineOwner && tier === "free",
+                tooMany: insightTooMany,
+              }
+            : undefined
+        }
       />
 
       {/* An insight has no row payload to store (HEL-1740: its config accepts no `historyPayloads`). */}

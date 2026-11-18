@@ -5,6 +5,7 @@ import { getOutputId, isFullscreenEligible } from "../state/panelNarrowing";
 import { deletePanel, duplicatePanel } from "../state/panelsSlice";
 import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { useDataInvalid } from "../provenance/useDataInvalid";
+import { useInsightChrome } from "../insight/insightChromeStore";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
@@ -111,7 +112,11 @@ export const PanelCard = React.memo(function PanelCard({
   useOutputRetention(outputId);
   const mountOwnership = useRef(false);
   const panelData = usePanelData(panel, [], null, { mountOwnership });
-  const { refresh, isRefreshing } = panelData;
+  const { isRefreshing } = panelData;
+  // HEL-1744 D7: an insight panel has no rows to refetch. Once its body is mounted it publishes its render time (the footer)
+  // and a re-read of the stored insight (the refresh action); until then, and for every other panel, nothing changes.
+  const insightChrome = useInsightChrome(outputId);
+  const refresh = insightChrome ? insightChrome.refetch : panelData.refresh;
 
   // HEL-584 design.md Decision 2 — the fullscreen overlay consumes THIS
   // `panelData` result as props (below); it never calls `usePanelData`
@@ -313,7 +318,7 @@ export const PanelCard = React.memo(function PanelCard({
           columns={panelData.columns}
           inspectRecords={crossFilteredRecords}
           rowsTruncated={panelData.rowsTruncated}
-          refresh={panelData.refresh}
+          refresh={refresh}
           chartInspectConfig={chartInspectConfig}
           crossFilterMode={crossFilterMode}
         />
@@ -329,7 +334,14 @@ export const PanelCard = React.memo(function PanelCard({
             invalidBadge={isDataInvalid}
           />
         )}
-        <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
+        {insightChrome ? (
+          // The insight's own render time; no render, no updated time.
+          insightChrome.renderedAt && (
+            <span>Updated {new Date(insightChrome.renderedAt).toLocaleDateString()}</span>
+          )
+        ) : (
+          <span>Updated {new Date(panel.meta.lastUpdated).toLocaleDateString()}</span>
+        )}
       </div>
     </article>
   );

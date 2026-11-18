@@ -2,7 +2,7 @@
  * GUARD (HEL-1740, labelled as such): green on a correct tree, red only by mutation (drop `insight` from a site; each mutation is
  * recorded in openspec/changes/register-insight-output-kind/drift-mutations.md). Compares the frontend kind set with the backend
  * canonical set (read from the JSON schema enums, which the backend `OutputKindDriftSpec` pins to `OutputKind.all`), and pins the
- * editor picker's deliberate exclusion of `insight` (until HEL-1744).
+ * editor's create picker (HEL-1744 removed the `insight` exclusion; it now offers every kind).
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -43,9 +43,7 @@ describe("Output kind drift (frontend)", () => {
     );
   });
 
-  it("the editor's create picker offers every kind except insight (HEL-1744 owns its authoring UI)", () => {
-    expect(CREATABLE_KIND_OPTIONS.map((o) => o.value).sort()).toEqual(
-      OUTPUT_KINDS.filter((k) => k !== "insight").sort(),
-    );
+  it("the editor's create picker offers every kind", () => {
+    expect(CREATABLE_KIND_OPTIONS.map((o) => o.value).sort()).toEqual([...OUTPUT_KINDS].sort());
   });
 });

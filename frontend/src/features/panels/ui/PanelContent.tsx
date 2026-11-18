@@ -122,7 +122,7 @@ export interface PanelContentProps {
 export function PanelContent(props: PanelContentProps) {
   return (
     <Crossfade
-      loading={props.isLoading === true}
+      loading={props.isLoading === true && props.output?.kind !== "insight"}
       skeleton={
         // HEL-528 design.md D6/D7 — a shape-matched skeleton, not the accent spinner: this is the panel's INITIAL
         // structural load (see `Skeleton.tsx`'s division comment), not a short in-place refresh.
@@ -167,7 +167,10 @@ function PanelContentBody({
   viewerFilterActive = false,
   historySource,
 }: PanelContentProps) {
-  if (error) {
+  // HEL-1744 D7 -- an insight panel reads its stored render, never the Output's rows: an empty, unmaterialised or failed rows read
+  // says nothing about it, so it must not replace the insight body with a rows state.
+  const isInsight = output?.kind === "insight";
+  if (error && !isInsight) {
     return (
       <div className="panel-content panel-content--state panel-content--error" role="alert">
         {/* announced={false} — this wrapper already carries role="alert";
@@ -185,7 +188,7 @@ function PanelContentBody({
     );
   }
 
-  if (noData && neverMaterialized) {
+  if (noData && neverMaterialized && !isInsight) {
     // HEL-946 Bug C(2): this node has never had a successful pipeline run
     // since the Output was added — an ACTIONABLE state, distinct from a
     // node that ran and legitimately returned zero rows (handled by the
@@ -209,7 +212,7 @@ function PanelContentBody({
     );
   }
 
-  if (noData) {
+  if (noData && !isInsight) {
     return (
       <div className="panel-content panel-content--state">
         <span className="panel-content__state-label">No data available</span>
