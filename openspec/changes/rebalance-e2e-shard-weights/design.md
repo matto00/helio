@@ -1,0 +1,60 @@
+## Context
+
+`scripts/e2e-shard.mjs` partitions the discovered Playwright spec files across the 6 `e2e` legs by longest-processing-time-first over per-file weights from `e2e/shard-weights.tsv`. A spec with no row gets the median of the discovered rows (currently 49 s). The job limit is `timeout-minutes: 25` (1500 s). The `e2e-ci-sharding` spec requires the slowest leg at or under 20 minutes (1200 s) on main without raising the limit.
+
+### Measured before (orchestrator, Setup and Planning; GitHub API and CI artifacts, no local runs)
+
+Job wall (`completed_at - started_at`) per leg, 11 recent main push runs (`.concertino/scratch/HEL-1772/main-leg-times.tsv`):
+
+- e2e (6): 1096-1519 s, the slowest leg in 6 of 11 runs; run 44369179186 cancelled at 1519 s.
+- Other legs: mostly 820-1100 s; leg 4 went over 1377 s three times (1377, 1396, 1443) and was the slowest leg in 3 runs.
+- Fixed per-leg overhead (job wall minus the "Run e2e suite" step): about 150-230 s.
+
+Summed per-test durations per leg from `playwright-json-shard-*` (5 clean main runs 44391395102, 44375091328, 44357733862, 44353873500, 44350387897), against the table's planned load:
+
+- Leg 6: real 1840-2207 s, table load 1529-1563 s.
+- Other legs: real 1248-2345 s, table load about 1530-1569 s.
+- The largest gaps between real median weight and table weight: `hel1733-draft-outputs-shapes` 358 s vs default 49 s; `hel1684-draft-structural` 334 s vs default 49 s (both on leg 6); `hel1665-home-phone-stability` 674 s vs 386 s; `hel1582-sweep-375` 353 s vs 519 s. 22 discovered specs have no row.
+
+**Cause:** the shard weights are stale. The table predates 22 specs, and the defaulted ones are not near the median. The partition is balanced on paper (1563-1569 s per leg) and unbalanced in fact. It is not a too-tight limit: the evenly divided real load (about 9700 s / 6, about 1620 s summed per leg) maps to about 830 s of test step plus overhead, about 1000-1050 s job wall, well under 1500 s. It is not one slow spec either: the heaviest single spec (`hel1575-dashboard-tabs`, about 750 s summed, about 375 s wall at 2 workers) fits in any leg.
+
+## Goals / Non-Goals
+
+**Goals:**
+- The slowest e2e leg on a normal run at or under 1200 s job wall, which leaves at least 300 s (20 %) of headroom under the 1500 s limit, shown on at least three CI runs of the PR.
+- Zero defaulted specs on the base head immediately after the regeneration.
+
+**Non-Goals:**
+- Raising `timeout-minutes`, changing the leg count, or changing `e2e-shard.mjs` logic.
+- Automating regeneration or a staleness alarm (candidate follow-up; see Risks).
+- Fixing flaky specs (C11 list) or speeding up individual specs.
+
+## Decisions
+
+1. **Regenerate the weight table, using the existing tool unchanged.** Run `node scripts/e2e-shard.mjs weights <runDir>...` over the 5 most recent main push runs where all 6 e2e legs succeeded and every report has `unexpected=0` and `flaky=0` (the tool's `validateRunReports` refuses anything else). Include the run for the base head 80cab1f7a (main run 44403971270, HEL-1671) if it counts, since HEL-1671 grew `hel1608-spine-count-overlap.spec.ts` by about 350 lines. Otherwise use the 5 runs listed in Context. The table header records the run ids.
+   - Alternative: raise the limit. Rejected: the measured even load is about 1000-1050 s, so the limit is not the constraint, and the spec forbids raising it to meet the 20-minute bound.
+   - Alternative: hand-set the two defaulted heavy specs. Rejected: the table is "never hand-edit"; the other 20 defaulted rows and the drifted rows (hel1665 +288 s, hel1582-sweep-375 -166 s) matter too.
+   - Alternative: a better default (a higher percentile). Rejected for this ticket: no fallback value captures a 358 s new spec, and it would change `e2e-shard.mjs` behavior and its selftest.
+2. **Placement of new specs (HEL-1743's `e2e/hel1743-insight-refresh.spec.ts`, and any later one).** A spec with no row gets the median of the discovered rows. LPT assigns it in weight order to the least-loaded leg at that point, so one new spec adds only its real cost to a single leg. Every other spec's placement can shift as well, because LPT re-sorts the whole set, so placement shifts are expected and are not a headroom guarantee by themselves. A new spec costing 50-150 s summed (about 25-75 s wall at 2 workers) fits inside the headroom target. A heavy one (over about 300 s summed) should trigger a regeneration after it has run on main. The PR body says this.
+3. **Proof is CI-only, collected at Delivery, in the format of the `e2e-ci-sharding` requirement "e2e shard balance is measured in CI".** A weight regeneration is a change to shard assignment, so that requirement applies. CI runs only on `pull_request` and main pushes, so the after set exists only once the PR is open; the orchestrator owns it (tasks.md section 3).
+   - **Before set:** the 25 most recent counting main push runs (every e2e leg succeeded and every leg's `playwright-json-shard-*` report is present; cancelled/failed runs, e.g. 44369179186, are listed with the reason and excluded). Per leg: median and max of job wall and "Run e2e suite" step. Imbalance = slowest leg's median test step minus the mean of the six legs' median test steps.
+   - **After set:** at least 5 counting CI runs of the PR's final head: the first run plus literal `gh run rerun` of the e2e jobs (these are measurement reruns, named as such in the PR, distinct from the C9 one-rerun flake rule). Per-attempt job data via `/actions/runs/{id}/attempts/{n}/jobs` (the default jobs listing returns only the latest attempt). Same per-leg medians, maxima and imbalance, plus each run's mean leg, so a run-wide slowdown is told apart from imbalance. The ticket's own bar (at least three runs) is a subset of this.
+   - **Explicitly not met or not applicable, stated in the PR, not hidden:** (a) the "same-window control on heads still using count-based sharding" no longer exists: every head has used weighted sharding since HEL-1361, so there is no control set; (b) the at-most-15 s imbalance line was already accepted as unmet by the owner at HEL-1361 (delivery note in the spec). This change reports the measured after imbalance against it and against the 25-run before imbalance, and claims improvement only if the numbers show it.
+   - **The 20-minute requirement** is defined on 5 consecutive all-green main runs. The PR runs are this ticket's proof; the main-branch measurement is a post-merge watch. At Phase 4 the orchestrator reports whatever counting main runs exist after the merge (with run ids), and states that the 5-run main measurement is incomplete if fewer than 5 exist yet. It is not claimed as met until 5 exist.
+   - **Out-of-sample check:** the new table's predicted balance is checked against at least one run not used to generate it (the base-head run 44403971270 if it is not in the source set, else 44328417748 or 44325353598), in addition to the in-sample comparison.
+   - **Expected outcome, stated up front:** on a normal run, slowest leg about 1000-1100 s job wall. On a run-wide slow run (like 44357733862, mean summed leg about 1908 s) even a balanced partition puts the slowest leg near 1200 s. If an after run exceeds 1200 s, the PR reports the measured table, that run's mean leg, and the cause, rather than raising the limit.
+
+## Risks / Trade-offs
+
+- [Run-to-run variance: a leg's summed duration varies by up to about ±400 s across runs (e.g. leg 4 at 2345 s in 44357733862)] → Median across 5 runs; report max as well as median; the target keeps 300 s of headroom.
+- [The table goes stale again as specs are added] → Documented placement rule (Decision 2); candidate follow-up: a staleness signal or a periodic regeneration, offered in the PR, not built here.
+- [HEL-1743 merges first and changes the discovered set] → Its spec just defaults; the partition still verifies exactly-once. If this branch needs a merge from main, the weights stay valid.
+- [Weights generated from runs at an older head than the base] → Prefer including the base-head run; any spec changed since is listed in the PR.
+
+## Migration Plan
+
+Data-only change. Rollback is reverting `e2e/shard-weights.tsv`.
+
+## Gate-Chain Implications Checklist
+
+Not applicable: no `.husky/**` file or script invoked by `.husky/pre-commit` is touched.
