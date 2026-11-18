@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { defaultDashboardLayout } from "../features/dashboards/state/dashboardLayout";
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { assistantModelsReducer } from "../features/assistant/state/assistantModelsSlice";
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
@@ -38,6 +39,7 @@ import type { User } from "../features/auth/types/user";
 import type {
   AssistantConversationDetail,
   AssistantConversationSummary,
+  AssistantModelsResponse,
 } from "../features/assistant/types";
 import type { DashboardAppearance, DashboardLayout } from "../features/dashboards/types/dashboard";
 import type { PipelineSummary } from "../features/pipelines/types/pipelineStep";
@@ -149,6 +151,14 @@ interface TestState {
       hopBudgetExhausted: boolean;
       searchedWithNoResults: boolean;
     } | null;
+    /** HEL-1755: the model picked before a conversation exists / the last model-change failure. */
+    pendingModel?: string | null;
+    modelError?: string | null;
+  };
+  /** HEL-1755: the composer picker's model list (`GET /api/assistant-models`). */
+  assistantModels?: {
+    status?: "idle" | "loading" | "succeeded" | "failed";
+    data?: AssistantModelsResponse | null;
   };
 }
 
@@ -198,6 +208,7 @@ export function renderWithStore(
 ) {
   const reducer = {
     assistantConversations: assistantConversationsReducer,
+    assistantModels: assistantModelsReducer,
     auditEvents: auditEventsReducer,
     auth: authReducer,
     connectors: connectorsReducer,
@@ -300,6 +311,12 @@ export function renderWithStore(
             error: preloadedState.assistantConversations?.activeConversation?.error ?? null,
           },
           lastTurnOutcome: preloadedState.assistantConversations?.lastTurnOutcome ?? null,
+          pendingModel: preloadedState.assistantConversations?.pendingModel ?? null,
+          modelError: preloadedState.assistantConversations?.modelError ?? null,
+        },
+        assistantModels: {
+          status: preloadedState.assistantModels?.status ?? "idle",
+          data: preloadedState.assistantModels?.data ?? null,
         },
       }
     : undefined;

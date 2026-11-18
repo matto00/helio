@@ -20,12 +20,14 @@ object ClaudeRole {
 /** Caller-facing request. `maxTokens`/`temperature` are optional per-call overrides —
  *  `maxTokens` is clamped down to (never rejected above) `ClaudeConfig.maxOutputTokens`;
  *  `temperature` overrides `ClaudeConfig.temperature` outright when supplied (design.md D4/D7).
- *  `model` is intentionally *not* a field here: it is configuration-only (`ClaudeConfig.model`),
- *  never a per-call override, per the ticket's "not hardcoded at call sites" requirement. */
+ *  `model` (HEL-1755 D2) is a per-call override that can only be a [[ClaudeModelSpec]] from the shared
+ *  [[ClaudeModelCatalog]] -- never a raw string; `None` uses `ClaudeConfig.model`. */
 final case class ClaudeRequest(
     messages: Seq[ClaudeMessage],
     maxTokens: Option[Int] = None,
-    temperature: Option[Double] = None
+    temperature: Option[Double] = None,
+    // HEL-1755 D2: the per-request model, only ever a catalog entry; None = `ClaudeConfig.model`.
+    model: Option[ClaudeModelSpec] = None
 )
 
 /** Token usage as reported by the Anthropic API's own `usage` field — never inferred from the
@@ -142,8 +144,9 @@ object ClaudeContentBlock {
 }
 
 /** A single tool-use-loop conversation turn — the `ClaudeToolRequest`/`ClaudeToolOutcome` analog of
- *  [[ClaudeMessage]] (design.md D1). */
-final case class ClaudeToolMessage(role: String, content: Seq[ClaudeContentBlock])
+ *  [[ClaudeMessage]] (design.md D1). `model` (HEL-1755 D5) is the id that answered an assistant turn, stamped
+ *  server-side; it is never sent to the API (`ClaudeClient` builds wire messages from role/content only). */
+final case class ClaudeToolMessage(role: String, content: Seq[ClaudeContentBlock], model: Option[String] = None)
 
 object ClaudeToolMessage {
 
@@ -182,7 +185,9 @@ final case class ClaudeToolRequest(
     temperature: Option[Double] = None,
     webSearch: Boolean = false,
     oncePerResponseTools: Set[String] = Set.empty,
-    system: Option[String] = None
+    system: Option[String] = None,
+    // HEL-1755 D2: the per-request model, fixed for the whole tool loop; None = `ClaudeConfig.model`.
+    model: Option[ClaudeModelSpec] = None
 )
 
 /** Caller-supplied tool execution callback (design.md D7, widened HEL-667 design.md D3). A `Left`
@@ -205,11 +210,15 @@ object ClaudeToolOutcome {
   /** Claude returned a response with no `tool_use` block — the loop is done. `history` is the full
    *  accumulated turn sequence (useful for a caller that wants to persist/display the transcript);
    *  `usage` is summed across every hop (design.md D5). */
-  final case class FinalResponse(text: String, history: Seq[ClaudeToolMessage], usage: TokenUsage) extends ClaudeToolOutcome
+  final case class FinalResponse(text: String, history: Seq[ClaudeToolMessage], usage: TokenUsage)(
+      val responseModel: Option[String] = None
+  ) extends ClaudeToolOutcome
 
   /** `maxHops` round trips were already used and Claude requested another tool call — the loop
    *  terminates gracefully (design.md D5): no exception, no further transport call. */
-  final case class HopBudgetExhausted(history: Seq[ClaudeToolMessage], usage: TokenUsage) extends ClaudeToolOutcome
+  final case class HopBudgetExhausted(history: Seq[ClaudeToolMessage], usage: TokenUsage)(
+      val responseModel: Option[String] = None
+  ) extends ClaudeToolOutcome
 
   /** A guardrail rejection or transport/API failure at any hop (design.md D6/D7's error-mapping
    *  parity with [[ClaudeClient.send]]). */

@@ -16,12 +16,16 @@ schema JSONB, position, tag, created_at, updated_at`.
 - **THEN** it is attached to the pipeline's root frame rather than any step
 
 ### Requirement: Output kind is one of the Phase-1 set
-The system SHALL restrict `outputs.kind` to `metric | chart | table | collection |
-timeline | markdown`.
+The system SHALL restrict `outputs.kind` to `metric | chart | table | collection | timeline | markdown | insight`, at
+both the API layer and the database CHECK constraint.
 
 #### Scenario: Unknown kind rejected
-- **WHEN** an Output is created or updated with a kind outside the Phase-1 set
+- **WHEN** an Output is created or updated with a kind outside this set
 - **THEN** the write is rejected
+
+#### Scenario: Insight kind accepted
+- **WHEN** an Output is created with kind `insight` and a valid insight config
+- **THEN** the write succeeds (201) and the stored row's kind is `insight`
 
 ### Requirement: Outputs inherit the owning pipeline's sharing-aware ACL
 The system SHALL authorize read/write access to an Output using the same

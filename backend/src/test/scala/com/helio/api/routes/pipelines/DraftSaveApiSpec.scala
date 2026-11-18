@@ -113,6 +113,33 @@ class DraftSaveApiSpec extends DraftSaveApiFixture {
     }
   }
 
+  "an insight Output in a draft (HEL-1740)" should {
+    def draftWithInsight(seed: DraftSaveSeed, reads: String) = {
+      val (fingerprint, definition) = read(seed)
+      val d = draftOf(fingerprint, definition)
+      withOutputs(d, outputsOf(d) :+ JsObject(
+        "clientId" -> JsString("ins"), "name" -> JsString("ins"), "kind" -> JsString("insight"), "nodeStepId" -> JsString(seed.t4),
+        "config" -> JsObject("reads" -> JsObject("outputs" -> JsArray(JsString(reads))))
+      ))
+    }
+
+    "save with reads naming a surviving Output of the pipeline" in {
+      val seed = seedPipeline()
+      val (code, body) = save(seed, userA, draftWithInsight(seed, seed.oa))
+      withClue(body.compactPrint)(code shouldBe StatusCodes.OK)
+      outputRows(seed).exists(_.contains("|ins|")) shouldBe true
+    }
+
+    "400 reads.outputs naming an unknown Output, and write nothing" in {
+      val seed = seedPipeline()
+      val before = storedState(seed)
+      val (code, body) = save(seed, userA, draftWithInsight(seed, "not-an-output"))
+      code shouldBe StatusCodes.BadRequest
+      body.compactPrint should include("reads.outputs")
+      storedState(seed) shouldBe before
+    }
+  }
+
   "a stale base" should {
     "answer 409 PATCH_SET_STALE naming the pipeline and the current fingerprint, and write nothing" in {
       val seed = seedPipeline()

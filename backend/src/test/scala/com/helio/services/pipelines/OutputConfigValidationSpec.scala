@@ -23,10 +23,15 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
 
   "known keys" should {
     "accept every kind's full known set (string-valued placeholders where no shape is checked)" in {
-      OutputConfigValidation.KnownKeys.foreach { case (kind, keys) =>
+      OutputConfigValidation.KnownKeys.filter(_._1 != OutputKind.Insight).foreach { case (kind, keys) =>
         val written = JsObject(keys.filterNot(Set("aggregation", "chartType", "fieldMapping", "compare", "historyPayloads", "referenceLines", "referenceBands")).map(_ -> s("x")).toMap)
         withClue(kind.toString)(ok(kind, written))
       }
+      // HEL-1740: insight's keys are value-checked, so it gets its own valid values rather than the "x" placeholders.
+      ok(OutputKind.Insight, obj(
+        "preset" -> s("delta"), "prompt" -> s("p"), "reads" -> obj("outputs" -> JsArray(s("o1")), "windows" -> JsArray(s("7d"))),
+        "refresh" -> s("daily"), "maxSentences" -> JsNumber(3), "maxChars" -> JsNumber(300), "fieldMapping" -> JsObject.empty
+      ))
       ok(OutputKind.Chart, obj("chartType" -> s("bar"), "aggregation" -> chartAgg, "compare" -> s("7d"), "historyPayloads" -> JsTrue))
     }
 
@@ -171,7 +176,9 @@ class OutputConfigValidationSpec extends AnyWordSpec with Matchers {
 
   "KeysDoc" should {
     "mention every kind's keys and both aggregation shapes" in {
-      OutputConfigValidation.KnownKeys.values.flatten.foreach(k => OutputConfigValidation.KeysDoc should include(k))
+      OutputConfigValidation.DocumentedKnownKeys.values.flatten.foreach(k => OutputConfigValidation.KeysDoc should include(k))
+      // HEL-1740: insight is documented nowhere until the proposal surface accepts it (HEL-1747).
+      OutputConfigValidation.KeysDoc should not include "insight"
       OutputConfigValidation.KeysDoc should include("{ groupBy, agg, yField }")
       OutputConfigValidation.KeysDoc should include("{ agg }")
       OutputConfigValidation.KeysDoc should include("{ value, agg }")

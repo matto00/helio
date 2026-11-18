@@ -15,6 +15,7 @@ import type { OutputHistory } from "../../../panels/history/outputHistoryService
 import { selectDraftMetricComparison } from "../../../panels/history/metricHistoryView";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { CollectionRenderer } from "../../../panels/ui/renderers/CollectionRenderer";
+import { InsightNotRenderedState } from "../../../panels/ui/InsightNotRenderedState";
 import { MarkdownRenderer } from "../../../panels/ui/renderers/MarkdownRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import { TimelineRenderer } from "../../../panels/ui/renderers/TimelineRenderer";
@@ -155,6 +156,7 @@ export function LiveOutputRender({
   if (kind === "table") {
     return <LiveTable config={config} headers={headers} rawRows={rawRows} />;
   }
+  if (kind === "insight") return <InsightNotRenderedState />;
   return <p className="live-output__hint">This Output kind has no live render.</p>;
 }
 

@@ -146,7 +146,8 @@ object OutputPanelDefaultSize {
     OutputKind.Table      -> Size(w = 6, h = 6),
     OutputKind.Collection -> Size(w = 6, h = 4),
     OutputKind.Timeline   -> Size(w = 4, h = 6),
-    OutputKind.Markdown   -> Size(w = 4, h = 4)
+    OutputKind.Markdown   -> Size(w = 4, h = 4),
+    OutputKind.Insight    -> Size(w = 6, h = 3)
   )
 
   def forKind(kind: OutputKind): Size = Sizes(kind)

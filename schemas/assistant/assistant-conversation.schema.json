@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/assistant/assistant-conversation.schema.json",
   "title": "AssistantConversationResponse",
-  "description": "Response body of GET /api/assistant-conversations/:id (HEL-663) and POST /api/assistant-conversations (create) -- the summary fields plus the full transcript. The transcript crosses the wire as opaque JSON (an array of ClaudeToolMessage-shaped objects, com.helio.infrastructure.ai) rather than a strictly-typed shape -- see AssistantConversationProtocol.scala's header comment for why. RLS-scoped to the owner; 404 for a missing or non-owned id. `hopBudgetExhausted`/`searchedWithNoResults` (HEL-667) are ephemeral signals describing the turn that just completed -- present only on a POST /:id/converse response, always absent on GET.",
+  "description": "Response body of GET /api/assistant-conversations/:id (HEL-663) and POST /api/assistant-conversations (create) -- the summary fields plus the full transcript. The transcript crosses the wire as opaque JSON (an array of ClaudeToolMessage-shaped objects, com.helio.infrastructure.ai) rather than a strictly-typed shape -- see AssistantConversationProtocol.scala's header comment for why. RLS-scoped to the owner; 404 for a missing or non-owned id. `hopBudgetExhausted`/`searchedWithNoResults` (HEL-667) are ephemeral signals describing the turn that just completed -- present only on a POST /:id/converse response, always absent on GET. HEL-1755: `model` is the stored selection and `effectiveModel` the resolved model for the next turn.",
   "type": "object",
-  "required": ["id", "title", "pinned", "updatedAt", "transcript"],
+  "required": ["id", "title", "pinned", "updatedAt", "transcript", "effectiveModel"],
   "properties": {
     "id": {
       "type": "string"
@@ -33,6 +33,10 @@
             "items": {
               "type": "object"
             }
+          },
+          "model": {
+            "type": "string",
+            "description": "HEL-1755: on an assistant turn, the model id that answered it (the API response's own model), stamped by the server. A client-supplied value on create/messages is discarded. Absent on user turns and on turns saved before HEL-1755."
           }
         },
         "required": ["role", "content"]
@@ -49,6 +53,14 @@
     "lastIdempotencyKey": {
       "type": "string",
       "description": "HEL-698: the idempotency key of the most recent KEYED append -- unlike hopBudgetExhausted/searchedWithNoResults, this IS a persisted fact about the conversation, so it is populated on BOTH GET and converse responses. Absent until the first keyed append occurs."
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "HEL-1755: the conversation's stored model id; null/absent = none stored."
+    },
+    "effectiveModel": {
+      "type": "string",
+      "description": "HEL-1755: the server-resolved model the next turn will use (stored if still selectable, else the user's default if still selectable, else the server default)."
     }
   },
   "additionalProperties": false

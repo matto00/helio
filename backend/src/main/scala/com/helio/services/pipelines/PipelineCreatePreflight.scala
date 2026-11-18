@@ -4,7 +4,7 @@ import com.helio.api.protocols.pipelines.{CreatePipelineRequest, CreatePipelineR
 import com.helio.domain.{JoinConfig, LookupConfig, UnionConfig}
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.{OutputKind, PipelineStep, PipelineStepKind}
-import com.helio.domain.outputs.ConditionalFormats
+import com.helio.domain.outputs.{ConditionalFormats, InsightReadsCheck}
 import com.helio.domain.steps.SecondaryInput
 import com.helio.services.ServiceError
 import org.slf4j.LoggerFactory
@@ -225,5 +225,7 @@ private[services] object PipelineCreatePreflight {
       .flatMap(_ => OutputCompare.validateConfig(config))
       .flatMap(_ => PayloadOptIn.validateConfig(config))
       .flatMap(_ => ConditionalFormats.validateConfig(kind, config))
+      // HEL-1740 D4: a brand-new pipeline has no Output a new insight could read, so any named id is rejected.
+      .flatMap(_ => InsightReadsCheck.check(kind, None, config, JsObject.empty, Map.empty))
       .left.map(msg => ServiceError.BadRequest(msg))
 }

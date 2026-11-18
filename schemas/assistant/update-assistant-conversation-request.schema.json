@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/assistant/update-assistant-conversation-request.schema.json",
   "title": "UpdateAssistantConversationRequest",
-  "description": "Request body of PATCH /api/assistant-conversations/:id (HEL-663) -- pin/unpin and/or rename. Both fields are plain optional (absent = unchanged); a rename is permanent and is never re-derived once set (design.md D6).",
+  "description": "Request body of PATCH /api/assistant-conversations/:id (HEL-663) -- pin/unpin and/or rename. Both fields are plain optional (absent = unchanged); a rename is permanent and is never re-derived once set (design.md D6). HEL-1755 adds `model`.",
   "type": "object",
   "properties": {
     "pinned": {
@@ -12,6 +12,10 @@
     "title": {
       "type": "string",
       "description": "When present, permanently overrides the conversation's title (derived or default)."
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "HEL-1755: a selectable catalog id sets the conversation's model (any other string is a 400, nothing changes); null clears it so the user's default, else the server default, applies; absent leaves it unchanged. Applies from the next turn."
     }
   },
   "additionalProperties": false

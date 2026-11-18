@@ -4,7 +4,7 @@
   "title": "AssistantConversationSummaryResponse",
   "description": "List-item shape of GET /api/assistant-conversations (HEL-663) and the response body of POST /api/assistant-conversations/:id/messages and PATCH /api/assistant-conversations/:id -- deliberately compact, no transcript (design.md D5). The list itself is ordered pinned DESC, updatedAt DESC and defaults to at most the 10 most recent (pinned-first) conversations when no explicit limit is requested -- a route-local default distinct from this codebase's shared page-size default (200).",
   "type": "object",
-  "required": ["id", "title", "pinned", "updatedAt"],
+  "required": ["id", "title", "pinned", "updatedAt", "effectiveModel"],
   "properties": {
     "id": {
       "type": "string"
@@ -18,6 +18,14 @@
     "updatedAt": {
       "type": "string",
       "format": "date-time"
+    },
+    "model": {
+      "type": ["string", "null"],
+      "description": "HEL-1755: the conversation's stored model id; null/absent = none stored (the user's default, else the server default, applies at send time)."
+    },
+    "effectiveModel": {
+      "type": "string",
+      "description": "HEL-1755: the server-resolved model the next turn will use: the stored model if still selectable, else the user's default if still selectable, else the server default (CLAUDE_MODEL). May be a non-catalog id when the server default is one."
     }
   },
   "additionalProperties": false

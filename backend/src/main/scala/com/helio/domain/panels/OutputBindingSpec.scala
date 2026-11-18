@@ -105,10 +105,15 @@ object OutputBindingSpec {
   val Markdown: OutputBindingSpec =
     OutputBindingSpec(OutputKind.Markdown, Vector.empty, Vector.empty, Map.empty)
 
-  /** The six Output kinds `PanelCapabilityService` reports on (§3.11), in
+  // HEL-1740: insight has no fieldMapping slots and is vacuously bindable (like markdown);
+  // its config (preset, reads, ...) is validated by `InsightConfig`, not by slots.
+  val Insight: OutputBindingSpec =
+    OutputBindingSpec(OutputKind.Insight, Vector.empty, Vector.empty, Map.empty)
+
+  /** The seven Output kinds `PanelCapabilityService` reports on (§3.11), in
    *  the fixed order the response is built from — successor to
    *  `PanelBindingSpec.DataBindable`. */
-  val All: Vector[OutputBindingSpec] = Vector(Metric, Chart, Table, Collection, Timeline, Markdown)
+  val All: Vector[OutputBindingSpec] = Vector(Metric, Chart, Table, Collection, Timeline, Markdown, Insight)
 
   /** `bindable = false` reason emitted by [[evaluate]] — mirrors
    *  `PanelBindingSpec.MissingColumnsReason` verbatim. */

@@ -51,7 +51,9 @@ final case class AssistantTurnResult(
     fullHistory: Seq[ClaudeToolMessage],
     proposeAttempts: Int,
     proposeDecodeFailures: Int,
-    proposeValidationFailures: Int
+    proposeValidationFailures: Int,
+    // HEL-1755 D5: the response's own `model` field, stamped onto the persisted assistant turns.
+    responseModel: Option[String] = None
 )
 
 /** Closed union over what a successful `propose_*` tool call can produce (HEL-662 tasks.md 2.2) —

@@ -11,7 +11,27 @@
  *  therefore ABSENT (not `null`) for an Output on the pipeline root. Treat it
  *  as possibly missing, never `=== null`. */
 
-export type OutputKind = "chart" | "table" | "metric" | "collection" | "timeline" | "markdown";
+export type OutputKind =
+  | "chart"
+  | "table"
+  | "metric"
+  | "collection"
+  | "timeline"
+  | "markdown"
+  | "insight";
+
+/** Every Output kind, in the backend's `OutputKind.all` order. Keyed by the union so a missing member is a tsc error;
+ *  `outputKindDrift.test.ts` compares it with the backend canonical set (`schemas/outputs/output.schema.json`). */
+const OUTPUT_KIND_SET: Record<OutputKind, true> = {
+  table: true,
+  metric: true,
+  chart: true,
+  collection: true,
+  timeline: true,
+  markdown: true,
+  insight: true,
+};
+export const OUTPUT_KINDS: readonly OutputKind[] = Object.keys(OUTPUT_KIND_SET) as OutputKind[];
 
 export interface OutputSchemaField {
   name: string;

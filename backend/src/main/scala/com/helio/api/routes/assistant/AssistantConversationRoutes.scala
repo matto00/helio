@@ -7,13 +7,13 @@ import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives
 import org.apache.pekko.http.scaladsl.server.Route
-import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeError, ClaudeErrorMessages, ClaudeToolMessage}
+import com.helio.infrastructure.ai.{ClaudeContentBlock, ClaudeError, ClaudeErrorMessages, ClaudeRole, ClaudeToolMessage}
 import com.helio.api.http.RequestValidation
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.api.protocols.IdParsing.AssistantConversationIdSegment
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.assistant.AssistantConversationRepository._
-import com.helio.services.assistant.{AssistantConversationService, AssistantService, AssistantTelemetry}
+import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService, AssistantTelemetry}
 import com.helio.services.auth.{ChatAccessError, ChatAccessService}
 import com.helio.services.ServiceError
 import com.helio.services.assistant.AssistantConversationService.AssistantConversationDetail
@@ -52,7 +52,10 @@ final class AssistantConversationRoutes(
     service: AssistantConversationService,
     assistantServiceOpt: Option[AssistantService],
     chatAccessService: ChatAccessService,
-    user: AuthenticatedUser
+    user: AuthenticatedUser,
+    // HEL-1755 D3: the one rule for which model a turn uses, and the caller's saved default (read once per request).
+    modelPolicy: AssistantModelPolicy,
+    userDefaultModel: UserId => Future[Option[String]]
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -66,12 +69,14 @@ final class AssistantConversationRoutes(
   private def unavailable: Route =
     complete(StatusCodes.ServiceUnavailable, ErrorResponse("Assistant conversation is not configured"))
 
-  private def summaryOf(record: AssistantConversationRecord): AssistantConversationSummaryResponse =
+  private def summaryOf(userDefault: Option[String])(record: AssistantConversationRecord): AssistantConversationSummaryResponse =
     AssistantConversationSummaryResponse(
-      id        = record.id.value,
-      title     = record.title,
-      pinned    = record.pinned,
-      updatedAt = record.updatedAt.toString
+      id             = record.id.value,
+      title          = record.title,
+      pinned         = record.pinned,
+      updatedAt      = record.updatedAt.toString,
+      model          = record.model,
+      effectiveModel = modelPolicy.effective(record.model, userDefault)
     )
 
   /** `hopBudgetExhausted`/`searchedWithNoResults` stay `None` (the case class's own defaults) —
@@ -85,24 +90,27 @@ final class AssistantConversationRoutes(
    *  populated here, from `detail.record.lastIdempotencyKey`, on every call site (GET, create,
    *  append, converse, AND the route-entry replay short-circuit below) — it is a persisted fact, not
    *  a just-this-turn signal. */
-  private def detailOf(detail: AssistantConversationDetail): AssistantConversationResponse =
+  private def detailOf(userDefault: Option[String])(detail: AssistantConversationDetail): AssistantConversationResponse =
     AssistantConversationResponse(
       id                 = detail.record.id.value,
       title              = detail.record.title,
       pinned             = detail.record.pinned,
       updatedAt          = detail.record.updatedAt.toString,
       transcript         = detail.transcript,
-      lastIdempotencyKey = detail.record.lastIdempotencyKey
+      lastIdempotencyKey = detail.record.lastIdempotencyKey,
+      model              = detail.record.model,
+      effectiveModel     = modelPolicy.effective(detail.record.model, userDefault)
     )
 
   /** `converseFlow`'s own re-fetch (design.md D1) — the ONE call site that actually populates
    *  `hopBudgetExhausted`/`searchedWithNoResults` as `Some(...)`. */
   private def detailOfConverse(
+      userDefault: Option[String],
       detail: AssistantConversationDetail,
       hopBudgetExhausted: Boolean,
       searchedWithNoResults: Boolean
   ): AssistantConversationResponse =
-    detailOf(detail).copy(
+    detailOf(userDefault)(detail).copy(
       hopBudgetExhausted    = Some(hopBudgetExhausted),
       searchedWithNoResults = Some(searchedWithNoResults)
     )
@@ -147,32 +155,41 @@ final class AssistantConversationRoutes(
       id: AssistantConversationId,
       message: String,
       idempotencyKey: Option[String],
-      existing: AssistantConversationDetail
+      existing: AssistantConversationDetail,
+      userDefault: Option[String],
+      resolvedModel: String,
+      requestModel: Option[String]
   ): Future[Either[ServiceError, AssistantConversationResponse]] = {
     val mdcSnapshot = MDC.getCopyOfContextMap
     val history = existing.transcript.convertTo[Seq[ClaudeToolMessage]]
-    assistantService.converse(history, message, user).flatMap {
+    assistantService.converse(history, message, user, modelPolicy.specFor(resolvedModel)).flatMap {
       case Left(claudeError) => Future.successful(Left(mapClaudeError(claudeError)))
       case Right(result) =>
-        val newTurns = result.fullHistory.drop(history.length)
+        // HEL-1755 D5: every new assistant turn records the model that answered it (the response's own `model`,
+        // else the id we pinned); a user turn never carries one.
+        val answered = result.responseModel.getOrElse(resolvedModel)
+        val newTurns = result.fullHistory.drop(history.length).map { m =>
+          if (m.role == ClaudeRole.Assistant) m.copy(model = Some(answered)) else m.copy(model = None)
+        }
         AssistantTelemetry.emitToolLoopOutcome(
           mdcSnapshot,
           conversationId = id.value,
           toolCallCount = countToolUses(newTurns),
           hopBudgetExhausted = result.hopBudgetExhausted,
           searchedWithNoResults = result.searchedWithNoResults,
-          modelId = assistantService.modelId,
+          modelId = resolvedModel,
           tokens = result.usage,
           proposeAttempts = result.proposeAttempts,
           proposeDecodeFailures = result.proposeDecodeFailures,
           proposeValidationFailures = result.proposeValidationFailures
         )
-        service.appendTurn(user, id, newTurns, idempotencyKey).flatMap {
+        // HEL-1755 D3: a request-supplied model is persisted in the same append as the turns.
+        service.appendTurn(user, id, newTurns, idempotencyKey, requestModel).flatMap {
           case Left(e) => Future.successful(Left(e))
           case Right(_) =>
             service
               .get(user, id)
-              .map(_.map(detailOfConverse(_, result.hopBudgetExhausted, result.searchedWithNoResults)))
+              .map(_.map(detailOfConverse(userDefault, _, result.hopBudgetExhausted, result.searchedWithNoResults)))
         }
     }
   }
@@ -196,6 +213,7 @@ final class AssistantConversationRoutes(
       onSuccess(chatAccessService.guard(user)) {
         case Left(err) => TierErrorCompletion.completeTierError(err)
         case Right(tier) =>
+          onSuccess(userDefaultModel(user.id)) { userDefault =>
           concat(
             pathEndOrSingleSlash {
               concat(
@@ -203,15 +221,18 @@ final class AssistantConversationRoutes(
                   parameters("limit".as[Int].?) { limitOpt =>
                     val limit = math.min(limitOpt.getOrElse(DefaultListLimit), Page.MaxLimit)
                     onSuccess(service.list(user, limit)) { records =>
-                      complete(records.map(summaryOf))
+                      complete(records.map(summaryOf(userDefault)))
                     }
                   }
                 },
                 post {
                   entity(as[CreateAssistantConversationRequest]) { request =>
-                    val firstMessage = request.firstMessage.map(_.convertTo[ClaudeToolMessage])
-                    onSuccess(service.create(user, firstMessage, request.title)) { detail =>
-                      complete(StatusCodes.Created, detailOf(detail))
+                    // HEL-1755 D5: a client-supplied turn never carries a model; only the server stamps one.
+                    val firstMessage = request.firstMessage.map(_.convertTo[ClaudeToolMessage].copy(model = None))
+                    // D4: a new conversation is stamped with the user's selectable default, else none (server default).
+                    val stamped = userDefault.filter(modelPolicy.catalog.isSelectable)
+                    onSuccess(service.create(user, firstMessage, request.title, stamped)) { detail =>
+                      complete(StatusCodes.Created, detailOf(userDefault)(detail))
                     }
                   }
                 }
@@ -220,8 +241,8 @@ final class AssistantConversationRoutes(
             path(AssistantConversationIdSegment / "messages") { id =>
               post {
                 entity(as[AppendAssistantConversationTurnRequest]) { request =>
-                  val turns = request.turns.map(_.convertTo[ClaudeToolMessage])
-                  ServiceResponse.run(service.appendTurn(user, id, turns))(summaryOf)
+                  val turns = request.turns.map(_.convertTo[ClaudeToolMessage].copy(model = None))
+                  ServiceResponse.run(service.appendTurn(user, id, turns))(summaryOf(userDefault))
                 }
               }
             },
@@ -229,9 +250,12 @@ final class AssistantConversationRoutes(
               post {
                 assistantServiceOpt.fold(unavailable) { assistantService =>
                   entity(as[ConverseRequest]) { request =>
-                    RequestValidation.validateIdempotencyKey(request.idempotencyKey) match {
+                    // HEL-1755: an id outside the allow-list is a 400 before any read, charge, model call or write.
+                    val requestModel: Either[String, Option[String]] =
+                      request.model.fold[Either[String, Option[String]]](Right(None))(m => modelPolicy.validate(m).map(spec => Some(spec.id)))
+                    RequestValidation.validateIdempotencyKey(request.idempotencyKey).flatMap(k => requestModel.map(m => (k, m))) match {
                       case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
-                      case Right(idempotencyKey) =>
+                      case Right((idempotencyKey, requestModelId)) =>
                         // HEL-698/HEL-703 merge reconciliation. Fetch once, decide replay-vs-real
                         // HERE, and gate the HEL-703 tier-cap check on that decision — a replayed
                         // duplicate (same idempotencyKey as the conversation's already-recorded
@@ -252,16 +276,20 @@ final class AssistantConversationRoutes(
                             log.info(
                               s"Replaying converse for conversation ${id.value}: idempotency key already applied"
                             )
-                            complete(detailOf(existing))
+                            complete(detailOf(userDefault)(existing))
                           case Right(existing) =>
+                            // D3: the request's model, else the conversation's effective one; its weight is known before the cap check.
+                            val resolvedModel = requestModelId.getOrElse(modelPolicy.effective(existing.record.model, userDefault))
                             // HEL-703 design.md D6: the ONLY metered endpoint — beta's daily cap is
                             // checked/incremented here, after both the base tier gate above and the
                             // replay check just above have already passed.
-                            onSuccess(chatAccessService.checkConverseCap(user, tier)) {
+                            onSuccess(
+                              chatAccessService.checkConverseCap(user, tier, modelPolicy.weightOf(resolvedModel), modelPolicy.labelOf(resolvedModel))
+                            ) {
                               case Left(err) => TierErrorCompletion.completeTierError(err)
                               case Right(()) =>
                                 ServiceResponse.run(
-                                  converseFlow(assistantService, id, request.message, idempotencyKey, existing)
+                                  converseFlow(assistantService, id, request.message, idempotencyKey, existing, userDefault, resolvedModel, requestModelId)
                                 )(identity)
                             }
                         }
@@ -273,16 +301,27 @@ final class AssistantConversationRoutes(
             path(AssistantConversationIdSegment) { id =>
               concat(
                 get {
-                  ServiceResponse.run(service.get(user, id))(detailOf)
+                  ServiceResponse.run(service.get(user, id))(detailOf(userDefault))
                 },
                 patch {
                   entity(as[UpdateAssistantConversationRequest]) { request =>
-                    ServiceResponse.run(service.update(user, id, request.pinned, request.title))(summaryOf)
+                    // HEL-1755 D4: a string outside the allow-list is a 400; `null` clears.
+                    val model: Either[String, Option[Option[String]]] = request.model match {
+                      case None          => Right(None)
+                      case Some(None)    => Right(Some(None))
+                      case Some(Some(m)) => modelPolicy.validate(m).map(spec => Some(Some(spec.id)))
+                    }
+                    model match {
+                      case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
+                      case Right(m) =>
+                        ServiceResponse.run(service.update(user, id, request.pinned, request.title, m))(summaryOf(userDefault))
+                    }
                   }
                 }
               )
             }
           )
+          }
       }
     }
 }

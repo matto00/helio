@@ -78,7 +78,7 @@ class NodeCapabilitiesParitySpec extends AnyWordSpec with Matchers {
       val names = schemas.map(_._1)
       names should contain allOf ("string only", "integer only", "float only", "boolean only", "timestamp only", "string-body only", "binary-ref only")
       computed.fields("capabilities").asInstanceOf[JsArray].elements.head.asJsObject.fields("capabilities").asJsObject.fields.keySet shouldBe
-        Set("metric", "chart", "table", "collection", "timeline", "markdown")
+        Set("metric", "chart", "table", "collection", "timeline", "markdown", "insight")
     }
   }
 }

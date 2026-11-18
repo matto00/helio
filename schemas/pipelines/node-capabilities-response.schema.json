@@ -16,7 +16,7 @@
     },
     "capabilities": {
       "type": "object",
-      "description": "Keyed by `OutputKind.asString` (`table`/`metric`/`chart`/`collection`/`timeline`/`markdown`) -- one `PanelCapabilityResponse` per bindable Output kind.",
+      "description": "Keyed by `OutputKind.asString` (`table`/`metric`/`chart`/`collection`/`timeline`/`markdown`/`insight`; insight reports like markdown: no slots, bindable to any node) -- one `PanelCapabilityResponse` per bindable Output kind.",
       "additionalProperties": { "$ref": "#/$defs/PanelCapabilityResponse" }
     }
   },

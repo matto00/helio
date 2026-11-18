@@ -25,6 +25,7 @@ import { ChartOutputPanel } from "./ChartOutputPanel";
 import { chartTruncationNote, chartTruncationNoteShort } from "./chartTruncationNote";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { LoadedScopeDisclosure } from "./renderers/LoadedScopeDisclosure";
+import { InsightNotRenderedState } from "./InsightNotRenderedState";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricOutputPanel } from "./MetricOutputPanel";
 import type { HistorySource } from "../history/useOutputHistory";
@@ -265,6 +266,9 @@ export function OutputPanelContent({
         headers={headers}
       />
     );
+  } else if (kind === "insight") {
+    // HEL-1740: no render store yet; `rawRows` is deliberately ignored.
+    content = <InsightNotRenderedState />;
   } else {
     content = (
       <div className="panel-content panel-content--state">

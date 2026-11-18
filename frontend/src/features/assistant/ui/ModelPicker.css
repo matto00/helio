@@ -1,0 +1,10 @@
+/* Composer model picker (HEL-1755): the shared `Select`, left of the send action. Tokens only (DESIGN.md). */
+
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 0 1 260px;
+  min-width: 0;
+  margin-right: auto;
+}

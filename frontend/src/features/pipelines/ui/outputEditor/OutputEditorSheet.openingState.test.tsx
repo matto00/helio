@@ -250,7 +250,8 @@ const EDIT_CASES: [string, OutputKind, Record<string, unknown>, Partial<Output>?
   ["markdown: empty config", "markdown", {}],
 ];
 
-const KIND_LABEL: Record<OutputKind, string> = {
+// HEL-1740: `insight` is not creatable from the editor until its authoring UI ships (HEL-1744).
+const KIND_LABEL: Record<Exclude<OutputKind, "insight">, string> = {
   chart: "Chart",
   table: "Table",
   metric: "Metric",
@@ -268,7 +269,7 @@ describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
   });
 
   describe("create mode (kind chosen after open)", () => {
-    it.each(Object.keys(KIND_LABEL) as OutputKind[])("%s", async (kind) => {
+    it.each(Object.keys(KIND_LABEL) as Array<keyof typeof KIND_LABEL>)("%s", async (kind) => {
       await renderSheet(null);
       if (kind !== "chart") await choose("Output kind", KIND_LABEL[kind]);
       await act(async () => {});
@@ -301,6 +302,24 @@ describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
         series: "c",
         annotation: "b",
       });
+    });
+  });
+
+  describe("an existing insight Output (HEL-1740)", () => {
+    it("opens with a one-line note, the kind locked, and a rename PATCH sends no config", async () => {
+      await renderSheet(outputOf("insight", { preset: "delta", reads: { outputs: ["o9"] } }));
+      expect(screen.getByText("Insight settings arrive in a later release.")).toBeInTheDocument();
+      expect(screen.queryByText("History")).toBeNull();
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Renamed" } });
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      });
+      await waitFor(() => expect(http.patch).toHaveBeenCalled());
+      const body = JSON.parse(JSON.stringify(http.patch.mock.calls[0][1]));
+      expect(body.name).toBe("Renamed");
+      expect(body.config).toBeUndefined();
     });
   });
 });

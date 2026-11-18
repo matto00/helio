@@ -91,7 +91,9 @@
         "rootId": { "type": "string" },
         "ownerId": { "type": "string" },
         "name": { "type": "string" },
-        "kind": { "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"] },
+        "kind": {
+          "enum": ["table", "metric", "chart", "collection", "timeline", "markdown", "insight"]
+        },
         "config": { "type": "object" },
         "schema": {
           "type": "array",

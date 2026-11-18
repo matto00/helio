@@ -279,4 +279,37 @@ class DraftSaveRootsApiSpec extends DraftSaveApiFixture {
     }
     rejected("a source that does not exist", StatusCodes.NotFound) { (seed, _, d) => withRoots(d, keep(seed.r1), keep(seed.r2), fresh("nr", "no-such-source")) }
   }
+
+  "an insight Output (HEL-1740) in a root-changing draft" should {
+    def insight(reads: String, node: (String, String)): JsObject = JsObject(
+      "clientId" -> JsString("ins"), "name" -> JsString("ins"), "kind" -> JsString("insight"), node._1 -> JsString(node._2),
+      "config" -> JsObject("reads" -> JsObject("outputs" -> JsArray(JsString(reads))))
+    )
+
+    "save on a draft root, reading a surviving Output" in {
+      val seed = seedPipeline()
+      val ds3 = seedSource(userA)
+      val (fingerprint, definition) = read(seed)
+      val d = draftOf(fingerprint, definition)
+      val draft = withOutputs(withRoots(d, keep(seed.r1), keep(seed.r2), fresh("nr", ds3)), outputsOf(d) :+ insight(seed.oa, "rootClientId" -> "nr"))
+      val (code, body) = save(seed, userA, draft)
+      withClue(body.compactPrint)(code shouldBe StatusCodes.OK)
+      outputRows(seed).count(_.contains("|ins|insight|")) shouldBe 1
+    }
+
+    "400 and write nothing when it reads an Output on a root the same draft removes" in {
+      val seed = seedPipeline()
+      val (fingerprint, definition) = read(seed)
+      val d = draftOf(fingerprint, definition)
+      val before = storedState(seed)
+      val draft = confirmRoots(
+        withOutputs(withSteps(withRoots(d, keep(seed.r1)), without(stepsOf(d), seed.t4)), without(outputsOf(d), seed.od) :+ insight(seed.od, "nodeStepId" -> seed.t1)),
+        steps = Seq(seed.t4), outputs = Seq(seed.od), roots = Seq(seed.r2)
+      )
+      val (code, body) = save(seed, userA, draft)
+      withClue(body.compactPrint)(code shouldBe StatusCodes.BadRequest)
+      body.compactPrint should include("reads.outputs")
+      storedState(seed) shouldBe before
+    }
+  }
 }

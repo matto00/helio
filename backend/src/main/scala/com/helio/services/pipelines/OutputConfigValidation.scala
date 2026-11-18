@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
-import com.helio.domain.outputs.ConditionalFormats
+import com.helio.domain.outputs.{ConditionalFormats, InsightConfig}
 import com.helio.domain.panels.{ChartReferenceMarks, ChartTypes, OutputBindingSpec}
 import com.helio.services.ServiceError
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
@@ -25,8 +25,14 @@ object OutputConfigValidation {
     OutputKind.Table      -> (Shared ++ Set("columnOrder", "columnFormats", "columnSort", "columnFilters", "pinnedColumns", "conditionalFormats")),
     OutputKind.Collection -> (Shared ++ Set("layout", "format", "conditionalFormats")),
     OutputKind.Timeline   -> (Shared ++ Set("sort")),
-    OutputKind.Markdown   -> (Shared ++ Set("content"))
+    OutputKind.Markdown   -> (Shared ++ Set("content")),
+    // HEL-1740: an insight has no numeric series to compare and no row payload, so no `compare`/`historyPayloads`.
+    OutputKind.Insight    -> InsightConfig.Keys
   )
+
+  /** The kinds [[KeysDoc]] documents: every kind except `insight`, which the proposal surface does not accept until
+   *  HEL-1747 (L8), so the assistant is never told about config for a kind it cannot propose. */
+  val DocumentedKnownKeys: Map[OutputKind, Set[String]] = KnownKeys.filter(_._1 != OutputKind.Insight)
 
   private val Aggs       = Set("count", "sum", "avg", "min", "max")
   private val HistogramBinMin = 2
@@ -38,7 +44,7 @@ object OutputConfigValidation {
   /** One text block, built from [[KnownKeys]], for every prompt/tool surface that tells Claude how to write
    *  Output config -- so those surfaces cannot drift from the validator. */
   val KeysDoc: String = {
-    val perKind = KnownKeys.toVector.sortBy(_._1.toString).map { case (k, keys) =>
+    val perKind = DocumentedKnownKeys.toVector.sortBy(_._1.toString).map { case (k, keys) =>
       val own = (keys -- Shared).toVector.sorted
       s"${OutputKind.asString(k)}: ${own.mkString(", ")}"
     }
@@ -63,10 +69,18 @@ object OutputConfigValidation {
     }.sorted
     if (offending.nonEmpty) {
       val described = offending.map(k => describe(kind, kindName, known, k)).mkString("; ")
-      Left(s"Unknown config key${if (offending.size > 1) "s" else ""} for a $kindName Output: $described. Valid keys: ${known.toVector.sorted.mkString(", ")}")
+      Left(s"Unknown config key${if (offending.size > 1) "s" else ""} for ${articleFor(kindName)} $kindName Output: $described. Valid keys: ${known.toVector.sorted.mkString(", ")}")
     } else
-      validateChartType(written, stored).flatMap(_ => validateBinCount(written, stored)).flatMap(_ => ChartReferenceMarks.validate(written, stored)).flatMap(_ => validateAggregation(kind, written, stored))
+      validateChartType(written, stored).flatMap(_ => validateBinCount(written, stored)).flatMap(_ => ChartReferenceMarks.validate(written, stored)).flatMap(_ => validateAggregation(kind, written, stored)).flatMap(_ => validateInsight(kind, written, stored))
   }
+
+  /** HEL-1740: judged only when the write introduces or changes an insight-owned key (tolerance rule), on the
+   *  merged config so a partial PATCH of one key is still range-checked. */
+  private def validateInsight(kind: OutputKind, written: JsObject, stored: JsObject): Either[String, Unit] =
+    if (kind != OutputKind.Insight || !InsightConfig.OwnKeys.exists(k => changed(written, stored, k).isDefined)) Right(())
+    else InsightConfig.parse(mergeConfig(stored, written)).map(_ => ())
+
+  private def articleFor(kindName: String): String = if ("aeiou".contains(kindName.head)) "an" else "a"
 
   private def tolerated(stored: JsObject, key: String, value: JsValue): Boolean =
     stored.fields.get(key) match {

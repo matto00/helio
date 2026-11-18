@@ -70,12 +70,17 @@
         "id": { "type": "string", "minLength": 1 },
         "clientId": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
-        "kind": { "enum": ["table", "metric", "chart", "collection", "timeline", "markdown"] },
+        "kind": {
+          "enum": ["table", "metric", "chart", "collection", "timeline", "markdown", "insight"]
+        },
         "nodeStepId": { "type": "string", "minLength": 1 },
         "nodeStepClientId": { "type": "string", "minLength": 1 },
         "rootId": { "type": "string", "minLength": 1 },
         "rootClientId": { "type": "string", "minLength": 1 },
-        "config": { "type": "object" }
+        "config": {
+          "type": "object",
+          "description": "Output config, validated per kind exactly as POST /api/pipelines/:id/outputs (outputs/create-output-request.schema.json documents every key). An insight Output (HEL-1740) accepts only preset, prompt, reads {outputs, windows}, refresh, maxSentences, maxChars and an empty fieldMapping; reads.outputs must name other non-insight Outputs this draft keeps (stored ids), never the insight itself."
+        }
       },
       "oneOf": [{ "required": ["id"] }, { "required": ["clientId"] }],
       "additionalProperties": false

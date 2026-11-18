@@ -24,8 +24,13 @@ final case class CreateAssistantConversationRequest(title: Option[String], first
 final case class AppendAssistantConversationTurnRequest(turns: Vector[JsValue])
 
 /** `PATCH /api/assistant-conversations/:id` request — pin/unpin and/or rename (design.md D5/D6).
- *  Both fields are plain `Option` (absent = unchanged); a rename is permanent, never re-derived. */
-final case class UpdateAssistantConversationRequest(pinned: Option[Boolean], title: Option[String])
+ *  Both fields are plain `Option` (absent = unchanged); a rename is permanent, never re-derived. HEL-1755 `model`:
+ *  absent = unchanged, `null` = clear (back to the effective default), a string = set (400 unless selectable). */
+final case class UpdateAssistantConversationRequest(
+    pinned: Option[Boolean],
+    title: Option[String],
+    model: Option[Option[String]] = None
+)
 
 /** `POST /api/assistant-conversations/:id/converse` request (HEL-665 reopened composer ticket,
  *  design.md D7) — the one new user-typed message to send. Reuses the existing
@@ -36,11 +41,18 @@ final case class UpdateAssistantConversationRequest(pinned: Option[Boolean], tit
  *  the route boundary (trim, blank → absent, longer than 128 chars → `400`), never here — this
  *  case class carries whatever the client sent, unnormalized. spray-json omits `None` on the wire,
  *  so a keyless request is byte-identical to before this change. */
-final case class ConverseRequest(message: String, idempotencyKey: Option[String] = None)
+final case class ConverseRequest(message: String, idempotencyKey: Option[String] = None, model: Option[String] = None)
 
 /** List-item shape (`GET /api/assistant-conversations`) — deliberately compact, no transcript
  *  (design.md D5). */
-final case class AssistantConversationSummaryResponse(id: String, title: String, pinned: Boolean, updatedAt: String)
+final case class AssistantConversationSummaryResponse(
+    id: String,
+    title: String,
+    pinned: Boolean,
+    updatedAt: String,
+    model: Option[String] = None,
+    effectiveModel: String = ""
+)
 
 /** Get-one shape (`GET /api/assistant-conversations/:id`) — summary fields plus the transcript,
  *  itself opaque JSON (see this file's header comment). `hopBudgetExhausted`/`searchedWithNoResults`
@@ -52,7 +64,8 @@ final case class AssistantConversationSummaryResponse(id: String, title: String,
  *  `lastIdempotencyKey` (HEL-698 design.md D5) — UNLIKE the two ephemeral signals above, this IS a
  *  persisted fact about the conversation (the key of the most recent keyed append), so it's populated
  *  on BOTH `GET /:id` and converse responses — exactly what client-side reconciliation needs. `None`
- *  until the first keyed append ever occurs. */
+ *  until the first keyed append ever occurs. HEL-1755: `model` is the stored selection (null = none) and
+ *  `effectiveModel` the server-resolved model the next turn will use. */
 final case class AssistantConversationResponse(
     id: String,
     title: String,
@@ -61,8 +74,20 @@ final case class AssistantConversationResponse(
     transcript: JsValue,
     hopBudgetExhausted: Option[Boolean] = None,
     searchedWithNoResults: Option[Boolean] = None,
-    lastIdempotencyKey: Option[String] = None
+    lastIdempotencyKey: Option[String] = None,
+    model: Option[String] = None,
+    effectiveModel: String = ""
 )
+
+/** One selectable model in [[AssistantModelsResponse]] (HEL-1755 D8). */
+final case class AssistantModelOption(id: String, label: String, betaWeight: Int)
+
+/** An id with its label when the catalog defines one (a non-catalog server default has none). */
+final case class AssistantModelRef(id: String, label: Option[String])
+
+/** `GET /api/assistant-models` (HEL-1755 D8). `defaultModel` is the caller's resolved default for a NEW
+ *  conversation (the user's default if still selectable, else the server default). */
+final case class AssistantModelsResponse(models: Vector[AssistantModelOption], serverDefault: AssistantModelRef, defaultModel: AssistantModelRef)
 
 /** Tier-gate failure body (HEL-703, design.md D7) -- rendered by `AssistantConversationRoutes`'s
  *  own bespoke completion helper for EVERY endpoint in this family, never `ServiceResponse.run`'s
@@ -80,17 +105,44 @@ trait AssistantConversationProtocol extends SprayJsonSupport with DefaultJsonPro
   implicit val appendAssistantConversationTurnRequestFormat: RootJsonFormat[AppendAssistantConversationTurnRequest] =
     jsonFormat1(AppendAssistantConversationTurnRequest.apply)
 
+  /** Hand-written so `model` can tell an absent key (unchanged) from `null` (clear) from a string (set). */
   implicit val updateAssistantConversationRequestFormat: RootJsonFormat[UpdateAssistantConversationRequest] =
-    jsonFormat2(UpdateAssistantConversationRequest.apply)
+    new RootJsonFormat[UpdateAssistantConversationRequest] {
+      def write(r: UpdateAssistantConversationRequest): JsValue =
+        JsObject(
+          Map.empty[String, JsValue] ++
+            r.pinned.map(p => "pinned" -> (JsBoolean(p): JsValue)) ++
+            r.title.map(t => "title" -> (JsString(t): JsValue)) ++
+            r.model.map(m => "model" -> m.map(v => JsString(v): JsValue).getOrElse(JsNull))
+        )
+
+      def read(json: JsValue): UpdateAssistantConversationRequest = {
+        val fields = json.asJsObject.fields
+        UpdateAssistantConversationRequest(
+          pinned = fields.get("pinned").filter(_ != JsNull).map(_.convertTo[Boolean]),
+          title  = fields.get("title").filter(_ != JsNull).map(_.convertTo[String]),
+          model = fields.get("model").map {
+            case JsNull      => None
+            case JsString(m) => Some(m)
+            case _           => deserializationError("model must be a string or null")
+          }
+        )
+      }
+    }
 
   implicit val converseRequestFormat: RootJsonFormat[ConverseRequest] =
-    jsonFormat2(ConverseRequest.apply)
+    jsonFormat3(ConverseRequest.apply)
 
   implicit val assistantConversationSummaryResponseFormat: RootJsonFormat[AssistantConversationSummaryResponse] =
-    jsonFormat4(AssistantConversationSummaryResponse.apply)
+    jsonFormat6(AssistantConversationSummaryResponse.apply)
 
   implicit val assistantConversationResponseFormat: RootJsonFormat[AssistantConversationResponse] =
-    jsonFormat8(AssistantConversationResponse.apply)
+    jsonFormat10(AssistantConversationResponse.apply)
+
+  implicit val assistantModelOptionFormat: RootJsonFormat[AssistantModelOption] = jsonFormat3(AssistantModelOption.apply)
+  implicit val assistantModelRefFormat: RootJsonFormat[AssistantModelRef]       = jsonFormat2(AssistantModelRef.apply)
+  implicit val assistantModelsResponseFormat: RootJsonFormat[AssistantModelsResponse] =
+    jsonFormat3(AssistantModelsResponse.apply)
 
   implicit val tierErrorResponseFormat: RootJsonFormat[TierErrorResponse] =
     jsonFormat3(TierErrorResponse.apply)
