@@ -184,9 +184,9 @@ interface LiveState {
   skip: ReadonlySet<string>;
 }
 
-/** Render this once at the top level. Portals to document.body, or into the most recently opened modal <dialog> so a
- * toast is never hidden behind (or made inert by) a modal's top layer (HEL-1668), and displays all active toasts
- * stacked in the bottom-right corner of the viewport. */
+/** Render this once at the top level. Portals to document.body, or into the most recently opened modal <dialog>
+ * (from `modalDialogRegistry`, written by `Modal`) so a toast is never hidden behind (or made inert by) a modal's top
+ * layer (HEL-1668), and displays all active toasts stacked in the bottom-right corner of the viewport. */
 export function ToastViewport() {
   const items = useAppSelector((state) => state.toasts.items);
   const modal = useTopModalDialog();

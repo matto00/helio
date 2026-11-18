@@ -6,6 +6,7 @@ import { IconButton } from "./IconButton";
 import "./Modal.css";
 import { X } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
+import { registerOpenModal, unregisterOpenModal } from "./modalDialogRegistry";
 
 export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
@@ -137,8 +138,11 @@ export function Modal({
         // expands again; the second animation replaces the first.
         expandFrom(dialog, expandOriginRef.current);
       }
+      // HEL-1736 -- idempotent, so an already-open dialog reached by any path is still registered.
+      registerOpenModal(dialog);
     } else {
       if (dialog.open) dialog.close();
+      unregisterOpenModal(dialog);
       // Restore focus to the invoking control (CR9) -- guarded so an already-gone element (e.g.
       // removed from the DOM while the modal was open) doesn't throw; `focus()` on a detached
       // element is simply a no-op.
@@ -159,11 +163,28 @@ export function Modal({
   useEffect(() => {
     const dialog = dialogRef.current;
     return () => {
-      if (!dialog || !dialog.open) return;
+      if (!dialog) return;
+      // Unconditional: the dialog may already have been closed by something other than Modal.
+      unregisterOpenModal(dialog);
+      if (!dialog.open) return;
       dialog.close();
       previouslyFocusedRef.current?.focus();
       previouslyFocusedRef.current = null;
     };
+  }, []);
+
+  // HEL-1736 -- a close that bypasses React (a `<form method="dialog">`, a browser-initiated close) still leaves the
+  // registry. Browsers fire `close` from a queued task, so under StrictMode's showModal() -> close() -> showModal() (and
+  // for a close+reopen within one task) it arrives while the dialog is open again; only unregister if it is not.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const target: HTMLDialogElement = dialog;
+    function handleClose() {
+      if (!target.open) unregisterOpenModal(target);
+    }
+    dialog.addEventListener("close", handleClose);
+    return () => dialog.removeEventListener("close", handleClose);
   }, []);
 
   // Intercept Escape (native `cancel` event) so it routes through onClose instead of

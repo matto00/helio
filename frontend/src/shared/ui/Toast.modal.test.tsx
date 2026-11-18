@@ -6,6 +6,11 @@ import { act, render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 
 import { pushToast, toastsReducer } from "../../features/toasts/state/toastsSlice";
+import {
+  registerOpenModal,
+  resetModalDialogRegistryForTests,
+  unregisterOpenModal,
+} from "./modalDialogRegistry";
 import { ToastViewport } from "./Toast";
 
 function makeStore() {
@@ -22,16 +27,20 @@ function Harness({ store }: { store: ReturnType<typeof makeStore> }) {
   );
 }
 
-/** Opens a dialog the way showModal() does for jsdom: the `open` attribute (the observer's signal). */
+/** Opens a dialog the way Modal does after showModal() for jsdom: the `open` attribute, then the registry (HEL-1736). */
 async function openDialog(testId: string) {
   await act(async () => {
-    screen.getByTestId(testId).setAttribute("open", "");
+    const dialog = screen.getByTestId(testId) as HTMLDialogElement;
+    dialog.setAttribute("open", "");
+    registerOpenModal(dialog);
     await Promise.resolve();
   });
 }
 async function closeDialog(testId: string) {
   await act(async () => {
-    screen.getByTestId(testId).removeAttribute("open");
+    const dialog = screen.getByTestId(testId) as HTMLDialogElement;
+    dialog.removeAttribute("open");
+    unregisterOpenModal(dialog);
     await Promise.resolve();
   });
 }
@@ -47,7 +56,10 @@ const assertive = () => document.querySelector('[role="alert"]') as HTMLElement;
 const polite = () => document.querySelector('[role="status"]') as HTMLElement;
 
 beforeEach(() => jest.useFakeTimers());
-afterEach(() => jest.useRealTimers());
+afterEach(() => {
+  jest.useRealTimers();
+  resetModalDialogRegistryForTests();
+});
 
 describe("toasts above an open modal dialog", () => {
   it("portals the visual stack and both live regions into the open dialog, and back to the body on close", async () => {
