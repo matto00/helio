@@ -57,3 +57,13 @@ On a phone-width viewport, where menu items are touch-sized, the actions menu SH
   bottom nav)
 - **THEN** it already fits below the trigger (lowest tappable trigger bottom about 776, menu ends at about 838 within
   844), so it opens below exactly as before
+
+### Requirement: Hovering the last rail row does not shift it
+On the desktop dashboard list rail, hovering the last row with the page scrolled to its end SHALL NOT move any row and
+SHALL NOT change the page's scroll height; the row's three-dot trigger SHALL be revealed inside the row.
+
+#### Scenario: Last row, page scrolled to its end, short window
+- **WHEN** the user scrolls the page to its end in a 1280x400 window (light or dark) and hovers the last dashboard-list
+  row
+- **THEN** the row's bounding box before and after the hover is the same (within 1px), the document's scroll height does
+  not change, and the row's three-dot trigger is visible inside the row

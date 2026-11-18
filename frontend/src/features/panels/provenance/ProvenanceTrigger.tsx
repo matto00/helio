@@ -10,6 +10,7 @@ import {
 import { Info } from "lucide-react";
 
 import { usePortalPopover, type PortalPopoverPos } from "../../../hooks/usePortalPopover";
+import { fitPanelVertically, VIEWPORT_MARGIN } from "../../../shared/ui/panelFit";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { ICON_SIZE } from "../../../shared/ui/iconSize";
 import "./ProvenanceTrigger.css";
@@ -32,9 +33,10 @@ import {
 } from "../history/metricComparisonStore";
 
 const POPOVER_MAX_WIDTH = 360;
-const VIEWPORT_MARGIN = 8;
-/** Below this much room under the trigger, open upward instead. */
-const MIN_ROOM_BELOW = 320;
+/** Gap between the trigger and the popover. */
+const TRIGGER_GAP = 8;
+/** The CSS design cap (`ProvenancePopover.css`: `min(70vh, 480px)`), mirrored so the inline `maxHeight` never exceeds it. */
+const POPOVER_MAX_HEIGHT = 480;
 
 export interface ProvenanceTriggerProps {
   panelId: string;
@@ -51,17 +53,26 @@ export interface ProvenanceTriggerProps {
   className?: string;
 }
 
-function computePos(rect: DOMRect): PortalPopoverPos {
+/** Where the mounted popover sits against its trigger so all of it is reachable (HEL-1756): below the trigger when it
+ *  fits, above when that side has more room, else capped to the roomier side so it scrolls inside itself. Horizontally
+ *  it keeps an 8px margin on both sides. With no layout (jsdom) it keeps the preferred side, uncapped. */
+function placeProvenance(panel: HTMLElement, trigger: DOMRect): PortalPopoverPos {
   const width = Math.min(POPOVER_MAX_WIDTH, window.innerWidth - 40);
   const left = Math.max(
     VIEWPORT_MARGIN,
-    Math.min(rect.left, window.innerWidth - width - VIEWPORT_MARGIN),
+    Math.min(trigger.left, window.innerWidth - width - VIEWPORT_MARGIN),
   );
-  const roomBelow = window.innerHeight - rect.bottom;
-  if (roomBelow < MIN_ROOM_BELOW && rect.top > roomBelow) {
-    return { bottom: window.innerHeight - rect.top + VIEWPORT_MARGIN, left, width };
-  }
-  return { top: rect.bottom + VIEWPORT_MARGIN, left, width };
+  const chrome = panel.offsetHeight - panel.clientHeight;
+  const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
+  const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
+    gap: TRIGGER_GAP,
+    cap: Math.min(0.7 * window.innerHeight, POPOVER_MAX_HEIGHT),
+    prefer: "below",
+  });
+  const maxHeight = Number.isFinite(fit.maxHeight) ? fit.maxHeight : undefined;
+  return fit.side === "above"
+    ? { bottom: fit.bottom, left, width, maxHeight }
+    : { top: fit.top, left, width, maxHeight };
 }
 
 /** HEL-1207 — the shared provenance trigger: one component per render path (desktop card footer,
@@ -78,7 +89,8 @@ export function ProvenanceTrigger({
   invalidBadge = false,
   className,
 }: ProvenanceTriggerProps) {
-  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
+  const { triggerRef, panelRef, isOpen, placed, panelPos, handleOpen, close, reposition } =
+    usePortalPopover<HTMLButtonElement>({ place: placeProvenance });
   const [focusChecks, setFocusChecks] = useState(false);
   const [container, setContainer] = useState<HTMLElement>(() => document.body);
   /** Whichever control opened the popover (icon or badge) — focus returns there on close. */
@@ -119,7 +131,7 @@ export function ProvenanceTrigger({
   const open = useCallback(
     (checks: boolean) => {
       setFocusChecks(checks);
-      handleOpen(computePos);
+      handleOpen();
       onProvenanceOpened({ panelId, variant });
     },
     [handleOpen, panelId, variant],
@@ -187,6 +199,9 @@ export function ProvenanceTrigger({
           label={panelTitle ? `Data provenance for ${panelTitle}` : "Data provenance"}
           variant={variant}
           pos={panelPos}
+          placed={placed}
+          panelRef={panelRef}
+          reposition={reposition}
           state={state}
           comparison={comparison}
           focusChecks={focusChecks}

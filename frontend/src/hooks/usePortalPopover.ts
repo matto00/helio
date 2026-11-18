@@ -169,25 +169,29 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
     placeRef.current = place;
   }, [place]);
 
+  /** Re-runs the opted-in `place` against the current panel and trigger (HEL-1756): the resize listener below calls it,
+   *  and a consumer whose content grows after it opened calls it to re-fit. A no-op when not open, not opted in, or
+   *  the panel is not mounted. Stable, so it is safe in an effect's dependencies. */
+  const reposition = useCallback(() => {
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    const placeNow = placeRef.current;
+    if (!panel || !trigger || !placeNow) return;
+    setPanelPos(placeNow(panel, trigger.getBoundingClientRect()));
+    setPlaced(true);
+  }, []);
+
   // Opt-in measured placement: once the panel is mounted (and on resize) hand its real size to `place`.
   useLayoutEffect(() => {
     if (!isOpen || !opted) return;
-    function run() {
-      const panel = panelRef.current;
-      const trigger = triggerRef.current;
-      const place = placeRef.current;
-      if (!panel || !trigger || !place) return;
-      setPanelPos(place(panel, trigger.getBoundingClientRect()));
-      setPlaced(true);
-    }
-    run();
-    window.addEventListener("resize", run);
+    reposition();
+    window.addEventListener("resize", reposition);
     return () => {
-      window.removeEventListener("resize", run);
+      window.removeEventListener("resize", reposition);
       // Closing (or unmounting) un-places the panel, so the next open is hidden again until it is measured.
       setPlaced(false);
     };
-  }, [isOpen, opted]);
+  }, [isOpen, opted, reposition]);
 
   /** Reads the trigger element's bounding rect, calls computePos to derive
    * panel coordinates, and transitions to the open state. */
@@ -213,5 +217,6 @@ export function usePortalPopover<T extends HTMLElement = HTMLButtonElement>(opti
     placed: opted ? placedState && isOpen : true,
     handleOpen,
     close,
+    reposition,
   };
 }

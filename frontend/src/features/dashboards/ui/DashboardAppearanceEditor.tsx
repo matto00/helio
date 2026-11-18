@@ -1,9 +1,10 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { updateDashboardAppearance } from "../state/dashboardsSlice";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
-import { usePortalPopover } from "../../../hooks/usePortalPopover";
+import { usePortalPopover, type PortalPopoverPos } from "../../../hooks/usePortalPopover";
+import { fitPanelVertically, VIEWPORT_MARGIN } from "../../../shared/ui/panelFit";
 import { useTheme } from "../../../theme/ThemeProvider";
 import {
   dashboardAppearanceEditorFallback,
@@ -34,6 +35,28 @@ interface DashboardAppearanceEditorProps {
 
 const WCAG_AA_THRESHOLD = 4.5;
 
+/** Gap between the trigger and the panel. */
+const TRIGGER_GAP = 8;
+
+/** Where the mounted editor sits against its trigger so every control stays reachable (HEL-1756): below the trigger when
+ *  it fits, above when that side has more room, else capped to the roomier side so it scrolls inside itself; right-aligned
+ *  to the trigger but never closer than 8px to the left edge. With no layout (jsdom) it keeps the preferred side, uncapped. */
+function placeAppearanceEditor(panel: HTMLElement, trigger: DOMRect): PortalPopoverPos {
+  const chrome = panel.offsetHeight - panel.clientHeight;
+  const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
+  const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
+    gap: TRIGGER_GAP,
+    prefer: "below",
+  });
+  let right = window.innerWidth - trigger.right;
+  const width = panel.getBoundingClientRect().width;
+  if (width > 0) right = Math.max(0, Math.min(right, window.innerWidth - width - VIEWPORT_MARGIN));
+  const maxHeight = Number.isFinite(fit.maxHeight) ? fit.maxHeight : undefined;
+  return fit.side === "above"
+    ? { bottom: fit.bottom, right, maxHeight }
+    : { top: fit.top, right, maxHeight };
+}
+
 // F-098 — a synthetic "preset" that clears both fields back to the actual
 // default a brand-new dashboard starts in ("transparent"), so there's a
 // supported path back to no override. Deliberately local rather than added
@@ -52,7 +75,9 @@ export function DashboardAppearanceEditor({
 }: DashboardAppearanceEditorProps) {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
-  const { triggerRef, isOpen, panelPos, handleOpen, close } = usePortalPopover<HTMLButtonElement>();
+  const { triggerRef, panelRef, isOpen, placed, panelPos, handleOpen, close, reposition } =
+    usePortalPopover<HTMLButtonElement>({ place: placeAppearanceEditor });
+  const innerRef = useRef<HTMLDivElement>(null);
   // Raw appearance values — may legitimately be "transparent", not always a
   // hex string. `getColorInputValue` is applied only where a value actually
   // feeds a native `<input type="color">` (which can't render "transparent"),
@@ -99,6 +124,28 @@ export function DashboardAppearanceEditor({
     if (!onPreviewChange) return;
     onPreviewChange(isOpen ? { background, gridBackground } : null);
   }, [onPreviewChange, isOpen, background, gridBackground]);
+
+  // Re-fit when the content's height changes after open (the contrast warning appearing, a save error): the placement
+  // caps the panel to its measured height, so it is measured again. Observes the uncapped inner wrapper (HEL-1756).
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!isOpen || !inner || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => reposition());
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [isOpen, reposition]);
+
+  // Move focus into the form once it is placed (HEL-1756 D14; a `visibility: hidden` panel cannot take focus). The hook's
+  // `panelRef` makes it close when focus leaves trigger and panel together, and the form is portalled to the end of <body>,
+  // so without this the first Tab after a keyboard open would leave both and close it.
+  useLayoutEffect(() => {
+    if (!isOpen || !placed) return;
+    const panel = panelRef.current;
+    const target =
+      panel?.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
+      panel?.querySelector<HTMLElement>("button, input");
+    target?.focus();
+  }, [isOpen, placed, panelRef]);
 
   if (dashboard === null) {
     return null;
@@ -153,7 +200,7 @@ export function DashboardAppearanceEditor({
       close();
       return;
     }
-    handleOpen((rect) => ({ top: rect.bottom + 8, right: window.innerWidth - rect.right }));
+    handleOpen();
   }
 
   const panel =
@@ -162,109 +209,125 @@ export function DashboardAppearanceEditor({
           <>
             <button type="button" className="popover__scrim" onClick={close} />
             <form
-              className="popover__panel"
+              ref={(el) => {
+                panelRef.current = el;
+              }}
+              className="popover__panel dashboard-appearance-editor__panel"
               onSubmit={handleSubmit}
-              style={{ position: "fixed", top: panelPos.top, right: panelPos.right, left: "auto" }}
+              style={{
+                position: "fixed",
+                top: panelPos.top,
+                bottom: panelPos.bottom,
+                right: panelPos.right,
+                left: "auto",
+                maxHeight: panelPos.maxHeight,
+                visibility: placed ? undefined : "hidden",
+              }}
             >
-              <div className="dashboard-appearance-editor__header">
-                <div>
-                  <span className="eyebrow dashboard-appearance-editor__label">
-                    Dashboard appearance
-                  </span>
-                  <strong>{dashboard.name}</strong>
+              <div ref={innerRef}>
+                <div className="dashboard-appearance-editor__header">
+                  <div>
+                    <span className="eyebrow dashboard-appearance-editor__label">
+                      Dashboard appearance
+                    </span>
+                    <strong>{dashboard.name}</strong>
+                  </div>
+                  <div className="dashboard-appearance-editor__swatches" aria-hidden="true">
+                    <span
+                      className="dashboard-appearance-editor__swatch"
+                      style={{ backgroundColor: resolvedBgPreview }}
+                    />
+                    <span
+                      className="dashboard-appearance-editor__swatch"
+                      style={{ backgroundColor: resolvedGridBgPreview }}
+                    />
+                  </div>
                 </div>
-                <div className="dashboard-appearance-editor__swatches" aria-hidden="true">
-                  <span
-                    className="dashboard-appearance-editor__swatch"
-                    style={{ backgroundColor: resolvedBgPreview }}
-                  />
-                  <span
-                    className="dashboard-appearance-editor__swatch"
-                    style={{ backgroundColor: resolvedGridBgPreview }}
-                  />
+                <div
+                  className="dashboard-appearance-editor__presets"
+                  role="group"
+                  aria-label="Dashboard appearance presets"
+                >
+                  {presetsWithDefault.map((preset) => {
+                    const isSelected = selectedPresetLabel === preset.label;
+                    const isDefault = preset === DEFAULT_APPEARANCE_PRESET;
+                    // F-200: resolve each preset through the theme (the same functions the header
+                    // preview swatches already use above) before painting the button swatch, so it
+                    // agrees with the header preview and with what the dashboard actually renders
+                    // after applying the preset, instead of showing the raw picker hex.
+                    const resolvedPresetBg =
+                      resolveDashboardBackground(theme, {
+                        background: preset.background,
+                        gridBackground: preset.gridBackground,
+                      }) ?? preset.background;
+                    const resolvedPresetGridBg =
+                      resolveDashboardGridBackground(theme, {
+                        background: preset.background,
+                        gridBackground: preset.gridBackground,
+                      }) ?? preset.gridBackground;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        className={`appearance-preset${isSelected ? " appearance-preset--selected" : ""}`}
+                        aria-label={preset.label}
+                        aria-pressed={isSelected}
+                        onClick={() => applyPreset(preset)}
+                      >
+                        <span
+                          className="appearance-preset__swatch"
+                          aria-hidden="true"
+                          // The Default swatch is left unfilled (no gradient) so its
+                          // ring border alone reads as "no color", instead of showing
+                          // a gradient of the literal (invisible) "transparent" value.
+                          style={
+                            isDefault
+                              ? undefined
+                              : {
+                                  background: `linear-gradient(to right, ${resolvedPresetBg} 50%, ${resolvedPresetGridBg} 50%)`,
+                                }
+                          }
+                        />
+                        <span className="appearance-preset__label">{preset.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                <label className="dashboard-appearance-editor__field">
+                  <span>Window background</span>
+                  <input
+                    type="color"
+                    value={getColorInputValue(background, dashboardAppearanceEditorFallback)}
+                    onChange={(event) => setBackground(event.target.value)}
+                    aria-label="Dashboard background color"
+                  />
+                </label>
+                <label className="dashboard-appearance-editor__field">
+                  <span>Grid background</span>
+                  <input
+                    type="color"
+                    value={getColorInputValue(
+                      gridBackground,
+                      dashboardGridAppearanceEditorFallback,
+                    )}
+                    onChange={(event) => setGridBackground(event.target.value)}
+                    aria-label="Dashboard grid background color"
+                  />
+                </label>
+                {showContrastWarning && (
+                  <p className="dashboard-appearance-editor__contrast-warning" role="alert">
+                    Low contrast: text may be hard to read on this background.
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="dashboard-appearance-editor__save"
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save dashboard style"}
+                </button>
+                <InlineError error={error} />
               </div>
-              <div
-                className="dashboard-appearance-editor__presets"
-                role="group"
-                aria-label="Dashboard appearance presets"
-              >
-                {presetsWithDefault.map((preset) => {
-                  const isSelected = selectedPresetLabel === preset.label;
-                  const isDefault = preset === DEFAULT_APPEARANCE_PRESET;
-                  // F-200: resolve each preset through the theme (the same functions the header
-                  // preview swatches already use above) before painting the button swatch, so it
-                  // agrees with the header preview and with what the dashboard actually renders
-                  // after applying the preset, instead of showing the raw picker hex.
-                  const resolvedPresetBg =
-                    resolveDashboardBackground(theme, {
-                      background: preset.background,
-                      gridBackground: preset.gridBackground,
-                    }) ?? preset.background;
-                  const resolvedPresetGridBg =
-                    resolveDashboardGridBackground(theme, {
-                      background: preset.background,
-                      gridBackground: preset.gridBackground,
-                    }) ?? preset.gridBackground;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      className={`appearance-preset${isSelected ? " appearance-preset--selected" : ""}`}
-                      aria-label={preset.label}
-                      aria-pressed={isSelected}
-                      onClick={() => applyPreset(preset)}
-                    >
-                      <span
-                        className="appearance-preset__swatch"
-                        aria-hidden="true"
-                        // The Default swatch is left unfilled (no gradient) so its
-                        // ring border alone reads as "no color", instead of showing
-                        // a gradient of the literal (invisible) "transparent" value.
-                        style={
-                          isDefault
-                            ? undefined
-                            : {
-                                background: `linear-gradient(to right, ${resolvedPresetBg} 50%, ${resolvedPresetGridBg} 50%)`,
-                              }
-                        }
-                      />
-                      <span className="appearance-preset__label">{preset.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <label className="dashboard-appearance-editor__field">
-                <span>Window background</span>
-                <input
-                  type="color"
-                  value={getColorInputValue(background, dashboardAppearanceEditorFallback)}
-                  onChange={(event) => setBackground(event.target.value)}
-                  aria-label="Dashboard background color"
-                />
-              </label>
-              <label className="dashboard-appearance-editor__field">
-                <span>Grid background</span>
-                <input
-                  type="color"
-                  value={getColorInputValue(gridBackground, dashboardGridAppearanceEditorFallback)}
-                  onChange={(event) => setGridBackground(event.target.value)}
-                  aria-label="Dashboard grid background color"
-                />
-              </label>
-              {showContrastWarning && (
-                <p className="dashboard-appearance-editor__contrast-warning" role="alert">
-                  Low contrast: text may be hard to read on this background.
-                </p>
-              )}
-              <button
-                type="submit"
-                className="dashboard-appearance-editor__save"
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving..." : "Save dashboard style"}
-              </button>
-              <InlineError error={error} />
             </form>
           </>,
           document.body,
