@@ -4,6 +4,7 @@
 - [C16] Live check (owner Q2): $2 cap, stop at projected $1.50; one short tool turn per model + Haiku->Opus->Haiku; pin the model on every request; assert the response model id before counting; no live call before this point is reached in tasks.
 - [C17] For catalog models never send temperature/top_p/top_k, budget_tokens/thinking.enabled, or forced tool_choice; the prohibition lives in the shared catalog.
 - [C18] Flyway V140 is this lane's (driver-confirmed); V138/V139 reserved for HEL-1740/1742.
+- [C19] (retired at design gate round 1, superseded by C20) Do not edit ActionsMenu.tsx or panelFit.ts (HEL-1750); native select picker.
 - [C20] Both model pickers use the shared `Select` (and Settings a `FormField`), consumed without editing; HEL-1750's popover/ActionsMenu files are never edited, placement changes go through the driver.
 
 ## 1. Backend: catalog and client
