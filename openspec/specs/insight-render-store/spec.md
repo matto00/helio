@@ -43,9 +43,10 @@ id and a non-insight Output SHALL all get the same 404. Reads SHALL never create
 ### Requirement: Public insight read
 `GET /api/dashboards/:d/panels/:p/insight` SHALL authorize the dashboard with the same sharing-aware dashboard ACL and
 `?token=` parameter as the public history route, before resolving the panel, and SHALL return only the
-newest `ok` render's markdown, creation time and citations reduced to `id`, `field`, `number`, `date`, `capturedAt`
-and `isPct`. It SHALL
-NOT expose cost, model, token counts, run id, input digest, trigger, attempt status or cited Output ids.
+newest `ok` render's markdown, creation time and citations reduced to `id`, `field`, `number`, `date`, `capturedAt`,
+`isPct` and an optional `panelId`. `panelId` SHALL be present only when a panel on the same dashboard is bound to the
+cited Output, and SHALL then name one such panel, chosen deterministically. It SHALL NOT expose cost, model, token
+counts, run id, input digest, trigger, attempt status or cited Output ids.
 
 #### Scenario: Private dashboard refused
 - **WHEN** an anonymous caller or a signed-in stranger requests the insight of a panel on a private dashboard
@@ -58,6 +59,11 @@ NOT expose cost, model, token counts, run id, input digest, trigger, attempt sta
 #### Scenario: Public projection omits internal fields
 - **WHEN** the public route serves a render whose row has every column populated
 - **THEN** the response and its schema contain no cost, model, token, run-id, digest or outputId field
+
+#### Scenario: Placed and unplaced citations
+- **WHEN** a render cites one Output that is placed on the dashboard and one that is not, and the cited Output is
+  also placed on another dashboard
+- **THEN** the first citation's `panelId` names the panel on the requested dashboard and the second has no `panelId`
 
 ### Requirement: Insight retention
 The scheduler-tick retention pass SHALL delete insight rows older than the pipeline owner's tier history age, except

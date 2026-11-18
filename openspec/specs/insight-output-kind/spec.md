@@ -69,12 +69,14 @@ null `metric` and null `series`.
 - **THEN** the summary's `metric` and `series` are null
 
 ### Requirement: Insight panel shows a not-yet-rendered state
-A panel bound to an `insight` Output, and the insight's entry in the pipeline live Output column, SHALL show a
-"not yet rendered" state and SHALL NOT request a model render or call any new endpoint. No code path in this change calls a model.
+A panel bound to an `insight` Output that has no render and no render attempt, and the insight's entry in the pipeline
+live Output column, SHALL show a "not yet rendered" state with `role="status"` and SHALL NOT request a model render.
+No code path in this change calls a model.
 
 #### Scenario: Placed on a dashboard
-- **WHEN** an insight Output is placed on a dashboard and the dashboard is opened
-- **THEN** the panel shows the not-yet-rendered state in light and dark themes, on desktop and phone widths
+- **WHEN** an insight Output with no render is placed on a dashboard and the dashboard is opened
+- **THEN** the panel shows the not-yet-rendered state, exposed as a status, in light and dark themes, on desktop and
+  phone widths
 
 ### Requirement: Every Output-kind enumeration site is pinned
 An automated drift check SHALL compare every hand-written Output-kind enumeration site (backend, migration CHECK, JSON
