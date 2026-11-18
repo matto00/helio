@@ -14,8 +14,9 @@
     // "a>b>picomatch" string whose head and trailing ">" vary run to run (npm audit key order), so a
     // verbatim per-path list is flaky. Instead there is one entry per package in picomatch's dev-only
     // transitive effects set (all "dev": true in the lockfile), each as "<full package name>>*": a path
-    // must START at one of these dev packages. A production path starts at a production package, which
-    // is not listed, so it still fails. Do NOT loosen to "picomatch*", "jest*" or a leading "*".
+    // must START at one of these packages. Paths carry no dev/prod marker, so a listed package that became
+    // a PRODUCTION dependency would still match: the CI "Production-only npm audit" steps (HEL-1753, no
+    // allowlist) are the guard for that case. Do NOT loosen to "picomatch*", "jest*" or a leading "*".
     // Re-derive the set from `npm audit --json` if the lockfile changes.
     // Review-by 2026-12-17; remove once picomatch > 4.0.7 ships.
     "GHSA-fc5q-39xc-vjpf|@jest/console>*",

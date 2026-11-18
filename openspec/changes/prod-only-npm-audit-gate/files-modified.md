@@ -1,0 +1,4 @@
+- `.github/workflows/ci.yml` — three production-only `npm audit --omit=dev --audit-level=moderate` steps in the security job, header comment, no-exceptions policy
+- `.audit-ci.jsonc` — comment-only: corrected false "production path still fails" sentence, points at HEL-1753 gate
+- `frontend/.audit-ci.jsonc` — same comment-only correction
+- `openspec/changes/prod-only-npm-audit-gate/evidence.md` — recorded runs

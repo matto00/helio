@@ -367,7 +367,8 @@ jobs:
   # frontend/ (at "moderate", frontend/.audit-ci.jsonc -- HEL-1320) and helio-mcp/ (at "moderate", against
   # helio-mcp/.audit-ci.jsonc -- HEL-1204; it runs the ROOT-pinned audit-ci with --directory,
   # since helio-mcp does not declare audit-ci itself). See design.md D2/D3/D6 for the tool
-  # choices and the severity-filter rationale.
+  # choices and the severity-filter rationale. HEL-1753: three further "Production-only npm audit" steps
+  # (root, frontend/, helio-mcp/) audit production dependencies only, with no allowlist.
   security:
     runs-on: ubuntu-latest
     # HEL-1287 D11: measured 69-90 s (runs 37382209230, 37387080368). HEL-1296: the SBOM step now has its
@@ -523,6 +524,31 @@ jobs:
       - name: helio-mcp audit (helio-mcp/)
         if: ${{ !cancelled() && steps.npm-ci-root.outcome == 'success' }}
         run: npx audit-ci --config helio-mcp/.audit-ci.jsonc --directory helio-mcp
+
+      # HEL-1753: production-only audit, NO allowlist. audit-ci paths (HEL-1751's per-package picomatch entries,
+      # HEL-1246's braces precedent) carry no dev/prod marker, so a listed package that became a PRODUCTION
+      # dependency (e.g. micromatch) would still pass the audit-ci steps above. `npm audit --omit=dev` reads only
+      # the committed lockfile (no node_modules, no .audit-ci.jsonc) and exits non-zero on any moderate+ advisory
+      # reachable from a production dependency, or if the audit endpoint errors (fails closed).
+      # POLICY: no exceptions. A production advisory with no patched release keeps this red: no allowlist, no
+      # continue-on-error, no lowered --audit-level. Resolving one is an owner call in a SEPARATE ticket (remove or
+      # replace the dependency, or an owner-approved change to this gate there). Measured ~0.3 s -> 1 minute floor.
+      - name: Production-only npm audit (root)
+        if: ${{ !cancelled() && steps.setup-node.outcome == 'success' }}
+        timeout-minutes: 1
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Production-only npm audit (frontend/)
+        if: ${{ !cancelled() && steps.setup-node.outcome == 'success' }}
+        timeout-minutes: 1
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Production-only npm audit (helio-mcp/)
+        if: ${{ !cancelled() && steps.setup-node.outcome == 'success' }}
+        timeout-minutes: 1
+        working-directory: helio-mcp
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Upload sbt hang diagnostics
         if: failure()
