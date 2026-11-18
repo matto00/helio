@@ -137,3 +137,21 @@ Executor notes from skeptic-design-2 (CONFIRM): Context's mention of `LegacyOutp
 Also update `OutputConfigValidationSpec.scala:174` (KeysDoc) and `:26-30` (give insight valid values; deliberate edit).
 If `PatchSetPreviewProjection` validates output-update previews, note it in sites.md. Frontend exhaustiveness uses the
 existing `const _exhaustive: never = x` idiom (`shared/chrome/resourceNavigation.ts:90`).
+
+## Gate-Chain Implications Checklist
+
+Gate-chain script touched: `scripts/check-schema-drift.mjs` (run by `.husky/pre-commit` via `npm run check:schemas`).
+The change adds one `KNOWN_PRE_EXISTING_DRIFT` allowance (exact surface label, exact value `insight`) and a loop that
+errors on an allowance naming an unknown surface or matching no live drift.
+
+- **What does it execute?** Only `node` on this one script, which reads JSON schemas and Scala/TS source files under the
+  repo root and compares enum sets in memory. It spawns no child process and runs no other command.
+- **What environment does it inherit, and from where?** The hook shell's environment via husky/npm; the script reads no
+  environment variable (no `process.env` use). It resolves the repo root from its own file location
+  (`import.meta.url`), not from the cwd.
+- **Does it write anything outside its own sandbox?** No. It writes nothing at all: it only prints errors and sets the
+  exit code.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. Paths resolve relative to the
+  script's own location, so a linked worktree checks its own tree; it uses no git commands and no `.git` paths.
+- **What happens on its first run?** The same as every run: it reads the tree and exits 0 or 1. It keeps no state or
+  cache. `node scripts/check-schema-drift.selftest.mjs` passes, and the hook passed on both branch commits.
