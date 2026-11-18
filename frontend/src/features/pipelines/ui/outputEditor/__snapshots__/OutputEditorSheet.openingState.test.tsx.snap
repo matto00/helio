@@ -76,6 +76,32 @@ exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode
 }
 `;
 
+exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) insight 1`] = `
+{
+  "body": {
+    "config": {},
+    "kind": "insight",
+    "name": "Untitled output",
+    "nodeStepId": "step-1",
+  },
+  "controls": [
+    "button name="Close"",
+    "input name="Name" value=""",
+    "combobox name="Target step" value="First step"",
+    "combobox name="Output kind" value="Insight"",
+    "h3: Configuration",
+    "combobox name="Preset" value="Auto"",
+    "radio name="On every run"",
+    "radio name="Daily"",
+    "radio name="Manual only"",
+    "textarea name="Custom prompt" value=""",
+    "h3: Preview",
+    "button name="Cancel"",
+    "button name="Save"",
+  ],
+}
+`;
+
 exports[`OutputEditorSheet opening state (HEL-1430 characterization) create mode (kind chosen after open) markdown 1`] = `
 {
   "body": {

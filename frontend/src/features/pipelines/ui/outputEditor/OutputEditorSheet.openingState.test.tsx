@@ -250,14 +250,14 @@ const EDIT_CASES: [string, OutputKind, Record<string, unknown>, Partial<Output>?
   ["markdown: empty config", "markdown", {}],
 ];
 
-// HEL-1740: `insight` is not creatable from the editor until its authoring UI ships (HEL-1744).
-const KIND_LABEL: Record<Exclude<OutputKind, "insight">, string> = {
+const KIND_LABEL: Record<OutputKind, string> = {
   chart: "Chart",
   table: "Table",
   metric: "Metric",
   collection: "Collection",
   timeline: "Timeline",
   markdown: "Markdown",
+  insight: "Insight",
 };
 
 describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
@@ -306,9 +306,11 @@ describe("OutputEditorSheet opening state (HEL-1430 characterization)", () => {
   });
 
   describe("an existing insight Output (HEL-1740)", () => {
-    it("opens with a one-line note, the kind locked, and a rename PATCH sends no config", async () => {
+    it("opens with its settings card, the kind locked, and a rename PATCH sends no config", async () => {
       await renderSheet(outputOf("insight", { preset: "delta", reads: { outputs: ["o9"] } }));
-      expect(screen.getByText("Insight settings arrive in a later release.")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Preset" })).toHaveTextContent(
+        "Change since last run",
+      );
       expect(screen.queryByText("History")).toBeNull();
       await act(async () => {
         fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Renamed" } });

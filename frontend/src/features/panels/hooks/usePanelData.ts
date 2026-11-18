@@ -4,6 +4,7 @@ import { useStore } from "react-redux";
 import { fetchPanelPage } from "../state/panelsSlice";
 import { CROSS_FILTER_EQ_REJECTED } from "../state/panelThunks";
 import { getOutputId } from "../state/panelNarrowing";
+import { getKnownOutputKind } from "../state/outputMetaCache";
 import { isPendingFor, isReusable, type RowsQuery } from "../state/panelRowsReuse";
 import type {
   CrossFilterEq,
@@ -101,11 +102,17 @@ export function usePanelData(
   const activeCrossFilter = useAppSelector((state) => state.panels.crossFilter);
 
   const outputId = getOutputId(panel);
+  // HEL-1744 D7 -- an `insight` Output has no rows to show (its panel reads the stored render), so once its kind is known no rows
+  // are requested: not on a warm remount, and not after a run completes (the kind outlives the invalidated metadata). A cold first
+  // load cannot know the kind before the metadata arrives, and waiting for it would delay every other panel's rows, so that one
+  // first request is still made (measured: exactly one per insight panel) and its result ignored.
+  const isInsightOutput = outputId !== null && getKnownOutputKind(outputId) === "insight";
   const controlFilterOpsKey = controlFilterOps.length > 0 ? JSON.stringify(controlFilterOps) : "";
   const crossFilterEqKey = crossFilterEq ? JSON.stringify(crossFilterEq) : "";
-  const currentFetchKey = outputId
-    ? panel.id + "|" + outputId + "|" + controlFilterOpsKey + "|" + crossFilterEqKey
-    : null;
+  const currentFetchKey =
+    outputId && !isInsightOutput
+      ? panel.id + "|" + outputId + "|" + controlFilterOpsKey + "|" + crossFilterEqKey
+      : null;
 
   const prevFetchKey = useRef<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);

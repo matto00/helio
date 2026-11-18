@@ -91,6 +91,16 @@ class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
     }
   }
 
+  "the Output editor" should {
+    "offer every canonical kind in its create picker (HEL-1744 L5 removed the insight exclusion)" in {
+      val text = repoFile("frontend/src/features/pipelines/ui/outputEditor/outputKinds.ts")
+      val start = text.indexOf("CREATABLE_KIND_OPTIONS: SelectOption[] = [")
+      withClue("picker list anchor")(start should be >= 0)
+      val values = "value: \"([a-z_]+)\"".r.findAllMatchIn(text.substring(start, text.indexOf("];", start))).map(_.group(1)).toSet
+      values shouldBe canonical
+    }
+  }
+
   "the fixture the frontend reads" should {
     "list exactly the canonical kinds in the node-capabilities parity fixture" in {
       val fixture = repoFile("frontend/src/features/pipelines/state/__fixtures__/nodeCapabilitiesParity.json").parseJson.asJsObject
@@ -119,13 +129,6 @@ class OutputKindDriftSpec extends AnyWordSpec with Matchers with BeforeAndAfterA
       doc should not include "maxSentences"
       // `reads` is left out of the key scan: it is an ordinary word in KeysDoc's duration prose.
       (InsightConfig.OwnKeys - "reads").foreach(k => withClue(k)(doc should not include k))
-    }
-    "the Output editor's create picker excludes insight (HEL-1744 L5 owns it; pinned in outputKindDrift.test.ts)" in {
-      val text = repoFile("frontend/src/features/pipelines/ui/outputEditor/outputKinds.ts")
-      val start = text.indexOf("CREATABLE_KIND_OPTIONS: SelectOption[] = [")
-      withClue("picker list anchor")(start should be >= 0)
-      val values = "value: \"([a-z_]+)\"".r.findAllMatchIn(text.substring(start, text.indexOf("];", start))).map(_.group(1)).toSet
-      values shouldBe withoutInsight
     }
   }
 

@@ -370,3 +370,45 @@ export function readTimelineConfig(config: Record<string, unknown>): TimelineOut
     sort: config.sort === "desc" ? "desc" : "asc",
   };
 }
+
+// ── insight (HEL-1744; backend contract `domain/outputs/InsightConfig.scala`) ──
+
+export const INSIGHT_PRESETS = ["auto", "delta", "trend", "leaders", "summary"] as const;
+export type InsightPresetValue = (typeof INSIGHT_PRESETS)[number];
+export const INSIGHT_REFRESHES = ["on_run", "daily", "manual"] as const;
+export type InsightRefreshValue = (typeof INSIGHT_REFRESHES)[number];
+/** The backend's own limits, mirrored for the editor. */
+export const INSIGHT_MAX_PROMPT_CHARS = 2000;
+export const INSIGHT_MAX_READ_OUTPUTS = 8;
+
+export const DEFAULT_INSIGHT_PRESET: InsightPresetValue = "auto";
+export const DEFAULT_INSIGHT_REFRESH: InsightRefreshValue = "on_run";
+
+export interface InsightOutputConfig {
+  /** Absent when the config carries none (the editor then shows the default). */
+  preset: InsightPresetValue | undefined;
+  refresh: InsightRefreshValue | undefined;
+  prompt: string | undefined;
+  /** `null` = no `reads.outputs` stored (the same-node default); an array, even empty, is explicit. */
+  readsOutputs: string[] | null;
+  /** The stored `reads.windows`, carried unchanged by every edit (the editor never changes them). */
+  readsWindows: string[];
+}
+
+function stringArray(value: unknown): string[] | null {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : null;
+}
+
+export function readInsightConfig(config: Record<string, unknown>): InsightOutputConfig {
+  const reads =
+    typeof config.reads === "object" && config.reads !== null && !Array.isArray(config.reads)
+      ? (config.reads as Record<string, unknown>)
+      : {};
+  return {
+    preset: INSIGHT_PRESETS.find((p) => p === config.preset),
+    refresh: INSIGHT_REFRESHES.find((r) => r === config.refresh),
+    prompt: typeof config.prompt === "string" ? config.prompt : undefined,
+    readsOutputs: stringArray(reads.outputs),
+    readsWindows: stringArray(reads.windows) ?? [],
+  };
+}

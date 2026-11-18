@@ -21,9 +21,10 @@ final class PublicPanelInsightResolver(
         panelOutput.resolvePanelOutput(dashboardId, panelId).flatMap {
           case Left(err) => Future.successful(Left(err))
           case Right((_, output)) =>
-            svc.latestOkFor(output).map {
-              case None         => Left(ServiceError.NotFound("Output not found"))
-              case Some(record) => Right(OutputInsightResponses.public(record))
+            svc.latestOkFor(output).flatMap {
+              case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+              case Some(record) =>
+                panelOutput.panelIdsByOutput(dashboardId).map(panels => Right(OutputInsightResponses.public(record, panels)))
             }
         }
       case None => Future.successful(Left(ServiceError.NotFound("Output not found")))

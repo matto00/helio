@@ -13,11 +13,14 @@ import type { AggregateConfig } from "../../types/pipelineStep";
 import type { NodeCapabilities, OutputKind } from "../../types/output";
 import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
 import {
+  DEFAULT_INSIGHT_PRESET,
+  DEFAULT_INSIGHT_REFRESH,
   isAggFn,
   isMetricFormat,
   type MetricFormat,
   type TableColumnFormats,
 } from "./outputConfigTypes";
+import { sameIdSet } from "./insightNode";
 
 /** The slice of a bound-or-literal slot the builder reads -- lets the edit-mode baseline (HEL-1389)
  *  feed it a plain value instead of a live `useBoundOrLiteralState`. */
@@ -68,6 +71,40 @@ export interface BuildOutputConfigParams {
   // the old rules through the shallow config merge), so Outputs without rules build byte-identical configs.
   conditionalFormats?: ConditionalFormatRule[];
   conditionalFormatsStored?: boolean;
+  // Insight (HEL-1744). Every key is written only when it differs from its default, or (an edit) when the stored config
+  // already had it, so it can be cleared with an explicit `null`; an untouched card therefore builds `{}`.
+  insightPreset?: string;
+  insightRefresh?: string;
+  insightPrompt?: string;
+  /** The ticked Output ids, or `null` while the checklist follows the same-node default. */
+  insightReads?: string[] | null;
+  /** The same-node default for this insight's node. */
+  insightDefaultReads?: string[];
+  /** The stored `reads.windows`: carried unchanged inside every `reads` write (the editor never changes them). */
+  insightWindows?: string[];
+  insightStored?: { preset: boolean; refresh: boolean; prompt: boolean; reads: boolean };
+}
+
+/** HEL-1744 D3 -- an insight's config, built so that a diff against the opening state yields only what the user changed. */
+function insightConfig(p: BuildOutputConfigParams): Record<string, unknown> {
+  const stored = p.insightStored ?? { preset: false, refresh: false, prompt: false, reads: false };
+  const out: Record<string, unknown> = {};
+  const preset = p.insightPreset ?? DEFAULT_INSIGHT_PRESET;
+  if (preset !== DEFAULT_INSIGHT_PRESET) out.preset = preset;
+  else if (stored.preset) out.preset = null;
+  const refresh = p.insightRefresh ?? DEFAULT_INSIGHT_REFRESH;
+  if (refresh !== DEFAULT_INSIGHT_REFRESH) out.refresh = refresh;
+  else if (stored.refresh) out.refresh = null;
+  const prompt = p.insightPrompt ?? "";
+  if (prompt.trim().length > 0) out.prompt = prompt;
+  else if (stored.prompt) out.prompt = null;
+  const windows = p.insightWindows ?? [];
+  const ticked = p.insightReads ?? null;
+  const differs = ticked !== null && !sameIdSet(ticked, p.insightDefaultReads ?? []);
+  if (differs) out.reads = windows.length > 0 ? { outputs: ticked, windows } : { outputs: ticked };
+  else if (windows.length > 0) out.reads = { windows };
+  else if (stored.reads) out.reads = null;
+  return out;
 }
 
 /** HEL-1307 -- the `conditionalFormats` entry of a kind's config, or nothing. */
@@ -173,6 +210,8 @@ export function buildOutputConfig(params: BuildOutputConfigParams): Record<strin
       };
     case "timeline":
       return { fieldMapping: params.timelineFieldMapping, sort: "asc" };
+    case "insight":
+      return insightConfig(params);
     default:
       return {};
   }

@@ -41,4 +41,16 @@ final class PublicPanelOutputResolver(
         case _ => Future.successful(Left(ServiceError.NotFound("Panel not found")))
       }
     }
+
+  /** HEL-1744: `outputId -> panelId` over the panels of THIS dashboard only (one `findAllByDashboardId`, the same bound
+   *  query `resolvePanelOutput` uses), for the public insight read. Called only after the dashboard ACL and
+   *  `resolvePanelOutput` succeeded. An Output placed twice maps to the lowest panel id, so the answer is deterministic. */
+  def panelIdsByOutput(dashboardId: String): Future[Map[String, String]] =
+    panelRepo.findAllByDashboardId(DashboardId(dashboardId), userOpt, Page(offset = 0, limit = Page.MaxLimit), accessAlreadyGranted = true).map { paged =>
+      paged.items
+        .collect { case op: OutputPanel => op.outputId.map(_.value -> op.id.value) }
+        .flatten
+        .groupBy(_._1)
+        .map { case (outputId, pairs) => outputId -> pairs.map(_._2).min }
+    }
 }

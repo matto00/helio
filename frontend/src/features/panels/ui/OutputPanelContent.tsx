@@ -25,7 +25,7 @@ import { ChartOutputPanel } from "./ChartOutputPanel";
 import { chartTruncationNote, chartTruncationNoteShort } from "./chartTruncationNote";
 import { CollectionRenderer } from "./renderers/CollectionRenderer";
 import { LoadedScopeDisclosure } from "./renderers/LoadedScopeDisclosure";
-import { InsightNotRenderedState } from "./InsightNotRenderedState";
+import { InsightPanelBody } from "../insight/InsightPanelBody";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricOutputPanel } from "./MetricOutputPanel";
 import type { HistorySource } from "../history/useOutputHistory";
@@ -267,8 +267,15 @@ export function OutputPanelContent({
       />
     );
   } else if (kind === "insight") {
-    // HEL-1740: no render store yet; `rawRows` is deliberately ignored.
-    content = <InsightNotRenderedState />;
+    // HEL-1744: the stored render, never the Output's rows (`rawRows` is deliberately ignored).
+    content = (
+      <InsightPanelBody
+        panelId={panelId}
+        outputId={outputId}
+        output={output}
+        historySource={historySource}
+      />
+    );
   } else {
     content = (
       <div className="panel-content panel-content--state">

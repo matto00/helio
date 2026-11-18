@@ -242,3 +242,105 @@
     min-height: 44px;
   }
 }
+
+/* HEL-1744 -- the insight settings card. Tokens only; the checklist rows keep a 44px touch floor via `tap-expand-44`. */
+.insight-fields {
+  display: grid;
+  /* A track that may shrink: the default `auto` track grows to its widest control and pushes the card past a 390px phone. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.insight-fields__reads > legend {
+  padding: 0;
+}
+
+/* On a phone the refresh control fills the card and its options share the width, so its three labels fit. */
+@media (max-width: 768px) {
+  .insight-fields .ui-segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .insight-fields .ui-segmented__option {
+    flex: 1 1 auto;
+    padding: 0 var(--space-2);
+  }
+}
+
+.insight-fields__reads {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.insight-fields__group {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.insight-fields__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.insight-fields__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  border-radius: var(--app-radius-sm);
+  font-size: var(--text-sm);
+  color: var(--app-text);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.insight-fields__checkbox {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--app-accent);
+}
+
+.insight-fields__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.insight-fields__kind {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.insight-fields__show-all {
+  justify-self: start;
+  background: none;
+  border: 0;
+  padding: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--app-accent-text);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.insight-fields__error {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-error);
+}
+
+.insight-fields__prompt > summary {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--app-text-muted);
+}

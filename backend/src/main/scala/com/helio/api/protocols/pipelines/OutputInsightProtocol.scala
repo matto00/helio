@@ -13,19 +13,20 @@ final case class OutputInsightHistoryResponse(outputId: String, items: Vector[Ou
 /** The PUBLIC allowlist type: a separate shape (never a filtered copy of the authenticated one) with
  *  no field that could carry cost, model, tokens, a run id, the input digest, the trigger, a row id,
  *  an attempt status or a cited Output id. */
-final case class PublicInsightCitation(id: String, field: String, number: Option[Double], date: Option[Instant], capturedAt: Option[Instant], isPct: Boolean)
+final case class PublicInsightCitation(id: String, field: String, number: Option[Double], date: Option[Instant], capturedAt: Option[Instant], isPct: Boolean, panelId: Option[String] = None)
 final case class PublicInsightRender(markdown: String, citations: Vector[PublicInsightCitation], renderedAt: Instant)
 final case class PublicOutputInsightResponse(render: Option[PublicInsightRender])
 
 object OutputInsightResponses {
 
-  /** Built field by field from the allow-list; never by copying the stored record and deleting keys. */
-  def public(record: Option[OutputInsightRecord]): PublicOutputInsightResponse =
+  /** Built field by field from the allow-list; never by copying the stored record and deleting keys. `panelByOutput` maps a cited
+   *  Output id to a panel on the REQUESTED dashboard bound to it (HEL-1744); the Output id itself is never emitted. */
+  def public(record: Option[OutputInsightRecord], panelByOutput: Map[String, String] = Map.empty): PublicOutputInsightResponse =
     PublicOutputInsightResponse(record.flatMap { r =>
       r.markdown.map { md =>
         PublicInsightRender(
           md,
-          r.citations.map(c => PublicInsightCitation(c.id, c.field, c.number, c.date, c.capturedAt, c.isPct)),
+          r.citations.map(c => PublicInsightCitation(c.id, c.field, c.number, c.date, c.capturedAt, c.isPct, panelByOutput.get(c.outputId))),
           r.createdAt
         )
       }
@@ -110,7 +111,8 @@ trait OutputInsightProtocol extends SprayJsonSupport with DefaultJsonProtocol {
                 optional(
                   "number"     -> c.number.flatMap(num),
                   "date"       -> c.date.map(d => JsString(d.toString)),
-                  "capturedAt" -> c.capturedAt.map(d => JsString(d.toString))
+                  "capturedAt" -> c.capturedAt.map(d => JsString(d.toString)),
+                  "panelId"    -> c.panelId.map(JsString(_))
                 )): _*
             )
           }),

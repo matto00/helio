@@ -138,6 +138,48 @@ class OutputInsightPublicRoutesSpec extends AnyWordSpec with Matchers with Helio
       Get(path(dashB, panelOnB)) ~> api ~> check { status shouldBe StatusCodes.OK }
     }
 
+    "name the panel on this dashboard for a placed cited Output, none for an unplaced one or one placed only elsewhere (HEL-1744 D8)" in {
+      val dashId      = seedDashboard(public = true)
+      val otherDashId = seedDashboard(public = true)
+      val (pid, oid)  = seedInsightOutput(owner)
+      val (_, placed)    = seedInsightOutput(owner, kind = "metric")
+      val (_, unplaced)  = seedInsightOutput(owner, kind = "metric")
+      val (_, elsewhere) = seedInsightOutput(owner, kind = "metric")
+      val citations = Vector(
+        StoredInsightCitation("c1", placed, "amount", Some(1.0), None, None, isPct = false),
+        StoredInsightCitation("c2", unplaced, "amount", Some(2.0), None, None, isPct = false),
+        StoredInsightCitation("c3", elsewhere, "amount", Some(3.0), None, None, isPct = false)
+      )
+      addInsight(oid, pid, T0, markdown = Some("A [c1] B [c2] C [c3]."), citations = citations)
+      val insightPanel = seedPanel(dashId, Some(oid))
+      val placedPanel  = seedPanel(dashId, Some(placed))
+      seedPanel(otherDashId, Some(elsewhere))
+      Get(path(dashId, insightPanel)) ~> api ~> check {
+        status shouldBe StatusCodes.OK
+        val raw = responseAs[String]
+        JsonSchemaValidation.validationErrors(schema, raw) shouldBe Vector.empty
+        val byId = raw.parseJson.asJsObject.fields("render").asJsObject.fields("citations").convertTo[Vector[JsObject]].map(c => c.fields("id").convertTo[String] -> c).toMap
+        byId("c1").fields.get("panelId") shouldBe Some(JsString(placedPanel))
+        byId("c2").fields.get("panelId") shouldBe None
+        byId("c3").fields.get("panelId") shouldBe None
+        Seq(placed, unplaced, elsewhere).foreach(o => withClue(s"cited output id $o: ")(raw should not include o))
+      }
+    }
+
+    "choose the lowest panel id when a cited Output is placed twice on the dashboard (HEL-1744 D8)" in {
+      val dashId     = seedDashboard(public = true)
+      val (pid, oid) = seedInsightOutput(owner)
+      val (_, placed) = seedInsightOutput(owner, kind = "metric")
+      addInsight(oid, pid, T0, markdown = Some("A [c1]."), citations = Vector(StoredInsightCitation("c1", placed, "amount", Some(1.0), None, None, isPct = false)))
+      val insightPanel = seedPanel(dashId, Some(oid))
+      val twoPanels    = Vector(seedPanel(dashId, Some(placed)), seedPanel(dashId, Some(placed)))
+      Get(path(dashId, insightPanel)) ~> api ~> check {
+        status shouldBe StatusCodes.OK
+        val c1 = responseAs[JsObject].fields("render").asJsObject.fields("citations").convertTo[Vector[JsObject]].head
+        c1.fields.get("panelId") shouldBe Some(JsString(twoPanels.min))
+      }
+    }
+
     "404 a panel bound to a non-insight Output and an unknown panel" in {
       val dashId     = seedDashboard(public = true)
       val (pid, oid) = seedInsightOutput(owner, kind = "metric")

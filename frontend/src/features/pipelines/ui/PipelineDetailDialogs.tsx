@@ -60,6 +60,7 @@ export function PipelineDetailDialogs({ page }: { page: PipelinePageState }) {
             remove: page.handleDeleteOutput,
           }}
           draft={sheetDraft}
+          isPipelineOwner={page.isOwner}
         />
       )}
 

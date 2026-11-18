@@ -10,8 +10,10 @@ import type {
   HistogramChartOptions,
 } from "../../../panels/types/panel";
 import { chartCompareBlocker } from "../../../panels/history/chartOverlay";
-import type { OutputKind } from "../../types/output";
+import type { Output, OutputKind } from "../../types/output";
 import { ConditionalFormatsField } from "./ConditionalFormatsField";
+import { InsightKindFields } from "./InsightKindFields";
+import type { InsightNodeRef } from "./insightNode";
 import { buildOutputConfig } from "./buildOutputConfig";
 import {
   ChartKindFields,
@@ -31,6 +33,13 @@ interface OutputKindConfigCardProps {
   fieldOptions: SelectOption[];
   /** HEL-1311: columns the server reports eligible for a chart `yAxis` (numeric) at this node. */
   numericColumns: string[];
+  /** HEL-1744: what the insight card needs; absent for every other kind. */
+  insight?: {
+    candidates: Output[];
+    node: InsightNodeRef;
+    showUpsell: boolean;
+    tooMany: boolean;
+  };
 }
 
 export function OutputKindConfigCard({
@@ -39,6 +48,7 @@ export function OutputKindConfigCard({
   aggFieldOptions,
   fieldOptions,
   numericColumns,
+  insight,
 }: OutputKindConfigCardProps) {
   const {
     chartType,
@@ -174,10 +184,14 @@ export function OutputKindConfigCard({
           columnOptions={fieldOptions}
         />
       )}
-      {kind === "insight" && (
-        <p className="output-editor-sheet__field-hint">
-          Insight settings arrive in a later release.
-        </p>
+      {kind === "insight" && insight && (
+        <InsightKindFields
+          kindState={kindState}
+          candidates={insight.candidates}
+          node={insight.node}
+          showUpsell={insight.showUpsell}
+          tooMany={insight.tooMany}
+        />
       )}
       {kind === "markdown" && (
         <MarkdownKindFields content={markdownContent} onContentChange={setMarkdownContent} />

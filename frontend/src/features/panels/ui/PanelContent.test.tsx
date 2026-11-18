@@ -18,6 +18,12 @@ jest.mock("../history/outputHistoryService", () => ({
   ),
 }));
 
+// HEL-1744 -- an insight panel reads its stored insight (here: none yet), which this test reaches but does not exercise.
+jest.mock("../insight/insightService", () => ({
+  ...jest.requireActual("../insight/insightService"),
+  fetchOutputInsight: jest.fn(() => Promise.resolve({ render: null, lastAttempt: null })),
+}));
+
 let capturedChartProps: ChartPanelProps | null = null;
 
 jest.mock("./ChartPanel", () => ({
@@ -158,7 +164,7 @@ describe("PanelContent — output kind dispatch", () => {
     expect(screen.queryByText("Bound value")).toBeNull();
   });
 
-  // HEL-1740 — a placed insight Output shows the not-yet-rendered state and ignores the bound rows.
+  // HEL-1740 — a placed insight Output with no render shows the not-yet-rendered state (HEL-1744: as a status) and ignores the bound rows.
   it("shows 'Not yet rendered' for a placed insight Output and ignores its rows", async () => {
     getOutputByIdMock.mockResolvedValue(
       makeOutput({ kind: "insight", config: { preset: "delta" } }),
@@ -172,7 +178,7 @@ describe("PanelContent — output kind dispatch", () => {
       />,
     );
     await settleMocks(getOutputByIdMock);
-    expect(screen.getByTestId("insight-not-rendered")).toBeInTheDocument();
+    expect(await screen.findByTestId("insight-not-rendered")).toHaveAttribute("role", "status");
     expect(screen.getByText("Not yet rendered")).toBeInTheDocument();
     expect(screen.queryByText("Bound value")).toBeNull();
   });
