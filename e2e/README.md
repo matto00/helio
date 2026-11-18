@@ -114,6 +114,19 @@ scripts/concertino/start-servers.sh "$WORKTREE_PATH" "$DEV_PORT" "$BACKEND_PORT"
 under the lane's e2e lock/worker caps as usual.
 See CONTRIBUTING.md.
 
+## Local web fonts (HEL-1757)
+
+Every e2e browser gets the app's Google Fonts (Fraunces, Schibsted Grotesk, JetBrains Mono) from a committed local copy,
+so a stalled `fonts.googleapis.com` / `fonts.gstatic.com` request can never hold a `page.goto` (`load`) open, and
+font-measuring specs still measure the real web faces. `playwright.config.ts` adds Chromium `--host-rules` (both hosts to
+a local HTTPS server it starts as a `webServer`) and an SPKI pin for the committed test-only certificate to every launch;
+there is no route, so no request interception. Port: `HELIO_E2E_WEB_FONTS_PORT`, else `DEV_PORT + 20000`. An unknown
+fonts URL, a dead server or a foreign listener fails the run (fonts global setup/teardown), and
+`hel1757-web-fonts-local.spec.ts` guards the copy against drift from `frontend/app.html` / `frontend/index.html`.
+`HELIO_E2E_WEB_FONTS_LOCAL=0` disables the whole mechanism (diagnostic only: it reproduces the hang). Concurrent
+Playwright runs in one worktree are unsupported. The committed private key is test-only, pinned by SPKI. Refresh the copy
+with `node e2e/fixtures/web-fonts/refresh.mjs`. Details: `e2e/fixtures/web-fonts/README.md`.
+
 ## CI runtime: sharding and parallel-mode files (HEL-1288)
 
 The CI `e2e` job runs `node scripts/e2e-shard.mjs run <i> <N>` (the legs run only `--project=dev`; `@prod-build` tests run in `e2e-prod-build`) on a matrix of runners (`strategy.job-total` is N,

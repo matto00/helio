@@ -22,3 +22,6 @@ development-plan.md
 
 # Concertino delivery worktrees (nested inside this repo — see eslint.config.cjs)
 .claude/worktrees
+
+# HEL-1757: verbatim Google Fonts responses captured by refresh.mjs; must not be reformatted
+e2e/fixtures/web-fonts/
