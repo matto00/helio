@@ -10,7 +10,7 @@ import {
   unsupportedEnum,
 } from "../config";
 import { javaTrim } from "../javaNumbers";
-import { anyToString, cell, int, put, type Row, type Value } from "../value";
+import { anyToString, cell, int, put, putLast, type Row, type Value } from "../value";
 import type { StepHandler } from "./types";
 
 const JAVA_SPACE = "[ \\t\\n\\x0B\\f\\r]";
@@ -74,7 +74,7 @@ export const splitTextHandler: StepHandler<SplitTextConfig> = {
       split(anyToString(value)).forEach((segment, idx) => {
         const next: Record<string, Value> = { ...row };
         put(next, field, segment);
-        put(next, indexField, int(idx));
+        putLast(next, indexField, int(idx));
         out.push(next);
       });
     }
@@ -116,8 +116,8 @@ export const extractHeadingsHandler: StepHandler<ExtractHeadingsConfig> = {
       headings.forEach(([title, level], idx) => {
         const next: Record<string, Value> = { ...row };
         put(next, field, title);
-        put(next, indexField, int(idx));
-        put(next, levelField, int(level));
+        putLast(next, indexField, int(idx));
+        putLast(next, levelField, int(level));
         out.push(next);
       });
     }

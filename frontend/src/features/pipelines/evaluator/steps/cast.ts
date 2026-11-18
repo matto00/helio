@@ -29,7 +29,7 @@ import {
   long,
   numericOf,
   put,
-  withCell,
+  withCellLast,
   type Row,
   type Value,
 } from "../value";
@@ -162,7 +162,7 @@ export const dateBucketHandler: StepHandler<DateBucketConfig> = {
       const instant = parseInstantCell(input);
       const bucketed = instant ? formatDate(floor(epochDayOf(instant.seconds))) : null;
       if (bucketed !== null) nonNullOutputs++;
-      return withCell(row, outputCol, bucketed);
+      return withCellLast(row, outputCol, bucketed);
     });
     if (nonBlankInputs > 0 && nonNullOutputs === 0) {
       throw new StepConfigError(
