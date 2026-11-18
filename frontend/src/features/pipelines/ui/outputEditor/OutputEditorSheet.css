@@ -90,7 +90,19 @@
 .output-editor-sheet__footer {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+/* HEL-1752: scoped exception to DESIGN.md section 5 (footer buttons at --control-md). On a phone the row wraps so a
+   long label gets its own line instead of being squeezed; min-height holds a one-line label at --control-md, and a
+   two-line label (the dashboard-count confirm) grows the box instead of spilling past its border. Never applied to the
+   global .ui-modal-btn. */
+.output-editor-sheet__footer .ui-modal-btn {
+  height: auto;
+  min-height: var(--control-md);
+  padding-block: var(--space-1);
+  text-align: center;
 }
 
 /* skeptic-final-3 (round 1) CR1/CR2 — the delete/cancel/save buttons now use

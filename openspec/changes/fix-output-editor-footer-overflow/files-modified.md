@@ -1,0 +1,2 @@
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.css` — footer flex-wrap plus sheet-scoped button height/padding so labels stay inside their buttons at 375px
+- `e2e/hel1752-output-editor-footer-fit.spec.ts` — geometry spec (375px light/dark confirm + add-tail; 1280 baseline)
