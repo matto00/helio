@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { assistantModelsReducer } from "../features/assistant/state/assistantModelsSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
 import {
   getConversation as getConversationRequest,
@@ -236,6 +237,7 @@ function renderApp(options: RenderAppOptions = {}) {
   const store = configureStore({
     reducer: {
       assistantConversations: assistantConversationsReducer,
+      assistantModels: assistantModelsReducer,
       auth: authReducer,
       connectors: connectorsReducer,
       dashboardFolders: dashboardFoldersReducer,

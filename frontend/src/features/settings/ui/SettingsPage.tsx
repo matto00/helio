@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { AuditHistorySection } from "../../audit/ui/AuditHistorySection";
 import { fetchAgentMemory, fetchApiTokens, fetchPreferences } from "../state/settingsSlice";
 import { AppearanceSection } from "./AppearanceSection";
+import { AssistantModelSection } from "./AssistantModelSection";
 import { AgentMemoryList } from "./AgentMemoryList";
 import { ApiTokensSection } from "./ApiTokensSection";
 import { BetaAccessSection } from "./BetaAccessSection";
@@ -50,6 +51,9 @@ export function SettingsPage() {
         {/* HEL-728/HEL-745: accent and the light/dark toggle live here, immediate-apply with no Save button;
             HEL-1572 adds type style, density and motion (see AppearanceSection). */}
         <AppearanceSection />
+
+        {/* HEL-1755: owner/beta only (renders nothing for free). */}
+        <AssistantModelSection />
 
         <section className="settings-page__section">
           <h2 className="settings-page__section-heading">Preferences</h2>

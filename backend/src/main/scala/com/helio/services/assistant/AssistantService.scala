@@ -6,7 +6,7 @@ import com.helio.services.pipelines.PipelineProposalService
 import com.helio.services.proposals.{CombinedProposalService, DashboardProposalService}
 import com.helio.services.sources.SourceService
 import com.helio.services.workspace.WorkspaceSearchService
-import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
+import com.helio.infrastructure.ai.{ClaudeClient, ClaudeContentBlock, ClaudeError, ClaudeModelSpec, ClaudeRole, ClaudeToolMessage, ClaudeToolOutcome, ClaudeToolRequest}
 import com.helio.api.protocols.assistant.{AssistantProposal, AssistantProtocol, AssistantTurnResult}
 import com.helio.domain.model.AuthenticatedUser
 import spray.json._
@@ -65,7 +65,12 @@ final class AssistantService(
    *  way to represent `ClaudeToolOutcome.Failed` (which carries no `history` at all) without either
    *  silently discarding the user's message or fabricating a persisted "response" for a real API
    *  failure. */
-  def converse(history: Seq[ClaudeToolMessage], message: String, user: AuthenticatedUser): Future[Either[ClaudeError, AssistantTurnResult]] = {
+  def converse(
+      history: Seq[ClaudeToolMessage],
+      message: String,
+      user: AuthenticatedUser,
+      model: Option[ClaudeModelSpec] = None
+  ): Future[Either[ClaudeError, AssistantTurnResult]] = {
     val executor = new AssistantToolExecutor(
       workspaceSearchService,
       panelCapabilityService,
@@ -87,7 +92,9 @@ final class AssistantService(
       // HEL-1639 D5: a turn yields ONE proposal; only the first propose_* of a response runs.
       oncePerResponseTools = AssistantProtocol.proposeToolNames,
       // HEL-1718: the prompt rides the API `system` field on EVERY hop of EVERY turn, never inside a message.
-      system = Some(AssistantSystemPrompt.text)
+      system = Some(AssistantSystemPrompt.text),
+      // HEL-1755 D2: fixed for the whole loop; None = the server default (`ClaudeConfig.model`).
+      model = model
     )
     // `history` (the CALLER-supplied prefix) is threaded through to `toTurnResult` to isolate this call's OWN
     // new turns (`fullHistory.drop(history.length)`) for `searchedWithNoResults` (HEL-667 design.md D2).
@@ -144,7 +151,7 @@ final class AssistantService(
     // is the assistant's normal way to finish).
     case ClaudeToolOutcome.FinalResponse(text, _, _) if ClaudeContentBlock.isBlankText(text) && executor.proposal.isEmpty =>
       Left(ClaudeError.NoAnswer(Some("end_turn"), None))
-    case ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
+    case r @ ClaudeToolOutcome.FinalResponse(text, fullHistory, usage) =>
       Right(
         AssistantTurnResult(
           text,
@@ -156,10 +163,11 @@ final class AssistantService(
           persistable(fullHistory),
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
-          proposeValidationFailures = executor.proposeValidationFailures
+          proposeValidationFailures = executor.proposeValidationFailures,
+          responseModel = r.responseModel
         )
       )
-    case ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
+    case h @ ClaudeToolOutcome.HopBudgetExhausted(fullHistory, usage) =>
       Right(
         AssistantTurnResult(
           s"Reached the maximum number of tool calls ($MaxHops) without a final response.",
@@ -171,7 +179,8 @@ final class AssistantService(
           persistable(fullHistory),
           proposeAttempts = executor.proposeAttempts,
           proposeDecodeFailures = executor.proposeDecodeFailures,
-          proposeValidationFailures = executor.proposeValidationFailures
+          proposeValidationFailures = executor.proposeValidationFailures,
+          responseModel = h.responseModel
         )
       )
     case ClaudeToolOutcome.Failed(error) =>

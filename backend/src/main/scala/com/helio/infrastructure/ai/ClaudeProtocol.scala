@@ -272,7 +272,8 @@ trait ClaudeProtocol extends DefaultJsonProtocol {
           case other   => Some(other.toString)
         },
         usage = obj.fields.get("usage").map(_.convertTo[ClaudeApiUsage]).getOrElse(ClaudeApiUsage(0, 0)),
-        stopDetails = obj.fields.get("stop_details").filter(_ != JsNull)
+        stopDetails = obj.fields.get("stop_details").filter(_ != JsNull),
+        model = obj.fields.get("model").collect { case JsString(m) => m }
       )
     }
   }

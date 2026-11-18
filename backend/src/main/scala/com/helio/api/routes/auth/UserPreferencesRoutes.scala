@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.server.{Directives, Route}
 import com.helio.api.protocols.auth.{DashboardTabsPref, DashboardTabsPrefs}
 import com.helio.api.{ErrorResponse, JsonProtocols, UserPreferences}
 import com.helio.domain.model.AuthenticatedUser
+import com.helio.infrastructure.ai.ClaudeModelCatalog
 import com.helio.infrastructure.persistence.auth.{PreferencesPatch, UserPreferenceRepository}
 import org.slf4j.LoggerFactory
 import spray.json._
@@ -16,7 +17,11 @@ import scala.util.{Failure, Success}
 /** `PATCH /api/users/me/preferences` (HEL-1574): a partial update of the caller's shell layout preferences
  *  (`contextListWidth` 200..400, `contextListCollapsed`), HEL-1572 appearance (`typeStyle`, `density`, `motion`) and, since HEL-1575, the saved `dashboardTabs`. The endpoint takes no user id: the merge is keyed only on
  *  the authenticated session user, which is the isolation boundary (`users` has no RLS). */
-final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: AuthenticatedUser)(implicit
+final class UserPreferencesRoutes(
+    repo: UserPreferenceRepository,
+    user: AuthenticatedUser,
+    catalog: ClaudeModelCatalog = ClaudeModelCatalog.fromEnv()
+)(implicit
     system: ActorSystem[_]
 ) extends Directives
     with JsonProtocols {
@@ -25,7 +30,7 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
   private val log = LoggerFactory.getLogger(getClass)
 
   private val AllowedFields =
-    Set("contextListWidth", "contextListCollapsed", "typeStyle", "density", "motion", "dashboardTabs")
+    Set("contextListWidth", "contextListCollapsed", "typeStyle", "density", "motion", "dashboardTabs", "assistantModel")
 
   private def enumField(
       fields: Map[String, JsValue],
@@ -68,6 +73,14 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
           case None    => Right(None)
           case Some(v) => DashboardTabsPrefs.parse(v).map(Some(_))
         }
+        // HEL-1755: `assistantModel: null` clears the default (back to the server default); a string must be selectable.
+        val assistantModel: Either[String, Option[Option[String]]] = fields.get("assistantModel") match {
+          case None         => Right(None)
+          case Some(JsNull) => Right(Some(None))
+          case Some(JsString(id)) if catalog.isSelectable(id) => Right(Some(Some(id)))
+          case Some(_) =>
+            Left(s"assistantModel must be null or one of: ${catalog.selectable.map(_.id).mkString(", ")}")
+        }
         for {
           w <- width
           c <- collapsed
@@ -75,7 +88,8 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
           d <- enumField(fields, "density", UserPreferenceRepository.Densities)
           m <- motion
           b <- tabs
-        } yield PreferencesPatch(w, c, t, d, m, b)
+          a <- assistantModel
+        } yield PreferencesPatch(w, c, t, d, m, b, a)
       }
     case _ => Left("Request body must be a JSON object")
   }
@@ -93,7 +107,7 @@ final class UserPreferencesRoutes(repo: UserPreferenceRepository, user: Authenti
                   case Success(p) =>
                     complete(
                       StatusCodes.OK,
-                      UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion, p.dashboardTabs)
+                      UserPreferences(p.accentColor, p.zoomLevels, p.contextListWidth, p.contextListCollapsed, p.typeStyle, p.density, p.motion, p.dashboardTabs, p.assistantModel)
                     )
                   case Failure(ex) =>
                     // HEL-311: log the full exception server-side; never echo it in the response body.

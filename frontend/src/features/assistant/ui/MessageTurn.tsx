@@ -15,6 +15,9 @@ interface MessageTurnProps {
    *  converse response's `searchedWithNoResults` field is `true`: renders a distinct "asking a
    *  follow-up" treatment. Same explicit-boolean-only discipline as `hopBudgetExhausted`. */
   searchedWithNoResults?: boolean;
+  /** HEL-1755: the muted label of the model that answered (catalog label, else the raw id). Passed only on the last
+   *  text bubble of an answer group; omitted renders nothing. */
+  modelLabel?: string;
 }
 
 /** One text content block rendered as a role-differentiated bubble (design.md D1) — a real gap the
@@ -34,6 +37,7 @@ export function MessageTurn({
   text,
   hopBudgetExhausted = false,
   searchedWithNoResults = false,
+  modelLabel,
 }: MessageTurnProps) {
   const roleClass = role === "user" ? "message-turn--user" : "message-turn--assistant";
   const outcomeClass = hopBudgetExhausted
@@ -52,6 +56,11 @@ export function MessageTurn({
         <span className="message-turn__outcome-note">Asking a follow-up</span>
       )}
       <p className="message-turn__text">{text}</p>
+      {modelLabel !== undefined && (
+        <span className="message-turn__model" data-testid="message-turn-model">
+          {modelLabel}
+        </span>
+      )}
     </div>
   );
 }

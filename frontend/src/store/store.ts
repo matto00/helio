@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
+import { assistantModelsReducer } from "../features/assistant/state/assistantModelsSlice";
 import { auditEventsReducer } from "../features/audit/state/auditEventsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
 import { connectorsReducer } from "../features/connectors/state/connectorsSlice";
@@ -44,6 +45,7 @@ addDashboardTabsListeners(startAppListening);
 export const store = configureStore({
   reducer: {
     assistantConversations: assistantConversationsReducer,
+    assistantModels: assistantModelsReducer,
     auditEvents: auditEventsReducer,
     auth: authReducer,
     connectors: connectorsReducer,

@@ -2,6 +2,7 @@ package com.helio.infrastructure.persistence.auth
 
 import com.helio.api.protocols.auth.{DashboardTabsPref, DashboardTabsPrefs}
 import com.helio.domain.model.{DashboardId, UserId}
+import com.helio.infrastructure.ai.ClaudeModelCatalog
 import slick.jdbc.JdbcBackend
 import slick.jdbc.PostgresProfile.api._
 import spray.json._
@@ -21,7 +22,9 @@ final case class UserPreferencesData(
     density: Option[String] = None,
     motion: Option[String] = None,
     // HEL-1575: the saved dashboard tab set; None = never set (or an invalid stored value, dropped on read).
-    dashboardTabs: Option[DashboardTabsPref] = None
+    dashboardTabs: Option[DashboardTabsPref] = None,
+    // HEL-1755: the default assistant model id; None = unset, or a stored id that is no longer selectable (dropped on read).
+    assistantModel: Option[String] = None
 )
 
 /** HEL-1572: a validated partial update. `motion` is `None` = leave, `Some(None)` = clear (follow the OS),
@@ -33,10 +36,14 @@ final case class PreferencesPatch(
     density: Option[String] = None,
     motion: Option[Option[String]] = None,
     // HEL-1575: replaces the stored tab set as a whole.
-    dashboardTabs: Option[DashboardTabsPref] = None
+    dashboardTabs: Option[DashboardTabsPref] = None,
+    // HEL-1755: `None` = leave, `Some(None)` = clear (server default), `Some(Some(id))` = set (caller validated).
+    assistantModel: Option[Option[String]] = None
 )
 
-class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionContext) {
+/** `catalog` (HEL-1755) decides which stored `assistantModel` values are still selectable on read; the default reads
+ *  the process environment, like every other config object built once at wiring. */
+class UserPreferenceRepository(db: JdbcBackend.Database, catalog: ClaudeModelCatalog = ClaudeModelCatalog.fromEnv())(implicit ec: ExecutionContext) {
 
   import UserPreferenceRepository._
 
@@ -84,6 +91,11 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
 
       val tabs = fields.get("dashboardTabs").flatMap(v => DashboardTabsPrefs.parse(v).toOption)
 
+      val assistantModel = fields.get("assistantModel") match {
+        case Some(JsString(id)) if catalog.isSelectable(id) => Some(id)
+        case _                                              => None
+      }
+
       val zoomMap = zoomRows.map { case (dashId, zoom) => dashId -> zoom }.toMap
 
       UserPreferencesData(
@@ -94,7 +106,8 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
         enum("typeStyle", TypeStyles),
         enum("density", Densities),
         enum("motion", MotionLevels),
-        tabs
+        tabs,
+        assistantModel
       )
     }
   }
@@ -111,10 +124,14 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
       patch.typeStyle.map(v => "typeStyle" -> (JsString(v): JsValue)),
       patch.density.map(v => "density" -> (JsString(v): JsValue)),
       patch.motion.flatten.map(v => "motion" -> (JsString(v): JsValue)),
-      patch.dashboardTabs.map(t => "dashboardTabs" -> tabsJson(t))
+      patch.dashboardTabs.map(t => "dashboardTabs" -> tabsJson(t)),
+      patch.assistantModel.flatten.map(v => "assistantModel" -> (JsString(v): JsValue))
     ).flatten.toMap
-    val clearMotion = patch.motion.contains(None)
-    if (fields.isEmpty && !clearMotion) Future.unit else mergePrefs(userId, JsObject(fields), clearMotion)
+    val cleared = Vector(
+      Option.when(patch.motion.contains(None))("motion"),
+      Option.when(patch.assistantModel.contains(None))("assistantModel")
+    ).flatten
+    if (fields.isEmpty && cleared.isEmpty) Future.unit else mergePrefs(userId, JsObject(fields), cleared)
   }
 
   /** Stored shape: absent optionals are omitted, so a `null` in the request and an omitted field read the same. */
@@ -135,14 +152,16 @@ class UserPreferenceRepository(db: JdbcBackend.Database)(implicit ec: ExecutionC
 
   /** One-statement JSON merge (`||`): keys in `patch` replace stored ones, all other keys survive. When
    *  `clearMotion` the `motion` key is removed in the same UPDATE (the patch never carries it then). */
-  private def mergePrefs(userId: UserId, patch: JsObject, clearMotion: Boolean = false): Future[Unit] = {
+  private def mergePrefs(userId: UserId, patch: JsObject, clearKeys: Seq[String] = Nil): Future[Unit] = {
     val patchStr = patch.compactPrint
     val action =
-      if (clearMotion)
+      if (clearKeys.nonEmpty) {
+        // `- text[]` removes every named key in the same UPDATE; the keys are fixed literals, never request data.
+        val keys = s"{${clearKeys.mkString(",")}}"
         sqlu"""UPDATE users
-               SET preferences = ((COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb) - 'motion')::text
+               SET preferences = ((COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb) - ${keys}::text[])::text
                WHERE id = ${userId.value}::uuid"""
-      else
+      } else
         sqlu"""UPDATE users
                SET preferences = (COALESCE(NULLIF(preferences, ''), '{}')::jsonb || ${patchStr}::jsonb)::text
                WHERE id = ${userId.value}::uuid"""

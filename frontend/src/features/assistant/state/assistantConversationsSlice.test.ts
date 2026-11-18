@@ -8,6 +8,8 @@ import {
   fetchConversations,
   renameConversation,
   selectConversation,
+  setConversationModel,
+  setPendingModel,
   setSelectedConversationId,
   startNewConversation,
   togglePinned,
@@ -449,7 +451,7 @@ describe("converse thunk", () => {
     const thunk = converse({ id: "conv-1", message: "Hello" });
     await thunk(dispatch, jest.fn(), undefined);
 
-    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", undefined);
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", undefined, undefined);
   });
 
   // HEL-698 design.md D6 — the idempotencyKey arg is threaded straight through.
@@ -460,7 +462,7 @@ describe("converse thunk", () => {
     const thunk = converse({ id: "conv-1", message: "Hello", idempotencyKey: "key-1" });
     await thunk(dispatch, jest.fn(), undefined);
 
-    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", "key-1");
+    expect(converseMock).toHaveBeenCalledWith("conv-1", "Hello", "key-1", undefined);
   });
 
   // HEL-703 design.md D9 — the rejectValue widened from a plain `string` to `{ code?, message,
@@ -596,5 +598,92 @@ describe("converse thunk", () => {
       );
       expect(rejectedCall?.[0].payload).toEqual({ message: "network error" });
     });
+  });
+});
+
+// HEL-1755 D10 — the composer picker's slice behaviour.
+describe("model selection (HEL-1755)", () => {
+  const withActive = (model: string | null, effectiveModel: string) =>
+    assistantConversationsReducer(
+      undefined,
+      selectConversation.fulfilled({ ...detail, model, effectiveModel }, "req", "conv-1"),
+    );
+  const arg = {
+    id: "conv-1",
+    model: "claude-opus-5-5",
+    optimisticEffective: "claude-opus-5-5",
+    previous: { model: null, effectiveModel: "claude-opus-4-8" },
+  };
+
+  it("applies the pick optimistically on pending", () => {
+    const next = assistantConversationsReducer(
+      withActive(null, "claude-opus-4-8"),
+      setConversationModel.pending("req", arg),
+    );
+    expect(next.activeConversation.data).toMatchObject({
+      model: "claude-opus-5-5",
+      effectiveModel: "claude-opus-5-5",
+    });
+  });
+
+  it("restores the previous values and records the error on rejection", () => {
+    const pending = assistantConversationsReducer(
+      withActive(null, "claude-opus-4-8"),
+      setConversationModel.pending("req", arg),
+    );
+    const next = assistantConversationsReducer(
+      pending,
+      setConversationModel.rejected(null, "req", arg, "Failed to change the model."),
+    );
+    expect(next.activeConversation.data).toMatchObject({
+      model: null,
+      effectiveModel: "claude-opus-4-8",
+    });
+    expect(next.modelError).toBe("Failed to change the model.");
+  });
+
+  it("takes the server's model and effectiveModel on fulfillment, in the list row too", () => {
+    const withItem = assistantConversationsReducer(
+      withActive(null, "claude-opus-4-8"),
+      fetchConversations.fulfilled([summary], "req"),
+    );
+    const next = assistantConversationsReducer(
+      withItem,
+      setConversationModel.fulfilled(
+        { ...summary, model: null, effectiveModel: "claude-sonnet-5-5" },
+        "req",
+        { ...arg, model: null },
+      ),
+    );
+    expect(next.activeConversation.data?.effectiveModel).toBe("claude-sonnet-5-5");
+    expect(next.items[0].effectiveModel).toBe("claude-sonnet-5-5");
+  });
+
+  it("forgets a model-change error when another conversation loads or a new chat starts", () => {
+    const failed = assistantConversationsReducer(
+      withActive(null, "claude-opus-4-8"),
+      setConversationModel.rejected(null, "req", arg, "Failed to change the model."),
+    );
+    expect(failed.modelError).not.toBeNull();
+    expect(
+      assistantConversationsReducer(failed, selectConversation.pending("req2", "conv-2"))
+        .modelError,
+    ).toBeNull();
+    expect(assistantConversationsReducer(failed, startNewConversation()).modelError).toBeNull();
+  });
+
+  it("holds the pre-conversation pick until a send lands or New chat starts", () => {
+    const picked = assistantConversationsReducer(undefined, setPendingModel("claude-opus-5-5"));
+    expect(picked.pendingModel).toBe("claude-opus-5-5");
+    const sent = assistantConversationsReducer(
+      picked,
+      converse.fulfilled(detail, "req", { id: "conv-1", message: "m" }),
+    );
+    expect(sent.pendingModel).toBeNull();
+    const again = assistantConversationsReducer(
+      assistantConversationsReducer(undefined, setPendingModel("claude-opus-5-5")),
+      startNewConversation(),
+    );
+    expect(again.pendingModel).toBeNull();
   });
 });

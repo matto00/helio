@@ -1,0 +1,4 @@
+/* Settings → Assistant (HEL-1755): one FormField + the shared Select. Tokens only (DESIGN.md). */
+.assistant-model-section {
+  max-width: 360px;
+}

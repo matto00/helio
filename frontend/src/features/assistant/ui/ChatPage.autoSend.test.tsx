@@ -103,7 +103,12 @@ describe("ChatPage palette auto-send hand-off (HEL-1575 D10)", () => {
 
     await waitFor(() => expect(converseMock).toHaveBeenCalledTimes(1));
     expect(createMock).toHaveBeenCalledTimes(1);
-    expect(converseMock).toHaveBeenCalledWith("new-1", "why did revenue dip", expect.any(String));
+    expect(converseMock).toHaveBeenCalledWith(
+      "new-1",
+      "why did revenue dip",
+      expect.any(String),
+      undefined,
+    );
     await waitFor(() =>
       expect(store.getState().assistantConversations.selectedConversationId).toBe("new-1"),
     );
@@ -140,7 +145,12 @@ describe("ChatPage palette auto-send hand-off (HEL-1575 D10)", () => {
 
     await waitFor(() => expect(converseMock).toHaveBeenCalledTimes(2));
     expect(createMock).toHaveBeenCalledTimes(2);
-    expect(converseMock).toHaveBeenLastCalledWith("new-2", "second question", expect.any(String));
+    expect(converseMock).toHaveBeenLastCalledWith(
+      "new-2",
+      "second question",
+      expect.any(String),
+      undefined,
+    );
     await waitFor(() => expect(screen.getByTestId("nav-state")).toHaveTextContent("null"));
     expect(converseMock).toHaveBeenCalledTimes(2);
   });

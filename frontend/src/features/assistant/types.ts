@@ -12,6 +12,12 @@ export interface AssistantConversationSummary {
   title: string;
   pinned: boolean;
   updatedAt: string;
+  /** HEL-1755: the stored model id; `null`/absent = none stored (the user's default, else the server default,
+   *  applies at send time). */
+  model?: string | null;
+  /** HEL-1755: the server-resolved model the NEXT turn will use (stored if still selectable, else the user's
+   *  default if still selectable, else the server default). The picker shows this; the client never derives it. */
+  effectiveModel?: string;
 }
 
 /** `GET /api/assistant-conversations/:id` shape — summary fields plus the
@@ -34,6 +40,29 @@ export interface AssistantConversationDetail extends AssistantConversationSummar
 export interface ClaudeToolMessageDto {
   role: string;
   content: ClaudeContentBlockDto[];
+  /** HEL-1755: on an assistant turn, the model id that answered it (server-stamped; absent on user turns and on
+   *  turns saved before the picker existed). */
+  model?: string;
+}
+
+/** One selectable model of `GET /api/assistant-models` (HEL-1755). */
+export interface AssistantModelOption {
+  id: string;
+  label: string;
+  betaWeight: number;
+}
+
+/** An id with its catalog label when there is one (a non-catalog server default has none). */
+export interface AssistantModelRef {
+  id: string;
+  label?: string;
+}
+
+/** `GET /api/assistant-models`: `defaultModel` is the caller's resolved default for a NEW conversation. */
+export interface AssistantModelsResponse {
+  models: AssistantModelOption[];
+  serverDefault: AssistantModelRef;
+  defaultModel: AssistantModelRef;
 }
 
 /** Mirrors `com.helio.infrastructure.ai.ClaudeContentBlock`'s discriminated union, using the
