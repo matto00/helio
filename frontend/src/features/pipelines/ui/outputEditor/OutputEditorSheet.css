@@ -25,6 +25,11 @@
    within a nested container, and the Preview block reads as clearly
    separate from the form rather than ambiguously part of it. */
 .output-editor-sheet__group {
+  /* HEL-1763: the containing block for the visually-hidden (`.sr-only`, absolutely positioned) text and inputs
+     inside a group. Without it they resolve to the fixed dialog, outside the scrolling `.ui-modal__body`, so one
+     that sits low in the body stretches the dialog's own scroll extent past its content (~760px of blank scroll
+     on a phone). The chart canvas was never the cause: ECharts' own container is already `position: relative`. */
+  position: relative;
   display: grid;
   gap: var(--space-3);
 }
