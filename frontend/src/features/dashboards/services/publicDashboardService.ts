@@ -7,6 +7,7 @@
 import { httpClient } from "../../../services/httpClient";
 import type { Panel } from "../../panels/types/panel";
 import type { PagedResult } from "../../../types/models";
+import { preloadChartPanel } from "../../panels/ui/renderers/chartPanelModule";
 import {
   isFilterActive,
   type FilteredMetric,
@@ -80,6 +81,8 @@ export async function fetchPublicOutputMeta(
     schema: OutputSchemaField[];
   }>(`/api/dashboards/${dashboardId}/panels/${panelId}/output-meta`, { params: { token } });
   const { kind, config, schema } = response.data;
+  // HEL-1760: start loading the chart code now; it overlaps the rows fetch instead of waiting for the chart to mount.
+  if (kind === "chart") preloadChartPanel();
   return { kind, config, schema, ownerId: null };
 }
 

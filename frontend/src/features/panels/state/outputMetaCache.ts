@@ -4,6 +4,7 @@
 // while its Output is retained (`outputFreshness`) and nothing has invalidated it since. A failed
 // fetch is evicted, never cached.
 
+import { preloadChartPanel } from "../ui/renderers/chartPanelModule";
 import { getOutputById } from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
 import {
@@ -34,6 +35,13 @@ export function getKnownOutputKind(outputId: string): string | undefined {
   return knownKinds.get(outputId);
 }
 
+/** Records `outputId`'s kind and, for a chart, starts loading the chart code (HEL-1760): it overlaps the rows fetch instead of
+ *  waiting for the chart component to mount. `chartPanelModule` holds no React and no state. */
+function noteKind(outputId: string, kind: string): void {
+  knownKinds.set(outputId, kind);
+  if (kind === "chart") preloadChartPanel();
+}
+
 function isServable(outputId: string, entry: Entry): boolean {
   return entry.generation === currentGeneration(outputId) && isRetained(outputId);
 }
@@ -55,7 +63,7 @@ export function fetchOutputMeta(outputId: string): Promise<Output> {
   entry.promise = getOutputById(outputId).then(
     (output) => {
       registerOutputPipeline(outputId, output.pipelineId);
-      knownKinds.set(outputId, output.kind);
+      noteKind(outputId, output.kind);
       // An invalidation that landed while this was in flight means the result may predate a write:
       // hand it to the callers that asked, but never serve it to a later mount.
       if (currentInvalidationSequence() !== sequenceAtStart) {
@@ -85,7 +93,7 @@ export function peekOutputMeta(outputId: string): Output | undefined {
  *  restart at zero on a page load, so the generation it was fetched under is meaningless now. */
 export function seedOutputMeta(outputId: string, meta: Output): void {
   registerOutputPipeline(outputId, meta.pipelineId);
-  knownKinds.set(outputId, meta.kind);
+  noteKind(outputId, meta.kind);
   cache.set(outputId, {
     promise: Promise.resolve(meta),
     value: meta,
