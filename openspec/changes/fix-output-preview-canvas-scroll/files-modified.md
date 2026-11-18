@@ -1,2 +1,0 @@
-- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.css` — position:relative on .output-editor-sheet__group so sr-only elements contain in the body, not the dialog
-- `e2e/hel1763-output-editor-preview-scroll.spec.ts` — red-first scroll-extent e2e (375/390, light/dark) plus desktop canvas-in-wrapper case
