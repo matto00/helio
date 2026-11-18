@@ -4,6 +4,7 @@ import com.helio.services.ServiceError
 import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
+import com.helio.domain.outputs.InsightReadsCheck
 import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRunId, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -146,7 +147,10 @@ final class OutputService(
               case Left(err)                       => Future.successful(Left(err))
               case Right(ResourceAccess.Viewer)     => Future.successful(Left(ServiceError.Forbidden()))
               case Right(_)                         =>
-                requireUnambiguousRootWhenNeither(pipelineId, req).flatMap {
+                checkInsightReads(kind, None, pipelineId, config, JsObject.empty).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(()) => requireUnambiguousRootWhenNeither(pipelineId, req)
+                }.flatMap {
                   case Left(err) => Future.successful(Left(err))
                   case Right(()) =>
                     resolveExplicitRootId(pipelineId, req.rootId).flatMap {
@@ -175,6 +179,23 @@ final class OutputService(
             }
         }
     }
+
+  /** HEL-1740 D4: an insight's `reads.outputs` must name other non-insight Outputs of the same pipeline. Only an
+   *  insight write that introduces or changes `reads` is judged (and only the ValidateWrite paths call this), so
+   *  non-insight writes make no extra query. */
+  private def checkInsightReads(
+      kind:       OutputKind,
+      insightId:  Option[OutputId],
+      pipelineId: PipelineId,
+      written:    JsObject,
+      stored:     JsObject
+  ): Future[Either[ServiceError, Unit]] =
+    if (kind != OutputKind.Insight || !written.fields.contains("reads")) Future.successful(Right(()))
+    else
+      outputRepo.listByPipelineInternal(pipelineId).map { outputs =>
+        InsightReadsCheck.check(kind, insightId, written, stored, outputs.map(o => o.id -> o.kind).toMap)
+          .left.map(msg => ServiceError.BadRequest(msg): ServiceError)
+      }
 
   /** HEL-1639 D2: the deferred half of `create(.., backfill = false)` -- fires the same fire-and-forget backfill once a
    *  patch set has applied cleanly. Best effort and never fails the caller. */
@@ -226,21 +247,40 @@ final class OutputService(
             req.config.map(patch => OutputService.validateConfig(output.kind, patch, existingConfig, policy)).getOrElse(Right(())) match {
               case Left(err) => Future.successful(Left(err))
               case Right(()) =>
-                outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
-                  case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
-                  case Some(updated) =>
-                    audit("output.update", Some(updated.id.value), user)
-                    // HEL-947: `nodeStepId` is not part of `UpdateOutputRequest` -- an edit can
-                    // never move an Output to a different node today -- but this call is still
-                    // wired here (not only in `create`) so a future request shape that adds
-                    // repointing does not silently regress the backfill guarantee. Idempotent
-                    // and cheap when the node is already snapshotted (backfillOutputNode's own
-                    // first check).
-                    triggerBackfill(updated, user)
-                    outputRepo.findConfigById(id, user).map(cfg => Right((updated, cfg.getOrElse(JsObject.empty))))
+                checkUpdateReads(output, id, req, existingConfig, policy).flatMap {
+                  case Left(err) => Future.successful(Left(err))
+                  case Right(()) =>
+                    outputRepo.updateOwned(id, user, req.name, mergedConfig).flatMap {
+                      case None => Future.successful(Left(ServiceError.NotFound("Output not found")))
+                      case Some(updated) =>
+                        audit("output.update", Some(updated.id.value), user)
+                        // HEL-947: `nodeStepId` is not part of `UpdateOutputRequest` -- an edit can
+                        // never move an Output to a different node today -- but this call is still
+                        // wired here (not only in `create`) so a future request shape that adds
+                        // repointing does not silently regress the backfill guarantee. Idempotent
+                        // and cheap when the node is already snapshotted (backfillOutputNode's own
+                        // first check).
+                        triggerBackfill(updated, user)
+                        outputRepo.findConfigById(id, user).map(cfg => Right((updated, cfg.getOrElse(JsObject.empty))))
+                    }
                 }
             }
         }
+    }
+
+  /** HEL-1740 D4: the reads scoping of an insight PATCH. Only a validating write is judged; a rollback restoring
+   *  previously stored state (RestorePriorStored) is never refused. */
+  private def checkUpdateReads(
+      output:         Output,
+      id:             OutputId,
+      req:            UpdateOutputRequest,
+      existingConfig: JsObject,
+      policy:         OutputConfigWritePolicy
+  ): Future[Either[ServiceError, Unit]] =
+    req.config match {
+      case Some(patch) if policy == OutputConfigWritePolicy.ValidateWrite =>
+        checkInsightReads(output.kind, Some(id), output.node.pipelineId, patch, existingConfig)
+      case _ => Future.successful(Right(()))
     }
 
   /** Deletes the Output and every panel placement bound to it (V94's

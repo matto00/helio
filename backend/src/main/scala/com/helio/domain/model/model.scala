@@ -611,6 +611,11 @@ object OutputKind {
   case object Collection extends OutputKind
   case object Timeline   extends OutputKind
   case object Markdown   extends OutputKind
+  /** HEL-1740: narrative Output (HEL-921); config only, no rendering yet. */
+  case object Insight    extends OutputKind
+
+  /** Canonical kind set; the drift specs compare every enumeration site against it. */
+  val all: Vector[OutputKind] = Vector(Table, Metric, Chart, Collection, Timeline, Markdown, Insight)
 
   /** HEL-904 task 3.6 correction: ticket.md line 42 / design.md line 76 both
    *  specify the six Phase-1 Output kinds as `metric, chart, table,
@@ -628,8 +633,9 @@ object OutputKind {
     case "collection" => Right(Collection)
     case "timeline"   => Right(Timeline)
     case "markdown"   => Right(Markdown)
+    case "insight"    => Right(Insight)
     case other        =>
-      Left(s"Unknown output kind: '$other'. Valid values: table, metric, chart, collection, timeline, markdown")
+      Left(s"Unknown output kind: '$other'. Valid values: table, metric, chart, collection, timeline, markdown, insight")
   }
 
   def asString(k: OutputKind): String = k match {
@@ -639,6 +645,7 @@ object OutputKind {
     case Collection => "collection"
     case Timeline   => "timeline"
     case Markdown   => "markdown"
+    case Insight    => "insight"
   }
 }
 

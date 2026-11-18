@@ -37,6 +37,13 @@ class OutputSummaryReducerSpec extends AnyWordSpec with Matchers {
       s.fields("columnsTruncated") shouldBe JsTrue
     }
 
+    "store null metric and series for an insight Output (HEL-1740)" in {
+      val cfg = """{"aggregation":{"value":"a","agg":"sum"},"fieldMapping":{"value":"a","xAxis":"a","yAxis":"a"},"chartType":"line"}"""
+      val s = summarize(Vector(row("a" -> JsNumber(1)), row("a" -> JsNumber(2))), OutputKind.Insight, cfg)
+      s.fields("metric") shouldBe JsNull
+      s.fields("series") shouldBe JsNull
+    }
+
     "record rowCount and no metric/series for a table Output" in {
       val s = summarize(Vector(row("a" -> JsNumber(1))), OutputKind.Table)
       s.fields("rowCount") shouldBe JsNumber(1)

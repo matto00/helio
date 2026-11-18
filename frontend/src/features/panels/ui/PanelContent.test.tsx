@@ -157,6 +157,25 @@ describe("PanelContent — output kind dispatch", () => {
     expect(screen.getByTestId("markdown-content").textContent).toBe("# Literal heading");
     expect(screen.queryByText("Bound value")).toBeNull();
   });
+
+  // HEL-1740 — a placed insight Output shows the not-yet-rendered state and ignores the bound rows.
+  it("shows 'Not yet rendered' for a placed insight Output and ignores its rows", async () => {
+    getOutputByIdMock.mockResolvedValue(
+      makeOutput({ kind: "insight", config: { preset: "delta" } }),
+    );
+    renderWithStore(
+      <PanelContent
+        crossFilterMode="none"
+        panel={makeOutputPanel()}
+        rawRows={[["Bound value"]]}
+        headers={["region"]}
+      />,
+    );
+    await settleMocks(getOutputByIdMock);
+    expect(screen.getByTestId("insight-not-rendered")).toBeInTheDocument();
+    expect(screen.getByText("Not yet rendered")).toBeInTheDocument();
+    expect(screen.queryByText("Bound value")).toBeNull();
+  });
 });
 
 describe("PanelContent — loading state", () => {

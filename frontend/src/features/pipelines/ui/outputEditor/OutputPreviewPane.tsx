@@ -17,11 +17,13 @@
 
 import { useMemo } from "react";
 
+import type { OutputKind } from "../../types/output";
 import type { ChartType } from "../../../../utils/chartAppearance";
 import { defaultChartAppearance, defaultPanelAppearance } from "../../../../theme/appearance";
 import { computeAggregate, groupAndAggregate } from "../../../../utils/aggregate";
 import { aggregateSeriesName } from "../../../../utils/chartClickSelection";
 import { chartAggregationSpec } from "../../../panels/history/chartOverlay";
+import { InsightNotRenderedState } from "../../../panels/ui/InsightNotRenderedState";
 import { ChartRenderer } from "../../../panels/ui/renderers/ChartRenderer";
 import { MetricRenderer } from "../../../panels/ui/renderers/MetricRenderer";
 import type { ConditionalFormatRule } from "../../../panels/ui/renderers/conditionalFormatting";
@@ -33,7 +35,7 @@ import { isAggFn, isMetricFormat, type MetricFormat } from "./outputConfigTypes"
 import { groupHasNull } from "../../../../utils/blankLabel";
 
 interface OutputPreviewPaneProps {
-  kind: string;
+  kind: OutputKind;
   rows: RunResult | undefined;
   loading: boolean;
   // Chart
@@ -112,6 +114,9 @@ export function OutputPreviewPane({
     };
   }, [kind, chartType, chartGroupBy, chartYField, chartAggFn, rawRowData]);
 
+  // An insight ignores rows (HEL-1740), so its state must not depend on them.
+  if (kind === "insight") return <InsightNotRenderedState />;
+
   if (loading && rawRowData.length === 0) {
     return <p className="output-editor-sheet__field-hint">Loading preview…</p>;
   }
@@ -176,6 +181,12 @@ export function OutputPreviewPane({
         </pre>
       </div>
     );
+  }
+
+  if (kind !== "table" && kind !== "collection" && kind !== "timeline") {
+    // Exhaustiveness: a new `OutputKind` without a branch above fails typecheck here.
+    const _exhaustive: never = kind;
+    return _exhaustive;
   }
 
   // table / collection / timeline — a simple read-only preview table. Not

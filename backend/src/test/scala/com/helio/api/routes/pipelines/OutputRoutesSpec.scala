@@ -11,7 +11,7 @@ import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputR
 import com.helio.domain.engine.SchemaField
 import com.helio.domain.model._
 import com.helio.domain.steps.RenameConfig
-import com.helio.services.pipelines.{OutputFilterCapability, OutputRowsQuery}
+import com.helio.services.pipelines.{OutputConfigWritePolicy, OutputFilterCapability, OutputRowsQuery}
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.auth.ResourcePermissionRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
@@ -221,6 +221,79 @@ class OutputRoutesSpec
         rawJson.fields.keySet should not contain "nodeStepId"
         rawJson.convertTo[OutputResponse].name shouldBe "My Output"
       }
+    }
+
+    // HEL-1740 fail-first: the insight kind is registered (201), with defaults never written back.
+    "let the owner create a minimal insight Output and store its config as {} (HEL-1740)" in {
+      val pipelineId = newSharedPipeline()
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "insight", "Insight", Some(JsObject.empty))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        val resp = responseAs[OutputResponse]
+        resp.kind shouldBe "insight"
+        resp.config shouldBe JsObject.empty
+      }
+    }
+
+    // HEL-1740: config contract and reads scoping on the route (create + PATCH).
+    "400 an insight create naming the offending key (HEL-1740)" in {
+      val pipelineId = newSharedPipeline()
+      val cases = Seq(
+        "model"        -> JsObject("model" -> JsString("x")),
+        "bogus"        -> JsObject("bogus" -> JsNumber(1)),
+        "compare"      -> JsObject("compare" -> JsString("1d")),
+        "refresh"      -> JsObject("refresh" -> JsString("hourly")),
+        "maxSentences" -> JsObject("maxSentences" -> JsNumber(0)),
+        "preset"       -> JsObject("preset" -> JsString("poem")),
+        "reads.models" -> JsObject("reads" -> JsObject("models" -> JsArray())),
+        "reads.outputs" -> JsObject("reads" -> JsObject("outputs" -> JsArray((1 to 9).map(i => JsString(s"o$i")).toVector))),
+        "reads.windows" -> JsObject("reads" -> JsObject("windows" -> JsArray(JsString("previous_run")))),
+        "fieldMapping" -> JsObject("fieldMapping" -> JsObject("x" -> JsString("y")))
+      )
+      cases.foreach { case (key, config) =>
+        Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "insight", "I", Some(config))) ~> routesFor(owner) ~> check {
+          withClue(key)(status shouldBe StatusCodes.BadRequest)
+          withClue(key)(responseAs[ErrorResponse].message should include(key))
+        }
+      }
+    }
+
+    "400 an insight reading another pipeline's Output, an unknown id, another insight, or itself; 200 for a same-pipeline sibling (HEL-1740)" in {
+      val pipelineId = newSharedPipeline()
+      val foreign    = await(outputRepo.insertInternal(newSharedPipeline(), None, owner.id, "foreign", OutputKind.Table, explicitRootId = None))
+      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None))
+      val otherIns   = await(outputRepo.insertInternal(pipelineId, None, owner.id, "other-insight", OutputKind.Insight, explicitRootId = None))
+      def reads(ids: String*) = JsObject("reads" -> JsObject("outputs" -> JsArray(ids.map(JsString(_)).toVector)))
+      for (bad <- Seq(foreign.id.value, "no-such-output", otherIns.id.value))
+        Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "insight", "I", Some(reads(bad)))) ~> routesFor(owner) ~> check {
+          withClue(bad)(status shouldBe StatusCodes.BadRequest)
+          withClue(bad)(responseAs[ErrorResponse].message should include("reads.outputs"))
+        }
+      Post(s"/pipelines/${pipelineId.value}/outputs", CreateOutputRequest(None, "insight", "I", Some(reads(sibling.id.value)))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.Created
+        val created = responseAs[OutputResponse]
+        // self read through PATCH
+        Patch(s"/outputs/${created.id}", UpdateOutputRequest(None, Some(reads(created.id)))) ~> routesFor(owner) ~> check {
+          status shouldBe StatusCodes.BadRequest
+          responseAs[ErrorResponse].message should include("reads.outputs")
+        }
+      }
+    }
+
+    "200 a PATCH of another key on an insight whose reads dangle after the sibling was deleted; a rollback is never refused (HEL-1740)" in {
+      val pipelineId = newSharedPipeline()
+      val sibling    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "sibling", OutputKind.Table, explicitRootId = None))
+      val readsCfg   = JsObject("reads" -> JsObject("outputs" -> JsArray(JsString(sibling.id.value))))
+      val insight    = await(outputRepo.insertInternal(pipelineId, None, owner.id, "ins", OutputKind.Insight, readsCfg, explicitRootId = None))
+      await(outputRepo.deleteWithPanelsInternal(sibling.id))
+      Patch(s"/outputs/${insight.id.value}", UpdateOutputRequest(None, Some(JsObject("prompt" -> JsString("new"))))) ~> routesFor(owner) ~> check {
+        status shouldBe StatusCodes.OK
+      }
+      // Restoring a prior config (patch-set rollback, RestorePriorStored) naming a gone Output is not refused.
+      val restore = UpdateOutputRequest(None, Some(JsObject("reads" -> JsObject("outputs" -> JsArray(JsString("long-gone"))))))
+      await(outputService.update(insight.id, restore, owner, OutputConfigWritePolicy.RestorePriorStored)) shouldBe a[Right[_, _]]
+      // ...while the same value through the validating path is refused.
+      val changedReads = UpdateOutputRequest(None, Some(JsObject("reads" -> JsObject("outputs" -> JsArray(JsString("long-gone-2"))))))
+      await(outputService.update(insight.id, changedReads, owner)) shouldBe a[Left[_, _]]
     }
 
     "let an editor grantee create an Output (200/201)" in {

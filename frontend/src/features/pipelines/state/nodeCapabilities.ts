@@ -40,6 +40,8 @@ const SPECS: BindingSpec[] = [
     eligibility: { time: "orderable", event: "any" },
   },
   { kind: "markdown", required: [], optional: [], eligibility: {} },
+  // HEL-1740: no slots, bindable to any node (like markdown).
+  { kind: "insight", required: [], optional: [], eligibility: {} },
 ];
 
 const CANONICAL: ReadonlySet<string> = new Set(CANONICAL_FIELD_TYPES);

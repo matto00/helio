@@ -81,7 +81,8 @@ export function filterRecordRowsByDimension(
  *  `markdown` is deliberately absent (HEL-1405): a markdown Output has no
  *  data binding (HEL-1139) and renders no rows, so a legacy stored
  *  `fieldMapping` (V94) must never make it a cross-filter target -- it
- *  falls to the empty default.
+ *  falls to the empty default. `insight` (HEL-1740) is likewise non-filterable: no
+ *  data binding, no rows.
  */
 function fieldMappingForKind(
   outputKind: string,

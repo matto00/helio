@@ -270,7 +270,7 @@ class AssistantProposalToolSchemasSpec
   }
 
   private def assertListsEveryKindAndShape(doc: String): Unit = {
-    OutputConfigValidation.KnownKeys.values.flatten.foreach(k => doc should include(k))
+    OutputConfigValidation.DocumentedKnownKeys.values.flatten.foreach(k => doc should include(k))
     doc should include("{ groupBy, agg, yField }")
     doc should include("{ agg }")
     doc should include("{ value, agg }")

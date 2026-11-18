@@ -5,6 +5,14 @@
       "schema": [],
       "columns": [],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -86,6 +94,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -167,6 +183,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": null,
@@ -248,6 +272,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": null,
@@ -329,6 +361,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -410,6 +450,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -491,6 +539,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -572,6 +628,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -677,6 +741,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": null,
@@ -774,6 +846,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
@@ -863,6 +943,14 @@
         }
       ],
       "capabilities": {
+        "insight": {
+          "requiredSlots": [],
+          "reason": null,
+          "bindable": true,
+          "message": null,
+          "eligibleColumns": {},
+          "optionalSlots": []
+        },
         "collection": {
           "requiredSlots": ["value"],
           "reason": "missing-required-column-type",
