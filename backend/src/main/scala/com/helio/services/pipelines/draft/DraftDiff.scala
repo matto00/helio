@@ -1,7 +1,8 @@
 package com.helio.services.pipelines.draft
 
 import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftSaveRequest, DraftStepRequest, PipelineStepConfigCodec}
-import com.helio.domain.model.{OutputKind, PipelineStep, PipelineStepKind}
+import com.helio.domain.model.{OutputId, OutputKind, PipelineStep, PipelineStepKind}
+import com.helio.domain.outputs.InsightReadsCheck
 import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.OutputRow
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.PipelineStepRow
@@ -286,6 +287,11 @@ object DraftDiff {
         // journaled definition re-judges nothing it writes back, as patch-set rollback does.
         val writePolicy = if (allowExplicitIds) OutputConfigWritePolicy.RestorePriorStored else OutputConfigWritePolicy.ValidateWrite
         val survivorIds = all.collect { case (_, _, id, false, _, _) => id }.toSet
+        // HEL-1740 D4: the Outputs this save leaves in the pipeline (stored ids it keeps), for an insight's reads check.
+        val kept = survivorIds.flatMap(sid => curOutputs.get(sid).flatMap(r => OutputKind.fromString(r.kind).toOption.map(k => OutputId(sid) -> k))).toMap
+        def readsOk(kind: OutputKind, id: String, config: JsObject, stored: JsObject): Either[ServiceError, Unit] =
+          if (writePolicy == OutputConfigWritePolicy.RestorePriorStored) Right(())
+          else InsightReadsCheck.check(kind, Some(OutputId(id)), config, stored, kept).left.map(m => ServiceError.BadRequest(s"Output '$id': $m"): ServiceError)
         val perOutput = all.map { case (o, key, id, created, kind, (nodeStep, root)) =>
           val config = o.config.getOrElse(JsObject.empty)
           val write  = OutputWrite(id, o.name.trim, OutputKind.asString(kind), nodeStep, root, config)
@@ -295,8 +301,8 @@ object DraftDiff {
               else if (cur.nodeStepId != write.nodeStepId || cur.rootId != write.rootId)
                 bad(s"Output '$key': an Output cannot move to another node or root; remove it and add a new one")
               else if (cur.name == write.name && cur.config == write.config) Right((None, None))
-              else OutputService.validateConfig(kind, config, cur.config, writePolicy).map(_ => (None, Some(write)))
-            case _ => OutputService.validateConfig(kind, config, JsObject.empty, writePolicy).map(_ => (Some(write), None))
+              else OutputService.validateConfig(kind, config, cur.config, writePolicy).flatMap(_ => readsOk(kind, id, config, cur.config)).map(_ => (None, Some(write)))
+            case _ => OutputService.validateConfig(kind, config, JsObject.empty, writePolicy).flatMap(_ => readsOk(kind, id, config, JsObject.empty)).map(_ => (Some(write), None))
           }
         }
         sequence(perOutput).map { results =>

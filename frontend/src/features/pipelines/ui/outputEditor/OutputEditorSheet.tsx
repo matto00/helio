@@ -12,7 +12,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
-import { Modal, Select, TextField, type SelectOption } from "../../../../shared/ui/index";
+import { Modal, Select, TextField } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
 import type { Output, OutputKind } from "../../types/output";
@@ -32,6 +32,7 @@ import {
 import { buildBaselineConfig, buildConfigPatch } from "./configPatch";
 import { HistoryPayloadsField } from "./HistoryPayloadsField";
 import { OutputEditorFooter } from "./OutputEditorFooter";
+import { kindOptionsFor } from "./outputKinds";
 import { OutputKindConfigCard } from "./OutputKindConfigCard";
 import { OutputPlacementsList } from "./OutputPlacementsList";
 import { OutputSheetPreviewCard } from "./OutputSheetPreviewCard";
@@ -40,15 +41,6 @@ import { useOutputSavedStatus } from "./useOutputSavedStatus";
 import { useOutputSheetNode } from "./useOutputSheetNode";
 import { PICK_STEP_HINT, draftSheetState, type OutputSheetDraft } from "./outputSheetDraft";
 import "./OutputEditorSheet.css";
-
-const KIND_OPTIONS: SelectOption[] = [
-  { value: "chart", label: "Chart" },
-  { value: "table", label: "Table" },
-  { value: "metric", label: "Metric" },
-  { value: "collection", label: "Collection" },
-  { value: "timeline", label: "Timeline" },
-  { value: "markdown", label: "Markdown" },
-];
 
 interface OutputEditorSheetProps {
   open: boolean;
@@ -336,7 +328,7 @@ export function OutputEditorSheet({
             ariaLabel="Output kind"
             value={kind}
             onChange={(v) => setKind(v as OutputKind)}
-            options={KIND_OPTIONS}
+            options={kindOptionsFor(kind)}
             disabled={!isCreate}
             ariaDescribedBy={isCreate ? undefined : kindHintId}
           />
@@ -362,7 +354,8 @@ export function OutputEditorSheet({
         numericColumns={numericColumns}
       />
 
-      {!isCreate && (
+      {/* An insight has no row payload to store (HEL-1740: its config accepts no `historyPayloads`). */}
+      {!isCreate && kind !== "insight" && (
         <div className="output-editor-sheet__group output-editor-sheet__group--card">
           <h3 className="output-editor-sheet__edit-section-heading">History</h3>
           <HistoryPayloadsField

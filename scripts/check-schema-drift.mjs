@@ -821,9 +821,33 @@ const assistantToolParitySurfaces = [
 // `kind` enum is missing `"output"`. HEL-928's author was scoped to this script only and barred
 // from editing backend Scala (parallel work was in flight on Output routes/services), so these
 // are narrowly allowed here — by exact surface label + exact missing value, not a blanket
-// skip — rather than fixed in place. Tracked by HEL-948; remove these two entries (and this
-// comment) once it ships, so this check goes back to full strict parity with zero exceptions.
-const KNOWN_PRE_EXISTING_DRIFT = new Map([]);
+// skip — rather than fixed in place. (Those two entries have since been removed; the map was
+// empty before HEL-1740.)
+//
+// HEL-1740: the `insight` Output kind is accepted by the single-call pipeline create (so the schema lists it) but the assistant
+// proposal tool does not offer it until HEL-1747 (L8). Allowed by exact label + exact value. An allowance that matches
+// nothing (the Scala side gained the value, or the schema lost it) is itself an error below, so L8 must delete the entry.
+const KNOWN_PRE_EXISTING_DRIFT = new Map([
+  [
+    "PipelineProposalOutputSchema.kind enum <-> create-pipeline-transactional-output-request.schema.json properties.kind.enum",
+    { missingInScala: new Set(["insight"]) },
+  ],
+]);
+
+// An allowance must match a live drift: every allowed value must be in the JSON Schema and absent from Scala.
+for (const [allowedLabel, { missingInScala }] of KNOWN_PRE_EXISTING_DRIFT) {
+  const surface = assistantToolParitySurfaces.find((x) => x.label === allowedLabel);
+  if (!surface) {
+    errors.push(`KNOWN_PRE_EXISTING_DRIFT names an unknown surface: ${allowedLabel}`);
+    continue;
+  }
+  for (const value of missingInScala) {
+    if (!surface.json.has(value) || surface.scala.has(value))
+      errors.push(
+        `${allowedLabel}:\n  stale KNOWN_PRE_EXISTING_DRIFT allowance for "${value}" (it no longer drifts); delete the entry`,
+      );
+  }
+}
 
 let assistantToolSurfacesChecked = 0;
 for (const { label, scala, json } of assistantToolParitySurfaces) {

@@ -174,6 +174,11 @@ export function OutputKindConfigCard({
           columnOptions={fieldOptions}
         />
       )}
+      {kind === "insight" && (
+        <p className="output-editor-sheet__field-hint">
+          Insight settings arrive in a later release.
+        </p>
+      )}
       {kind === "markdown" && (
         <MarkdownKindFields content={markdownContent} onContentChange={setMarkdownContent} />
       )}
