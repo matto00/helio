@@ -322,4 +322,48 @@ class UserPreferencesRoutesSpec extends TwoUserRlsApiFixture {
       prefs.fields("accentColor") shouldBe JsString("#111")
     }
   }
+  "PATCH /api/users/me/preferences assistantModel (HEL-1755)" should {
+
+    "save a selectable id, return it on /me, and clear it with null without touching other keys" in {
+      reset()
+      patch(userA, """{"contextListWidth":320}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      patch(userA, """{"assistantModel":"claude-haiku-5-5"}""") ~> routes ~> check {
+        status shouldBe StatusCodes.OK
+        responseAs[String].parseJson.asJsObject.fields("assistantModel") shouldBe JsString("claude-haiku-5-5")
+      }
+      me(userA).fields("assistantModel") shouldBe JsString("claude-haiku-5-5")
+      patch(userA, """{"assistantModel":null}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val prefs = me(userA)
+      prefs.fields.get("assistantModel") shouldBe None
+      prefs.fields("contextListWidth") shouldBe JsNumber(320)
+      stored(userA).getOrElse("") should not include "assistantModel"
+    }
+
+    "clear motion and assistantModel together" in {
+      reset()
+      patch(userA, """{"motion":"off","assistantModel":"claude-opus-5-5"}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      patch(userA, """{"motion":null,"assistantModel":null}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val prefs = me(userA)
+      prefs.fields.get("motion") shouldBe None
+      prefs.fields.get("assistantModel") shouldBe None
+    }
+
+    "reject an id outside the allow-list and a non-string, changing nothing" in {
+      reset()
+      patch(userA, """{"assistantModel":"claude-sonnet-5-5"}""") ~> routes ~> check { status shouldBe StatusCodes.OK }
+      val before = stored(userA)
+      val badValues = Seq(JsString("claude-fable-5-2"), JsString(""), JsNumber(7), JsBoolean(true))
+      for (bad <- badValues)
+        patch(userA, JsObject("assistantModel" -> bad).compactPrint) ~> routes ~> check {
+          status shouldBe StatusCodes.BadRequest
+        }
+      stored(userA) shouldBe before
+    }
+
+    "read a stored id that is not in the catalog as unset" in {
+      reset()
+      await(privilegedDb.run(sqlu"""UPDATE users SET preferences = '{"assistantModel":"claude-fable-5-2"}' WHERE id = $userC::uuid"""))
+      me(userC).fields.get("assistantModel") shouldBe None
+    }
+  }
 }

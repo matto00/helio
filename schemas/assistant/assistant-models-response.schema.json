@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/assistant/assistant-models-response.schema.json",
+  "title": "AssistantModelsResponse",
+  "description": "Response body of GET /api/assistant-models (HEL-1755), behind the same tier gate as the conversation routes (free -> 403). `models` are the selectable catalog models in picker order, each with its beta daily-cap weight; `serverDefault` is CLAUDE_MODEL (its `label` is absent when the catalog does not define it); `defaultModel` is the caller's resolved default for a new conversation (their saved default if still selectable, else the server default).",
+  "type": "object",
+  "required": ["models", "serverDefault", "defaultModel"],
+  "properties": {
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "betaWeight"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "betaWeight": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "serverDefault": {
+      "$ref": "#/$defs/ModelRef"
+    },
+    "defaultModel": {
+      "$ref": "#/$defs/ModelRef"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ModelRef": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "title": "ModelRef"
+    }
+  }
+}

@@ -24,22 +24,25 @@ import scala.concurrent.{ExecutionContext, Future}
  *  split a day bucket. */
 class AssistantDailyUsageRepository(ctx: DbContext, clock: Clock = SystemClock)(implicit ec: ExecutionContext) {
 
-  /** `true` iff the caller's message count for TODAY (UTC) was under `limit` and has now been
-   *  incremented by one; `false` iff the caller was already at (or the configured `limit` is < 1,
+  /** `true` iff the caller's count for TODAY (UTC) plus `weight` is within `limit` and has now been
+   *  incremented by `weight`; `false` iff the caller was already at (or the configured `limit` is < 1,
    *  i.e. "always capped") -- nothing is written in either `false` case. A `limit` of 0 or less is
    *  short-circuited BEFORE touching the database: the `ON CONFLICT ... WHERE` guard only gates
    *  the UPDATE branch, not the very first INSERT of a user's day, so a caller with no row yet
    *  would otherwise be allowed exactly one message even at `limit = 0`. */
-  def incrementIfUnderCap(userId: UserId, limit: Int): Future[Boolean] =
-    if (limit < 1) Future.successful(false)
+  def incrementIfUnderCap(userId: UserId, limit: Int, weight: Int = 1): Future[Boolean] =
+    // HEL-1755 D7: `weight` units are added at once (Haiku 1 / Sonnet 4 / Opus 8 by default); the send is allowed
+    // only when `count + weight <= limit`. A weight above the limit can never fit, so it never reaches the INSERT
+    // (whose first-row branch has no WHERE guard).
+    if (limit < 1 || weight < 1 || weight > limit) Future.successful(false)
     else {
       val today = LocalDate.ofInstant(clock.now(), ZoneOffset.UTC).toString
       val action =
         sql"""INSERT INTO assistant_daily_usage (user_id, usage_date, message_count)
-              VALUES (${userId.value}::uuid, $today::date, 1)
+              VALUES (${userId.value}::uuid, $today::date, $weight)
               ON CONFLICT (user_id, usage_date)
-              DO UPDATE SET message_count = assistant_daily_usage.message_count + 1
-              WHERE assistant_daily_usage.message_count < $limit
+              DO UPDATE SET message_count = assistant_daily_usage.message_count + $weight
+              WHERE assistant_daily_usage.message_count + $weight <= $limit
               RETURNING message_count"""
           .as[Int]
           .headOption

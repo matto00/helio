@@ -70,7 +70,10 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
   /** HEL-1636 D9: one INFO line per response -- status and the `request-id` header value only, so a
    *  prod 400 is traceable. Never the body, never any request header (one carries the key). */
   private[ai] def logResponse(response: HttpResponse): Unit =
-    log.info(s"Claude API response status=${response.status.intValue()} request-id=${response.headers.find(_.lowercaseName == "request-id").map(_.value).getOrElse("none")}")
+    log.info(s"Claude API response status=${response.status.intValue()} request-id=${requestIdOf(response).getOrElse("none")}")
+
+  private def requestIdOf(response: HttpResponse): Option[String] =
+    response.headers.find(_.lowercaseName == "request-id").map(_.value)
 
   override def send(request: ClaudeApiRequest): Future[ClaudeApiResponse] =
     Http(system.classicSystem)
@@ -81,7 +84,7 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
           val body = entity.data.utf8String
           if (response.status.isSuccess()) {
             Try(body.parseJson.convertTo[ClaudeApiResponse]) match {
-              case Success(parsed) => Future.successful(parsed)
+              case Success(parsed) => Future.successful(parsed.copy(requestId = requestIdOf(response)))
               case Failure(e) =>
                 log.error("Failed to parse Claude API response", e)
                 Future.failed(ClaudeApiException(response.status.intValue(), "Failed to parse Claude API response"))
@@ -105,7 +108,7 @@ class HttpClaudeTransport(apiKey: String)(implicit system: ActorSystem[_]) exten
           val body = entity.data.utf8String
           if (response.status.isSuccess()) {
             Try(body.parseJson.convertTo[ClaudeApiResponse]) match {
-              case Success(parsed) => Future.successful(parsed)
+              case Success(parsed) => Future.successful(parsed.copy(requestId = requestIdOf(response)))
               case Failure(e) =>
                 log.error("Failed to parse Claude API tool-use response", e)
                 Future.failed(ClaudeApiException(response.status.intValue(), "Failed to parse Claude API response"))

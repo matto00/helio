@@ -33,7 +33,8 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
       gcsBodyRef         = row.gcsBodyRef,
       createdAt          = row.createdAt,
       updatedAt          = row.updatedAt,
-      lastIdempotencyKey = row.lastIdempotencyKey
+      lastIdempotencyKey = row.lastIdempotencyKey,
+      model              = row.model
     )
 
   private def recordToRow(r: AssistantConversationRecord): AssistantConversationRow =
@@ -45,7 +46,8 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
       gcsBodyRef         = r.gcsBodyRef,
       createdAt          = r.createdAt,
       updatedAt          = r.updatedAt,
-      lastIdempotencyKey = r.lastIdempotencyKey
+      lastIdempotencyKey = r.lastIdempotencyKey,
+      model              = r.model
     )
 
   /** Inserts a brand-new conversation row. Runs in `record.ownerId`'s user context so the V80 RLS
@@ -110,6 +112,15 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
     ctx.withUserContext(ownerId.value)(action)
   }
 
+  /** HEL-1755 D4: sets (`Some`) or clears (`None`) the conversation's model. The caller has validated the id against
+   *  the catalog. Returns `None` for a missing/foreign-owned id. */
+  def updateModel(id: AssistantConversationId, ownerId: UserId, model: Option[String]): Future[Option[AssistantConversationRecord]] = {
+    val ownerUuid = UUID.fromString(ownerId.value)
+    val filtered  = table.filter(r => r.id === id.value && r.ownerId === ownerUuid)
+    val action    = filtered.map(_.model).update(model).andThen(filtered.result.headOption).map(_.map(rowToRecord))
+    ctx.withUserContext(ownerId.value)(action)
+  }
+
   /** Called after `AssistantConversationService.appendTurn` re-writes the WHOLE transcript blob
    *  (design.md D2/tasks.md 4.3) — updates `gcs_body_ref` (stable in practice, since the blob's path
    *  is derived from the conversation id, but threaded through explicitly rather than assumed) and
@@ -124,7 +135,8 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
       id: AssistantConversationId,
       ownerId: UserId,
       gcsBodyRef: String,
-      lastIdempotencyKey: Option[String] = None
+      lastIdempotencyKey: Option[String] = None,
+      model: Option[String] = None
   ): Future[Option[AssistantConversationRecord]] = {
     val ownerUuid = UUID.fromString(ownerId.value)
     val now = Instant.now()
@@ -133,7 +145,12 @@ class AssistantConversationRepository(ctx: DbContext)(implicit ec: ExecutionCont
       case Some(key) => filtered.map(r => (r.gcsBodyRef, r.updatedAt, r.lastIdempotencyKey)).update((gcsBodyRef, now, Some(key)))
       case None      => filtered.map(r => (r.gcsBodyRef, r.updatedAt)).update((gcsBodyRef, now))
     }
-    val action = updateAction
+    // HEL-1755 D3: a converse that carried a validated `model` stores it in the SAME DBIO as the touch.
+    val withModel = model match {
+      case Some(m) => updateAction.andThen(filtered.map(_.model).update(Some(m)))
+      case None    => updateAction
+    }
+    val action = withModel
       .andThen(filtered.result.headOption)
       .map(_.map(rowToRecord))
     ctx.withUserContext(ownerId.value)(action)
@@ -249,7 +266,24 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       }
     }
 
-  implicit val claudeToolMessageFormat: RootJsonFormat[ClaudeToolMessage] = jsonFormat2(ClaudeToolMessage.apply)
+  /** HEL-1755 D5: `model` (the id that answered an assistant turn) is written only when present, so older blobs
+   *  and turns without one stay byte-identical, and is absent on read of an old blob. */
+  implicit val claudeToolMessageFormat: RootJsonFormat[ClaudeToolMessage] = new RootJsonFormat[ClaudeToolMessage] {
+    def write(m: ClaudeToolMessage): JsValue =
+      JsObject(
+        Map[String, JsValue]("role" -> JsString(m.role), "content" -> JsArray(m.content.map(_.toJson).toVector)) ++
+          m.model.map(id => "model" -> (JsString(id): JsValue))
+      )
+
+    def read(json: JsValue): ClaudeToolMessage = {
+      val obj = json.asJsObject
+      ClaudeToolMessage(
+        role    = obj.fields("role").convertTo[String],
+        content = obj.fields("content").convertTo[Seq[ClaudeContentBlock]],
+        model   = obj.fields.get("model").collect { case JsString(id) => id }
+      )
+    }
+  }
 
   /** The repository-facing shape — value-class-typed, mirrors `AuthoringConversationRecord`'s role
    *  for `AuthoringConversationRepository`. `gcsBodyRef` is the transcript blob's `FileSystem` path
@@ -266,7 +300,9 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       gcsBodyRef: String,
       createdAt: Instant,
       updatedAt: Instant,
-      lastIdempotencyKey: Option[String] = None
+      lastIdempotencyKey: Option[String] = None,
+      // HEL-1755 D4: the stored selection; None = the server default at send time.
+      model: Option[String] = None
   )
 
   private[infrastructure] case class AssistantConversationRow(
@@ -277,7 +313,8 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
       gcsBodyRef: String,
       createdAt: Instant,
       updatedAt: Instant,
-      lastIdempotencyKey: Option[String]
+      lastIdempotencyKey: Option[String],
+      model: Option[String]
   )
 
   private[infrastructure] class AssistantConversationTable(tag: Tag)
@@ -290,9 +327,10 @@ object AssistantConversationRepository extends DefaultJsonProtocol {
     def createdAt          = column[Instant]("created_at")
     def updatedAt          = column[Instant]("updated_at")
     def lastIdempotencyKey = column[Option[String]]("last_idempotency_key")
+    def model              = column[Option[String]]("model")
 
     def * =
-      (id, ownerId, title, pinned, gcsBodyRef, createdAt, updatedAt, lastIdempotencyKey)
+      (id, ownerId, title, pinned, gcsBodyRef, createdAt, updatedAt, lastIdempotencyKey, model)
         .mapTo[AssistantConversationRow]
   }
 }

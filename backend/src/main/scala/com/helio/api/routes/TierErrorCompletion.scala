@@ -15,7 +15,7 @@ object TierErrorCompletion extends JsonProtocols {
   def completeTierError(err: ChatAccessError): Route = err match {
     case ChatAccessError.TierForbidden(message) =>
       complete(StatusCodes.Forbidden, TierErrorResponse("TIER_FORBIDDEN", message, None))
-    case ChatAccessError.LimitReached(limit) =>
+    case ChatAccessError.LimitReached(limit, _, _) =>
       complete(StatusCodes.TooManyRequests, TierErrorResponse("CHAT_LIMIT_REACHED", err.message, Some(limit)))
   }
 }

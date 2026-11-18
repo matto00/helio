@@ -14,6 +14,10 @@
       "type": "string",
       "maxLength": 128,
       "description": "HEL-698: optional client-generated retry key. A converse whose key matches the conversation's last-applied key is treated as a no-op replay of an already-landed send (no Claude call, no append). Trimmed; blank treated as absent; longer than 128 characters is rejected with a 400."
+    },
+    "model": {
+      "type": "string",
+      "description": "HEL-1755: optional model for this turn. Must be one of the selectable catalog ids (GET /api/assistant-models); any other value is a 400 before any model call, daily-counter charge or write. When present it is used for this turn and stored on the conversation; when absent the conversation's effectiveModel is used. Ignored (nothing stored, nothing charged) on an idempotent replay."
     }
   },
   "additionalProperties": false

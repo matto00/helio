@@ -162,6 +162,39 @@ class AssistantDailyUsageRepositorySpec extends AnyWordSpec with Matchers with B
       countFor(ownerA) shouldBe Some(limit)
     }
 
+    // HEL-1755 D7: the weighted units (Haiku 1 / Sonnet 4 / Opus 8).
+    "adds the weight to the count and allows a send that fits exactly" in {
+      cleanDb()
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 4)) shouldBe true
+      countFor(ownerA) shouldBe Some(4)
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 6)) shouldBe true
+      countFor(ownerA) shouldBe Some(10)
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 1)) shouldBe false
+      countFor(ownerA) shouldBe Some(10)
+    }
+
+    "denies the heavy weight but allows the light one when 3 units are left, leaving the count untouched on denial" in {
+      cleanDb()
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 7)) shouldBe true
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 8)) shouldBe false
+      countFor(ownerA) shouldBe Some(7)
+      await(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 1)) shouldBe true
+      countFor(ownerA) shouldBe Some(8)
+    }
+
+    "denies a weight above the limit on a user's very first send and writes no row" in {
+      cleanDb()
+      await(repo.incrementIfUnderCap(ownerA, limit = 5, weight = 8)) shouldBe false
+      countFor(ownerA) shouldBe None
+    }
+
+    "concurrent weighted increments never push the count above the limit" in {
+      cleanDb()
+      val results = await(Future.sequence(Vector.fill(12)(repo.incrementIfUnderCap(ownerA, limit = 10, weight = 4))))
+      results.count(identity) shouldBe 2
+      countFor(ownerA) shouldBe Some(8)
+    }
+
     "concurrent increments never push the count above the limit" in {
       cleanDb()
       val limit = 5

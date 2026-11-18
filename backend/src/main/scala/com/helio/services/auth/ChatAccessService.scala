@@ -37,13 +37,13 @@ final class ChatAccessService(
    *  `findById` round trip. `owner` always succeeds uncounted; `beta` atomically increments (or
    *  denies) via `AssistantDailyUsageRepository.incrementIfUnderCap`; `free` is unreachable in
    *  practice (guard already denied it) but still resolves safely rather than assuming. */
-  def checkConverseCap(user: AuthenticatedUser, tier: UserTier): Future[Either[ChatAccessError, Unit]] =
+  def checkConverseCap(user: AuthenticatedUser, tier: UserTier, weight: Int = 1, modelLabel: Option[String] = None): Future[Either[ChatAccessError, Unit]] =
     tier match {
       case UserTier.Owner => Future.successful(Right(()))
       case UserTier.Beta =>
-        usageRepo.incrementIfUnderCap(user.id, config.betaDailyMessageLimit).map {
+        usageRepo.incrementIfUnderCap(user.id, config.betaDailyMessageLimit, weight).map {
           case true  => Right(())
-          case false => Left(ChatAccessError.LimitReached(config.betaDailyMessageLimit))
+          case false => Left(ChatAccessError.LimitReached(config.betaDailyMessageLimit, weight, modelLabel))
         }
       case UserTier.Free => Future.successful(Left(ChatAccessError.TierForbidden()))
     }

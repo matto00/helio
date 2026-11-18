@@ -19,8 +19,8 @@ class ClaudeNoAnswerAndStripSpec extends AnyWordSpec with Matchers {
 
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private def config(temperature: Double = 1.0): ClaudeConfig =
-    ClaudeConfig(apiKey = "sk-ant-test-never-logged", model = "claude-haiku-5-5", temperature = temperature, maxOutputTokens = 4096, maxInputTokens = 100000)
+  private def config(temperature: Double = 1.0, model: String = "claude-haiku-5-5"): ClaudeConfig =
+    ClaudeConfig(apiKey = "sk-ant-test-never-logged", model = model, temperature = temperature, maxOutputTokens = 4096, maxInputTokens = 100000)
 
   private val okExecutor = new ClaudeToolExecutor {
     def execute(name: String, input: JsValue)(implicit ec: ExecutionContext): Future[Either[String, String]] =
@@ -66,7 +66,9 @@ class ClaudeNoAnswerAndStripSpec extends AnyWordSpec with Matchers {
       tool.requestJson(0).compactPrint should not include "top_k"
 
       val tool2 = new RecordingToolTransport(Vector(textResponse("ok")))
-      run(tool2, cfg = config(temperature = 0.5))
+      // HEL-1755 C17: a catalog model (the default here) never gets sampling, so the "sent when different" half of the
+      // HEL-1636 rule is about a model the catalog does not define (ClaudeModelRequestSpec covers the catalog side).
+      run(tool2, cfg = config(temperature = 0.5, model = "claude-opus-4-8"))
       tool2.requestJson(0).fields("temperature") shouldBe JsNumber(0.5)
     }
   }

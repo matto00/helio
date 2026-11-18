@@ -77,7 +77,10 @@ final case class ClaudeApiResponse(
     usage: ClaudeApiUsage,
     // HEL-1636 D6: the raw `stop_details` object (a refusal carries `type`/`category`/`explanation`);
     // null/absent on every other stop reason.
-    stopDetails: Option[JsValue] = None
+    stopDetails: Option[JsValue] = None,
+    // HEL-1755 D2: the response's own `model` field, and the `request-id` header the transport read.
+    model: Option[String] = None,
+    requestId: Option[String] = None
 )
 
 /** Closed set of tool-entry shapes `sendWithTools` may offer Claude in one request's `tools` array

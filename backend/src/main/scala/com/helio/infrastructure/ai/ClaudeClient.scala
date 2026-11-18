@@ -121,6 +121,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
               case Left(err) =>
                 Future.successful(ClaudeToolOutcome.Failed(err))
               case Right(apiResponse) =>
+                logHop(requestedId(request.model), apiResponse)
                 val totalUsage      = addUsage(usage, apiResponse.usage)
                 val blocks          = apiResponse.content.map(toContentBlock)
                 val toolUses        = blocks.collect { case tu: ClaudeContentBlock.ToolUse => tu }
@@ -139,10 +140,10 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
                   else
                     Future.successful(
-                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)
+                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model)
                     )
                 } else if (thisHop > request.maxHops) {
-                  Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage))
+                  Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage)(apiResponse.model))
                 } else {
                   val rejected = rejectedOncePerResponse(toolUses, request.oncePerResponseTools)
                   Future
@@ -162,6 +163,25 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
     }
 
     loop(request.history, hopsUsed = 0, usage = TokenUsage(0, 0), webSearchUsed = 0, prevToolsJson = None)
+  }
+
+  /** The model id this request is sent with: the catalog spec's own id, else the configured default. */
+  private def requestedId(model: Option[ClaudeModelSpec]): String = model.map(_.id).getOrElse(config.model)
+
+  /** HEL-1755 D2: one INFO line per hop AFTER the body parsed, correlated with the transport's own status line by
+   *  `request-id`: requested id, the response's `model`, `stop_reason`, the token usage counters and the content block TYPES (never content).
+   *  A response model that differs from the requested id is a WARN naming the two ids. */
+  private def logHop(requested: String, response: ClaudeApiResponse): Unit = {
+    val blockTypes = response.content.map(_.blockType).mkString(",")
+    log.info(
+      s"Claude hop request-id=${response.requestId.getOrElse("none")} requested=$requested " +
+        s"response-model=${response.model.getOrElse("none")} stop_reason=${response.stopReason.getOrElse("none")} blocks=[$blockTypes] " +
+        s"usage=in:${response.usage.inputTokens},out:${response.usage.outputTokens}," +
+        s"cache_write:${response.usage.cacheCreationInputTokens},cache_read:${response.usage.cacheReadInputTokens}"
+    )
+    response.model.filter(_ != requested).foreach { actual =>
+      log.warn(s"Claude responded with model=$actual for a request pinned to $requested (request-id=${response.requestId.getOrElse("none")})")
+    }
   }
 
   /** `NoAnswer` for a response with no usable answer; the refusal `category` comes from
@@ -321,10 +341,10 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       system = request.system.filter(_.trim.nonEmpty).toSeq.map(s =>
         ClaudeApiContentBlock(blockType = "text", text = Some(s), cacheControl = Some(ClaudeApiCacheControl.Ephemeral))
       ),
-      model = config.model,
+      model = requestedId(request.model),
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
-      temperature = wireTemperature(request.temperature),
+      temperature = wireTemperature(request.temperature, requestedId(request.model)),
       tools = finalTools
     )
   }
@@ -332,6 +352,11 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
   /** HEL-1636 D7: the API default (1.0) is omitted; Haiku 5.5 rejects any other sampling value. */
   private def wireTemperature(requested: Option[Double]): Option[Double] =
     Some(requested.getOrElse(config.temperature)).filter(_ != ClaudeConfig.DefaultTemperature)
+
+  /** HEL-1755 C17: a catalog model never gets a sampling parameter, whatever the caller or `CLAUDE_TEMPERATURE` says
+   *  (all three reject them). Any other model keeps the HEL-1636 D7 rule. */
+  private def wireTemperature(requested: Option[Double], modelId: String): Option[Double] =
+    if (ClaudeModelCatalog.isCatalogId(modelId)) None else wireTemperature(requested)
 
   /** Approximates block content as flattened text for the pre-flight guardrail estimate
    *  (design.md D6) — `ClaudeTokenEstimator.estimate` takes `Seq[ClaudeMessage]` (`content:
@@ -382,10 +407,10 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       case first +: rest => first.copy(cacheControl = Some(ClaudeApiCacheControl.Ephemeral)) +: rest
     }
     ClaudeApiRequest(
-      model = config.model,
+      model = requestedId(request.model),
       maxTokens = clampedMaxTokens,
       messages = markedMessages,
-      temperature = wireTemperature(request.temperature),
+      temperature = wireTemperature(request.temperature, requestedId(request.model)),
       stream = stream
     )
   }

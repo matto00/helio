@@ -41,7 +41,8 @@ final class AssistantConversationService(
   def create(
       user: AuthenticatedUser,
       firstMessage: Option[ClaudeToolMessage],
-      title: Option[String]
+      title: Option[String],
+      model: Option[String] = None
   ): Future[AssistantConversationDetail] = {
     val id            = AssistantConversationId(UUID.randomUUID().toString)
     val resolvedTitle = resolveTitle(title, firstMessage)
@@ -61,7 +62,8 @@ final class AssistantConversationService(
               pinned     = false,
               gcsBodyRef = path,
               createdAt  = now,
-              updatedAt  = now
+              updatedAt  = now,
+              model      = model
             )
           )
         )
@@ -89,7 +91,8 @@ final class AssistantConversationService(
       user: AuthenticatedUser,
       id: AssistantConversationId,
       turns: Seq[ClaudeToolMessage],
-      idempotencyKey: Option[String] = None
+      idempotencyKey: Option[String] = None,
+      model: Option[String] = None
   ): Future[Either[ServiceError, AssistantConversationRecord]] =
     repo.findById(id, user.id).flatMap {
       case None => Future.successful(Left(conversationNotFound))
@@ -99,7 +102,7 @@ final class AssistantConversationService(
         fileSystem.read(existing.gcsBodyRef).flatMap { bytes =>
           val updatedTranscript = deserialize(bytes) ++ turns
           fileSystem.write(existing.gcsBodyRef, serialize(updatedTranscript)).flatMap { _ =>
-            repo.touchUpdatedAt(id, user.id, existing.gcsBodyRef, idempotencyKey).map {
+            repo.touchUpdatedAt(id, user.id, existing.gcsBodyRef, idempotencyKey, model).map {
               case Some(record) => Right(record)
               case None         => Left(conversationNotFound)
             }
@@ -153,7 +156,8 @@ final class AssistantConversationService(
       user: AuthenticatedUser,
       id: AssistantConversationId,
       pinned: Option[Boolean],
-      title: Option[String]
+      title: Option[String],
+      model: Option[Option[String]] = None
   ): Future[Either[ServiceError, AssistantConversationRecord]] = {
     val afterRename: Future[Either[ServiceError, AssistantConversationRecord]] = title match {
       case Some(t) => rename(user, id, t)
@@ -163,13 +167,22 @@ final class AssistantConversationService(
           case None         => Left(conversationNotFound)
         }
     }
-    afterRename.flatMap {
+    val afterPin = afterRename.flatMap {
       case Left(e) => Future.successful(Left(e))
       case Right(record) =>
         pinned match {
           case Some(p) => setPinned(user, id, p)
           case None    => Future.successful(Right(record))
         }
+    }
+    // HEL-1755 D4: the caller (the route) has already validated `model` against the allow-list.
+    afterPin.flatMap {
+      case Right(_) if model.isDefined =>
+        repo.updateModel(id, user.id, model.get).map {
+          case Some(record) => Right(record)
+          case None         => Left(conversationNotFound)
+        }
+      case other => Future.successful(other)
     }
   }
 

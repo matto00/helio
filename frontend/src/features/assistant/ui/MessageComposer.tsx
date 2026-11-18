@@ -4,8 +4,9 @@ import "./MessageComposer.css";
 import { Textarea } from "../../../shared/ui/Textarea";
 import { Spinner } from "../../../shared/ui/Spinner";
 import { InlineError } from "../../../shared/chrome/InlineError";
-import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { converse } from "../state/assistantConversationsSlice";
+import { ModelPicker } from "./ModelPicker";
 import { startConversationWithMessage } from "../state/startConversationWithMessage";
 
 // HEL-703 design.md D9 — distinct, actionable copy for the two tier-gate error codes; every other
@@ -80,6 +81,8 @@ interface MessageComposerProps {
  *  same-id re-render. */
 export function MessageComposer({ conversationId, initialDraft }: MessageComposerProps) {
   const dispatch = useAppDispatch();
+  // HEL-1755 D10: the model picked before a conversation existed, sent on the first converse.
+  const pendingModel = useAppSelector((state) => state.assistantConversations.pendingModel);
   const [message, setMessage] = useState(initialDraft ?? "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +130,7 @@ export function MessageComposer({ conversationId, initialDraft }: MessageCompose
           startConversationWithMessage({
             message: trimmed,
             idempotencyKey,
+            model: pendingModel,
             onCreated: (id) => {
               selfCreatedIdRef.current = id;
             },
@@ -159,6 +163,7 @@ export function MessageComposer({ conversationId, initialDraft }: MessageCompose
         submitOnEnter
       />
       <div className="message-composer__actions">
+        <ModelPicker conversationId={conversationId} disabled={sending} />
         {sending && (
           <span className="message-composer__sending" role="status">
             <Spinner size="sm" />

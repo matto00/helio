@@ -19,8 +19,13 @@ object ChatAccessError {
   final case class TierForbidden(message: String = ForbiddenMessage) extends ChatAccessError
 
   /** `beta`-tier over the configured daily cap -- converse only. */
-  final case class LimitReached(limit: Int) extends ChatAccessError {
+  final case class LimitReached(limit: Int, weight: Int = 1, modelLabel: Option[String] = None) extends ChatAccessError {
+    // HEL-1755 D7: a weighted send over the cap names the model so the user can pick a lighter one.
     val message: String =
-      s"Daily chat message limit reached ($limit messages). The limit resets at the start of the next UTC day."
+      if (weight > 1)
+        s"Daily chat limit reached: ${modelLabel.getOrElse("This model")} needs $weight of today's $limit units. " +
+          "A lighter model may still fit. The limit resets at the start of the next UTC day."
+      else
+        s"Daily chat message limit reached ($limit messages). The limit resets at the start of the next UTC day."
   }
 }
