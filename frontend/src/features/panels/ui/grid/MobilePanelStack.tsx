@@ -76,7 +76,7 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
   usePullRefreshRegistration(
     panel.id,
     outputId !== null,
-    insightChrome ? insightChrome.refetch : panelData.refresh,
+    insightChrome ? insightChrome.refetch : panelData.queueRefresh,
     panelData.isRefreshing === true,
   );
   // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own

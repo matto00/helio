@@ -86,6 +86,7 @@ beforeEach(() => {
     paginationRows: records,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
   getOutputByIdMock.mockResolvedValue(makeOutput(PIE_AGG));

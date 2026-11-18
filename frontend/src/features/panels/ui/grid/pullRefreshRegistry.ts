@@ -1,6 +1,6 @@
 // Pull-to-refresh fan-out (HEL-1656). There is no dashboard-level refresh: every output-bound panel owns one
 // `usePanelData(panel)` whose `refresh()` is guarded against an in-flight request. This registry lets the phone stack
-// call each of those once on a qualifying pull and learn when they have all settled, without importing any pipeline-run
+// call each of those once (queued after an in-flight request, HEL-1738) on a qualifying pull and learn when they have all settled, without importing any pipeline-run
 // code. Non-output panels never register, so a pull never touches them.
 
 import {
@@ -101,7 +101,7 @@ export class PullRefreshRegistry {
     if (this.round !== null || this.entries.size === 0) return false;
     const round = new Map<string, RoundEntry>();
     for (const [id, entry] of this.entries) {
-      // A panel already in flight counts as seen: its refresh() below is a no-op, and its running request is what we wait on.
+      // A panel already in flight counts as seen: its queued refresh below sends one request once the running one settles, and the round waits on both (isRefreshing stays true across the gap).
       round.set(id, { seen: entry.isRefreshing, done: false });
     }
     this.round = round;

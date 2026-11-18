@@ -21,7 +21,10 @@ import type { CrossFilterMode } from "../hooks/useCrossFilterServerOps";
 // `EMPTY_CONTROLS`.
 const EMPTY_CONTROLS: OutputControlSpec[] = [];
 
-export interface PanelFullscreenOverlayProps extends Omit<PanelDataResult, "isRefreshing"> {
+export interface PanelFullscreenOverlayProps extends Omit<
+  PanelDataResult,
+  "isRefreshing" | "queueRefresh"
+> {
   panel: Panel;
   open: boolean;
   onClose: () => void;

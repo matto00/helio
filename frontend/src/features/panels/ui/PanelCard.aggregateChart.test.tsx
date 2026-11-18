@@ -94,6 +94,7 @@ beforeEach(() => {
     paginationRows: records,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
   getOutputByIdMock.mockResolvedValue(makeOutput(BAR_AGG));

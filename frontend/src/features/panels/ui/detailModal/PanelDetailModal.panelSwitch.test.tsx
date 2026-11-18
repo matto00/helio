@@ -111,6 +111,7 @@ describe("PanelDetailModal — direct panel switch (HEL-307)", () => {
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
   });

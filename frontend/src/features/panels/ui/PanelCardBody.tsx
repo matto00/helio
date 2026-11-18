@@ -33,7 +33,10 @@ import type { ChartClickSelection } from "../../../utils/chartClickSelection";
 // tree per panel instead of racing two independent ones.
 
 // `paginationRows` is omitted: the body reads its own `paginationEntry` (see below).
-interface PanelCardBodyProps extends Omit<PanelDataResult, "isRefreshing" | "paginationRows"> {
+interface PanelCardBodyProps extends Omit<
+  PanelDataResult,
+  "isRefreshing" | "paginationRows" | "queueRefresh"
+> {
   panel: Panel;
   /** When true the body short-circuits and renders nothing (drag-freeze). */
   frozen: boolean;

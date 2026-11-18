@@ -62,6 +62,7 @@ beforeEach(() => {
     neverMaterialized: false,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
   getOutput.mockResolvedValue({

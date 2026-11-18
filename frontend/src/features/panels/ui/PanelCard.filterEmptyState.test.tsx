@@ -112,6 +112,7 @@ beforeEach(() => {
     neverMaterialized: false,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
 });
@@ -155,6 +156,7 @@ describe("PanelCard — filter-aware empty state (HEL-1027 D10, task 4.7)", () =
       neverMaterialized: true,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     const panel = makeOutputPanel({ id: "panel-2", title: "Untouched" });

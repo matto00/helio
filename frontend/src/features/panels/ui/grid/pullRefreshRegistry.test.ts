@@ -50,6 +50,21 @@ describe("PullRefreshRegistry", () => {
     expect(listener.mock.calls).toEqual([[true], [false]]);
   });
 
+  // HEL-1738 mutation: end the round at the in-flight load's true->false while a queued refresh follows -> red
+  it("spans an entry that stays refreshing through a queued refresh (load, then queued request)", () => {
+    const registry = new PullRefreshRegistry();
+    registry.register("a", entry(true));
+    const listener = jest.fn();
+    registry.subscribe(listener);
+    registry.start("button");
+    // The hook reports true across the whole load + queued request: no false in between, so the round holds.
+    registry.setRefreshing("a", true);
+    expect(registry.busy).toBe(true);
+    registry.setRefreshing("a", false);
+    expect(registry.busy).toBe(false);
+    expect(listener.mock.calls).toEqual([[true], [false]]);
+  });
+
   // mutation: seed seen=false for an already-refreshing panel -> red (the round would wait for the ceiling)
   it("counts a panel already in flight as seen and waits for its running request", () => {
     const registry = new PullRefreshRegistry();
