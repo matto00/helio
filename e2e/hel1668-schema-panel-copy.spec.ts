@@ -164,12 +164,12 @@ for (const size of [
   });
 }
 
-// ---- item 5: the compact spine on a touch tablet keeps HEL-1608's tapped-row tones -----------------------------------
+// ---- item 5: the compact spine on a touch tablet keeps its tapped-row select tone and a visible menu -----------------------------------
 
 test.describe("HEL-1668 item 5 compact spine on a touch tablet (1024x800)", () => {
   test.use({ viewport: { width: 1024, height: 800 }, isMobile: true, hasTouch: true });
 
-  test("a tapped compact row keeps its accent select and menu-backing tones and opens its step menu, light and dark", async ({
+  test("a tapped compact row keeps its accent select, shows a transparent menu clear of the title and opens its step menu, light and dark", async ({
     page,
     request,
   }) => {
@@ -207,14 +207,25 @@ test.describe("HEL-1668 item 5 compact spine on a touch tablet (1024x800)", () =
           menuImage: getComputedStyle(menu).backgroundImage,
           menuColor: getComputedStyle(menu).backgroundColor,
           menuOpacity: getComputedStyle(menu).opacity,
+          // HEL-1671: the selected compact menu sits in line two, clear of the title's box.
+          overTitle: (() => {
+            const t = el.querySelector(".spine-row__title")!.getBoundingClientRect();
+            const m = (menu.querySelector("button") as HTMLElement).getBoundingClientRect();
+            return m.left < t.right && m.right > t.left && m.top < t.bottom && m.bottom > t.top;
+          })(),
         };
       });
       console.log("COMPACT-TONES", theme, JSON.stringify(tones));
       expect(tones.compactMenu, "this width is the compact spine").toBe(true);
       expect(tones.select).toBe(tones.accentMid);
       expect(tones.menuOpacity).toBe("1");
-      // origin/main's tapped-row menu backing: the accent-mid wash layered over the canvas colour.
-      expect(tones.menuImage).toBe(`linear-gradient(${tones.accentMid}, ${tones.accentMid}), none`);
+      // HEL-1671: the SELECTED compact row's menu is permanent and sits in its own trailing line-two track, over
+      // nothing, so it has no backing (HEL-1608's overlay backing now belongs to an unselected row's hover reveal).
+      expect(tones.menuImage, "no backing image on the selected compact menu").toBe("none");
+      expect(tones.menuColor, "no backing colour on the selected compact menu").toBe(
+        "rgba(0, 0, 0, 0)",
+      );
+      expect(tones.overTitle, "the selected compact menu does not cover the title").toBe(false);
       await row.getByRole("button", { name: /^Step actions for/ }).tap();
       await expect(page.getByRole("menuitem").first()).toBeVisible();
       await page.screenshot({ path: evidencePath("HEL-1668", `compact-touch-1024-${theme}.png`) });
