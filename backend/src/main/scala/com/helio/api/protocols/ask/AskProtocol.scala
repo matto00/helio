@@ -29,12 +29,17 @@ final case class AskQuestionResponse(answer: String, citations: Vector[AskCitati
 /** `422` body when the answer could not be grounded in the data the tools returned. */
 final case class AskUngroundedResponse(message: String, code: String, reasons: Vector[String])
 
+/** `422` body when a model hop ran out of output tokens before it finished. */
+final case class AskTruncatedResponse(message: String, code: String)
+
 trait AskProtocol extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val askQuestionRequestFormat: RootJsonFormat[AskQuestionRequest] = jsonFormat1(AskQuestionRequest.apply)
   implicit val askCitationFormat: RootJsonFormat[AskCitation]                = jsonFormat7(AskCitation.apply)
   implicit val askCitedOutputFormat: RootJsonFormat[AskCitedOutput]          = jsonFormat2(AskCitedOutput.apply)
   implicit val askPinFormat: RootJsonFormat[AskPin]                          = jsonFormat2(AskPin.apply)
   implicit val askUngroundedResponseFormat: RootJsonFormat[AskUngroundedResponse] = jsonFormat3(AskUngroundedResponse.apply)
+
+  implicit val askTruncatedResponseFormat: RootJsonFormat[AskTruncatedResponse] = jsonFormat2(AskTruncatedResponse.apply)
 
   /** `pin` is written as an explicit `null` when absent (the contract says `null`, not a missing key). */
   implicit val askQuestionResponseFormat: RootJsonFormat[AskQuestionResponse] = new RootJsonFormat[AskQuestionResponse] {

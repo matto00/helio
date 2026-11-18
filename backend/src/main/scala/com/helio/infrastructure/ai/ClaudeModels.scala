@@ -211,7 +211,8 @@ object ClaudeToolOutcome {
    *  accumulated turn sequence (useful for a caller that wants to persist/display the transcript);
    *  `usage` is summed across every hop (design.md D5). */
   final case class FinalResponse(text: String, history: Seq[ClaudeToolMessage], usage: TokenUsage)(
-      val responseModel: Option[String] = None
+      val responseModel: Option[String] = None,
+      val stopReason: Option[String] = None
   ) extends ClaudeToolOutcome
 
   /** `maxHops` round trips were already used and Claude requested another tool call — the loop

@@ -139,7 +139,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                     Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
                   else
                     Future.successful(
-                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model)
+                      ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model, apiResponse.stopReason)
                     )
                 } else if (thisHop > request.maxHops) {
                   Future.successful(ClaudeToolOutcome.HopBudgetExhausted(history :+ assistantTurn, totalUsage)(apiResponse.model))
