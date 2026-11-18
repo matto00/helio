@@ -180,8 +180,13 @@ test.describe("HEL-1668 item 5 compact spine on a touch tablet (1024x800)", () =
       await openPipeline(page, pipelineId, theme);
       expect(await page.evaluate(() => matchMedia("(hover: hover)").matches)).toBe(false);
       await realTap(page, page.locator(".spine-row__select").nth(1));
-      const row = page.locator(".spine-row--selected").first();
-      await expect(row).toBeVisible();
+      // HEL-1754: the TAPPED row, not `.spine-row--selected .first()`. The pipeline opens with its first row already
+      // selected, so that locator resolved at once to the pre-tap row and the tones were read before the selection
+      // and the sticky hover had reached the tapped one (or while its menu fade-in was still running). Opacity 1 on
+      // the compact menu is the end of the `:hover`/`:focus-within` reveal, so waiting on it waits for both.
+      const row = page.locator(".spine-row").nth(1);
+      await expect(row).toHaveClass(/spine-row--selected/);
+      await expect(row.locator(".spine-row__menu")).toHaveCSS("opacity", "1");
       await row
         .locator(".spine-row__menu")
         .evaluate((el) =>
