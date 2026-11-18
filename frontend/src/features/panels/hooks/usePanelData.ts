@@ -56,6 +56,11 @@ export interface PanelDataResult {
    *  D2) — guards the manual-refresh, poll, and SSE-fan-out callers uniformly
    *  since all three ultimately call this same closure. */
   refresh: () => void;
+  /** HEL-1738: like `refresh`, but a call made while a request is in flight queues exactly ONE refresh,
+   *  sent once that request settles (repeat calls coalesce), instead of being dropped. With nothing in
+   *  flight it is `refresh`. `isRefreshing` stays true from the queueing until the queued request
+   *  settles. Always supplied by `usePanelData`. Used only by the dashboard refresh round; poll, SSE and the per-panel control keep `refresh`. */
+  queueRefresh: () => void;
   /** HEL-579 design.md D3: true while ANY fetch (first load or refresh) is
    *  pending for `paginationEntry`. Distinct from `isLoading`, which stays
    *  `false` once a panel has data — `isLoading` gates the full skeleton,
@@ -137,8 +142,16 @@ export function usePanelData(
   // or a render that has not yet seen the entry) must not send the stripped query after all.
   const ownershipSkippedKey = useRef<{ key: string; token: number } | null>(null);
 
-  const refresh = useCallback(() => {
-    if (inFlightRef.current) return;
+  // HEL-1738 design D2 -- the one queued refresh. `queuedRef` is the synchronous truth (repeat calls
+  // are no-ops); `queued` mirrors it for `isRefreshing` and is cleared only right after the queued
+  // dispatch (never at drain time) so `isRefreshing` has no false gap between the two requests.
+  const queuedRef = useRef(false);
+  const mountedRef = useRef(false);
+  // The latest request THIS hook dispatched; a newer `latestFetchRequestId` that differs is someone else's (a sort/filter refetch, load-more, the detail modal).
+  const ownRequestIdRef = useRef<string | null>(null);
+  const [queued, setQueued] = useState(false);
+
+  const startRefresh = useCallback(() => {
     inFlightRef.current = true;
     prevFetchKey.current = null;
     // design.md D9a-i/C4 — a refresh (manual/poll/SSE) replays the FULL last query; a plain
@@ -146,6 +159,41 @@ export function usePanelData(
     replayFullQueryRef.current = true;
     setErrorForKey(null);
     setRefreshToken((t) => t + 1);
+  }, []);
+
+  const refresh = useCallback(() => {
+    if (inFlightRef.current) return;
+    startRefresh();
+  }, [startRefresh]);
+
+  const queueRefresh = useCallback(() => {
+    if (!inFlightRef.current) {
+      startRefresh();
+      return;
+    }
+    queuedRef.current = true;
+    setQueued(true);
+  }, [startRefresh]);
+
+  // Called wherever `inFlightRef` falls to false: sends the queued refresh, if any, synchronously
+  // (so `inFlightRef` is true again before any other caller can enter).
+  const drain = useCallback(() => {
+    if (!queuedRef.current || !mountedRef.current) return;
+    queuedRef.current = false;
+    startRefresh();
+  }, [startRefresh]);
+
+  const dropQueued = useCallback(() => {
+    queuedRef.current = false;
+    setQueued(false);
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      queuedRef.current = false;
+    };
   }, []);
 
   // HEL-1392 design.md D2/D8 (N2/N3) -- waits, without dispatching, for a request somebody else
@@ -163,6 +211,7 @@ export function usePanelData(
         return !entry || !entry.isLoadingMore ? entry : null;
       };
       if (settled() !== null) {
+        // No drain: this runs synchronously on mount, before any `queueRefresh()` can exist (design.md D2).
         waitRecord.current = null;
         inFlightRef.current = false;
         return;
@@ -175,6 +224,7 @@ export function usePanelData(
         unsubscribeWait.current = null;
         waitRecord.current = null;
         inFlightRef.current = false;
+        drain();
         if (entry?.lastError && entry.lastError.requestId === record.waitedId) {
           const { message, kind } = entry.lastError;
           setErrorForKey({ key: record.key, message, kind });
@@ -182,7 +232,7 @@ export function usePanelData(
       });
       unsubscribeWait.current = unsubscribe;
     },
-    [store, panel.id],
+    [store, panel.id, drain],
   );
 
   const waitForOwnedRequest = useCallback(
@@ -207,6 +257,7 @@ export function usePanelData(
       // Losing the Output binding mid-fetch must not wedge the guard `true`
       // for a hook instance that could later be rebound to a new Output.
       inFlightRef.current = false;
+      dropQueued();
       return;
     }
 
@@ -255,6 +306,8 @@ export function usePanelData(
         crossFilterEq: explicit ? crossFilterEq : (replay?.crossFilterEq ?? null),
       };
       if (isReusable(liveEntry, query)) {
+        // No drain (design.md D2): a reusable window means no request is pending, and the only way a
+        // queue exists is behind an in-flight request whose own settlement (`.finally`) drains it.
         inFlightRef.current = false;
         return;
       }
@@ -269,7 +322,7 @@ export function usePanelData(
     inFlightRef.current = true;
     const keyAtDispatch = currentFetchKey;
 
-    void dispatch(
+    const request = dispatch(
       fetchPanelPage({
         panelId: panel.id,
         outputId,
@@ -283,7 +336,14 @@ export function usePanelData(
           : replay?.filter,
         crossFilterEq: explicit ? crossFilterEq : (replay?.crossFilterEq ?? null),
       }),
-    )
+    );
+    // HEL-1738 D3 -- the queued refresh's request is now pending (`isLoadingMore` true), so the
+    // `queued` bridge is no longer needed.
+    if (!queuedRef.current) setQueued(false);
+    // The request whose settlement may drain the queue: this one, or the CROSS_FILTER retry below.
+    let lastRequestId = request.requestId;
+    ownRequestIdRef.current = lastRequestId;
+    void request
       .unwrap()
       .then(() => {
         setErrorForKey((prev) => (prev?.key === keyAtDispatch ? null : prev));
@@ -296,7 +356,7 @@ export function usePanelData(
         // would keep the stale server-narrowed window that was on screen.
         if (err?.code === CROSS_FILTER_EQ_REJECTED) {
           if (!explicit) {
-            void dispatch(
+            const retry = dispatch(
               fetchPanelPage({
                 panelId: panel.id,
                 outputId,
@@ -307,6 +367,10 @@ export function usePanelData(
                 crossFilterEq: null,
               }),
             );
+            lastRequestId = retry.requestId;
+            ownRequestIdRef.current = lastRequestId;
+            // Returned so `.finally` (guard release + queue drain) waits for the retry to settle.
+            return retry;
           }
           return;
         }
@@ -318,6 +382,18 @@ export function usePanelData(
       })
       .finally(() => {
         inFlightRef.current = false;
+        if (!queuedRef.current) return;
+        const state = store.getState().panels;
+        const latest = state.latestFetchRequestId[panel.id];
+        // Never send the queued refresh over a newer pending request. Our own newer request (an Output
+        // rebind) drains at its own settlement. A request this hook did not send (a sort/filter refetch,
+        // load-more, the detail modal) has no finally of ours: hand the queue to it and drain when it settles.
+        if (latest === lastRequestId) drain();
+        else if (latest !== ownRequestIdRef.current) {
+          if (state.paginationState[panel.id]?.isLoadingMore) {
+            subscribeWait({ key: keyAtDispatch, waitedId: undefined });
+          } else drain();
+        }
       });
     // `crossFilterEq`/`activeCrossFilter`/`paginationEntry.lastQuery` are read fresh from the
     // closure on every run; `crossFilterEqKey` (via `currentFetchKey`) is the change trigger.
@@ -345,6 +421,7 @@ export function usePanelData(
       paginationRows: null,
       rowsTruncated: false,
       refresh,
+      queueRefresh,
       isRefreshing: false,
     };
   }
@@ -360,7 +437,8 @@ export function usePanelData(
   // `paginationEntry.materialized` only becomes meaningful once `noData` is
   // also true.
   const neverMaterialized = noData && paginationEntry?.materialized === false;
-  const isRefreshing = paginationEntry?.isLoadingMore ?? false;
+  // HEL-1738 D3 -- `queued` bridges the gap between the in-flight request settling and the queued one pending.
+  const isRefreshing = (paginationEntry?.isLoadingMore ?? false) || queued;
 
   return {
     data: null,
@@ -375,6 +453,7 @@ export function usePanelData(
     columns,
     rowsTruncated: paginationEntry?.hasMore ?? false,
     refresh,
+    queueRefresh,
     isRefreshing,
   };
 }

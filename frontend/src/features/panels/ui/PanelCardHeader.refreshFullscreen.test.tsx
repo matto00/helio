@@ -31,6 +31,7 @@ jest.mock("../hooks/usePanelData", () => ({
     neverMaterialized: false,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   })),
 }));
@@ -122,6 +123,7 @@ describe("PanelCard — HEL-579 manual refresh control placement (tasks 2.4/2.5)
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
   });
@@ -172,6 +174,7 @@ describe("PanelCard — HEL-579 manual refresh activation + guard (tasks 2.6/2.7
       neverMaterialized: false,
       rowsTruncated: false,
       refresh,
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     const panel = makeOutputPanel({ title: "Revenue" });
@@ -194,6 +197,7 @@ describe("PanelCard — HEL-579 manual refresh activation + guard (tasks 2.6/2.7
       neverMaterialized: false,
       rowsTruncated: false,
       refresh,
+      queueRefresh: jest.fn(),
       isRefreshing: true,
     });
     const panel = makeOutputPanel({ title: "Revenue" });
@@ -225,6 +229,7 @@ describe("PanelCard — HEL-579 manual refresh activation + guard (tasks 2.6/2.7
       neverMaterialized: false,
       rowsTruncated: false,
       refresh,
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     const panel = makeOutputPanel({ title: "Revenue" });
@@ -274,6 +279,7 @@ describe("PanelCard — HEL-584 fullscreen/focus mode (tasks 2.1/2.2/4.1/4.2)", 
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     HTMLDialogElement.prototype.showModal = jest.fn(function (this: HTMLDialogElement) {

@@ -207,6 +207,126 @@ describe("usePanelData", () => {
     });
   });
 
+  // HEL-1738 design D2/D3: a dashboard round's queued refresh.
+  describe("queueRefresh (HEL-1738)", () => {
+    const page = (n: number) => ({
+      items: [{ n }],
+      total: 1,
+      offset: 0,
+      limit: 200,
+      materialized: true,
+    });
+    const settle = async () => {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    };
+
+    it("queues one refresh during the first load, coalesces repeats, sends it after the load settles, and isRefreshing never reads false in between", async () => {
+      const first = deferredRows();
+      mockGetOutputRows.mockReturnValueOnce(first.promise);
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+      const seen: boolean[] = [];
+      const { result } = renderHook(
+        () => {
+          const r = usePanelData(panel);
+          seen.push(r.isRefreshing);
+          return r;
+        },
+        { wrapper: wrapper(store) },
+      );
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(1));
+
+      const from = seen.length;
+      act(() => result.current.queueRefresh!());
+      act(() => result.current.queueRefresh!());
+      act(() => result.current.queueRefresh!());
+      // Nothing is sent while the first load is in flight.
+      expect(mockGetOutputRows).toHaveBeenCalledTimes(1);
+      expect(result.current.isRefreshing).toBe(true);
+
+      const second = deferredRows();
+      mockGetOutputRows.mockReturnValueOnce(second.promise);
+      await act(async () => {
+        first.resolve(page(1));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(2));
+      expect(result.current.isRefreshing).toBe(true);
+
+      await act(async () => {
+        second.resolve(page(2));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+      await settle();
+      // Exactly one extra request, and no false between queueing and the queued request settling.
+      expect(mockGetOutputRows).toHaveBeenCalledTimes(2);
+      const lastTrue = seen.lastIndexOf(true);
+      expect(seen.slice(from, lastTrue + 1).every(Boolean)).toBe(true);
+      expect(seen[seen.length - 1]).toBe(false);
+    });
+
+    it("with nothing in flight behaves as refresh() and leaves nothing queued", async () => {
+      mockGetOutputRows.mockResolvedValueOnce(page(0));
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await settle();
+
+      mockGetOutputRows.mockResolvedValueOnce(page(1));
+      act(() => result.current.queueRefresh!());
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+      await settle();
+      expect(mockGetOutputRows).toHaveBeenCalledTimes(2);
+    });
+
+    it("plain refresh() during the first load is still a no-op and queues nothing", async () => {
+      const first = deferredRows();
+      mockGetOutputRows.mockReturnValueOnce(first.promise);
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+      const { result } = renderHook(() => usePanelData(panel), { wrapper: wrapper(store) });
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(1));
+      act(() => result.current.refresh());
+      await act(async () => {
+        first.resolve(page(1));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+      await settle();
+      expect(mockGetOutputRows).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops the queue on unmount (no request is sent for a card that is gone)", async () => {
+      const first = deferredRows();
+      mockGetOutputRows.mockReturnValueOnce(first.promise);
+      const panel = makeOutputPanel({ id: "p1", config: { outputId: "out-1" } });
+      const store = makeStore(panel);
+      const { result, unmount } = renderHook(() => usePanelData(panel), {
+        wrapper: wrapper(store),
+      });
+      await waitFor(() => expect(mockGetOutputRows).toHaveBeenCalledTimes(1));
+      act(() => result.current.queueRefresh!());
+      unmount();
+      await act(async () => {
+        first.resolve(page(1));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      await settle();
+      expect(mockGetOutputRows).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // HEL-579 design.md D3, task 1.4.
   describe("isRefreshing (design.md D3, task 1.4)", () => {
     it("is true while a refresh fetch is pending and false once it resolves, independent of isLoading", async () => {

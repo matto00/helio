@@ -89,6 +89,7 @@ beforeEach(() => {
     paginationRows: [{ region: "east", amount: 10 }],
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
   stubFormMetrics();

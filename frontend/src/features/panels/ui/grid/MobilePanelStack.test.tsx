@@ -50,6 +50,7 @@ jest.mock("../../hooks/usePanelData", () => ({
     errorKind: null,
     noData: true,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
   })),
 }));
 
@@ -86,6 +87,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
   });
@@ -265,6 +267,7 @@ describe("MobilePanelStack — read-only stack (HEL-301)", () => {
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
 

@@ -109,6 +109,7 @@ beforeEach(() => {
     neverMaterialized: false,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
 });
@@ -289,6 +290,7 @@ describe("PanelCard — HEL-588 Fullscreen disclosure agrees with the grid card 
       neverMaterialized: false,
       rowsTruncated: true,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     renderPanelCard("panel-sibling", { seedPaginationRows: paginationRows });
@@ -374,6 +376,7 @@ describe("PanelCard — HEL-588 grid vs Fullscreen Inspect agree on row content 
       neverMaterialized: false,
       rowsTruncated: false,
       refresh: jest.fn(),
+      queueRefresh: jest.fn(),
       isRefreshing: false,
     });
     // crossFilter dimension="quarter", value="Q1" (renderPanelCard's default).

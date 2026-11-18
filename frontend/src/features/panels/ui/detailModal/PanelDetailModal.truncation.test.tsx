@@ -54,6 +54,7 @@ beforeEach(() => {
     paginationRows: [{ day: "Mon", amount: 5 }],
     rowsTruncated: true,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
 });

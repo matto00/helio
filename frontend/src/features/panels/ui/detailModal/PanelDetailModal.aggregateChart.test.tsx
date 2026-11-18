@@ -79,6 +79,7 @@ beforeEach(() => {
     paginationRows: records,
     rowsTruncated: false,
     refresh: jest.fn(),
+    queueRefresh: jest.fn(),
     isRefreshing: false,
   });
 });

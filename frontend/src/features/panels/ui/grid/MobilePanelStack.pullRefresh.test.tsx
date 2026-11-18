@@ -34,9 +34,13 @@ const mockUsePanelData = jest.mocked(usePanelData);
 const refreshA = jest.fn();
 const refreshB = jest.fn();
 const refreshText = jest.fn();
+// HEL-1738: a round registers `queueRefresh`; the per-panel `refresh` must never be called by one.
+const queueA = jest.fn();
+const queueB = jest.fn();
+const queueText = jest.fn();
 let refreshing: Record<string, boolean>;
 
-function data(refresh: () => void, isRefreshing: boolean) {
+function data(refresh: () => void, queueRefresh: () => void, isRefreshing: boolean) {
   return {
     data: null,
     rawRows: null,
@@ -48,6 +52,7 @@ function data(refresh: () => void, isRefreshing: boolean) {
     neverMaterialized: false,
     rowsTruncated: false,
     refresh,
+    queueRefresh,
     isRefreshing,
   };
 }
@@ -89,6 +94,9 @@ describe("MobilePanelStack pull-to-refresh", () => {
     refreshA.mockClear();
     refreshB.mockClear();
     refreshText.mockClear();
+    queueA.mockClear();
+    queueB.mockClear();
+    queueText.mockClear();
     window.matchMedia = jest.fn().mockImplementation((query: string) => ({
       matches: true,
       media: query,
@@ -99,7 +107,8 @@ describe("MobilePanelStack pull-to-refresh", () => {
     HTMLDialogElement.prototype.close = jest.fn();
     mockUsePanelData.mockImplementation((panel) => {
       const refresh = panel.id === "a" ? refreshA : panel.id === "b" ? refreshB : refreshText;
-      return data(refresh, refreshing[panel.id] ?? false);
+      const queue = panel.id === "a" ? queueA : panel.id === "b" ? queueB : queueText;
+      return data(refresh, queue, refreshing[panel.id] ?? false);
     });
   });
 
@@ -107,17 +116,20 @@ describe("MobilePanelStack pull-to-refresh", () => {
   it("refreshes each output-bound panel once and no other panel on a qualifying release", () => {
     renderWithStore(ui(), { panels: { items: [a, b, text] } });
     pullAndRelease(400);
-    expect(refreshA).toHaveBeenCalledTimes(1);
-    expect(refreshB).toHaveBeenCalledTimes(1);
-    expect(refreshText).not.toHaveBeenCalled();
+    expect(queueA).toHaveBeenCalledTimes(1);
+    expect(queueB).toHaveBeenCalledTimes(1);
+    expect(queueText).not.toHaveBeenCalled();
+    // HEL-1738 mutation: register `refresh` instead of `queueRefresh` -> red (a round never calls the per-panel refresh)
+    expect(refreshA).not.toHaveBeenCalled();
+    expect(refreshB).not.toHaveBeenCalled();
   });
 
   // mutation: refresh regardless of the threshold -> red
   it("refreshes nothing on a release short of the threshold", () => {
     renderWithStore(ui(), { panels: { items: [a, b, text] } });
     pullAndRelease(30);
-    expect(refreshA).not.toHaveBeenCalled();
-    expect(refreshB).not.toHaveBeenCalled();
+    expect(queueA).not.toHaveBeenCalled();
+    expect(queueB).not.toHaveBeenCalled();
   });
 
   // mutation: end busy on the first false read -> red; the request is held open by hand, not instantly resolved
@@ -184,8 +196,9 @@ describe("MobilePanelStack pull-to-refresh", () => {
       act(() => {
         held.current!.start("button");
       });
-      expect(refreshA).toHaveBeenCalledTimes(1);
-      expect(refreshB).toHaveBeenCalledTimes(1);
+      expect(queueA).toHaveBeenCalledTimes(1);
+      expect(queueB).toHaveBeenCalledTimes(1);
+      expect(refreshA).not.toHaveBeenCalled();
       expect(statusRegion().textContent).toBe("Refreshing");
       expect(document.querySelector(".pull-refresh-indicator")).toBeNull();
       expect(
@@ -211,9 +224,9 @@ describe("MobilePanelStack pull-to-refresh", () => {
       act(() => {
         held.current!.start("button");
       });
-      refreshA.mockClear();
+      queueA.mockClear();
       pullAndRelease(400);
-      expect(refreshA).not.toHaveBeenCalled();
+      expect(queueA).not.toHaveBeenCalled();
     });
   });
 });
