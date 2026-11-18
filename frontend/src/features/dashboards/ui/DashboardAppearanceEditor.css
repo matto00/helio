@@ -71,11 +71,11 @@
   transition: background-color var(--app-transition);
 }
 
-.dashboard-appearance-editor__save:hover:not(:disabled) {
+.dashboard-appearance-editor__save:hover:not([aria-disabled="true"]) {
   background: var(--app-accent-strong);
 }
 
-.dashboard-appearance-editor__save:disabled {
+.dashboard-appearance-editor__save[aria-disabled="true"] {
   opacity: 0.7;
   cursor: wait;
 }
