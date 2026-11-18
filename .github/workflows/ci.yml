@@ -155,6 +155,8 @@ jobs:
       - run: npm run check:ci-complete-needs:selftest
       # HEL-1299: cache-budget tooling. CI-only on purpose, like the other selftests above that avoid touching
       # `.husky/**`; check:precommit-ci-parity only requires hook checks to appear here, not the reverse.
+      # HEL-1758: the backend cache-key script's selftest (temp git repo; CI-only like the selftests above, no `.husky/**` change).
+      - run: npm run selftest:ci-backend-cache-key
       - run: npm run selftest:cache-janitor
       - run: npm run selftest:ci-prune-sbt-cas
       # HEL-1699: lane-start selftest (throwaway git repo, stub sbt; CI-only like the selftests above, no `.husky/**` change).
@@ -243,6 +245,16 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: sbt/setup-sbt@v1
+      # HEL-1758 D1: both cache keys come from git's index (scripts/ci-backend-cache-key.sh), not the runner's
+      # `hashFiles`, whose 120 s node subprocess stalled three times (runs 44226053854, 44244673956, 44244750573) and whose
+      # `**/build.sbt` glob walks the whole workspace. HEAD is the commit under test (the merge commit on a PR); the
+      # script fails on an empty input set (e.g. a sparse checkout) or a value that is not 64 hex, so a bare-prefix key
+      # can never reach a cache step. Placed before the FIRST cache step that consumes it.
+      - name: Compute backend cache keys
+        id: backend-key
+        run: |
+          git rev-parse HEAD
+          scripts/ci-backend-cache-key.sh
       # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
       - name: Restore sbt dependency cache
         id: sbt-cache
@@ -252,7 +264,7 @@ jobs:
             ~/.sbt
             ~/.ivy2/cache
             ~/.cache/coursier
-          key: sbt-${{ hashFiles('**/build.sbt') }}
+          key: sbt-${{ steps.backend-key.outputs.deps }}
           restore-keys: sbt-
       # HEL-1299 task 1.3: report-only composition of the restored sbt paths (PR runs, shard 0), so any trim is
       # decided on measurement. Prints sizes only; changes nothing.
@@ -277,7 +289,7 @@ jobs:
             backend/target/out
             ~/.cache/sbt
             !backend/target/out/**/test-reports
-          key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
+          key: backend-compile-v3-${{ runner.os }}-${{ steps.backend-key.outputs.compile }}
           restore-keys: backend-compile-v3-${{ runner.os }}-
       # HEL-1299 D2 (C1 proof): on PR runs prune the restored compile cache BEFORE compile/testFull, so the PR's real
       # build runs from exactly the content a pruned main entry would hold. PRs never save, so this is a permanent canary.
@@ -328,7 +340,7 @@ jobs:
             backend/target/out
             ~/.cache/sbt
             !backend/target/out/**/test-reports
-          key: backend-compile-v3-${{ runner.os }}-${{ hashFiles('backend/src/**', 'backend/build.sbt', 'backend/project/*.scala', 'backend/project/*.sbt', 'backend/project/build.properties') }}
+          key: backend-compile-v3-${{ runner.os }}-${{ steps.backend-key.outputs.compile }}
       # HEL-1299 D1: the only writer of the sbt dependency cache -- one job, main pushes only, only when no exact hit.
       - name: Save sbt dependency cache (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.shard == 0 && steps.sbt-cache.outputs.cache-hit != 'true'
@@ -338,7 +350,7 @@ jobs:
             ~/.sbt
             ~/.ivy2/cache
             ~/.cache/coursier
-          key: sbt-${{ hashFiles('**/build.sbt') }}
+          key: sbt-${{ steps.backend-key.outputs.deps }}
       # HEL-1287: JUnit XML (one per suite, `time` attribute) is the per-suite profile source.
       - name: Upload backend JUnit reports
         if: always()
@@ -384,6 +396,16 @@ jobs:
           java-version: 21
       - id: setup-sbt
         uses: sbt/setup-sbt@v1
+      # HEL-1758 D1: both cache keys come from git's index (scripts/ci-backend-cache-key.sh), not the runner's
+      # `hashFiles`, whose 120 s node subprocess stalled three times (runs 44226053854, 44244673956, 44244750573) and whose
+      # `**/build.sbt` glob walks the whole workspace. HEAD is the commit under test (the merge commit on a PR); the
+      # script fails on an empty input set (e.g. a sparse checkout) or a value that is not 64 hex, so a bare-prefix key
+      # can never reach a cache step. Placed before the FIRST cache step that consumes it.
+      - name: Compute backend cache keys
+        id: backend-key
+        run: |
+          git rev-parse HEAD
+          scripts/ci-backend-cache-key.sh
       # HEL-1299 D1: every job only RESTORES the sbt dependency cache; the one save is backend shard 0 on a main push.
       - name: Restore sbt dependency cache
         uses: actions/cache/restore@v6
@@ -392,7 +414,7 @@ jobs:
             ~/.sbt
             ~/.ivy2/cache
             ~/.cache/coursier
-          key: sbt-${{ hashFiles('**/build.sbt') }}
+          key: sbt-${{ steps.backend-key.outputs.deps }}
           restore-keys: sbt-
       - id: setup-node
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}

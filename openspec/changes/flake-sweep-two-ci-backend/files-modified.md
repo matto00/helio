@@ -1,0 +1,11 @@
+- `scripts/ci-backend-cache-key.sh` - new: backend compile/deps cache keys from `git ls-files -s | sha256sum` (replaces the runner's hashFiles); fails on empty input or non-64-hex
+- `scripts/ci-backend-cache-key.selftest.sh` - new: temp-repo selftest of every D1 (a) scenario (red recorded against ls-tree and drop-backend/project variants)
+- `scripts/cache-janitor.selftest.mjs` - old hashFiles-era vs script-era `sbt-<64hex>` transition case (red recorded with a 40-hex key)
+- `.github/workflows/ci.yml` - `backend-key` step before the first cache step in the backend and security jobs; keys use its outputs; selftest wired into the frontend job
+- `.github/actions/e2e-setup/action.yml` - own `backend-key` step; sbt restore key from its output
+- `package.json` - `selftest:ci-backend-cache-key` script (CI-only, not in .husky)
+- `backend/project/gen-test-suite-weights.py` - per-suite mean over `<run>=<dir>` groups, script-written header
+- `backend/project/extract-fresh-junit.py` - new: keeps only the reports a leg produced inside its step window (shard artifacts hold stale restored reports)
+- `backend/project/test-suite-weights.tsv` - regenerated from main runs 44239430764, 44231635772, 44218987137 (714 suites; was 416)
+- `e2e/hel1583-home-375.spec.ts` - wait for the shelf's settled state (4 cards, loading skeleton gone) before measuring
+- `openspec/changes/flake-sweep-two-ci-backend/tasks.md` - task status

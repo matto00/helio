@@ -59,6 +59,12 @@ for (const theme of ["light", "dark"] as const) {
       // A `list` on the phone layout (a `group` on desktop), so address it by its label, not its role.
       const timeline = home.locator('[aria-label="Pipeline runs, last 24 hours"]');
       await expect(timeline).toBeVisible();
+      // The shelf cards come from GET /api/dashboards, the timeline from GET /api/home-summary: two requests that settle
+      // independently, so the timeline being visible does not mean the shelf has rendered (HEL-1758: cardCount 0 vs 4
+      // when the dashboards answer landed after the summary's). Wait for the shelf's settled state: the four cards
+      // present, then the loading skeleton gone, before measuring anything.
+      await expect(home.locator(".home-shelf__item")).toHaveCount(4);
+      await expect(home.getByRole("status", { name: "Loading dashboards" })).toHaveCount(0);
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
 
       const m = await page.evaluate(() => {
