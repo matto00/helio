@@ -4,11 +4,15 @@ import {
   WEB_FONTS_SERVER_ID,
   webFontsMarkerUrl,
   webFontsPort,
+  WEB_FONTS_DIR,
+  WEB_FONTS_HOSTS,
 } from "./webFontsHost";
+import fs from "node:fs";
 import https from "node:https";
+import path from "node:path";
 
-// HEL-1757 — see fixtures/web-fonts/README.md. Reads the local fonts server's identity marker (Node-side, so
-// certificate pinning is skipped: this request is to 127.0.0.1, not a fonts host).
+// HEL-1757 — see fixtures/web-fonts/README.md. Reads the local fonts server's identity marker (Node-side, validated
+// against the committed test cert; the request goes to 127.0.0.1 with the fonts host as the TLS server name).
 
 export interface WebFontsMarker {
   server: string;
@@ -19,7 +23,12 @@ export function readWebFontsMarker(): Promise<WebFontsMarker> {
   return new Promise((resolve, reject) => {
     const req = https.get(
       webFontsMarkerUrl(),
-      { rejectUnauthorized: false, timeout: 5_000 },
+      {
+        // Pin the server's identity: trust only the committed self-signed test cert (SAN: the fonts hosts).
+        ca: fs.readFileSync(path.join(WEB_FONTS_DIR, "test-cert.pem")),
+        servername: WEB_FONTS_HOSTS[0],
+        timeout: 5_000,
+      },
       (res) => {
         let body = "";
         res.setEncoding("utf8");
