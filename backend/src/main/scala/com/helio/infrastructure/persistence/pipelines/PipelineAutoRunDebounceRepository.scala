@@ -40,9 +40,27 @@ class PipelineAutoRunDebounceRepository(ctx: DbContext)(implicit ec: ExecutionCo
              ON CONFLICT (pipeline_id) DO UPDATE
                SET fire_at    = GREATEST(pipeline_auto_run_debounce.fire_at, EXCLUDED.fire_at),
                    claimed_at = NULL,
-                   guard_retry_count = 0"""
+                   guard_retry_count = 0,
+                   write_generation = EXCLUDED.write_generation"""
     ).map(_ => ())
   }
+
+  /** HEL-1739 (design.md D2): the pending row's current write generation, read as its own statement
+   *  just before a real run is admitted. `None` when no auto-run is pending. */
+  def pendingWriteGeneration(pipelineId: PipelineId): Future[Option[Long]] =
+    ctx.withSystemContext(
+      sql"""SELECT write_generation FROM pipeline_auto_run_debounce
+            WHERE pipeline_id = ${pipelineId.value}""".as[Long].headOption
+    )
+
+  /** HEL-1739 (design.md D3): compare-and-delete on the write generation a run snapshotted. Matches
+   *  zero rows if a later write re-armed the row (new generation) or the row is already gone. It
+   *  deliberately ignores `claimed_at`: a claim held by the firer simply finds nothing to release. */
+  def cancelIfGeneration(pipelineId: PipelineId, generation: Long): Future[Int] =
+    ctx.withSystemContext(
+      sqlu"""DELETE FROM pipeline_auto_run_debounce
+             WHERE pipeline_id = ${pipelineId.value} AND write_generation = $generation"""
+    )
 
   /** Atomically claims every row due to fire at or before `now` that is not already claimed (or
    *  whose claim is stale -- older than `staleClaimAfter`, a self-healing fallback for a claim

@@ -8,7 +8,7 @@ import com.helio.services.sources.DataSourceService
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineExecutionBackend, PipelineRowJson, RootKey, RunLimits, SourceReadStats, StepExecutionException, StepKey}
 import com.helio.domain.steps.StepConfigError
 import com.helio.domain.util.Clock
-import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.pipelines.PipelineRunRepository.RunState
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
@@ -35,7 +35,9 @@ private[pipelines] final class PipelineRunExecutor(
     succeeded: PipelineRunSucceededWrites,
     liveRunTracker: LiveRunTracker,
     // HEL-1660 (design.md D3): lists the pipeline's Outputs before the walk so their node frames are retained.
-    outputRepo: OutputRepository
+    outputRepo: OutputRepository,
+    // HEL-1739 (design.md D2): nullable-optional; read once per real run, just before admission.
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -160,8 +162,18 @@ private[pipelines] final class PipelineRunExecutor(
         // (cap reached), `executeRun` returns `Left(TooManyRequests(...))` immediately, WITHOUT
         // ever calling `backend.execute` -- hence `preExec`'s short-circuiting
         // `Future[Either[ServiceError, Unit]]` shape (was `Future[Unit]` pre-HEL-505).
-        val preExec: Future[Either[ServiceError, Unit]] =
-          if (!isDry && pipelineRunRepo != null) {
+        // HEL-1739 (design.md D2): the pending auto-run's write generation, read as its own statement immediately before
+        // admission (outside the admission transaction and `submit`). A refused admission discards it; a failed read
+        // means "cancel nothing".
+        val autoRunSnapshot: Future[Option[Long]] =
+          if (!isDry && pipelineRunRepo != null && autoRunDebounceRepo != null)
+            autoRunDebounceRepo.pendingWriteGeneration(pipelineId).recover { case NonFatal(ex) =>
+              log.warn(s"HEL-1739: reading the pending auto-run generation of pipeline ${pipelineId.value} failed; this run cancels nothing", ex)
+              None
+            }
+          else Future.successful(None)
+        val preExec: Future[Either[ServiceError, Option[Long]]] =
+          if (!isDry && pipelineRunRepo != null) autoRunSnapshot.flatMap { generation =>
             val admission =
               if (ownerRun)
                 pipelineRunRepo.insertRunIfUnderConcurrencyCap(runId, pipelineId, startAt, user, triggerSource, triggeredByTokenId, guardConfig.maxConcurrent, submitterId)
@@ -176,7 +188,7 @@ private[pipelines] final class PipelineRunExecutor(
                   else pipelineRunRepo.deleteOldRunsInternal(pipelineId, keepN = 10)
                 retention
                   .recoverWith { case _ => Future.successful(()) }
-                  .map(_ => Right(()))
+                  .map(_ => Right(generation))
               case PipelineRunRepository.ConcurrencyCapResult.CapExceeded =>
                 Future.successful(Left(ServiceError.TooManyRequests(guardConfig.concurrencyRetryAfterSeconds, "Pipeline-run concurrency limit exceeded")))
               // Not the owner/editor (grant revoked since `submit`'s check): never executed.
@@ -191,20 +203,20 @@ private[pipelines] final class PipelineRunExecutor(
             // executes (the former post-execution check only skipped its row). A revoke after this point is the same
             // accepted race as the real-run window.
             pipelineRunRepo.checkRunAuthorizationInternal(pipelineId, user).map {
-              case PipelineRunRepository.RunAuthorization.Authorized    => Right(())
+              case PipelineRunRepository.RunAuthorization.Authorized    => Right(None)
               case PipelineRunRepository.RunAuthorization.NotAuthorized => Left(ServiceError.Forbidden("Forbidden"))
               case PipelineRunRepository.RunAuthorization.PipelineGone  => Left(pipelineGone(pipelineId))
             }
-          } else Future.successful(Right(()))
+          } else Future.successful(Right(None))
 
         preExec.flatMap {
           case Left(err) => Future.successful(Left(err))
-          case Right(()) =>
+          case Right(autoRunGeneration) =>
             // HEL-1511 (design.md D1): a real run is tracked from admission to its last terminal write, on every exit
             // path (`Future.delegate` turns a synchronous throw into a failed Future, so the `andThen` still deregisters).
             val tracked = !isDry && pipelineRunRepo != null
             if (tracked) liveRunTracker.register(runId)
-            Future.delegate(runAdmitted(pipeline, roots, steps, isDry, user, triggerSource, pipelineId, runId, startAt, pidStr, ownerRun, assertionSink, truncationSink, writeBackSink))
+            Future.delegate(runAdmitted(pipeline, roots, steps, isDry, user, triggerSource, pipelineId, runId, startAt, pidStr, ownerRun, assertionSink, truncationSink, writeBackSink, autoRunGeneration))
               .andThen { case _ => if (tracked) liveRunTracker.deregister(runId) }
         }
     }
@@ -225,7 +237,8 @@ private[pipelines] final class PipelineRunExecutor(
       ownerRun:       Boolean,
       assertionSink:  AssertionSink,
       truncationSink: TruncationSink,
-      writeBackSink:  WriteBackSink
+      writeBackSink:  WriteBackSink,
+      autoRunGeneration: Option[Long]
   ): Future[Either[ServiceError, RunResultResponse]] = {
     // HEL-1370: admitted by the guard (and, for a real run, the `queued` row is committed).
     publish(pidStr, RunStatusEvent("queued", runId = Some(runId.value)))
@@ -267,7 +280,7 @@ private[pipelines] final class PipelineRunExecutor(
       case Success((resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain)) =>
         executeRunSuccess(
           pipeline, roots, pipelineId, runId, startAt, pidStr, isDry, user, ownerRun, triggerSource, assertionSink, truncationSink, writeBackSink,
-          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain
+          resultRows, stepCounts, sourceCount, primaryStats, nodeOutcomes, retain, autoRunGeneration
         )
     }
   }
@@ -310,7 +323,8 @@ private[pipelines] final class PipelineRunExecutor(
       sourceCount: Long,
       primaryStats: SourceReadStats,
       nodeOutcomes: Map[NodeKey, NodeOutcome],
-      retain: Set[NodeKey]
+      retain: Set[NodeKey],
+      autoRunGeneration: Option[Long]
   ): Future[Either[ServiceError, RunResultResponse]] = {
         val jsRows = resultRows.map { rowMap =>
           JsObject(rowMap.map { case (k, v) => k -> PipelineRowJson.anyToJsValue(v) })
@@ -336,7 +350,7 @@ private[pipelines] final class PipelineRunExecutor(
           else
             onRunSuccess(
               roots.head._2.id, roots.head._1, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource,
-              assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId, retain
+              assertionSink.results, availableRowCount, truncatedReads, writeBackSink, pipeline.ownerId, retain, autoRunGeneration
             )
         followUp.map {
           case Left(err) => Left(err)
@@ -383,7 +397,8 @@ private[pipelines] final class PipelineRunExecutor(
       // under the owner's identity/RLS context).
       writeBackSink:      WriteBackSink,
       pipelineOwnerId:    UserId,
-      retain:             Set[NodeKey]
+      retain:             Set[NodeKey],
+      autoRunGeneration:  Option[Long]
   ): Future[Either[ServiceError, Option[String]]] = {
     val blockingFailures = assertionResults.filter(r => r.severity == "error" && !r.passed)
     if (blockingFailures.nonEmpty)
@@ -393,7 +408,7 @@ private[pipelines] final class PipelineRunExecutor(
     else runState(runId).flatMap {
       // HEL-1511 (design.md D4): the run was reaped as abandoned while this instance stalled. Its late outcome is dropped
       // whole -- no write-back, snapshot, history, alert, assertion or last-run write -- so it cannot overwrite newer data.
-      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId, retain)
+      case RunState.Open => unblockedChain(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, writeBackSink, pipelineOwnerId, retain, autoRunGeneration)
         // HEL-1518 (design.md D3/D4): a guard trip inside a node's snapshot transaction means the run was finalized
         // or deleted after the early check; it maps exactly like the early check does.
         .recoverWith { case PipelineRunRepository.RunNoLongerOpen(state) => lateFinisher(pipelineId, runId, state) }
@@ -447,7 +462,8 @@ private[pipelines] final class PipelineRunExecutor(
       truncatedReads:     Vector[TruncatedReadResponse],
       writeBackSink:      WriteBackSink,
       pipelineOwnerId:    UserId,
-      retain:             Set[NodeKey]
+      retain:             Set[NodeKey],
+      autoRunGeneration:  Option[Long]
   ): Future[Either[ServiceError, Option[String]]] = {
     Future.unit.flatMap(_ => applyPendingWriteBacks(writeBackSink, pipelineOwnerId, user)).recoverWith {
       // HEL-1370: a failed (non-IllegalStateException) write-back Future is a run failure too:
@@ -462,7 +478,7 @@ private[pipelines] final class PipelineRunExecutor(
         val errMsg = s"Step (upsertsource): $reason"
         onWriteBackFailure(pipelineId, runId, pidStr, user, ownerRun, assertionResults, errMsg).map(_ => Left(ServiceError.UnprocessableEntity(errMsg)))
       case Right(()) =>
-        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId, retain).map(Right(_))
+        onUnblockedRunSuccess(sourceDataSourceId, lowestRootId, pipelineId, runId, pidStr, resultRows, jsRows, stepCounts, nodeOutcomes, user, ownerRun, triggerSource, assertionResults, primaryAvailableRowCount, truncatedReads, pipelineOwnerId, retain, autoRunGeneration).map(Right(_))
     }
   }
 

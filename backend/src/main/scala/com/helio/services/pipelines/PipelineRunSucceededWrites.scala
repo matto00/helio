@@ -7,7 +7,7 @@ import com.helio.domain.model.{AssertionResult, AuthenticatedUser, BinaryRef, Da
 import com.helio.domain.engine.{NodeKey, NodeOutcome, PipelineRowJson, RootKey, SchemaField, SchemaInferenceEngine, StepKey}
 import com.helio.domain.engine.PipelineAnalyzeService.schemaFieldJsonFormat
 import com.helio.domain.history.{OutputSummaryReducer, PayloadHistoryConfig, PayloadOptIn}
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, OutputHistoryInsert, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import org.slf4j.LoggerFactory
 import slick.dbio.DBIO
@@ -16,6 +16,7 @@ import spray.json.DefaultJsonProtocol._
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 /** The unblocked-success materialization chain (node snapshots, history, binary refs, alert evaluation) and its
  *  terminal `succeeded` publish through [[PipelineRunTerminalWrites.publishTerminalAfter]]. Split out of
@@ -33,7 +34,9 @@ private[pipelines] final class PipelineRunSucceededWrites(
     nodePayloadRepo: NodePayloadHistoryRepository,
     payloadConfig: PayloadHistoryConfig,
     support: PipelineRunSupport,
-    terminal: PipelineRunTerminalWrites
+    terminal: PipelineRunTerminalWrites,
+    // HEL-1739: nullable-optional; cancels the pending auto-run of the writes the run read (design.md D3).
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -69,7 +72,9 @@ private[pipelines] final class PipelineRunSucceededWrites(
       truncatedReads:     Vector[TruncatedReadResponse],
       pipelineOwnerId:    UserId,
       // HEL-1660: the nodes the run kept frames for; an Output outside it was created mid-run (design.md D3).
-      retain:             Set[NodeKey]
+      retain:             Set[NodeKey],
+      // HEL-1739 (design.md D2): the pending auto-run's write generation read just before admission, if any.
+      autoRunGeneration:  Option[Long] = None
   ): Future[Option[String]] = {
     def writesChain(): Future[Option[String]] = {
       val now = Instant.now()
@@ -253,6 +258,21 @@ private[pipelines] final class PipelineRunSucceededWrites(
           writeLastRun(pipelineId, "succeeded", now, rowCount = Some(resultRows.size.toLong), user, ownerRun, truncated = Some(truncatedReads.nonEmpty), stepRowCountsJson = stepRowCountsJson)
         }
       }
+      // HEL-1739 (design.md D3): a winning `succeeded` write removes the auto-run armed by the writes this run read
+      // (compare-and-delete on the snapshotted generation, so a later write keeps its own). Awaited in the chain below, so
+      // it completes before `succeeded` is published; a failure only logs (the auto-run then fires redundantly, as before).
+      val cancelAutoRun: Future[Unit] =
+        updateRun.flatMap { won =>
+          afterTerminalWin(runId, "succeeded", won) {
+            (autoRunDebounceRepo, autoRunGeneration) match {
+              case (repo, Some(generation)) if repo != null =>
+                repo.cancelIfGeneration(pipelineId, generation).map(_ => ()).recover { case NonFatal(ex) =>
+                  log.warn(s"HEL-1739: cancelling the pending auto-run of pipeline ${pipelineId.value} failed after run ${runId.value}", ex)
+                }
+              case _ => Future.unit
+            }
+          }
+        }
       // HEL-509 (419-B): insertRun already ran during preExec, so the parent
       // `pipeline_runs` row exists before this real-run success path runs —
       // no ordering constraint here (unlike `PipelineRunTerminalWrites.onDryRunSuccess`).
@@ -288,6 +308,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
           _ <- alertEvaluation
           won <- updateRun
           _ <- updateMeta
+          _ <- cancelAutoRun
           _ <- assertionsInsert
           _ <- baselineUpsert
           _ <- failIfLostTerminalWrite(runId, won)
@@ -295,7 +316,7 @@ private[pipelines] final class PipelineRunSucceededWrites(
         // HEL-1564: a failure after the run's own `succeeded` write won, with the pipeline gone, answers success.
         deletedRecovery.recover(
           pipelineId = pipelineId, runId = runId, chain = chain, won = updateRun,
-          siblings = Seq(materializedWrites, binaryRefsUpsert, alertEvaluation, updateMeta, assertionsInsert, baselineUpsert)
+          siblings = Seq(materializedWrites, binaryRefsUpsert, alertEvaluation, updateMeta, cancelAutoRun, assertionsInsert, baselineUpsert)
         )
     }
     // HEL-1366: `succeeded` is published only after the whole chain (snapshots, run status,

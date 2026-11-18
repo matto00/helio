@@ -13,7 +13,7 @@ import com.helio.domain.util.{Clock, SystemClock}
 import com.helio.services.sources.{ContentSourceSupport, SourceUrlFetch}
 import org.apache.pekko.actor.typed.ActorSystem
 import com.helio.domain.history.PayloadHistoryConfig
-import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{BinaryRefRepository, NodeSnapshotRepository, NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineStepRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.FileSystem
 import com.helio.spark.PipelineRunCache
@@ -106,7 +106,10 @@ final class PipelineRunService(
     guardClock: Clock = SystemClock,
     // HEL-1511 (design.md D1): the real runs this process is executing, stamped by the heartbeat actor. Defaulted so
     // existing construction sites compile; `Main` reads `liveRunTracker` back to hand the same instance to the actor.
-    val liveRunTracker: LiveRunTracker = new LiveRunTracker
+    val liveRunTracker: LiveRunTracker = new LiveRunTracker,
+    // HEL-1739 (design.md D2/D3): nullable-optional like pipelineRunGuardRepo -- a fixture that omits it never
+    // snapshots or cancels a pending dataset-write auto-run.
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "PipelineRunService requires an OutputRepository")
@@ -132,8 +135,8 @@ final class PipelineRunService(
   // HEL-1371: concern-focused collaborators, built after `backend` (eagerly initialised) and in dependency order.
   private val support   = new PipelineRunSupport(pipelineRepo, dataSourceRepo)
   private val terminal  = new PipelineRunTerminalWrites(pipelineRepo, pipelineRunRepo, registry, support)
-  private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal)
-  private val executor  = new PipelineRunExecutor(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded, liveRunTracker, outputRepo)
+  private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal, autoRunDebounceRepo)
+  private val executor  = new PipelineRunExecutor(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded, liveRunTracker, outputRepo, autoRunDebounceRepo)
   private val backfill  = new PipelineRunBackfill(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, outputRepo, nodeSnapshotRepo, backend, support)
   private val queries   = new PipelineRunQueries(pipelineRepo, pipelineRunRepo, cache)
   import executor.runPipeline
