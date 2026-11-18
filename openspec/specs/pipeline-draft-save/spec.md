@@ -7,9 +7,10 @@ stale base, and optionally start a run through the unchanged HEL-505 guard.
 ## Requirements
 
 ### Requirement: Atomic declarative draft save
-`POST /api/pipelines/:id/draft/save` SHALL accept `{baseFingerprint, steps[], outputs[], runAfterSave?,
-confirmCascade?}` describing the final step tree and Outputs, and SHALL apply every create, update, delete (with its
-cascade), re-parent, trunk reorder and Output create/update/delete in a single database transaction.
+`POST /api/pipelines/:id/draft/save` SHALL accept `{baseFingerprint, steps[], outputs[], roots?, runAfterSave?,
+confirmCascade?}` describing the final step tree, Outputs and (when present) roots, and SHALL apply every create, update,
+delete (with its cascade), re-parent, trunk reorder, Output create/update/delete and root add/remove (see "Draft save
+accepts the final roots") in a single database transaction.
 
 #### Scenario: Whole draft commits together
 - **WHEN** an owner or editor saves a draft that creates, updates, deletes and reorders steps and edits an Output

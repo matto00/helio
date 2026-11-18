@@ -90,3 +90,24 @@ is a root of P, so a draft root has preview frames; it SHALL NOT serve a source 
 #### Scenario: Editor samples their own draft-root source
 - **WHEN** an editor of P requests the sample of a source they own that is not yet a root of P
 - **THEN** the response is 200
+
+## MODIFIED Requirements
+
+### Requirement: Atomic declarative draft save
+`POST /api/pipelines/:id/draft/save` SHALL accept `{baseFingerprint, steps[], outputs[], roots?, runAfterSave?,
+confirmCascade?}` describing the final step tree, Outputs and (when present) roots, and SHALL apply every create, update,
+delete (with its cascade), re-parent, trunk reorder, Output create/update/delete and root add/remove (see "Draft save
+accepts the final roots") in a single database transaction.
+
+#### Scenario: Whole draft commits together
+- **WHEN** an owner or editor saves a draft that creates, updates, deletes and reorders steps and edits an Output
+- **THEN** the response is 200 and the stored definition equals the draft, with a new `fingerprint`
+
+#### Scenario: Fault mid-chain leaves nothing
+- **WHEN** a failure is injected after some writes of the chain and before commit
+- **THEN** the stored definition and its fingerprint are byte-identical to before the request and no journal row exists
+
+#### Scenario: Validation failure rolls back
+- **WHEN** a step fails `rawConfigProblem`, a cross-owner secondary ref, the upsert target check, a lane cycle or a
+  pipeline cycle
+- **THEN** the response is 400 naming the step and nothing is written
