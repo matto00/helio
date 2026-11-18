@@ -17,6 +17,7 @@ A rerun passed each time. Each one costs a rerun and blocks the merge. HEL-1758 
 - Measure per-shard wall-clock time over recent main runs, and name the cause: shard weights, a slow spec, or a limit set too tight.
 - Fix the cause: rebalance the weights, split the slow spec, or raise the limit with a measured reason.
 - Show the new per-shard times on at least three CI runs, with headroom stated.
+- (Fold-in, owner ruling 2026-11-18, recorded via `concertino answer --channel=chat` after the escalation on PR #1172) Move the `e2e` CI matrix from 6 to 7 legs, keeping the regenerated weights, and measure at least 3 attempts: slowest leg, mean leg, and headroom under 1500 s per attempt. If the counting 7-leg attempts still miss 1200 s, report the numbers (no further escalation) and file a follow-up for the heavy, variable specs (hel1665-home-phone-stability, hel1733-draft-outputs-shapes, hel1583-glass-nav, hel1608-spine-count-overlap).
 
 ## Agent notes
 
