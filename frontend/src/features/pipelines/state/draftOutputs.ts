@@ -4,7 +4,7 @@
 
 import type { Output } from "../types/output";
 import type { Step } from "../types/step";
-import { applyOp, isDraftClientId, isOutputOp } from "./draftOps";
+import { applyOp, isDraftClientId, isOutputOp, rootNamedBy } from "./draftOps";
 import { jsonEqual } from "./jsonEqual";
 import type { DraftOp, DraftOutputNode } from "./draftOps";
 
@@ -82,7 +82,14 @@ export function replayInterleaved(
   const droppedOps: DraftOp[] = [];
   const cascaded = new Set<string>();
   const deleted = new Set<string>();
+  // HEL-1734: roots the log removed so far; an op naming one of them (an anchor, a reorder, an Output on it) no longer applies.
+  const removedRoots = new Set<string>();
   for (const op of ops) {
+    const named = rootNamedBy(op);
+    if (op.kind !== "rootRemove" && named !== undefined && removedRoots.has(named)) {
+      droppedOps.push(op);
+      continue;
+    }
     if (op.kind === "outputCreate") {
       if (outputs === null) {
         keptOps.push(op);
@@ -115,9 +122,15 @@ export function replayInterleaved(
     }
     steps = next;
     keptOps.push(op);
+    if (op.kind === "rootRemove") removedRoots.add(op.rootId);
     if (outputs !== null) {
       const present = new Set(steps.map((s) => s.id));
-      const gone = outputs.filter((o) => o.nodeStepId !== undefined && !present.has(o.nodeStepId));
+      const gone = outputs.filter(
+        (o) =>
+          (o.nodeStepId !== undefined && !present.has(o.nodeStepId)) ||
+          // A root-bound Output goes with its root.
+          (o.nodeStepId === undefined && o.rootId !== undefined && removedRoots.has(o.rootId)),
+      );
       if (gone.length > 0) {
         for (const o of gone) cascaded.add(o.id);
         outputs = outputs.filter((o) => !cascaded.has(o.id));

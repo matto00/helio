@@ -15,6 +15,7 @@ final case class LockSite(label: String) {
 
 object LockSite {
   // The save's own locks, in protocol order.
+  val SaveRootSources: LockSite = LockSite("save.rootSources") // (0) added sources FOR KEY SHARE, in id order (HEL-1734)
   val SavePanels: LockSite   = LockSite("save.panels")   // (1) lockForDeletion
   val SaveAdvisory: LockSite = LockSite("save.advisory") // (2) the cycle advisory lock, when an upsert edge changes
   val SavePipeline: LockSite = LockSite("save.pipeline") // (3) pipeline row FOR NO KEY UPDATE
@@ -25,6 +26,7 @@ object LockSite {
   val SavePanelsFirst: LockSite        = LockSite("save.order.panelsFirst")        // inactive: pipeline, rules, Outputs, THEN panels (the 8.3 earlier order)
   val SaveOutputsByPosition: LockSite  = LockSite("save.order.outputsByPosition")  // inactive: Outputs by id (deadlocks with the node-snapshot txn)
   val SaveRulesBeforeOutputs: LockSite = LockSite("save.order.rulesBeforeOutputs") // inactive: Outputs then rules (deadlocks with the alert evaluator)
+  val SaveRootSourcesFirst: LockSite   = LockSite("save.order.rootSourcesFirst")   // inactive: added sources AFTER the pipeline row (deadlocks with a source delete)
 
   // Writers that gain lock (3) (task 4.1).
   val StepUpdate: LockSite         = LockSite("step.update")
@@ -53,7 +55,7 @@ object LockSite {
 
   /** Every site, for specs that sweep them. */
   val All: Vector[LockSite] = Vector(
-    SavePanels, SaveAdvisory, SavePipeline, SaveRules, SaveOutputs, SavePanelsFirst, SaveOutputsByPosition, SaveRulesBeforeOutputs,
+    SaveRootSources, SavePanels, SaveAdvisory, SavePipeline, SaveRules, SaveOutputs, SavePanelsFirst, SaveOutputsByPosition, SaveRulesBeforeOutputs, SaveRootSourcesFirst,
     StepUpdate, StepInsert, StepInsertAt, StepSplice, StepAttach, StepReorder, StepReorderTrunk, StepDelete, StepDeletePanelsFirst, RootRemovePanelsFirst, OutputCreate,
     OutputDelete, RootAdd, RootAddSourceShare, RootRemove, ScheduleUpsert, ScheduleDelete, RewriteUpsert, RewriteAdvisoryFirst,
     SourceDelete, SourceDeleteSourceRow, TeardownSourcesFirst, TeardownPipelines

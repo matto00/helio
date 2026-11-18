@@ -1,7 +1,7 @@
 package com.helio.services.pipelines.draft
 
 import com.helio.api.protocols.pipelines.{DraftRunNotStarted, DraftRunOutcomeResponse, DraftRunStarted, DraftSaveRequest, DraftSaveResponse, DraftSavedDefinitionResponse, DraftSavedResponse, PipelineSummaryResponse}
-import com.helio.domain.model.{AuthenticatedUser, Pipeline, PipelineId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, Pipeline, PipelineId}
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
@@ -43,11 +43,11 @@ final class DraftSaveService(
   private val log = LoggerFactory.getLogger(getClass)
 
   private val writes = new PipelineDraftWrites(locks, pipelineRootRepo, pipelineStepRepo, outputRepo)
-  private val reads  = new DraftDefinitionReads(pipelineStepRepo, outputRepo)
+  private val reads  = new DraftDefinitionReads(pipelineStepRepo, outputRepo, pipelineRepo)
   // Only the repositories `ofAction` reads are used; the rest of the patch-set context is not touched by a definition read.
   private val definitionCtx = PatchSetApplyContext.buildUncharged(panelRepo, null, dataSourceRepo, pipelineRepo, pipelineStepRepo, null, outputRepo)
   private val transaction = new DraftSaveTransaction(
-    writes, pipelineStepRepo, outputRepo, panelRepo, applicationRepo, auditRepo, definitionCtx, reads, hooks
+    writes, pipelineStepRepo, pipelineRootRepo, outputRepo, panelRepo, applicationRepo, auditRepo, definitionCtx, reads, hooks
   )
   private val support = new PipelineServiceSupport(pipelineStepRepo, dataSourceRepo, null)
 
@@ -73,7 +73,7 @@ final class DraftSaveService(
           case Right(saved) =>
             runAfter(pipelineId, req.runAfterSave, user).map { run =>
               Right(DraftSaveResponse(
-                DraftSavedResponse(saved.fingerprint, DraftSavedDefinitionResponse(saved.steps, saved.outputs), saved.applicationId),
+                DraftSavedResponse(saved.fingerprint, DraftSavedDefinitionResponse(saved.steps, saved.outputs, saved.roots), saved.applicationId),
                 run
               ))
             }
@@ -98,7 +98,7 @@ final class DraftSaveService(
               DraftDiff.plan(rows, req, mode.restoring, () => UUID.randomUUID().toString) match {
                 case Left(err)   => staleBeforeInvalid(pipelineId, req, err)
                 case Right(plan) =>
-                  checkReferences(plan, pipeline, user).flatMap {
+                  checkReferences(plan, pipeline, user, mode).flatMap {
                     case Left(err) => staleBeforeInvalid(pipelineId, req, err)
                     case Right(()) =>
                       pipelineRepo
@@ -129,7 +129,29 @@ final class DraftSaveService(
   /** The reference checks that read other tables and so cannot share the transaction's snapshot (inherited from create):
    *  a secondary source must be owned by the CALLER, an `upsertsource` target by the pipeline OWNER. Run before the
    *  transaction; the transaction re-plans on the locked state and refuses to write a step these did not cover. */
-  private def checkReferences(plan: DraftPlan, pipeline: Pipeline, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
+  private def checkReferences(plan: DraftPlan, pipeline: Pipeline, user: AuthenticatedUser, mode: DraftSaveMode): Future[Either[ServiceError, Unit]] = {
+    // HEL-1734 (D6): a source added as a root must be the CALLER's own, the check `POST /roots` makes. An undo restore skips
+    // it (the actor was authorised when the root was created); the source's existence is checked under lock (0) instead.
+    val addedOwned: Future[Either[ServiceError, Unit]] =
+      if (mode.restoring) Future.successful(Right(()))
+      else
+        plan.addedSourceIds.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, sid) =>
+          accF.flatMap {
+            case left @ Left(_) => Future.successful(left)
+            case Right(())      =>
+              dataSourceRepo.findByIdOwned(DataSourceId(sid), user).map {
+                case None    => Left(ServiceError.NotFound(s"Data source not found: $sid"))
+                case Some(_) => Right(())
+              }
+          }
+        }
+    addedOwned.flatMap {
+      case left @ Left(_) => Future.successful(left)
+      case Right(())      => checkStepReferences(plan, pipeline, user)
+    }
+  }
+
+  private def checkStepReferences(plan: DraftPlan, pipeline: Pipeline, user: AuthenticatedUser): Future[Either[ServiceError, Unit]] =
     plan.checkedConfigs.foldLeft(Future.successful[Either[ServiceError, Unit]](Right(()))) { (accF, c) =>
       accF.flatMap {
         case left @ Left(_) => Future.successful(left)
@@ -183,7 +205,7 @@ final class DraftSaveService(
             defn  <- if (includeDefinition) reads.definition(pipelineId).map(Some(_)) else DBIO.successful(None)
           } yield (PatchSetTargetFingerprint.of("pipeline", state), defn)
         ).map { case (fingerprint, defn) =>
-          Right(support.toSummaryResponse(summary).copy(fingerprint = Some(fingerprint), definition = defn.map { case (s, o) => reads.json(s, o) }))
+          Right(support.toSummaryResponse(summary).copy(fingerprint = Some(fingerprint), definition = defn.map { case (s, o, _) => reads.json(s, o) }))
         }.recover {
           case _: PipelineDefinitionGone => Left(ServiceError.NotFound(s"Pipeline not found: ${pipelineId.value}"))
         }

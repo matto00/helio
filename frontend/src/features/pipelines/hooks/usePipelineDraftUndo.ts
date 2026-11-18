@@ -9,11 +9,10 @@ import { dismissToast } from "../../toasts/state/toastsSlice";
 import { getPipelineWithDefinition } from "../services/draftSaveService";
 import { hasDraft as overlayHasDraft } from "../state/pipelineDraft";
 import { fetchPipelineById } from "../state/pipelinesSlice";
-import type { Output } from "../types/output";
-import type { PipelineStep } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { DraftNotice } from "./draftSaveRequest";
 import type { PipelineDraft } from "./usePipelineDraft";
+import type { AdoptedDefinition } from "./usePipelineDraftAdopt";
 
 /** The live "Saved." toast and the Undo of the save it announces; `requestUndo` and `confirmUndoWithDraft` are the page's two entry points. */
 export function usePipelineDraftUndo({
@@ -31,10 +30,7 @@ export function usePipelineDraftUndo({
   pushToast: ReturnType<typeof useToast>["push"];
   mountedRef: MutableRefObject<boolean>;
   setNotice: (notice: DraftNotice | null) => void;
-  adoptDefinition: (
-    pipelineId: string,
-    definition: { steps: PipelineStep[]; outputs: Output[] },
-  ) => Step[];
+  adoptDefinition: (pipelineId: string, definition: AdoptedDefinition) => Step[];
 }) {
   /** The live "Saved." toast and the application its Undo targets: dismissed once that Undo succeeds or a newer save replaces it. */
   const savedToastRef = useRef<{ toastId: string; applicationId: string } | null>(null);
@@ -55,7 +51,8 @@ export function usePipelineDraftUndo({
         if (savedToastRef.current?.applicationId === applicationId) dismissSavedToast();
         const summary = await getPipelineWithDefinition(id);
         if (!mountedRef.current) return;
-        if (summary.definition) adoptDefinition(id, summary.definition);
+        if (summary.definition)
+          adoptDefinition(id, { ...summary.definition, roots: summary.roots });
         draft.discard();
         void dispatch(fetchPipelineById(id));
         pushToast({ variant: "success", message: "Undone." });

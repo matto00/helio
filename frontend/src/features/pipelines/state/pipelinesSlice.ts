@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-import type { PipelineStep, RunStatus } from "../types/pipelineStep";
+import type { PipelineRoot, PipelineStep, RunStatus } from "../types/pipelineStep";
 import {
   analyzePipeline,
   createPipeline,
@@ -122,6 +122,16 @@ const pipelinesSlice = createSlice({
       state.steps[action.payload.pipelineId] = action.payload.steps;
       state.stepsStatus[action.payload.pipelineId] = "succeeded";
       state.stepsError[action.payload.pipelineId] = null;
+    },
+    /** HEL-1734: the roots a draft save (or an undo, or a reload) returned become the pipeline's stored roots. */
+    pipelineRootsReplaced(
+      state,
+      action: PayloadAction<{ pipelineId: string; roots: PipelineRoot[] }>,
+    ) {
+      const { pipelineId, roots } = action.payload;
+      if (state.currentPipeline?.id === pipelineId) state.currentPipeline.roots = roots;
+      const item = state.items.find((p) => p.id === pipelineId);
+      if (item) item.roots = roots;
     },
     setCreatePipelineModalOpen(state, action: { payload: boolean }) {
       state.createModalOpen = action.payload;
@@ -385,6 +395,7 @@ export const {
   draftSaveRunPending,
   draftSaveRunSettled,
   pipelineStepsReplaced,
+  pipelineRootsReplaced,
 } = pipelinesSlice.actions;
 export type { PipelinesState };
 export const pipelinesReducer = pipelinesSlice.reducer;

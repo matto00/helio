@@ -1,0 +1,5 @@
+MUTATION rootRemove-no-cascade: src/features/pipelines/state/draftOps.ts: replaced [return removeRootSteps(steps, op.rootId);] with [return [...steps];]
+  ● a rootRemove over the steps and Outputs › removes the root's steps and everything under them, as the server's cascade does, and nothing else
+  ● a rootRemove over the steps and Outputs › takes the root's Outputs with it (a step Output and a root-bound one), and keeps the other root's
+  ● buildDraftSaveRequest with root ops › omits a removed saved root from the list, and its steps from the tree
+Tests:       3 failed, 15 passed, 18 total

@@ -1,0 +1,4 @@
+MUTATION stale-ignores-roots: frontend/src/features/pipelines/hooks/draftSaveRequest.ts: [if (summary.roots !== undefined && !sameRoots(summary.roots, roots)) return { kind: "stale" };] -> []
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m()[22m failed
+[1A[2K  1 failed
+  6 passed (43.3s)

@@ -179,6 +179,32 @@ class DraftSaveDeadlockSpec extends DraftRaceFixture {
     }
   }
 
+  // ── 6b. a root-adding save vs a source delete of a source the pipeline already roots (HEL-1734, lock site (0)) ──────────
+  // X (`ds3`) is already a root of the pipeline (a source may be a root twice) and the draft adds it again. The delete takes X's
+  // row FOR UPDATE first, then wants the pipeline row for the pipelines rooted on X. A save that took the pipeline row and then
+  // X's key-share would be the other half of that cycle; lock (0) first removes it.
+  private val rootedSourceDelete = RaceWriter("source delete of a source the pipeline roots and the draft adds again", Set.empty,
+    (h, s) => h.dataSourceRepo.delete(DataSourceId(s.id("ds3")), owner),
+    s => {
+      exec(s"INSERT INTO data_sources (id,name,source_type,config,created_at,updated_at,owner_id,inferred_schema) VALUES ('${s.id("ds3")}','ds3','dataset','{}',now(),now(),'$userA','[]')")
+      exec(s"INSERT INTO pipeline_roots (id,pipeline_id,data_source_id,position,created_at) VALUES ('${s.id("r3")}','${s.pipeline}','${s.id("ds3")}',2,now())")
+    },
+    didWrite = _.toOption.contains(true),
+    draft = Some((s, fp, d0) => {
+      val d = draftOf(fp, d0)
+      JsObject(d.fields + ("roots" -> JsArray(Vector(s.r1, s.r2, s.id("r3")).map(r => JsObject("id" -> JsString(r))) :+
+        JsObject("clientId" -> JsString("again"), "sourceId" -> JsString(s.id("ds3"))))))
+    }))
+
+  "a root-adding save against a source delete of a source the pipeline already roots" should {
+    "not deadlock: the save key-shares the added source before it takes the pipeline row, as the delete takes the source first" in {
+      check("protected", race(rootedSourceDelete, SaveFirst, parkAfter = Some(LockSite.SaveRootSources)), expectDeadlock = false)
+    }
+    "deadlock when the save takes the pipeline row before the added source (the opposite order)" in {
+      check("control", race(rootedSourceDelete, SaveFirst, removed = Set(LockSite.SaveRootSourcesFirst), parkAfter = Some(LockSite.SavePipeline)), expectDeadlock = true)
+    }
+  }
+
   // ── 7. the mix: the ticket's five plus every writer that gained lock (3), concurrently, repeatedly ───────────────────
   "a concurrent mix of the save and every participant, repeated" should {
     "never raise 40P01" in {

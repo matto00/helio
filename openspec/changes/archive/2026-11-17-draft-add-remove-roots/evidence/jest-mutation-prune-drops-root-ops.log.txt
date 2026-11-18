@@ -1,0 +1,5 @@
+MUTATION prune-drops-root-ops: src/features/pipelines/state/pipelineDraft.ts: replaced [replayed.keptOps.filter((op) => isOutputOp(op) || isRootOp(op))] with [replayed.keptOps.filter((op) => isOutputOp(op))]
+  ● withRootAdd / withRootRemove › records a root add and a saved-root removal even though the steps equal the base (a root is not a step)
+  ● withRootAdd / withRootRemove › leaves no trace of a root the draft added and then removed, with every step and Output made on it
+  ● rebaseOverlay with roots › keeps a root op the new saved roots can take and counts one they cannot
+Tests:       3 failed, 10 passed, 13 total

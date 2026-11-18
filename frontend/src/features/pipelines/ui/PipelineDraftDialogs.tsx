@@ -46,6 +46,9 @@ export function PipelineDraftDialogs({ page }: { page: PipelinePageState }) {
           }
         >
           <ul className="draft-cascade__list">
+            {cascade.rootNames.map((name, i) => (
+              <li key={`root-${cascade.impact.rootIds[i]}`}>Source: {name}</li>
+            ))}
             {cascade.stepNames.map((name, i) => (
               <li key={`step-${cascade.impact.stepIds[i]}`}>Step: {name}</li>
             ))}

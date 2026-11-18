@@ -1,0 +1,4 @@
+MUTATION add-source-still-blocked: src/features/pipelines/ui/spine/PipelineSpine.tsx: replaced [            onClick={actions.openAddRoot}] with [            disabled={structuralBlockedReason !== null}
+            onClick={actions.openAddRoot}]
+  ● PipelineSpine controls in a draft (D3 consumer table) › Add source is a draft action (HEL-1734): enabled in a draft and with no draft
+Tests:       1 failed, 10 passed, 11 total

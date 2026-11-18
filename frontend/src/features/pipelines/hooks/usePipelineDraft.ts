@@ -18,11 +18,13 @@ import {
   withOp,
   withOps,
   withOutputEdit,
+  withRootAdd,
+  withRootRemove,
   type DraftOverlay,
 } from "../state/pipelineDraft";
 import { readKeptDraft, writeKeptDraft } from "../state/keptDraft";
 import type { Output } from "../types/output";
-import type { PipelineStepConfig } from "../types/pipelineStep";
+import type { PipelineRoot, PipelineStepConfig } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 
 /** Why a structural control is unavailable while a draft exists (design.md D2, owner ruling `block-during-draft-recommended`). */
@@ -295,6 +297,31 @@ export function usePipelineDraft({
       ),
     [baseStepsRef, outs],
   );
+  /** HEL-1734: adds `sourceId` to the draft as a new last root; returns the draft root's client id. */
+  const addRoot = useCallback(
+    (sourceId: string, dataSourceName: string): string => {
+      const clientId = newClientId();
+      setOverlay((prev) =>
+        withRootAdd(
+          baseStepsRef.current,
+          prev,
+          { kind: "rootAdd", clientId, sourceId, dataSourceName },
+          staleRestoredRef.current,
+          outs(),
+        ),
+      );
+      return clientId;
+    },
+    [baseStepsRef, outs],
+  );
+  /** HEL-1734: removes a root (saved, or one the draft added) from the draft. */
+  const removeRoot = useCallback(
+    (rootId: string) =>
+      setOverlay((prev) =>
+        withRootRemove(baseStepsRef.current, prev, rootId, staleRestoredRef.current, outs()),
+      ),
+    [baseStepsRef, outs],
+  );
   /** Several ops in ONE update (a shape, the aggregate tail): never half in the draft, one render, one kept-draft write. */
   const appendOps = useCallback(
     (ops: DraftOp[]) =>
@@ -314,16 +341,28 @@ export function usePipelineDraft({
   }, []);
 
   /** Re-applies the draft over a newly loaded base, keeping the edits whose step still exists; returns how many did not. */
-  const rebase = useCallback((newBase: Step[], newBaseOutputs: Output[] | null): number => {
-    const { overlay: next, dropped } = rebaseOverlay(newBase, overlayRef.current, newBaseOutputs);
-    keptBaseRef.current = null;
-    keptOutputsBaseRef.current = null;
-    outputsBaseJudgedRef.current = true;
-    staleRestoredRef.current = false;
-    setStaleRestored(false);
-    setOverlay(next);
-    return dropped;
-  }, []);
+  const rebase = useCallback(
+    (
+      newBase: Step[],
+      newBaseOutputs: Output[] | null,
+      newBaseRoots: PipelineRoot[] | null = null,
+    ): number => {
+      const { overlay: next, dropped } = rebaseOverlay(
+        newBase,
+        overlayRef.current,
+        newBaseOutputs,
+        newBaseRoots,
+      );
+      keptBaseRef.current = null;
+      keptOutputsBaseRef.current = null;
+      outputsBaseJudgedRef.current = true;
+      staleRestoredRef.current = false;
+      setStaleRestored(false);
+      setOverlay(next);
+      return dropped;
+    },
+    [],
+  );
 
   return {
     overlay,
@@ -336,6 +375,8 @@ export function usePipelineDraft({
     editOutput,
     deleteOutput,
     appendOps,
+    addRoot,
+    removeRoot,
     setConfig,
     setEnabled,
     deleteStep,

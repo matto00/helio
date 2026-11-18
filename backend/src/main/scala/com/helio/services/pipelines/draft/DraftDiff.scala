@@ -1,12 +1,12 @@
 package com.helio.services.pipelines.draft
 
-import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftSaveRequest, DraftStepRequest, PipelineStepConfigCodec}
+import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftRootRequest, DraftSaveRequest, DraftStepRequest, PipelineStepConfigCodec}
 import com.helio.domain.model.{OutputId, OutputKind, PipelineStep, PipelineStepKind}
 import com.helio.domain.outputs.InsightReadsCheck
 import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.OutputRow
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.PipelineStepRow
-import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputWrite, StepWrite}
+import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputWrite, RootWrite, StepWrite}
 import com.helio.services.ServiceError
 import com.helio.services.pipelines.{OutputConfigWritePolicy, OutputService, PipelineCreatePreflight}
 import spray.json._
@@ -21,6 +21,22 @@ final case class CheckedConfig(draftKey: String, stepId: String, typedConfig: An
  *  `creates` are parents-first, `relinks` change a surviving step's parent, root or position, `contentUpdates` its config
  *  or `enabled`. `removedStepIds` is EXACTLY the stored steps the draft omits: the server never deletes a step the draft
  *  keeps, so splice and absorb semantics are the client's job when it builds the tree (design D2). */
+/** The root pass of a plan (HEL-1734). `finalRootIds` is the final root order; with `rootsGiven = false` it is the stored
+ *  order and nothing below it applies. */
+final case class RootPlan(
+    rootsGiven: Boolean,
+    finalRootIds: Vector[String],
+    creates: Vector[RootWrite],
+    removedRootIds: Vector[String],
+    clientRoots: Map[String, String] = Map.empty
+) {
+  def addedSourceIds: Vector[String] = creates.map(_.sourceId).distinct.sorted
+}
+
+object RootPlan {
+  val Unchanged: RootPlan = RootPlan(rootsGiven = false, Vector.empty, Vector.empty, Vector.empty)
+}
+
 final case class DraftPlan(
     finalSteps: Vector[StepWrite],
     creates: Vector[StepWrite],
@@ -32,9 +48,13 @@ final case class DraftPlan(
     outputUpdates: Vector[OutputWrite],
     removedOutputIds: Vector[String],
     checkedConfigs: Vector[CheckedConfig],
-    needsAdvisory: Boolean
+    needsAdvisory: Boolean,
+    rootPlan: RootPlan = RootPlan.Unchanged
 ) {
-  def removesAnything: Boolean = removedStepIds.nonEmpty || removedOutputIds.nonEmpty
+  def removesAnything: Boolean = removedStepIds.nonEmpty || removedOutputIds.nonEmpty || rootPlan.removedRootIds.nonEmpty
+
+  /** The sources the save adds as roots, sorted and distinct: lock site (0) covers exactly these. */
+  def addedSourceIds: Vector[String] = rootPlan.addedSourceIds
 
   /** The draft keys and normalised configs the async checks covered: a re-plan on the locked state may only check a subset. */
   def checkedKeys: Map[String, String] =
@@ -61,17 +81,19 @@ object DraftDiff {
     val curSteps   = current.steps.map(s => s.id -> s).toMap
     val curOutputs = current.outputs.map(o => o.id -> o).toMap
     for {
+      rootPlan   <- planRoots(current.rootIds, req.roots, allowExplicitIds, newId)
+      finalRoots  = if (rootPlan.rootsGiven) rootPlan.finalRootIds else current.rootIds
       resolved   <- resolveSteps(req.steps, curSteps, allowExplicitIds, newId)
       byId        = resolved.map(r => r.id -> r).toMap
       clientIds   = resolved.collect { case r if r.req.clientId.isDefined => r.req.clientId.get -> r.id }.toMap
-      parents    <- resolveParents(resolved, byId, clientIds, current.rootIds.toSet)
+      parents    <- resolveParents(resolved, byId, clientIds, finalRoots.toSet, rootPlan.clientRoots)
       _          <- requireAcyclic(resolved, parents)
       normalized <- normalizeSteps(resolved, curSteps, clientIds)
       survivors   = resolved.filter(!_.created)
       removed     = curSteps.keySet -- survivors.map(_.id)
       finalSteps  = resolved.map(r => toWrite(r, parents(r.id), normalized(r.id)))
       _          <- requireLaneTargetsExist(finalSteps, byId.keySet)
-      outputPlan <- planOutputs(req.outputs, current, curOutputs, byId, removed, current.rootIds.toSet, allowExplicitIds, newId)
+      outputPlan <- planOutputs(req.outputs, current, curOutputs, byId, removed, finalRoots.toSet, rootPlan.clientRoots, allowExplicitIds, newId)
     } yield {
       val finalById = finalSteps.map(w => w.id -> w).toMap
       val creates   = orderParentsFirst(resolved.filter(_.created).map(r => finalById(r.id)))
@@ -94,10 +116,66 @@ object DraftDiff {
         outputUpdates = outputPlan.updates,
         removedOutputIds = outputPlan.removed,
         checkedConfigs = checked,
-        needsAdvisory = checked.exists(c => upsertsToExistingSource(c.typedConfig))
+        needsAdvisory = checked.exists(c => upsertsToExistingSource(c.typedConfig)) || rootPlan.creates.nonEmpty,
+        rootPlan = rootPlan
       )
     }
   }
+
+  // ── Roots ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  /** The root pass (HEL-1734, design D2/D3). `roots` absent leaves the stored roots alone. Otherwise it is the FINAL list: a
+   *  root's final position is its index. A public request may not reorder survivors or put a new root before one (no
+   *  endpoint reorders roots); an undo restore may, because the journal replays the original positions. */
+  private def planRoots(
+      stored: Vector[String],
+      requested: Option[Vector[DraftRootRequest]],
+      restoring: Boolean,
+      newId: () => String
+  ): Either[ServiceError, RootPlan] =
+    requested.fold[Either[ServiceError, RootPlan]](Right(RootPlan.Unchanged)) { items =>
+      val storedSet = stored.toSet
+      if (items.isEmpty) bad("Cannot remove the last root of a pipeline: roots must not be empty")
+      else {
+        val resolved = sequence(items.zipWithIndex.map { case (it, i) =>
+          val label = s"roots[$i]"
+          val src   = it.sourceId.map(_.trim).filter(_.nonEmpty)
+          (it.id.map(_.trim).filter(_.nonEmpty), it.clientId.map(_.trim).filter(_.nonEmpty)) match {
+            case (Some(_), Some(_)) => bad(s"$label: specify either id or clientId, not both")
+            case (None, None)       => bad(s"$label: id or clientId is required")
+            case (Some(id), None) =>
+              if (storedSet.contains(id))
+                if (src.isDefined && !restoring) bad(s"$label: a surviving root cannot carry sourceId (its source cannot change)")
+                else Right((id, id, None: Option[String], false))
+              else if (restoring) src.fold[Either[ServiceError, (String, String, Option[String], Boolean)]](bad(s"$label: a restored root needs a sourceId"))(sid => Right((id, id, Some(sid), true)))
+              else bad(s"$label: id '$id' is not a root of this pipeline (new roots carry a clientId)")
+            case (None, Some(cid)) =>
+              src.fold[Either[ServiceError, (String, String, Option[String], Boolean)]](bad(s"$label: a new root needs a sourceId"))(sid => Right((cid, newId(), Some(sid), true)))
+          }
+        })
+        resolved.flatMap { all =>
+          val dup = all.groupBy(_._1).collect { case (k, v) if v.size > 1 => k }
+          lazy val survivors = all.filterNot(_._4).map(_._2)
+          lazy val firstNew  = all.indexWhere(_._4)
+          lazy val lastSurv  = all.lastIndexWhere(!_._4)
+          if (dup.nonEmpty) bad(s"Duplicate root id or clientId in the draft: ${dup.toVector.sorted.mkString(", ")}")
+          else if (!restoring && survivors != stored.filter(survivors.toSet.contains))
+            bad("roots: the surviving roots must keep their stored order (roots cannot be reordered)")
+          else if (!restoring && firstNew >= 0 && firstNew < lastSurv)
+            bad("roots: a new root must come after every surviving root")
+          else {
+            val finalIds = all.map(_._2)
+            Right(RootPlan(
+              rootsGiven = true,
+              finalRootIds = finalIds,
+              creates = all.zipWithIndex.collect { case ((_, id, Some(sid), true), idx) => RootWrite(id, sid, idx) },
+              removedRootIds = stored.filterNot(finalIds.toSet.contains),
+              clientRoots = all.collect { case (key, id, _, true) if !restoring => key -> id }.toMap
+            ))
+          }
+        }
+      }
+    }
 
   // ── Steps ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -136,15 +214,16 @@ object DraftDiff {
       steps: Vector[Resolved],
       byId: Map[String, Resolved],
       clientIds: Map[String, String],
-      rootIds: Set[String]
+      rootIds: Set[String],
+      rootClientIds: Map[String, String]
   ): Either[ServiceError, Map[String, (Option[String], Option[String])]] =
     sequence(steps.map { r =>
       val s = r.req
       def placed(parent: Option[String], root: Option[String]): Either[ServiceError, (String, (Option[String], Option[String]))] =
         Right(r.id -> ((parent, root)))
-      val named = Vector(s.parentStepId.filter(_.nonEmpty), s.parentClientId.filter(_.nonEmpty), s.rootId.filter(_.nonEmpty))
+      val named = Vector(s.parentStepId.filter(_.nonEmpty), s.parentClientId.filter(_.nonEmpty), s.rootId.filter(_.nonEmpty), s.rootClientId.filter(_.nonEmpty))
       if (named.count(_.isDefined) != 1)
-        bad(s"Step '${r.key}': name exactly one of parentStepId, parentClientId or rootId (a parentless step names its root)")
+        bad(s"Step '${r.key}': name exactly one of parentStepId, parentClientId, rootId or rootClientId (a parentless step names its root)")
       else (named(0), named(1), named(2)) match {
         case (Some(pid), _, _) =>
           if (byId.contains(pid)) placed(Some(pid), None)
@@ -157,7 +236,12 @@ object DraftDiff {
         case (_, _, Some(root)) =>
           if (rootIds.contains(root)) placed(None, Some(root))
           else bad(s"Step '${r.key}': rootId '$root' is not a root of this pipeline")
-        case _ => bad(s"Step '${r.key}': no parent or root")
+        case _ =>
+          val cid = named(3).get
+          rootClientIds.get(cid) match {
+            case Some(real) => placed(None, Some(real))
+            case None       => bad(s"Step '${r.key}': rootClientId '$cid' does not name a new root of this draft")
+          }
       }
     }).map(_.toMap)
 
@@ -259,6 +343,7 @@ object DraftDiff {
       stepsById: Map[String, Resolved],
       removedSteps: Set[String],
       rootIds: Set[String],
+      rootClientIds: Map[String, String],
       allowExplicitIds: Boolean,
       newId: () => String
   ): Either[ServiceError, OutputPlan] = {
@@ -276,7 +361,7 @@ object DraftDiff {
           case (None, Some(cid)) => Right((cid, newId(), true))
         }
         kind <- if (o.name.trim.isEmpty) bad(s"$label: name is required") else OutputKind.fromString(o.kind).left.map(m => ServiceError.BadRequest(s"$label: $m"): ServiceError)
-        node <- resolveNode(label, o, stepsById, stepClientIds, removedSteps, rootIds)
+        node <- resolveNode(label, o, stepsById, stepClientIds, removedSteps, rootIds, rootClientIds)
       } yield (o, idKey._1, idKey._2, idKey._3, kind, node)
     }
     sequence(resolved).flatMap { all =>
@@ -321,10 +406,11 @@ object DraftDiff {
       stepsById: Map[String, Resolved],
       stepClientIds: Map[String, String],
       removedSteps: Set[String],
-      rootIds: Set[String]
+      rootIds: Set[String],
+      rootClientIds: Map[String, String]
   ): Either[ServiceError, (Option[String], Option[String])] = {
-    val named = Vector(o.nodeStepId.filter(_.nonEmpty), o.nodeStepClientId.filter(_.nonEmpty), o.rootId.filter(_.nonEmpty))
-    if (named.count(_.isDefined) != 1) bad(s"$label: name exactly one of nodeStepId, nodeStepClientId or rootId")
+    val named = Vector(o.nodeStepId.filter(_.nonEmpty), o.nodeStepClientId.filter(_.nonEmpty), o.rootId.filter(_.nonEmpty), o.rootClientId.filter(_.nonEmpty))
+    if (named.count(_.isDefined) != 1) bad(s"$label: name exactly one of nodeStepId, nodeStepClientId, rootId or rootClientId")
     else (named(0), named(1), named(2)) match {
       case (Some(sid), _, _) =>
         if (removedSteps.contains(sid)) bad(s"$label: nodeStepId '$sid' is a step the draft removes")
@@ -336,7 +422,11 @@ object DraftDiff {
         )
       case (_, _, Some(root)) =>
         if (rootIds.contains(root)) Right((None, Some(root))) else bad(s"$label: rootId '$root' is not a root of this pipeline")
-      case _ => bad(s"$label: no node or root")
+      case _ =>
+        val cid = named(3).get
+        rootClientIds.get(cid).map(real => (None: Option[String], Some(real))).toRight[ServiceError](
+          ServiceError.BadRequest(s"$label: rootClientId '$cid' does not name a new root of this draft")
+        )
     }
   }
 

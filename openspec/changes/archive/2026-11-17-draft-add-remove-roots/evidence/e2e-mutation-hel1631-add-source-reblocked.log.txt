@@ -1,0 +1,10 @@
+MUTATION: PipelineSpine.tsx re-blocks Add source in a draft (disabled + title = structuralBlockedReason, the HEL-1631 behaviour)
+[1A[2K[1/1] [dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (
+[1A[2K[dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (HEL-16
+[1A[2K[HEL-1631 e2e] while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (HEL-1684, HEL-1733, HEL-1734): 22 /api requests, max 60s window 22 
+[1A[2K  1) [dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (H
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeEnabled[2m()[22m failed
+    [2m  - Expect "toBeEnabled" with timeout 5000ms[22m
+    > 537 |     await expect(addSource).toBeEnabled();
+[1A[2K  1 failed
+    [dev] › e2e/hel1631-draft-mode.spec.ts:527:7 › HEL-1631 draft mode (live) › while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (HEL-1684, 

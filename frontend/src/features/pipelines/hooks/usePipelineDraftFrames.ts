@@ -64,6 +64,7 @@ const NONE: DraftFrames = {
 export function usePipelineDraftFrames({
   pipelineId,
   roots,
+  savedRoots = roots,
   baseSteps,
   draftSteps,
   hasDraft,
@@ -74,6 +75,9 @@ export function usePipelineDraftFrames({
 }: {
   pipelineId: string;
   roots: PipelineRoot[];
+  /** HEL-1734: the pipeline's stored roots, which the SAVED steps name; `roots` are the draft's (a source added or removed there).
+   *  The saved side of a count is walked over the saved roots' samples. */
+  savedRoots?: PipelineRoot[];
   baseSteps: Step[];
   draftSteps: Step[];
   hasDraft: boolean;
@@ -87,6 +91,7 @@ export function usePipelineDraftFrames({
 }): DraftFrames {
   const { walker, tracker } = memory;
   const rootFrames = useAppSelector((state) => selectRootFrames(state, roots));
+  const savedRootFrames = useAppSelector((state) => selectRootFrames(state, savedRoots));
   const secondaryKey = useMemo(() => secondarySourceIds(draftSteps).join(","), [draftSteps]);
   const secondaryIds = useMemo(
     () => (secondaryKey === "" ? [] : secondaryKey.split(",")),
@@ -113,8 +118,8 @@ export function usePipelineDraftFrames({
     [draftSteps, hasDraft],
   );
   const baseWalk = useMemo(
-    () => (baseDefs === null ? null : evaluatePipeline(baseDefs, rootFrames, { sources })),
-    [baseDefs, rootFrames, sources],
+    () => (baseDefs === null ? null : evaluatePipeline(baseDefs, savedRootFrames, { sources })),
+    [baseDefs, savedRootFrames, sources],
   );
   const draftWalk = useMemo(
     () => (draftDefs === null ? null : walker.walk(draftDefs, rootFrames, sources)),

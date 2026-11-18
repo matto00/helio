@@ -42,7 +42,7 @@ const asAxiosError = (status: number, data: unknown): AxiosError => {
 describe("draft save wire contract", () => {
   it("accepts the request body the client types produce", () => {
     expect(validateRequest(requestFixture)).toBe(true);
-    expect(requestFixture.steps.map((s) => s.id ?? s.clientId)).toEqual(["s1", "n1"]);
+    expect(requestFixture.steps.map((s) => s.id ?? s.clientId)).toEqual(["s1", "n1", "n2"]);
   });
 
   it("rejects a request with an unknown field (no force or overwrite flag exists), a bad runAfterSave, or no base", () => {

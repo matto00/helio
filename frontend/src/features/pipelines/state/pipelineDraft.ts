@@ -4,19 +4,20 @@
 // Discard is "clear the overlay". Everything here is pure and unit-tested; the hooks only hold the state.
 
 import type { Output } from "../types/output";
-import type { PipelineStepConfig, PipelineStepKind } from "../types/pipelineStep";
+import type { PipelineRoot, PipelineStepConfig, PipelineStepKind } from "../types/pipelineStep";
 import type { DraftOutput, DraftStep } from "../types/draftSave";
 import type { Step } from "../types/step";
-import { applyOp, isDraftClientId, isOutputOp, structureKey } from "./draftOps";
+import { applyOp, isDraftClientId, isOutputOp, isRootOp, structureKey } from "./draftOps";
 import type { DraftOp } from "./draftOps";
 import { jsonEqual } from "./jsonEqual";
 import { applyOutputEdits, pruneOutputOps, replayInterleaved } from "./draftOutputs";
+import { opsTiedToDraftRoot, replayRoots } from "./draftRoots";
 import type { OutputEdit, OutputEdits } from "./draftOutputs";
 
 export { deleteStep, removalOf } from "./draftOps";
 
 export interface DraftOverlay {
-  version: 3;
+  version: 4;
   /** Structure ops in the order they were made, replayed over the saved steps. */
   ops: readonly DraftOp[];
   /** stepId or clientId -> the edited config (an entry equal to the step's pre-edit config never exists). */
@@ -28,7 +29,7 @@ export interface DraftOverlay {
 }
 
 export const EMPTY_OVERLAY: DraftOverlay = {
-  version: 3,
+  version: 4,
   ops: [],
   configs: {},
   enabled: {},
@@ -127,7 +128,7 @@ export function pruneOverlay(
   let ops: readonly DraftOp[] = keepOps
     ? overlay.ops
     : noStructureChange
-      ? replayed.keptOps.filter(isOutputOp)
+      ? replayed.keptOps.filter((op) => isOutputOp(op) || isRootOp(op))
       : replayed.keptOps;
   const steps = noStructureChange ? [...base] : replayed.steps;
   const byId = new Map(steps.map((s) => [s.id, s]));
@@ -147,7 +148,7 @@ export function pruneOverlay(
     ops = pruned.ops;
     outputEdits = pruned.outputEdits;
   }
-  const next: DraftOverlay = { version: 3, ops, configs, enabled, outputEdits };
+  const next: DraftOverlay = { version: 4, ops, configs, enabled, outputEdits };
   return isOverlayEmpty(next) ? EMPTY_OVERLAY : next;
 }
 
@@ -239,6 +240,38 @@ export function withDeleted(
   return withOp(base, overlay, { kind: "delete", stepId }, keepOps, baseOutputs);
 }
 
+/** HEL-1734: adds a source to the draft as a new last root; returns the overlay and the draft root's client id. */
+export function withRootAdd(
+  base: readonly Step[],
+  overlay: DraftOverlay,
+  op: Extract<DraftOp, { kind: "rootAdd" }>,
+  keepOps = false,
+  baseOutputs: readonly Output[] | null = null,
+): DraftOverlay {
+  return withOp(base, overlay, op, keepOps, baseOutputs);
+}
+
+/** HEL-1734: removes a root from the draft. A root the draft itself added leaves no trace (its add and everything made on it go);
+ *  a saved root is recorded as a `rootRemove`, which replays as the server's cascade over its steps and Outputs. */
+export function withRootRemove(
+  base: readonly Step[],
+  overlay: DraftOverlay,
+  rootId: string,
+  keepOps = false,
+  baseOutputs: readonly Output[] | null = null,
+): DraftOverlay {
+  if (isDraftClientId(rootId)) {
+    const tied = opsTiedToDraftRoot(overlay.ops, rootId);
+    return pruneOverlay(
+      base,
+      { ...overlay, ops: overlay.ops.filter((op) => !tied.has(op)) },
+      keepOps,
+      baseOutputs,
+    );
+  }
+  return withOp(base, overlay, { kind: "rootRemove", rootId }, keepOps, baseOutputs);
+}
+
 /** Step ids the draft removes (the deleted steps plus the tails a branch-point delete takes with it). */
 export function removedStepIds(base: readonly Step[], draft: readonly Step[]): string[] {
   const kept = new Set(draft.map((s) => s.id));
@@ -260,9 +293,21 @@ export function rebaseOverlay(
   newBase: readonly Step[],
   overlay: DraftOverlay,
   newBaseOutputs: readonly Output[] | null = null,
+  newBaseRoots: readonly PipelineRoot[] | null = null,
 ): { overlay: DraftOverlay; dropped: number } {
-  const { dropped } = replayOverlay(newBase, overlay, newBaseOutputs);
-  return { overlay: pruneOverlay(newBase, overlay, false, newBaseOutputs), dropped };
+  const replayed = replayOverlay(newBase, overlay, newBaseOutputs);
+  // HEL-1734: a root op the new saved roots cannot take (its root is gone, or it would leave none) is dropped and counted.
+  const rootDropped =
+    newBaseRoots === null ? [] : replayRoots(newBaseRoots, overlay.ops).droppedOps;
+  const withoutDroppedRootOps: DraftOverlay =
+    rootDropped.length === 0
+      ? overlay
+      : { ...overlay, ops: overlay.ops.filter((op) => !rootDropped.includes(op)) };
+  return {
+    overlay: pruneOverlay(newBase, withoutDroppedRootOps, false, newBaseOutputs),
+    dropped:
+      replayed.dropped + rootDropped.filter((op) => !replayed.droppedOps.includes(op)).length,
+  };
 }
 
 /** The final tree as the draft-save body wants it. `enabled` is ALWAYS an explicit boolean: the server reads a missing
@@ -280,7 +325,11 @@ export function toDraftSteps(draft: readonly Step[]): DraftStep[] {
     if (s.parentStepId != null) {
       if (isDraftClientId(s.parentStepId)) step.parentClientId = s.parentStepId;
       else step.parentStepId = s.parentStepId;
-    } else if (s.rootId != null) step.rootId = s.rootId;
+    } else if (s.rootId != null) {
+      // HEL-1734: a root the draft added is named by its client id.
+      if (isDraftClientId(s.rootId)) step.rootClientId = s.rootId;
+      else step.rootId = s.rootId;
+    }
     return step;
   });
 }
@@ -306,7 +355,10 @@ export function toDraftOutputs(
         else out.nodeStepId = o.nodeStepId;
       } else {
         const rootId = o.rootId ?? fallbackRootId;
-        if (rootId !== undefined) out.rootId = rootId;
+        if (rootId !== undefined) {
+          if (isDraftClientId(rootId)) out.rootClientId = rootId;
+          else out.rootId = rootId;
+        }
       }
       return out;
     });

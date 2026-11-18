@@ -95,7 +95,7 @@ object ServiceResponse extends JsonProtocols {
         statusCodeFor(e),
         DraftCascadeRequiredResponse(
           message, CascadeConfirmationRequiredCode,
-          DraftCascadeImpactResponse(impact.stepIds, impact.outputIds, impact.panelIds, impact.alertRuleIds, impact.hints)
+          DraftCascadeImpactResponse(impact.stepIds, impact.outputIds, impact.panelIds, impact.alertRuleIds, impact.hints, impact.rootIds)
         )
       )
     case ServiceError.PatchSetAlreadyApplied(message) =>

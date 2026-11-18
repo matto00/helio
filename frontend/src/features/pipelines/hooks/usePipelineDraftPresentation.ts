@@ -24,6 +24,7 @@ export function usePipelineDraftPresentation(
   const frames = usePipelineDraftFrames({
     pipelineId: page.id ?? "",
     roots,
+    savedRoots: page.savedRoots,
     baseSteps,
     draftSteps: page.steps,
     hasDraft,

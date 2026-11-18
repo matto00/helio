@@ -48,8 +48,9 @@ interface PipelineSpineProps {
   draftFor?: (stepId: string) => SpineRowDraft | undefined;
   /** HEL-1631: the draft's counts are over the first 1,000 rows of a larger source. */
   draftCountsOverSample?: boolean;
-  /** HEL-1631 (design.md D2): while a draft exists, the controls the draft does not carry (roots, shapes, Outputs) are disabled
-   *  with this reason. HEL-1684: add, insert, duplicate, "+ lane" and reorder are draft entries and stay enabled. */
+  /** HEL-1631 (design.md D2): while a draft exists (this is non-null), the controls the draft does not carry are disabled with
+   *  this reason. HEL-1684: add, insert, duplicate, "+ lane" and reorder are draft entries and stay enabled; HEL-1734: so are
+   *  adding and removing a source. */
   structuralBlockedReason?: string | null;
   /** HEL-1733: while a draft exists and the page's Outputs are not loaded ("Outputs are still loading"): the Output, shape and
    *  aggregate-tail actions wait. `null` otherwise (Outputs and shapes are draft entries now). */
@@ -171,8 +172,8 @@ export function PipelineSpine({
             pipelineId={pipelineId}
             source={sourceByRootId[root.id]}
             ordinal={multiRoot ? index + 1 : null}
-            canRemove={multiRoot && structuralBlockedReason === null}
-            removeBlockedReason={structuralBlockedReason}
+            // HEL-1734: removing a source is a draft action now; only the LAST source (counted over the draft's roots) stays.
+            canRemove={multiRoot}
             onEditSource={onEditSource}
             onRemoveRoot={onRemoveRoot}
           />
@@ -182,8 +183,6 @@ export function PipelineSpine({
             type="button"
             className="spine-ghost-btn"
             aria-label="Add source"
-            disabled={structuralBlockedReason !== null}
-            title={structuralBlockedReason ?? undefined}
             onClick={actions.openAddRoot}
           >
             + Add source

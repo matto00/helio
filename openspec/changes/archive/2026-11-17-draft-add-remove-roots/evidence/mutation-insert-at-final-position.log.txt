@@ -1,0 +1,631 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/)
+[info] compiling 1 Scala source to /home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/target/out/jvm/scala-2.13.15/helio-backend/classes ...
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+18:20:23,781 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+18:20:23,781 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3a52e09f - No custom configurators were discovered as a service.
+18:20:23,781 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3a52e09f - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:20:23,781 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3a52e09f - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:20:23,783 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+18:20:23,784 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+18:20:23,813 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+18:20:23,814 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@176001b2 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+18:20:23,814 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+18:20:23,816 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+18:20:23,817 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@176001b2 - value "plain" substituted for "${LOG_APPENDER}"
+18:20:23,817 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+18:20:23,817 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+18:20:23,818 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+18:20:23,820 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+18:20:23,830 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+18:20:23,830 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+18:20:23,830 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+18:20:23,830 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@176001b2 - value "INFO" substituted for "${LOG_LEVEL}"
+18:20:23,830 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+18:20:23,830 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@176001b2 - value "plain" substituted for "${LOG_APPENDER}"
+18:20:23,831 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+18:20:23,831 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@3d012db7 - End of configuration.
+18:20:23,831 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@61d8c042 - Registering current configuration as safe fallback point
+18:20:23,833 |-INFO in ch.qos.logback.classic.util.ContextInitializer@3a52e09f - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 50 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+18:20:23.835 INFO  [com-helio-api-routes-pipelines-DraftSaveRootsUndoSpec-pekko.actor.default-dispatcher-5] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] DraftSaveRootsUndoSpec:
+18:20:24.384 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+18:20:24.396 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+18:20:24.397 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+18:20:24.423 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+18:20:24.430 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg8745802451107597062 ... ok
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+18:20:24.431 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+18:20:24.438 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+18:20:24.448 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+18:20:24.454 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+18:20:24.454 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+18:20:24.515 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+18:20:24.714 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg8745802451107597062 -l logfile start
+18:20:24.719 INFO  [initdb:pid(3587551)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:24.720 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 4e230f7e-328b-4bf4-b5dd-ea53df7330ee initdb completed in 00:00:00.295
+18:20:24.723 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 4e230f7e-328b-4bf4-b5dd-ea53df7330ee postmaster started as Process[pid=3587575, exitValue="not exited"] on port 33041.  Waiting up to PT10S for server startup to finish.
+18:20:24.739 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-17 18:20:24.739 PST [3587581] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+18:20:24.740 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:24.740 PST [3587581] LOG:  listening on IPv6 address "::1", port 33041
+18:20:24.740 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:24.740 PST [3587581] LOG:  listening on IPv4 address "127.0.0.1", port 33041
+18:20:24.740 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:24.740 PST [3587581] LOG:  listening on Unix socket "/tmp/.s.PGSQL.33041"
+18:20:24.741 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:24.741 PST [3587583] LOG:  database system was shut down at 2026-11-17 18:20:24 PST
+18:20:24.742 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:24.742 PST [3587581] LOG:  database system is ready to accept connections
+18:20:24.827 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+18:20:24.828 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+18:20:24.863 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 4e230f7e-328b-4bf4-b5dd-ea53df7330ee postmaster startup finished in 00:00:00.141
+18:20:24.957 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:33041/postgres?user=postgres (PostgreSQL 14.10)
+18:20:24.992 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+18:20:24.994 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 137 migrations (execution time 00:00.023s)
+18:20:25.002 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+18:20:25.021 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+18:20:25.026 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+18:20:25.035 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+18:20:25.040 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+18:20:25.044 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+18:20:25.048 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+18:20:25.052 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+18:20:25.055 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+18:20:25.058 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+18:20:25.061 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+18:20:25.064 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+18:20:25.068 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+18:20:25.073 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+18:20:25.076 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+18:20:25.078 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+18:20:25.080 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+18:20:25.082 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+18:20:25.087 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+18:20:25.090 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+18:20:25.093 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+18:20:25.095 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+18:20:25.097 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+18:20:25.099 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+18:20:25.103 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+18:20:25.107 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+18:20:25.110 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+18:20:25.112 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+18:20:25.114 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+18:20:25.117 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+18:20:25.119 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+18:20:25.122 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+18:20:25.124 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+18:20:25.127 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+18:20:25.131 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+18:20:25.138 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+18:20:25.142 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+18:20:25.148 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+18:20:25.155 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+18:20:25.158 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+18:20:25.162 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+18:20:25.163 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+18:20:25.167 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+18:20:25.169 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+18:20:25.172 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+18:20:25.175 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+18:20:25.177 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+18:20:25.179 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+18:20:25.181 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+18:20:25.185 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+18:20:25.186 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+18:20:25.188 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+18:20:25.192 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+18:20:25.194 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+18:20:25.195 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+18:20:25.197 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+18:20:25.199 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+18:20:25.201 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+18:20:25.203 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+18:20:25.205 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+18:20:25.206 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+18:20:25.208 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+18:20:25.210 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+18:20:25.214 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+18:20:25.218 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+18:20:25.221 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+18:20:25.223 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+18:20:25.224 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+18:20:25.227 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+18:20:25.229 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+18:20:25.231 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+18:20:25.233 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+18:20:25.235 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+18:20:25.237 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+18:20:25.239 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+18:20:25.241 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+18:20:25.244 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+18:20:25.246 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+18:20:25.249 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+18:20:25.252 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+18:20:25.255 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+18:20:25.257 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+18:20:25.260 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+18:20:25.263 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+18:20:25.266 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+18:20:25.268 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+18:20:25.270 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+18:20:25.273 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+18:20:25.274 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+18:20:25.276 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+18:20:25.277 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+18:20:25.280 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+18:20:25.283 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+18:20:25.286 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+18:20:25.290 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+18:20:25.292 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+18:20:25.301 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+18:20:25.326 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+18:20:25.328 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+18:20:25.330 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+18:20:25.334 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+18:20:25.344 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+18:20:25.347 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+18:20:25.349 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+18:20:25.352 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+18:20:25.354 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+18:20:25.357 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+18:20:25.358 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+18:20:25.361 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+18:20:25.365 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+18:20:25.367 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+18:20:25.369 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+18:20:25.372 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+18:20:25.378 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+18:20:25.380 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+18:20:25.382 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+18:20:25.388 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+18:20:25.391 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+18:20:25.393 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+18:20:25.397 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+18:20:25.398 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+18:20:25.401 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+18:20:25.403 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+18:20:25.406 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+18:20:25.408 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+18:20:25.408 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+18:20:25.412 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+18:20:25.414 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+18:20:25.415 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "122 - strip deleted panel layout items"
+18:20:25.418 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "123 - strip existing ghost layout items"
+18:20:25.420 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+18:20:25.421 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "124 - pipeline runs triggered by user"
+18:20:25.423 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "125 - auto run debounce guard retry count"
+18:20:25.425 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "126 - pipeline runs heartbeat"
+18:20:25.426 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "127 - dashboard layout version"
+18:20:25.428 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "128 - stored object deletions"
+18:20:25.432 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "129 - lock panels for deletion"
+18:20:25.435 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "130 - lock dashboards for output deletion"
+18:20:25.437 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "131 - patch set applied proposals"
+18:20:25.440 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "132 - form and conversation object deletions"
+18:20:25.444 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "133 - pipeline run rate window user cascade"
+18:20:25.446 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "134 - dashboard folders"
+18:20:25.452 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "135 - pipeline run step row counts"
+18:20:25.453 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "136 - pipeline runs pipeline started idx"
+18:20:25.455 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "137 - lock pipelines for definition writes"
+18:20:25.459 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 137 migrations to schema "public", now at version v137 (execution time 00:00.138s)
+18:20:25.474 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+18:20:25.482 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@62fc043f
+18:20:25.483 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+18:20:25.487 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+18:20:25.490 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@1c0fb228
+18:20:25.490 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+18:20:25.490 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+18:20:25.493 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@1635645f
+18:20:25.493 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+18:20:25.668 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+18:20:25.697 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+18:20:25.703 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+18:20:25.704 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+18:20:25.704 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] undo of a root add
+[info] - should remove the added root and the steps under it, restoring the pre-save state and fingerprint
+[info] undo of the removal of the root at position 0 of two
+18:20:26.984 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:26.984 PST [3587614] ERROR:  duplicate key value violates unique constraint "pipeline_roots_pipeline_id_position_key"
+18:20:26.984 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:26.984 PST [3587614] DETAIL:  Key (pipeline_id, "position")=(a56d5102-p, 0) already exists.
+18:20:26.984 INFO  [postgres:pid(3587575)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:26.984 PST [3587614] STATEMENT:  insert into "pipeline_roots" ("id","pipeline_id","data_source_id","position","created_at")  values ($1,$2,$3,$4,$5)
+18:20:26.990 ERROR [com-helio-api-routes-pipelines-DraftSaveRootsUndoSpec-pekko.actor.default-dispatcher-5] c.h.s.pipelines.PipelineService$ - Pipeline step DB operation failed
+org.postgresql.util.PSQLException: ERROR: duplicate key value violates unique constraint "pipeline_roots_pipeline_id_position_key"
+  Detail: Key (pipeline_id, "position")=(a56d5102-p, 0) already exists.
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2993)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2656)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:446)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:533)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:449)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:197)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:158)
+	at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeUpdate(ProxyPreparedStatement.java:61)
+	at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeUpdate(HikariProxyPreparedStatement.java)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.$anonfun$insertSingleRow$1(JdbcActionComponent.scala:579)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.preparedInsert(JdbcActionComponent.scala:570)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.slick$jdbc$JdbcActionComponent$InsertActionComposerImpl$$insertSingleRow(JdbcActionComponent.scala:576)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl$SingleInsertAction.run(JdbcActionComponent.scala:586)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:32)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:29)
+	at slick.basic.BasicBackend$BasicDatabaseDef.liftedTree1$1(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2$adapted(BasicBackend.scala:318)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.runAndCleanUp(AsyncExecutor.scala:187)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.run(AsyncExecutor.scala:196)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should recreate it under its original id and position, with its steps and Outputs, and equal the pre-save fingerprint *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveRootsUndoSpec.scala:70)
+[info] - should be refused with 409 and change nothing when the removed root's source no longer exists
+18:20:27.222 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+18:20:27.223 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+18:20:27.223 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+18:20:27.224 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+18:20:27.225 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+18:20:27.225 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+18:20:27.326 INFO  [pg_ctl:pid(3587717)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+18:20:27.326 INFO  [pg_ctl:pid(3587717)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+18:20:27.327 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 4e230f7e-328b-4bf4-b5dd-ea53df7330ee shut down postmaster in 00:00:00.101
+18:20:27.369 INFO  [com-helio-api-routes-pipelines-DraftSaveRootsUndoSpec-pekko.actor.default-dispatcher-5] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+18:20:27,903 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+18:20:27,903 |-INFO in ch.qos.logback.classic.util.ContextInitializer@e9a072c - No custom configurators were discovered as a service.
+18:20:27,903 |-INFO in ch.qos.logback.classic.util.ContextInitializer@e9a072c - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:20:27,904 |-INFO in ch.qos.logback.classic.util.ContextInitializer@e9a072c - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+18:20:27,905 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+18:20:27,906 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:/home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+18:20:27,936 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+18:20:27,938 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@62fc36b8 - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+18:20:27,938 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+18:20:27,940 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+18:20:27,941 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@62fc36b8 - value "plain" substituted for "${LOG_APPENDER}"
+18:20:27,941 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+18:20:27,941 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+18:20:27,941 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+18:20:27,944 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+18:20:27,954 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+18:20:27,954 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+18:20:27,954 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+18:20:27,955 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@62fc36b8 - value "INFO" substituted for "${LOG_LEVEL}"
+18:20:27,955 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+18:20:27,955 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@62fc36b8 - value "plain" substituted for "${LOG_APPENDER}"
+18:20:27,955 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+18:20:27,955 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@54fbcec1 - End of configuration.
+18:20:27,955 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@6d97b22a - Registering current configuration as safe fallback point
+18:20:27,958 |-INFO in ch.qos.logback.classic.util.ContextInitializer@e9a072c - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 52 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+
+18:20:27.960 INFO  [com-helio-api-routes-pipelines-DraftSaveRootsApiSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] DraftSaveRootsApiSpec:
+18:20:28.508 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+18:20:28.520 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+18:20:28.521 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+18:20:28.547 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg9754406781541319128 ... ok
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+18:20:28.554 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+18:20:28.561 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+18:20:28.571 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+18:20:28.577 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+18:20:28.577 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+18:20:28.642 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+18:20:28.841 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+18:20:28.845 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+18:20:28.846 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.846 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+18:20:28.846 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.846 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg9754406781541319128 -l logfile start
+18:20:28.846 INFO  [initdb:pid(3587830)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+18:20:28.846 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 84c2ce93-6e22-4daa-8476-f4a7e033b7b2 initdb completed in 00:00:00.298
+18:20:28.849 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 84c2ce93-6e22-4daa-8476-f4a7e033b7b2 postmaster started as Process[pid=3587848, exitValue="not exited"] on port 44843.  Waiting up to PT10S for server startup to finish.
+18:20:28.865 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-17 18:20:28.865 PST [3587851] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+18:20:28.865 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:28.865 PST [3587851] LOG:  listening on IPv6 address "::1", port 44843
+18:20:28.865 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:28.865 PST [3587851] LOG:  listening on IPv4 address "127.0.0.1", port 44843
+18:20:28.865 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:28.865 PST [3587851] LOG:  listening on Unix socket "/tmp/.s.PGSQL.44843"
+18:20:28.866 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:28.866 PST [3587852] LOG:  database system was shut down at 2026-11-17 18:20:28 PST
+18:20:28.868 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:28.868 PST [3587851] LOG:  database system is ready to accept connections
+18:20:28.953 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+18:20:28.953 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+18:20:28.990 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 84c2ce93-6e22-4daa-8476-f4a7e033b7b2 postmaster startup finished in 00:00:00.142
+18:20:29.084 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:44843/postgres?user=postgres (PostgreSQL 14.10)
+18:20:29.121 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+18:20:29.123 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 137 migrations (execution time 00:00.023s)
+18:20:29.129 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+18:20:29.149 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+18:20:29.153 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+18:20:29.162 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+18:20:29.166 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+18:20:29.170 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+18:20:29.176 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+18:20:29.179 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+18:20:29.183 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+18:20:29.187 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+18:20:29.190 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+18:20:29.194 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+18:20:29.198 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+18:20:29.203 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+18:20:29.205 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+18:20:29.208 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+18:20:29.209 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+18:20:29.212 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+18:20:29.216 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+18:20:29.220 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+18:20:29.223 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+18:20:29.225 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+18:20:29.227 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+18:20:29.229 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+18:20:29.232 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+18:20:29.234 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+18:20:29.237 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+18:20:29.239 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+18:20:29.241 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+18:20:29.244 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+18:20:29.246 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+18:20:29.249 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+18:20:29.251 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+18:20:29.254 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+18:20:29.258 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+18:20:29.264 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+18:20:29.269 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+18:20:29.276 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+18:20:29.281 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+18:20:29.284 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+18:20:29.288 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+18:20:29.289 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+18:20:29.292 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+18:20:29.295 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+18:20:29.298 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+18:20:29.301 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+18:20:29.303 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+18:20:29.305 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+18:20:29.307 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+18:20:29.309 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+18:20:29.311 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+18:20:29.313 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+18:20:29.314 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+18:20:29.316 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+18:20:29.317 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+18:20:29.319 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+18:20:29.321 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+18:20:29.324 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+18:20:29.326 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+18:20:29.328 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+18:20:29.329 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+18:20:29.330 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+18:20:29.332 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+18:20:29.337 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+18:20:29.341 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+18:20:29.344 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+18:20:29.346 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+18:20:29.348 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+18:20:29.351 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+18:20:29.353 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+18:20:29.354 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+18:20:29.356 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+18:20:29.358 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+18:20:29.359 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+18:20:29.361 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+18:20:29.363 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+18:20:29.366 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+18:20:29.369 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+18:20:29.372 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+18:20:29.374 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+18:20:29.377 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+18:20:29.379 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+18:20:29.382 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+18:20:29.384 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+18:20:29.387 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+18:20:29.389 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+18:20:29.390 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+18:20:29.393 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+18:20:29.394 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+18:20:29.396 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+18:20:29.397 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+18:20:29.400 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+18:20:29.405 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+18:20:29.409 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+18:20:29.413 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+18:20:29.416 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+18:20:29.425 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+18:20:29.450 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+18:20:29.452 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+18:20:29.453 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+18:20:29.460 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+18:20:29.469 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+18:20:29.472 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+18:20:29.474 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+18:20:29.477 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+18:20:29.478 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+18:20:29.481 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+18:20:29.483 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+18:20:29.486 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+18:20:29.490 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+18:20:29.493 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+18:20:29.495 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+18:20:29.497 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+18:20:29.500 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+18:20:29.502 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+18:20:29.504 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+18:20:29.510 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+18:20:29.513 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+18:20:29.516 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+18:20:29.519 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+18:20:29.521 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+18:20:29.523 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+18:20:29.525 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+18:20:29.527 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+18:20:29.530 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+18:20:29.530 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+18:20:29.532 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+18:20:29.534 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+18:20:29.536 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "122 - strip deleted panel layout items"
+18:20:29.539 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "123 - strip existing ghost layout items"
+18:20:29.541 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+
+18:20:29.543 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "124 - pipeline runs triggered by user"
+18:20:29.546 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "125 - auto run debounce guard retry count"
+18:20:29.547 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "126 - pipeline runs heartbeat"
+18:20:29.549 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "127 - dashboard layout version"
+18:20:29.552 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "128 - stored object deletions"
+18:20:29.556 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "129 - lock panels for deletion"
+18:20:29.558 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "130 - lock dashboards for output deletion"
+18:20:29.560 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "131 - patch set applied proposals"
+18:20:29.563 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "132 - form and conversation object deletions"
+18:20:29.568 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "133 - pipeline run rate window user cascade"
+18:20:29.570 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "134 - dashboard folders"
+18:20:29.574 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "135 - pipeline run step row counts"
+18:20:29.576 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "136 - pipeline runs pipeline started idx"
+18:20:29.578 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "137 - lock pipelines for definition writes"
+18:20:29.583 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 137 migrations to schema "public", now at version v137 (execution time 00:00.138s)
+18:20:29.599 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+18:20:29.607 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@691d29b6
+18:20:29.608 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+18:20:29.612 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+18:20:29.615 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@f6d7d81
+18:20:29.615 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+18:20:29.615 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+18:20:29.618 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@6cfd7a25
+18:20:29.618 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+18:20:29.800 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+18:20:29.830 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+18:20:29.836 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+18:20:29.837 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+18:20:29.837 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] a save that adds a root
+[info] - should write the root last, store a step and an Output on it by rootClientId, return definition.roots and move the fingerprint
+[info] - should let an editor add a source they own, and refuse a source another user owns with 404 and nothing written
+[info] - should answer 400 naming the cycle and write nothing when the new root is read by a step that writes the same source
+[info] - should answer 409 PATCH_SET_STALE for a draft based before a standalone root add, and write nothing
+[info] a save without roots
+[info] - should leave the stored roots exactly as they were
+[info] - should treat an explicit unchanged list the same as no list
+[info] a save that removes a root
+[info] - should delete the root, its steps, Outputs and node snapshots, keep the rest, and leave the survivor at position 0
+[info] - should answer 422 with impact.rootIds when the root is not in the confirmation, and write nothing
+[info] - should keep a step the draft relinks off the removed root (the root is a placement; the step survives)
+18:20:32.162 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:32.162 PST [3587888] ERROR:  duplicate key value violates unique constraint "pipeline_roots_pipeline_id_position_key"
+18:20:32.163 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:32.162 PST [3587888] DETAIL:  Key (pipeline_id, "position")=(a3505707-p, 1) already exists.
+18:20:32.163 INFO  [postgres:pid(3587848)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-17 18:20:32.162 PST [3587888] STATEMENT:  insert into "pipeline_roots" ("id","pipeline_id","data_source_id","position","created_at")  values ($1,$2,$3,$4,$5)
+18:20:32.164 ERROR [com-helio-api-routes-pipelines-DraftSaveRootsApiSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step DB operation failed
+org.postgresql.util.PSQLException: ERROR: duplicate key value violates unique constraint "pipeline_roots_pipeline_id_position_key"
+  Detail: Key (pipeline_id, "position")=(a3505707-p, 1) already exists.
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2993)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2656)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:446)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:533)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:449)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:197)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:158)
+	at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeUpdate(ProxyPreparedStatement.java:61)
+	at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeUpdate(HikariProxyPreparedStatement.java)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.$anonfun$insertSingleRow$1(JdbcActionComponent.scala:579)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.preparedInsert(JdbcActionComponent.scala:570)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.slick$jdbc$JdbcActionComponent$InsertActionComposerImpl$$insertSingleRow(JdbcActionComponent.scala:576)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl$SingleInsertAction.run(JdbcActionComponent.scala:586)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:32)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:29)
+	at slick.basic.BasicBackend$BasicDatabaseDef.liftedTree1$1(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2$adapted(BasicBackend.scala:318)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.runAndCleanUp(AsyncExecutor.scala:187)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.run(AsyncExecutor.scala:196)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should replace the first root and add one: the survivor moves to position 0 and the new root lands at 1 *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveRootsApiSpec.scala:214)
+18:20:32.269 ERROR [com-helio-api-routes-pipelines-DraftSaveRootsApiSpec-pekko.actor.default-dispatcher-4] c.h.s.pipelines.PipelineService$ - Pipeline step DB operation failed
+org.postgresql.util.PSQLException: ERROR: duplicate key value violates unique constraint "pipeline_roots_pipeline_id_position_key"
+  Detail: Key (pipeline_id, "position")=(ed874f48-p, 0) already exists.
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2993)
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2656)
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:446)
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:533)
+	at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:449)
+	at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:197)
+	at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:158)
+	at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeUpdate(ProxyPreparedStatement.java:61)
+	at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeUpdate(HikariProxyPreparedStatement.java)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.$anonfun$insertSingleRow$1(JdbcActionComponent.scala:579)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.preparedInsert(JdbcActionComponent.scala:570)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl.slick$jdbc$JdbcActionComponent$InsertActionComposerImpl$$insertSingleRow(JdbcActionComponent.scala:576)
+	at slick.jdbc.JdbcActionComponent$InsertActionComposerImpl$SingleInsertAction.run(JdbcActionComponent.scala:586)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:32)
+	at slick.jdbc.JdbcActionComponent$SimpleJdbcProfileAction.run(JdbcActionComponent.scala:29)
+	at slick.basic.BasicBackend$BasicDatabaseDef.liftedTree1$1(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2(BasicBackend.scala:323)
+	at slick.basic.BasicBackend$BasicDatabaseDef.$anonfun$runSynchronousDatabaseAction$2$adapted(BasicBackend.scala:318)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.runAndCleanUp(AsyncExecutor.scala:187)
+	at slick.util.AsyncExecutor$$anon$1$$anon$2.run(AsyncExecutor.scala:196)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+[info] - should replace the only root: the new root is the pipeline's single root at position 0 *** FAILED ***
+[info]   {"message":"Internal server error"} 500 Internal Server Error was not equal to 200 OK (DraftSaveRootsApiSpec.scala:236)
+[info] the roots list
+[info] - should answer 400 and write nothing: an empty list
+[info] - should answer 400 and write nothing: a reorder of the survivors
+[info] - should answer 400 and write nothing: a new root before a survivor
+[info] - should answer 400 and write nothing: a survivor that carries a sourceId
+[info] - should answer 400 and write nothing: an id that is not a root of this pipeline (explicit ids are undo-only)
+[info] - should answer 400 and write nothing: an item with both an id and a clientId
+[info] - should answer 400 and write nothing: an item with neither
+[info] - should answer 400 and write nothing: a new root without a sourceId
+[info] - should answer 400 and write nothing: a repeated clientId
+[info] - should answer 400 and write nothing: a repeated root id
+[info] - should answer 400 and write nothing: a step that still names a root the list removes
+[info] - should answer 400 and write nothing: a rootClientId that names no new root
+[info] - should answer 400 and write nothing: a step naming both a rootId and a rootClientId
+[info] - should answer 404 and write nothing: a source that does not exist
+18:20:33.503 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+18:20:33.504 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+18:20:33.504 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+18:20:33.505 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+18:20:33.505 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+18:20:33.506 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+18:20:33.607 INFO  [pg_ctl:pid(3588027)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+18:20:33.607 INFO  [pg_ctl:pid(3588027)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+18:20:33.608 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 84c2ce93-6e22-4daa-8476-f4a7e033b7b2 shut down postmaster in 00:00:00.101
+18:20:33.651 INFO  [com-helio-api-routes-pipelines-DraftSaveRootsApiSpec-pekko.actor.default-dispatcher-4] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=3 aborted=0 unreadable=0
+[info] Run completed in 10 seconds, 459 milliseconds.
+[info] Total number of tests run: 28
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 25, failed 3, canceled 0, ignored 0, pending 0
+[info] *** 3 TESTS FAILED ***
+[error] Failed tests:
+[error] 	com.helio.api.routes.pipelines.DraftSaveRootsUndoSpec
+[error] 	com.helio.api.routes.pipelines.DraftSaveRootsApiSpec
+[error] (Test / testSelected) sbt.TestsFailedException: Tests unsuccessful
+[error] elapsed time: 12 s, cache 93%, 27 disk cache hits, 2 onsite tasks

@@ -1,0 +1,64 @@
+[info] welcome to sbt 2.0.9 (Arch Linux Java 21.0.13.0.3)
+[info] loading project definition from /home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/project
+[info] set current project to helio-backend (in build file:/home/matt/Development/helio/.claude/worktrees/feature/draft-add-remove-roots/HEL-1734/backend/)
+[info] DraftSaveRootsRaceSpec:
+[info] root add (standalone) vs a root-REMOVING save
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without the protecting site
+[info] - should save-first control: be a violation without the protecting site
+[info] root remove (standalone) vs a root-ADDING save
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without the protecting site
+[info] - should save-first control: be a violation without the protecting site
+[info] source delete of a removed root's source vs a root-REMOVING save
+[info] - should writer-first: be excluded from the save's window
+[info] - should save-first: be excluded from the save's window
+[info] - should writer-first control: be a violation without the protecting site
+[info] - should save-first control: be a violation without the protecting site
+[info] a dataset append racing a root-adding save
+[info] - should WriterFirst: wait on the source row, commit both, no deadlock
+[info] - should WriterFirst control without lock (0): no wait is observed
+[info] - should SaveFirst: wait on the source row, commit both, no deadlock
+[info] - should SaveFirst control without lock (0): no wait is observed
+[info] a source delete racing a save that adds that source
+[info] - should writer-first: answer 404 Data source not found (never a 500), write nothing and leave no root on the deleted source
+[info] - should save-first: serialise on the source row, the save committing and the delete then cascading the new root away
+[info] - should writer-first control without lock (0): the save does NOT answer the clean 404; it fails inside the transaction on the foreign key
+[info] - should save-first control without lock (0): the delete commits inside the save's window and the save then fails
+[info] DraftSaveDeadlockSpec:
+[info] a panel create against the save
+[info] - should not deadlock: the save locks panels and dashboards first, as a create does (dashboard before Output)
+[info] - should deadlock when the save takes the pipeline row and the Outputs before the panels (the section-8.3 earlier order)
+[info] an Output delete against the save
+[info] - should not deadlock: the delete takes the pipeline row first, as the save does
+[info] - should deadlock when the delete holds the Output and cascades into rules the save already holds
+[info] a step delete against the save
+[info] - should not deadlock: the delete locks the panels before the pipeline row, as the save does
+[info] - should deadlock when the delete takes the pipeline row before the panels
+[info] a root remove against the save
+[info] - should not deadlock: the removal locks the panels before the pipeline row, as the save does
+[info] - should deadlock when the removal takes the pipeline row before the panels
+[info] the alert evaluator against the save
+[info] - should not deadlock: the save locks the alert rules before the Outputs, the order the evaluator's FK checks take them
+[info] - should deadlock when the save locks the Outputs before the alert rules
+[info] a node-snapshot transaction against the save
+[info] - should not deadlock: the save locks Outputs by (position, id), the order the snapshot inserts its history points in
+[info] - should deadlock when the save locks Outputs by id on a node whose position order is the reverse of its id order
+[info] the upsert write-back rewrite against a save that changes the same step's upsert target
+[info] - should not deadlock: the rewrite takes the cycle advisory lock before the step row, as the save does
+[info] - should deadlock when the rewrite locks the step row first and the advisory lock after
+[info] a workspace teardown against a source delete on one of its sources
+[info] - should not deadlock: the teardown locks its source rows first, as a source delete does
+[info] - should deadlock when the teardown takes the panels before the source rows (the order it had)
+[info] a root-adding save against a source delete of a source the pipeline already roots
+[info] - should not deadlock: the save key-shares the added source before it takes the pipeline row, as the delete takes the source first
+[info] - should deadlock when the save takes the pipeline row before the added source (the opposite order)
+[info] a concurrent mix of the save and every participant, repeated
+[info] - should never raise 40P01
+[info] Run completed in 20 seconds, 436 milliseconds.
+[info] Total number of tests run: 39
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 39, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.

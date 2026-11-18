@@ -1,0 +1,4 @@
+MUTATION request-no-rootClientId: src/features/pipelines/state/pipelineDraft.ts toDraftSteps sends a step on a draft root by rootId instead of rootClientId
+  ● the save request's roots › names a draft root by rootClientId on a step and on a root-bound Output
+  ● buildDraftSaveRequest with root ops › names the draft root on a step added at its head (rootClientId, no rootId)
+Tests:       2 failed, 16 passed, 18 total

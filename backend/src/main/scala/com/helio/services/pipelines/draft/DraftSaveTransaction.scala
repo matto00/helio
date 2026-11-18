@@ -1,14 +1,15 @@
 package com.helio.services.pipelines.draft
 
-import com.helio.api.protocols.pipelines.{DraftSaveRequest, OutputResponse, PipelineStepResponse}
+import com.helio.api.protocols.pipelines.{DraftSaveRequest, OutputResponse, PipelineRootSummaryResponse, PipelineStepConfigCodec, PipelineStepResponse}
 import com.helio.domain.model.AuditEvent.NewAuditEvent
-import com.helio.domain.model.{AuthenticatedUser, PatchSetApplicationId, PipelineId, UserId}
+import com.helio.domain.model.{AuthenticatedUser, DataSourceId, PatchSetApplicationId, PipelineId, UserId}
+import com.helio.domain.steps.{UpsertSourceConfig, UpsertTarget}
 import com.helio.domain.pipelines.LaneCycleViolations
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.{JournaledEdit, PatchSetApplicationRecord}
-import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputRepository, PipelineDraftWrites, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputRepository, PipelineCycleGuard, PipelineDraftWrites, PipelineRootRepository, PipelineStepRepository}
 import com.helio.services.ServiceError
 import com.helio.services.ServiceError.{CascadeImpact, StaleTarget}
 import com.helio.services.patchsets.{PatchSetApplyContext, PatchSetPipelineDefinition, PatchSetStaleMessage, PatchSetTargetFingerprint}
@@ -18,6 +19,7 @@ import spray.json._
 import java.time.Instant
 import java.util.UUID
 import scala.concurrent.ExecutionContext
+import scala.util.{Failure, Success}
 
 /** How a save was asked for. `Restore` is the server replaying a journaled definition (undo): explicit ids are accepted and
  *  the cascade confirmation is derived under the locks instead of read from the request. */
@@ -35,7 +37,8 @@ final case class DraftSaved(
     fingerprint: String,
     steps: Vector[PipelineStepResponse],
     outputs: Vector[OutputResponse],
-    applicationId: String
+    applicationId: String,
+    roots: Vector[PipelineRootSummaryResponse] = Vector.empty
 )
 
 /** The single privileged transaction of `POST /api/pipelines/:id/draft/save` (HEL-1629, design D2-D5): locks in the verified
@@ -44,6 +47,7 @@ final case class DraftSaved(
 private[draft] final class DraftSaveTransaction(
     writes: PipelineDraftWrites,
     stepRepo: PipelineStepRepository,
+    rootRepo: PipelineRootRepository,
     outputRepo: OutputRepository,
     panelRepo: PanelRepository,
     applicationRepo: PatchSetApplicationRepository,
@@ -75,7 +79,10 @@ private[draft] final class DraftSaveTransaction(
   ): DBIO[DraftSaved] =
     for {
       _        <- hooks.at(Begin)
+      // Lock (0): the sources this save adds as roots, before any other lock. A source gone by now is an answer, never an FK error.
+      _        <- if (writes.sourcesFirst) lockSources(preLockPlan, mode) else DBIO.successful(())
       locked   <- writes.lockDefinition(pipelineId, preLockPlan.needsAdvisory, site => hooks.at(AfterLock(site)))
+      _        <- if (writes.sourcesFirst) DBIO.successful(()) else lockSources(preLockPlan, mode)
       _        <- abortIf(!locked, ServiceError.NotFound(s"Pipeline not found: $pipelineId"))
       prior    <- definition(pipelineId)
       priorFp   = PatchSetTargetFingerprint.of("pipeline", prior)
@@ -86,12 +93,42 @@ private[draft] final class DraftSaveTransaction(
       // pre-lock plan did not means the state moved under us: refuse (the base is stale) instead of locking out of order.
       _        <- abortIf(plan.needsAdvisory && !preLockPlan.needsAdvisory, staleError(pipelineId, priorFp))
       _        <- abortIf(!plan.checkedKeys.toSet.subsetOf(preLockPlan.checkedKeys.toSet), staleError(pipelineId, priorFp))
+      // Lock (0) was taken for the pre-lock plan's added sources only: a re-plan that adds one more cannot lock it in order.
+      _        <- abortIf(!plan.addedSourceIds.toSet.subsetOf(preLockPlan.addedSourceIds.toSet), staleError(pipelineId, priorFp))
+      _        <- cycleCheck(pipelineId, pipelineName, actor, plan, mode)
       impact   <- impactOf(plan)
       _        <- cascadeGate(impact, plan, req, mode)
       _        <- hooks.at(AfterCompare)
       saved    <- apply(pipelineId, pipelineName, ownerId, actor, rows, plan, prior)
       _        <- hooks.at(BeforeCommit)
     } yield saved
+
+  /** A root this save adds may not close a pipeline read/write cycle. The advisory lock is already held (the plan asked for
+   *  it), so only the read-and-validate half runs. A cycle is a 400, or for an undo a 409 like the other undo refusals. */
+  private def cycleCheck(pipelineId: String, pipelineName: String, actor: AuthenticatedUser, plan: DraftPlan, mode: DraftSaveMode): DBIO[Unit] =
+    if (plan.rootPlan.creates.isEmpty) DBIO.successful(())
+    else {
+      val targets = plan.finalSteps.flatMap { w =>
+        PipelineStepConfigCodec.decode(w.op, w.config).toOption.collect {
+          case UpsertSourceConfig(UpsertTarget.ExistingSource(id), _) if id.trim.nonEmpty => DataSourceId(id)
+        }
+      }
+      PipelineCycleGuard.checkAddedReadsHoldingLockAction(
+        rootRepo, stepRepo, actor.id.value, PipelineId(pipelineId), pipelineName, plan.addedSourceIds.map(DataSourceId(_)), targets
+      ).asTry.flatMap {
+        case Failure(PipelineCycleGuard.PipelineCycleRejected(msg)) =>
+          abort(if (mode.restoring) ServiceError.Conflict(s"Undo refused: $msg") else ServiceError.BadRequest(msg))
+        case Failure(other) => DBIO.failed(other)
+        case Success(_)     => DBIO.successful(())
+      }
+    }
+
+  private def lockSources(preLockPlan: DraftPlan, mode: DraftSaveMode): DBIO[Unit] =
+    writes.lockAddedSources(preLockPlan.addedSourceIds, site => hooks.at(AfterLock(site))).flatMap { found =>
+      preLockPlan.addedSourceIds.find(id => !found.contains(id)).fold[DBIO[Unit]](DBIO.successful(()))(id =>
+        abort(if (mode.restoring) ServiceError.Conflict(s"Undo refused: source $id no longer exists; nothing was changed.")
+              else ServiceError.NotFound(s"Data source not found: $id")))
+    }
 
   private def impactOf(plan: DraftPlan): DBIO[CascadeImpact] =
     for {
@@ -101,14 +138,17 @@ private[draft] final class DraftSaveTransaction(
       val panelIds = panels.values.flatten.toVector.distinct.sorted
       val ruleIds  = rules.values.flatten.map(_._1).toVector.distinct.sorted
       val steps    = plan.removedStepIds.toVector.sorted
+      val rootIds  = plan.rootPlan.removedRootIds.sorted
       CascadeImpact(
         steps, plan.removedOutputIds, panelIds, ruleIds,
         Vector(
+          if (rootIds.nonEmpty) Some(s"Removes ${rootIds.size} source(s).") else None,
           if (steps.nonEmpty) Some(s"Removes ${steps.size} step(s).") else None,
           if (plan.removedOutputIds.nonEmpty) Some(s"Removes ${plan.removedOutputIds.size} Output(s).") else None,
           if (panelIds.nonEmpty) Some(s"Removes ${panelIds.size} bound panel(s).") else None,
           if (ruleIds.nonEmpty) Some(s"Removes ${ruleIds.size} alert rule(s).") else None
-        ).flatten
+        ).flatten,
+        rootIds
       )
     }
 
@@ -132,7 +172,8 @@ private[draft] final class DraftSaveTransaction(
         impact.stepIds.forall(id => c.exists(_.stepIds.contains(id))) &&
           impact.outputIds.forall(id => c.exists(_.outputIds.contains(id))) &&
           impact.panelIds.forall(id => c.exists(_.panelIds.contains(id))) &&
-          impact.alertRuleIds.forall(id => c.exists(_.alertRuleIds.contains(id)))
+          impact.alertRuleIds.forall(id => c.exists(_.alertRuleIds.contains(id))) &&
+          impact.rootIds.forall(id => c.exists(_.rootIds.contains(id)))
       abortIf(!covered, ServiceError.CascadeConfirmationRequired(impact, "The draft removes more than was confirmed; nothing was saved."))
     }
 
@@ -147,11 +188,16 @@ private[draft] final class DraftSaveTransaction(
   ): DBIO[DraftSaved] = {
     val actingOwner = ownerId.value
     for {
+      // HEL-1734 (D5): new roots go in past every stored position first; removed roots go after their steps and Outputs; then
+      // every root is moved to its final index.
+      _          <- writes.insertRoots(pipelineId, plan.rootPlan.creates)
       _          <- writes.insertSteps(pipelineId, pipelineName, actingOwner, plan.creates)
       _          <- hooks.at(AfterInserts)
       _          <- writes.relinkSteps(plan.relinks)
       _          <- hooks.at(AfterRelinks)
       _          <- writes.deleteRemoved(plan.removedOutputIds, plan.removedStepIds)
+      _          <- writes.deleteRoots(pipelineId, plan.rootPlan.removedRootIds, before.steps, plan.removedStepIds)
+      _          <- if (plan.rootPlan.rootsGiven) writes.placeRoots(pipelineId, plan.rootPlan.finalRootIds) else DBIO.successful(())
       _          <- hooks.at(AfterDeletes)
       _          <- writes.updateStepContent(pipelineId, pipelineName, actingOwner, plan.contentUpdates, plan.oldConfigs)
       _          <- hooks.at(AfterUpdates)
@@ -174,7 +220,7 @@ private[draft] final class DraftSaveTransaction(
       _          <- applicationRepo.createAction(record)
       _          <- Option(auditRepo).fold[DBIO[Any]](DBIO.successful(()))(_.appendAction(auditEvent(pipelineId, actor, appId, plan)))
       response   <- reads.definition(PipelineId(pipelineId))
-    } yield DraftSaved(newFp, response._1, response._2, appId)
+    } yield DraftSaved(newFp, response._1, response._2, appId, response._3)
   }
 
   /** A write may not leave a stored `lane` reference naming its own step's ancestor, descendant or dependent where it did
@@ -191,7 +237,8 @@ private[draft] final class DraftSaveTransaction(
       JsObject(
         "applicationId" -> JsString(applicationId),
         "stepsCreated" -> JsNumber(plan.creates.size), "stepsRemoved" -> JsNumber(plan.removedStepIds.size),
-        "outputsCreated" -> JsNumber(plan.outputCreates.size), "outputsRemoved" -> JsNumber(plan.removedOutputIds.size)
+        "outputsCreated" -> JsNumber(plan.outputCreates.size), "outputsRemoved" -> JsNumber(plan.removedOutputIds.size),
+        "rootsCreated" -> JsNumber(plan.rootPlan.creates.size), "rootsRemoved" -> JsNumber(plan.rootPlan.removedRootIds.size)
       )
     )
 }

@@ -10,13 +10,18 @@
     "code": { "const": "CASCADE_CONFIRMATION_REQUIRED" },
     "impact": {
       "type": "object",
-      "required": ["stepIds", "outputIds", "panelIds", "alertRuleIds", "hints"],
+      "required": ["stepIds", "outputIds", "panelIds", "alertRuleIds", "hints", "rootIds"],
       "properties": {
         "stepIds": { "type": "array", "items": { "type": "string" } },
         "outputIds": { "type": "array", "items": { "type": "string" } },
         "panelIds": { "type": "array", "items": { "type": "string" } },
         "alertRuleIds": { "type": "array", "items": { "type": "string" } },
-        "hints": { "type": "array", "items": { "type": "string" } }
+        "hints": { "type": "array", "items": { "type": "string" } },
+        "rootIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "HEL-1734: the roots (sources) the draft removes."
+        }
       },
       "additionalProperties": false
     }

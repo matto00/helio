@@ -1,0 +1,4 @@
+MUTATION request-omits-roots: src/features/pipelines/hooks/draftSaveRequest.ts: replaced [...(draftRoots ? { roots: draftRoots } : {}),] with []
+  ● buildDraftSaveRequest with root ops › sends the final roots: the saved ones kept by id, the added one by clientId and source
+  ● buildDraftSaveRequest with root ops › omits a removed saved root from the list, and its steps from the tree
+Tests:       2 failed, 3 passed, 5 total

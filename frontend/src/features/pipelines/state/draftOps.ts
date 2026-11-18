@@ -36,7 +36,11 @@ export type DraftOp =
       name: string;
       config: Record<string, unknown>;
     }
-  | { kind: "outputDelete"; outputId: string };
+  | { kind: "outputDelete"; outputId: string }
+  // HEL-1734 (D9): a source added to / removed from the pipeline inside the draft. `rootAdd.clientId` is the draft root's id (a
+  // step or Output on it names it as its `rootId`); `rootRemove.rootId` is a saved root id or an earlier `rootAdd`'s clientId.
+  | { kind: "rootAdd"; clientId: string; sourceId: string; dataSourceName: string }
+  | { kind: "rootRemove"; rootId: string };
 
 /** The node a draft Output is created on: a step (a saved id or a client id) or a root of the pipeline. */
 export type DraftOutputNode = { step: string } | { root: string };
@@ -44,6 +48,31 @@ export type DraftOutputNode = { step: string } | { root: string };
 /** Output ops ride the same log as step ops (HEL-1733 D1) so replay order settles "an Output created on a step a later op deletes". */
 export function isOutputOp(op: DraftOp): boolean {
   return op.kind === "outputCreate" || op.kind === "outputDelete";
+}
+
+/** True for a root op (HEL-1734): kept even when the steps are as the base has them, because a root is not a step. */
+export function isRootOp(op: DraftOp): boolean {
+  return op.kind === "rootAdd" || op.kind === "rootRemove";
+}
+
+/** The root an op names (an insert/append anchor, a trunk reorder, an Output on a root, a root removal), if any. */
+export function rootNamedBy(op: DraftOp): string | undefined {
+  switch (op.kind) {
+    case "insert":
+      return "head" in op.anchor
+        ? op.anchor.head
+        : "append" in op.anchor
+          ? op.anchor.append
+          : undefined;
+    case "reorder":
+      return op.rootId;
+    case "outputCreate":
+      return "root" in op.node ? op.node.root : undefined;
+    case "rootRemove":
+      return op.rootId;
+    default:
+      return undefined;
+  }
 }
 
 const CLIENT_ID_PREFIX = "draft-";
@@ -207,6 +236,24 @@ function relinkTrunk(
   });
 }
 
+/** The root's steps and everything under them go, as the server's cascade removes them (`removeRootCascadeAction`). */
+export function removeRootSteps(steps: readonly Step[], rootId: string): Step[] {
+  const gone = new Set<string>(
+    steps.filter((s) => !s.parentStepId && s.rootId === rootId).map((s) => s.id),
+  );
+  let grew = gone.size > 0;
+  while (grew) {
+    grew = false;
+    for (const s of steps) {
+      if (s.parentStepId && gone.has(s.parentStepId) && !gone.has(s.id)) {
+        gone.add(s.id);
+        grew = true;
+      }
+    }
+  }
+  return steps.filter((s) => !gone.has(s.id));
+}
+
 /** Applies one op to `steps`, or `null` when an id it names is not there (or it would re-create an existing client id). */
 export function applyOp(steps: readonly Step[], op: DraftOp): Step[] | null {
   const has = (id: string) => steps.some((s) => s.id === id);
@@ -237,6 +284,11 @@ export function applyOp(steps: readonly Step[], op: DraftOp): Step[] | null {
     case "outputDelete":
       // Output ops never change the steps; `replayOps` judges them against the Outputs (draftOutputs.ts).
       return [...steps];
+    case "rootAdd":
+      // A root changes no step; `replayRoots` (draftRoots.ts) judges it against the roots.
+      return has(op.clientId) ? null : [...steps];
+    case "rootRemove":
+      return removeRootSteps(steps, op.rootId);
   }
 }
 

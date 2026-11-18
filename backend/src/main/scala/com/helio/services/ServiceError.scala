@@ -53,7 +53,7 @@ object ServiceError {
   final case class PatchSetAlreadyApplied(message: String) extends ServiceError
   /** What a draft save removes beyond what the client confirmed (HEL-1629): the steps, Outputs, bound panels and targeting
    *  alert rules, computed under the save's locks. */
-  final case class CascadeImpact(stepIds: Vector[String], outputIds: Vector[String], panelIds: Vector[String], alertRuleIds: Vector[String], hints: Vector[String])
+  final case class CascadeImpact(stepIds: Vector[String], outputIds: Vector[String], panelIds: Vector[String], alertRuleIds: Vector[String], hints: Vector[String], rootIds: Vector[String] = Vector.empty)
   /** 422 for a draft save whose removals are not all covered by `confirmCascade` (HEL-1629); nothing was written.
    *  `ServiceResponse.completeError` emits it as `DraftCascadeRequiredResponse`. */
   final case class CascadeConfirmationRequired(impact: CascadeImpact, message: String) extends ServiceError

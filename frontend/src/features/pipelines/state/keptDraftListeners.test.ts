@@ -4,7 +4,7 @@ import { clearAuth } from "../../auth/state/authSlice";
 import { KEPT_DRAFT_PREFIX, writeKeptDraft } from "./keptDraft";
 
 const kept = {
-  overlay: { version: 3 as const, ops: [], configs: {}, enabled: {}, outputEdits: {} },
+  overlay: { version: 4 as const, ops: [], configs: {}, enabled: {}, outputEdits: {} },
   base: "sig",
 };
 

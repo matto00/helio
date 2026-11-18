@@ -81,6 +81,7 @@ describe("draftSaveService", () => {
         panelIds: ["pa"],
         alertRuleIds: ["ra"],
         hints: ["Removes 1 step(s)."],
+        rootIds: [],
       },
     });
   });

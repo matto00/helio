@@ -71,7 +71,7 @@ describe("kept draft v3 (HEL-1684, HEL-1733)", () => {
     expect(readKeptDraft("p1")).toEqual({
       base: "sig",
       overlay: {
-        version: 3,
+        version: 4,
         ops: [
           { kind: "delete", stepId: "b" },
           { kind: "delete", stepId: "c" },
@@ -83,7 +83,7 @@ describe("kept draft v3 (HEL-1684, HEL-1733)", () => {
     });
   });
 
-  it("restores a v2 draft as v3 with no Output edits and no outputsBase (compared on steps only)", () => {
+  it("restores a v2 draft as v4 with no Output edits and no outputsBase (compared on steps only)", () => {
     put({
       overlay: { version: 2, ops: [{ kind: "delete", stepId: "a" }], configs: {}, enabled: {} },
       base: "sig",
@@ -91,7 +91,7 @@ describe("kept draft v3 (HEL-1684, HEL-1733)", () => {
     expect(readKeptDraft("p1")).toEqual({
       base: "sig",
       overlay: {
-        version: 3,
+        version: 4,
         ops: [{ kind: "delete", stepId: "a" }],
         configs: {},
         enabled: {},
@@ -151,7 +151,7 @@ describe("kept draft v3 (HEL-1684, HEL-1733)", () => {
     window.sessionStorage.setItem(key, "{not json");
     expect(readKeptDraft("p1")).toBeNull();
     put({
-      overlay: { version: 4, ops: [], configs: {}, enabled: {}, outputEdits: {} },
+      overlay: { version: 5, ops: [], configs: {}, enabled: {}, outputEdits: {} },
       base: "sig",
     });
     expect(readKeptDraft("p1")).toBeNull();
@@ -171,6 +171,57 @@ describe("kept draft v3 (HEL-1684, HEL-1733)", () => {
         ops: [{ kind: "outputDelete", outputId: "o" }],
         configs: {},
         enabled: {},
+      },
+      base: "sig",
+    });
+    expect(readKeptDraft("p1")).toBeNull();
+  });
+
+  it("keeps a root add and a root remove in a v4 draft, and migrates a v3 draft with no root op", () => {
+    const ops = [
+      { kind: "rootAdd", clientId: "draft-r", sourceId: "ds2", dataSourceName: "Orders" },
+      { kind: "rootRemove", rootId: "r1" },
+    ] as const;
+    const overlay = { version: 4, ops, configs: {}, enabled: {}, outputEdits: {} } as const;
+    writeKeptDraft("p1", { overlay: overlay as never, base: "sig" });
+    expect(readKeptDraft("p1")).toEqual({ overlay, base: "sig" });
+    put({
+      overlay: {
+        version: 3,
+        ops: [{ kind: "delete", stepId: "a" }],
+        configs: {},
+        enabled: {},
+        outputEdits: {},
+      },
+      base: "sig",
+    });
+    expect(readKeptDraft("p1")?.overlay).toMatchObject({
+      version: 4,
+      ops: [{ kind: "delete", stepId: "a" }],
+    });
+  });
+
+  it("rejects a root op inside a v2 or v3 draft, and a malformed root op in a v4 draft", () => {
+    for (const version of [2, 3]) {
+      put({
+        overlay: {
+          version,
+          ops: [{ kind: "rootRemove", rootId: "r1" }],
+          configs: {},
+          enabled: {},
+          outputEdits: {},
+        },
+        base: "sig",
+      });
+      expect(readKeptDraft("p1")).toBeNull();
+    }
+    put({
+      overlay: {
+        version: 4,
+        ops: [{ kind: "rootAdd", clientId: "d" }],
+        configs: {},
+        enabled: {},
+        outputEdits: {},
       },
       base: "sig",
     });

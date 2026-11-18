@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/pipelines/draft-save-request.schema.json",
   "title": "DraftSaveRequest",
-  "description": "POST /api/pipelines/:id/draft/save body (HEL-1629, docs/live-draft-preview.md section 8). `steps` and `outputs` are the FINAL tree, diffed against the stored definition: an item carrying an `id` is an existing step or Output of THIS pipeline (any other id is a 400: explicit ids are accepted only when the server restores a journaled definition on undo); an item carrying a `clientId` is new. A step names exactly one of `parentStepId` (an existing step of the draft), `parentClientId` (a new step of the draft) or `rootId` (a parentless step names its root); an Output names exactly one of `nodeStepId`, `nodeStepClientId` or `rootId`. A stored step the draft omits is DELETED, with its tail subtree only if the draft omits it too: the server never deletes a step the draft keeps. `baseFingerprint` is the `fingerprint` of the `GET /api/pipelines/:id` the draft was based on; a stale base answers 409 PATCH_SET_STALE and there is no overwrite path of any kind. Removals (steps, Outputs and the panels and alert rules they cascade into) must be listed in `confirmCascade`, else 422 with the impact.",
+  "description": "POST /api/pipelines/:id/draft/save body (HEL-1629, docs/live-draft-preview.md section 8). `steps` and `outputs` are the FINAL tree, diffed against the stored definition: an item carrying an `id` is an existing step or Output of THIS pipeline (any other id is a 400: explicit ids are accepted only when the server restores a journaled definition on undo); an item carrying a `clientId` is new. A step names exactly one of `parentStepId` (an existing step of the draft), `parentClientId` (a new step of the draft), `rootId` or `rootClientId` (a parentless step names its root, a stored one or a new one of `roots`); an Output names exactly one of `nodeStepId`, `nodeStepClientId`, `rootId` or `rootClientId`. A stored step the draft omits is DELETED, with its tail subtree only if the draft omits it too: the server never deletes a step the draft keeps. `baseFingerprint` is the `fingerprint` of the `GET /api/pipelines/:id` the draft was based on; a stale base answers 409 PATCH_SET_STALE and there is no overwrite path of any kind. Removals (steps, Outputs and the panels and alert rules they cascade into) must be listed in `confirmCascade`, else 422 with the impact.",
   "type": "object",
   "required": ["baseFingerprint", "steps", "outputs"],
   "properties": {
@@ -13,10 +13,38 @@
       "enum": ["run", "dryRun", null],
       "description": "When set, the server submits a run through the unchanged HEL-505 guard AFTER the save has committed. A guard rejection is reported in the response and never rolls the save back."
     },
-    "confirmCascade": { "$ref": "#/$defs/DraftCascadeConfirmation" }
+    "confirmCascade": { "$ref": "#/$defs/DraftCascadeConfirmation" },
+    "roots": {
+      "type": "array",
+      "minItems": 1,
+      "description": "HEL-1734: the FINAL roots (sources) of the draft, in order; each root's position is its index. Absent: the stored roots are left unchanged. A stored root the list omits is removed with its steps, Outputs and node snapshots, in the same transaction (list it in `confirmCascade.rootIds`). An empty list is a 400 (a pipeline keeps at least one root). The surviving roots must keep their stored relative order and new roots must follow every survivor. A step or Output may name a new root by `rootClientId`.",
+      "items": { "$ref": "#/$defs/DraftRoot" }
+    }
   },
   "additionalProperties": false,
   "$defs": {
+    "DraftRoot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A root of THIS pipeline that stays. It must not carry `sourceId` (a survivor's source cannot change)."
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A new root, minted by the client."
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The data source of a new root; it must be owned by the caller, else 404."
+        }
+      },
+      "oneOf": [{ "required": ["id"] }, { "required": ["clientId", "sourceId"] }],
+      "additionalProperties": false
+    },
     "DraftStep": {
       "type": "object",
       "required": ["type", "config", "position"],
@@ -29,6 +57,7 @@
         "parentStepId": { "type": "string", "minLength": 1 },
         "parentClientId": { "type": "string", "minLength": 1 },
         "rootId": { "type": "string", "minLength": 1 },
+        "rootClientId": { "type": "string", "minLength": 1 },
         "position": { "type": "integer", "minimum": 0 }
       },
       "oneOf": [{ "required": ["id"] }, { "required": ["clientId"] }],
@@ -47,6 +76,7 @@
         "nodeStepId": { "type": "string", "minLength": 1 },
         "nodeStepClientId": { "type": "string", "minLength": 1 },
         "rootId": { "type": "string", "minLength": 1 },
+        "rootClientId": { "type": "string", "minLength": 1 },
         "config": {
           "type": "object",
           "description": "Output config, validated per kind exactly as POST /api/pipelines/:id/outputs (outputs/create-output-request.schema.json documents every key). An insight Output (HEL-1740) accepts only preset, prompt, reads {outputs, windows}, refresh, maxSentences, maxChars and an empty fieldMapping; reads.outputs must name other non-insight Outputs this draft keeps (stored ids), never the insight itself."
@@ -61,7 +91,8 @@
         "stepIds": { "type": "array", "items": { "type": "string" } },
         "outputIds": { "type": "array", "items": { "type": "string" } },
         "panelIds": { "type": "array", "items": { "type": "string" } },
-        "alertRuleIds": { "type": "array", "items": { "type": "string" } }
+        "alertRuleIds": { "type": "array", "items": { "type": "string" } },
+        "rootIds": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": false
     }

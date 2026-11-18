@@ -9,11 +9,11 @@ import { remapCreatedOutputs, savedStepForDraftStep } from "../state/draftSelect
 import { draftSaveRunSettled, fetchPipelineById } from "../state/pipelinesSlice";
 import type { DraftSaveResponse } from "../types/draftSave";
 import type { Output } from "../types/output";
-import type { PipelineStep } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { runRefusedMessage } from "./draftSaveRequest";
 import type { DraftCascadePrompt, DraftNotice } from "./draftSaveRequest";
 import type { PipelineDraft } from "./usePipelineDraft";
+import type { AdoptedDefinition } from "./usePipelineDraftAdopt";
 import { STEP_PARAM } from "./useStepSelection";
 
 /** What happens after a Save & run response: the saved definition replaces the base, the overlay is cleared, the toast offers Undo. */
@@ -37,10 +37,7 @@ export function usePipelineDraftSettle({
   draft: PipelineDraft;
   dispatch: ReturnType<typeof useAppDispatch>;
   pushToast: ReturnType<typeof useToast>["push"];
-  adoptDefinition: (
-    pipelineId: string,
-    definition: { steps: PipelineStep[]; outputs: Output[] },
-  ) => Step[];
+  adoptDefinition: (pipelineId: string, definition: AdoptedDefinition) => Step[];
   allOutputsRef: MutableRefObject<Output[]>;
   setOutputPickRemap: Dispatch<SetStateAction<ReadonlyMap<string, string>>>;
   dismissSavedToast: () => void;

@@ -1,7 +1,7 @@
 package com.helio.services.pipelines.draft
 
-import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftSaveRequest, DraftStepRequest}
-import com.helio.infrastructure.persistence.pipelines.DefinitionRows
+import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftRootRequest, DraftSaveRequest, DraftStepRequest}
+import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, RootWrite}
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.OutputRow
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.PipelineStepRow
 import com.helio.services.ServiceError
@@ -202,6 +202,72 @@ class DraftDiffSpec extends AnyWordSpec with Matchers {
         ids()
       )
       restored.toOption.getOrElse(fail(s"expected a plan, got $restored")).outputCreates.map(_.id) shouldBe Vector("om")
+    }
+  }
+
+  // ── HEL-1734: the root pass ──────────────────────────────────────────────────────────────────────────────────────────
+  private def keepRoot(id: String)                      = DraftRootRequest(id = Some(id))
+  private def newRoot(client: String, source: String)    = DraftRootRequest(clientId = Some(client), sourceId = Some(source))
+  private def planRoots(roots: Vector[DraftRootRequest], steps: Vector[DraftStepRequest] = unchangedSteps, outputs: Vector[DraftOutputRequest] = unchangedOutputs, restoring: Boolean = false) =
+    DraftDiff.plan(current, DraftSaveRequest("fp", steps, outputs, None, None, roots = Some(roots)), restoring, ids())
+
+  "the root pass" should {
+    "leave the roots alone when `roots` is absent" in {
+      val p = plan().toOption.get
+      p.rootPlan.rootsGiven shouldBe false
+      p.rootPlan.creates shouldBe empty
+      p.rootPlan.removedRootIds shouldBe empty
+      p.addedSourceIds shouldBe empty
+    }
+    "plan a new root last, with its minted id, final index, source, and need the advisory lock" in {
+      val p = planRoots(Vector(keepRoot("r1"), keepRoot("r2"), newRoot("nr", "dsX"))).toOption.get
+      p.rootPlan.creates shouldBe Vector(RootWrite("new-1", "dsX", 2))
+      p.rootPlan.finalRootIds shouldBe Vector("r1", "r2", "new-1")
+      p.rootPlan.removedRootIds shouldBe empty
+      p.addedSourceIds shouldBe Vector("dsX")
+      p.needsAdvisory shouldBe true
+    }
+    "list the same source once when two new roots use it, sorted" in {
+      val p = planRoots(Vector(keepRoot("r1"), keepRoot("r2"), newRoot("b", "dsZ"), newRoot("a", "dsA"), newRoot("c", "dsZ"))).toOption.get
+      p.addedSourceIds shouldBe Vector("dsA", "dsZ")
+    }
+    "plan the removal of an omitted root, which counts as a removal" in {
+      val steps = unchangedSteps.filterNot(_.id.contains("t4"))
+      val outputs = unchangedOutputs.filterNot(_.id.contains("od"))
+      val p = planRoots(Vector(keepRoot("r1")), steps, outputs).toOption.get
+      p.rootPlan.removedRootIds shouldBe Vector("r2")
+      p.removesAnything shouldBe true
+      p.removedStepIds shouldBe Set("t4")
+      p.removedOutputIds shouldBe Vector("od")
+    }
+    "let a step and an Output name a new root by rootClientId" in {
+      val steps = unchangedSteps :+ DraftStepRequest(None, Some("ns"), "limit", JsObject("count" -> JsNumber(1)), None, None, None, None, 0, Some("nr"))
+      val outputs = unchangedOutputs :+ DraftOutputRequest(None, Some("no"), "n", "table", None, None, None, Some(JsObject.empty), Some("nr"))
+      val p = planRoots(Vector(keepRoot("r1"), keepRoot("r2"), newRoot("nr", "dsX")), steps, outputs).toOption.get
+      p.creates.map(w => (w.rootId, w.parentStepId)) shouldBe Vector((Some("new-1"), None))
+      p.outputCreates.map(_.rootId) shouldBe Vector(Some("new-1"))
+    }
+    "refuse, naming the cause (400)" in {
+      error(planRoots(Vector.empty)) should include("last root")
+      error(planRoots(Vector(keepRoot("r2"), keepRoot("r1")))) should include("stored order")
+      error(planRoots(Vector(newRoot("nr", "dsX"), keepRoot("r1"), keepRoot("r2")))) should include("after every surviving root")
+      error(planRoots(Vector(keepRoot("r1"), DraftRootRequest(id = Some("r2"), sourceId = Some("dsX"))))) should include("cannot carry sourceId")
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("zz")))) should include("not a root of this pipeline")
+      error(planRoots(Vector(keepRoot("r1"), DraftRootRequest(id = Some("r2"), clientId = Some("x"))))) should include("not both")
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("r2"), DraftRootRequest()))) should include("required")
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("r2"), DraftRootRequest(clientId = Some("x"))))) should include("needs a sourceId")
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("r1"), keepRoot("r2")))) should include("Duplicate root")
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("r2"), newRoot("x", "a"), newRoot("x", "b")))) should include("Duplicate root")
+    }
+    "refuse a step or Output that still names a root the list removes, or a rootClientId nothing declares" in {
+      error(planRoots(Vector(keepRoot("r1")))) should include("not a root of this pipeline")
+      val ghost = unchangedSteps :+ DraftStepRequest(None, Some("ns"), "limit", JsObject("count" -> JsNumber(1)), None, None, None, None, 0, Some("ghost"))
+      error(planRoots(Vector(keepRoot("r1"), keepRoot("r2")), ghost)) should include("rootClientId")
+    }
+    "in restore mode recreate a root under its explicit id and source, in the interleaved position the journal recorded" in {
+      val p = planRoots(Vector(DraftRootRequest(id = Some("rOld"), sourceId = Some("dsOld")), keepRoot("r1"), keepRoot("r2")), restoring = true).toOption.get
+      p.rootPlan.finalRootIds shouldBe Vector("rOld", "r1", "r2")
+      p.rootPlan.creates shouldBe Vector(RootWrite("rOld", "dsOld", 0))
     }
   }
 }

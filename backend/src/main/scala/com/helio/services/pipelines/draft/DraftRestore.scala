@@ -1,7 +1,7 @@
 package com.helio.services.pipelines.draft
 
 import com.helio.api.protocols.patchsets.{EditUndoOutcome, PatchSetUndoResponse}
-import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftSaveRequest, DraftStepRequest}
+import com.helio.api.protocols.pipelines.{DraftOutputRequest, DraftRootRequest, DraftSaveRequest, DraftStepRequest}
 import com.helio.domain.model.{AuthenticatedUser, PipelineId}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.patchsets.PatchSetApplicationRepository.JournaledEdit
@@ -107,6 +107,13 @@ final class DraftRestore(save: DraftSaveService, outputRepo: OutputRepository, p
           rootId = optStr(out, "rootId"), config = Some(out.asJsObject.fields("config").asJsObject)
         )
       }
-      DraftSaveRequest(baseFingerprint, steps, outputs, runAfterSave = None, confirmCascade = None)
+      // HEL-1734: rows journaled before roots could change carry no `rootDefs`; their saves never touched roots, so `roots`
+      // stays absent. Otherwise the roots come back in their original order under their original ids and sources.
+      val roots = prior.fields.get("rootDefs").collect { case JsArray(defs) =>
+        defs.map(_.asJsObject).sortBy(_.fields("position").convertTo[Int]).map { d =>
+          DraftRootRequest(id = optStr(d, "id"), clientId = None, sourceId = optStr(d, "dataSourceId"))
+        }
+      }
+      DraftSaveRequest(baseFingerprint, steps, outputs, runAfterSave = None, confirmCascade = None, roots = roots)
     }.toEither.left.map(_ => "the journaled pipeline definition could not be read")
 }

@@ -20,8 +20,14 @@ final case class DraftStepRequest(
     parentStepId: Option[String],
     parentClientId: Option[String],
     rootId: Option[String],
-    position: Int
+    position: Int,
+    rootClientId: Option[String] = None
 )
+
+/** HEL-1734: one root of the FINAL root list. A public request item is `{id}` (a root of this pipeline, kept) or
+ *  `{clientId, sourceId}` (new, on a source the caller owns). `{id, sourceId}` is the server-built restore form only (a
+ *  root to recreate under its original id on undo). */
+final case class DraftRootRequest(id: Option[String] = None, clientId: Option[String] = None, sourceId: Option[String] = None)
 
 final case class DraftOutputRequest(
     id: Option[String],
@@ -31,7 +37,8 @@ final case class DraftOutputRequest(
     nodeStepId: Option[String],
     nodeStepClientId: Option[String],
     rootId: Option[String],
-    config: Option[JsObject]
+    config: Option[JsObject],
+    rootClientId: Option[String] = None
 )
 
 /** What the client has seen and accepts being removed with the save (the cascade of a deleted step). Every list defaults to
@@ -40,7 +47,8 @@ final case class DraftCascadeConfirmation(
     stepIds: Vector[String],
     outputIds: Vector[String],
     panelIds: Vector[String],
-    alertRuleIds: Vector[String]
+    alertRuleIds: Vector[String],
+    rootIds: Vector[String] = Vector.empty
 )
 
 final case class DraftSaveRequest(
@@ -48,10 +56,15 @@ final case class DraftSaveRequest(
     steps: Vector[DraftStepRequest],
     outputs: Vector[DraftOutputRequest],
     runAfterSave: Option[String],
-    confirmCascade: Option[DraftCascadeConfirmation]
+    confirmCascade: Option[DraftCascadeConfirmation],
+    roots: Option[Vector[DraftRootRequest]] = None
 )
 
-final case class DraftSavedDefinitionResponse(steps: Vector[PipelineStepResponse], outputs: Vector[OutputResponse])
+final case class DraftSavedDefinitionResponse(
+    steps: Vector[PipelineStepResponse],
+    outputs: Vector[OutputResponse],
+    roots: Vector[PipelineRootSummaryResponse] = Vector.empty
+)
 
 final case class DraftSavedResponse(fingerprint: String, definition: DraftSavedDefinitionResponse, applicationId: String)
 
@@ -71,31 +84,34 @@ final case class DraftCascadeImpactResponse(
     outputIds: Vector[String],
     panelIds: Vector[String],
     alertRuleIds: Vector[String],
-    hints: Vector[String]
+    hints: Vector[String],
+    rootIds: Vector[String] = Vector.empty
 )
 final case class DraftCascadeRequiredResponse(message: String, code: String, impact: DraftCascadeImpactResponse)
 
-trait DraftSaveProtocol extends SprayJsonSupport with DefaultJsonProtocol with PipelineStepProtocol with OutputProtocol {
+trait DraftSaveProtocol extends SprayJsonSupport with DefaultJsonProtocol with PipelineStepProtocol with OutputProtocol with PipelineProtocol {
 
-  implicit val draftStepRequestFormat: RootJsonFormat[DraftStepRequest]     = jsonFormat9(DraftStepRequest.apply)
-  implicit val draftOutputRequestFormat: RootJsonFormat[DraftOutputRequest] = jsonFormat8(DraftOutputRequest.apply)
+  implicit val draftRootRequestFormat: RootJsonFormat[DraftRootRequest] = jsonFormat3(DraftRootRequest.apply)
+  implicit val draftStepRequestFormat: RootJsonFormat[DraftStepRequest]     = jsonFormat10(DraftStepRequest.apply)
+  implicit val draftOutputRequestFormat: RootJsonFormat[DraftOutputRequest] = jsonFormat9(DraftOutputRequest.apply)
 
   implicit val draftCascadeConfirmationFormat: RootJsonFormat[DraftCascadeConfirmation] = new RootJsonFormat[DraftCascadeConfirmation] {
     private def ids(obj: JsObject, key: String): Vector[String] =
       obj.fields.get(key).map(_.convertTo[Vector[String]]).getOrElse(Vector.empty)
     def read(json: JsValue): DraftCascadeConfirmation = {
       val obj = json.asJsObject
-      DraftCascadeConfirmation(ids(obj, "stepIds"), ids(obj, "outputIds"), ids(obj, "panelIds"), ids(obj, "alertRuleIds"))
+      DraftCascadeConfirmation(ids(obj, "stepIds"), ids(obj, "outputIds"), ids(obj, "panelIds"), ids(obj, "alertRuleIds"), ids(obj, "rootIds"))
     }
     def write(c: DraftCascadeConfirmation): JsValue = JsObject(
-      "stepIds" -> c.stepIds.toJson, "outputIds" -> c.outputIds.toJson, "panelIds" -> c.panelIds.toJson, "alertRuleIds" -> c.alertRuleIds.toJson
+      Map("stepIds" -> c.stepIds.toJson, "outputIds" -> c.outputIds.toJson, "panelIds" -> c.panelIds.toJson, "alertRuleIds" -> c.alertRuleIds.toJson) ++
+        (if (c.rootIds.isEmpty) Map.empty[String, JsValue] else Map("rootIds" -> c.rootIds.toJson))
     )
   }
 
-  implicit val draftSaveRequestFormat: RootJsonFormat[DraftSaveRequest] = jsonFormat5(DraftSaveRequest.apply)
+  implicit val draftSaveRequestFormat: RootJsonFormat[DraftSaveRequest] = jsonFormat6(DraftSaveRequest.apply)
 
   implicit val draftSavedDefinitionResponseFormat: RootJsonFormat[DraftSavedDefinitionResponse] =
-    jsonFormat2(DraftSavedDefinitionResponse.apply)
+    jsonFormat3(DraftSavedDefinitionResponse.apply)
   implicit val draftSavedResponseFormat: RootJsonFormat[DraftSavedResponse] = jsonFormat3(DraftSavedResponse.apply)
 
   implicit val draftRunOutcomeResponseFormat: RootJsonFormat[DraftRunOutcomeResponse] = new RootJsonFormat[DraftRunOutcomeResponse] {
@@ -134,6 +150,6 @@ trait DraftSaveProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
     }
   }
 
-  implicit val draftCascadeImpactResponseFormat: RootJsonFormat[DraftCascadeImpactResponse] = jsonFormat5(DraftCascadeImpactResponse.apply)
+  implicit val draftCascadeImpactResponseFormat: RootJsonFormat[DraftCascadeImpactResponse] = jsonFormat6(DraftCascadeImpactResponse.apply)
   implicit val draftCascadeRequiredResponseFormat: RootJsonFormat[DraftCascadeRequiredResponse] = jsonFormat3(DraftCascadeRequiredResponse.apply)
 }

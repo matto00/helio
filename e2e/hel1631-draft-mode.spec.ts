@@ -524,7 +524,7 @@ test.describe("HEL-1631 draft mode (live)", () => {
     expect(sent[0]).toBe(`GET /api/pipelines/${pipelineId}/steps/${stepIds[2]}/preview`);
   });
 
-  test("only the roots stay disabled with a reason while a draft exists; the step, Output and shape actions are enabled (HEL-1684, HEL-1733)", async ({
+  test("while a draft exists Add source is enabled and the last source cannot be removed; the step, Output and shape actions are enabled (HEL-1684, HEL-1733, HEL-1734)", async ({
     page,
     request,
   }) => {
@@ -532,11 +532,16 @@ test.describe("HEL-1631 draft mode (live)", () => {
     const { pipelineId } = await seed(page, creds.email);
     await openPipeline(page, pipelineId);
     await timedFilterEdit(page, "300");
-    const reason = "Save or discard your draft first";
+    // HEL-1734: adding a source is a draft entry; removing the pipeline's ONLY source stays unavailable (this pipeline has one root).
     const addSource = page.getByRole("button", { name: "Add source" });
-    await expect(addSource).toBeDisabled();
-    await expect(addSource).toHaveAttribute("title", reason);
-    // HEL-1733: shapes and Outputs are draft entries now, so only add/remove source is blocked.
+    await expect(addSource).toBeEnabled();
+    await expect(addSource).not.toHaveAttribute("title", /Save or discard/);
+    await page.getByRole("button", { name: /^Source actions for / }).click();
+    await expect(
+      page.getByRole("menuitem", { name: /^Remove source .* from this pipeline$/ }),
+    ).toBeDisabled();
+    await page.keyboard.press("Escape");
+    // HEL-1733: shapes and Outputs are draft entries too.
     const shape = page.getByRole("button", { name: "Add Outputs from a shape" });
     await expect(shape).toBeEnabled();
     await expect(page.getByRole("button", { name: "New output" })).toBeEnabled();

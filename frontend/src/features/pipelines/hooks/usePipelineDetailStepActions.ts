@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import type { useAppDispatch } from "../../../hooks/reduxHooks";
 import type { useToast } from "../../toasts/hooks/useToast";
+import type { DataSource } from "../../sources/types/dataSource";
 import type { PipelineRoot } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import type { PipelineEditorState } from "./usePipelineEditorState";
@@ -25,6 +26,7 @@ export function usePipelineDetailStepActions({
   pushToast,
   draft,
   draftSteps,
+  sources,
 }: {
   id: string | undefined;
   dispatch: ReturnType<typeof useAppDispatch>;
@@ -34,6 +36,8 @@ export function usePipelineDetailStepActions({
   pushToast: ReturnType<typeof useToast>["push"];
   draft: PipelineDraft;
   draftSteps: Step[];
+  /** The caller's sources, for naming a source the draft adds as a root. */
+  sources: DataSource[];
 }) {
   const {
     stepsRef,
@@ -84,8 +88,8 @@ export function usePipelineDetailStepActions({
   });
 
   const {
-    handleAddRoot,
-    handleRemoveRoot,
+    handleAddRoot: handleAddRootNow,
+    handleRemoveRoot: handleRemoveRootNow,
     handleToggleStepEnabled: handleToggleTempStepEnabled,
     handleDuplicateStep: handleDuplicateStepNow,
     duplicatingStepIds,
@@ -103,7 +107,10 @@ export function usePipelineDetailStepActions({
     draft,
     roots,
     draftSteps,
+    sources,
     handlers: {
+      handleAddRootNow,
+      handleRemoveRootNow,
       handleTempStepConfigChange,
       handleRemoveSavedStep,
       handleToggleTempStepEnabled,
@@ -121,8 +128,6 @@ export function usePipelineDetailStepActions({
   return {
     draftCreateErrors,
     creatingStepIds,
-    handleAddRoot,
-    handleRemoveRoot,
     duplicatingStepIds,
     ...routed,
   };
