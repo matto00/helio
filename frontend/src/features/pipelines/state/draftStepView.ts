@@ -133,14 +133,16 @@ function mapServerResolved(
 ): DraftStepView {
   const result = transport.results.get(stepId);
   if (result?.kind === "ok") {
-    const rows = transport.rows.get(stepId)?.rows ?? null;
+    const line = transport.rows.get(stepId);
+    const rows = line?.rows ?? null;
     return {
       status: "ok",
       count: result.count,
       rows: rows ?? lastGood?.rows ?? null,
       frameStale: rows === null && lastGood?.rows != null,
       message: null,
-      truncated: transport.rows.get(stepId)?.truncated ?? false,
+      // HEL-1732: with no rows line the shown rows are the last good frame's, so its cut flag travels with them.
+      truncated: line !== undefined ? line.truncated : lastGood?.truncated === true,
     };
   }
   if (result?.kind === "error") {

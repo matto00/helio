@@ -178,6 +178,8 @@ export function usePipelineDetailPage() {
     baseSteps: steps,
     draft,
     draftFrameMemory,
+    /** HEL-1732: the saved analyze's per-root source schemas: a root's declared column order for the draft grid. */
+    analyzeSourceSchemas: analyzeResult?.sourceSchemas,
     /** Why structural controls are unavailable while a draft exists; `null` otherwise (design.md D2). */
     draftBlockReason: draft.hasDraft ? DRAFT_BLOCK_REASON : null,
     // HEL-1733 D3/D15 (HEL-1734: adding and removing a source are draft entries too): Output, shape and aggregate-tail actions wait

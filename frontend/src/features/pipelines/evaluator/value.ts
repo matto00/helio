@@ -45,6 +45,20 @@ export function put(row: Record<string, Value>, key: string, value: Value): void
   }
 }
 
+/** `put`, but an existing `key` leaves its position: the key ends up last, as the server's analyze projects a column that
+ *  "replaces" one (`filterNot(name).:+(field)`). */
+export function putLast(row: Record<string, Value>, key: string, value: Value): void {
+  delete row[key];
+  put(row, key, value);
+}
+
+/** `withCell`, with `putLast`'s placement. */
+export function withCellLast(row: Row, key: string, value: Value): Row {
+  const out: Record<string, Value> = { ...row };
+  putLast(out, key, value);
+  return out;
+}
+
 export function withCell(row: Row, key: string, value: Value): Row {
   const out: Record<string, Value> = { ...row };
   put(out, key, value);
