@@ -3,7 +3,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { evidencePath } from "./support/evidencePath";
 import { currentUserId, registerUser } from "./support/auth";
 import { loginThenIsolate } from "./support/isolateLivePage";
-import { cancelPendingAutoRun, setUserTierForTest } from "./support/historySeed";
+import { setUserTierForTest } from "./support/historySeed";
 import { openOutputHistory, showOutputs } from "./support/pipelineSpine";
 
 // HEL-1277 — the Output History view (scrubber + changed-rows diff) and the dashboard chart "vs"
@@ -119,7 +119,6 @@ for (const theme of ["light", "dark"] as const) {
         ["west", 250],
         ["north", 300],
       ]);
-      cancelPendingAutoRun(pipeline.id, userId); // HEL-1729: the write armed a debounced auto-run
       await runPipeline(request, pipeline.id);
       // Run 3: opt-in off => a summary-only point (no payload).
       await patchConfig(request, output.id, { historyPayloads: false });
@@ -127,7 +126,6 @@ for (const theme of ["light", "dark"] as const) {
         ["east", 100],
         ["west", 250],
       ]);
-      cancelPendingAutoRun(pipeline.id, userId);
       await runPipeline(request, pipeline.id);
 
       const history = await (await request.get(`/api/outputs/${output.id}/history`)).json();
@@ -273,7 +271,6 @@ for (const theme of ["light", "dark"] as const) {
         ["Tue", 18],
         ["Wed", 25],
       ]);
-      cancelPendingAutoRun(pipeline.id, userId);
       await runPipeline(request, pipeline.id);
       const panel = await postJson<{ id: string }>(
         request,

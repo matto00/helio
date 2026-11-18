@@ -506,7 +506,9 @@ final class ApiRoutes(
     // above), so a fixture that DOES pass a real `pipelineRunRepo` still gets a real (non-zero)
     // concurrency cap even without an explicit `PipelineRunGuardRepository`.
     pipelineRunGuardRepo = pipelineRunGuardRepo,
-    guardConfig = pipelineRunGuardConfig
+    guardConfig = pipelineRunGuardConfig,
+    // HEL-1739: a successful real run cancels the pending dataset-write auto-run of the writes it read.
+    autoRunDebounceRepo = autoRunDebounceRepo
   )
   // HEL-906: /api/pipelines/:id/outputs and /api/outputs/:id.
   // HEL-947: moved below `pipelineRunService`'s own definition (was previously constructed

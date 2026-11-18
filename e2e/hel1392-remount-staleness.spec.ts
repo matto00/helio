@@ -204,9 +204,12 @@ test.describe("HEL-1392 staleness in the running app", () => {
         await expect.poll(() => seriesTypes(chartCard())).toEqual(["line"]);
         await expect(tableCard().getByRole("cell", { name: "North", exact: true })).toBeVisible();
         await page.screenshot({ path: evidencePath("HEL-1392", `desktop-fresh-${theme}.png`) });
-        // The out-of-band source write also queues a server-side auto-run (debounce + scheduler
-        // tick, up to ~35s) whose succeeded event legitimately invalidates the pipeline once. So
-        // reuse must resume within a few round trips, not necessarily on the very next crossing.
+        // The out-of-band source write queued a server-side auto-run, but the step-3 in-app run that
+        // followed it succeeded having read that write and cancelled the auto-run (HEL-1739). What
+        // this loop still tolerates is a redundant auto-run slipping through the post-terminal window
+        // (the run's `completed_at` lands before the cancel), whose succeeded event would invalidate
+        // the pipeline once. So reuse must resume within a few round trips, not necessarily on the
+        // very next crossing.
         let after = { rows: -1, meta: -1 };
         const attempts: { rows: number; meta: number }[] = [];
         for (let attempt = 0; attempt < 4 && (after.rows !== 0 || after.meta !== 0); attempt++) {
