@@ -35,6 +35,9 @@ interface DashboardAppearanceEditorProps {
 
 const WCAG_AA_THRESHOLD = 4.5;
 
+/** The save error's id, referenced by Save's `aria-describedby` so a failed save is announced without moving focus. */
+const ERROR_ID = "dashboard-appearance-editor-error";
+
 /** Gap between the trigger and the panel. */
 const TRIGGER_GAP = 8;
 
@@ -88,6 +91,8 @@ export function DashboardAppearanceEditor({
     defaultDashboardAppearance.gridBackground,
   );
   const [isSaving, setIsSaving] = useState(false);
+  // Same-tick guard: `isSaving` is a stale closure value for a second submit in the same tick.
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Discards any unsaved preset/color pick and reverts to the dashboard's
@@ -177,6 +182,10 @@ export function DashboardAppearanceEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Save is `aria-disabled` (not `disabled`) while saving so keyboard focus stays on it (HEL-1759); that makes this
+    // guard, not the browser, what stops a second submit (the button, or Enter in a colour input).
+    if (savingRef.current) return;
+    savingRef.current = true;
     setIsSaving(true);
     setError(null);
 
@@ -191,6 +200,7 @@ export function DashboardAppearanceEditor({
     } catch {
       setError("Failed to save dashboard appearance.");
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   }
@@ -207,7 +217,7 @@ export function DashboardAppearanceEditor({
     isOpen && panelPos
       ? createPortal(
           <>
-            <button type="button" className="popover__scrim" onClick={close} />
+            <button type="button" className="popover__scrim" tabIndex={-1} onClick={close} />
             <form
               ref={(el) => {
                 panelRef.current = el;
@@ -322,11 +332,14 @@ export function DashboardAppearanceEditor({
                 <button
                   type="submit"
                   className="dashboard-appearance-editor__save"
-                  disabled={isSaving}
+                  aria-disabled={isSaving || undefined}
+                  aria-describedby={error ? ERROR_ID : undefined}
                 >
                   {isSaving ? "Saving..." : "Save dashboard style"}
                 </button>
-                <InlineError error={error} />
+                <div id={ERROR_ID} aria-live="polite">
+                  <InlineError error={error} />
+                </div>
               </div>
             </form>
           </>,

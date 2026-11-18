@@ -194,4 +194,45 @@ describe("DashboardAppearanceEditor", () => {
       }),
     );
   });
+
+  // HEL-1759: Save is aria-disabled (not disabled) while saving so keyboard focus stays on it.
+  it("keeps Save focusable and aria-disabled while saving, ignores a second submit, and keeps focus after a failure", async () => {
+    let reject!: (reason: unknown) => void;
+    updateDashboardAppearanceMock.mockClear();
+    updateDashboardAppearanceMock.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, rej) => {
+          reject = rej;
+        }),
+    );
+    renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
+    openEditor();
+    const form = screen.getByRole("button", { name: "Save dashboard style" }).closest("form")!;
+    const save = screen.getByRole("button", { name: "Save dashboard style" });
+    save.focus();
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(save).toHaveTextContent("Saving..."));
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    expect(save).not.toBeDisabled();
+    expect(save).toHaveFocus();
+    expect(updateDashboardAppearanceMock).toHaveBeenCalledTimes(1);
+
+    reject(new Error("boom"));
+    const error = await screen.findByText("Failed to save dashboard appearance.");
+    expect(save).not.toHaveAttribute("aria-disabled");
+    expect(save).toHaveFocus();
+    // Announced without moving focus: Save is described by the live region holding the error.
+    const describedBy = save.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const region = document.getElementById(describedBy!);
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toContainElement(error);
+  });
+
+  it("takes the editor scrim out of the tab order", () => {
+    renderWithStore(<DashboardAppearanceEditor dashboard={solidDashboard} />);
+    openEditor();
+    expect(document.querySelector(".popover__scrim")).toHaveAttribute("tabindex", "-1");
+  });
 });
