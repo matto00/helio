@@ -1,0 +1,71 @@
+/* HEL-1746: the ask surfaces. Existing tokens only (DESIGN.md); no width is set here: the drawer's width comes from
+   BottomSheet's `size`. */
+.ask-panel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ask-form {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ask-form__field {
+  width: 100%;
+  resize: vertical;
+}
+
+.ask-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ask-upsell {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}
+
+.ask-upsell__link,
+.ask-answer__link {
+  color: var(--app-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ask-answer {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--app-border-subtle);
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+}
+
+.ask-answer__sources {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.ask-answer__pin {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.ask-answer__pin-reason {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--app-text-muted);
+}
+
+.ask-answer__pinned {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--app-text);
+}

@@ -8,6 +8,7 @@ import { AddSourceModal } from "../features/sources/ui/AddSourceModal";
 import { OutputPicker } from "../features/panels/ui/OutputPicker";
 import { QuickLauncherOverlay } from "../features/assistant/ui/QuickLauncherOverlay";
 import { RefinementChatDrawer } from "../features/dashboards/ui/RefinementChatDrawer";
+import { AskDrawer } from "../features/ask/ui/AskDrawer";
 import { DashboardShareDialog } from "../features/dashboards/ui/DashboardShareDialog";
 import {
   ShareDialogProvider,
@@ -67,6 +68,9 @@ export function AppShell() {
   const [isMobileNavSheetOpen, setIsMobileNavSheetOpen] = useState(false);
   const [isRefinementOpen, setIsRefinementOpen] = useState(false);
   const [isQuickLauncherOpen, setIsQuickLauncherOpen] = useState(false);
+  // HEL-1746: the ask drawer, and where focus returns when its opener was a menu item that has unmounted.
+  const [ask, setAsk] = useState<{ open: boolean; restoreFocusSelector?: string }>({ open: false });
+  const openAsk = (restoreFocusSelector?: string) => setAsk({ open: true, restoreFocusSelector });
   const location = useLocation();
   const onDashboardView = isDashboardViewPath(location.pathname);
   const { items, selectedDashboardId } = useAppSelector((state) => state.dashboards);
@@ -240,6 +244,7 @@ export function AppShell() {
             {showTabBar && <DashboardTabBar />}
             {usesDashboardMetaRow(location.pathname, isPhoneShell) ? (
               <DashboardMetaRow
+                onOpenAsk={openAsk}
                 onOpenRefinement={() => setIsRefinementOpen(true)}
                 onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
                 setDraftAppearance={setDraftAppearance}
@@ -251,6 +256,7 @@ export function AppShell() {
                 // while the sheet is open closes it, preserving the behavior
                 // today's full-viewport backdrop already provided.
                 onOpenMobileNavSheet={() => setIsMobileNavSheetOpen((wasOpen) => !wasOpen)}
+                onOpenAsk={openAsk}
                 onOpenRefinement={() => setIsRefinementOpen(true)}
                 onOpenQuickLauncher={() => setIsQuickLauncherOpen(true)}
                 setDraftAppearance={setDraftAppearance}
@@ -343,6 +349,15 @@ export function AppShell() {
               open={isRefinementOpen}
               onClose={() => setIsRefinementOpen(false)}
               dashboardId={selectedDashboardId}
+            />
+          )}
+          {/* HEL-1746 -- "Ask about this dashboard", mounted beside the refinement drawer and gated like it. */}
+          {selectedDashboardId !== null && (
+            <AskDrawer
+              open={ask.open}
+              onClose={() => setAsk((prev) => ({ ...prev, open: false }))}
+              dashboardId={selectedDashboardId}
+              restoreFocusSelector={ask.restoreFocusSelector}
             />
           )}
           {/* HEL-665 design.md D7 — unconditional (unlike RefinementChatDrawer above): the

@@ -1,0 +1,46 @@
+{
+  "answer": "An amount is 10.0 [c1]. An amount is 10.0 [c2].",
+  "citations": [
+    {
+      "number": 10.0,
+      "capturedAt": "2026-01-01T00:00:00Z",
+      "field": "amount",
+      "id": "c1",
+      "isPct": false,
+      "outputId": "{{OUTPUT_1}}"
+    },
+    {
+      "number": 10.0,
+      "capturedAt": "2026-01-01T00:00:00Z",
+      "field": "amount",
+      "id": "c2",
+      "isPct": false,
+      "outputId": "{{OUTPUT_2}}"
+    }
+  ],
+  "citedOutputs": [
+    {
+      "id": "{{OUTPUT_1}}",
+      "name": "Revenue"
+    },
+    {
+      "id": "{{OUTPUT_2}}",
+      "name": "Cost"
+    }
+  ],
+  "pin": {
+    "pipelineId": "{{PIPELINE_1}}",
+    "request": {
+      "config": {
+        "prompt": "How do revenue and cost compare?",
+        "reads": {
+          "outputs": ["{{OUTPUT_1}}", "{{OUTPUT_2}}"]
+        },
+        "refresh": "manual"
+      },
+      "kind": "insight",
+      "name": "How do revenue and cost compare?",
+      "rootId": "{{PIPELINE_1}}"
+    }
+  }
+}

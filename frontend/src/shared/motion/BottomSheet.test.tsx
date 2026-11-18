@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 
 import { ThemeProvider } from "../../theme/ThemeProvider";
@@ -37,7 +37,12 @@ afterEach(() => {
 });
 
 function renderSheet(
-  props: { onRequestClose?: () => boolean | void; motion?: Motion; open?: boolean } = {},
+  props: {
+    onRequestClose?: () => boolean | void;
+    motion?: Motion;
+    open?: boolean;
+    size?: ComponentProps<typeof BottomSheet>["size"];
+  } = {},
 ) {
   const onClosed = jest.fn();
   const sheet = (
@@ -46,6 +51,7 @@ function renderSheet(
       title="Step 1"
       onRequestClose={props.onRequestClose}
       onClosed={onClosed}
+      size={props.size}
     >
       <div data-testid="body">body</div>
     </BottomSheet>
@@ -285,5 +291,18 @@ describe("BottomSheet motion", () => {
   it("carries no transform once it has opened", () => {
     const { dialog } = renderSheet();
     expect(dialog.style.transform).toBe("");
+  });
+});
+
+describe("BottomSheet size (HEL-1746)", () => {
+  it("keeps the full Modal size by default, so every existing caller is unchanged", () => {
+    const { dialog } = renderSheet();
+    expect(dialog.classList.contains("ui-modal--full")).toBe(true);
+  });
+
+  it("passes a given size through to the Modal", () => {
+    const { dialog } = renderSheet({ size: "md" });
+    expect(dialog.classList.contains("ui-modal--md")).toBe(true);
+    expect(dialog.classList.contains("ui-modal--full")).toBe(false);
   });
 });

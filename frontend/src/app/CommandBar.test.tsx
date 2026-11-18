@@ -38,7 +38,7 @@ function makeStore() {
   });
 }
 
-function renderCommandBar(initialPath: string, store = makeStore()) {
+function renderCommandBar(initialPath: string, store = makeStore(), onOpenAsk = jest.fn()) {
   return {
     store,
     ...render(
@@ -48,6 +48,7 @@ function renderCommandBar(initialPath: string, store = makeStore()) {
             <CommandBar
               isMobileNavSheetOpen={false}
               onOpenMobileNavSheet={jest.fn()}
+              onOpenAsk={onOpenAsk}
               onOpenRefinement={jest.fn()}
               onOpenQuickLauncher={jest.fn()}
               setDraftAppearance={jest.fn()}
@@ -172,5 +173,51 @@ describe("CommandBar — HEL-1579 pipeline detail breadcrumb", () => {
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(breadcrumb).toHaveTextContent("Data Pipelines");
     expect(breadcrumb).not.toHaveTextContent("Revenue rollup");
+  });
+});
+
+// HEL-1746 D3: the dashboard kebab (phone and non-rail shells) carries "Ask about this dashboard"; no top-level control.
+describe("CommandBar — HEL-1746 ask opener", () => {
+  function storeWithDashboard() {
+    const store = makeStore();
+    store.dispatch(
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "d1",
+            name: "Dash",
+            meta: {
+              createdBy: "s",
+              createdAt: "2026-03-14T00:00:00Z",
+              lastUpdated: "2026-03-14T00:00:00Z",
+            },
+            appearance: { background: "transparent", gridBackground: "transparent" },
+            layout: { lg: [], md: [], sm: [], xs: [] },
+          },
+        ],
+        "req",
+        undefined,
+      ),
+    );
+    return store;
+  }
+
+  it("offers Ask as an item of the dashboard kebab, restoring focus to the bar's kebab trigger", () => {
+    const onOpenAsk = jest.fn();
+    renderCommandBar("/dashboards", storeWithDashboard(), onOpenAsk);
+    expect(
+      screen.queryByRole("button", { name: "Ask about this dashboard" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dashboard actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ask about this dashboard" }));
+    const selector = onOpenAsk.mock.calls[0][0] as string;
+    expect(document.querySelector(selector)).toBe(
+      screen.getByRole("button", { name: "Dashboard actions" }),
+    );
+  });
+
+  it("adds nothing on a non-dashboard page", () => {
+    renderCommandBar("/chat", storeWithDashboard());
+    expect(screen.queryByRole("button", { name: "Dashboard actions" })).not.toBeInTheDocument();
   });
 });

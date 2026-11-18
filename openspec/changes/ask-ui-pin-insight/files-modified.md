@@ -1,0 +1,66 @@
+- `backend/src/test/scala/com/helio/api/protocols/AskSeamSpec.scala` — new: drives the real ask routes for 200 with pin, 200 null pin, both 422s, 403, 429 and asserts equality with the committed fixtures and schema validity (test code only)
+- `schemas/ask/ask-ungrounded-response.schema.json`, `ask-truncated-response.schema.json`, `ask-tier-error-response.schema.json` — new error-body schemas pinned to their case classes
+- `shared-test-fixtures/ask/*.json` — new: the six wire fixtures (generated from the real routes, normalised)
+- `frontend/src/features/ask/**` — new ask module: types, askService, parseAskError, askErrorCopy, useAsk, useAskPin, AskPanel, AskAnswerCard, AskQuestionForm, AskUpsell, AskDrawer, ask.css and their tests (incl. `ask.contract.test.ts`)
+- `frontend/src/shared/motion/BottomSheet.tsx` — optional `size` prop passed to Modal (default "full")
+- `frontend/src/shared/ui/Modal.tsx` — export `ModalSize`
+- `frontend/src/shared/motion/BottomSheet.test.tsx`, `BottomSheet.size.css.test.ts` — default/passthrough tests and the CSS-text guard for the phone width rule
+- `frontend/src/app/App.tsx` — mounts `AskDrawer` beside the refinement drawer, holds its open/restore-focus state
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.tsx` (+ test) — secondary icon-only Ask button before the assistant; kebab item at tier >= 2
+- `frontend/src/app/dashboardMeta/useMetaRowTier.ts` — re-measured tier widths (iconOnly 860, kebab 680)
+- `frontend/src/app/CommandBar.tsx` (+ test) — "Ask about this dashboard" item in the dashboard kebab (phone and non-rail shells)
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx` — "Ask about this Output" disclosure for saved Outputs; Pin disabled during a draft
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.ask.test.tsx` — new; `OutputEditorSheet.history.test.tsx` scoped its upsell query; `__snapshots__/OutputEditorSheet.openingState.test.tsx.snap` gained the field and Ask button of the new group
+- `e2e/hel1746-ask-ui.spec.ts`, `e2e/support/askFixtures.ts` — new e2e (light/dark x desktop/phone) faking only the `/ask` response
+- `DESIGN.md` — §9 Meta row (Ask, tiers) and §10 Bottom sheet (`size`)
+- `CLAUDE.md` — ask endpoint entry names the new schemas and the seam
+- `openspec/changes/ask-ui-pin-insight/` — tasks ticked; red-evidence.md, mutations.md, measurements.md, visual-check.md
+
+## Exact paths (diff against merge-base f2358c16d)
+
+- `CLAUDE.md`
+- `DESIGN.md`
+- `backend/src/test/scala/com/helio/api/protocols/AskSeamSpec.scala`
+- `e2e/hel1746-ask-ui.spec.ts`
+- `e2e/support/askFixtures.ts`
+- `frontend/src/app/App.tsx`
+- `frontend/src/app/CommandBar.test.tsx`
+- `frontend/src/app/CommandBar.tsx`
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.test.tsx`
+- `frontend/src/app/dashboardMeta/DashboardMetaRow.tsx`
+- `frontend/src/app/dashboardMeta/useMetaRowTier.ts`
+- `frontend/src/features/ask/askErrorCopy.ts`
+- `frontend/src/features/ask/hooks/useAsk.test.tsx`
+- `frontend/src/features/ask/hooks/useAsk.ts`
+- `frontend/src/features/ask/hooks/useAskPin.ts`
+- `frontend/src/features/ask/parseAskError.test.ts`
+- `frontend/src/features/ask/parseAskError.ts`
+- `frontend/src/features/ask/services/ask.contract.test.ts`
+- `frontend/src/features/ask/services/askService.test.ts`
+- `frontend/src/features/ask/services/askService.ts`
+- `frontend/src/features/ask/types/ask.ts`
+- `frontend/src/features/ask/ui/AskAnswerCard.tsx`
+- `frontend/src/features/ask/ui/AskDrawer.test.tsx`
+- `frontend/src/features/ask/ui/AskDrawer.tsx`
+- `frontend/src/features/ask/ui/AskPanel.test.tsx`
+- `frontend/src/features/ask/ui/AskPanel.tsx`
+- `frontend/src/features/ask/ui/AskQuestionForm.tsx`
+- `frontend/src/features/ask/ui/AskUpsell.tsx`
+- `frontend/src/features/ask/ui/ask.css`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.ask.test.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.history.test.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.tsx`
+- `frontend/src/features/pipelines/ui/outputEditor/__snapshots__/OutputEditorSheet.openingState.test.tsx.snap`
+- `frontend/src/shared/motion/BottomSheet.size.css.test.ts`
+- `frontend/src/shared/motion/BottomSheet.test.tsx`
+- `frontend/src/shared/motion/BottomSheet.tsx`
+- `frontend/src/shared/ui/Modal.tsx`
+- `schemas/ask/ask-tier-error-response.schema.json`
+- `schemas/ask/ask-truncated-response.schema.json`
+- `schemas/ask/ask-ungrounded-response.schema.json`
+- `shared-test-fixtures/ask/ask-200-no-pin.json`
+- `shared-test-fixtures/ask/ask-200-pin.json`
+- `shared-test-fixtures/ask/ask-403-tier.json`
+- `shared-test-fixtures/ask/ask-422-truncated.json`
+- `shared-test-fixtures/ask/ask-422-ungrounded.json`
+- `shared-test-fixtures/ask/ask-429-limit.json`

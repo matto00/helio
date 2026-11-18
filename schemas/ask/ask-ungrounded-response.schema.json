@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/ask/ask-ungrounded-response.schema.json",
+  "title": "AskUngroundedResponse",
+  "description": "422 body of the ask routes when no grounded answer could be produced (HEL-1745). reasons are value-free phrases (HEL-1761); the client never echoes them.",
+  "type": "object",
+  "required": ["message", "code", "reasons"],
+  "properties": {
+    "message": { "type": "string" },
+    "code": { "const": "ASK_UNGROUNDED" },
+    "reasons": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

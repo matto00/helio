@@ -19,8 +19,13 @@ import { ICON_SIZE } from "../shared/ui/iconSize";
 import { hidesBreadcrumbItemName } from "./hidesBreadcrumbItemName";
 import { useIsPhoneShell } from "./shell/useIsPhoneShell";
 
+// The ask drawer's opener here is a kebab item that unmounts, so focus returns to this bar's kebab trigger.
+const COMMAND_BAR_KEBAB_SELECTOR = '.app-command-bar button[aria-label="Dashboard actions"]';
+
 interface CommandBarProps {
   isMobileNavSheetOpen: boolean;
+  /** Opens the ask drawer, restoring focus to `restoreFocusSelector` when the drawer closes. */
+  onOpenAsk: (restoreFocusSelector?: string) => void;
   onOpenMobileNavSheet: () => void;
   onOpenRefinement: () => void;
   onOpenQuickLauncher: () => void;
@@ -37,6 +42,7 @@ interface CommandBarProps {
 export function CommandBar({
   isMobileNavSheetOpen,
   onOpenMobileNavSheet,
+  onOpenAsk,
   onOpenRefinement,
   onOpenQuickLauncher,
   setDraftAppearance,
@@ -78,6 +84,10 @@ export function CommandBar({
       disabled: createPanelAction.cta.disabled,
     },
     { label: "Refine with AI", onClick: onOpenRefinement },
+    {
+      label: "Ask about this dashboard",
+      onClick: () => onOpenAsk(COMMAND_BAR_KEBAB_SELECTOR),
+    },
   ];
 
   const pickerSelection = usePickerSelection(location.pathname);
