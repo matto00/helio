@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { webFontsLaunchArgs, webFontsMarkerUrl, webFontsPort } from "./e2e/support/webFontsHost";
 
 // HEL-287 (httpOnly-cookie session migration) live verification. Assumes the
 // frontend (Vite, proxying /api to the backend — same-origin, matching the
@@ -42,13 +43,35 @@ if (PROD_BUILD_RAW !== "" && PROD_BUILD_RAW !== "1") {
 }
 const PROD_BUILD = PROD_BUILD_RAW === "1";
 
+// HEL-1757: every browser gets the app's Google Fonts from a committed local copy (e2e/fixtures/web-fonts), so a
+// stalled third-party fonts request can never hold a `page.goto` open. Chromium switches map both fonts hosts to a
+// local HTTPS server (the `webServer` below); no Playwright route is involved. HELIO_E2E_WEB_FONTS_LOCAL=0 is a
+// DIAGNOSTIC that drops the switches, the server and the fonts setup/teardown together, to reproduce the original
+// hang. Read here and nowhere else. See e2e/fixtures/web-fonts/README.md.
+const WEB_FONTS_LOCAL = process.env.HELIO_E2E_WEB_FONTS_LOCAL !== "0";
+
 export default defineConfig({
   testDir: "./e2e",
   // HEL-1301 — every e2e user registration is recorded in a per-run registry (globalSetup creates it),
   // and the global teardown deletes exactly those users by recorded id (e2e/support/userCleanup.ts).
   // playwright.regression.config.ts spreads this config, so it inherits both hooks.
-  globalSetup: "./e2e/support/userRegistry.globalSetup.ts",
-  globalTeardown: "./e2e/support/userRegistry.globalTeardown.ts",
+  // HEL-1757: the fonts check is its OWN entry, so a throw there never skips the user cleanup.
+  globalSetup: [
+    "./e2e/support/userRegistry.globalSetup.ts",
+    ...(WEB_FONTS_LOCAL ? ["./e2e/support/webFonts.globalSetup.ts"] : []),
+  ],
+  globalTeardown: [
+    ...(WEB_FONTS_LOCAL ? ["./e2e/support/webFonts.globalTeardown.ts"] : []),
+    "./e2e/support/userRegistry.globalTeardown.ts",
+  ],
+  webServer: WEB_FONTS_LOCAL
+    ? {
+        command: `node e2e/fixtures/web-fonts/server.mjs ${webFontsPort()}`,
+        url: webFontsMarkerUrl(),
+        ignoreHTTPSErrors: true,
+        reuseExistingServer: true,
+      }
+    : undefined,
   // Quarantine register (HEL-951) — the single exclusion list for both a
   // bare `npm run e2e` and CI's glob (`.github/workflows/ci.yml`'s `e2e`
   // job). Every entry below carries a comment naming its reason; a
@@ -188,8 +211,11 @@ export default defineConfig({
     // Playwright's officially-supported distros and the bundled
     // chromium-headless-shell build isn't published for it). Unset by
     // default everywhere else.
-    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
-      : {},
+    launchOptions: {
+      ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+        ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+        : {}),
+      ...(WEB_FONTS_LOCAL ? { args: webFontsLaunchArgs() } : {}),
+    },
   },
 });

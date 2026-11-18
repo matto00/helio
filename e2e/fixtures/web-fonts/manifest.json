@@ -1,0 +1,103 @@
+{
+  "captureUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.7339.186 Safari/537.36",
+  "css": {
+    "/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap": {
+      "file": "css-1-e5d4b6e4c6c8.css",
+      "cacheControl": "private, max-age=86400, stale-while-revalidate=604800"
+    },
+    "/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap": {
+      "file": "css-2-04cbfba9abe7.css",
+      "cacheControl": "private, max-age=86400, stale-while-revalidate=604800"
+    }
+  },
+  "fonts": {
+    "/s/fraunces/v38/6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjdfeQ_5Y.woff2": {
+      "file": "6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjdfeQ_5Y.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/fraunces/v38/6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjdPeQ_5Y.woff2": {
+      "file": "6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjdPeQ_5Y.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/fraunces/v38/6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjeveQ.woff2": {
+      "file": "6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjeveQ.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxCBTeO-U.woff2": {
+      "file": "6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxCBTeO-U.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxCFTeO-U.woff2": {
+      "file": "6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxCFTeO-U.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2": {
+      "file": "6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOamaKjhw.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOamaKjhw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOTmaKjhw.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOTmaKjhw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOUmaKjhw.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOUmaKjhw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOYmaKjhw.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOYmaKjhw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOZmaKjhw.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOZmaKjhw.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOXmaI.woff2": {
+      "file": "tDba2o-flEEny0FZhsfKu5WU4xD-IQ-PuZJJXxfpAO-LfmOXmaI.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx3cwhsk.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx3cwhsk.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxTcwhsk.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxTcwhsk.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxPcwhsk.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxPcwhsk.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx_cwhsk.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx_cwhsk.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx7cwhsk.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPx7cwhsk.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/jetbrainsmono/v24/tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2": {
+      "file": "tDbv2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKwBNntkaToggR7BYRbKPxDcwg.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/schibstedgrotesk/v7/Jqz_5SSPQuCQF3t8uOwiUL-taUTtap9DWyYpchFP.woff2": {
+      "file": "Jqz_5SSPQuCQF3t8uOwiUL-taUTtap9DWyYpchFP.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/schibstedgrotesk/v7/Jqz_5SSPQuCQF3t8uOwiUL-taUTtap9DWygpcg.woff2": {
+      "file": "Jqz_5SSPQuCQF3t8uOwiUL-taUTtap9DWygpcg.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/schibstedgrotesk/v7/Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Iayoxdg.woff2": {
+      "file": "Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Iayoxdg.woff2",
+      "cacheControl": "public, max-age=31536000"
+    },
+    "/s/schibstedgrotesk/v7/Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Gayo.woff2": {
+      "file": "Jqz55SSPQuCQF3t8uOwiUL-taUTtap9Gayo.woff2",
+      "cacheControl": "public, max-age=31536000"
+    }
+  }
+}
