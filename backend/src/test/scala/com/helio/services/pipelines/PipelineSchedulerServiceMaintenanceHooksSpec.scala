@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model._
-import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, HistoryPassOutcome, ThinBatchLimits}
+import com.helio.infrastructure.persistence.pipelines.{HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, HistoryPassOutcome, ThinBatchLimits, OutputInsightRepository}
 import ch.qos.logback.classic.{Level, Logger => LogbackLogger}
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -26,7 +26,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
 
     /** The real service, plus the future of the pass the tick started (the tick does not wait for it). */
     class CapturingRetention(repo: OutputHistoryRepository)
-        extends OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults) {
+        extends OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults, new OutputInsightRepository(historyCtx)) {
       private val started = Promise[Future[Option[Int]]]()
       override def purgeIfDue(now: Instant): Future[Option[Int]] = {
         val pass = super.purgeIfDue(now)
@@ -71,7 +71,7 @@ class PipelineSchedulerServiceMaintenanceHooksSpec extends AnyWordSpec with Matc
       val pid = seedStaticPipeline()
       fakeClock.set(Instant.parse("2026-03-01T00:00:00Z"))
       seedSchedule(pid, nextRunAt = Some(fakeClock.now().minusSeconds(60)), expression = "30m")
-      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults) {
+      val broken = new OutputHistoryRetentionService(new OutputHistoryRepository(historyCtx), OutputHistoryRetentionConfig.fromEnv(Map.empty), fakeClock, new NodePayloadHistoryRepository(historyCtx), PayloadHistoryConfig.Defaults, new OutputInsightRepository(historyCtx)) {
         override def purgeIfDue(now: Instant): Future[Option[Int]] = throw new IllegalStateException("service bug")
       }
       val svc = new PipelineSchedulerService(

@@ -4,7 +4,7 @@ import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.model.UserTier
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
-import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, RetentionPassOutcome, ThinBatchLimits}
+import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, HistoryThinningPolicy, NodePayloadHistoryRepository, OutputHistoryRepository, RetentionPassOutcome, ThinBatchLimits, OutputInsightRepository}
 import com.helio.testkit.VerifiedEmbeddedPostgres
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import org.scalatest.BeforeAndAfterAll
@@ -60,7 +60,7 @@ class OutputHistoryRetentionInFlightSpec extends AnyWordSpec with Matchers with 
       override def purge(n: Instant, cfg: PayloadHistoryConfig): Future[RetentionPassOutcome] =
         { val n = payloadCalls.incrementAndGet(); payloadReached.trySuccess(()); payload(n) }
     }
-    val service = new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fixedClock, payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0)
+    val service = new OutputHistoryRetentionService(historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), fixedClock, payloadRepo, PayloadHistoryConfig.Defaults, new OutputInsightRepository(ctx), protectedNewest = 0)
   }
 
   private val purged: Int => Future[RetentionPassOutcome] = _ => Future.successful(RetentionPassOutcome.Purged(0))

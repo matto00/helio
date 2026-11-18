@@ -3,7 +3,7 @@ package com.helio.services.pipelines
 import com.helio.domain.util.Clock
 import com.helio.domain.history.{HistoryBaselineLimits, PayloadHistoryConfig}
 import com.helio.infrastructure.persistence.pipelines.RetentionPassOutcome.{LockBusy, Purged}
-import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, NodePayloadHistoryRepository, OutputHistoryRepository}
+import com.helio.infrastructure.persistence.pipelines.{HistoryPassOutcome, NodePayloadHistoryRepository, OutputHistoryRepository, OutputInsightRepository}
 import OutputHistoryRetentionService.PartResult
 import org.slf4j.LoggerFactory
 
@@ -28,6 +28,11 @@ import scala.util.control.NonFatal
  *  logged and never undoes or fails the summary purge. The payload repo/config are deliberately NOT
  *  defaulted so `Main` cannot compile without wiring them.
  *
+ *  HEL-1742: a third part purges `output_insights` rows older than the pipeline owner's tier age (the
+ *  same `config.maxAgeByTier`), keeping each Output's newest `ok` row and newest attempt. It takes no
+ *  advisory lock (one idempotent DELETE that does not conflict with the run path), so it is `Ran` or
+ *  `Failed`, never `Busy`. `insightRepo` is deliberately NOT defaulted so `Main` cannot compile without it.
+ *
  *  HEL-1477: the scheduler tick starts a pass but does not await it, so at most one pass runs per process,
  *  enforced by an in-flight guard rather than by the tick's await (see [[purgeIfDue]]). */
 class OutputHistoryRetentionService(
@@ -36,6 +41,7 @@ class OutputHistoryRetentionService(
     clock: Clock,
     payloadRepo: NodePayloadHistoryRepository,
     payloadConfig: PayloadHistoryConfig,
+    insightRepo: OutputInsightRepository,
     /** HEL-1285: newest points per Output thinning never deletes. Fixed by default; tests pass a smaller value. */
     protectedNewest: Int = HistoryBaselineLimits.ProtectedNewestPoints
 )(implicit ec: ExecutionContext) {
@@ -110,8 +116,8 @@ class OutputHistoryRetentionService(
         PartResult.Failed
       }
       .flatMap { history =>
-        purgePayloads(now).map { payload =>
-          val failed = history == PartResult.Failed || payload == PartResult.Failed
+        purgePayloads(now).flatMap(payload => purgeInsights(now).map(insight => (payload, insight))).map { case (payload, insight) =>
+          val failed = history == PartResult.Failed || payload == PartResult.Failed || insight == PartResult.Failed
           val busy   = history == PartResult.Busy || payload == PartResult.Busy
           val more   = history match {
             case PartResult.Ran(_, moreWork) => moreWork
@@ -144,6 +150,18 @@ class OutputHistoryRetentionService(
       }
       .recover { case NonFatal(e) =>
         log.error("Node payload retention purge failed", e)
+        PartResult.Failed
+      }
+
+  /** Never fails: an insight-purge error is logged and reported as `Failed`. */
+  private def purgeInsights(now: Instant): Future[PartResult] =
+    Future.delegate(insightRepo.purge(now, config.maxAgeByTier))
+      .map { deleted =>
+        if (deleted > 0) log.info("Output insight retention deleted {} render row(s)", deleted)
+        (PartResult.Ran(None, moreWork = false): PartResult)
+      }
+      .recover { case NonFatal(e) =>
+        log.error("Output insight retention purge failed", e)
         PartResult.Failed
       }
 

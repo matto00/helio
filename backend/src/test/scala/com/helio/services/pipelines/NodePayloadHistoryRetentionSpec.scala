@@ -2,7 +2,7 @@ package com.helio.services.pipelines
 
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.domain.util.Clock
-import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, RetentionPassOutcome}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, RetentionPassOutcome, OutputInsightRepository}
 import com.helio.testsupport.NodePayloadFixtures
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -100,7 +100,7 @@ class NodePayloadHistoryRetentionSpec extends AnyWordSpec with Matchers with Bef
       val older  = seedPair(fx, now.minus(Duration.ofMinutes(8)))
       val newer  = seedPair(fx, now.minus(Duration.ofMinutes(7)))
       val svc = new OutputHistoryRetentionService(
-        historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, protectedNewest = 0
+        historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), payloadRepo, PayloadHistoryConfig.Defaults, new OutputInsightRepository(ctx), protectedNewest = 0
       )
       awaitDb(svc.purgeIfDue(now)) shouldBe defined // shared DB: other tests' points are thinned too
       pointCount(fx.optedOutput) shouldBe 1
@@ -116,7 +116,7 @@ class NodePayloadHistoryRetentionSpec extends AnyWordSpec with Matchers with Bef
         override def purge(at: Instant, config: PayloadHistoryConfig): Future[RetentionPassOutcome] = Future.failed(new IllegalStateException("payload purge boom"))
       }
       val svc = new OutputHistoryRetentionService(
-        historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), failing, PayloadHistoryConfig.Defaults, protectedNewest = 0
+        historyRepo, OutputHistoryRetentionConfig.fromEnv(Map.empty), new FakeClock(now), failing, PayloadHistoryConfig.Defaults, new OutputInsightRepository(ctx), protectedNewest = 0
       )
       awaitDb(svc.purgeIfDue(now)) shouldBe defined // shared DB: other tests' points are thinned too
       pointCount(fx.optedOutput) shouldBe 1

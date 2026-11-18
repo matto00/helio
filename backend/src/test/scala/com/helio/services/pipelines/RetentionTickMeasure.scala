@@ -5,7 +5,7 @@ import com.helio.domain.model._
 import com.helio.domain.util.Clock
 import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.audit.AuditEventRepository
-import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
+import com.helio.infrastructure.persistence.pipelines.{NodePayloadHistoryRepository, OutputHistoryRepository, OutputRepository, PipelineRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository, OutputInsightRepository}
 import com.helio.infrastructure.persistence.sources.DataSourceRepository
 import com.helio.infrastructure.storage.{FileSystem, ListPage}
 import com.helio.services.audit.AuditService
@@ -100,7 +100,7 @@ object RetentionTickMeasure {
     val retentionService: OutputHistoryRetentionService =
       new OutputHistoryRetentionService(
         new OutputHistoryRepository(ctx), OutputHistoryRetentionConfig.fromEnv(Map.empty), clock,
-        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.Defaults
+        new NodePayloadHistoryRepository(ctx), PayloadHistoryConfig.Defaults, new OutputInsightRepository(ctx)
       ) {
         override def purgeIfDue(now: Instant): Future[Option[Int]] = {
           val t0 = System.currentTimeMillis()

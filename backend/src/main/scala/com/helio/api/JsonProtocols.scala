@@ -141,4 +141,5 @@ trait JsonProtocols
     with OutputProtocol
     with ProvenanceProtocol
     with OutputHistoryProtocol
+    with OutputInsightProtocol
     with NodeCapabilitiesProtocol

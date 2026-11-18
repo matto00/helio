@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.infrastructure.persistence.pipelines.OutputInsightRepository
 import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.util.Clock
@@ -90,7 +91,7 @@ class OutputHistoryRetentionPrivilegedSpec extends AnyWordSpec with Matchers wit
 
       val (_, oid) = seedAged()
       val repo = new OutputHistoryRepository(new DbContext(appDb, privilegedDb))
-      val svc  = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), FixedClock, new NodePayloadHistoryRepository(new DbContext(appDb, privilegedDb)), PayloadHistoryConfig.Defaults, protectedNewest = 0)
+      val svc  = new OutputHistoryRetentionService(repo, OutputHistoryRetentionConfig.fromEnv(Map.empty), FixedClock, new NodePayloadHistoryRepository(new DbContext(appDb, privilegedDb)), PayloadHistoryConfig.Defaults, new OutputInsightRepository(new DbContext(appDb, privilegedDb)), protectedNewest = 0)
       // one aged-out + one thinned duplicate
       awaitDb(svc.purgeIfDue(now)) shouldBe Some(2)
       historyCount(oid) shouldBe 2

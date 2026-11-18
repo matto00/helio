@@ -16,10 +16,9 @@ import scala.util.{Failure, Success}
  *  `config.temperature`/token ceilings and a [[ClaudeTransport]] (which encapsulates the key, if
  *  any, entirely on its own side of the SPI boundary).
  *
- *  '''HEL-505 (design.md Decision 7) — the expensive-op guard hook for a future user-facing
- *  chat/assistant route.''' No such route exists yet (see CLAUDE.md's `ANTHROPIC_API_KEY` row:
- *  "no route consumes this yet"), so there is nothing to wire a guard onto today. When one is
- *  built, its Pekko HTTP route MUST wrap itself with `rateLimitDirective.rateLimit(<a tighter
+ *  '''HEL-505 (design.md Decision 7) — the expensive-op guard hook for a user-facing
+ *  chat/assistant route.''' Routes now consume this client (the assistant, authoring and refinement
+ *  routes; see CLAUDE.md's `ANTHROPIC_API_KEY` row), so any further such Pekko HTTP route MUST wrap itself with `rateLimitDirective.rateLimit(<a tighter
  *  limit than the default>)` — the SAME `RateLimitDirective` `SourcePreviewRoutes`/
  *  `DataSourcePreviewRoutes` already use (HEL-505 design.md Decision 6) — UPSTREAM of (i.e.
  *  wrapping around) any call into this class, never downstream. This is a rate/concurrency

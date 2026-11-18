@@ -10,6 +10,7 @@ import com.helio.api.routes.pipelines.{OutputHistoryQueryParsing, OutputRowsQuer
 import com.helio.domain.model._
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRepository}
+import com.helio.services.insights.OutputInsightReadService
 import com.helio.services.pipelines.{OutputHistoryService, ProvenanceService}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -40,7 +41,8 @@ final class PublicDashboardRoutes(
     pipelineRepoOpt: Option[PipelineRepository] = None,
     nodeSnapshotRepoOpt: Option[NodeSnapshotRepository] = None,
     provenanceServiceOpt: Option[ProvenanceService] = None,
-    historyServiceOpt: Option[OutputHistoryService] = None
+    historyServiceOpt: Option[OutputHistoryService] = None,
+    insightReadServiceOpt: Option[OutputInsightReadService] = None
 )(implicit system: ActorSystem[_])
     extends Directives
     with JsonProtocols {
@@ -55,6 +57,7 @@ final class PublicDashboardRoutes(
   private val rows = new PublicPanelRowsResolver(panelRepo, userOpt, outputRepo, nodeSnapshotRepoOpt, panelOutput)
   private val outputMeta = new PublicPanelOutputMetaResolver(outputRepo, provenanceServiceOpt, panelOutput)
   private val history = new PublicPanelHistoryResolver(outputRepo, historyServiceOpt, panelOutput)
+  private val insight = new PublicPanelInsightResolver(insightReadServiceOpt, panelOutput)
 
   val routes: Route =
     pathPrefix("dashboards" / Segment / "panels") { dashboardId =>
@@ -165,6 +168,24 @@ final class PublicDashboardRoutes(
                   ) { _ =>
                     ServiceResponse.run(history.resolveHistory(dashboardId, panelId, q))(identity)
                   }
+              }
+            }
+          }
+        }
+      } ~
+      pathPrefix(Segment / "insight") { panelId =>
+        pathEndOrSingleSlash {
+          get {
+            parameters("token".optional) { token =>
+              // HEL-1742: the dashboard gate runs BEFORE the resolver, exactly like `history`.
+              aclDirective.authorizeResourceWithSharing(
+                "dashboard",
+                dashboardId,
+                userOpt,
+                "Dashboard not found",
+                token
+              ) { _ =>
+                ServiceResponse.run(insight.resolveInsight(dashboardId, panelId))(identity)
               }
             }
           }
