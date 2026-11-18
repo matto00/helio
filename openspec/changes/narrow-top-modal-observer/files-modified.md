@@ -1,8 +1,0 @@
-- `frontend/src/shared/ui/modalDialogRegistry.ts` — new open-modal registry (Modal sole writer)
-- `frontend/src/shared/ui/modalDialogRegistry.test.ts` — registry unit tests
-- `frontend/src/shared/ui/modalDialogRegistry.guard.test.ts` — guard: only Modal opens native dialogs
-- `frontend/src/shared/ui/Modal.tsx` — register/unregister on open, close paths, unmount, native close (only when !open)
-- `frontend/src/shared/ui/useTopModalDialog.ts` — useSyncExternalStore on the registry; no MutationObserver
-- `frontend/src/shared/ui/Toast.tsx` — ToastViewport doc comment
-- `frontend/src/shared/ui/Toast.modal.test.tsx` — harness moved onto registry, assertions unchanged
-- `frontend/src/shared/ui/Toast.modalWiring.test.tsx` — R1 (no body observer), R2 (real Modal), R3 (close-event race)
