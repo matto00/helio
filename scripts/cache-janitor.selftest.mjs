@@ -26,6 +26,9 @@ const mk = (key, day, ref = MAIN, size = 100) => ({
   created_at: `2026-10-0${day}T00:00:00Z`,
 });
 const hex64 = (c) => c.repeat(64);
+// Real key values: the last hashFiles-era key on main and the script's output for this repo's build.sbt (HEL-1758).
+const SBT_OLD_KEY = "dd4a12d2a8bde1ec585e2fa5eb89bfdfc80633404b7e7b906234ce66e0970818";
+const SBT_NEW_KEY = "3fa29588712f00c4fd7fe7200b98bbc60bdf36c720a2ca275f69079bf9513781";
 const cq = (lang, n) =>
   `codeql-overlay-base-database-1-c801913f1ee29663-${lang}-2.27.1-sha${n}-run${n}-1`;
 
@@ -125,6 +128,20 @@ check(
   "order of the listing does not matter",
   JSON.stringify(keys(mod.selectDeletions(shuffled))) === JSON.stringify(want),
 );
+
+// HEL-1758 D1: the transition. The dependency key moved from hashFiles('**/build.sbt') to scripts/ci-backend-cache-key.sh;
+// both are a 64-hex SHA-256, so the old entry is the same `sbt-deps` family and is pruned as superseded (keep 1).
+{
+  const OLD_KEY = `sbt-${SBT_OLD_KEY}`;
+  const NEW_KEY = `sbt-${SBT_NEW_KEY}`;
+  const trans = [mk(OLD_KEY, 1), mk(NEW_KEY, 2)];
+  const del = keys(mod.selectDeletions(trans));
+  check(
+    "hashFiles-era sbt-<64hex> entry is pruned once a script-era sbt-<64hex> entry is newer",
+    JSON.stringify(del) === JSON.stringify([OLD_KEY]),
+    `got ${JSON.stringify(del)}`,
+  );
+}
 
 if (failed) {
   process.stdout.write(`${failed} check(s) failed\n`);
