@@ -41,4 +41,17 @@ describe("fitSelectPanel", () => {
     const fit = fitSelectPanel({ top: -100, bottom: -68 }, 180, 100);
     expect(fit.maxHeight).toBeGreaterThanOrEqual(0);
   });
+
+  it("honours a bottom inset (HEL-1762): the room below excludes it", () => {
+    // 900 viewport, inset 76: room below a 100/132 trigger is 900-76-136-8 = 680, so a 300 panel (cap 280) still fits;
+    // a trigger at 600/632 has 900-76-636-8 = 180 below, so a 200 panel flips above (room 588).
+    expect(fitSelectPanel({ top: 600, bottom: 632 }, 200, 900, 76)).toEqual({
+      top: 600 - 4 - 200,
+      maxHeight: 200,
+    });
+    expect(fitSelectPanel({ top: 600, bottom: 632 }, 200, 900)).toEqual({
+      top: 636,
+      maxHeight: 200,
+    });
+  });
 });

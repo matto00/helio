@@ -8,6 +8,9 @@ export interface PanelFitOptions {
   cap?: number;
   /** The side tried first. */
   prefer: "below" | "above";
+  /** Height of a fixed band at the bottom of the viewport (the phone bottom nav, the safe area) that is not usable
+   *  room: it shrinks the room below the trigger only. Defaults to 0. */
+  bottomInset?: number;
 }
 
 export interface PanelFit {
@@ -28,9 +31,9 @@ export function fitPanelVertically(
   trigger: { top: number; bottom: number },
   naturalHeight: number,
   viewportHeight: number,
-  { gap, cap, prefer }: PanelFitOptions,
+  { gap, cap, prefer, bottomInset = 0 }: PanelFitOptions,
 ): PanelFit {
-  const roomBelow = viewportHeight - (trigger.bottom + gap) - VIEWPORT_MARGIN;
+  const roomBelow = viewportHeight - bottomInset - (trigger.bottom + gap) - VIEWPORT_MARGIN;
   const roomAbove = trigger.top - gap - VIEWPORT_MARGIN;
   const place = (side: "below" | "above", maxHeight: number): PanelFit => ({
     side,
@@ -48,4 +51,30 @@ export function fitPanelVertically(
   if (height <= preferredRoom) return place(prefer, height);
   if (otherRoom > preferredRoom) return place(other, Math.max(Math.min(height, otherRoom), 0));
   return place(prefer, Math.max(preferredRoom, 0));
+}
+
+let safeAreaProbe: HTMLElement | null = null;
+
+/** The measured `env(safe-area-inset-bottom)` in px, via a lazily created hidden fixed probe (0 where unsupported). */
+function readSafeAreaBottom(): number {
+  // The probe node stays in <body> on purpose: it is created once and reused, so it is not leaked per call.
+  if (!safeAreaProbe || !safeAreaProbe.isConnected) {
+    safeAreaProbe = document.createElement("div");
+    safeAreaProbe.setAttribute("aria-hidden", "true");
+    safeAreaProbe.style.cssText =
+      "position:fixed;left:0;bottom:0;width:0;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom, 0px)";
+    document.body.appendChild(safeAreaProbe);
+  }
+  return safeAreaProbe.getBoundingClientRect().height;
+}
+
+/** HEL-1762 -- height of the fixed band at the bottom of the viewport that a popover must not cover: the rendered
+ *  phone bottom nav (measured, so it follows the nav's own tokens and safe-area offset) unless `panel` sits inside an
+ *  open modal dialog, whose top layer covers the nav; otherwise just the safe-area inset. 0 on desktop and in jsdom. */
+export function readBottomInset(panel?: Element | null): number {
+  const nav = panel?.closest("dialog[open]") ? null : document.querySelector(".bottom-nav");
+  const navRect = nav?.getBoundingClientRect();
+  const band =
+    navRect && navRect.height > 0 ? window.innerHeight - navRect.top : readSafeAreaBottom();
+  return Math.max(0, band);
 }

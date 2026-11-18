@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import "./ActionsMenu.css";
 import "./Popover.css";
 import { usePortalPopover, type PortalPopoverPos } from "../../hooks/usePortalPopover";
-import { fitPanelVertically, VIEWPORT_MARGIN } from "../ui/panelFit";
+import { fitPanelVertically, readBottomInset, VIEWPORT_MARGIN } from "../ui/panelFit";
 
 /** Gap between the trigger and the panel (the viewport margin is the shared `VIEWPORT_MARGIN`). */
 const TRIGGER_GAP = 8;
@@ -26,6 +26,7 @@ function placeActionsMenu(
   const chrome = panel.offsetHeight - panel.clientHeight;
   const natural = panel.scrollHeight === 0 ? 0 : panel.scrollHeight + chrome;
   const fit = fitPanelVertically(trigger, natural, window.innerHeight, {
+    bottomInset: readBottomInset(panel),
     gap: TRIGGER_GAP,
     prefer,
   });

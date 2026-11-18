@@ -5,6 +5,7 @@ import { usePortalPopover } from "../../hooks/usePortalPopover";
 import "./inputs.css";
 import { ChevronDown } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
+import { readBottomInset } from "./panelFit";
 import { fitSelectPanel } from "./selectPanelFit";
 
 export interface SelectOption {
@@ -151,6 +152,7 @@ export function Select({
       trigger.getBoundingClientRect(),
       panel.scrollHeight + chrome,
       window.innerHeight,
+      readBottomInset(panel),
     );
     panel.style.top = `${fit.top}px`;
     panel.style.maxHeight = `${fit.maxHeight}px`;
