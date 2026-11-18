@@ -1,11 +1,11 @@
 package com.helio.api.routes.ask
 
 import com.helio.api.protocols.IdParsing.{DashboardIdSegment, OutputIdSegment}
-import com.helio.api.protocols.ask.{AskQuestionRequest, AskUngroundedResponse}
+import com.helio.api.protocols.ask.{AskQuestionRequest, AskTruncatedResponse, AskUngroundedResponse}
 import com.helio.api.routes.{ServiceResponse, TierErrorCompletion}
 import com.helio.api.{ErrorResponse, JsonProtocols}
 import com.helio.domain.model.AuthenticatedUser
-import com.helio.services.ask.{AskAccess, AskDataService, AskError, AskScope}
+import com.helio.services.ask.{AskAccess, AskDataService, AskError, AskReasons, AskScope}
 import com.helio.services.assistant.AssistantModelPolicy
 import com.helio.services.auth.ChatAccessService
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -56,7 +56,12 @@ final class AskRoutes(
                           case Left(AskError.Ungrounded(reasons)) =>
                             complete(
                               StatusCodes.UnprocessableEntity,
-                              AskUngroundedResponse("The answer could not be grounded in the data", "ASK_UNGROUNDED", reasons)
+                              AskUngroundedResponse("The answer could not be grounded in the data", "ASK_UNGROUNDED", AskReasons.publicOf(reasons))
+                            )
+                          case Left(AskError.Truncated) =>
+                            complete(
+                              StatusCodes.UnprocessableEntity,
+                              AskTruncatedResponse("The answer ran out of room before it finished; ask something narrower", "ASK_ANSWER_TRUNCATED")
                             )
                           case Left(AskError.Failed(err)) => complete(ServiceResponse.statusCodeFor(err), ErrorResponse(err.message))
                         }

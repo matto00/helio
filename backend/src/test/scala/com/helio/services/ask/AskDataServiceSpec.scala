@@ -72,6 +72,11 @@ class AskDataServiceSpec extends AnyWordSpec with Matchers with HelioRouteTest w
     (result, transport)
   }
 
+  private def askStopping(user: String, steps: Vector[Step], stops: Map[Int, String]) = {
+    val transport = new ScriptedTransport(steps, stopReasons = stops)
+    (awaitDb(askService(transport).ask(AskScope.DashboardScope(board), Q, authUser(user))), transport)
+  }
+
   private def toolNames(r: ClaudeApiToolRequest): Set[String] = r.tools.collect { case t: ClaudeApiTool => t.name }.toSet
   private def idArg(id: String): JsObject                      = obj("outputId" -> JsString(id))
   private def notAvailable(id: String)                         = s"Output $id is not available to this question"
@@ -265,6 +270,60 @@ class AskDataServiceSpec extends AnyWordSpec with Matchers with HelioRouteTest w
       ask(owner, Vector(_ => (1 to 7).map(i => toolUse(s"t$i", "get_output_rows", idArg(rev.id.value))), capture(seen)))
       seen.get.count(!_._3) shouldBe 6
       seen.get.filter(_._3).map(_._2) shouldBe Vector(AskCitationLedger.BudgetMessage)
+    }
+  }
+
+  "truncation (HEL-1761)" should {
+    "map a thinking-only max_tokens hop to Truncated, not a BadGateway" in {
+      val (res, t) = askStopping(owner, Vector(_ => Seq(thinking("let me think"))), Map(0 -> "max_tokens"))
+      res shouldBe Left(AskError.Truncated)
+      t.hopCount shouldBe 1
+    }
+
+    "map a partial-text max_tokens hop to Truncated even when the cut-off text would validate" in {
+      val (res, _) = askStopping(owner, Vector(_ => Seq(text("There is nothing to report."))), Map(0 -> "max_tokens"))
+      res shouldBe Left(AskError.Truncated)
+    }
+
+    "map a max_tokens corrective hop to Truncated, thinking-only and partial text alike" in {
+      val ungrounded: Step = _ => Seq(text("It fell 99 percent."))
+      val (a, _) = askStopping(owner, Vector(ungrounded, _ => Seq(thinking("hmm"))), Map(1 -> "max_tokens"))
+      a shouldBe Left(AskError.Truncated)
+      val (b, _) = askStopping(owner, Vector(ungrounded, _ => Seq(text("There is nothing to report."))), Map(1 -> "max_tokens"))
+      b shouldBe Left(AskError.Truncated)
+    }
+
+    "ask for 4096 output tokens on every hop, with no thinking or sampling field on the wire" in {
+      AskDataService.MaxAnswerTokens shouldBe 4096
+      val (_, t) = ask(owner, Vector(
+        _ => Seq(toolUse("r", "get_output_rows", idArg(rev.id.value))),
+        _ => Seq(text("It fell 99 percent."))
+      ))
+      t.requests.size shouldBe 3
+      t.requests.map(_.maxTokens).distinct shouldBe Vector(4096)
+      t.requests.foreach { r =>
+        val wire = ClaudeProtocol.claudeApiToolRequestFormat.write(r).compactPrint
+        Seq("thinking", "budget_tokens", "temperature", "tool_choice").foreach(k => wire should not include k)
+      }
+    }
+  }
+
+  "the pin fallback (HEL-1761 D6)" should {
+    lazy val pins = new AskPinBuilder(accessChecker)(harnessEc)
+    // `rev` is a real stored Output (so the create round trip's reads validate); only its node reference is replaced.
+    def output(node: NodeRef) = rev.copy(node = node)
+
+    "use the Output's own root id, not the pipeline id, when it differs" in {
+      val pin = awaitDb(pins.build(Q, Vector(output(NodeRef(PipelineId(pid), None, Some(PipelineRootId("distinct-root"))))), authUser(owner))).get
+      pin.request.fields("rootId") shouldBe JsString("distinct-root")
+    }
+
+    "fall back to the pipeline id as root id (and no node step id) when there is no step and no root id" in {
+      val pin = awaitDb(pins.build(Q, Vector(output(NodeRef(PipelineId(pid), None, None))), authUser(owner))).get
+      pin.request.fields("rootId") shouldBe JsString(pid)
+      pin.request.fields.keySet should not contain "nodeStepId"
+      val created = awaitDb(createService.create(PipelineId(pid), pin.request.convertTo[CreateOutputRequest], authUser(owner)))
+      created.map(_._1.kind) shouldBe Right(OutputKind.Insight)
     }
   }
 

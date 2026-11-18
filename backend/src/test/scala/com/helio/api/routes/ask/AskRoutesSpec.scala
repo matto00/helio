@@ -155,6 +155,38 @@ class AskRoutesSpec extends AnyWordSpec with Matchers with HelioRouteTest with J
       post(haikuApi, s"/api/outputs/${rev.id.value}/ask", Some(owner))(status shouldBe StatusCodes.OK)
     }
 
+    "return 422 ASK_ANSWER_TRUNCATED, not 502, for a thinking-only max_tokens hop" in {
+      switch.current = new ScriptedTransport(Vector(_ => Seq(thinking("pondering"))), stopReasons = Map(0 -> "max_tokens"))
+      post(haikuApi, s"/api/dashboards/$board/ask", Some(owner)) {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[JsObject].fields("code") shouldBe JsString("ASK_ANSWER_TRUNCATED")
+        responseAs[String] should not include "pondering"
+      }
+    }
+
+    "return 422 ASK_ANSWER_TRUNCATED and never the cut-off text for a partial-text max_tokens hop" in {
+      switch.current = new ScriptedTransport(Vector(_ => Seq(text("The partial sentence CUTOFFMARK"))), stopReasons = Map(0 -> "max_tokens"))
+      post(haikuApi, s"/api/dashboards/$board/ask", Some(owner)) {
+        status shouldBe StatusCodes.UnprocessableEntity
+        responseAs[JsObject].fields("code") shouldBe JsString("ASK_ANSWER_TRUNCATED")
+        responseAs[String] should not include "CUTOFFMARK"
+      }
+    }
+
+    "return value-free ASK_UNGROUNDED reasons (no digit) for answers quoting a number and a date" in {
+      script(_ => Seq(text("It fell 99 percent on 2026-11-30.")))
+      post(haikuApi, s"/api/dashboards/$board/ask", Some(owner)) {
+        status shouldBe StatusCodes.UnprocessableEntity
+        val body = responseAs[JsObject]
+        body.fields("code") shouldBe JsString("ASK_UNGROUNDED")
+        val reasons = body.fields("reasons").convertTo[Vector[String]]
+        reasons should not be empty
+        reasons.foreach(r => r.exists(_.isDigit) shouldBe false)
+        responseAs[String] should not include "99"
+        responseAs[String] should not include "2026-11-30"
+      }
+    }
+
     "return 422 ASK_UNGROUNDED with no answer text after two failures" in {
       script(_ => Seq(text("It fell 99 percent.")))
       post(haikuApi, s"/api/dashboards/$board/ask", Some(owner)) {

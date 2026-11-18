@@ -41,6 +41,10 @@ object AskScript {
 
   def text(s: String): ClaudeApiContentBlock = ClaudeApiContentBlock(blockType = "text", text = Some(s))
 
+  /** A thinking block (no visible text), as a model emits before or instead of an answer. */
+  def thinking(s: String): ClaudeApiContentBlock =
+    ClaudeApiContentBlock(blockType = "thinking", text = None, thinking = Some(s), signature = Some("sig"))
+
   def toolUse(id: String, name: String, input: JsObject): ClaudeApiContentBlock =
     ClaudeApiContentBlock(blockType = "tool_use", text = None, id = Some(id), name = Some(name), input = Some(input))
 
@@ -67,9 +71,10 @@ object AskScript {
   def obj(fields: (String, JsValue)*): JsObject = JsObject(fields.toMap)
 }
 
-/** A scripted transport: hop N runs `steps(min(N, last))` and answers `tool_use` when that step has one, else `end_turn`.
+/** A scripted transport: hop N runs `steps(min(N, last))` and answers `tool_use` when that step has one, else `end_turn`;
+ *  `stopReasons(N)` overrides that derived `stop_reason` for hop N (HEL-1761: `max_tokens`).
  *  Records every request. Echoes the requested model id as the response model. */
-final class ScriptedTransport(steps: Vector[AskScript.Step], delayMs: Long = 0L) extends ClaudeTransport {
+final class ScriptedTransport(steps: Vector[AskScript.Step], delayMs: Long = 0L, stopReasons: Map[Int, String] = Map.empty) extends ClaudeTransport {
   private val recorded = new CopyOnWriteArrayList[ClaudeApiToolRequest]()
   private val hops     = new AtomicInteger(0)
   def requests: Vector[ClaudeApiToolRequest] = recorded.asScala.toVector
@@ -81,7 +86,7 @@ final class ScriptedTransport(steps: Vector[AskScript.Step], delayMs: Long = 0L)
     recorded.add(request)
     val i      = hops.getAndIncrement()
     val blocks = steps(math.min(i, steps.size - 1))(request)
-    val stop   = if (blocks.exists(_.blockType == "tool_use")) "tool_use" else "end_turn"
+    val stop   = stopReasons.getOrElse(i, if (blocks.exists(_.blockType == "tool_use")) "tool_use" else "end_turn")
     Future.successful(
       ClaudeApiResponse(id = s"msg$i", content = blocks, stopReason = Some(stop), usage = ClaudeApiUsage(10, 5), model = Some(request.model))
     )
