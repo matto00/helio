@@ -123,4 +123,19 @@ class InsightContextBuilderSpec extends AnyWordSpec with Matchers {
       }
     }
   }
+
+  "the first citation number (HEL-1745 4.8)" should {
+    "leave default numbering and serialized text unchanged" in {
+      val d = InsightContextBuilder.pack(inputs, 50, InsightLimits())
+      val e = InsightContextBuilder.pack(inputs, 50, InsightLimits(), firstCitation = 1)
+      e.serialized shouldBe d.serialized
+      d.citations.head.id shouldBe "c1"
+    }
+    "start offset numbering at the offset and never go below it" in {
+      val p = InsightContextBuilder.pack(inputs, 50, InsightLimits(), firstCitation = 7)
+      p.citations.head.id shouldBe "c7"
+      p.citations.map(_.id) shouldBe (7 until 7 + p.citations.size).map(i => s"c$i")
+      (1 to 6).foreach(i => p.serialized should not include s""""c$i"""")
+    }
+  }
 }

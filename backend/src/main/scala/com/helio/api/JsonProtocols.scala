@@ -5,6 +5,7 @@ import com.helio.api.protocols.admin._
 import com.helio.api.protocols.agents._
 import com.helio.api.protocols.alerts._
 import com.helio.api.protocols.assistant._
+import com.helio.api.protocols.ask._
 import com.helio.api.protocols.audit._
 import com.helio.api.protocols.auth._
 import com.helio.api.protocols.dashboards._
@@ -133,6 +134,7 @@ trait JsonProtocols
     with AuthoringConversationProtocol
     with RefinementProtocol
     with AssistantConversationProtocol
+    with AskProtocol
     with AgentPreferencesProtocol
     with AgentMemoryProtocol
     with BetaAccessProtocol

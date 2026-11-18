@@ -35,6 +35,8 @@ import com.helio.services.agents.{AgentMemoryService, AgentPreferencesService}
 import com.helio.services.alerts.{AlertEvaluationService, AlertEventService, AlertRuleService}
 import com.helio.services.auth.{AiPipelineQuotaGate, ApiTokenService, AuthService, BetaAccessService, ChatAccessService, MfaService, PermissionService, PipelinePermissionService, UserResponseAssembler, UserTierConfig}
 import com.helio.services.assistant.{AssistantConversationService, AssistantModelPolicy, AssistantService}
+import com.helio.services.ask.{AskAccess, AskDataService, AskReads}
+import com.helio.api.routes.ask.AskRoutes
 import com.helio.services.panels.{AutoLayoutService, OutputControlsValidator, PanelCapabilityService, PanelService}
 import com.helio.services.firstrun.FirstRunDashboardService
 import com.helio.services.home.HomeSummaryService
@@ -814,6 +816,20 @@ final class ApiRoutes(
       claudeConfigProvider().toOption.map(_.model).getOrElse(ClaudeConfig.DefaultModel)
     )
 
+  // HEL-1745: `POST /api/dashboards/:id/ask` and `/api/outputs/:id/ask`. Its own client (like every Claude-bearing
+  // service here); no key degrades the routes to 503. Reads use only the explicit-SQL gates in `AskAccess`.
+  private val askAccess: AskAccess =
+    new AskAccess(accessChecker, outputRepo, pipelineService, panelRepo)
+  private val askDataServiceOpt: Option[AskDataService] =
+    claudeConfigProvider() match {
+      case Left(reason) =>
+        log.warn(s"POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: $reason")
+        None
+      case Right(claudeConfig) =>
+        val claudeClient = new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey))
+        Some(new AskDataService(claudeClient, assistantModelPolicy, askAccess, new AskReads(outputRepo, panelRepo, nodeSnapshotRepo, outputService, outputHistoryService)))
+    }
+
   private val auth  = new AuthRoutes(authService, authDirectives, cookieConfig)
   private val oauth = new OAuthRoutes(authService, googleClientId, googleClientSecret, googleRedirectUri, cookieConfig)
   // HEL-702: constructed once (like auth/oauth above), not per-request — its
@@ -1075,6 +1091,8 @@ final class ApiRoutes(
                   // route to a clean 503, not a bare 404 that looks like the path doesn't exist
                   // (task 4.2). DashboardAuthoringRoutes itself handles the `None` case.
                   new DashboardAuthoringRoutes(dashboardAuthoringServiceOpt, authenticatedUser, Some(chatAccessService)).routes,
+                  // HEL-1745: mounted UNCONDITIONALLY (a missing key is a 503, not a 404); signed-in dashboard/Output grantees only.
+                  new AskRoutes(askDataServiceOpt, askAccess, chatAccessService, assistantModelPolicy, authenticatedUser).routes,
                   // HEL-411: mounted UNCONDITIONALLY, same reasoning as DashboardAuthoringRoutes
                   // above — a missing ANTHROPIC_API_KEY/DbContext must degrade this route to a
                   // clean 503, not a bare 404. RefinementRoutes itself handles the `None` case.

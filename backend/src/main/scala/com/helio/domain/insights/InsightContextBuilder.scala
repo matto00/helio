@@ -61,9 +61,10 @@ object InsightContextBuilder {
   }
 
   /** Builds the pack from the inputs with the first `keepRows` head rows. Ids are assigned in traversal order
-   *  (compares, windows, head), so repeated builds are stable. */
-  def pack(in: InsightInputs, keepRows: Int, limits: InsightLimits): InsightPack = {
-    val b       = new Cells(limits)
+   *  (compares, windows, head), so repeated builds are stable. `firstCitation` (HEL-1745) offsets the numbering so
+   *  several packs built in one ask loop get disjoint ids; the default of 1 leaves every pack byte-identical. */
+  def pack(in: InsightInputs, keepRows: Int, limits: InsightLimits, firstCitation: Int = 1): InsightPack = {
+    val b       = new Cells(limits, firstCitation)
     val compares = in.compares.map(b.compareJson)
     val windows  = in.windows.map(b.windowJson)
     val head     = in.head.map(h => b.headJson(h, keepRows))
@@ -108,10 +109,10 @@ object InsightContextBuilder {
   }
 
   /** Citation assignment and JSON for each pack part. One instance per pack build. */
-  private final class Cells(limits: InsightLimits) {
+  private final class Cells(limits: InsightLimits, firstCitation: Int) {
     val citations = ArrayBuffer.empty[Citation]
 
-    private def next(): String = s"c${citations.size + 1}"
+    private def next(): String = s"c${firstCitation + citations.size}"
 
     private def trunc(s: String): String = if (s.length > limits.maxCellChars) s.substring(0, limits.maxCellChars) else s
 

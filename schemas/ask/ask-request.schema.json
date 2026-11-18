@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/ask/ask-request.schema.json",
+  "title": "AskQuestionRequest",
+  "description": "Request body of POST /api/dashboards/:id/ask and POST /api/outputs/:id/ask (HEL-1745). There is no model field: every ask uses the server default model.",
+  "type": "object",
+  "required": ["question"],
+  "properties": {
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "The question, 1..2000 characters after trimming; anything else is a 400 before any charge or model call."
+    }
+  },
+  "additionalProperties": false
+}
