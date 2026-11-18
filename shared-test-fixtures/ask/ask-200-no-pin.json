@@ -1,0 +1,32 @@
+{
+  "answer": "An amount is 10.0 [c1]. An amount is 10.0 [c2].",
+  "citations": [
+    {
+      "number": 10.0,
+      "capturedAt": "2026-01-01T00:00:00Z",
+      "field": "amount",
+      "id": "c1",
+      "isPct": false,
+      "outputId": "{{OUTPUT_1}}"
+    },
+    {
+      "number": 10.0,
+      "capturedAt": "2026-01-01T00:00:00Z",
+      "field": "amount",
+      "id": "c2",
+      "isPct": false,
+      "outputId": "{{OUTPUT_2}}"
+    }
+  ],
+  "citedOutputs": [
+    {
+      "id": "{{OUTPUT_1}}",
+      "name": "Revenue"
+    },
+    {
+      "id": "{{OUTPUT_2}}",
+      "name": "Cost"
+    }
+  ],
+  "pin": null
+}

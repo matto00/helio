@@ -1,4 +1,4 @@
-import { MessagesSquare, PencilRuler, Plus, Share2 } from "lucide-react";
+import { MessageCircleQuestion, MessagesSquare, PencilRuler, Plus, Share2 } from "lucide-react";
 import { useRef } from "react";
 
 import { useSaveState } from "../../context/SaveStateContext";
@@ -31,6 +31,8 @@ const SHARE_TRIGGER_SELECTOR = 'button[aria-label="Share dashboard"]';
 const KEBAB_TRIGGER_SELECTOR = '.dashboard-meta-row button[aria-label="Dashboard actions"]';
 
 interface DashboardMetaRowProps {
+  /** Opens the ask drawer; `restoreFocusSelector` is given when the opener was a menu item that unmounts (the kebab). */
+  onOpenAsk: (restoreFocusSelector?: string) => void;
   onOpenRefinement: () => void;
   onOpenQuickLauncher: () => void;
   setDraftAppearance: (appearance: DashboardAppearance | null) => void;
@@ -45,6 +47,7 @@ interface DashboardMetaRowProps {
  * the dashboard actions: Edit layout (with Undo/Redo/Tidy while on), Share and the one primary, Add panel.
  */
 export function DashboardMetaRow({
+  onOpenAsk,
   onOpenRefinement,
   onOpenQuickLauncher,
   setDraftAppearance,
@@ -101,10 +104,25 @@ export function DashboardMetaRow({
   const kebabItems: ActionsMenuItem[] = [{ label: "Refine with AI", onClick: onOpenRefinement }];
   if (shareInKebab) {
     kebabItems.push({ label: "Share", ariaLabel: "Share dashboard", onClick: openShare });
+    kebabItems.push({
+      label: "Ask about this dashboard",
+      onClick: () => onOpenAsk(KEBAB_TRIGGER_SELECTOR),
+    });
     kebabItems.push({ label: "Open assistant", onClick: onOpenQuickLauncher });
   }
 
   const editLabel = isEditing ? "Done" : "Edit layout";
+  // HEL-1746: a secondary icon-only control (Add panel stays the one accent control), immediately before the assistant's.
+  const askButton = (
+    <IconButton
+      icon={<MessageCircleQuestion size={ICON_SIZE.md} />}
+      variant="secondary"
+      size="sm"
+      onClick={() => onOpenAsk()}
+      aria-label="Ask about this dashboard"
+      title="Ask about this dashboard"
+    />
+  );
   const assistantButton = (
     <IconButton
       icon={<MessagesSquare size={ICON_SIZE.md} />}
@@ -191,6 +209,7 @@ export function DashboardMetaRow({
             onPreviewChange={setDraftAppearance}
           />
         )}
+        {selectedDashboard && !shareInKebab && askButton}
         {(!shareInKebab || !selectedDashboard) && assistantButton}
         {selectedDashboard && <ActionsMenu label="Dashboard actions" items={kebabItems} />}
       </div>

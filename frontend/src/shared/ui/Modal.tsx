@@ -7,7 +7,7 @@ import "./Modal.css";
 import { X } from "lucide-react";
 import { ICON_SIZE } from "./iconSize";
 
-type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
+export type ModalSize = "sm" | "md" | "lg" | "xl" | "full";
 
 interface ModalProps {
   /** Title shown in the modal header. */

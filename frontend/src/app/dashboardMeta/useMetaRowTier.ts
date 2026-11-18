@@ -8,7 +8,7 @@ export type MetaRowTier = 0 | 1 | 2 | 3;
 
 /** Row widths (px) below which each tier applies, measured live and recorded in this change's
  *  `measurements.md`. Edit mode adds three more controls to the row, so it shifts every threshold up. */
-export const META_ROW_TIER_WIDTHS = { iconOnly: 820, kebab: 640, countOnly: 520 } as const;
+export const META_ROW_TIER_WIDTHS = { iconOnly: 860, kebab: 680, countOnly: 520 } as const;
 export const META_ROW_EDIT_EXTRA_PX = 150;
 
 export function tierForWidth(width: number, isEditing: boolean): MetaRowTier {

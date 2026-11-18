@@ -58,11 +58,13 @@ function ShareProbe() {
 
 function setup(opts: { selected?: boolean; stack?: boolean } = {}) {
   const selected = opts.selected ?? true;
+  const onOpenAsk = jest.fn();
   const onOpenRefinement = jest.fn();
   const onOpenQuickLauncher = jest.fn();
   const ctx = renderWithStore(
     <>
       <DashboardMetaRow
+        onOpenAsk={onOpenAsk}
         onOpenRefinement={onOpenRefinement}
         onOpenQuickLauncher={onOpenQuickLauncher}
         setDraftAppearance={jest.fn()}
@@ -83,7 +85,7 @@ function setup(opts: { selected?: boolean; stack?: boolean } = {}) {
     // The desktop (movable) grid is on screen; the stack below `sm` is covered by its own test.
     if (opts.stack !== true) ctx.store.dispatch(setDesktopGridDashboardId("d1"));
   });
-  return { ...ctx, onOpenRefinement, onOpenQuickLauncher };
+  return { ...ctx, onOpenAsk, onOpenRefinement, onOpenQuickLauncher };
 }
 
 const group = () => screen.getByRole("group", { name: "Dashboard actions" });
@@ -488,5 +490,54 @@ describe("DashboardMetaRow narrow-width ladder (HEL-1576 D3)", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Open assistant" }));
     expect(onOpenQuickLauncher).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Add panel" })).toHaveTextContent("Add panel");
+  });
+});
+
+describe("DashboardMetaRow Ask (HEL-1746 D3)", () => {
+  it.each([0, 1] as const)(
+    "tier %i: a secondary icon-only Ask button sits immediately before the assistant button",
+    (tier) => {
+      tierMock.mockReturnValue(tier);
+      const { onOpenAsk } = setup();
+      const ask = screen.getByRole("button", { name: "Ask about this dashboard" });
+      expect(ask).toHaveTextContent("");
+      expect(ask).toHaveAttribute("title", "Ask about this dashboard");
+      expect(ask.className).not.toMatch(/primary/);
+      expect(ask.nextElementSibling).toBe(screen.getByRole("button", { name: "Open assistant" }));
+      fireEvent.click(ask);
+      // Always-mounted opener: Modal's own focus return suffices, so no restore selector is given.
+      expect(onOpenAsk).toHaveBeenCalledWith();
+    },
+  );
+
+  it("Add panel stays the one accent control", () => {
+    setup();
+    const accent = Array.from(document.querySelectorAll("button")).filter((b) =>
+      /cmd-btn--primary/.test(b.className),
+    );
+    expect(accent.map((b) => b.textContent)).toEqual([expect.stringContaining("Add panel")]);
+  });
+
+  it("tier 2: Ask moves into the kebab with the assistant, and opens with the kebab trigger as the focus-restore target", () => {
+    tierMock.mockReturnValue(2);
+    const { onOpenAsk } = setup();
+    expect(
+      screen.queryByRole("button", { name: "Ask about this dashboard" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dashboard actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Ask about this dashboard" }));
+    expect(onOpenAsk).toHaveBeenCalledTimes(1);
+    const selector = onOpenAsk.mock.calls[0][0] as string;
+    expect(selector).toBe('.dashboard-meta-row button[aria-label="Dashboard actions"]');
+    expect(document.querySelector(selector)).toBe(
+      screen.getByRole("button", { name: "Dashboard actions" }),
+    );
+  });
+
+  it("renders no Ask control when no dashboard is selected", () => {
+    setup({ selected: false });
+    expect(
+      screen.queryByRole("button", { name: "Ask about this dashboard" }),
+    ).not.toBeInTheDocument();
   });
 });

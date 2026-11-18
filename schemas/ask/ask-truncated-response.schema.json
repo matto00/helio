@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/ask/ask-truncated-response.schema.json",
+  "title": "AskTruncatedResponse",
+  "description": "422 body of the ask routes when a model hop stopped at max_tokens (HEL-1761). Carries no reasons and never any cut-off text.",
+  "type": "object",
+  "required": ["message", "code"],
+  "properties": {
+    "message": { "type": "string" },
+    "code": { "const": "ASK_ANSWER_TRUNCATED" }
+  },
+  "additionalProperties": false
+}

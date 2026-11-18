@@ -1097,11 +1097,15 @@ DESIGN.md edit".
   9 hours ago" / "last run failed 9 hours ago" / "not refreshed yet", omitted when
   no feeding pipeline is known), source(s) and the save state. Actions trail on
   the right with **one** primary: Edit layout, Share and **Add panel**, then the
-  appearance editor, the assistant and the overflow menu. It states facts and
+  appearance editor, **Ask** (HEL-1746: a secondary, icon-only button, "Ask about
+  this dashboard", immediately before the assistant's), the assistant and the
+  overflow menu. It states facts and
   carries no title and no dashboard name. Its controls follow the chrome rule
-  (§5): borderless, with Add panel the single accent control. Below about 820px
+  (§5): borderless, with Add panel the single accent control. Below about 860px
   of row width the edit tools, Edit layout and Share become icon-only; below
-  about 640px Share and the assistant move into the overflow menu; below about
+  about 680px Share, Ask and the assistant move into the overflow menu (Ask as the
+  item "Ask about this dashboard"; closing its drawer returns focus to the menu's
+  trigger, since the item has gone); below about
   520px the facts collapse to the panel count. Actions never wrap or truncate.
   **[judgment]**
 - **Edit layout.** Panels are moved and resized only while Edit layout is on
@@ -1290,12 +1294,19 @@ non-React code); `useReducedMotion()` is `useMotion() === "off"`.
   item), `snap` (a placement with no transition: the first, and the first after
   hidden) or `ready`. Consumers: `AppRail` (the active wash is the indicator)
   and `SegmentedRadioGroup`. The dashboard tab strip belongs to its own ticket.
-- **Bottom sheet.** `<BottomSheet open title onClosed onRequestClose? headerActions?>`
+- **Bottom sheet.** `<BottomSheet open title onClosed onRequestClose? headerActions? size?>`
   (`shared/motion/BottomSheet.tsx`, HEL-1582) composes `Modal` (focus trap,
   focus restore; Escape, backdrop and the close button are one vetoable close
   request) and adds the phone presentation at or below 768px: full height minus
   `--space-4` from the bottom edge, top radius, opaque `--app-surface`, a grab
-  handle drawn on the header. Above 768px it is the ordinary centred Modal.
+  handle drawn on the header. Above 768px it is the ordinary centred Modal, at the `size` the caller passes
+  through to `Modal` (`"sm" | "md" | "lg" | "xl" | "full"`, default `"full"`, so a
+  caller that passes none is unchanged; HEL-1746's ask drawer passes `"md"`, a
+  540px dialog, not a 1200px one, for one field and a short answer). At or below
+  768px `.ui-modal.bottom-sheet` (two classes) sets `width`/`max-width: 100%` and
+  so beats every single-class `.ui-modal--*` size, with no `!important`: a
+  feature never overrides a `.ui-modal--*` width itself, and the rule is guarded
+  by a CSS-text test (jest stubs CSS) and a phone e2e width assertion.
   `useSheetSwipe` takes a drag on the **header (and handle) only**, with
   `touch-action: none` and pointer capture; the body always scrolls and never
   moves the sheet, and a press on a control in the header (the close button, an

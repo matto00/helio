@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/ask/ask-tier-error-response.schema.json",
+  "title": "TierErrorResponse",
+  "description": "403 TIER_FORBIDDEN and 429 CHAT_LIMIT_REACHED body of the chat-tier gated routes, including the ask routes. limit is present only on the 429 and counts weighted units; clients never show it.",
+  "type": "object",
+  "required": ["code", "message"],
+  "properties": {
+    "code": { "enum": ["TIER_FORBIDDEN", "CHAT_LIMIT_REACHED"] },
+    "message": { "type": "string" },
+    "limit": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

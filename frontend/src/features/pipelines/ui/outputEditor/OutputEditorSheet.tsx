@@ -12,6 +12,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
+import { AskPanel } from "../../../ask/ui/AskPanel";
 import { Modal, Select, TextField } from "../../../../shared/ui/index";
 import { InlineError } from "../../../../shared/chrome/InlineError";
 import { toChartFieldTypes } from "../../../../utils/chartTimeAxis";
@@ -409,6 +410,15 @@ export function OutputEditorSheet({
         fieldTypes={previewFieldTypes}
         onRunPipeline={onRunPipeline}
       />
+
+      {/* HEL-1746: only an Output with a saved server row can be asked about (never create mode, never a draft Output whose
+          id is a client id). Pin is disabled with a reason while a pipeline draft exists. */}
+      {hasServerRow && output !== null && (
+        <details className="output-editor-sheet__group output-editor-sheet__group--card">
+          <summary className="disclosure-summary tap-expand-44">Ask about this Output</summary>
+          <AskPanel scope={{ kind: "output", id: output.id }} draftActive={draft !== undefined} />
+        </details>
+      )}
 
       {!isCreate && placements && <OutputPlacementsList placements={placements} />}
 

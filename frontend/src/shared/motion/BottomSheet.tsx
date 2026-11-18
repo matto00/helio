@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { Modal } from "../ui/Modal";
+import { Modal, type ModalSize } from "../ui/Modal";
 import { useMotion } from "../../theme/ThemeProvider";
 import { clearSheetMotion, fadeSheet, settleSheet } from "./sheetMotion";
 import { useSheetSwipe } from "./useSheetSwipe";
@@ -19,6 +19,8 @@ export interface BottomSheetProps {
   /** Header slot before the close button (e.g. an actions menu). */
   headerActions?: ReactNode;
   className?: string;
+  /** The dialog width above 768px (the `Modal` sizes); at or below it the sheet is always full width. Defaults to `"full"`. */
+  size?: ModalSize;
   children: ReactNode;
 }
 
@@ -35,6 +37,7 @@ export function BottomSheet({
   onClosed,
   headerActions,
   className,
+  size = "full",
   children,
 }: BottomSheetProps) {
   const [sheet, setSheet] = useState<HTMLDialogElement | null>(null);
@@ -92,7 +95,7 @@ export function BottomSheet({
       open={open}
       title={title}
       ariaLabel={ariaLabel}
-      size="full"
+      size={size}
       className={["bottom-sheet", className].filter(Boolean).join(" ")}
       headerActions={headerActions}
       onClose={() => void requestClose()}

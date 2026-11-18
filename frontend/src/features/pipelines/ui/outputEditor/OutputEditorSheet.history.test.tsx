@@ -2,7 +2,7 @@
 // Save sends for `config.historyPayloads` (D5), and the disabled-with-upsell state (Q1/Q3).
 
 import { configureStore } from "@reduxjs/toolkit";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
 
@@ -127,6 +127,10 @@ async function save(): Promise<Record<string, unknown>> {
 
 const toggle = () => screen.getByRole("switch", { name: "Keep each run's rows" });
 
+// HEL-1746: a free-tier user also sees the ask upsell in the sheet, so the History upsell is scoped to its own section.
+const historySection = (): HTMLElement =>
+  screen.getByRole("heading", { name: "History" }).closest("div") as HTMLElement;
+
 describe("OutputEditorSheet -- History section (HEL-1331)", () => {
   it("shows the owner-ruled copy, including the cap, retention and opt-out text", () => {
     renderSheet(outputOf(METRIC, true));
@@ -196,7 +200,9 @@ describe("OutputEditorSheet -- History section (HEL-1331)", () => {
     expect(toggle()).toBeDisabled();
     expect(toggle()).toBeChecked(); // a stored true still shows as on
     expect(screen.getByText("Free stores run summaries only")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Request Beta access (opens in a new tab)" });
+    const link = within(historySection()).getByRole("link", {
+      name: "Request Beta access (opens in a new tab)",
+    });
     expect(link).toHaveAttribute("href", "/settings#beta-access");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
@@ -215,7 +221,9 @@ describe("OutputEditorSheet -- History section (HEL-1331)", () => {
   it("fails closed when the response carries no flag", () => {
     renderSheet(outputOf(METRIC));
     expect(toggle()).toBeDisabled();
-    expect(screen.getByRole("link", { name: /^Request Beta access/ })).toBeInTheDocument();
+    expect(
+      within(historySection()).getByRole("link", { name: /^Request Beta access/ }),
+    ).toBeInTheDocument();
   });
 
   it("gates on the pipeline owner, not the viewer: a beta viewer on a free-owned pipeline sees it disabled", () => {
