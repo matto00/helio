@@ -14,7 +14,7 @@ import {
 } from "../config";
 import { equalsIgnoreCase } from "../javaNumbers";
 import { KeyBuilder } from "../scalaGroup";
-import { cell, int, put, type Row, type Value } from "../value";
+import { cell, int, putLast, type Row, type Value } from "../value";
 import { toDouble } from "./numeric";
 import { javaSort } from "../javaTimSort";
 import type { StepHandler } from "./types";
@@ -169,7 +169,7 @@ export const windowHandler: StepHandler<WindowConfig> = {
     }
     return rows.map((row, idx) => {
       const out: Record<string, Value> = { ...row };
-      put(out, cfg.outputColumn, computed[idx]);
+      putLast(out, cfg.outputColumn, computed[idx]);
       return out;
     });
   },

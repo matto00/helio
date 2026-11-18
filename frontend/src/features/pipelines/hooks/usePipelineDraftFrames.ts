@@ -1,17 +1,21 @@
 import { useMemo } from "react";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import type { DataSource } from "../../sources/types/dataSource";
 import { selectRootFrames, selectSourceFrames } from "../../sources/state/sourceSamplesSlice";
 import { evaluatePipeline, type Frame } from "../evaluator";
 import {
   createIncrementalWalker,
   schemaFromFrame,
   secondarySourceIds,
+  serverResolvedStepIds,
   toStepDefinitions,
 } from "../state/draftEvaluation";
+import { createColumnOrderResolver } from "../state/draftColumnOrder";
+import { createInputOrderer, type InputOrderer } from "../state/inputFrameOrder";
 import { buildDraftPreviewRequest } from "../state/draftPreviewRequest";
 import { createViewTracker, type DraftStepView } from "../state/draftStepView";
-import type { PipelineRoot, SchemaField } from "../types/pipelineStep";
+import type { PipelineRoot, RootSourceSchema, SchemaField } from "../types/pipelineStep";
 import type { Step } from "../types/step";
 import { useDraftPreviewTransport } from "./useDraftPreviewTransport";
 
@@ -20,10 +24,16 @@ import { useDraftPreviewTransport } from "./useDraftPreviewTransport";
 export interface DraftFrameMemory {
   walker: ReturnType<typeof createIncrementalWalker>;
   tracker: ReturnType<typeof createViewTracker>;
+  /** HEL-1732: re-keys the sample frames into the declared column order and keeps their identity while that order holds. */
+  orderer: InputOrderer;
 }
 
 export function createDraftFrameMemory(): DraftFrameMemory {
-  return { walker: createIncrementalWalker(), tracker: createViewTracker() };
+  return {
+    walker: createIncrementalWalker(),
+    tracker: createViewTracker(),
+    orderer: createInputOrderer(),
+  };
 }
 
 export interface DraftFrames {
@@ -42,7 +52,14 @@ export interface DraftFrames {
   /** The columns (with types) a step receives as input in the draft, when its parent has a current frame; `null` falls back to
    *  the last analyze result (design.md D5). `saved` is that analyze result's input schema, which supplies the types. */
   inputSchemaOf: (step: Step, saved: readonly SchemaField[]) => SchemaField[] | null;
+  /** HEL-1732: the column order the "Rows after step N" grid shows for a step (see `draftColumnOrder`); `undefined` when the step
+   *  displays no rows. */
+  columnOrderOf: (stepId: string) => string[] | undefined;
 }
+
+const NO_SOURCE_SCHEMAS: readonly RootSourceSchema[] = [];
+const NO_SOURCES: DataSource[] = [];
+const NO_NAMES = (): undefined => undefined;
 
 const NONE: DraftFrames = {
   views: null,
@@ -52,6 +69,7 @@ const NONE: DraftFrames = {
   sampleTruncated: false,
   pending: false,
   inputSchemaOf: () => null,
+  columnOrderOf: () => undefined,
 };
 
 /**
@@ -72,6 +90,8 @@ export function usePipelineDraftFrames({
   focusStepId,
   outputNodeStepIds,
   memory,
+  sourceSchemas = NO_SOURCE_SCHEMAS,
+  savedOutputNames = NO_NAMES,
 }: {
   pipelineId: string;
   roots: PipelineRoot[];
@@ -88,16 +108,56 @@ export function usePipelineDraftFrames({
    *  Output that is not selected stays current without another request. Keep the array's identity stable while the ids are. */
   outputNodeStepIds?: readonly string[];
   memory: DraftFrameMemory;
+  /** HEL-1732: the saved analyze's per-root source schemas (a root's declared column order, matched by exact root id). */
+  sourceSchemas?: readonly RootSourceSchema[];
+  /** HEL-1732: a step's output column names in the saved analyze. */
+  savedOutputNames?: (stepId: string) => readonly string[] | undefined;
 }): DraftFrames {
-  const { walker, tracker } = memory;
-  const rootFrames = useAppSelector((state) => selectRootFrames(state, roots));
-  const savedRootFrames = useAppSelector((state) => selectRootFrames(state, savedRoots));
+  const { walker, tracker, orderer } = memory;
+  const rawRootFrames = useAppSelector((state) => selectRootFrames(state, roots));
+  const rawSavedRootFrames = useAppSelector((state) => selectRootFrames(state, savedRoots));
+  // A store without the sources slice (a hook-level test store) has no declared orders to offer.
+  const sourceItems = useAppSelector(
+    (state) => (state.sources as { items: DataSource[] } | undefined)?.items ?? NO_SOURCES,
+  );
+  // D1: a source's declared column order is the saved analyze's entry for the exact root id, else the sources list's inferred schema.
+  const declared = useMemo(() => {
+    const byRoot = new Map(sourceSchemas.map((s) => [s.rootId, s.sourceSchema.map((f) => f.name)]));
+    // `inferredSchema` is part of every source payload; the guard tolerates a partial one (a source still being created).
+    const bySource = new Map<string, string[]>();
+    for (const s of sourceItems) {
+      const names = (s.inferredSchema ?? []).map((f) => f.name);
+      if (names.length > 0) bySource.set(s.id, names);
+    }
+    const sourceOfRoot = new Map([...savedRoots, ...roots].map((r) => [r.id, r.dataSourceId]));
+    return {
+      forRoot: (rootId: string) => {
+        const exact = byRoot.get(rootId);
+        if (exact !== undefined && exact.length > 0) return exact;
+        const sourceId = sourceOfRoot.get(rootId);
+        return sourceId === undefined ? undefined : bySource.get(sourceId);
+      },
+      forSource: (sourceId: string) => bySource.get(sourceId),
+    };
+  }, [sourceSchemas, sourceItems, roots, savedRoots]);
+  const rootFrames = useMemo(
+    () => orderer.rootFrames(rawRootFrames, declared.forRoot, "draft"),
+    [orderer, rawRootFrames, declared],
+  );
+  const savedRootFrames = useMemo(
+    () => orderer.rootFrames(rawSavedRootFrames, declared.forRoot, "saved"),
+    [orderer, rawSavedRootFrames, declared],
+  );
   const secondaryKey = useMemo(() => secondarySourceIds(draftSteps).join(","), [draftSteps]);
   const secondaryIds = useMemo(
     () => (secondaryKey === "" ? [] : secondaryKey.split(",")),
     [secondaryKey],
   );
-  const sources = useAppSelector((state) => selectSourceFrames(state, secondaryIds));
+  const rawSources = useAppSelector((state) => selectSourceFrames(state, secondaryIds));
+  const sources = useMemo(
+    () => orderer.sourceFrames(rawSources, declared.forSource, "draft"),
+    [orderer, rawSources, declared],
+  );
   const sampleLoading = useAppSelector((state) =>
     roots.some((r) => {
       const entry = state.sourceSamples.entries[r.dataSourceId];
@@ -183,6 +243,16 @@ export function usePipelineDraftFrames({
       }
       return frame === undefined ? null : schemaFromFrame(frame, saved);
     };
+    const columnOrderOf = createColumnOrderResolver({
+      steps: draftSteps,
+      savedSteps: baseSteps,
+      roots,
+      savedRoots,
+      rowsOf: (id) => views.get(id)?.rows ?? undefined,
+      rootRowsOf: (id) => rootRows.get(id),
+      serverResolved: draftWalk === null ? new Set() : serverResolvedStepIds(draftWalk),
+      savedOutputNames,
+    });
     return {
       views,
       baseCounts: base?.counts ?? null,
@@ -191,6 +261,19 @@ export function usePipelineDraftFrames({
       sampleTruncated,
       pending: [...views.values()].some((v) => v.status === "pending"),
       inputSchemaOf,
+      columnOrderOf,
     };
-  }, [views, base, rootRows, sampleTruncated, draftWalk, rootFrames]);
+  }, [
+    views,
+    base,
+    rootRows,
+    sampleTruncated,
+    draftWalk,
+    rootFrames,
+    draftSteps,
+    baseSteps,
+    roots,
+    savedRoots,
+    savedOutputNames,
+  ]);
 }

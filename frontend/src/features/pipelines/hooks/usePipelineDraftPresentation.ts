@@ -21,6 +21,15 @@ export function usePipelineDraftPresentation(
 ) {
   const { draft, baseSteps, roots, draftBlockReason } = page;
   const hasDraft = draft.hasDraft;
+  const { getAnalyzeOutputSchema } = page;
+  // HEL-1732: a step's output column names in the saved analyze (the order a server-resolved step with an unchanged lineage shows).
+  const savedOutputNames = useCallback(
+    (stepId: string) => {
+      const schema = getAnalyzeOutputSchema(stepId);
+      return schema.length === 0 ? undefined : schema.map((f) => f.name);
+    },
+    [getAnalyzeOutputSchema],
+  );
   const frames = usePipelineDraftFrames({
     pipelineId: page.id ?? "",
     roots,
@@ -32,6 +41,8 @@ export function usePipelineDraftPresentation(
     focusStepId,
     outputNodeStepIds,
     memory: page.draftFrameMemory,
+    sourceSchemas: page.analyzeSourceSchemas,
+    savedOutputNames,
   });
   const { views, baseCounts, baseRows, sampleTruncated } = frames;
 
@@ -92,13 +103,14 @@ export function usePipelineDraftPresentation(
       view: hasDraft ? views?.get(stepId) : undefined,
       savedStep: savedById.get(stepId),
       baseRows: hasDraft ? baseRows?.get(stepId) : undefined,
+      columnOrder: hasDraft ? frames.columnOrderOf(stepId) : undefined,
       savedCache: {
         store: savedPreviews,
         key: `${savedEpoch}#${stepId}`,
         held,
       },
     }),
-    [hasDraft, views, savedById, baseRows, savedPreviews, savedEpoch, held],
+    [hasDraft, views, savedById, baseRows, savedPreviews, savedEpoch, held, frames],
   );
 
   /** The input columns the step's editor offers: the draft's own (from the parent's current frame) while a draft exists. */

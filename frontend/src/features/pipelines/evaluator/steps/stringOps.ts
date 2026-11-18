@@ -11,7 +11,7 @@ import {
 } from "../config";
 import { javaTrim } from "../javaNumbers";
 import { compileJavaRegex } from "../javaRegex";
-import { anyToString, cell, withCell, type Row, type Value } from "../value";
+import { anyToString, cell, withCellLast, type Row, type Value } from "../value";
 import type { ClientDeclineReason, StepHandler } from "./types";
 
 interface StringOpsConfig {
@@ -126,6 +126,6 @@ export const stringOpsHandler: StepHandler<StringOpsConfig> = {
       );
     }
     const fn = valueFn(cfg);
-    return rows.map((row) => withCell(row, cfg.outputColumn, fn(row)));
+    return rows.map((row) => withCellLast(row, cfg.outputColumn, fn(row)));
   },
 };

@@ -39,6 +39,7 @@ jest.mock("../services/pipelineService", () => ({
 
 const EXPECTED_KEYS: string[] = [
   "allOutputs",
+  "analyzeSourceSchemas",
   "baseSteps",
   "closeRunHistory",
   "confirmCancelDiscard",

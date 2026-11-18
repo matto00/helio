@@ -18,6 +18,7 @@ import { useMemo, useState } from "react";
 import { DataGrid, Skeleton } from "../../../../shared/ui/index";
 import type { ColumnDef } from "../../../../shared/ui/index";
 import { SCHEMA_FIELD_VIEWER_SMALL_THRESHOLD } from "../../../../shared/ui/useSchemaFieldSearch";
+import { orderColumns } from "../../../panels/state/columnOrder";
 import { frameSchema, toJsonRows } from "../../evaluator";
 import type { Frame } from "../../evaluator";
 import { useStepPreviewFetch, type SavedPreviewCache } from "../../hooks/useStepPreviewFetch";
@@ -43,6 +44,8 @@ export interface StepPreviewDraft {
   baseRows: Frame | undefined;
   /** Saved previews already fetched on this page (see `SavedPreviewCache`). */
   savedCache: SavedPreviewCache;
+  /** HEL-1732: the column order the draft frame is shown in (see `draftColumnOrder`); `undefined` falls back to the frame's own. */
+  columnOrder?: readonly string[];
 }
 
 /** At most this many draft rows are rendered; the count above shows the whole frame. */
@@ -156,7 +159,9 @@ export function StepPreviewTable({
   const draftColumns = useMemo<ColumnDef[] | undefined>(() => {
     if (draftFrame === null) return undefined;
     const types = new Map(analyzeOutputSchema.map((f) => [f.name, f.type]));
-    const names = frameSchema(draftFrame);
+    // HEL-1732: the draft's column order (declared source order, the step handlers' placement, saved analyze for server-resolved
+    // steps), never the arrival order of the rows' keys; a name it lacks follows in code-unit order (`orderColumns`).
+    const names = orderColumns(frameSchema(draftFrame), draft?.columnOrder ?? []);
     return names.map((name) => ({
       key: name,
       header: name,
@@ -164,7 +169,7 @@ export function StepPreviewTable({
       cellClassName: (row: Record<string, unknown>) =>
         flash.changed.has(rowKey(row)) ? "step-preview__cell--changed" : undefined,
     }));
-  }, [draftFrame, analyzeOutputSchema, flash.changed]);
+  }, [draftFrame, analyzeOutputSchema, draft?.columnOrder, flash.changed]);
 
   const showDiff = !isDraft && hasOwnAnalyze && !draftActive;
   const draftCount = view?.count ?? null;

@@ -37,7 +37,7 @@ const view = (
   stepId: string,
   w: WalkResult,
   t: TransportView = NO_TRANSPORT,
-  lastGood?: { count: number; rows: Frame | null },
+  lastGood?: { count: number; rows: Frame | null; truncated?: boolean },
 ) =>
   mapStepView({
     stepId,
@@ -162,6 +162,20 @@ describe("mapStepView (design D3's table)", () => {
       rows: new Map([["a", { rows: frame({ n: 1 }), truncated: false }]]),
     });
     expect(view("b", w, t, { count: 1, rows: ROOT })).toMatchObject({ frameStale: true });
+  });
+
+  it("HEL-1732: the last-good-frame fallback keeps the frame's truncated flag", () => {
+    const w = walk(
+      def("a", "convertformat", null, { field: "n", from: "csv", to: "json" }),
+      def("b", "limit", "a", limit(1)),
+    );
+    const t = transport({ results: [["b", { kind: "ok", count: 1 }]] });
+    const lastGood = { count: 1, rows: ROOT, truncated: true };
+    expect(view("b", w, t, lastGood)).toMatchObject({ frameStale: true, truncated: true });
+    expect(view("b", w, t, { ...lastGood, truncated: false })).toMatchObject({
+      frameStale: true,
+      truncated: false,
+    });
   });
 
   it("a server error line is an error; an unavailable AI line is not previewed; a downstream-of-error line is stale", () => {
