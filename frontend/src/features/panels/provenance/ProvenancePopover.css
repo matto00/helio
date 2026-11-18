@@ -3,10 +3,15 @@
 .provenance-popover {
   max-height: min(70vh, 480px);
   overflow-y: auto;
+  color: var(--app-text);
+}
+
+/* The content wrapper the popover observes for height changes (HEL-1756): it carries the column layout and gap the
+   panel itself used to have, so the spacing is unchanged. It is never height-capped. */
+.provenance-popover__inner {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  color: var(--app-text);
 }
 
 .provenance-popover__header {

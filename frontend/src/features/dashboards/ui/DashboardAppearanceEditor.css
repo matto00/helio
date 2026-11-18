@@ -2,6 +2,12 @@
   z-index: 4;
 }
 
+/* The portalled form: scrolls inside itself when the editor is capped to the room in a short window (HEL-1756). Scoped to
+   this class only; never the trigger wrapper's `.dashboard-appearance-editor` or the shared `.popover__panel`. */
+.dashboard-appearance-editor__panel {
+  overflow-y: auto;
+}
+
 .dashboard-appearance-editor__header {
   display: flex;
   align-items: center;

@@ -137,6 +137,55 @@ for (const theme of ["dark", "light"] as const) {
     expect(after.scrollHeight).toBeLessThanOrEqual(before.innerHeight);
     expect(after.rows).toEqual(before.rows);
   });
+
+  // HEL-1756 -- the same guard on the LAST row with the page and the rail scrolled to their ends: the hover reveals the
+  // row's wrapper in flow (34px), and with the rail unpositioned the escaped wrapper's phantom page scroll shrank, moving
+  // the last row on its own. The shift is measured as soon as the trigger is revealed, BEFORE the rail's transitions are
+  // awaited, so the row-shift assertion can fire by itself; the page's scroll height is asserted after it, and the settle
+  // poll last.
+  test(`rail: hovering the last row, scrolled to its end, does not shift it (1280x400, ${theme})`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript((t) => window.localStorage.setItem("helio-theme", t), theme);
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await registerAndLogin(page, request, { ...AUTH, label: `guard-last-${theme}` });
+    await seedRail(page, 12);
+
+    const row = page.locator(".dashboard-list__item-row").last();
+    // Scroll the page and the rail's own scroller to their ends, then check the row is on screen before hovering.
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const list = document.querySelector(".dashboard-list");
+      if (list) list.scrollTop = list.scrollHeight;
+    });
+    await expect
+      .poll(async () => {
+        const b = await row.boundingBox();
+        return b !== null && b.y >= 0 && b.y + b.height <= 400;
+      })
+      .toBe(true);
+    const beforeBox = await row.boundingBox();
+    const beforeScrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    if (!beforeBox) throw new Error("last row has no box");
+    await page.mouse.move(beforeBox.x + beforeBox.width / 2, beforeBox.y + beforeBox.height / 2);
+    const trigger = row.getByRole("button", { name: / actions$/ });
+    await expect(trigger).toBeVisible();
+    const afterBox = await row.boundingBox();
+    const afterScrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    if (!afterBox) throw new Error("last row has no box after hover");
+    expect(
+      Math.abs(afterBox.y - beforeBox.y),
+      JSON.stringify({ beforeBox, afterBox }),
+    ).toBeLessThanOrEqual(1);
+    expect(afterScrollHeight).toBe(beforeScrollHeight);
+    await railSettled(page);
+    const t = await trigger.boundingBox();
+    expect(
+      t !== null && t.y >= afterBox.y - 1 && t.y + t.height <= afterBox.y + afterBox.height + 1,
+    ).toBe(true);
+  });
 }
 
 test.describe("HEL-1750 actions menu fits the viewport", () => {
