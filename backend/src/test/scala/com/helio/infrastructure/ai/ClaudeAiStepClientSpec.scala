@@ -51,7 +51,7 @@ class ClaudeAiStepClientSpec extends AnyWordSpec with Matchers {
    *  and confirm the zero-transport-call assertions go red). */
   private class DenyingGate(limit: Int = 50) extends AiPipelineQuotaGate {
     val checkInvocations: AtomicInteger = new AtomicInteger(0)
-    override def checkAndIncrement(ownerUserId: UserId): Future[Either[Int, Unit]] = {
+    override def checkAndIncrement(ownerUserId: UserId, weight: Int): Future[Either[Int, Unit]] = {
       checkInvocations.incrementAndGet()
       Future.successful(Left(limit))
     }
@@ -59,7 +59,7 @@ class ClaudeAiStepClientSpec extends AnyWordSpec with Matchers {
 
   private class PermittingGate extends AiPipelineQuotaGate {
     val checkInvocations: AtomicInteger = new AtomicInteger(0)
-    override def checkAndIncrement(ownerUserId: UserId): Future[Either[Int, Unit]] = {
+    override def checkAndIncrement(ownerUserId: UserId, weight: Int): Future[Either[Int, Unit]] = {
       checkInvocations.incrementAndGet()
       Future.successful(Right(()))
     }

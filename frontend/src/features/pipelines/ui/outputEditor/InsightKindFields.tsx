@@ -1,11 +1,13 @@
 // HEL-1744 D2 -- the insight settings card: preset, the Outputs it reads, when it refreshes, and an optional custom
 // prompt. Every control has a label; nothing here needs typing (defaults are filled in).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Select, Textarea } from "../../../../shared/ui/index";
 import { SegmentedRadioGroup } from "../../../../shared/ui/SegmentedRadioGroup";
+import { fetchAssistantModels } from "../../../assistant/services/assistantConversationsService";
+import type { AssistantModelOption } from "../../../assistant/types";
 import type { Output } from "../../types/output";
 import { sameIdSet, sameInsightNode, type InsightNodeRef } from "./insightNode";
 import {
@@ -56,10 +58,35 @@ export function InsightKindFields({
     setInsightRefresh,
     insightPrompt,
     setInsightPrompt,
+    insightModel,
+    setInsightModel,
     insightReads,
     setInsightReads,
     insightDefaultReads,
   } = kindState;
+  // HEL-1743 D13: the selectable models. A failed or refused read (a free-tier caller gets a 403) hides the selector and
+  // never blocks saving: no `model` is then written and the server default applies.
+  const [models, setModels] = useState<AssistantModelOption[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchAssistantModels().then(
+      (r) => live && setModels(r.models),
+      () => live && setModels(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  const modelOptions = models
+    ? [
+        { value: "", label: "Server default" },
+        ...models.map((m) => ({ value: m.id, label: m.label })),
+        // A stored id the picker no longer offers stays visible, so it is never silently swapped.
+        ...(insightModel !== "" && !models.some((m) => m.id === insightModel)
+          ? [{ value: insightModel, label: insightModel }]
+          : []),
+      ]
+    : null;
   const [promptOpen, setPromptOpen] = useState(insightPrompt.length > 0);
   const [showAll, setShowAll] = useState(false);
   const ticked = insightReads ?? insightDefaultReads;
@@ -120,7 +147,20 @@ export function InsightKindFields({
           options={PRESET_OPTIONS}
         />
       </div>
-      {/* HEL-1743 (L4) adds the per-Output model selector here, after the preset. */}
+      {modelOptions && (
+        <div className="output-editor-sheet__data-section">
+          <label className="output-editor-sheet__data-label" htmlFor="insight-model">
+            Model
+          </label>
+          <Select
+            id="insight-model"
+            ariaLabel="Model"
+            value={insightModel}
+            onChange={setInsightModel}
+            options={modelOptions}
+          />
+        </div>
+      )}
 
       <fieldset className="insight-fields__reads">
         <legend className="output-editor-sheet__data-label">Outputs it reads</legend>

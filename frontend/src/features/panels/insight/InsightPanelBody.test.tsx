@@ -15,7 +15,9 @@ import { getInsightChrome, resetInsightChrome } from "./insightChromeStore";
 import { resetPipelineOwnership } from "./usePipelineOwnership";
 import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
 
-jest.mock("../../../services/httpClient", () => ({ httpClient: { get: jest.fn() } }));
+jest.mock("../../../services/httpClient", () => ({
+  httpClient: { get: jest.fn(), post: jest.fn() },
+}));
 jest.mock("../services/pipelineRunFanout", () => ({
   subscribeToPipelineTerminal: jest.fn(() => jest.fn()),
 }));
@@ -76,6 +78,8 @@ function mockApi(opts: {
   render?: Record<string, unknown> | null;
   attempt?: string | null;
   pipelineOwner?: string;
+  canRefresh?: boolean;
+  attemptId?: () => string;
 }) {
   http.get.mockImplementation((url: string) => {
     if (url === "/api/outputs/o-1/insight") {
@@ -87,11 +91,12 @@ function mockApi(opts: {
             opts.attempt == null
               ? null
               : {
-                  id: "a-1",
+                  id: opts.attemptId ? opts.attemptId() : "a-1",
                   status: opts.attempt,
                   trigger: "on_run",
                   createdAt: "2026-11-02T00:00:00Z",
                 },
+          canRefresh: opts.canRefresh ?? false,
         },
       });
     }
@@ -187,19 +192,20 @@ describe("InsightPanelBody", () => {
     expect(screen.getByText(/unchanged/i)).toBeInTheDocument();
   });
 
-  it("quota note goes to the PIPELINE owner even though an editor created the Output", async () => {
-    mockApi({ attempt: "skipped_quota", pipelineOwner: "u-owner" });
-    renderBody("beta", OUTPUT, undefined, "u-owner");
-    expect(await screen.findByText(/Revenue rose/)).toBeInTheDocument();
-    expect(await screen.findByText(/quota/i)).toBeInTheDocument();
-  });
-
-  it("the Output's creator who is not the pipeline owner sees the neutral note, no quota wording", async () => {
-    mockApi({ attempt: "skipped_quota", pipelineOwner: "u-owner" });
+  it("shows the quota note, worded without any actor, to whoever the server sends skipped_quota (owner or editor)", async () => {
+    mockApi({ attempt: "skipped_quota" });
     renderBody("beta", { ...OUTPUT, ownerId: "u-editor" }, undefined, "u-editor");
     expect(await screen.findByText(/Revenue rose/)).toBeInTheDocument();
+    expect(await screen.findByText(/daily AI limit was reached/i)).toBeInTheDocument();
+    expect(screen.queryByText(/your|owner|plan|beta/i)).toBeNull();
+  });
+
+  it("a viewer's not_updated attempt reads as the neutral note, with no quota or plan wording", async () => {
+    mockApi({ attempt: "not_updated" });
+    renderBody("beta", OUTPUT, undefined, "u-viewer");
+    expect(await screen.findByText(/Revenue rose/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText(/not updated/i)).toBeInTheDocument());
-    expect(screen.queryByText(/quota|plan|beta/i)).toBeNull();
+    expect(screen.queryByText(/limit|quota|plan|beta/i)).toBeNull();
   });
 
   it("a free-tier pipeline owner with no render sees the upsell with a beta-access link", async () => {
@@ -325,5 +331,135 @@ describe("InsightPanelBody", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /Source: revenue/ }));
     expect(http.get.mock.calls.some(([u]) => String(u).startsWith("/api/pipelines"))).toBe(false);
+  });
+
+  describe("Refresh (HEL-1743)", () => {
+    afterEach(() => jest.useRealTimers());
+
+    it("is shown only when the read says canRefresh, and never on a public panel", async () => {
+      mockApi({ attempt: "ok", canRefresh: false });
+      const { unmount } = renderBody();
+      await screen.findByText(/Revenue rose/);
+      expect(screen.queryByRole("button", { name: "Update insight" })).toBeNull();
+      unmount();
+      mockApi({ attempt: "ok", canRefresh: true });
+      renderBody();
+      expect(await screen.findByRole("button", { name: "Update insight" })).toBeEnabled();
+    });
+
+    it("is offered in the not-yet-rendered state too", async () => {
+      mockApi({ render: null, attempt: null, canRefresh: true });
+      renderBody();
+      expect(await screen.findByRole("button", { name: "Update insight" })).toBeInTheDocument();
+    });
+
+    it("posts the refresh, shows the rendering state, polls until the newest attempt changes, then clears", async () => {
+      jest.useFakeTimers();
+      let n = 0;
+      mockApi({ attempt: "ok", canRefresh: true, attemptId: () => (n >= 3 ? "a-2" : "a-1") });
+      http.post.mockResolvedValue({ data: { outputId: "o-1", started: true } });
+      renderBody();
+      const button = await screen.findByRole("button", { name: "Update insight" });
+      n = 0;
+      fireEvent.click(button);
+      await waitFor(() =>
+        expect(http.post).toHaveBeenCalledWith("/api/outputs/o-1/insight/refresh", undefined),
+      );
+      expect(await screen.findByText("Updating…")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Updating…" })).toBeDisabled();
+      n = 3; // the server now answers with a newer attempt
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(2100);
+      });
+      await waitFor(() => expect(screen.queryByText("Updating…")).toBeNull());
+      expect(screen.getByRole("button", { name: "Update insight" })).toBeEnabled();
+    });
+
+    it("stops polling after 45 seconds when nothing changes", async () => {
+      jest.useFakeTimers();
+      mockApi({ attempt: "ok", canRefresh: true });
+      http.post.mockResolvedValue({ data: { outputId: "o-1", started: false } });
+      renderBody();
+      fireEvent.click(await screen.findByRole("button", { name: "Update insight" }));
+      expect(await screen.findByText("Updating…")).toBeInTheDocument();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(46000);
+      });
+      await waitFor(() => expect(screen.queryByText("Updating…")).toBeNull());
+    });
+
+    it("clears the pending state and says so inline when the post fails (429), never silently", async () => {
+      mockApi({ attempt: "ok", canRefresh: true });
+      http.post.mockRejectedValue(new Error("429"));
+      renderBody();
+      fireEvent.click(await screen.findByRole("button", { name: "Update insight" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Couldn't start an update. Try again shortly.",
+      );
+      expect(screen.getByRole("button", { name: "Update insight" })).toBeEnabled();
+      expect(screen.queryByText("Updating…")).toBeNull();
+    });
+
+    it("renders the status note directly under the text, before the action (a short panel scrolls the action, not the note)", async () => {
+      mockApi({ attempt: "skipped_quota", canRefresh: true });
+      renderBody();
+      const note = await screen.findByText(/daily AI limit was reached/i);
+      const action = screen.getByRole("button", { name: "Update insight" });
+      expect(note.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("names the action for what it does, not Refresh (the card header's icon is the free re-read)", async () => {
+      mockApi({ attempt: "ok", canRefresh: true });
+      renderBody();
+      await screen.findByRole("button", { name: "Update insight" });
+      expect(screen.queryByRole("button", { name: /^Refresh/ })).toBeNull();
+    });
+
+    it.each([
+      ["not yet rendered", { render: null, attempt: null }],
+      ["failed with no render", { render: null, attempt: "failed" }],
+    ])(
+      "puts the status and the action in ONE centred column container (%s), not sibling fragments",
+      async (_name, opts) => {
+        mockApi({ ...opts, canRefresh: true });
+        renderBody();
+        const action = await screen.findByRole("button", { name: "Update insight" });
+        const status = screen.getByRole("status");
+        const column = action.parentElement as HTMLElement;
+        expect(status.parentElement).toBe(column);
+        expect(column).toHaveClass("panel-content", "panel-content--state");
+        expect(column).not.toHaveAttribute("role");
+        expect(status.contains(action)).toBe(false);
+      },
+    );
+
+    it("says Updating… once, not twice, when refreshing with no render", async () => {
+      jest.useFakeTimers();
+      mockApi({ render: null, attempt: null, canRefresh: true });
+      http.post.mockResolvedValue({ data: { outputId: "o-1", started: true } });
+      renderBody();
+      fireEvent.click(await screen.findByRole("button", { name: "Update insight" }));
+      await screen.findAllByText("Updating…");
+      expect(screen.getAllByText("Updating…")).toHaveLength(1);
+    });
+
+    it("keeps the action out of the live status region in the failed, no-render state", async () => {
+      mockApi({ render: null, attempt: "failed", canRefresh: true });
+      renderBody();
+      const action = await screen.findByRole("button", { name: "Update insight" });
+      expect(action.closest('[role="status"]')).toBeNull();
+      expect(screen.getByText("The last update failed")).toBeInTheDocument();
+    });
+
+    it("shows the pending state on the button itself, adding no extra line that could push it out of the panel", async () => {
+      jest.useFakeTimers();
+      mockApi({ attempt: "ok", canRefresh: true });
+      http.post.mockResolvedValue({ data: { outputId: "o-1", started: true } });
+      const { container } = renderBody();
+      fireEvent.click(await screen.findByRole("button", { name: "Update insight" }));
+      const busy = await screen.findByRole("button", { name: "Updating…" });
+      expect(busy).toHaveAttribute("aria-busy", "true");
+      expect(container.querySelectorAll(".insight-panel__note")).toHaveLength(0);
+    });
   });
 });

@@ -79,7 +79,7 @@
         "rootClientId": { "type": "string", "minLength": 1 },
         "config": {
           "type": "object",
-          "description": "Output config, validated per kind exactly as POST /api/pipelines/:id/outputs (outputs/create-output-request.schema.json documents every key). An insight Output (HEL-1740) accepts only preset, prompt, reads {outputs, windows}, refresh, maxSentences, maxChars and an empty fieldMapping; reads.outputs must name other non-insight Outputs this draft keeps (stored ids), never the insight itself."
+          "description": "Output config, validated per kind exactly as POST /api/pipelines/:id/outputs (outputs/create-output-request.schema.json documents every key). An insight Output (HEL-1740) accepts only preset, prompt, reads {outputs, windows}, refresh, maxSentences, maxChars, model (a selectable model id, HEL-1743) and an empty fieldMapping; reads.outputs must name other non-insight Outputs this draft keeps (stored ids), never the insight itself."
         }
       },
       "oneOf": [{ "required": ["id"] }, { "required": ["clientId"] }],

@@ -254,6 +254,42 @@ describe("AskPanel pin (D4)", () => {
     );
   });
 
+  // HEL-1743 D13: a pin renders once, with trigger `pin`; the render request never decides the pin's outcome.
+  it("starts exactly one render with trigger pin after a successful create", async () => {
+    http.post.mockImplementation((url: string) => {
+      if (url.endsWith("/ask")) return Promise.resolve({ data: answer() });
+      if (url.endsWith("/insight/refresh"))
+        return Promise.resolve({ data: { outputId: "o-new", started: true } });
+      return Promise.resolve({
+        data: { id: "o-new", pipelineId: "p-1", name: "n", kind: "insight" },
+      });
+    });
+    setup("beta", { ownerId: "someone-else" });
+    ask();
+    fireEvent.click(await screen.findByRole("button", { name: "Pin as insight" }));
+    await screen.findByText("Pinned.");
+    const refreshes = http.post.mock.calls.filter(([url]) =>
+      String(url).endsWith("/insight/refresh"),
+    );
+    expect(refreshes).toEqual([["/api/outputs/o-new/insight/refresh", { trigger: "pin" }]]);
+  });
+
+  it("a failing refresh request leaves the pin announced as successful", async () => {
+    http.post.mockImplementation((url: string) => {
+      if (url.endsWith("/ask")) return Promise.resolve({ data: answer() });
+      if (url.endsWith("/insight/refresh")) return Promise.reject(failure(429, {}));
+      return Promise.resolve({
+        data: { id: "o-new", pipelineId: "p-1", name: "n", kind: "insight" },
+      });
+    });
+    setup("beta", { ownerId: "someone-else" });
+    ask();
+    fireEvent.click(await screen.findByRole("button", { name: "Pin as insight" }));
+    await screen.findByText("Pinned.");
+    expect(screen.queryByText("Couldn't pin this answer.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pin as insight" })).not.toBeInTheDocument();
+  });
+
   it("a failed placement leaves the Output saved with the pipeline link", async () => {
     http.post.mockImplementation((url: string) => {
       if (url.endsWith("/ask")) return Promise.resolve({ data: answer() });

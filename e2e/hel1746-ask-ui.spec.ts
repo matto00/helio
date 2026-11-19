@@ -248,7 +248,7 @@ for (const theme of ["light", "dark"] as const) {
   for (const viewport of VIEWPORTS) {
     const tag = `${theme} ${viewport.name}`;
 
-    test(`ask: keyboard-only drawer, cited answer, chip provenance, real pin placed not-yet-rendered, focus return (${tag})`, async ({
+    test(`ask: keyboard-only drawer, cited answer, chip provenance, real pin placed (keyless failed state), focus return (${tag})`, async ({
       page,
       request,
     }) => {
@@ -381,7 +381,9 @@ for (const theme of ["light", "dark"] as const) {
       await expect(drawer(page)).toBeHidden();
       await expect(opener).toBeFocused();
 
-      // The new insight Output is stored, and a panel bound to it is on the dashboard in the not-yet-rendered state.
+      // The new insight Output is stored, and a panel bound to it is on the dashboard. HEL-1743: the pin starts one render with trigger
+      // `pin`; the e2e backend has no model key, so that render is recorded as a no-model `failed` attempt and the panel shows the
+      // failed state (the not-yet-rendered state is what it shows only until that first attempt is recorded).
       const outputs = await api<{ items: Array<{ id: string; kind: string; name: string }> }>(
         request,
         "get",
@@ -393,9 +395,23 @@ for (const theme of ["light", "dark"] as const) {
         insight.id,
       ]);
       const card = page.locator("article.panel-grid-card").filter({ hasText: QUESTION });
-      await expect(card.getByRole("status").filter({ hasText: "Not yet rendered" })).toBeVisible({
-        timeout: 20_000,
-      });
+      await expect(card.getByText("The last update failed")).toBeVisible({ timeout: 30_000 });
+      const read = await api<{ lastAttempt: { status: string; trigger: string } | null }>(
+        request,
+        "get",
+        `/api/outputs/${insight.id}/insight`,
+        undefined,
+        200,
+      );
+      expect(read.lastAttempt).toMatchObject({ status: "failed", trigger: "pin" });
+      const history = await api<{ items: Array<{ trigger: string }> }>(
+        request,
+        "get",
+        `/api/outputs/${insight.id}/insight/history`,
+        undefined,
+        200,
+      );
+      expect(history.items.map((i) => i.trigger)).toEqual(["pin"]); // exactly one attempt, from the one pin render
       await page.screenshot({
         path: evidencePath("HEL-1746", `ask-placed-${theme}-${viewport.name}.png`),
       });

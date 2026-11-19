@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://helio.local/schemas/outputs/output-insight-response.schema.json",
   "title": "OutputInsightResponse",
-  "description": "Response for GET /api/outputs/:id/insight (HEL-1742): the newest ok render (null when none) and the newest attempt of any status (null when none). A failed or skipped attempt never hides the last good render. Read-only: a read never regenerates anything. An unknown id, an Output the caller cannot read and a non-insight Output are all the same 404.",
+  "description": "Response for GET /api/outputs/:id/insight (HEL-1742): the newest ok render (null when none) and the newest attempt of any status (null when none). A failed or skipped attempt never hides the last good render. Read-only: a read never regenerates anything. An unknown id, an Output the caller cannot read and a non-insight Output are all the same 404. HEL-1743: the response is shaped by the caller's role on the pipeline. The owner and editors get model, token counts, costMicros, runId and inputDigest, the real attempt status and canRefresh true; a viewer grantee gets none of those fields, canRefresh false, and sees skipped_quota and skipped_budget as the one neutral status not_updated.",
   "type": "object",
   "properties": {
     "outputId": { "type": "string" },
@@ -11,9 +11,13 @@
     },
     "lastAttempt": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/attempt" }]
+    },
+    "canRefresh": {
+      "type": "boolean",
+      "description": "True only for the pipeline owner and editor grantees: POST /api/outputs/:id/insight/refresh is allowed."
     }
   },
-  "required": ["outputId", "render", "lastAttempt"],
+  "required": ["outputId", "render", "lastAttempt", "canRefresh"],
   "additionalProperties": false,
   "$defs": {
     "citation": {
@@ -57,7 +61,14 @@
         "id": { "type": "string", "format": "uuid" },
         "status": {
           "type": "string",
-          "enum": ["ok", "failed", "skipped_quota", "skipped_unchanged", "skipped_budget"]
+          "enum": [
+            "ok",
+            "failed",
+            "skipped_quota",
+            "skipped_unchanged",
+            "skipped_budget",
+            "not_updated"
+          ]
         },
         "trigger": { "$ref": "#/$defs/trigger" },
         "createdAt": { "type": "string", "format": "date-time" }

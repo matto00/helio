@@ -4,6 +4,7 @@ import com.helio.domain.history.{OutputCompare, PayloadOptIn}
 import com.helio.domain.model.OutputKind
 import com.helio.domain.outputs.{ConditionalFormats, InsightConfig}
 import com.helio.domain.panels.{ChartReferenceMarks, ChartTypes, OutputBindingSpec}
+import com.helio.infrastructure.ai.ClaudeModelCatalog
 import com.helio.services.ServiceError
 import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
 
@@ -16,6 +17,11 @@ import spray.json.{JsNull, JsNumber, JsObject, JsString, JsValue}
  *  `chartType` value) re-sent with the value already stored is accepted, so Outputs carrying stored
  *  legacy keys (V94 migration) still update, round-trip and roll back. Reads never call this. */
 object OutputConfigValidation {
+
+  /** HEL-1743 D7: the one allow-list an insight's `model` is judged against, read once per process like every other
+   *  `ClaudeModelCatalog.fromEnv()` holder (chat, user preferences), so they agree. Every writer reaches it through
+   *  `validate`, and `InsightReadsCheck` takes the same predicate. */
+  lazy val isSelectableModel: String => Boolean = ClaudeModelCatalog.fromEnv().isSelectable
 
   private val Shared = Set("fieldMapping", "compare", "historyPayloads")
 
@@ -78,7 +84,7 @@ object OutputConfigValidation {
    *  merged config so a partial PATCH of one key is still range-checked. */
   private def validateInsight(kind: OutputKind, written: JsObject, stored: JsObject): Either[String, Unit] =
     if (kind != OutputKind.Insight || !InsightConfig.OwnKeys.exists(k => changed(written, stored, k).isDefined)) Right(())
-    else InsightConfig.parse(mergeConfig(stored, written)).map(_ => ())
+    else InsightConfig.parse(mergeConfig(stored, written), isSelectableModel).map(_ => ())
 
   private def articleFor(kindName: String): String = if ("aeiou".contains(kindName.head)) "an" else "a"
 

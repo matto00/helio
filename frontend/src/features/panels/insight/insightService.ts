@@ -25,6 +25,8 @@ export interface InsightRender {
 }
 
 export interface InsightAttempt {
+  /** The attempt's row id, used only to notice that a refresh produced a newer attempt. Absent on a malformed read. */
+  id?: string;
   /** Kept as the server's string: an unknown value must degrade to the neutral note, not be rejected. */
   status: string;
   createdAt: string;
@@ -34,6 +36,8 @@ export interface InsightData {
   render: InsightRender | null;
   /** `null` on the public read (it carries no attempt). */
   lastAttempt: InsightAttempt | null;
+  /** HEL-1743: the server says this caller may start a render (the pipeline owner or an editor). Always false on the public read. */
+  canRefresh: boolean;
 }
 
 type Raw = Record<string, unknown>;
@@ -77,7 +81,9 @@ function mapAttempt(raw: unknown): InsightAttempt | null {
   const a = raw as Raw;
   const status = str(a.status);
   const createdAt = str(a.createdAt);
-  return status === undefined || createdAt === undefined ? null : { status, createdAt };
+  if (status === undefined || createdAt === undefined) return null;
+  const id = str(a.id);
+  return id === undefined ? { status, createdAt } : { id, status, createdAt };
 }
 
 export async function fetchOutputInsight(outputId: string): Promise<InsightData> {
@@ -85,7 +91,21 @@ export async function fetchOutputInsight(outputId: string): Promise<InsightData>
   return {
     render: mapRender(response.data.render, "createdAt"),
     lastAttempt: mapAttempt(response.data.lastAttempt),
+    canRefresh: response.data.canRefresh === true,
   };
+}
+
+/** HEL-1743 -- `POST /api/outputs/:id/insight/refresh`: starts a render and answers 202 without waiting for the model; the
+ *  result is the next `lastAttempt` of `fetchOutputInsight`. `trigger: "pin"` records the attempt as the render a pin starts. */
+export async function refreshOutputInsight(
+  outputId: string,
+  trigger?: "pin",
+): Promise<{ started: boolean }> {
+  const response = await httpClient.post<Raw>(
+    `/api/outputs/${outputId}/insight/refresh`,
+    trigger ? { trigger } : undefined,
+  );
+  return { started: response.data.started === true };
 }
 
 export async function fetchPublicPanelInsight(
@@ -97,5 +117,9 @@ export async function fetchPublicPanelInsight(
     `/api/dashboards/${dashboardId}/panels/${panelId}/insight`,
     { params: { token } },
   );
-  return { render: mapRender(response.data.render, "renderedAt"), lastAttempt: null };
+  return {
+    render: mapRender(response.data.render, "renderedAt"),
+    lastAttempt: null,
+    canRefresh: false,
+  };
 }

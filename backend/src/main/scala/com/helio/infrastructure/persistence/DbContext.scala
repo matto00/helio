@@ -62,4 +62,11 @@ class DbContext(db: JdbcBackend.Database, privilegedDb: JdbcBackend.Database)(im
    *  Every callsite MUST carry an inline comment explaining why bypass is correct. */
   def withSystemContext[R](action: DBIO[R]): Future[R] =
     privilegedDb.run(action.transactionally)
+
+  /** Run `action` on ONE privileged-pool connection with NO transaction, so session-level state (an advisory lock taken and
+   *  released by the same action) stays on that connection. Added for the insight tick pass (HEL-1743 D5): holding an
+   *  advisory lock for a whole pass of model calls must not hold a transaction open across them. Every call site carries the
+   *  same bypass comment [[withSystemContext]] requires. */
+  def withSystemPinnedSession[R](action: DBIO[R]): Future[R] =
+    privilegedDb.run(action.withPinnedSession)
 }

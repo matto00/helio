@@ -1,0 +1,79 @@
+- `CLAUDE.md` — docs: refresh route, role-shaped reads, env var, weights row
+- `backend/src/main/scala/com/helio/api/ApiRoutes.scala` — wiring: catalog, render service, refresh limiter
+- `backend/src/main/scala/com/helio/api/protocols/pipelines/OutputInsightProtocol.scala` — canRefresh, refresh response, no role fields on the wire classes
+- `backend/src/main/scala/com/helio/api/routes/pipelines/OutputRoutes.scala` — refresh route and role-shaped reads
+- `backend/src/main/scala/com/helio/app/Main.scala` — hands the render service to the scheduler
+- `backend/src/main/scala/com/helio/domain/insights/InsightDigest.scala` — new: data-not-time input digest
+- `backend/src/main/scala/com/helio/domain/insights/InsightModelClient.scala` — request carries the resolved model
+- `backend/src/main/scala/com/helio/domain/insights/InsightRunTrigger.scala` — new: run-path seam, event and listener
+- `backend/src/main/scala/com/helio/domain/insights/InsightSchedule.scala` — new: daily and catch-up predicates
+- `backend/src/main/scala/com/helio/domain/insights/OutputInsightRecord.scala` — NotUpdated projection and forViewer
+- `backend/src/main/scala/com/helio/domain/outputs/InsightConfig.scala` — model key
+- `backend/src/main/scala/com/helio/domain/outputs/InsightReadsCheck.scala` — required model predicate
+- `backend/src/main/scala/com/helio/infrastructure/ai/ClaudeInsightClient.scala` — per-request catalog model, reports response model
+- `backend/src/main/scala/com/helio/infrastructure/persistence/DbContext.scala` — withSystemPinnedSession for the tick pass lock
+- `backend/src/main/scala/com/helio/infrastructure/persistence/pipelines/OutputInsightRepository.scala` — coalescing update, returning insert, throttle clock, candidate scan
+- `backend/src/main/scala/com/helio/services/auth/AiPipelineQuotaGate.scala` — weight parameter
+- `backend/src/main/scala/com/helio/services/insights/InsightAccess.scala` — new: insight Output plus the caller's pipeline role
+- `backend/src/main/scala/com/helio/services/insights/InsightInputsBuilder.scala` — new: reads the inputs a render narrates (head, compares, windows, preset inference)
+- `backend/src/main/scala/com/helio/services/insights/InsightRenderService.scala` — new: the render service (guards, timeout race, tick pass, refresh, events)
+- `backend/src/main/scala/com/helio/services/insights/InsightRenderer.scala` — prepare/send split
+- `backend/src/main/scala/com/helio/services/insights/OutputInsightReadService.scala` — role-shaped reads
+- `backend/src/main/scala/com/helio/services/pipelines/OutputConfigValidation.scala` — owns isSelectableModel
+- `backend/src/main/scala/com/helio/services/pipelines/OutputService.scala` — passes the predicate
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineCreatePreflight.scala` — passes the predicate
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunService.scala` — threads the insight trigger
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineRunSucceededWrites.scala` — post-publish render hook (outside the writes chain)
+- `backend/src/main/scala/com/helio/services/pipelines/PipelineSchedulerService.scala` — starts the insight pass on the tick
+- `backend/src/main/scala/com/helio/services/pipelines/draft/DraftDiff.scala` — passes the predicate
+- `backend/src/test/scala/com/helio/api/http/ExistenceNotLeakedRoutesSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputInsightRoleAndRefreshRoutesSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/api/routes/pipelines/OutputInsightRoutesSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/domain/steps/AnalyzeWithAiStepSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/domain/steps/GenerateTextStepSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/infrastructure/ai/ClaudeAiStepClientSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/infrastructure/ai/ClaudeInsightClientSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/auth/AiPipelineQuotaGateSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/insights/OutputInsightReadServiceShapeSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/pipelines/InsightModelConfigWriteSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/pipelines/InsightPreflightSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineRunServiceAiStepClientWiringSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/services/pipelines/PipelineSchedulerServiceInsightPassSpec.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala` — backend test (render service, role shape, refresh route, scheduler pass, drift/classification guards)
+- `e2e/hel1743-insight-refresh.spec.ts` — e2e: real trigger path (keyless failed attempt, Refresh button, pin trigger)
+- `frontend/src/features/ask/hooks/useAskPin.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/ask/ui/AskPanel.test.tsx` — frontend test for the refresh button, quota wording, model selector, pin render
+- `frontend/src/features/panels/insight/InsightPanel.css` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/panels/insight/InsightPanelBody.test.tsx` — frontend test for the refresh button, quota wording, model selector, pin render
+- `frontend/src/features/panels/insight/InsightPanelBody.tsx` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/panels/insight/insightService.test.ts` — frontend test for the refresh button, quota wording, model selector, pin render
+- `frontend/src/features/panels/insight/insightService.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/panels/insight/insightState.test.ts` — frontend test for the refresh button, quota wording, model selector, pin render
+- `frontend/src/features/panels/insight/insightState.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/panels/insight/useInsightRefresh.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/pipelines/ui/outputEditor/InsightKindFields.tsx` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/pipelines/ui/outputEditor/OutputEditorSheet.insight.test.tsx` — frontend test for the refresh button, quota wording, model selector, pin render
+- `frontend/src/features/pipelines/ui/outputEditor/buildOutputConfig.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/pipelines/ui/outputEditor/configPatch.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/pipelines/ui/outputEditor/outputConfigTypes.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `frontend/src/features/pipelines/ui/outputEditor/useOutputKindState.ts` — frontend: Refresh button + poll, quota wording, model selector, render on pin
+- `schemas/outputs/create-output-request.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/outputs/output-insight-history-response.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/outputs/output-insight-refresh-response.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/outputs/output-insight-response.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/outputs/update-output-request.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/pipelines/create-pipeline-transactional-output-request.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+- `schemas/pipelines/draft-save-request.schema.json` — contract: model key / not_updated / canRefresh / refresh response
+
+## Added in cycles 2-5 (declared at Delivery)
+
+- `backend/src/main/scala/com/helio/domain/insights/InsightInputs.scala`
+- `backend/src/main/scala/com/helio/infrastructure/ai/ClaudeClient.scala`
+- `backend/src/main/scala/com/helio/infrastructure/ai/ClaudeModels.scala`
+- `backend/src/test/scala/com/helio/infrastructure/ai/ClaudeNoAnswerAndStripSpec.scala`
+- `backend/src/test/scala/com/helio/services/insights/InsightRendererSpec.scala`
+- `e2e/hel1746-ask-ui.spec.ts`
+- `openspec/changes/archive/2026-10-02-collapse-owner-only-existence-leak/forbidden-classification.md`

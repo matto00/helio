@@ -109,6 +109,7 @@ export function openingParams(
     insightPreset: insight.preset ?? "auto",
     insightRefresh: insight.refresh ?? "on_run",
     insightPrompt: insight.prompt ?? "",
+    insightModel: insight.model ?? "",
     insightReads: insight.readsOutputs,
     insightDefaultReads,
     insightWindows: insight.readsWindows,
@@ -116,6 +117,7 @@ export function openingParams(
       preset: insight.preset !== undefined,
       refresh: insight.refresh !== undefined,
       prompt: insight.prompt !== undefined,
+      model: insight.model !== undefined,
       reads: config.reads !== undefined && config.reads !== null,
     },
     conditionalFormatsStored:

@@ -15,8 +15,9 @@ import scala.concurrent.{ExecutionContext, Future}
 trait AiPipelineQuotaGate {
 
   /** `Right(())` permits the call; `Left(limit)` denies it, carrying the configured limit for the
-   *  caller's `QuotaExceeded` message. */
-  def checkAndIncrement(ownerUserId: UserId): Future[Either[Int, Unit]]
+   *  caller's `QuotaExceeded` message. HEL-1743 D6: `weight` is the number of counter units the call costs (a pipeline
+   *  AI step keeps 1; an insight render passes its model's catalog weight). */
+  def checkAndIncrement(ownerUserId: UserId, weight: Int = 1): Future[Either[Int, Unit]]
 }
 
 object AiPipelineQuotaGate {
@@ -39,7 +40,7 @@ object AiPipelineQuotaGate {
     /** `owner` is never counted (D7); `beta` atomically increments or denies via
      *  `incrementIfUnderCap`; `free` and an unresolvable owner id are both denied, matching D8's
      *  "not permitted, never exempt" rule for anything short of a confirmed non-`free` tier. */
-    override def checkAndIncrement(ownerUserId: UserId): Future[Either[Int, Unit]] =
+    override def checkAndIncrement(ownerUserId: UserId, weight: Int): Future[Either[Int, Unit]] =
       userRepo.findById(ownerUserId).flatMap {
         case Some(u) if u.tier == UserTier.Owner =>
           Future.successful(Right(()))
@@ -49,7 +50,7 @@ object AiPipelineQuotaGate {
           // the DB user context to the pipeline OWNER rather than the request's triggering caller
           // is intentional. It's what satisfies V88's `user_id = current_setting(...)` RLS policy
           // on the app pool, with no bypass, for a grantee-triggered or scheduler-fired run.
-          usageRepo.incrementIfUnderCap(ownerUserId, config.betaDailyMessageLimit).map {
+          usageRepo.incrementIfUnderCap(ownerUserId, config.betaDailyMessageLimit, weight).map {
             case true  => Right(())
             case false => Left(config.betaDailyMessageLimit)
           }

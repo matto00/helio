@@ -73,7 +73,7 @@ class PipelineRunServiceAiStepClientWiringSpec extends AnyWordSpec with Matchers
   // HEL-1108 (design-gate N16): this spec is about `aiStepClient` WIRING, not tier gating -- an
   // always-permit fake avoids coupling it to the seeded system user's DB tier (`free` by
   // V88's default, which the real gate would deny before ever reaching the transport).
-  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId) => Future.successful(Right(()))
+  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId, _: Int) => Future.successful(Right(()))
 
   private val dummyUser = AuthenticatedUser(UserId("00000000-0000-0000-0000-000000000001"))
 

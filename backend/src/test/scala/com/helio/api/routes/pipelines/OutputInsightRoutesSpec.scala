@@ -73,7 +73,7 @@ class OutputInsightRoutesSpec extends AnyWordSpec with Matchers with HelioRouteT
         val raw = responseAs[String]
         JsonSchemaValidation.validationErrors(insightSchema, raw) shouldBe Vector.empty
         val body = raw.parseJson.asJsObject
-        body.fields.keySet shouldBe Set("outputId", "render", "lastAttempt")
+        body.fields.keySet shouldBe Set("outputId", "render", "lastAttempt", "canRefresh")
         body.fields("render") shouldBe JsNull
         body.fields("lastAttempt") shouldBe JsNull
       }

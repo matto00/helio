@@ -119,5 +119,32 @@ class AiPipelineQuotaGateSpec extends AnyWordSpec with Matchers with BeforeAndAf
       result shouldBe Left(0)
       countFor(betaUser) shouldBe None
     }
+
+    // HEL-1743 D6/R2: a render is charged the catalog weight of its model; AI steps keep the default weight 1.
+    "charges a beta-tier owner the supplied weight in one atomic step (Sonnet 4)" in {
+      cleanUsage()
+      await(gate(limit = 50).checkAndIncrement(betaUser, 4)) shouldBe Right(())
+      countFor(betaUser) shouldBe Some(4)
+    }
+
+    "defaults to weight 1 for a caller that passes none (AI pipeline steps)" in {
+      cleanUsage()
+      await(gate(limit = 50).checkAndIncrement(betaUser)) shouldBe Right(())
+      countFor(betaUser) shouldBe Some(1)
+    }
+
+    "denies a weight that does not fit under the cap and leaves the counter unchanged" in {
+      cleanUsage()
+      val g = gate(limit = 9)
+      await(g.checkAndIncrement(betaUser, 8)) shouldBe Right(())
+      await(g.checkAndIncrement(betaUser, 4)) shouldBe Left(9)
+      countFor(betaUser) shouldBe Some(8)
+    }
+
+    "never counts an owner-tier owner at any weight" in {
+      cleanUsage()
+      await(gate(limit = 5).checkAndIncrement(ownerUser, 8)) shouldBe Right(())
+      countFor(ownerUser) shouldBe None
+    }
   }
 }

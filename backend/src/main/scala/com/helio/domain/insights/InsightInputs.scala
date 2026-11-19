@@ -27,8 +27,8 @@ final case class InsightWindow(outputId: String, label: String, points: Vector[(
 
 final case class InsightInputs(head: Option[InsightHead], compares: Vector[InsightCompare], windows: Vector[InsightWindow])
 
-/** Per-render caps (owner ruling D2): about 8k input and 400 output tokens. */
-final case class InsightLimits(maxInputTokens: Int = 8000, maxOutputTokens: Int = 400, maxHeadRows: Int = 50, maxCellChars: Int = 200)
+/** Per-render caps: about 8k input tokens, and (owner D14, HEL-1743 cycle 2) 4096 output tokens shared by thinking and text; length is bounded by maxSentences/maxChars and the validator. */
+final case class InsightLimits(maxInputTokens: Int = 8000, maxOutputTokens: Int = 4096, maxHeadRows: Int = 50, maxCellChars: Int = 200)
 
 /** The caller-supplied shape of one render. `customPrompt` goes in the instruction part, never the data block. */
 final case class InsightRenderSpec(maxSentences: Int, maxChars: Int, customPrompt: Option[String] = None)

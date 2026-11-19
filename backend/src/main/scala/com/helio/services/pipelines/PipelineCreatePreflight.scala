@@ -226,6 +226,6 @@ private[services] object PipelineCreatePreflight {
       .flatMap(_ => PayloadOptIn.validateConfig(config))
       .flatMap(_ => ConditionalFormats.validateConfig(kind, config))
       // HEL-1740 D4: a brand-new pipeline has no Output a new insight could read, so any named id is rejected.
-      .flatMap(_ => InsightReadsCheck.check(kind, None, config, JsObject.empty, Map.empty))
+      .flatMap(_ => InsightReadsCheck.check(kind, None, config, JsObject.empty, Map.empty, OutputConfigValidation.isSelectableModel))
       .left.map(msg => ServiceError.BadRequest(msg))
 }

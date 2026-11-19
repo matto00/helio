@@ -8,7 +8,7 @@ import com.helio.infrastructure.persistence.pipelines.OutputRepository.OutputRow
 import com.helio.infrastructure.persistence.pipelines.PipelineStepRepository.PipelineStepRow
 import com.helio.infrastructure.persistence.pipelines.{DefinitionRows, OutputWrite, RootWrite, StepWrite}
 import com.helio.services.ServiceError
-import com.helio.services.pipelines.{OutputConfigWritePolicy, OutputService, PipelineCreatePreflight}
+import com.helio.services.pipelines.{OutputConfigValidation, OutputConfigWritePolicy, OutputService, PipelineCreatePreflight}
 import spray.json._
 
 import scala.annotation.tailrec
@@ -376,7 +376,7 @@ object DraftDiff {
         val kept = survivorIds.flatMap(sid => curOutputs.get(sid).flatMap(r => OutputKind.fromString(r.kind).toOption.map(k => OutputId(sid) -> k))).toMap
         def readsOk(kind: OutputKind, id: String, config: JsObject, stored: JsObject): Either[ServiceError, Unit] =
           if (writePolicy == OutputConfigWritePolicy.RestorePriorStored) Right(())
-          else InsightReadsCheck.check(kind, Some(OutputId(id)), config, stored, kept).left.map(m => ServiceError.BadRequest(s"Output '$id': $m"): ServiceError)
+          else InsightReadsCheck.check(kind, Some(OutputId(id)), config, stored, kept, OutputConfigValidation.isSelectableModel).left.map(m => ServiceError.BadRequest(s"Output '$id': $m"): ServiceError)
         val perOutput = all.map { case (o, key, id, created, kind, (nodeStep, root)) =>
           val config = o.config.getOrElse(JsObject.empty)
           val write  = OutputWrite(id, o.name.trim, OutputKind.asString(kind), nodeStep, root, config)

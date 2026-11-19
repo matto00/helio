@@ -8,7 +8,8 @@ trait InsightModelClient {
   def render(request: InsightModelRequest): Future[Either[InsightModelFailure, InsightModelResponse]]
 }
 
-final case class InsightModelRequest(system: String, user: String, maxOutputTokens: Int)
+/** `model` is the resolved catalog id to request, or `None` for the server default (`CLAUDE_MODEL`). */
+final case class InsightModelRequest(system: String, user: String, maxOutputTokens: Int, model: Option[String] = None)
 
 final case class InsightUsage(inputTokens: Int, outputTokens: Int, cacheCreationInputTokens: Int = 0, cacheReadInputTokens: Int = 0) {
   def +(other: InsightUsage): InsightUsage =
@@ -34,7 +35,7 @@ object InsightModelFailure {
   final case class Api(status: Int, body: String) extends InsightModelFailure
   final case class Transport(message: String)     extends InsightModelFailure
   /** The model produced no usable answer (a refusal, an out-of-tokens stop, or an unexpected tool request). */
-  final case class NoAnswer(reason: String) extends InsightModelFailure
+  final case class NoAnswer(reason: String, usage: InsightUsage = InsightUsage.Zero, model: Option[String] = None) extends InsightModelFailure
 }
 
 object InsightModelClient {

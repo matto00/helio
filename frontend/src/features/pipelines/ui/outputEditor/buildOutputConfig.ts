@@ -76,13 +76,21 @@ export interface BuildOutputConfigParams {
   insightPreset?: string;
   insightRefresh?: string;
   insightPrompt?: string;
+  /** HEL-1743: the chosen model id; `""` (or absent) is "Server default", which writes no `model` and clears a stored one. */
+  insightModel?: string;
   /** The ticked Output ids, or `null` while the checklist follows the same-node default. */
   insightReads?: string[] | null;
   /** The same-node default for this insight's node. */
   insightDefaultReads?: string[];
   /** The stored `reads.windows`: carried unchanged inside every `reads` write (the editor never changes them). */
   insightWindows?: string[];
-  insightStored?: { preset: boolean; refresh: boolean; prompt: boolean; reads: boolean };
+  insightStored?: {
+    preset: boolean;
+    refresh: boolean;
+    prompt: boolean;
+    reads: boolean;
+    model?: boolean;
+  };
 }
 
 /** HEL-1744 D3 -- an insight's config, built so that a diff against the opening state yields only what the user changed. */
@@ -98,6 +106,9 @@ function insightConfig(p: BuildOutputConfigParams): Record<string, unknown> {
   const prompt = p.insightPrompt ?? "";
   if (prompt.trim().length > 0) out.prompt = prompt;
   else if (stored.prompt) out.prompt = null;
+  const model = p.insightModel ?? "";
+  if (model !== "") out.model = model;
+  else if (stored.model) out.model = null;
   const windows = p.insightWindows ?? [];
   const ticked = p.insightReads ?? null;
   const differs = ticked !== null && !sameIdSet(ticked, p.insightDefaultReads ?? []);

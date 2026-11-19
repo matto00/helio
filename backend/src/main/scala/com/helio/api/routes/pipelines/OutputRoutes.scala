@@ -11,9 +11,12 @@ import com.helio.domain.history.PayloadHistoryConfig
 import com.helio.infrastructure.persistence.pipelines.NodePayloadHistoryRepository
 import com.helio.domain.model.{AuthenticatedUser, Page, PagedResult}
 import com.helio.services.pipelines.{OutputHistoryService, OutputService}
-import com.helio.api.protocols.pipelines.{OutputHistoryResponses, OutputInsightHistoryResponse, OutputInsightResponse}
-import com.helio.services.insights.OutputInsightReadService
-import spray.json.JsObject
+import com.helio.api.http.RateLimitDirective
+import com.helio.api.protocols.pipelines.{OutputHistoryResponses, OutputInsightHistoryResponse, OutputInsightRefreshResponse, OutputInsightResponse}
+import com.helio.services.insights.{InsightRenderService, OutputInsightReadService}
+import com.helio.domain.insights.InsightTrigger
+import spray.json.{JsObject, JsString, JsonParser}
+import scala.util.Try
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,7 +38,9 @@ class OutputRoutes(
     // (pipeline owner's tier). Absent in bare fixtures, which then omit the field.
     payloadAvailability: Option[(NodePayloadHistoryRepository, PayloadHistoryConfig)] = None,
     // HEL-1742: absent in fixtures that build no insight repository; then the insight routes are not served.
-    insightReadService: Option[OutputInsightReadService] = None
+    insightReadService: Option[OutputInsightReadService] = None,
+    // HEL-1743 D9: the manual refresh route, its OWN rate limiter and per-window budget. Absent in fixtures with no render service.
+    insightRefresh: Option[InsightRefreshWiring] = None
 )(implicit ec: ExecutionContext)
     extends JsonProtocols {
 
@@ -150,7 +155,7 @@ class OutputRoutes(
         path("insight") {
           get {
             insightReadService.fold(reject: Route) { svc =>
-              ServiceResponse.run(svc.read(outputId, user))(r => OutputInsightResponse(outputId.value, r.render, r.lastAttempt))
+              ServiceResponse.run(svc.read(outputId, user))(r => OutputInsightResponse(outputId.value, r.render, r.lastAttempt, r.privileged))
             }
           }
         },
@@ -161,8 +166,28 @@ class OutputRoutes(
                 case Left(err) => complete(StatusCodes.BadRequest, ErrorResponse(err))
                 case Right(q) =>
                   insightReadService.fold(reject: Route) { svc =>
-                    ServiceResponse.run(svc.history(outputId, user, q.limit, q.since))(items => OutputInsightHistoryResponse(outputId.value, items))
+                    ServiceResponse.run(svc.history(outputId, user, q.limit, q.since))(h => OutputInsightHistoryResponse(outputId.value, h.items))
                   }
+              }
+            }
+          }
+        },
+        // HEL-1743 D9/D13: starts a render and answers 202 without waiting on the model; the result is `lastAttempt` on
+        // `GET /insight`. Owner and editors only (a viewer is 403; a stranger, an unknown id and a non-insight Output are the
+        // same 404, decided inside the service). The optional body `{"trigger":"pin"}` records the attempt as `pin`.
+        path("insight" / "refresh") {
+          post {
+            insightRefresh.fold(reject: Route) { wiring =>
+              wiring.limiter.rateLimit(wiring.requestsPerWindow) {
+                entity(as[String]) { body =>
+                  InsightRefreshBody.trigger(body) match {
+                    case Left(msg) => complete(StatusCodes.BadRequest, ErrorResponse(msg))
+                    case Right(trigger) =>
+                      ServiceResponse.run(wiring.service.refresh(outputId, user, trigger))(a =>
+                        StatusCodes.Accepted -> OutputInsightRefreshResponse(a.outputId, a.started)
+                      )
+                  }
+                }
               }
             }
           }
@@ -258,4 +283,19 @@ class OutputRoutes(
     }
 
   val routes: Route = concat(nestedRoutes, listRoutes, topLevelRoutes)
+}
+
+/** The refresh route's collaborators: the service, the limiter that is its own (never the general `/api` one) and its budget. */
+final case class InsightRefreshWiring(service: InsightRenderService, limiter: RateLimitDirective, requestsPerWindow: Int)
+
+/** HEL-1743 D13: `{"trigger":"pin"}` is the only accepted body value; no body (or an empty object) means `manual`. */
+object InsightRefreshBody {
+  def trigger(raw: String): Either[String, InsightTrigger] =
+    if (raw.trim.isEmpty) Right(InsightTrigger.Manual)
+    else
+      Try(JsonParser(raw)).toEither.left.map(_ => "Body must be JSON").flatMap {
+        case o: JsObject if o.fields.isEmpty                                                  => Right(InsightTrigger.Manual)
+        case o: JsObject if o.fields.keySet == Set("trigger") && o.fields("trigger") == JsString("pin") => Right(InsightTrigger.Pin)
+        case _ => Left("Body may only be {\"trigger\":\"pin\"}")
+      }
 }

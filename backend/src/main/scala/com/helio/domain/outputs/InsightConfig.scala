@@ -7,8 +7,9 @@ import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 
 /** HEL-1740: an `insight` Output's effective config. Pure; no I/O. `parse` applies the defaults
  *  (never written back to stored config) and rejects any value outside the contract with a message
- *  naming the key. A key set to JSON `null` is cleared, i.e. treated as absent. There is no `model`
- *  key (HEL-1755 owns the model catalog; a later leaf adds it). */
+ *  naming the key. A key set to JSON `null` is cleared, i.e. treated as absent. HEL-1743 R1: `model` names
+ *  a model the shared `ClaudeModelCatalog` currently lists as selectable (the predicate is injected so this
+ *  domain type stays free of infrastructure); absent means the server default. */
 final case class InsightReads(outputs: Option[Vector[OutputId]], windows: Vector[String])
 
 final case class InsightConfig(
@@ -17,7 +18,8 @@ final case class InsightConfig(
     reads:        InsightReads,
     refresh:      InsightRefresh,
     maxSentences: Int,
-    maxChars:     Int
+    maxChars:     Int,
+    model:        Option[String] = None
 )
 
 sealed trait InsightRefresh { def asString: String }
@@ -30,7 +32,7 @@ object InsightRefresh {
 }
 
 object InsightConfig {
-  val Keys: Set[String] = Set("fieldMapping", "preset", "prompt", "reads", "refresh", "maxSentences", "maxChars")
+  val Keys: Set[String] = Set("fieldMapping", "preset", "prompt", "reads", "refresh", "maxSentences", "maxChars", "model")
   /** The keys an insight owns beyond `fieldMapping` (what `KnownKeys` adds and `KeysDoc` would document). */
   val OwnKeys: Set[String] = Keys - "fieldMapping"
 
@@ -47,7 +49,8 @@ object InsightConfig {
   private def present(config: JsObject, key: String): Option[JsValue] =
     config.fields.get(key).filter(_ != JsNull)
 
-  def parse(config: JsObject): Either[String, InsightConfig] =
+  /** `isSelectableModel` is required (no default) so every caller must say which catalog judges `model`. */
+  def parse(config: JsObject, isSelectableModel: String => Boolean): Either[String, InsightConfig] =
     for {
       preset <- parsePreset(config)
       prompt <- parsePrompt(config)
@@ -55,7 +58,15 @@ object InsightConfig {
       refresh <- parseRefresh(config)
       sentences <- parseInt(config, "maxSentences", MaxSentencesRange, DefaultMaxSentences)
       chars  <- parseInt(config, "maxChars", MaxCharsRange, DefaultMaxChars)
-    } yield InsightConfig(preset, prompt, reads, refresh, sentences, chars)
+      model  <- parseModel(config, isSelectableModel)
+    } yield InsightConfig(preset, prompt, reads, refresh, sentences, chars, model)
+
+  private def parseModel(config: JsObject, isSelectableModel: String => Boolean): Either[String, Option[String]] =
+    present(config, "model") match {
+      case None => Right(None)
+      case Some(JsString(s)) if isSelectableModel(s) => Right(Some(s))
+      case Some(_) => Left("model must be the id of a selectable model (see GET /api/assistant-models), or omitted for the server default")
+    }
 
   private def parsePreset(config: JsObject): Either[String, InsightPreset] =
     present(config, "preset") match {

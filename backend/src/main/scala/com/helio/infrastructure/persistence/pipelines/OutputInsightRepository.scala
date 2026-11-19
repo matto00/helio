@@ -12,7 +12,7 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Persistence for `output_insights` (V145). Every read runs on the privileged pool via
+/** Persistence for `output_insights` (V145). Every read (and, since HEL-1743, the render service's writes) runs on the privileged pool via
  *  `withSystemContext`: callers authorize the Output first (`OutputRepository.findById`), exactly as
  *  for `output_snapshot_history`; the RLS policy is defense in depth. Reads issue SELECT only.
  *  "Latest" is `created_at DESC, id DESC` so ties are deterministic. */
@@ -36,6 +36,52 @@ class OutputInsightRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
                    ${e.inputTokens}, ${e.outputTokens}, ${e.cacheCreationTokens}, ${e.cacheReadTokens}, ${e.costMicros},
                    ${Timestamp.from(e.createdAt)})""".map(_ => ())
   }
+
+  /** HEL-1743: inserts one attempt and returns its generated id (for the `InsightRendered` event). Privileged: the render
+   *  service runs on scheduler and run paths with no request user; it authorized the Output before getting here. */
+  def insertReturningId(e: OutputInsightInsert): Future[UUID] = {
+    val citations = StoredInsightCitation.toJsonArray(e.citations).compactPrint
+    ctx.withSystemContext(
+      sql"""INSERT INTO output_insights
+              (output_id, pipeline_id, run_id, trigger, status, markdown, citations, input_digest, model,
+               input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cost_micros, created_at)
+            VALUES (${e.outputId}, ${e.pipelineId}, ${e.runId}, ${e.trigger.wire}, ${e.status.wire},
+                    ${e.markdown}, $citations::jsonb, ${e.inputDigest}, ${e.model},
+                    ${e.inputTokens}, ${e.outputTokens}, ${e.cacheCreationTokens}, ${e.cacheReadTokens}, ${e.costMicros},
+                    ${Timestamp.from(e.createdAt)})
+            RETURNING id::text""".as[String].head
+    ).map(UUID.fromString)
+  }
+
+  /** HEL-1743 D4: a no-model outcome with the same status as the newest attempt updates that row instead of adding one.
+   *  `GREATEST` so a render that STARTED earlier than the row's stamp (an overlapping one) never moves the stamp backwards.
+   *  Only the stamp, trigger, run id and digest change: the status, model, tokens and cost are never touched. */
+  def coalesce(id: UUID, start: Instant, trigger: InsightTrigger, runId: Option[String], digest: Option[String]): Future[Int] =
+    ctx.withSystemContext(
+      sqlu"""UPDATE output_insights
+             SET created_at = GREATEST(created_at, ${Timestamp.from(start)}), trigger = ${trigger.wire},
+                 run_id = $runId, input_digest = $digest
+             WHERE id = ${id.toString}::uuid"""
+    )
+
+  /** The newest attempt that made a model call (`model IS NOT NULL`), or `None`: the hourly throttle's clock. */
+  def lastModelCallAt(outputId: String): Future[Option[Instant]] =
+    ctx.withSystemContext(
+      sql"""SELECT created_at FROM output_insights WHERE output_id = $outputId AND model IS NOT NULL
+            ORDER BY created_at DESC, id DESC LIMIT 1""".as[Timestamp]
+    ).map(_.headOption.map(_.toInstant))
+
+  /** Every `daily` or `on_run` insight Output with the instants the tick pass's predicates read. Privileged: a background
+   *  pass with no user. A missing `refresh` key is `on_run` (the default; defaults are never stored). */
+  def listCandidates(): Future[Vector[InsightCandidate]] =
+    ctx.withSystemContext(
+      sql"""SELECT o.id, o.pipeline_id, COALESCE(o.config->>'refresh', 'on_run'), o.created_at,
+                   (SELECT i.created_at FROM output_insights i WHERE i.output_id = o.id ORDER BY i.created_at DESC, i.id DESC LIMIT 1),
+                   (SELECT max(i.created_at) FROM output_insights i WHERE i.output_id = o.id AND i.model IS NOT NULL),
+                   p.last_run_at
+            FROM outputs o JOIN pipelines p ON p.id = o.pipeline_id
+            WHERE o.kind = 'insight' AND COALESCE(o.config->>'refresh', 'on_run') IN ('daily', 'on_run')""".as[InsightCandidate]
+    ).map(_.toVector)
 
   /** The newest `ok` render, or `None`. */
   def latestOk(outputId: String): Future[Option[OutputInsightRecord]] =
@@ -62,8 +108,10 @@ class OutputInsightRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   /** Deletes rows older than the age cap of the PIPELINE owner's tier (a tier absent from the map uses
    *  the strictest cap; an empty map purges nothing), EXCEPT each Output's newest `ok` row and its
-   *  newest row of any status. One DELETE: volumes are small (at most one on_run render per Output
-   *  per hour plus daily/manual). Idempotent. Returns the number deleted. */
+   *  newest row of any status. One DELETE: volumes are small (HEL-1743: at most about one model-call row per Output per hour,
+   *  because an automatic render is throttled to one model call an hour, plus ONE row per status change, because a no-model
+   *  outcome with the status of the newest attempt updates that row instead of adding one, see [[coalesce]]). Idempotent.
+   *  Returns the number deleted. */
   def purge(now: Instant, maxAgeByTier: Map[UserTier, Duration]): Future[Int] =
     if (maxAgeByTier.isEmpty) Future.successful(0)
     else {
@@ -87,6 +135,13 @@ class OutputInsightRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 }
 
 object OutputInsightRepository {
+
+  private implicit val getCandidate: GetResult[InsightCandidate] = GetResult { r =>
+    InsightCandidate(
+      r.nextString(), r.nextString(), r.nextString(), r.nextTimestamp().toInstant,
+      r.nextTimestampOption().map(_.toInstant), r.nextTimestampOption().map(_.toInstant), r.nextTimestampOption().map(_.toInstant)
+    )
+  }
 
   private implicit val setTextArray: SetParameter[Seq[String]] = SetParameter { (v, pp) =>
     pp.setObject(pp.ps.getConnection.createArrayOf("text", v.toArray[AnyRef]), Types.ARRAY)
