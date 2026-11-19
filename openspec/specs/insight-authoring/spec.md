@@ -22,6 +22,10 @@ the insight settings card, and saving with no field touched SHALL create an insi
 ### Requirement: Insight settings with defaults filled in
 The insight settings card SHALL show:
 - a preset picker over `auto`, `delta`, `trend`, `leaders` and `summary`, showing `auto` when the config has none;
+- a model selector after the preset, listing the selectable models from `GET /api/assistant-models` plus "Server
+  default", showing "Server default" when the config has no `model`; choosing "Server default" leaves `model` out of
+  the saved config (clearing a stored one), and when the model list cannot be loaded the selector is hidden and saving
+  still works;
 - a refresh selector over `on_run`, `daily` and `manual`, showing `on_run` when the config has none;
 - a checklist of the pipeline's other saved, non-insight Outputs;
 - a collapsed "Custom prompt" disclosure holding a text area limited to 2000 characters.
@@ -42,6 +46,10 @@ root. Opening an existing insight SHALL show its stored values.
 #### Scenario: Two roots
 - **WHEN** a root-bound insight is created on a pipeline with two roots, each with a root-bound Output
 - **THEN** only the Output on the insight's own root is pre-ticked
+
+#### Scenario: Model chosen and cleared
+- **WHEN** an insight is saved with Haiku 5.5 chosen, then reopened and saved with "Server default"
+- **THEN** the first save writes `model: "claude-haiku-5-5"` and the second save's config has no `model`
 
 ### Requirement: Insight config written by the editor
 The editor SHALL write only keys the backend insight config contract accepts. It SHALL omit `reads` while the

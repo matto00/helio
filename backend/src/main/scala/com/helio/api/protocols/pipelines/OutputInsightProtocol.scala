@@ -7,8 +7,12 @@ import spray.json._
 import java.time.Instant
 
 /** HEL-1742: wire shapes of the three insight reads. */
-final case class OutputInsightResponse(outputId: String, render: Option[OutputInsightRecord], lastAttempt: Option[OutputInsightRecord])
+/** HEL-1743 R3/R3b: the records arrive already shaped for the caller's role (`OutputInsightRecord.forViewer` for a viewer grantee),
+ *  so the writers below just write what is present. `canRefresh` is true for the pipeline owner and editors only. */
+final case class OutputInsightResponse(outputId: String, render: Option[OutputInsightRecord], lastAttempt: Option[OutputInsightRecord], canRefresh: Boolean)
 final case class OutputInsightHistoryResponse(outputId: String, items: Vector[OutputInsightRecord])
+/** `POST /api/outputs/:id/insight/refresh`: `started` is false when a render of that Output was already in flight. */
+final case class OutputInsightRefreshResponse(outputId: String, started: Boolean)
 
 /** The PUBLIC allowlist type: a separate shape (never a filtered copy of the authenticated one) with
  *  no field that could carry cost, model, tokens, a run id, the input digest, the trigger, a row id,
@@ -46,6 +50,7 @@ trait OutputInsightProtocol extends SprayJsonSupport with DefaultJsonProtocol {
 
   private def num(n: Double): Option[JsValue] = Some(n).filter(d => !d.isNaN && !d.isInfinite).map(JsNumber(_))
 
+  /** Whatever the record carries: a viewer's record has no run id, digest, model, tokens or cost to write. */
   private def detail(r: OutputInsightRecord): Vector[(String, JsValue)] =
     optional(
       "markdown"            -> r.markdown.map(JsString(_)),
@@ -92,8 +97,13 @@ trait OutputInsightProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     JsObject(
       "outputId"    -> JsString(r.outputId),
       "render"      -> r.render.fold[JsValue](JsNull)(renderJson),
-      "lastAttempt" -> r.lastAttempt.fold[JsValue](JsNull)(attemptJson)
+      "lastAttempt" -> r.lastAttempt.fold[JsValue](JsNull)(attemptJson),
+      "canRefresh"  -> JsBoolean(r.canRefresh)
     )
+  }
+
+  implicit val outputInsightRefreshResponseFormat: RootJsonFormat[OutputInsightRefreshResponse] = writeOnly { r =>
+    JsObject("outputId" -> JsString(r.outputId), "started" -> JsBoolean(r.started))
   }
 
   implicit val outputInsightHistoryResponseFormat: RootJsonFormat[OutputInsightHistoryResponse] = writeOnly { r =>

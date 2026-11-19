@@ -8,7 +8,8 @@ import org.apache.pekko.http.cors.scaladsl.CorsDirectives._
 import org.apache.pekko.http.cors.scaladsl.model.HttpOriginMatcher
 import org.apache.pekko.http.cors.scaladsl.settings.CorsSettings
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
-import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, ClaudeModelCatalog, ClaudeTransport, HttpClaudeTransport}
+import com.helio.domain.insights.InsightModelClient
+import com.helio.infrastructure.ai.{ClaudeAiStepClient, ClaudeClient, ClaudeConfig, ClaudeInsightClient, ClaudeModelCatalog, ClaudeTransport, HttpClaudeTransport}
 import com.helio.domain.ai.AiStepClient
 import com.helio.api.http._
 import com.helio.api.routes.HealthRoutes
@@ -50,7 +51,7 @@ import com.helio.infrastructure.persistence.sources.ConnectorRepository
 import com.helio.services.dashboards.{DashboardChangesService, DashboardContentsService, DashboardFolderService, DashboardService}
 import com.helio.services.pipelines.draft.{DraftRestore, DraftSaveService}
 import com.helio.services.pipelines.draftpreview.{DraftPreviewConfig, DraftPreviewGate, DraftPreviewService}
-import com.helio.services.insights.OutputInsightReadService
+import com.helio.services.insights.{InsightAccess, InsightRenderService, InsightRenderer, OutputInsightReadService}
 import com.helio.services.pipelines.{AutoRunTriggerService, OutputHistoryService, OutputService, PipelineProposalService, PipelineRunGuardConfig, PipelineRunService, PipelineScheduleService, PipelineService, PipelineShapeService, PipelineStepCatalogService, ProvenanceService}
 import com.helio.services.hooks.HookTriggerService
 import com.helio.services.patchsets.{PatchSetApplyService, PatchSetPreviewService, PatchSetUndoService, RefinementGrounding, RefinementService}
@@ -349,12 +350,34 @@ final class ApiRoutes(
     "Draft preview rate limit exceeded"
   )
   private val draftPreviewGate = new DraftPreviewGate(draftPreviewConfig.maxInFlight, draftPreviewConfig.maxInFlightPerPrincipal)
+  // HEL-1743: `INSIGHT_REFRESH_RATE_LIMIT_PER_WINDOW` (default 6; non-numeric or < 1 falls back with a WARN), read once.
+  private val insightRefreshRateLimitPerWindow: Int = {
+    val default = 6
+    sys.env.get("INSIGHT_REFRESH_RATE_LIMIT_PER_WINDOW") match {
+      case None => default
+      case Some(raw) =>
+        raw.trim.toIntOption.filter(_ >= 1).getOrElse {
+          log.warn(s"INSIGHT_REFRESH_RATE_LIMIT_PER_WINDOW='$raw' is not a whole number >= 1; using $default")
+          default
+        }
+    }
+  }
   private val productEventsRateLimitDirective = new RateLimitDirective(
     new InMemoryRateLimiter(),
     userSessionRepo,
     Option(apiTokenRepo),
     productTelemetryConfig.rateLimitPerWindow,
     rateLimitConfig.windowSeconds
+  )
+  // HEL-1743 D9: the insight refresh route's OWN limiter (own bucket map, own 429 message), nested inside the general `/api`
+  // wrap like the others, so it is a separate budget: a refresh that is allowed here still counts once against the general one.
+  private val insightRefreshRateLimitDirective = new RateLimitDirective(
+    new InMemoryRateLimiter(),
+    userSessionRepo,
+    Option(apiTokenRepo),
+    insightRefreshRateLimitPerWindow,
+    rateLimitConfig.windowSeconds,
+    "Insight refresh rate limit exceeded"
   )
   // HEL-1511: not private -- `Main` hands the SAME registry to the scheduler so a reaped run's terminal `failed` event
   // reaches the SSE subscribers (local fan-out plus the cross-instance bus) exactly like a run's own events.
@@ -454,6 +477,32 @@ final class ApiRoutes(
       ruleRepo  <- Option(alertRuleRepo)
       eventRepo <- Option(alertEventRepo)
     } yield new AlertEvaluationService(ruleRepo, eventRepo, resolvedOutputHistoryRepo)
+  // HEL-1743: the one catalog instance behind insight renders AND chat (an insight's `model` is validated against the same
+  // allow-list, charged the same weights). Built once here, ahead of everything that reads it.
+  private val claudeModelCatalog: ClaudeModelCatalog = ClaudeModelCatalog.fromEnv()
+  // HEL-1743 D1/D2: insight renders. Built before `pipelineRunService` (which takes it as its post-success trigger) from
+  // repositories only, so the run path holds no model client of its own. A missing `ANTHROPIC_API_KEY` leaves it wired but
+  // unavailable: each render then records a no-model `failed` row and nobody is charged.
+  private val insightHistoryService: OutputHistoryService =
+    new OutputHistoryService(outputRepo, resolvedOutputHistoryRepo, resolvedNodePayloadHistoryRepo)
+  private val insightRepository = new OutputInsightRepository(dbContext)
+  val insightRenderService: InsightRenderService = {
+    val serverDefault = claudeConfigProvider().toOption.map(_.model).getOrElse(ClaudeConfig.DefaultModel)
+    val client: InsightModelClient = claudeConfigProvider() match {
+      case Left(reason) =>
+        log.warn(s"insight renders disabled (each render records a failed attempt): $reason")
+        InsightModelClient.Unavailable
+      case Right(claudeConfig) =>
+        new ClaudeInsightClient(new ClaudeClient(claudeConfig, transportFor(claudeConfig.apiKey)), claudeModelCatalog)
+    }
+    new InsightRenderService(
+      outputRepo, pipelineRepo, pipelineStepRepo, nodeSnapshotRepo, insightHistoryService, insightRepository,
+      new AiPipelineQuotaGate.Live(userRepo, new AssistantDailyUsageRepository(dbContext), userTierConfig),
+      new InsightRenderer(client), claudeModelCatalog, serverDefault, SystemClock, dbContext,
+      new InsightAccess(outputRepo, accessChecker), modelAvailable = claudeConfigProvider().isRight
+    )
+  }
+
   // HEL-415: exposed (not private) so Main.scala can hand the same instance
   // to PipelineSchedulerService — scheduled runs reuse the manual-run path's
   // PipelineRunCache/PipelineRunRegistry instead of duplicating wiring.
@@ -511,7 +560,9 @@ final class ApiRoutes(
     pipelineRunGuardRepo = pipelineRunGuardRepo,
     guardConfig = pipelineRunGuardConfig,
     // HEL-1739: a successful real run cancels the pending dataset-write auto-run of the writes it read.
-    autoRunDebounceRepo = autoRunDebounceRepo
+    autoRunDebounceRepo = autoRunDebounceRepo,
+    // HEL-1743 D1: renders a pipeline's `on_run` insights after a real run's `succeeded` event, outside the writes chain.
+    insightTrigger = insightRenderService
   )
   // HEL-906: /api/pipelines/:id/outputs and /api/outputs/:id.
   // HEL-947: moved below `pipelineRunService`'s own definition (was previously constructed
@@ -529,11 +580,10 @@ final class ApiRoutes(
       pipelineRootRepo   = pipelineRootRepo
     )
   // HEL-1273: history + comparison read.
-  private val outputHistoryService: OutputHistoryService =
-    new OutputHistoryService(outputRepo, resolvedOutputHistoryRepo, resolvedNodePayloadHistoryRepo)
+  private val outputHistoryService: OutputHistoryService = insightHistoryService
   // HEL-1742: insight render read. Takes only the two DB-backed repositories: no model client is reachable.
   private val outputInsightReadService: OutputInsightReadService =
-    new OutputInsightReadService(outputRepo, new OutputInsightRepository(dbContext))
+    new OutputInsightReadService(insightRepository, new InsightAccess(outputRepo, accessChecker))
   // HEL-1206: provenance read (authenticated route + public variant below). Absent only when no
   // PipelineRunRepository was passed (the one genuinely optional input).
   private val provenanceServiceOpt: Option[ProvenanceService] =
@@ -812,7 +862,7 @@ final class ApiRoutes(
   // HEL-1755: the allow-list/weights (shared catalog) and the server default (`CLAUDE_MODEL`), read once at wiring.
   private val assistantModelPolicy: AssistantModelPolicy =
     new AssistantModelPolicy(
-      ClaudeModelCatalog.fromEnv(),
+      claudeModelCatalog,
       claudeConfigProvider().toOption.map(_.model).getOrElse(ClaudeConfig.DefaultModel)
     )
 
@@ -1031,7 +1081,7 @@ final class ApiRoutes(
                   new PipelineRoutes(pipelineService, authenticatedUser, Some(draftSaveService)).routes,
                   new PipelineStepRoutes(pipelineService, authenticatedUser).routes,
                   // HEL-906: `/api/pipelines/:id/outputs` + `/api/outputs/:id`.
-                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig)), Some(outputInsightReadService)).routes,
+                  new OutputRoutes(outputService, authenticatedUser, Some(outputHistoryService), Some((resolvedNodePayloadHistoryRepo, payloadHistoryConfig)), Some(outputInsightReadService), Some(InsightRefreshWiring(insightRenderService, insightRefreshRateLimitDirective, insightRefreshRateLimitPerWindow))).routes,
                   provenanceServiceOpt.fold(reject: Route)(svc => new ProvenanceRoutes(svc, authenticatedUser).routes),
                   new PipelineProposalRoutes(pipelineProposalService, authenticatedUser).routes,
                   // HEL-387: brand-new top-level `proposals` prefix (design.md

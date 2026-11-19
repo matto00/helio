@@ -1,5 +1,6 @@
 package com.helio.services.pipelines
 
+import com.helio.domain.insights.InsightRunTrigger
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.api.protocols.pipelines.TruncatedReadResponse
 import com.helio.api.routes.pipelines.RunStatusEvent
@@ -36,7 +37,10 @@ private[pipelines] final class PipelineRunSucceededWrites(
     support: PipelineRunSupport,
     terminal: PipelineRunTerminalWrites,
     // HEL-1739: nullable-optional; cancels the pending auto-run of the writes the run read (design.md D3).
-    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null,
+    // HEL-1743 D1: called AFTER the `succeeded` publish has completed, never inside the writes chain, so a render can neither
+    // delay nor fail a run. The no-op default means a fixture with no insights never depends on a model client.
+    insightTrigger: InsightRunTrigger = InsightRunTrigger.NoOp
 )(implicit ec: ExecutionContext) {
 
   private val log = LoggerFactory.getLogger(classOf[PipelineRunService])
@@ -328,10 +332,19 @@ private[pipelines] final class PipelineRunSucceededWrites(
     // HEL-1564: EXCEPT when the run's own `succeeded` write had already won and the pipeline was deleted after it --
     // `PipelineRunDeletedRecovery` turns that chain into a success, so `succeeded` is published and the caller gets
     // `Right` whatever the timing.
-    publishTerminalAfter(
+    val published = publishTerminalAfter(
       pidStr, RunStatusEvent("succeeded", rowCount = Some(resultRows.size), runId = Some(runId.value)), writesChain(),
       skipPublishOn = { case _: PipelineRunRepository.RunNoLongerOpen => true; case _ => false }
     )
+    // HEL-1743 D1: a side callback on the SUCCESSFUL completion of the very future returned below, which is returned
+    // unchanged. A failed chain, a skipped publish (RunNoLongerOpen) and a dry or blocked run never reach it. Whatever the
+    // trigger does (including throwing, or never completing) cannot change the run's result or its event timing.
+    published.foreach { _ =>
+      Future.delegate(insightTrigger.afterRunSucceeded(pipelineId, runId)).failed.foreach(e =>
+        log.warn(s"HEL-1743: insight render trigger failed for run ${runId.value} of pipeline ${pipelineId.value}", e)
+      )
+    }
+    published
   }
 
   /** HEL-1518 (design.md D7): the run's own `succeeded` terminal write lost (`won = false`) -- the run was reaped, or

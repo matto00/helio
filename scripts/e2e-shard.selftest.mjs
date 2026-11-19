@@ -149,20 +149,31 @@ test("filesFromList dedupes and surfaces listing errors", () => {
 
 const rep = (shard, stats = { unexpected: 0, flaky: 0 }) => ({ shard, doc: { stats, suites: [] } });
 const reps = (k) => Array.from({ length: k }, (_, i) => rep(String(i + 1)));
-const six = () => reps(6);
+const full = () => reps(EXPECTED_SHARD_REPORTS);
 const four = () => reps(4);
 
-test("weights guard: six clean reports pass by default", () => validateRunReports("runX", six()));
+test("weights guard: a full set of clean reports passes by default", () =>
+  validateRunReports("runX", full()));
 
-test("RED: a runDir without exactly 6 reports is refused by default, naming the runDir", () => {
-  throwsNaming(() => validateRunReports("runX", six().slice(0, 5)), "runX", "found 5");
-  throwsNaming(() => validateRunReports("runX", [...six(), rep("7")]), "runX", "found 7");
-  throwsNaming(() => validateRunReports("runX", four()), "runX", "expected exactly 6", "found 4");
+test("RED: a runDir without exactly the default leg count of reports is refused, naming the runDir", () => {
+  const n = EXPECTED_SHARD_REPORTS;
+  throwsNaming(() => validateRunReports("runX", full().slice(0, n - 1)), "runX", `found ${n - 1}`);
+  throwsNaming(
+    () => validateRunReports("runX", [...full(), rep(String(n + 1))]),
+    "runX",
+    `found ${n + 1}`,
+  );
+  throwsNaming(
+    () => validateRunReports("runX", four()),
+    "runX",
+    `expected exactly ${n}`,
+    "found 4",
+  );
 });
 
-test("--legs 4 accepts a pre-HEL-1698 four-report run and still refuses 5-of-6", () => {
+test("--legs 4 accepts a pre-HEL-1698 four-report run and still refuses 5-of-6 (explicit --legs 6)", () => {
   validateRunReports("runOld", four(), parseWeightsArgs(["--legs", "4", "d"]).legs);
-  throwsNaming(() => validateRunReports("runX", six().slice(0, 5), 6), "runX", "found 5");
+  throwsNaming(() => validateRunReports("runX", reps(6).slice(0, 5), 6), "runX", "found 5");
   assert.deepEqual(parseWeightsArgs(["a", "--legs", "4", "b"]), { legs: 4, runDirs: ["a", "b"] });
   assert.equal(parseWeightsArgs(["a"]).legs, EXPECTED_SHARD_REPORTS);
   assert.throws(() => parseWeightsArgs(["--legs", "0", "a"]), /usage/);
@@ -185,7 +196,10 @@ test("CLI: weights --legs 4 accepts four clean reports; without --legs the dir i
     assert.equal(cli("--legs", "4", run).status, 0);
     const r = cli(run);
     assert.equal(r.status, 1);
-    assert.ok(r.stderr.includes(run) && r.stderr.includes("expected exactly 6"), r.stderr);
+    assert.ok(
+      r.stderr.includes(run) && r.stderr.includes(`expected exactly ${EXPECTED_SHARD_REPORTS}`),
+      r.stderr,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -194,19 +208,31 @@ test("CLI: weights --legs 4 accepts four clean reports; without --legs the dir i
 test("default leg count equals the ci.yml e2e matrix length (cannot drift)", () => {
   const ci = load(readFileSync(join(here, "..", ".github", "workflows", "ci.yml"), "utf8"));
   const strategy = ci.jobs.e2e.strategy;
-  assert.equal(strategy.matrix.shard.length, DEFAULT_E2E_LEGS);
-  assert.equal(strategy["max-parallel"], DEFAULT_E2E_LEGS);
-  assert.equal(EXPECTED_SHARD_REPORTS, DEFAULT_E2E_LEGS);
+  assert.equal(
+    strategy.matrix.shard.length,
+    DEFAULT_E2E_LEGS,
+    `ci.yml e2e matrix has ${strategy.matrix.shard.length} legs but DEFAULT_E2E_LEGS is ${DEFAULT_E2E_LEGS}`,
+  );
+  assert.equal(
+    strategy["max-parallel"],
+    DEFAULT_E2E_LEGS,
+    `ci.yml e2e max-parallel is ${strategy["max-parallel"]} but DEFAULT_E2E_LEGS is ${DEFAULT_E2E_LEGS}`,
+  );
+  assert.equal(
+    EXPECTED_SHARD_REPORTS,
+    DEFAULT_E2E_LEGS,
+    "EXPECTED_SHARD_REPORTS drifted from DEFAULT_E2E_LEGS",
+  );
 });
 
 test("RED: missing stats, unexpected > 0 and flaky > 0 are refused, naming runDir and shard", () => {
-  const noStats = six();
+  const noStats = full();
   noStats[2] = { shard: "3", doc: { suites: [] } };
   throwsNaming(() => validateRunReports("runY", noStats), "runY", "shard 3", "missing stats");
-  const bad = six();
+  const bad = full();
   bad[1] = rep("2", { unexpected: 2, flaky: 0 });
   throwsNaming(() => validateRunReports("runY", bad), "runY", "shard 2", "unexpected=2");
-  const flaky = six();
+  const flaky = full();
   flaky[3] = rep("4", { unexpected: 0, flaky: 1 });
   throwsNaming(() => validateRunReports("runY", flaky), "runY", "shard 4", "flaky=1");
 });

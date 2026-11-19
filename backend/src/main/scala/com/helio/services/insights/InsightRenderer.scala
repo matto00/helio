@@ -20,8 +20,8 @@ object InsightRenderOutcome {
 }
 
 /** Builds the grounding pack, calls the model through [[InsightModelClient]] and validates the answer. A rejected
- *  answer is retried once. No production caller wires this yet and it applies no quota gate; the leaf that wires it
- *  must wrap the client with the owner-keyed gate. Cost is recorded from usage, never enforced. */
+ *  answer is retried once. It applies no quota gate: `InsightRenderService` charges the owner-keyed gate between
+ *  [[prepare]] and [[send]]. Cost is recorded from usage, never enforced. */
 final class InsightRenderer(
     client: InsightModelClient,
     limits: InsightLimits = InsightLimits(),
@@ -32,13 +32,29 @@ final class InsightRenderer(
   import InsightRenderOutcome._
 
   /** `Auto` is not inferred here (the caller has the node signals); it renders as `Summary`. */
-  def render(inputs: InsightInputs, preset: InsightPreset, spec: InsightRenderSpec, lastGood: Option[InsightRender]): Future[InsightRenderOutcome] = {
-    val effective = if (preset == InsightPreset.Auto) InsightPreset.Summary else preset
-    InsightContextBuilder.build(inputs, effective, spec, limits, estimator) match {
+  def render(
+      inputs: InsightInputs, preset: InsightPreset, spec: InsightRenderSpec, lastGood: Option[InsightRender],
+      model: Option[String] = None
+  ): Future[InsightRenderOutcome] =
+    prepare(inputs, preset, spec) match {
       case Left(estimate) => Future.successful(PackTooLarge(estimate, lastGood))
-      case Right(built)   => attempt(built, effective, spec, lastGood, retryNote = None, priorUsage = InsightUsage.Zero, priorCost = Some(0L))
+      case Right(built)   => send(built, effective(preset), spec, lastGood, model)
     }
-  }
+
+  private def effective(preset: InsightPreset): InsightPreset = if (preset == InsightPreset.Auto) InsightPreset.Summary else preset
+
+  /** HEL-1743 D2: the pack and prompt WITHOUT calling the model, so the render service can run its guards (digest, throttle,
+   *  quota) between building and sending. `Left(estimate)` is the pack-too-large case. */
+  def prepare(inputs: InsightInputs, preset: InsightPreset, spec: InsightRenderSpec): Either[Int, InsightBuiltPrompt] =
+    InsightContextBuilder.build(inputs, effective(preset), spec, limits, estimator)
+
+  /** Sends a prompt [[prepare]] built, validates, and retries once on a rejection. `model` is the resolved catalog id for
+   *  the whole attempt (retry included), or `None` for the server default. */
+  def send(
+      built: InsightBuiltPrompt, preset: InsightPreset, spec: InsightRenderSpec, lastGood: Option[InsightRender],
+      model: Option[String] = None
+  ): Future[InsightRenderOutcome] =
+    attempt(built, effective(preset), spec, lastGood, retryNote = None, priorUsage = InsightUsage.Zero, priorCost = Some(0L), model)
 
   private def attempt(
       built: InsightBuiltPrompt,
@@ -47,11 +63,20 @@ final class InsightRenderer(
       lastGood: Option[InsightRender],
       retryNote: Option[String],
       priorUsage: InsightUsage,
-      priorCost: Option[Long]
+      priorCost: Option[Long],
+      model: Option[String]
   ): Future[InsightRenderOutcome] = {
     val user = retryNote.map(n => withinBudget(built, preset, spec, n)).getOrElse(built.user)
-    client.render(InsightModelRequest(built.system, user, limits.maxOutputTokens)).flatMap {
-      case Left(failure) => Future.successful(Failed(failure, priorUsage, priorCost, lastGood))
+    client.render(InsightModelRequest(built.system, user, limits.maxOutputTokens, model)).flatMap {
+      case Left(failure) =>
+        // A failure that reached the model still spent tokens: carry them so the row records usage and cost.
+        val spent = failure match {
+          case InsightModelFailure.NoAnswer(_, u, m) if u != InsightUsage.Zero =>
+            val cost = for (a <- priorCost; model <- m; b <- priceTable.costMicros(model, u)) yield a + b
+            Some((priorUsage + u, cost))
+          case _ => None
+        }
+        Future.successful(Failed(failure, spent.map(_._1).getOrElse(priorUsage), spent.fold(priorCost)(_._2), lastGood))
       case Right(response) =>
         val usage   = priorUsage + response.usage
         val cost    = for (a <- priorCost; b <- priceTable.costMicros(response.model, response.usage)) yield a + b
@@ -60,7 +85,7 @@ final class InsightRenderer(
           val text = response.text.trim
           Future.successful(Accepted(InsightRender(text, InsightValidator.citationsUsed(text, built.pack), preset, response.model), usage, cost))
         } else if (retryNote.isEmpty)
-          attempt(built, preset, spec, lastGood, Some(noteFor(reasons)), usage, cost)
+          attempt(built, preset, spec, lastGood, Some(noteFor(reasons)), usage, cost, model)
         else Future.successful(Rejected(reasons, usage, cost, lastGood))
     }
   }

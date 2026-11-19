@@ -153,6 +153,9 @@ Output on a dashboard.
 | Output filter/control kinds | `GET /api/outputs/:id/filter-capabilities` (HEL-1193: `controlKinds`)        | `get_output_filter_capabilities`                                         |
 | Output provenance           | `GET /api/outputs/:id/provenance` (HEL-1206)                                 | `get_output_provenance`                                                  |
 | Output history + compare    | `GET /api/outputs/:id/history` (HEL-1274; `config.compare` on Output writes) | `get_output_history`                                                     |
+| Insight read                | `GET /api/outputs/:id/insight` (HEL-1742/1743; role-shaped, never renders)   | `get_output_insight`                                                     |
+| Insight refresh             | `POST /api/outputs/:id/insight/refresh` (HEL-1743; 202, asynchronous)        | `refresh_insight`                                                        |
+| Ask a dashboard             | `POST /api/dashboards/:id/ask` (HEL-1745; server model, cited answer)        | `ask_dashboard`                                                          |
 | Output panel controls       | `PATCH /api/panels/:id` (`config.controls`, read-modify-write)               | `add_output_control` / `update_output_control` / `remove_output_control` |
 | Create data source          | `POST /api/data-sources` (static)                                            | `create_data_source`                                                     |
 | Create pipeline             | `POST /api/pipelines` (single call: roots/steps/outputs)                     | `create_pipeline`                                                        |

@@ -10,6 +10,7 @@
  */
 
 import type { McpPatchSetTargetKind } from "./tools/patchSetTargetKinds.js";
+import type { OutputKind } from "./tools/outputKinds.js";
 
 /** `PagedResult[T]` — items + pagination envelope (PaginationProtocol). */
 export interface Paged<T> {
@@ -1105,7 +1106,7 @@ export interface PipelineProposalStep {
  *  proposal; absent means a root-bound Output. */
 export interface PipelineProposalOutput {
   nodeStepClientId?: string | null;
-  kind: "table" | "metric" | "chart" | "collection" | "timeline" | "markdown";
+  kind: OutputKind;
   name: string;
   config?: unknown;
   /** HEL-913 task 9.1/R13: names WHICH `roots[]` element (by its own `clientId`) a root-bound
@@ -1385,4 +1386,66 @@ export interface DatasetSchemaResponse {
 export interface DatasetSchemaUpdateResponse {
   fields: DatasetFieldResponse[];
   rowsMigrated: number;
+}
+
+/** One citation of an insight narrative or an ask answer (HEL-1747); mirrors the `citation` def of
+ *  `schemas/outputs/output-insight-response.schema.json` and the ask response's citation item. */
+export interface InsightCitation {
+  id: string;
+  outputId: string;
+  field: string;
+  number?: number;
+  date?: string;
+  capturedAt?: string;
+  isPct: boolean;
+}
+
+export type InsightTrigger = "on_run" | "daily" | "manual" | "pin";
+
+/** `GET /api/outputs/:id/insight` (HEL-1747): mirrors `output-insight-response.schema.json`. The
+ *  owner/editor-only fields are absent for a viewer. */
+export interface OutputInsightResponse {
+  outputId: string;
+  render: {
+    id: string;
+    markdown: string;
+    citations: InsightCitation[];
+    trigger: InsightTrigger;
+    createdAt: string;
+    runId?: string;
+    inputDigest?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+    costMicros?: number;
+  } | null;
+  lastAttempt: {
+    id: string;
+    status:
+      | "ok"
+      | "failed"
+      | "skipped_quota"
+      | "skipped_unchanged"
+      | "skipped_budget"
+      | "not_updated";
+    trigger: InsightTrigger;
+    createdAt: string;
+  } | null;
+  canRefresh: boolean;
+}
+
+/** `POST /api/outputs/:id/insight/refresh` 202 (HEL-1747). */
+export interface OutputInsightRefreshResponse {
+  outputId: string;
+  started: boolean;
+}
+
+/** `POST /api/dashboards/:id/ask` 200 (HEL-1747): mirrors `schemas/ask/ask-response.schema.json`. */
+export interface AskDashboardResponse {
+  answer: string;
+  citations: InsightCitation[];
+  citedOutputs: Array<{ id: string; name: string }>;
+  pin: { pipelineId: string; request: Record<string, unknown> } | null;
 }

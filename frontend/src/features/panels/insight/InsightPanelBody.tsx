@@ -13,6 +13,7 @@ import { clearInsightChrome, setInsightChrome } from "./insightChromeStore";
 import { InsightMarkdown } from "./InsightMarkdown";
 import { deriveInsightState, type InsightNote } from "./insightState";
 import { useInsight, type InsightSource } from "./useInsight";
+import { useInsightRefresh } from "./useInsightRefresh";
 import { usePipelineOwnership } from "./usePipelineOwnership";
 import "./InsightPanel.css";
 
@@ -22,14 +23,14 @@ interface InsightPanelBodyProps {
   output: Output | PublicOutputMeta;
   /** Set only by the public viewer: the dashboard and share token the public read authorizes with. */
   historySource?: HistorySource;
-  /** A refresh the user started is pending. Nothing sets it until HEL-1743 (L4) adds a refresh that calls the server. */
+  /** A refresh started elsewhere is pending; the panel's own Refresh button sets its own pending state. */
   refreshPending?: boolean;
 }
 
 const NOTES: Record<Exclude<InsightNote, "none">, string> = {
   failed: "The last update failed. Showing the previous insight.",
   unchanged: "Unchanged since the last update.",
-  quota: "Not updated: the insight quota for this plan is reached.",
+  quota: "Not updated: the daily AI limit was reached.",
   notUpdated: "Not updated since the last render.",
 };
 
@@ -72,16 +73,17 @@ function InsightPanelBodyContent({
     [historySource, panelId, outputId, pipelineId],
   );
   const { data, loading, error, refetch } = useInsight(source);
+  const {
+    pending: refreshing,
+    failed: refreshFailed,
+    refresh,
+  } = useInsightRefresh(outputId, data, refetch);
   const tier = useAppSelector((state) => state.auth?.currentUser?.tier);
   // The signed-in user (and so their tier) is not loaded yet: what to show for a free-tier owner is not known.
   const authPending = useAppSelector((state) => state.auth?.status === "loading");
-  // Ownership only changes what is shown for a free-tier user with no render (the upsell) and for a quota/budget skip, so it
-  // is looked up (one cached read per pipeline) only then.
-  const attempt = data?.lastAttempt?.status;
-  const ownershipMatters =
-    (data !== null && data.render === null && tier === "free") ||
-    attempt === "skipped_quota" ||
-    attempt === "skipped_budget";
+  // Ownership only changes what is shown for a free-tier user with no render (the upsell), so it is looked up (one cached
+  // read per pipeline) only then. A quota note needs no ownership: the server sends `skipped_quota` only to owner and editors.
+  const ownershipMatters = data !== null && data.render === null && tier === "free";
   const isPipelineOwner = usePipelineOwnership(isPublic ? null : pipelineId, ownershipMatters);
 
   // Tell the card chrome the render time (its footer) and how to refresh (its refresh action).
@@ -150,8 +152,31 @@ function InsightPanelBodyContent({
     isPipelineOwner: isPipelineOwner === true,
     tier,
     variant: isPublic ? "public" : "authenticated",
-    refreshPending,
+    refreshPending: refreshPending || refreshing,
   });
+
+  // The action that costs a render (charged to the pipeline owner's quota). Named for what it does; the card header's icon is the
+  // free re-read of the stored insight. A failed start is announced inline, never swallowed.
+  const renderAction = (pendingLabel = true) =>
+    !isPublic && data?.canRefresh ? (
+      <>
+        {refreshFailed && (
+          <p className="insight-panel__note insight-panel__note--error" role="alert">
+            Couldn&apos;t start an update. Try again shortly.
+          </p>
+        )}
+        <button
+          type="button"
+          className="ui-modal-btn ui-modal-btn--secondary insight-panel__refresh tap-expand-44"
+          onClick={() => void refresh()}
+          disabled={refreshing}
+          aria-busy={refreshing}
+        >
+          {refreshing && pendingLabel ? "Updating…" : "Update insight"}
+        </button>
+      </>
+    ) : null;
+  const refreshAction = renderAction();
 
   if (state.kind === "upsell") {
     return (
@@ -165,19 +190,40 @@ function InsightPanelBodyContent({
       </div>
     );
   }
-  if (state.kind === "notRendered") return <InsightNotRenderedState />;
+  // One centred column (the PanelContent "Not run yet" pattern): the live-region status, then the action and its inline alert. The
+  // container has no role, so the control stays out of the live region, and a flex-row parent cannot set them side by side.
+  if (state.kind === "notRendered") {
+    if (!refreshAction) return <InsightNotRenderedState />;
+    return (
+      <div className="panel-content panel-content--state">
+        <div role="status" data-testid="insight-not-rendered" className="insight-panel__state">
+          <span className="panel-content__state-label">Not yet rendered</span>
+          <p className="panel-content__state-detail">
+            This insight will appear after its first render.
+          </p>
+        </div>
+        {refreshAction}
+      </div>
+    );
+  }
   if (state.kind === "failed") {
     return (
-      <div className="panel-content panel-content--state" role="status">
-        <span className="panel-content__state-label">The last update failed</span>
-        <p className="panel-content__state-detail">No insight has been rendered yet.</p>
+      <div className="panel-content panel-content--state">
+        <div role="status" className="insight-panel__state">
+          <span className="panel-content__state-label">The last update failed</span>
+          <p className="panel-content__state-detail">No insight has been rendered yet.</p>
+        </div>
+        {refreshAction}
       </div>
     );
   }
   if (state.kind === "rendering" && !render) {
     return (
-      <div className="panel-content panel-content--state" role="status">
-        <span className="panel-content__state-label">Updating…</span>
+      <div className="panel-content panel-content--state">
+        <div role="status" className="insight-panel__state">
+          <span className="panel-content__state-label">Updating…</span>
+        </div>
+        {renderAction(false)}
       </div>
     );
   }
@@ -191,7 +237,7 @@ function InsightPanelBodyContent({
           renderCitation={renderCitation}
         />
       )}
-      {state.kind === "rendering" && (
+      {state.kind === "rendering" && !refreshing && (
         <p className="insight-panel__note" role="status">
           Updating…
         </p>
@@ -204,6 +250,7 @@ function InsightPanelBodyContent({
           {NOTES[state.note]}
         </p>
       )}
+      {refreshAction}
     </div>
   );
 }

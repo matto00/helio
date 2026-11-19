@@ -19,18 +19,21 @@ import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
 import { CHART_TYPES_PIPE_LIST } from "./chartTypes.js";
 import { FORMAT_VOCABULARY_DOC } from "./outputFormatVocabulary.js";
+import { OUTPUT_KINDS_SLASH_LIST, outputKindSchema } from "./outputKinds.js";
 import {
   addOutputHandler,
   deleteOutputHandler,
   getOutputAssertionStatusHandler,
   getOutputCapabilitiesHandler,
   getOutputHistoryHandler,
+  getOutputInsightHandler,
   getOutputProvenanceHandler,
   getOutputHandler,
   getOutputPanelsHandler,
   getOutputRowsHandler,
   listOutputsHandler,
   previewOutputsHandler,
+  refreshInsightHandler,
   updateOutputHandler,
 } from "./outputsHandlers.js";
 
@@ -49,10 +52,6 @@ async function guarded(produce: () => Promise<unknown>): Promise<CallToolResult>
     return { content: [{ type: "text", text: message }], isError: true };
   }
 }
-
-// Mirrors CreatePipelineTransactionalOutputRequest's kind enum
-// (schemas/pipelines/create-pipeline-transactional-output-request.schema.json).
-const outputKindSchema = z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]);
 
 /** Shared `config.compare` documentation (HEL-1274), appended to every Output-config write tool
  *  that accepts it. One constant so the wording changes in one place (`previous_run` semantics settled in HEL-1285). The backend is the sole validator. */
@@ -78,7 +77,8 @@ export const OUTPUT_CONFIG_KEYS_DOC =
   "`aggregation`, `chartOptions`, `annotation`, `referenceLines`, `referenceBands`; metric: `aggregation`, `label`, `unit`, " +
   "`format`, `conditionalFormats`; table: `columnOrder`, `columnFormats`, `columnSort`, " +
   "`columnFilters`, `pinnedColumns`, `conditionalFormats`; collection: `layout`, `format`, " +
-  "`conditionalFormats`; timeline: `sort`; markdown: `content`. " +
+  "`conditionalFormats`; timeline: `sort`; markdown: `content`; insight: `preset`, `prompt`, " +
+  "`reads`, `refresh`, `maxSentences`, `maxChars`, `model` (and no `compare`/`historyPayloads`). " +
   "`aggregation` is null, `{ groupBy, agg, yField }` on a chart (never on a scatter, heatmap or histogram chart), " +
   "or `{ agg }` (the field comes from `fieldMapping.value`) / `{ value, agg }` on a metric; " +
   "`agg` is one of count|sum|avg|min|max and every named field a non-empty string. Chart " +
@@ -123,6 +123,29 @@ export const CONDITIONAL_FORMATS_CONFIG_DOC =
   "(unformatted) value, so `format: percent` on 0.75 is compared as 0.75. Send `[]` or null to " +
   "clear all rules; an invalid list is a 400 naming the rule index.";
 
+/** `insight` Output config (HEL-1740/1743), appended to `add_output`/`update_output`. Mirrors the
+ *  `config` description of the backend's create-output schema; the backend is the sole validator. */
+export const INSIGHT_CONFIG_DOC =
+  "An `insight` Output renders a short cited narrative over other Outputs. Its `config` takes " +
+  "`preset` (auto|delta|trend|leaders|summary, default auto), `prompt` (at most 2000 characters), " +
+  "`reads` (`{outputs?, windows?}`: `reads.outputs` names STORED ids of other non-insight Outputs " +
+  "of the same pipeline (at most 8 distinct, never the insight itself; an empty list reads no " +
+  "other Output, absent means the other Outputs on the same node), `windows` at most 4 distinct of " +
+  "1d|7d|30d|custom:<ISO-8601 duration up to 365 days>), `refresh` (on_run|daily|manual, default " +
+  "on_run), `maxSentences` (integer 1-6, default 2), `maxChars` (integer 80-1200, default 400) " +
+  "and `model` (an id GET /api/assistant-models lists as selectable; absent = the server default, " +
+  "null clears it). `fieldMapping` must be empty; there is no `compare` or `historyPayloads`; " +
+  "defaults are never stored and null clears a key. Creating an insight does not render it: it " +
+  "renders on the next real run (`on_run`), the daily pass (`daily`) or refresh_insight. Read the " +
+  "narrative with get_output_insight.";
+
+/** The create-time restriction on `reads.outputs`, appended to the pipeline-creating and proposal
+ *  tools (`PipelineCreatePreflight`). */
+export const INSIGHT_CREATE_READS_DOC =
+  "On a pipeline-creating call an `insight` Output's `config.reads.outputs` must be omitted or " +
+  "empty: any non-empty insight `reads.outputs` is rejected (400) because a brand-new pipeline " +
+  "has no stored Output to read; add the reads later with update_output.";
+
 export function registerOutputTools(server: McpServer, api: HelioApi): void {
   server.registerTool(
     "add_output",
@@ -132,8 +155,9 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         "Create an Output on a pipeline (POST /api/pipelines/:id/outputs) — a panel-bindable " +
         "projection of one pipeline node. `nodeStepId` absent means a root-bound Output; " +
         "present, it must be a real step id on this pipeline. `kind` selects " +
-        "which of the bindable shapes this Output represents (table/metric/chart/collection/" +
-        "timeline/markdown); `config.fieldMapping`, when the kind requires one, MUST use slot " +
+        "which of the bindable shapes this Output represents (" +
+        OUTPUT_KINDS_SLASH_LIST +
+        "); `config.fieldMapping`, when the kind requires one, MUST use slot " +
         "names get_output_capabilities marks bindable for this node, and each mapped value MUST " +
         "be a column that actually exists at THIS node (not the trunk's schema, not a sibling " +
         "tail's) — check get_output_capabilities first. `table` and `markdown` take NO " +
@@ -147,6 +171,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         OUTPUT_CONFIG_KEYS_DOC +
         " " +
         CONDITIONAL_FORMATS_CONFIG_DOC +
+        " " +
+        INSIGHT_CONFIG_DOC +
         " Returns the created Output.",
       inputSchema: {
         pipelineId: z.string().min(1),
@@ -177,6 +203,8 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
         CONDITIONAL_FORMATS_CONFIG_DOC +
         " " +
         HISTORY_PAYLOADS_CONFIG_DOC +
+        " " +
+        INSIGHT_CONFIG_DOC +
         " Absent fields are left unchanged. Returns the updated Output.",
       inputSchema: {
         outputId: z.string().min(1),
@@ -330,6 +358,45 @@ export function registerOutputTools(server: McpServer, api: HelioApi): void {
     },
     ({ outputId, limit, since, includeSummaries }) =>
       guarded(() => getOutputHistoryHandler(api, { outputId, limit, since, includeSummaries })),
+  );
+
+  server.registerTool(
+    "get_output_insight",
+    {
+      title: "Get an insight Output's narrative",
+      description:
+        "Read an `insight` Output's rendered narrative (GET /api/outputs/:id/insight); the body is " +
+        "returned unchanged: `{outputId, render, lastAttempt, canRefresh}`. This tool never renders " +
+        "anything; it only reads what was already rendered (see refresh_insight). The response is " +
+        "role-shaped: the pipeline owner or an editor sees model, token counts, cost, run id, input " +
+        "digest and the real attempt status with `canRefresh: true`; a viewer sees none of those, " +
+        "`canRefresh: false`, and a quota or budget skip as `not_updated`. `render` is the newest " +
+        "successful narrative (`{id, markdown, citations, trigger, createdAt}`, with `[cN]` markers in " +
+        "the markdown matching `citations[].id`) or null; `lastAttempt` is the newest attempt of any " +
+        "status or null, so a failed attempt never hides the last good render. A non-insight, " +
+        "unknown or inaccessible Output is a 404.",
+      inputSchema: { outputId: z.string().min(1) },
+    },
+    ({ outputId }) => guarded(() => getOutputInsightHandler(api, outputId)),
+  );
+
+  server.registerTool(
+    "refresh_insight",
+    {
+      title: "Refresh an insight Output",
+      description:
+        "Start a render of an `insight` Output (POST /api/outputs/:id/insight/refresh, no body) and " +
+        "return `{outputId, started}` unchanged. The render is asynchronous: the request does not " +
+        "wait for the model, and the result appears later as `lastAttempt`/`render` on " +
+        "get_output_insight. `started: false` means a render of that Output was already in flight. " +
+        "Only the pipeline owner and editors may refresh (a viewer gets 403; a stranger, an unknown " +
+        "id and a non-insight Output are a 404). The refresh is charged to the PIPELINE owner at the " +
+        "model's catalog weight and is still subject to the input-digest skip (unchanged inputs are " +
+        "not re-rendered), the quota gate (free tier: `skipped_quota`, no model call) and its own " +
+        "rate limit (429 with Retry-After).",
+      inputSchema: { outputId: z.string().min(1) },
+    },
+    ({ outputId }) => guarded(() => refreshInsightHandler(api, outputId)),
   );
 
   server.registerTool(

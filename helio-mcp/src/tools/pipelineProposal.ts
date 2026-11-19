@@ -27,7 +27,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { HelioApi } from "../helioApi.js";
 import { HelioApiError } from "../httpClient.js";
-import { COMPARE_CONFIG_DOC, OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
+import { COMPARE_CONFIG_DOC, INSIGHT_CREATE_READS_DOC, OUTPUT_CONFIG_KEYS_DOC } from "./outputs.js";
+import { outputKindSchema } from "./outputKinds.js";
 import type { PipelineProposalSource } from "../types.js";
 import {
   analyzePipelineProposalHandler,
@@ -86,7 +87,7 @@ export const pipelineProposalStepSchema = z.object({
 
 export const pipelineProposalOutputSchema = z.object({
   nodeStepClientId: z.string().min(1).optional(),
-  kind: z.enum(["table", "metric", "chart", "collection", "timeline", "markdown"]),
+  kind: outputKindSchema,
   name: z.string().min(1),
   config: z.record(z.string(), z.unknown()).optional(),
   // HEL-913 task 9.1: names WHICH roots[] element (by its own clientId) a root-bound Output
@@ -141,6 +142,8 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         COMPARE_CONFIG_DOC +
         " " +
         OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        INSIGHT_CREATE_READS_DOC +
         " Read-only-checks a given `sourceId` resolves among your data sources and " +
         "that an inline source supplies a non-blank `name` and its matching `config`, returning " +
         "{ proposal, warnings, applyReady }. Every SQL step/source in the pipeline must remain " +
@@ -181,7 +184,9 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "A `compute` step's config is " +
         COMPUTE_EXPRESSION_DOC +
         ". " +
-        OUTPUT_CONFIG_KEYS_DOC,
+        OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        INSIGHT_CREATE_READS_DOC,
       inputSchema: pipelineProposalInputSchema,
     },
     ({ pipelineName, roots, steps, outputs }) =>
@@ -211,7 +216,9 @@ export function registerPipelineProposalTools(server: McpServer, api: HelioApi):
         "instead. propose_pipeline's warnings are advisory only; this tool may be called directly " +
         "without ever calling propose_pipeline first. Returns the created source (if inline)/" +
         "pipeline summary/the created Outputs (zero, one, or many)/run result. " +
-        OUTPUT_CONFIG_KEYS_DOC,
+        OUTPUT_CONFIG_KEYS_DOC +
+        " " +
+        INSIGHT_CREATE_READS_DOC,
       inputSchema: pipelineProposalInputSchema,
     },
     ({ pipelineName, roots, steps, outputs }) =>

@@ -3,6 +3,7 @@ package com.helio.services.pipelines
 import com.helio.api.routes.pipelines.PipelineRunRegistry
 import com.helio.domain.model.{AuditSource, AuthenticatedUser, PipelineSchedule}
 import com.helio.domain.util.{Clock, CronSchedule}
+import com.helio.services.insights.InsightTickPass
 import com.helio.infrastructure.persistence.pipelines.{PipelineAutoRunDebounceRepository, PipelineRepository, PipelineRunGuardRepository, PipelineRunRepository, PipelineScheduleRepository, PipelineStepRepository}
 import com.helio.services.sources.StoredObjectDeletionService
 import com.helio.services.telemetry.ProductEventRollupService
@@ -59,7 +60,9 @@ final class PipelineSchedulerService(
     registry: PipelineRunRegistry = null,
     // HEL-1434: nullable-optional like the collaborators above -- drains the stored-object deletion queue (V128) so the
     // object of a deleted image_uploads / file-backed data_sources row is removed. Skipped when not wired.
-    storedObjectDeletionService: StoredObjectDeletionService = null
+    storedObjectDeletionService: StoredObjectDeletionService = null,
+    // HEL-1743 D5: nullable-optional like the collaborators above -- the `daily` and `on_run` catch-up insight renders.
+    insightTickPass: InsightTickPass = null
 )(implicit ec: ExecutionContext) {
 
   require(pipelineStepRepo != null, "PipelineSchedulerService: pipelineStepRepo is required (HEL-1384 fire-time config gate)")
@@ -149,6 +152,16 @@ final class PipelineSchedulerService(
       val _ = Future.delegate(storedObjectDeletionService.runPass()).recover { case ex =>
         log.error("PipelineSchedulerService: stored-object deletion drain failed", ex)
         0
+      }
+    }
+    // HEL-1743 D5: insight renders (`daily` at 06:00 UTC, and the `on_run` catch-up). STARTED, not awaited, exactly like
+    // retention above: a render is a model call of up to tens of seconds and must never delay a scheduled fire. The pass
+    // gates itself (one per aligned 15-minute bucket, one in flight, one instance at a time); a failure is logged here and
+    // can never reach the tick.
+    if (insightTickPass != null) {
+      val _ = Future.delegate(insightTickPass.tickPass(now)).recover { case ex =>
+        log.error("PipelineSchedulerService: insight render pass failed", ex)
+        ()
       }
     }
     candidatesWork.zip(cleanupWork).zip(autoRunWork).zip(telemetryWork).map(_ => ())

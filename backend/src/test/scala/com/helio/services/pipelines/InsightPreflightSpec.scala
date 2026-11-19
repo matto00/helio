@@ -15,8 +15,16 @@ class InsightPreflightSpec extends AnyWordSpec with Matchers {
       r.left.map(_.message).left.getOrElse("") should include("reads.outputs")
     }
     "reject an unknown key and an out-of-range value, naming the key" in {
-      PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, cfg("""{"model":"x"}""")).left.map(_.message).left.getOrElse("") should include("model")
+      PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, cfg("""{"bogus":"x"}""")).left.map(_.message).left.getOrElse("") should include("bogus")
       PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, cfg("""{"refresh":"hourly"}""")).left.map(_.message).left.getOrElse("") should include("refresh")
+    }
+    // HEL-1743 R1: single-call POST /api/pipelines with outputs.
+    "reject a model outside the catalog, naming model, and accept a selectable one" in {
+      for (bad <- Seq("claude-opus-4-8", "gpt-5", "")) {
+        val r = PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, JsObject("model" -> JsString(bad)))
+        withClue(bad)(r.left.map(_.message).left.getOrElse("") should include("model"))
+      }
+      PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, JsObject("model" -> JsString("claude-haiku-5-5"))) shouldBe Right(())
     }
     "accept an insight with no reads, or an empty reads.outputs" in {
       PipelineCreatePreflight.validateOutputConfig(OutputKind.Insight, JsObject.empty) shouldBe Right(())

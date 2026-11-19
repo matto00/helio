@@ -66,7 +66,7 @@ class GenerateTextStepSpec extends AnyWordSpec with Matchers with CsvLoadSupport
   // HEL-1108 (design-gate N16): a real client's `complete` now denies a request carrying no
   // owner (D8/3.5c), so every fixture below sets `ownerUserId` -- an always-permit fake gate
   // (this spec is about response enforcement, not quota gating; that's `ClaudeAiStepClientSpec`).
-  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId) => Future.successful(Right(()))
+  private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId, _: Int) => Future.successful(Right(()))
 
   private def contextWithTransport(transport: FakeTransport, maxInputTokens: Int = 100000): PipelineExecutionContext = {
     val client = new ClaudeClient(config(maxInputTokens), transport)

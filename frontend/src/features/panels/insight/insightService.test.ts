@@ -1,8 +1,14 @@
 // HEL-1744 D4 -- the service maps every response through an allow-list: cost, model and tokens never reach state.
 import { httpClient } from "../../../services/httpClient";
-import { fetchOutputInsight, fetchPublicPanelInsight } from "./insightService";
+import {
+  fetchOutputInsight,
+  fetchPublicPanelInsight,
+  refreshOutputInsight,
+} from "./insightService";
 
-jest.mock("../../../services/httpClient", () => ({ httpClient: { get: jest.fn() } }));
+jest.mock("../../../services/httpClient", () => ({
+  httpClient: { get: jest.fn(), post: jest.fn() },
+}));
 const http = jest.mocked(httpClient);
 
 const AUTHENTICATED = {
@@ -52,7 +58,12 @@ describe("insightService", () => {
       number: 12.5,
       isPct: false,
     });
-    expect(data.lastAttempt).toEqual({ status: "failed", createdAt: "2026-11-02T10:00:00Z" });
+    expect(data.lastAttempt).toEqual({
+      id: expect.any(String),
+      status: "failed",
+      createdAt: "2026-11-02T10:00:00Z",
+    });
+    expect(data.canRefresh).toBe(false);
     const json = JSON.stringify(data);
     for (const leak of [
       "model-secret",
@@ -71,7 +82,11 @@ describe("insightService", () => {
 
   it("returns a null render and attempt untouched", async () => {
     http.get.mockResolvedValueOnce({ data: { outputId: "o-1", render: null, lastAttempt: null } });
-    expect(await fetchOutputInsight("o-1")).toEqual({ render: null, lastAttempt: null });
+    expect(await fetchOutputInsight("o-1")).toEqual({
+      render: null,
+      lastAttempt: null,
+      canRefresh: false,
+    });
   });
 
   it("maps the public read, carrying only the panel id of a placed citation", async () => {
@@ -97,5 +112,22 @@ describe("insightService", () => {
       { id: "c2", field: "b", isPct: true },
     ]);
     expect(JSON.stringify(data)).not.toContain("costMicros");
+  });
+
+  it("reads canRefresh only when the server sends true", async () => {
+    http.get.mockResolvedValueOnce({
+      data: { outputId: "o-1", render: null, lastAttempt: null, canRefresh: true },
+    });
+    expect((await fetchOutputInsight("o-1")).canRefresh).toBe(true);
+  });
+
+  it("posts the refresh with no body, or the pin trigger, and reads started", async () => {
+    http.post.mockResolvedValue({ data: { outputId: "o-1", started: true } });
+    expect(await refreshOutputInsight("o-1")).toEqual({ started: true });
+    expect(http.post).toHaveBeenLastCalledWith("/api/outputs/o-1/insight/refresh", undefined);
+    await refreshOutputInsight("o-1", "pin");
+    expect(http.post).toHaveBeenLastCalledWith("/api/outputs/o-1/insight/refresh", {
+      trigger: "pin",
+    });
   });
 });

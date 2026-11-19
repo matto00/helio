@@ -14,7 +14,14 @@
           "id": { "type": "string", "format": "uuid" },
           "status": {
             "type": "string",
-            "enum": ["ok", "failed", "skipped_quota", "skipped_unchanged", "skipped_budget"]
+            "enum": [
+              "ok",
+              "failed",
+              "skipped_quota",
+              "skipped_unchanged",
+              "skipped_budget",
+              "not_updated"
+            ]
           },
           "markdown": { "type": "string" },
           "citations": {

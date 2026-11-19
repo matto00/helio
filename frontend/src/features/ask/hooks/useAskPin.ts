@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import { createPanel } from "../../panels/state/panelsSlice";
 import { createOutput } from "../../pipelines/state/outputsSlice";
 import type { CreateOutputPayload, Output } from "../../pipelines/types/output";
+import { refreshOutputInsight } from "../../panels/insight/insightService";
 import { pinInsight } from "../services/askService";
 import type { AskPin, AskScope } from "../types/ask";
 
@@ -47,6 +48,9 @@ export function useAskPin(scope: AskScope, pin: AskPin | null) {
       setState({ status: "error" });
       return;
     }
+    // HEL-1743 D13: a pin renders once, with trigger `pin`. The refresh is started, not awaited, and a failure of it never fails
+    // or reverts the pin (the new insight just shows its not-yet-rendered state until a render exists).
+    void refreshOutputInsight(created.id, "pin").catch(() => undefined);
     let placed = false;
     if (scope.kind === "dashboard" && userId !== null && dashboardOwnerId === userId) {
       try {

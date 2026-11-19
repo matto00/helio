@@ -10,7 +10,7 @@ export interface InsightStateInput {
   isPipelineOwner: boolean;
   tier: UserTier | undefined;
   variant: "authenticated" | "public";
-  /** A refresh the user started is pending. Nothing sets it until HEL-1743 (L4) adds a refresh that calls the server. */
+  /** A refresh the user started is pending (the panel's Refresh button, HEL-1743). */
   refreshPending: boolean;
 }
 
@@ -44,9 +44,12 @@ export function deriveInsightState(i: InsightStateInput): InsightState {
       return { kind: "rendered", note: "failed" };
     case "skipped_unchanged":
       return { kind: "rendered", note: "unchanged" };
+    // HEL-1743 D13: the server sends `skipped_quota` only to the pipeline owner and editors (a viewer gets `not_updated`), so
+    // whoever receives it sees the quota note. The wording names no actor. `skipped_budget` is a pack-size skip, not a limit.
     case "skipped_quota":
+      return { kind: "rendered", note: "quota" };
     case "skipped_budget":
-      return { kind: "rendered", note: i.isPipelineOwner ? "quota" : "notUpdated" };
+    case "not_updated":
     default:
       return { kind: "rendered", note: "notUpdated" };
   }
