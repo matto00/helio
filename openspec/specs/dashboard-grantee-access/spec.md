@@ -246,3 +246,14 @@ refusal message, without a client-side guess.
 
 - **WHEN** a viewer grantee calls `update_dashboard` on the shared dashboard
 - **THEN** the tool result is an error naming status 403 and the server's view-only message
+
+### Requirement: Grantees can ask about a shared dashboard
+
+A grantee's shell SHALL offer "Ask about this dashboard" on a dashboard shared with them, for both `viewer` and
+`editor` roles; Ask is not an owner-only action. Pinning an answer SHALL remain governed by the server's `pin` field.
+
+#### Scenario: Viewer sees the Ask entry
+
+- **WHEN** a viewer grantee opens a shared dashboard
+- **THEN** the "Ask about this dashboard" entry is offered, while share, delete, duplicate and editing controls remain
+  absent
