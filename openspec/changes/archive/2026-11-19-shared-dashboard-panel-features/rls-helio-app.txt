@@ -1,0 +1,11 @@
+# HEL-1780 RLS transcript: sbt testOnly DashboardGranteePanelRoutesSpec (embedded Postgres, app pool = NOBYPASSRLS helio_app_test, data reads as helio_privileged)
+# [info] Tests: succeeded 5, failed 0, canceled 0, ignored 0, pending 0
+[HEL-1780 RLS] (1) role=helio_app_test per-panel routes as editor: rows=200 rows control sort=200 rows control filter=200 filter-capabilities=200 distinct-values=200 history=200 insight=200 provenance=200
+[HEL-1780 RLS] (1) role=helio_app_test per-panel routes as viewer: rows=200 rows control sort=200 rows control filter=200 filter-capabilities=200 distinct-values=200 history=200 insight=200 provenance=200
+[HEL-1780 RLS] (1) role=helio_app_test per-panel routes as dual-grant: rows=200 rows control sort=200 rows control filter=200 filter-capabilities=200 distinct-values=200 history=200 insight=200 provenance=200
+[HEL-1780 RLS] (2) role=helio_app_test per-panel routes as stranger: rows=404 rows control sort=404 rows control filter=404 filter-capabilities=404 distinct-values=404 history=404 insight=404 provenance=404
+[HEL-1780 RLS] (2b) role=helio_app_test dashboard-grantee on an UNGRANTED dashboard rows=404
+[HEL-1780 RLS] (3) the client never sends these (splitForPanelScope): non-control sort=400 non-control filter=400 quick=400
+[HEL-1780 RLS] (a) role=helio_app_test SELECT outputs WHERE id=<bound output>: dashboard-only viewer=0 dashboard-only editor=0 pipeline-owner=1
+[HEL-1780 RLS] (b) role=helio_app_test per-panel gate: viewer=200 editor=200 stranger=404
+[HEL-1780 RLS] (c) role=helio_app_test dashboard-only viewer GET /api/outputs/<id>/history/<point>/rows=404 GET /api/outputs/<id>/rows=404

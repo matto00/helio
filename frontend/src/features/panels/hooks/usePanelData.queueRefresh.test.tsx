@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { AxiosError, type AxiosResponse } from "axios";
 import type { PropsWithChildren } from "react";
@@ -14,6 +14,9 @@ import { usePanelData } from "./usePanelData";
 
 // HEL-1738 design D2: every site where the in-flight guard falls and a queued refresh must be sent or dropped.
 // Each test names the mutation it kills (recorded in red-first-evidence.md).
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dash-1", "dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
@@ -83,6 +86,7 @@ describe("usePanelData queueRefresh drain and drop sites (HEL-1738 D2)", () => {
     const owned = store.dispatch(
       fetchPanelPage({
         panelId: "p1",
+        dashboardId: "dash-1",
         outputId: "out-1",
         page: 0,
         pageSize: 200,
@@ -252,6 +256,7 @@ describe("usePanelData queueRefresh drain and drop sites (HEL-1738 D2)", () => {
   describe("a request this hook did not send supersedes the one the queue waits on", () => {
     const sortPage = (): Parameters<typeof fetchPanelPage>[0] => ({
       panelId: "p1",
+      dashboardId: "dash-1",
       outputId: "out-1",
       page: 0,
       pageSize: 200,
@@ -259,6 +264,7 @@ describe("usePanelData queueRefresh drain and drop sites (HEL-1738 D2)", () => {
     });
     const loadMorePage = (): Parameters<typeof fetchPanelPage>[0] => ({
       panelId: "p1",
+      dashboardId: "dash-1",
       outputId: "out-1",
       page: 1,
       pageSize: 200,

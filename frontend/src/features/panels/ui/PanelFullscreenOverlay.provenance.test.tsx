@@ -5,6 +5,10 @@ import { makeOutputPanel } from "../../../test/panelFixtures";
 import { resetProvenanceCache } from "../provenance/provenanceCache";
 import { fetchOutputProvenance } from "../provenance/provenanceService";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1207 A1/A2 — fullscreen overlay: trigger in the Modal header slot, popover portalled INTO the
 // dialog, and Escape closes only the popover (the Modal's own close is never requested).

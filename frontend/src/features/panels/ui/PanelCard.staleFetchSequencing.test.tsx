@@ -5,7 +5,8 @@
 // `total`/disclosure must match the server's FILTERED total, never an interleaved unfiltered
 // fetch's total landing later and silently winning.
 
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { Provider } from "react-redux";
@@ -22,6 +23,9 @@ import type { FetchOutputRowsResult } from "../../pipelines/services/outputServi
 import type { Output } from "../../pipelines/types/output";
 import { PanelCardBody } from "./PanelCardBody";
 import type { Panel } from "../types/panel";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),

@@ -1,5 +1,5 @@
 // HEL-1744 D7 -- a panel bound to an `insight` Output never requests the Output's rows once its kind is known.
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type PropsWithChildren } from "react";
 import { Provider } from "react-redux";
@@ -12,6 +12,9 @@ import { hasRunBaseline } from "../services/pipelineRunFanout";
 import { makeOutputPanel } from "../../../test/panelFixtures";
 import { makeOutput } from "../../../test/remountFixtures";
 import { usePanelData } from "./usePanelData";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),

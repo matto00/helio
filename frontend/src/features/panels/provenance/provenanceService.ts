@@ -44,11 +44,11 @@ export async function fetchOutputProvenance(outputId: string): Promise<Provenanc
 export async function fetchPublicProvenance(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token?: string,
 ): Promise<Provenance> {
   const response = await httpClient.get<Provenance>(
     `/api/dashboards/${dashboardId}/panels/${panelId}/provenance`,
-    { params: { token } },
+    { params: token === undefined ? undefined : { token } },
   );
   return response.data;
 }

@@ -9,6 +9,10 @@ import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import type { Output } from "../../pipelines/types/output";
 import { PanelCard } from "./PanelCard";
+import { ownDashboardsInThisFile } from "../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1600 -- stands in for GET /api/outputs/:id/history, which this test reaches but does not exercise
 // (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.

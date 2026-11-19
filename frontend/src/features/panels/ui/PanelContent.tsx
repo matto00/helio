@@ -25,6 +25,7 @@ import { ImageRenderer } from "./renderers/ImageRenderer";
 import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
 import { MetricRenderer } from "./renderers/MetricRenderer";
 import type { HistorySource } from "../history/useOutputHistory";
+import type { ClientRowOps } from "../state/splitForPanelScope";
 import { TextRenderer } from "./renderers/TextRenderer";
 
 export interface PanelContentProps {
@@ -116,6 +117,8 @@ export interface PanelContentProps {
   /** HEL-1275 design.md D4 — set only by the public viewer; absent → the authenticated history
    *  route keyed by the Output id. */
   historySource?: HistorySource;
+  /** HEL-1780 D4: panel read scope only; forwarded to the table. */
+  clientOps?: ClientRowOps;
 }
 
 /** The panel body (HEL-1573): the loading skeleton crossfades into it in place (`Crossfade`, DESIGN.md §10). */
@@ -166,6 +169,7 @@ function PanelContentBody({
   crossFilterMode,
   viewerFilterActive = false,
   historySource,
+  clientOps,
 }: PanelContentProps) {
   // HEL-1744 D7 -- an insight panel reads its stored render, never the Output's rows: an empty, unmaterialised or failed rows read
   // says nothing about it, so it must not replace the insight body with a rows state.
@@ -245,6 +249,7 @@ function PanelContentBody({
         crossFilterMode={crossFilterMode}
         viewerFilterActive={viewerFilterActive}
         historySource={historySource}
+        clientOps={clientOps}
       />
     );
   }

@@ -27,6 +27,7 @@ import { settingsReducer } from "../features/settings/state/settingsSlice";
 import { sourcesReducer } from "../features/sources/state/sourcesSlice";
 import { sourceSamplesReducer } from "../features/sources/state/sourceSamplesSlice";
 import { datasetRowsReducer } from "../features/sources/state/datasetRowsSlice";
+import { declaredOwnedDashboardIds } from "./seedOwnedDashboard";
 import { addDashboardTabsListeners } from "../features/dashboards/tabs/dashboardTabsListeners";
 import { addToastListeners } from "../features/toasts/state/toastListeners";
 import { toastsReducer } from "../features/toasts/state/toastsSlice";
@@ -203,7 +204,7 @@ function ensureTabListenersRegistered() {
 
 export function renderWithStore(
   ui: ReactElement,
-  preloadedState?: TestState,
+  explicitState?: TestState,
   /** HEL-560: initial `MemoryRouter` location — defaults to "/" (prior
    *  behavior, unchanged for every existing caller). Needed by pages that
    *  read a route param via `useParams` (e.g. `MetricDetailPage`'s `:id`),
@@ -211,6 +212,23 @@ export function renderWithStore(
   initialPath: string = "/",
   options?: RenderWithStoreOptions,
 ) {
+  // HEL-1780: dashboards a test file declared as owned (`ownDashboardsInThisFile`) are seeded when its own state omits them.
+  const ownedIds = declaredOwnedDashboardIds();
+  const preloadedState: TestState | undefined =
+    ownedIds.length === 0
+      ? explicitState
+      : {
+          ...explicitState,
+          dashboards: {
+            ...explicitState?.dashboards,
+            items: [
+              ...(explicitState?.dashboards?.items ?? []),
+              ...ownedIds
+                .filter((id) => !explicitState?.dashboards?.items.some((d) => d.id === id))
+                .map((id) => ({ id, name: id, accessRole: "owner" as const })),
+            ],
+          },
+        };
   const reducer = {
     assistantConversations: assistantConversationsReducer,
     assistantModels: assistantModelsReducer,

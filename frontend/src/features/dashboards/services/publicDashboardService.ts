@@ -95,11 +95,11 @@ export async function fetchPublicOutputMeta(
 export async function fetchPublicFilterCapabilities(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token?: string,
 ): Promise<OutputFilterCapabilitiesResponse> {
   const response = await httpClient.get<OutputFilterCapabilitiesResponse>(
     `/api/dashboards/${dashboardId}/panels/${panelId}/filter-capabilities`,
-    { params: { token } },
+    { params: token === undefined ? undefined : { token } },
   );
   return response.data;
 }
@@ -109,14 +109,15 @@ export async function fetchPublicFilterCapabilities(
 export async function fetchPublicDistinctValues(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token: string | undefined,
   column: string,
 ): Promise<{ column: string; values: Array<{ value: string; count: number }> }> {
   const response = await httpClient.get<{
     column: string;
     values: Array<{ value: string; count: number }>;
   }>(`/api/dashboards/${dashboardId}/panels/${panelId}/distinct-values`, {
-    params: { token, column },
+    // HEL-1780: a signed-in grantee sends no token (the route admits them by their grant).
+    params: token === undefined ? { column } : { token, column },
   });
   return response.data;
 }

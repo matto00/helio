@@ -20,7 +20,8 @@
 // kind-agnostic loading skeleton for the whole test, mirroring the frozen
 // pagination state's intent.
 
-import { configureStore, type UnknownAction } from "@reduxjs/toolkit";
+import { type UnknownAction } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
@@ -39,6 +40,9 @@ import type { Panel } from "../types/panel";
 // itself -- this harness plays the role `PanelCard` plays in production (the
 // single call site), so this test keeps driving a REAL store + `panelsReducer`
 // rather than mocking the hook outright.
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dashboard-1");
+
 function PanelCardBodyHarness({ panel }: { panel: Panel }) {
   const outputId = getOutputId(panel);
   const panelData = usePanelData(panel);

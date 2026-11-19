@@ -12,6 +12,8 @@ import { fetchPanelPage, panelsReducer } from "../state/panelsSlice";
 import { toastsReducer } from "../../toasts/state/toastsSlice";
 import * as outputService from "../../pipelines/services/outputService";
 import type { Output } from "../../pipelines/types/output";
+import { dashboardsReducer } from "../../dashboards/state/dashboardsSlice";
+import { seedOwnedDashboard } from "../../../test/seedOwnedDashboard";
 import { usePanelSortFilter } from "./usePanelSortFilter";
 
 // HEL-1190 — `composeOutputRowsFilter`/`isFilterActive` are pure logic this hook now calls
@@ -43,9 +45,15 @@ function makeOutput(overrides: Partial<Output> = {}): Output {
 }
 
 function makeStore() {
-  return configureStore({
-    reducer: { panels: panelsReducer, toasts: toastsReducer } as never,
+  const store = configureStore({
+    reducer: {
+      panels: panelsReducer,
+      toasts: toastsReducer,
+      dashboards: dashboardsReducer,
+    } as never,
   });
+  seedOwnedDashboard(store);
+  return store;
 }
 
 function wrapper(store: ReturnType<typeof makeStore>) {
@@ -62,22 +70,25 @@ describe("usePanelSortFilter", () => {
   it("task 4.1: seeds filterActive true once output resolves with a persisted columnFilters", () => {
     const store = makeStore();
     const output = makeOutput({ config: { columnFilters: { quick: "x" } } });
-    const { result } = renderHook(() => usePanelSortFilter("panel-1", "output-1", output), {
-      wrapper: wrapper(store),
-    });
+    const { result } = renderHook(
+      () => usePanelSortFilter("panel-1", "dash-1", "output-1", output),
+      {
+        wrapper: wrapper(store),
+      },
+    );
     expect(result.current.filterActive).toBe(true);
   });
 
   it("filterActive is false with no persisted filter, and false while output is still null", () => {
     const store = makeStore();
     const { result: whileLoading } = renderHook(
-      () => usePanelSortFilter("panel-1", "output-1", null),
+      () => usePanelSortFilter("panel-1", "dash-1", "output-1", null),
       { wrapper: wrapper(store) },
     );
     expect(whileLoading.current.filterActive).toBe(false);
 
     const { result: noFilter } = renderHook(
-      () => usePanelSortFilter("panel-1", "output-1", makeOutput()),
+      () => usePanelSortFilter("panel-1", "dash-1", "output-1", makeOutput()),
       { wrapper: wrapper(store) },
     );
     expect(noFilter.current.filterActive).toBe(false);
@@ -97,6 +108,7 @@ describe("usePanelSortFilter", () => {
     store.dispatch(
       fetchPanelPage.pending("req-seed", {
         panelId: "panel-1",
+        dashboardId: "dash-1",
         outputId: "output-1",
         page: 1,
         pageSize: 50,
@@ -113,12 +125,12 @@ describe("usePanelSortFilter", () => {
           total: 2,
         },
         "req-seed",
-        { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 50 },
+        { panelId: "panel-1", dashboardId: "dash-1", outputId: "output-1", page: 1, pageSize: 50 },
       ),
     );
     expect(store.getState().panels.paginationState["panel-1"].currentPage).toBe(1);
 
-    const { result } = renderHook(() => usePanelSortFilter("panel-1", "output-1", null), {
+    const { result } = renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", null), {
       wrapper: wrapper(store),
     });
 
@@ -165,7 +177,7 @@ describe("usePanelSortFilter", () => {
       materialized: true,
     });
     const store = makeStore();
-    const { result } = renderHook(() => usePanelSortFilter("panel-1", "output-1", null), {
+    const { result } = renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", null), {
       wrapper: wrapper(store),
     });
 
@@ -208,7 +220,7 @@ describe("usePanelSortFilter", () => {
       materialized: true,
     });
     const store = makeStore();
-    const { result } = renderHook(() => usePanelSortFilter("panel-1", "output-1", null), {
+    const { result } = renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", null), {
       wrapper: wrapper(store),
     });
 
@@ -249,7 +261,7 @@ describe("usePanelSortFilter", () => {
     });
     const store = makeStore();
     const output = makeOutput({ config: { columnFilters: { quick: "target" } } });
-    renderHook(() => usePanelSortFilter("panel-1", "output-1", output), {
+    renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", output), {
       wrapper: wrapper(store),
     });
 
@@ -264,7 +276,7 @@ describe("usePanelSortFilter", () => {
 
   it("no refetch happens when the persisted default has neither an active sort nor an active filter", async () => {
     const store = makeStore();
-    renderHook(() => usePanelSortFilter("panel-1", "output-1", makeOutput()), {
+    renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", makeOutput()), {
       wrapper: wrapper(store),
     });
     await act(async () => {
@@ -282,7 +294,7 @@ describe("usePanelSortFilter", () => {
       }),
     );
     const store = makeStore();
-    const { result } = renderHook(() => usePanelSortFilter("panel-1", "output-1", null), {
+    const { result } = renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", null), {
       wrapper: wrapper(store),
     });
 
@@ -317,7 +329,7 @@ describe("usePanelSortFilter", () => {
       const store = makeStore();
       renderHook(
         () =>
-          usePanelSortFilter("panel-1", "output-1", makeOutput(), [
+          usePanelSortFilter("panel-1", "dash-1", "output-1", makeOutput(), [
             { column: "region", op: "eq", value: "east" },
           ]),
         { wrapper: wrapper(store) },
@@ -344,7 +356,7 @@ describe("usePanelSortFilter", () => {
       const store = makeStore();
       const { result } = renderHook(
         () =>
-          usePanelSortFilter("panel-1", "output-1", null, [
+          usePanelSortFilter("panel-1", "dash-1", "output-1", null, [
             { column: "region", op: "eq", value: "east" },
           ]),
         { wrapper: wrapper(store) },
@@ -379,6 +391,7 @@ describe("usePanelSortFilter", () => {
       store.dispatch(
         fetchPanelPage.pending("req-seed", {
           panelId: "panel-1",
+          dashboardId: "dash-1",
           outputId: "output-1",
           page: 1,
           pageSize: 50,
@@ -395,14 +408,20 @@ describe("usePanelSortFilter", () => {
             total: 1,
           },
           "req-seed",
-          { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 50 },
+          {
+            panelId: "panel-1",
+            dashboardId: "dash-1",
+            outputId: "output-1",
+            page: 1,
+            pageSize: 50,
+          },
         ),
       );
 
       const output = makeOutput();
-      type Ops = NonNullable<Parameters<typeof usePanelSortFilter>[3]>;
+      type Ops = NonNullable<Parameters<typeof usePanelSortFilter>[4]>;
       const { rerender } = renderHook(
-        ({ ops }: { ops: Ops }) => usePanelSortFilter("panel-1", "output-1", output, ops),
+        ({ ops }: { ops: Ops }) => usePanelSortFilter("panel-1", "dash-1", "output-1", output, ops),
         { wrapper: wrapper(store), initialProps: { ops: [] as Ops } },
       );
 
@@ -438,7 +457,7 @@ describe("usePanelSortFilter — crossFilterEq (HEL-1191 D9a-ii)", () => {
 
   it("an eq present at mount triggers the one-time corrective fetch, carrying it as a separate ops entry", async () => {
     const store = makeStore();
-    renderHook(() => usePanelSortFilter("panel-1", "output-1", makeOutput(), [], EQ), {
+    renderHook(() => usePanelSortFilter("panel-1", "dash-1", "output-1", makeOutput(), [], EQ), {
       wrapper: wrapper(store),
     });
     await act(async () => {
@@ -458,7 +477,7 @@ describe("usePanelSortFilter — crossFilterEq (HEL-1191 D9a-ii)", () => {
     type Eq = typeof EQ | null;
     const output = makeOutput();
     const { rerender } = renderHook(
-      ({ eq }: { eq: Eq }) => usePanelSortFilter("panel-1", "output-1", output, [], eq),
+      ({ eq }: { eq: Eq }) => usePanelSortFilter("panel-1", "dash-1", "output-1", output, [], eq),
       { wrapper: wrapper(store), initialProps: { eq: null as Eq } },
     );
     await act(async () => {
@@ -496,6 +515,7 @@ describe("usePanelSortFilter — crossFilterEq (HEL-1191 D9a-ii)", () => {
       () =>
         usePanelSortFilter(
           "panel-1",
+          "dash-1",
           "output-1",
           makeOutput(),
           [{ column: "quarter", op: "eq", value: "Q2" }],

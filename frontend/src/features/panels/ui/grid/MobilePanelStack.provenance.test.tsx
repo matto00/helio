@@ -6,6 +6,10 @@ import { defaultDashboardLayout } from "../../../dashboards/state/dashboardLayou
 import { resetProvenanceCache } from "../../provenance/provenanceCache";
 import { fetchOutputProvenance } from "../../provenance/provenanceService";
 import { MobilePanelStack } from "./MobilePanelStack";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1600 -- stands in for GET /api/outputs/:id, which this test reaches but does not exercise
 // (the network guard fails an unmocked request); rejects (a plain Error) in place of the AxiosError network failure.

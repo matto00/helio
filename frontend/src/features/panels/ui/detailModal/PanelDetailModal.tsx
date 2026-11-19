@@ -10,11 +10,9 @@ import { Modal } from "../../../../shared/ui/Modal";
 import { accumulatePanelUpdate } from "../../state/panelsSlice";
 import { isOutputPanel } from "../../state/panelNarrowing";
 import { useAppDispatch } from "../../../../hooks/reduxHooks";
-import {
-  useCanEditPanels,
-  useCanUseOutputRoutes,
-} from "../../../dashboards/state/dashboardAccessContext";
-import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
+import { useCanEditPanels } from "../../../dashboards/state/dashboardAccessContext";
+import { usePanelReadScope, useHistorySourceFor } from "../../state/panelReadScope";
+import { PanelProvenance } from "../../provenance/PanelProvenance";
 import { OutputViewerControlBar } from "../OutputViewerControlBar";
 import { useTheme } from "../../../../theme/ThemeProvider";
 import {
@@ -79,10 +77,13 @@ export function PanelDetailModal({
     totalRowCount,
   } = usePanelDetailData(panel);
   const navigate = useNavigate();
-  // HEL-1773: a viewer grantee never sees edit mode; any non-owner has no Output routes (no provenance, no Output link,
-  // no binding section, no viewer controls), and an editor's edit mode keeps title and appearance only.
+  // HEL-1773: a viewer grantee never sees edit mode; an editor's edit mode keeps title and appearance only and a read-only
+  // binding line. HEL-1780: view mode shows the viewer controls and provenance for everyone, read through the panel's own
+  // scope; only the Output link and the binding editor are the owner's (`scope.kind === "output"`).
   const canEdit = useCanEditPanels();
-  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const scope = usePanelReadScope(panel);
+  const canUseOutputRoutes = scope.kind === "output";
+  const historySource = useHistorySourceFor(scope);
   const {
     modalMode,
     setModalMode,
@@ -189,14 +190,7 @@ export function PanelDetailModal({
           {modalMode === "edit" && isAnyDirty && (
             <span className="panel-detail-modal__unsaved-badge">Unsaved changes</span>
           )}
-          {modalMode === "view" && viewOutputId && canUseOutputRoutes && (
-            <ProvenanceTrigger
-              panelId={panel.id}
-              panelTitle={panel.title}
-              outputId={viewOutputId}
-              variant="authenticated"
-            />
-          )}
+          {modalMode === "view" && viewOutputId && <PanelProvenance panel={panel} />}
           {modalMode === "view" && canEdit && (
             <button
               type="button"
@@ -273,6 +267,7 @@ export function PanelDetailModal({
               totalRowCount={totalRowCount}
               crossFilterMode={crossFilterMode}
               viewerFilterActive={controlFilterOps.length > 0}
+              historySource={historySource}
             />
             {/* HEL-1190 design.md D10 (task 5.5) — this modal had NO live region at all before this
                 ticket; a control-driven row-count change is announced here, mirroring

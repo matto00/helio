@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { createElement } from "react";
@@ -9,6 +9,9 @@ import * as outputService from "../../pipelines/services/outputService";
 import { makeOutputPanel, makeTextPanel } from "../../../test/panelFixtures";
 import type { Panel } from "../types/panel";
 import { usePanelData } from "./usePanelData";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("d1", "dashboard-1");
 
 jest.mock("../../pipelines/services/outputService");
 

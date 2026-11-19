@@ -47,7 +47,7 @@ export function ProvenanceTrigger({
   const fetcher = useCallback(
     (): Promise<Provenance> =>
       isPublic && dashboardId
-        ? fetchPublicProvenance(dashboardId, panelId, token ?? "")
+        ? fetchPublicProvenance(dashboardId, panelId, token)
         : fetchOutputProvenance(outputId),
     [isPublic, dashboardId, panelId, token, outputId],
   );

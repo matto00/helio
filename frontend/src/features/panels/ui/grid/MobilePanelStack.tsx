@@ -33,7 +33,6 @@ import { useIsPhoneShell } from "../../../../app/shell/useIsPhoneShell";
 import { usePullToRefresh } from "../../../../shared/motion/usePullToRefresh";
 import { entranceClassProps, useKeyedEntrance } from "../../../../shared/motion/useKeyedEntrance";
 import { getOutputId } from "../../state/panelNarrowing";
-import { useCanUseOutputRoutes } from "../../../dashboards/state/dashboardAccessContext";
 import { useInsightChrome } from "../../insight/insightChromeStore";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputRetention } from "../../hooks/useOutputRetention";
@@ -41,7 +40,7 @@ import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
 import { getPanelCardStyle } from "../PanelCard";
 import { PanelCardBody } from "../PanelCardBody";
-import { ProvenanceTrigger } from "../../provenance/ProvenanceTrigger";
+import { PanelProvenance } from "../../provenance/PanelProvenance";
 import { PanelDetailModal } from "../detailModal/PanelDetailModal";
 import { PullRefreshIndicator } from "./PullRefreshIndicator";
 import {
@@ -133,8 +132,6 @@ export function MobilePanelStack({
   playEntrance = false,
 }: MobilePanelStackProps) {
   const { theme } = useTheme();
-  // HEL-1773: provenance reads `GET /api/outputs/:id/provenance`, an Output route a dashboard grantee cannot use.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
   const [detailPanelId, setDetailPanelId] = useState<string | null>(null);
   // HEL-1584 D8: the tapped card's rectangle, which the detail modal grows out of under Full.
   const [detailOrigin, setDetailOrigin] = useState<DOMRectReadOnly | null>(null);
@@ -267,14 +264,7 @@ export function MobilePanelStack({
                 <div className="mobile-panel-stack__header mobile-panel-stack__header--with-actions">
                   <h3 className="panel-grid-card__title">{panel.title}</h3>
                   {/* HEL-1207 A1: the stack has no footer, so provenance sits beside the title. */}
-                  {getOutputId(panel) && canUseOutputRoutes ? (
-                    <ProvenanceTrigger
-                      panelId={panel.id}
-                      panelTitle={panel.title}
-                      outputId={getOutputId(panel) as string}
-                      variant="authenticated"
-                    />
-                  ) : null}
+                  <PanelProvenance panel={panel} />
                 </div>
                 <MobileStackPanelBody panel={panel} compact />
               </article>

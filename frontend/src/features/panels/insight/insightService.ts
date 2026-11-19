@@ -111,11 +111,11 @@ export async function refreshOutputInsight(
 export async function fetchPublicPanelInsight(
   dashboardId: string,
   panelId: string,
-  token: string,
+  token?: string,
 ): Promise<InsightData> {
   const response = await httpClient.get<Raw>(
     `/api/dashboards/${dashboardId}/panels/${panelId}/insight`,
-    { params: { token } },
+    { params: token === undefined ? undefined : { token } },
   );
   return {
     render: mapRender(response.data.render, "renderedAt"),

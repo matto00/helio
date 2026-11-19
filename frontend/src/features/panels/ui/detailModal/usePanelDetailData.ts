@@ -1,14 +1,13 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { isOutputPanel } from "../../state/panelNarrowing";
 import { useAppSelector } from "../../../../hooks/reduxHooks";
-import { useCanUseOutputRoutes } from "../../../dashboards/state/dashboardAccessContext";
+import { usePanelReadScope, distinctValuesFetcher } from "../../state/panelReadScope";
 import { usePanelData } from "../../hooks/usePanelData";
 import { useOutputMeta } from "../../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../../hooks/useCrossFilterServerOps";
 import { useViewerControls } from "../../hooks/useViewerControls";
 import { buildViewerControlFilterOps } from "../../state/viewerControlValues";
-import { getDistinctValues } from "../../../pipelines/services/outputService";
 import type { OutputControlSpec, Panel } from "../../types/panel";
 
 // HEL-1190 — module-level stable empty array, same rationale as `PanelCardBody.tsx`'s
@@ -22,10 +21,11 @@ export function usePanelDetailData(panel: Panel) {
   // path sharing that id shares the same source of truth). No sibling `usePanelSortFilter` layer
   // exists on this path (see `usePanelData`'s own doc comment for why composition happens
   // directly here instead), so `controlFilterOps` is threaded straight into `usePanelData`.
-  // HEL-1773: viewer controls (and their distinct-values reads) are an Output-route feature, off for a dashboard grantee.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
-  const controls: OutputControlSpec[] =
-    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
+  // HEL-1780: viewer controls for every caller; their distinct values follow the panel's own read scope.
+  const scope = usePanelReadScope(panel);
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
   const {
     values: controlValues,
     setValue: setControlValue,
@@ -37,12 +37,9 @@ export function usePanelDetailData(panel: Panel) {
   );
   const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
   const outputIdForControls = isOutputPanel(panel) ? panel.config.outputId : null;
-  const fetchDistinctValues = useCallback(
-    (column: string) =>
-      outputIdForControls
-        ? getDistinctValues(outputIdForControls, column).then((r) => r.values)
-        : Promise.resolve([]),
-    [outputIdForControls],
+  const fetchDistinctValues = useMemo(
+    () => distinctValuesFetcher(scope, panel.id, outputIdForControls),
+    [scope, panel.id, outputIdForControls],
   );
 
   // HEL-946 Bug C(2) — the never-materialized empty state's "Run pipeline"
@@ -54,7 +51,11 @@ export function usePanelDetailData(panel: Panel) {
   // HEL-1191 design.md D9/D9b — this modal owns its own `usePanelData` AND resolves the Output, so
   // it computes the cross-filter decision itself: `crossFilterEq` joins the fetch as its own
   // argument (C4), `crossFilterMode` gates the client-side fallback in `PanelContent`.
-  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, viewOutput);
+  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(
+    panel,
+    viewOutput,
+    scope,
+  );
   const {
     data,
     rawRows,

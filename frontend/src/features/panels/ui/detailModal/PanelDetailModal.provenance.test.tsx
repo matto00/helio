@@ -6,6 +6,10 @@ import { getOutputById as getOutputByIdRequest } from "../../../pipelines/servic
 import { resetProvenanceCache } from "../../provenance/provenanceCache";
 import { fetchOutputProvenance } from "../../provenance/provenanceService";
 import { PanelDetailModal } from "./PanelDetailModal";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to dashboards the caller owns.
+ownDashboardsInThisFile("dashboard-1");
 
 // HEL-1207 A1/A2 — detail modal: trigger in the view-mode header AND next to the edit-mode Output
 // link; popover inside the dialog; Escape closes only the popover.

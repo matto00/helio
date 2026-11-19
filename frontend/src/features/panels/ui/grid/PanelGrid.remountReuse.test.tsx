@@ -8,6 +8,10 @@ import {
   renderGridAt,
   wireOutputService,
 } from "../../../../test/remountFixtures";
+import { ownDashboardsInThisFile } from "../../../../test/seedOwnedDashboard";
+
+// HEL-1780 D1 planned fixture migration: the panels rendered here belong to a dashboard the caller owns.
+ownDashboardsInThisFile("d1");
 
 // HEL-1392 red-first — crossing the 768px container boundary swaps the desktop grid for the phone
 // stack (and back), remounting every card. Rows and Output metadata already held must not be

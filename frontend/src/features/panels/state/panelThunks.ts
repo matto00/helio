@@ -31,6 +31,9 @@ import { getOutputMetaCached, scopeOutputToPanel, unscopeOutput } from "./output
 import { getOutputId } from "./panelNarrowing";
 import { fetchPublicPanelRows } from "../../dashboards/services/publicDashboardService";
 import { isKnownNonOwnedDashboard } from "../../dashboards/state/dashboardAccess";
+import { panelReadScopeFor } from "./panelReadScope";
+import { panelControlColumns } from "./panelControlColumns";
+import { splitForPanelScope } from "./splitForPanelScope";
 
 import { serverNowMs } from "../../dashboards/tabs/serverClock";
 
@@ -46,7 +49,7 @@ import {
   type RequestErrorKind,
 } from "../../../services/classifyRequestError";
 import type { RootState } from "../../../store/store";
-import { invalidateCapabilities } from "./filterCapabilitiesStore";
+import { invalidateCapabilities, panelCapabilitiesKey } from "./filterCapabilitiesStore";
 import type {
   CrossFilterEq,
   DividerOrientation,
@@ -357,6 +360,8 @@ export const fetchPanelPage = createAsyncThunk<
   },
   {
     panelId: string;
+    /** HEL-1780: the panel's own dashboard, which decides the read route (never the selected dashboard). */
+    dashboardId: string;
     outputId: string;
     page: number;
     pageSize: number;
@@ -380,24 +385,34 @@ export const fetchPanelPage = createAsyncThunk<
 >(
   "panels/fetchPanelPage",
   async (
-    { panelId, outputId, page, pageSize, sort, filter, crossFilterEq },
+    { panelId, dashboardId, outputId, page, pageSize, sort, filter, crossFilterEq },
     { rejectWithValue, getState },
   ) => {
     const generation = currentGeneration(outputId);
     try {
       const offset = page * pageSize;
-      // HEL-1773: a panel on a dashboard the caller does not own is read through the dashboard-scoped per-panel route
-      // (admitted by the caller's grant), never `GET /api/outputs/:id/rows`. No sort, filter or cross-filter is sent:
-      // the shell offers none of them to a non-owner (the server would refuse a filter outside the panel's own controls).
+      // HEL-1773/HEL-1780: a panel on a dashboard the caller does not own is read through the dashboard-scoped per-panel
+      // route (admitted by the caller's grant), never `GET /api/outputs/:id/rows`. The decision is the panel's OWN
+      // dashboard's (`panelReadScopeFor`, fail-closed, one rule for the hooks and this thunk). The route accepts a sort or
+      // filter only on the panel's own control columns and rejects `quick`, so only that part of the intent is sent
+      // (`splitForPanelScope`); the rest is applied in the browser over the loaded rows. A panel not in state sends
+      // neither (still per-panel).
       const state = getState();
-      const scopedPanel = state.panels.items.find((p) => p.id === panelId);
-      if (scopedPanel !== undefined && isKnownNonOwnedDashboard(state, scopedPanel.dashboardId)) {
+      const readScope = panelReadScopeFor(state, dashboardId, panelId);
+      if (readScope.kind === "panel") {
+        const scopedPanel = state.panels.items.find((p) => p.id === panelId);
+        const { server } = splitForPanelScope(
+          { sort, filter, crossFilterEq },
+          panelControlColumns(scopedPanel),
+        );
         const result = await fetchPublicPanelRows(
-          scopedPanel.dashboardId,
+          dashboardId,
           panelId,
           undefined,
           offset,
           pageSize,
+          server.sort,
+          server.filter,
         );
         return {
           panelId,
@@ -439,7 +454,11 @@ export const fetchPanelPage = createAsyncThunk<
       // an inference from `filter.ops`, so a same-column viewer-control `eq` that 400s is not
       // misread as a cardinality-cap rejection.
       if (crossFilterEq != null && isAxiosError(err) && err.response?.status === 400) {
-        invalidateCapabilities(outputId);
+        invalidateCapabilities(
+          panelReadScopeFor(getState(), dashboardId, panelId).kind === "panel"
+            ? panelCapabilitiesKey(dashboardId, panelId)
+            : outputId,
+        );
         return rejectWithValue({
           ...classifyRequestError(err, "Failed to load panel data."),
           code: CROSS_FILTER_EQ_REJECTED,

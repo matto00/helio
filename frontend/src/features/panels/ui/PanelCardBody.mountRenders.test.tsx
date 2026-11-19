@@ -9,7 +9,7 @@
 import { act, render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Provider } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { useEffect, useState } from "react";
 
 import { makeOutputPanel } from "../../../test/panelFixtures";
@@ -22,6 +22,9 @@ import { getOutputId } from "../state/panelNarrowing";
 import { panelsReducer } from "../state/panelsSlice";
 import type { Panel } from "../types/panel";
 import { PanelCardBody } from "./PanelCardBody";
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("d1", "dashboard-1");
 
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));
 jest.mock("../hooks/usePanelRunRefresh", () => ({ usePanelRunRefresh: jest.fn() }));

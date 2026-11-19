@@ -2,9 +2,15 @@ import React, { useCallback, useMemo, useState, type RefObject } from "react";
 import { isOutputPanel } from "../state/panelNarrowing";
 import { fetchPanelPage } from "../state/panelsSlice";
 import { useFirstDashboardRendered } from "../../telemetry/useFirstDashboardRendered";
-import { composeOutputRowsFilter, getDistinctValues } from "../../pipelines/services/outputService";
+import { composeOutputRowsFilter } from "../../pipelines/services/outputService";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
-import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
+import {
+  usePanelReadScope,
+  useHistorySourceFor,
+  distinctValuesFetcher,
+} from "../state/panelReadScope";
+import { panelControlColumns } from "../state/panelControlColumns";
+import { splitForPanelScope } from "../state/splitForPanelScope";
 import { useOutputMeta } from "../hooks/useOutputMeta";
 import { useCrossFilterServerOps } from "../hooks/useCrossFilterServerOps";
 import { useCrossFilterAnnouncement } from "../hooks/useCrossFilterAnnouncement";
@@ -103,20 +109,21 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // from exactly ONE fetch — is preserved here, since `OutputPanelContent` no longer performs its
   // own fetch AT ALL once this component supplies one (see its own doc comment).
   const { output, isLoading: isOutputMetaLoading } = useOutputMeta(outputId);
-  // HEL-1773: on a dashboard the caller does not own, the Output routes behind controls, sort/filter, distinct values,
-  // filter capabilities and run events are not available: the viewer controls, the server sort/filter round trip and
-  // the run-event refresh are all off (hidden, never half-working). Rows and metadata still arrive through the per-panel
-  // routes (`fetchPanelPage`, `outputMetaCache`), and a table sorts the rows it has loaded on the client.
-  const canUseOutputRoutes = useCanUseOutputRoutes();
-  const filterOutput = canUseOutputRoutes ? output : null;
+  // HEL-1780 D1: where THIS panel reads from, decided by the panel's own dashboard (never the selected one). In `panel`
+  // scope (a dashboard the caller does not own) the controls, distinct values, filter capabilities, sort/filter, history,
+  // insight and provenance all go through `/api/dashboards/:id/panels/:panelId/*`; only the run-event refresh (HEL-1786)
+  // stays off, since it is an Output/pipeline route.
+  const scope = usePanelReadScope(panel);
+  const historySource = useHistorySourceFor(scope);
 
   // HEL-1190 design.md D1-D4 (tasks 4.1-4.5, 5.1/5.2) — the viewer's own control selection,
   // URL-held (`useViewerControls`) and shared by construction between the desktop grid and the
   // phone stack, since `PanelCardBody` is their common ancestor (mirrors HEL-1027's own
   // `usePanelSortFilter` precedent one line below). `controls` is `[]` for a non-output panel —
   // `useViewerControls`/`buildViewerControlFilterOps` are then no-ops.
-  const controls: OutputControlSpec[] =
-    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
+  const controls: OutputControlSpec[] = isOutputPanel(panel)
+    ? panel.config.controls
+    : EMPTY_CONTROLS;
   const {
     values: controlValues,
     setValue: setControlValue,
@@ -127,10 +134,9 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     [controls, controlValues],
   );
   const hasVisibleControls = useMemo(() => controls.some((c) => !c.orphaned), [controls]);
-  const fetchDistinctValues = useCallback(
-    (column: string) =>
-      outputId ? getDistinctValues(outputId, column).then((r) => r.values) : Promise.resolve([]),
-    [outputId],
+  const fetchDistinctValues = useMemo(
+    () => distinctValuesFetcher(scope, panel.id, outputId),
+    [scope, panel.id, outputId],
   );
 
   // HEL-1027 design.md D4/D10 (tasks 4.1-4.3, 4.7) — the authoritative sort/filter state driving
@@ -140,12 +146,13 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   // HEL-1191 design.md D1/D3/D9b — the ONE cross-filter eligibility decision for this panel:
   // `crossFilterEq` (server path) goes to every dispatch as its own argument, `crossFilterMode`
   // goes down to `PanelContent` so the client-side loaded-rows filter runs ONLY on the fallback.
-  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, filterOutput);
+  const { crossFilterEq, mode: crossFilterMode } = useCrossFilterServerOps(panel, output, scope);
   const { filterActive, activeSort, activeFilter, handleSortChange, handleFilterChange } =
     usePanelSortFilter(
       panel.id,
+      panel.dashboardId,
       outputId,
-      filterOutput,
+      output,
       controlFilterOps,
       crossFilterEq,
       mountOwnership,
@@ -185,7 +192,25 @@ export const PanelCardBody = React.memo(function PanelCardBody({
     refresh();
     setRefreshAnnouncement((n) => n + 1);
   }, [refresh]);
-  usePanelRunRefresh(canUseOutputRoutes ? outputId : null, handleFanoutRefresh);
+  usePanelRunRefresh(scope.kind === "output" ? outputId : null, handleFanoutRefresh);
+
+  // HEL-1780 D4: the part of the current sort/filter the per-panel route may not be sent (a non-control column, a quick
+  // search) is applied by the table to its loaded rows. `activeSort`/`activeFilter` are the SAME intent the dispatches carry.
+  const clientOps = useMemo(
+    () =>
+      scope.kind === "panel"
+        ? splitForPanelScope(
+            {
+              sort: activeSort
+                ? { column: activeSort.key, direction: activeSort.direction }
+                : undefined,
+              filter: activeFilter ?? undefined,
+            },
+            panelControlColumns(panel),
+          ).client
+        : undefined,
+    [scope.kind, activeSort, activeFilter, panel],
+  );
 
   // HEL-1027 skeptic-final-1.md follow-on finding — "Load more" (page > 0) must carry the SAME
   // active sort/filter the current page-0 window was fetched under, or the appended page would
@@ -199,6 +224,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
       void dispatch(
         fetchPanelPage({
           panelId: panel.id,
+          dashboardId: panel.dashboardId,
           outputId,
           page: paginationEntry.currentPage + 1,
           pageSize: 50,
@@ -217,6 +243,7 @@ export const PanelCardBody = React.memo(function PanelCardBody({
   }, [
     dispatch,
     panel.id,
+    panel.dashboardId,
     outputId,
     paginationEntry,
     activeSort,
@@ -286,8 +313,10 @@ export const PanelCardBody = React.memo(function PanelCardBody({
         rowsTruncated={rowsTruncated}
         compact={compact}
         onDataPointSelect={onDataPointSelect}
-        onSortChange={canUseOutputRoutes ? handleSortChange : undefined}
-        onFilterChange={canUseOutputRoutes ? handleFilterChange : undefined}
+        onSortChange={handleSortChange}
+        onFilterChange={handleFilterChange}
+        clientOps={clientOps}
+        historySource={historySource}
         // HEL-1027 design.md D5/D7 — the server's row count for the CURRENT sort/filter (D5),
         // threaded through to `TableRenderer`'s loaded-scope disclosure so a filtered count
         // describes the WHOLE Output, never just the currently-loaded page (task 5.2).

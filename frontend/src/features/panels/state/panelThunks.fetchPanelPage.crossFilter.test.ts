@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 import { AxiosError, type AxiosResponse } from "axios";
 
 import type { AppDispatch } from "../../../store/store";
@@ -13,6 +13,9 @@ import { fetchPanelPage, panelsReducer } from "./panelsSlice";
 
 // HEL-1191 design.md D1/D3a/D9a-i — the thunk is the single point where the cross-filter `eq`
 // folds into `filter.ops` (via `composeOutputRowsFilter`), and the single 400-detection point.
+
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dash-1");
 
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
@@ -36,7 +39,7 @@ function axiosError(status: number): AxiosError {
   } as AxiosResponse);
 }
 
-const base = { panelId: "p1", outputId: "out-1", page: 0, pageSize: 200 };
+const base = { panelId: "p1", dashboardId: "dash-1", outputId: "out-1", page: 0, pageSize: 200 };
 const EQ = { column: "quarter", value: "Q1" };
 
 async function primeCapabilities(): Promise<void> {

@@ -236,7 +236,13 @@ describe("panelsSlice", () => {
   describe("fetchPanelPage", () => {
     it("initial load (page 0) populates rows and hasMore", () => {
       const rows = [{ n: 1 }, { n: 2 }];
-      const arg = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 };
+      const arg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 50,
+      };
       // HEL-1027 skeptic-final-1.md CR2 — `.fulfilled` now checks `latestFetchRequestId`
       // (populated by `.pending`), which every REAL dispatch sets first; this test mirrors that
       // real order rather than constructing `.fulfilled` in isolation.
@@ -279,8 +285,20 @@ describe("panelsSlice", () => {
     it("load-more (page > 0) appends rows to existing state", () => {
       const firstRows = [{ n: 1 }, { n: 2 }];
       const moreRows = [{ n: 3 }, { n: 4 }];
-      const firstArg = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 2 };
-      const secondArg = { panelId: "panel-1", outputId: "output-1", page: 1, pageSize: 2 };
+      const firstArg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 2,
+      };
+      const secondArg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 1,
+        pageSize: 2,
+      };
 
       const afterFirstPending = panelsReducer(undefined, fetchPanelPage.pending("req-1", firstArg));
       const afterFirstPage = panelsReducer(
@@ -330,7 +348,13 @@ describe("panelsSlice", () => {
     // discarded even though it "fulfills" successfully, because a NEWER request has already
     // superseded it (e.g. a stale unfiltered response resolving after a newer filtered one).
     it("a stale fulfilled response (superseded by a later pending) is discarded, never overwriting the newer request's result", () => {
-      const arg = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 };
+      const arg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 50,
+      };
       const afterFirstPending = panelsReducer(undefined, fetchPanelPage.pending("req-old", arg));
       // A second, later request for the SAME panel supersedes the first before it resolves.
       const afterSecondPending = panelsReducer(
@@ -374,7 +398,13 @@ describe("panelsSlice", () => {
     });
 
     it("a stale rejected response (superseded by a later pending) does not clear the newer request's isLoadingMore", () => {
-      const arg = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 };
+      const arg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 50,
+      };
       const afterFirstPending = panelsReducer(undefined, fetchPanelPage.pending("req-old", arg));
       const afterSecondPending = panelsReducer(
         afterFirstPending,
@@ -396,6 +426,7 @@ describe("panelsSlice", () => {
         undefined,
         fetchPanelPage.pending("req", {
           panelId: "panel-1",
+          dashboardId: "dash-1",
           outputId: "output-1",
           page: 0,
           pageSize: 50,
@@ -407,7 +438,13 @@ describe("panelsSlice", () => {
 
   describe("resetPanelPagination", () => {
     it("clears pagination state for the given panelId", () => {
-      const arg = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 };
+      const arg = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 50,
+      };
       const afterPending = panelsReducer(undefined, fetchPanelPage.pending("req", arg));
       const withPagination = panelsReducer(
         afterPending,
@@ -433,8 +470,20 @@ describe("panelsSlice", () => {
     });
 
     it("does not affect pagination state for other panels", () => {
-      const arg1 = { panelId: "panel-1", outputId: "output-1", page: 0, pageSize: 50 };
-      const arg2 = { panelId: "panel-2", outputId: "output-2", page: 0, pageSize: 50 };
+      const arg1 = {
+        panelId: "panel-1",
+        dashboardId: "dash-1",
+        outputId: "output-1",
+        page: 0,
+        pageSize: 50,
+      };
+      const arg2 = {
+        panelId: "panel-2",
+        dashboardId: "dash-1",
+        outputId: "output-2",
+        page: 0,
+        pageSize: 50,
+      };
       let state = panelsReducer(undefined, fetchPanelPage.pending("req-1", arg1));
       state = panelsReducer(
         state,

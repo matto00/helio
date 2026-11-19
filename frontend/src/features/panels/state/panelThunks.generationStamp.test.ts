@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStoreOwning } from "../../../test/configureOwnedStore";
 
 import * as outputService from "../../pipelines/services/outputService";
 import {
@@ -13,6 +13,9 @@ import { panelsReducer } from "./panelsSlice";
 // HEL-1392 design.md D1/D2 -- a window is stamped with the generation read when its request STARTED.
 // An invalidation that lands while the request is in flight must leave the window non-reusable, so a
 // remount fetches again (never serves data that may predate the write).
+// HEL-1780 D1: the dashboards this file's panels belong to are held as owned by the caller (explicitly, per file).
+const configureStore = configureStoreOwning("dash-1");
+
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputRows: jest.fn(),
@@ -39,7 +42,13 @@ describe("fetchPanelPage generation stamp", () => {
       const store = makeStore();
       const atStart = currentGeneration("o1");
       const done = store.dispatch(
-        fetchPanelPage({ panelId: "p", outputId: "o1", page: 0, pageSize: 200 }) as never,
+        fetchPanelPage({
+          panelId: "p",
+          dashboardId: "dash-1",
+          outputId: "o1",
+          page: 0,
+          pageSize: 200,
+        }) as never,
       );
       await Promise.resolve();
       invalidate();
