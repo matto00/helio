@@ -68,4 +68,10 @@ Rollback reverts `e2e/shard-weights.tsv` and, together in one revert (otherwise 
 
 ## Gate-Chain Implications Checklist
 
-Not applicable: no `.husky/**` file or script invoked by `.husky/pre-commit` is touched.
+The gate-chain script touched is `scripts/e2e-shard.selftest.mjs` (run by `.husky/pre-commit` via `npm run check:e2e-shard:selftest`); `.husky/pre-commit` itself is unchanged.
+
+- **What does it execute?** Plain `node` on the selftest: pure-function assertions on the partition and weights helpers imported from `scripts/e2e-shard.mjs`, one `readFileSync` + js-yaml parse of `.github/workflows/ci.yml` (the leg-count drift check), and three `spawnSync("node", ["scripts/e2e-shard.mjs", ...])` calls (the `run 5 4` usage refusal and the `weights` CLI cases). None of them starts Playwright, a server or git, and none reads a data source.
+- **What environment does it inherit, and from where?** The hook's environment through `npm run`: whatever git exports to a hook (including `GIT_DIR`/`GIT_INDEX_FILE` in a linked worktree) plus npm's. The script reads no environment variable itself and no `.env` file; its child `node` processes inherit the same environment, and none of them runs git, so the git variables have no effect on it. Paths are resolved from `import.meta.url`, not from the cwd.
+- **Does it write anything outside its own sandbox?** Only inside one `mkdtempSync(os.tmpdir()/e2e-shard-weights-*)` directory, which the test removes in a `finally` block. It never writes into the repo, the index or any git state.
+- **Does it behave differently from a linked worktree than from a main checkout?** No. `ci.yml` and `e2e-shard.mjs` are found relative to the script's own file location, which is the worktree's own copy in both cases, and nothing consults `GIT_DIR`, the cwd or the main checkout.
+- **What happens on its first run?** There is no state to initialise: the temp directory is created fresh, and no cache or file from a previous run is read. It fails closed with a named assertion if the ci.yml e2e matrix, `max-parallel` and `DEFAULT_E2E_LEGS` disagree, which is the intended guard. Isolation transcript: `scripts/concertino/test-gate-in-isolation.sh HEL-1772 scripts/e2e-shard.selftest.mjs`.
