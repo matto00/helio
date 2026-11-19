@@ -1,4 +1,0 @@
-- `scripts/e2e-shard.mjs` — DEFAULT_E2E_LEGS 6 -> 7 (comment only otherwise)
-- `scripts/e2e-shard.selftest.mjs` — default-path fixtures derive from EXPECTED_SHARD_REPORTS; drift asserts carry messages
-- `.github/workflows/ci.yml` — e2e matrix 7 legs, max-parallel 7, comments
-- `playwright.config.ts`, `e2e/README.md`, `MISTAKES.md` — leg-count statements updated (comments/docs)
