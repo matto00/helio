@@ -35,6 +35,8 @@ import { entranceClassProps, useKeyedEntrance } from "../../../../shared/motion/
 import { getOutputId } from "../../state/panelNarrowing";
 import { useInsightChrome } from "../../insight/insightChromeStore";
 import { usePanelData } from "../../hooks/usePanelData";
+import { usePanelReadScope } from "../../state/panelReadScope";
+import { refreshPanelStatusNow } from "../../state/panelStatusStore";
 import { useOutputRetention } from "../../hooks/useOutputRetention";
 import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import type { Panel } from "../../types/panel";
@@ -73,10 +75,20 @@ function MobileStackPanelBody({ panel, compact }: { panel: Panel; compact?: bool
   // HEL-1656: only output-bound panels join the pull-to-refresh fan-out; every other kind has nothing to re-request.
   // HEL-1744: an insight panel's refresh re-reads its stored insight (published by its body), not its rows.
   const insightChrome = useInsightChrome(outputId);
+  // HEL-1786 D3: in `panel` scope (a dashboard the caller does not own) a pull or the "Refresh dashboard" button also reads
+  // the dashboard panel-status at once (one in-flight read however many panels ask), so the freshness line and the badge
+  // update with the rows instead of waiting for the next poll. It is a per-panel route read, never an Output or pipeline route.
+  const scope = usePanelReadScope(panel);
+  const statusDashboardId = scope.kind === "panel" ? scope.dashboardId : null;
+  const rowsRefresh = insightChrome ? insightChrome.refetch : panelData.queueRefresh;
+  const pullRefresh = useCallback(() => {
+    if (statusDashboardId !== null) refreshPanelStatusNow(statusDashboardId);
+    rowsRefresh();
+  }, [statusDashboardId, rowsRefresh]);
   usePullRefreshRegistration(
     panel.id,
     outputId !== null,
-    insightChrome ? insightChrome.refetch : panelData.queueRefresh,
+    pullRefresh,
     panelData.isRefreshing === true,
   );
   // evaluation-1.md CR1/CR2 (cycle 2) — this component does NOT need its own

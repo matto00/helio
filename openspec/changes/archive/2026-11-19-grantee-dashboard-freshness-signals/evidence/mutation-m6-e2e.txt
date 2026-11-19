@@ -1,0 +1,12 @@
+> helio@0.7.4 e2e
+> playwright test e2e/hel1786-shared-dashboard-freshness.spec.ts --workers=2 --reporter=line
+Running 3 tests using 1 worker
+[1/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795085884233-70057@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795085884698-60206@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795085884988-74952@example.test
+[2/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[3/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:328:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control
+[HEL-1301 e2e] deleted 3 recorded throwaway user(s)
+  3 passed (40.2s)

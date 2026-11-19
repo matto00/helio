@@ -6,6 +6,11 @@ import { renderWithStore } from "../../../../test/renderWithStore";
 import { makeOutputPanel } from "../../../../test/panelFixtures";
 import { PanelGrid } from "./PanelGrid";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // HEL-1575 C7 (proceed-round-3) -- red-first behaviour change: pending panel title/appearance edits
 // are flushed when the grid UNMOUNTS (a dashboard switch remounts the grid, keyed by dashboard id),
 // instead of waiting for the next grid's 30 s auto-save; and a successful batch save clears only the

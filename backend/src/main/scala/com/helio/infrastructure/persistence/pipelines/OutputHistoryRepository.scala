@@ -6,8 +6,10 @@ import com.helio.infrastructure.persistence.DbContext
 import com.helio.infrastructure.persistence.pipelines.OutputRepository.jsObjectColumnType
 import org.slf4j.LoggerFactory
 import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.SetParameter
 import spray.json.JsObject
 
+import java.sql.{Timestamp, Types}
 import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,6 +62,10 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
 
   import OutputHistoryRepository._
 
+  private implicit val setTextArray: SetParameter[Vector[String]] = SetParameter { (v, pp) =>
+    pp.setObject(pp.ps.getConnection.createArrayOf("text", v.toArray[AnyRef]), Types.ARRAY)
+  }
+
   private val log   = LoggerFactory.getLogger(getClass)
   private val table = TableQuery[HistoryTable]
 
@@ -91,6 +97,22 @@ class OutputHistoryRepository(ctx: DbContext)(implicit ec: ExecutionContext) {
     ctx.withSystemContext(
       table.filter(r => r.outputId === outputId && r.capturedAt <= at).sortBy(r => (r.capturedAt.desc, r.id.desc)).take(1).result
     ).map(_.headOption.map(toPoint))
+
+  /** The newest point's `captured_at` per Output, for the Outputs that have one (HEL-1786). One statement for any number of
+   *  Outputs, shaped as one LATERAL `LIMIT 1` probe of the `(output_id, captured_at DESC)` index per Output so the cost never
+   *  depends on how many points an Output has. Privileged pool: the caller has already authorized the dashboard these Outputs
+   *  are bound on (a dashboard-only grantee's user context sees no history row: `output_snapshot_history_select` needs
+   *  pipeline access). */
+  def latestCapturedAtInternal(outputIds: Vector[String]): Future[Map[String, Instant]] =
+    if (outputIds.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(
+        sql"""SELECT o.id, h.captured_at
+              FROM unnest(${outputIds}) AS o(id)
+              JOIN LATERAL (SELECT captured_at FROM output_snapshot_history
+                            WHERE output_id = o.id
+                            ORDER BY captured_at DESC LIMIT 1) h ON true""".as[(String, Timestamp)]
+      ).map(_.map { case (id, at) => id -> at.toInstant }.toMap)
 
   /** The oldest point's `captured_at` (the "comparison available from" date). */
   def earliest(outputId: String): Future[Option[Instant]] =

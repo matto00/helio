@@ -1,0 +1,69 @@
+> helio@0.7.4 e2e
+> playwright test e2e/hel1786-shared-dashboard-freshness.spec.ts --workers=2 --reporter=line
+Running 3 tests using 1 worker
+[1/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795085729018-48410@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795085729490-26809@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795085729752-92364@example.test
+  1) [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only 
+    Error: expect(locator).toHaveText(expected) failed
+    Locator: locator('.dashboard-meta-row__facts').locator('.dashboard-meta-row__refresh')
+    Expected pattern: /^(refreshed|last run failed) /
+    Received: <element(s) not found>
+    Timeout: 5000ms
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.dashboard-meta-row__facts').locator('.dashboard-meta-row__refresh')
+      291 |       // The latest run on the dashboard can be either pipeline's (a dataset write also arms an auto-run that may fire a blocked
+      292 |       // run of the checked pipeline later), so the fact reads "refreshed" or "last run failed", never absent.
+    > 293 |       await expect(facts.locator(".dashboard-meta-row__refresh")).toHaveText(
+          |                                                                   ^
+      294 |         /^(refreshed|last run failed) /,
+      295 |       );
+      296 |       await expect(facts).toContainText(SOURCE_NAME);
+        at <worktree>/e2e/hel1786-shared-dashboard-freshness.spec.ts:293:67
+    Error Context: test-results/hel1786-shared-dashboard-f-bc6d8-rough-per-panel-routes-only-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1786-shared-dashboard-f-bc6d8-rough-per-panel-routes-only-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1786-shared-dashboard-f-bc6d8-rough-per-panel-routes-only-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+[2/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795085739403-61362@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795085739844-74579@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795085740107-15824@example.test
+  2) [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only 
+    Error: expect(locator).toHaveText(expected) failed
+    Locator: locator('.dashboard-meta-row__facts').locator('.dashboard-meta-row__refresh')
+    Expected pattern: /^(refreshed|last run failed) /
+    Received: <element(s) not found>
+    Timeout: 5000ms
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.dashboard-meta-row__facts').locator('.dashboard-meta-row__refresh')
+      291 |       // The latest run on the dashboard can be either pipeline's (a dataset write also arms an auto-run that may fire a blocked
+      292 |       // run of the checked pipeline later), so the fact reads "refreshed" or "last run failed", never absent.
+    > 293 |       await expect(facts.locator(".dashboard-meta-row__refresh")).toHaveText(
+          |                                                                   ^
+      294 |         /^(refreshed|last run failed) /,
+      295 |       );
+      296 |       await expect(facts).toContainText(SOURCE_NAME);
+        at <worktree>/e2e/hel1786-shared-dashboard-freshness.spec.ts:293:67
+    Error Context: test-results/hel1786-shared-dashboard-f-ae9de-rough-per-panel-routes-only-dev/error-context.md
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/hel1786-shared-dashboard-f-ae9de-rough-per-panel-routes-only-dev/trace.zip
+    Usage:
+        npx playwright show-trace test-results/hel1786-shared-dashboard-f-ae9de-rough-per-panel-routes-only-dev/trace.zip
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+[3/3] [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:328:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control
+[dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:328:7 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer on a phone: the refreshed caption and the Refresh dashboard control
+[HEL-1300 e2e] throwaway user: hel1786-owner-1795085748990-66462@example.test
+[HEL-1300 e2e] throwaway user: hel1786-viewer-1795085749441-89900@example.test
+[HEL-1300 e2e] throwaway user: hel1786-editor-1795085749716-82586@example.test
+[HEL-1301 e2e] deleted 9 recorded throwaway user(s)
+  2 failed
+    [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › viewer: freshness fact, invalid badge and run-finish refresh, through per-panel routes only 
+    [dev] › e2e/hel1786-shared-dashboard-freshness.spec.ts:280:9 › HEL-1786 dashboard grantees get freshness, run-finish refresh and the invalid badge › editor: freshness fact, invalid badge and run-finish refresh, through per-panel routes only 
+  1 passed (24.3s)

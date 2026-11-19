@@ -12,6 +12,11 @@ import { usePanelPolling } from "../hooks/usePanelPolling";
 import { usePanelRunRefresh } from "../hooks/usePanelRunRefresh";
 import { PanelCard } from "./PanelCard";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 jest.mock("../../telemetry/track", () => ({ track: jest.fn() }));
 jest.mock("../hooks/usePanelData", () => ({ usePanelData: jest.fn() }));
 jest.mock("../hooks/usePanelPolling", () => ({ usePanelPolling: jest.fn() }));

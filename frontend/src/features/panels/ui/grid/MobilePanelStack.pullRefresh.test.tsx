@@ -12,6 +12,11 @@ import {
 } from "./pullRefreshRegistry";
 import { useContext, useEffect } from "react";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // HEL-1656 stack wiring: a release past the threshold refreshes each output-bound panel once (none for a markdown
 // panel), holds busy while a request is held open, and announces Refreshing then Refreshed. Recorded mutations: see the
 // notes beside each test.

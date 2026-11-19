@@ -26,6 +26,11 @@ import { panelsReducer } from "../state/panelsSlice";
 import type { Panel } from "../types/panel";
 import { PanelCardBody } from "./PanelCardBody";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 jest.mock("../../pipelines/services/outputService", () => ({
   ...jest.requireActual("../../pipelines/services/outputService"),
   getOutputRows: jest.fn(),

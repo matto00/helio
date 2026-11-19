@@ -1,0 +1,990 @@
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[info] done compiling
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+[warn] multiple main classes detected: run 'show discoveredMainClasses' to see the list
+WARNING: Unknown module: java.nio.channels.spi specified to --add-opens
+03:19:09,136 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found logback-core version 1.5.38
+03:19:09,136 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5090bffc - No custom configurators were discovered as a service.
+03:19:09,136 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5090bffc - Trying to configure with ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:19:09,137 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5090bffc - Constructed configurator of type class ch.qos.logback.classic.util.DefaultJoranConfigurator
+03:19:09,138 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Could NOT find resource [logback-test.xml]
+03:19:09,139 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback.xml] at [jar:file:<worktree>/backend/target/out/jvm/scala-2.13.15/helio-backend/helio-backend_2.13-0.1.0-SNAPSHOT.jar!/logback.xml]
+03:19:09,168 |-INFO in ch.qos.logback.classic.model.processor.ConfigurationModelHandlerFull - Scan attribute not set or set to unrecognized value.
+03:19:09,170 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3890ba8d - value "INFO" substituted for "${LOG_LEVEL:-INFO}"
+03:19:09,170 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - About to instantiate property definer of type [com.helio.logging.LogFormatPropertyDefiner]
+03:19:09,172 |-INFO in ch.qos.logback.core.model.processor.DefineModelHandler - Setting property LOG_APPENDER=plain in scope LOCAL
+03:19:09,173 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3890ba8d - value "plain" substituted for "${LOG_APPENDER}"
+03:19:09,173 |-WARN in ch.qos.logback.core.model.processor.AppenderModelHandler - Appender named [json] not referenced. Skipping further processing.
+03:19:09,173 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [plain]
+03:19:09,173 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+03:19:09,176 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+03:19:09,188 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - NOTE: Writing to the console can be slow. Try to avoid logging to the 
+03:19:09,188 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - console in production environments, especially in high volume systems.
+03:19:09,188 |-INFO in ch.qos.logback.core.ConsoleAppender[plain] - See also https://logback.qos.ch/codes.html#slowConsole
+03:19:09,188 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3890ba8d - value "INFO" substituted for "${LOG_LEVEL}"
+03:19:09,188 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to INFO
+03:19:09,189 |-INFO in ch.qos.logback.core.model.processor.ModelInterpretationContext@3890ba8d - value "plain" substituted for "${LOG_APPENDER}"
+03:19:09,189 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [plain] to Logger[ROOT]
+03:19:09,189 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@396cb09c - End of configuration.
+03:19:09,189 |-INFO in ch.qos.logback.classic.joran.JoranConfigurator@37ced141 - Registering current configuration as safe fallback point
+03:19:09,192 |-INFO in ch.qos.logback.classic.util.ContextInitializer@5090bffc - ch.qos.logback.classic.util.DefaultJoranConfigurator.configure() call lasted 52 milliseconds. ExecutionStatus=DO_NOT_INVOKE_NEXT_IF_ANY
+03:19:09.195 INFO  [com-helio-api-http-ExistenceNotLeakedRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] ExistenceNotLeakedRoutesSpec:
+03:19:09.787 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Detected a Linux x86_64 system
+03:19:09.811 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - Detected distribution: 'Arch'
+03:19:09.813 INFO  [pool-1-thread-1] i.z.t.d.p.e.DefaultPostgresBinaryResolver - System specific postgres binaries found: 'postgres-linux-x86_64.txz'
+03:19:09.842 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - Postgres binaries at /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg1589923731361233539 ... ok
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+03:19:09.849 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+03:19:09.855 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+03:19:09.864 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+03:19:09.870 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+03:19:09.870 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+03:19:09.941 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+03:19:10.144 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg1589923731361233539 -l logfile start
+03:19:10.148 INFO  [initdb:pid(1311422)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:10.149 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 868e3740-aee2-4db2-95d1-6c34c5b9c523 initdb completed in 00:00:00.306
+03:19:10.152 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 868e3740-aee2-4db2-95d1-6c34c5b9c523 postmaster started as Process[pid=1311433, exitValue="not exited"] on port 43717.  Waiting up to PT10S for server startup to finish.
+03:19:10.168 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-19 03:19:10.168 PST [1311436] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+03:19:10.169 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:10.169 PST [1311436] LOG:  listening on IPv6 address "::1", port 43717
+03:19:10.169 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:10.169 PST [1311436] LOG:  listening on IPv4 address "127.0.0.1", port 43717
+03:19:10.169 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:10.169 PST [1311436] LOG:  listening on Unix socket "/tmp/.s.PGSQL.43717"
+03:19:10.170 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:10.170 PST [1311437] LOG:  database system was shut down at 2026-11-19 03:19:10 PST
+03:19:10.172 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:10.172 PST [1311436] LOG:  database system is ready to accept connections
+03:19:10.255 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+03:19:10.256 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+03:19:10.292 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 868e3740-aee2-4db2-95d1-6c34c5b9c523 postmaster startup finished in 00:00:00.141
+03:19:10.398 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:43717/postgres?user=postgres (PostgreSQL 14.10)
+03:19:10.430 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+03:19:10.432 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 141 migrations (execution time 00:00.022s)
+03:19:10.440 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+03:19:10.472 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+03:19:10.478 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+03:19:10.490 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+03:19:10.495 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+03:19:10.499 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+03:19:10.503 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+03:19:10.507 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+03:19:10.510 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+03:19:10.513 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+03:19:10.515 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+03:19:10.518 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+03:19:10.521 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+03:19:10.525 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+03:19:10.527 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+03:19:10.529 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+03:19:10.531 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+03:19:10.534 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+03:19:10.537 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+03:19:10.541 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+03:19:10.544 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+03:19:10.546 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+03:19:10.548 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+03:19:10.551 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+03:19:10.553 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+03:19:10.556 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+03:19:10.559 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+03:19:10.561 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+03:19:10.563 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+03:19:10.565 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+03:19:10.567 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+03:19:10.570 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+03:19:10.572 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+03:19:10.574 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+03:19:10.577 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+03:19:10.586 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+03:19:10.590 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+03:19:10.596 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+03:19:10.602 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+03:19:10.605 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+03:19:10.609 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+03:19:10.610 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+03:19:10.614 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+03:19:10.620 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+03:19:10.625 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+03:19:10.630 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+03:19:10.634 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+03:19:10.637 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+03:19:10.640 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+03:19:10.646 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+03:19:10.651 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+03:19:10.654 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+03:19:10.656 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+03:19:10.662 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+03:19:10.665 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+03:19:10.667 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+03:19:10.669 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+03:19:10.672 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+03:19:10.674 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+03:19:10.675 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+03:19:10.677 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+03:19:10.679 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+03:19:10.681 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+03:19:10.684 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+03:19:10.687 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+03:19:10.691 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+03:19:10.693 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+03:19:10.694 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+03:19:10.696 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+03:19:10.698 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+03:19:10.700 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+03:19:10.702 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+03:19:10.703 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+03:19:10.705 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+03:19:10.707 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+03:19:10.709 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+03:19:10.712 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+03:19:10.714 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+03:19:10.716 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+03:19:10.718 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+03:19:10.721 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+03:19:10.723 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+03:19:10.725 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+03:19:10.728 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+03:19:10.731 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+03:19:10.733 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+03:19:10.736 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+03:19:10.739 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+03:19:10.741 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+03:19:10.743 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+03:19:10.745 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+03:19:10.751 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+03:19:10.758 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+03:19:10.764 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+03:19:10.768 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+03:19:10.771 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+03:19:10.783 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+03:19:10.808 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+03:19:10.810 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+03:19:10.812 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+03:19:10.819 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+03:19:10.831 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+03:19:10.834 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+03:19:10.836 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+03:19:10.839 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+03:19:10.840 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+03:19:10.843 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+03:19:10.845 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+03:19:10.847 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+03:19:10.851 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+03:19:10.853 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+03:19:10.855 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+03:19:10.857 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+03:19:10.860 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+03:19:10.861 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+03:19:10.863 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+03:19:10.869 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+03:19:10.872 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+03:19:10.875 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+03:19:10.879 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+03:19:10.880 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+03:19:10.883 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+03:19:10.884 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+03:19:10.886 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+03:19:10.888 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+03:19:10.888 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+03:19:10.891 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+03:19:10.892 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+03:19:10.894 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "122 - strip deleted panel layout items"
+03:19:10.896 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "123 - strip existing ghost layout items"
+03:19:10.898 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+03:19:10.900 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "124 - pipeline runs triggered by user"
+03:19:10.901 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "125 - auto run debounce guard retry count"
+03:19:10.903 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "126 - pipeline runs heartbeat"
+03:19:10.905 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "127 - dashboard layout version"
+03:19:10.908 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "128 - stored object deletions"
+03:19:10.912 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "129 - lock panels for deletion"
+03:19:10.914 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "130 - lock dashboards for output deletion"
+03:19:10.916 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "131 - patch set applied proposals"
+03:19:10.920 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "132 - form and conversation object deletions"
+03:19:10.925 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "133 - pipeline run rate window user cascade"
+03:19:10.928 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "134 - dashboard folders"
+03:19:10.934 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "135 - pipeline run step row counts"
+03:19:10.936 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "136 - pipeline runs pipeline started idx"
+03:19:10.938 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "137 - lock pipelines for definition writes"
+03:19:10.941 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "140 - assistant conversation model"
+03:19:10.942 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "141 - outputs kind insight"
+03:19:10.944 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "144 - auto run debounce write generation"
+03:19:10.948 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "145 - output insights"
+03:19:10.955 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 141 migrations to schema "public", now at version v145 (execution time 00:00.159s)
+[info] a stranger probing an owner-only route
+03:19:11.309 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:11.313 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:11.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:11.345 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:11.345 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:11.345 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:11.345 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET dashboard permissions
+03:19:12.177 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.177 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.178 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:12.178 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.178 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.178 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.178 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST dashboard permissions
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.320 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE dashboard public permission
+03:19:12.480 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.480 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.482 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:12.482 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.482 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.482 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.482 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE dashboard grantee permission
+03:19:12.642 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.643 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.643 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:12.644 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.644 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.644 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.644 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET share tokens
+03:19:12.858 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:12.859 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST share tokens
+03:19:13.054 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.054 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.055 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.055 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.055 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.055 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.055 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE share token
+03:19:13.192 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.193 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET pipeline permissions
+03:19:13.362 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.362 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.363 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.363 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.363 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.363 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.363 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST pipeline permissions
+03:19:13.480 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.480 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.481 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.481 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.481 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.481 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.481 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE pipeline grantee permission
+03:19:13.603 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.603 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET dashboard panels
+03:19:13.706 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.706 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET panel rows
+03:19:13.755 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.755 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.756 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.756 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.756 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.756 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.756 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET panel filter-capabilities
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.792 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.793 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET panel distinct-values
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.849 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET panel output-meta
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.885 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET panel provenance
+03:19:13.933 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.933 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.934 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:13.934 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.934 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.934 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:13.934 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET dashboard panel-status
+03:19:14.129 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.129 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.130 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.130 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.130 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.130 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.130 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET dashboard export
+03:19:14.302 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.302 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.304 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.304 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.304 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.304 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.304 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST dashboard duplicate
+03:19:14.471 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.471 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.472 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.472 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.472 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.472 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.472 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST dashboard layout repair
+03:19:14.654 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.655 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.656 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.656 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.656 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.656 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.656 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PATCH dashboard update
+03:19:14.828 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.829 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PATCH dashboard
+03:19:14.983 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.983 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.984 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:14.984 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.984 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.984 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:14.984 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE dashboard
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.159 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PUT dashboard folder
+03:19:15.314 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.315 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PUT dashboard contents
+03:19:15.478 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.479 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST dashboard auto-layout
+03:19:15.670 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.670 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.671 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:15.671 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.671 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.671 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.671 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST panel create
+03:19:15.840 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.840 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.840 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:15.840 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.841 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.841 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:15.841 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST panel batch create
+03:19:16.016 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.017 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: panel create
+03:19:16.221 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.221 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.222 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.222 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.222 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.222 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.222 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PATCH panel
+03:19:16.433 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.433 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.434 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.434 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.434 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.434 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.434 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE panel
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.614 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST panel duplicate
+03:19:16.785 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.785 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.786 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.786 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.786 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.786 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.786 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST panel updateBatch
+03:19:16.963 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:16.964 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST panel submit
+03:19:17.067 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.067 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.068 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.068 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.068 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.068 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.068 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: panel update
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.263 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: panel delete
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.452 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PATCH pipeline step
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE pipeline step
+03:19:17.685 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.685 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.686 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.686 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.686 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.686 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.686 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST pipeline step duplicate
+03:19:17.796 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.796 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.797 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.797 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.797 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.797 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.797 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: pipelineStep update
+03:19:17.913 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.913 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.914 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:17.914 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.914 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.914 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:17.914 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: pipelineStep delete
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.022 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set preview: pipelineStep update
+03:19:18.146 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.147 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set preview: pipelineStep delete
+03:19:18.266 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.266 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.267 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.267 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.267 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.267 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.267 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: pipelineStep create
+03:19:18.384 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.384 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.385 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.385 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.385 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.385 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.385 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: output update
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.564 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set apply: output delete
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.729 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set preview: output update
+03:19:18.870 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.870 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.870 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:18.871 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.871 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.871 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:18.871 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST patch-set preview: output delete
+03:19:19.026 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.026 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.027 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.027 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.027 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.027 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.027 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST dashboard ask
+03:19:19.169 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.169 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.169 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.169 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.169 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.170 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.170 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST insight refresh
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.281 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST output ask
+03:19:19.443 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.443 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.444 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.444 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.444 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.444 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.444 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET pipeline outputs
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.604 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST pipeline outputs
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.707 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET pipeline
+03:19:19.875 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:19.876 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: PATCH pipeline
+03:19:20.568 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.568 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:20.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.569 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: DELETE pipeline
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.713 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET pipeline analyze
+03:19:20.814 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.814 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.815 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:20.815 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.815 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.815 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.815 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST pipeline run
+03:19:20.910 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:20.911 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: GET pipeline run status
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.063 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should get an identical 404 for a foreign and a nonexistent id: POST pipeline dry run
+[info] GET /api/pipelines/:id/runs/:runId
+03:19:21.163 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.163 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.164 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:21.164 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.164 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.164 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.164 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should return a byte-identical 404 for foreign pipeline, absent pipeline, absent run, and a run of another pipeline
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.339 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should still serve the run to the owner and to a pipeline grantee
+[info] a grantee who can already see the resource
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:21.449 WARN  [pool-1-thread-1-ScalaTest-running-ExistenceNotLeakedRoutesSpec] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] - should still get 403 (not 404) for an operation their grant does not allow
+[info] the completeness guards
+[info] - should name every source file that calls a shared access helper in at least one table row
+[info] - should cover every (kind, op) the patch-set resolvers dispatch, or exempt it with a recorded reason
+[info] - should pin the per-file count of ServiceError.Forbidden producers so none ships unclassified
+03:19:21.728 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:21.728 PST [1311436] LOG:  received fast shutdown request
+03:19:21.728 INFO  [postgres:pid(1311433)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:21.728 PST [1311436] LOG:  aborting any active transactions
+03:19:21.828 INFO  [pg_ctl:pid(1312015)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+03:19:21.828 INFO  [pg_ctl:pid(1312015)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+03:19:21.828 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - 868e3740-aee2-4db2-95d1-6c34c5b9c523 shut down postmaster in 00:00:00.102
+03:19:21.870 INFO  [com-helio-api-http-ExistenceNotLeakedRoutesSpec-pekko.actor.default-dispatcher-4] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+03:19:21.910 INFO  [com-helio-api-routes-dashboards-DashboardPanelStatusRoutesSpec-pekko.actor.default-dispatcher-7] o.a.pekko.event.slf4j.Slf4jLogger - Slf4jLogger started
+[info] DashboardPanelStatusRoutesSpec:
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - The files belonging to this database system will be owned by user "matt".
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - This user must also own the server process.
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - The database cluster will be initialized with locale "en_US.UTF-8".
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - The default text search configuration will be set to "english".
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - Data page checksums are disabled.
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - fixing permissions on existing directory /tmp/epg10616259019293438610 ... ok
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - creating subdirectories ... ok
+03:19:21.936 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting dynamic shared memory implementation ... posix
+03:19:21.944 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default max_connections ... 100
+03:19:21.954 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default shared_buffers ... 128MB
+03:19:21.960 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - selecting default time zone ... America/Los_Angeles
+03:19:21.960 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - creating configuration files ... ok
+03:19:22.030 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - running bootstrap script ... ok
+03:19:22.247 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - performing post-bootstrap initialization ... ok
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - syncing data to disk ... ok
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - Success. You can now start the database server using:
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres -     /tmp/embedded-pg/PG-1a75b2fdb57c5cfc8674f29ebb0d831b/bin/pg_ctl -D /tmp/epg10616259019293438610 -l logfile start
+03:19:22.251 INFO  [initdb:pid(1312040)] i.z.t.d.p.embedded.EmbeddedPostgres - 
+03:19:22.252 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - b61a9a71-1f41-4299-814c-cc2b946e14a6 initdb completed in 00:00:00.324
+03:19:22.254 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - b61a9a71-1f41-4299-814c-cc2b946e14a6 postmaster started as Process[pid=1312051, exitValue="not exited"] on port 44173.  Waiting up to PT10S for server startup to finish.
+03:19:22.268 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to start....2026-11-19 03:19:22.268 PST [1312054] LOG:  starting PostgreSQL 14.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit
+03:19:22.268 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:22.268 PST [1312054] LOG:  listening on IPv6 address "::1", port 44173
+03:19:22.268 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:22.268 PST [1312054] LOG:  listening on IPv4 address "127.0.0.1", port 44173
+03:19:22.268 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:22.268 PST [1312054] LOG:  listening on Unix socket "/tmp/.s.PGSQL.44173"
+03:19:22.269 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:22.269 PST [1312055] LOG:  database system was shut down at 2026-11-19 03:19:22 PST
+03:19:22.271 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:22.271 PST [1312054] LOG:  database system is ready to accept connections
+03:19:22.357 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres -  done
+03:19:22.357 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - server started
+03:19:22.358 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - b61a9a71-1f41-4299-814c-cc2b946e14a6 postmaster startup finished in 00:00:00.105
+03:19:22.376 INFO  [pool-1-thread-1] org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:44173/postgres?user=postgres (PostgreSQL 14.10)
+03:19:22.386 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Schema history table "public"."flyway_schema_history" does not exist yet
+03:19:22.386 INFO  [pool-1-thread-1] o.f.core.internal.command.DbValidate - Successfully validated 141 migrations (execution time 00:00.007s)
+03:19:22.390 INFO  [pool-1-thread-1] o.f.c.i.s.JdbcTableSchemaHistory - Creating Schema History table "public"."flyway_schema_history" ...
+03:19:22.397 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Current version of schema "public": << Empty Schema >>
+03:19:22.398 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "1 - init"
+03:19:22.401 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "2 - cascade delete"
+03:19:22.403 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "3 - panel type"
+03:19:22.404 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "4 - data sources and types"
+03:19:22.406 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "5 - panel type binding"
+03:19:22.408 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "6 - users"
+03:19:22.410 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "7 - user sessions"
+03:19:22.411 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "8 - google oauth"
+03:19:22.413 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "9 - users schema fix"
+03:19:22.414 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "10 - owner id"
+03:19:22.417 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "11 - user sessions complete"
+03:19:22.419 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "12 - add computed fields to data types"
+03:19:22.420 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "13 - add sql source type"
+03:19:22.421 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "14 - data sources owner"
+03:19:22.422 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "15 - data types owner"
+03:19:22.423 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "16 - resource permissions"
+03:19:22.426 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "17 - add owner indexes"
+03:19:22.428 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "18 - user preferences"
+03:19:22.430 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "19 - panel content"
+03:19:22.431 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "20 - image panel type"
+03:19:22.433 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "21 - divider panel type"
+03:19:22.435 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "22 - pipelines"
+03:19:22.437 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "23 - pipeline steps"
+03:19:22.441 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "24 - pipeline runs"
+03:19:22.443 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "25 - add select op"
+03:19:22.445 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "26 - add limit op"
+03:19:22.447 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "27 - add sort op"
+03:19:22.448 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "28 - pipeline runs dry run status"
+03:19:22.450 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "29 - data type rows"
+03:19:22.453 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "30 - pipeline last run row count"
+03:19:22.455 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "31 - add aggregate op"
+03:19:22.457 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "32 - pipelines owner"
+03:19:22.462 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "33 - jsonb columns"
+03:19:22.468 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "34 - rls privileged role"
+03:19:22.472 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "35 - rls owner only tables"
+03:19:22.478 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "36 - rls sharing aware tables"
+03:19:22.483 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "37 - rls performance indexes"
+03:19:22.485 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "38 - rls privileged grants"
+03:19:22.488 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "39 - pipeline sharing grants"
+03:19:22.488 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "pipelines_select" for relation "pipelines" does not exist, skipping
+03:19:22.491 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "40 - fix rls policy function recursion"
+03:19:22.492 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "41 - pipeline only panel binding"
+03:19:22.494 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "42 - api tokens"
+03:19:22.497 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "43 - panel aggregation column"
+03:19:22.498 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "44 - panel metric literal columns"
+03:19:22.499 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "45 - hash session tokens"
+03:19:22.500 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "46 - binary refs"
+03:19:22.502 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "47 - add text source type"
+03:19:22.504 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "48 - add pdf source type"
+03:19:22.505 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "49 - add image source type"
+03:19:22.506 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "50 - add splittext op"
+03:19:22.507 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "51 - add extractheadings op"
+03:19:22.508 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "52 - add chunkbytokencount op"
+03:19:22.509 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "53 - panel column widths"
+03:19:22.510 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "54 - image uploads"
+03:19:22.512 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "55 - panel table display config"
+03:19:22.514 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "56 - panel chart options"
+03:19:22.515 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "57 - panel collection options"
+03:19:22.516 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "58 - panel timeline options"
+03:19:22.517 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "59 - panel caption annotation"
+03:19:22.518 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "60 - alert rules"
+03:19:22.521 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "61 - alert events"
+03:19:22.524 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "62 - pipeline schedules"
+03:19:22.526 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "63 - pipeline run trigger source"
+03:19:22.527 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "64 - add datebucket op"
+03:19:22.529 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "65 - add pivot op"
+03:19:22.530 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "66 - add window op"
+03:19:22.531 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "67 - add unpivot op"
+03:19:22.532 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "68 - add dedupe op"
+03:19:22.534 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "69 - add fillnull op"
+03:19:22.535 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "70 - add stringops op"
+03:19:22.536 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "71 - add union op"
+03:19:22.537 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "72 - add lookup op"
+03:19:22.539 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "73 - add resource tag"
+03:19:22.542 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "74 - api token scope and run audit"
+03:19:22.548 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "75 - metrics"
+03:19:22.557 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "76 - panel metric id"
+03:19:22.560 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "77 - authoring conversations"
+03:19:22.562 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "78 - refinement conversations"
+03:19:22.565 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "79 - patch set applications"
+03:19:22.569 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "80 - assistant conversations"
+03:19:22.572 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "81 - agent preferences"
+03:19:22.574 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "82 - agent memory"
+03:19:22.576 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "83 - add assert op"
+03:19:22.578 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "84 - pipeline run assertions"
+03:19:22.581 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "85 - pipeline last source schema"
+03:19:22.582 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "86 - pipeline steps enabled"
+03:19:22.584 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "87 - assistant conversation idempotency key"
+03:19:22.585 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "88 - user tier"
+03:19:22.587 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "89 - totp mfa"
+03:19:22.590 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "90 - invite codes"
+03:19:22.593 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "91 - audit events"
+03:19:22.596 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "92 - connector credentials"
+03:19:22.598 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "93 - connectors"
+03:19:22.606 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "94 - outputs model"
+03:19:22.634 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "95 - dashboard tag"
+03:19:22.637 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "96 - canonicalize inferred schema type"
+03:19:22.639 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "97 - discriminated secondary input"
+03:19:22.643 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "98 - pipeline roots"
+03:19:22.651 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "99 - prevent zero root pipelines"
+03:19:22.653 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "100 - zero root guard rls independent"
+03:19:22.655 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "101 - share tokens"
+03:19:22.659 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "102 - share tokens privileged grant"
+03:19:22.660 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "103 - pending connectors"
+03:19:22.662 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "104 - pipeline run truncation signal"
+03:19:22.663 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "105 - oauth states"
+03:19:22.665 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "106 - dataset rows"
+03:19:22.668 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "107 - add writeback ops"
+03:19:22.670 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "108 - add form panel kind"
+03:19:22.671 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "109 - pipeline run rate window"
+03:19:22.673 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "110 - pipeline auto run debounce"
+03:19:22.675 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "111 - safe cast functions"
+03:19:22.676 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "112 - add output panel controls"
+03:19:22.678 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "113 - product events"
+03:19:22.683 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "114 - backfill signup completed events"
+03:19:22.685 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "115 - output snapshot history"
+03:19:22.689 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "116 - node payload history"
+03:19:22.693 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "117 - migrate v94 dead output config keys"
+03:19:22.694 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1387_dropped_output_config_keys_deny_all" for relation "hel1387_dropped_output_config_keys" does not exist, skipping
+03:19:22.696 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "118 - map legacy metric format objects"
+03:19:22.698 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: policy "hel1410_migrated_output_formats_deny_all" for relation "hel1410_migrated_output_formats" does not exist, skipping
+03:19:22.699 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "119 - data sources image uploads owner fk"
+03:19:22.700 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned or ownerless data_sources rows (dataset_rows cascade)
+03:19:22.700 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - DB: HEL-1347: deleted 0 orphaned image_uploads rows
+03:19:22.702 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "120 - history retention captured at indexes"
+03:19:22.704 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "121 - monthly active users"
+03:19:22.705 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "122 - strip deleted panel layout items"
+03:19:22.707 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "123 - strip existing ghost layout items"
+03:19:22.708 INFO  [pool-1-thread-1] o.f.c.i.s.DefaultSqlScriptExecutor - +-----------------------------------+
+| hel1456_repair_ghost_layout_items |
++-----------------------------------+
+| 0                                 |
++-----------------------------------+
+03:19:22.710 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "124 - pipeline runs triggered by user"
+03:19:22.712 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "125 - auto run debounce guard retry count"
+03:19:22.713 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "126 - pipeline runs heartbeat"
+03:19:22.715 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "127 - dashboard layout version"
+03:19:22.717 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "128 - stored object deletions"
+03:19:22.722 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "129 - lock panels for deletion"
+03:19:22.725 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "130 - lock dashboards for output deletion"
+03:19:22.727 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "131 - patch set applied proposals"
+03:19:22.731 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "132 - form and conversation object deletions"
+03:19:22.741 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "133 - pipeline run rate window user cascade"
+03:19:22.744 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "134 - dashboard folders"
+03:19:22.748 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "135 - pipeline run step row counts"
+03:19:22.751 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "136 - pipeline runs pipeline started idx"
+03:19:22.753 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "137 - lock pipelines for definition writes"
+03:19:22.755 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "140 - assistant conversation model"
+03:19:22.757 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "141 - outputs kind insight"
+03:19:22.759 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "144 - auto run debounce write generation"
+03:19:22.761 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Migrating schema "public" to version "145 - output insights"
+03:19:22.764 INFO  [pool-1-thread-1] o.f.core.internal.command.DbMigrate - Successfully applied 141 migrations to schema "public", now at version v145 (execution time 00:00.129s)
+03:19:22.775 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+03:19:22.780 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@684f89d1
+03:19:22.781 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+03:19:22.781 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+03:19:22.783 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@7eacb1a7
+03:19:22.783 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+03:19:22.783 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+03:19:22.785 INFO  [pool-1-thread-1] com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@64600fe6
+03:19:22.785 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+03:19:22.790 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - insight renders disabled (each render records a failed attempt): Missing required environment variable ANTHROPIC_API_KEY
+03:19:22.790 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - pipeline 'analyzewithai' step disabled (falls back to ai-unavailable at run time): Missing required environment variable ANTHROPIC_API_KEY
+03:19:22.791 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/beta-access/request will return 503 (email unconfigured): Missing required environment variable RESEND_API_KEY
+03:19:22.791 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/authoring/dashboard disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:22.791 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/refinements disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:22.791 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/assistant-conversations/:id/converse disabled: Missing required environment variable ANTHROPIC_API_KEY
+03:19:22.791 WARN  [pool-1-thread-1] com.helio.api.ApiRoutes - POST /api/dashboards/:id/ask and /api/outputs/:id/ask disabled: Missing required environment variable ANTHROPIC_API_KEY
+[info] GET /api/dashboards/:id/panel-status
+[HEL-1786 RLS] role=helio_app_test panel-status as owner: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as viewer: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as editor: 200
+[HEL-1786 RLS] role=helio_app_test panel-status as dual-grant: 200
+[HEL-1786 RLS] role=helio_app_test stranger=404 unknown=404
+[info] - should answer a dashboard-only viewer, editor and dual-grant user 200 with the run facts, a stranger and an unknown id the same 404, no session 401
+[info] - should report invalid after a real run failed an error-severity assertion on the Output's step, not for a dry run, a warn or another step
+[info] - should keep dataUpdatedAt on the committed history point: lastRunAt advancing alone does not move it
+[info] - should map a failed run to failed and a never-run pipeline to nulls
+[info] - should list only the sources the dashboard's Outputs read, not every root of the pipeline
+[info] - should carry only the allow-listed keys and no identifier, step name or error text
+[info] - should list the dashboard's own panels only
+[info] - should conform to dashboard-panel-status-response.schema.json
+[HEL-1786 RLS] (a) dashboard-only viewer SELECT outputs=0 pipelines=0 output_snapshot_history=0
+[HEL-1786 RLS] (b) dashboard-only viewer GET panel-status=200 lastRunAt="2026-11-10T10:00:00Z" dataUpdatedAt="2026-11-10T10:00:00Z" sources=["Sales CSV"]
+[info] - should work for a dashboard-only grantee because of the internal reads, not because RLS is bypassed
+03:19:24.066 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+03:19:24.067 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+03:19:24.068 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+03:19:24.068 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+03:19:24.068 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+03:19:24.069 INFO  [pool-1-thread-1] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+03:19:24.070 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:24.070 PST [1312054] LOG:  received fast shutdown request
+03:19:24.070 INFO  [postgres:pid(1312051)] i.z.t.d.p.embedded.EmbeddedPostgres - 2026-11-19 03:19:24.070 PST [1312054] LOG:  aborting any active transactions
+03:19:24.171 INFO  [pg_ctl:pid(1312153)] i.z.t.d.p.embedded.EmbeddedPostgres - waiting for server to shut down.... done
+03:19:24.171 INFO  [pg_ctl:pid(1312153)] i.z.t.d.p.embedded.EmbeddedPostgres - server stopped
+03:19:24.171 INFO  [pool-1-thread-1] i.z.t.d.p.embedded.EmbeddedPostgres - b61a9a71-1f41-4299-814c-cc2b946e14a6 shut down postmaster in 00:00:00.102
+03:19:24.196 INFO  [com-helio-api-routes-dashboards-DashboardPanelStatusRoutesSpec-pekko.actor.default-dispatcher-8] o.a.pekko.actor.CoordinatedShutdown - Running CoordinatedShutdown with reason [ActorSystemTerminateReason]
+[info] [hel1468-guard] ScalaTest summary: failed=0 aborted=0 unreadable=0
+[info] Run completed in 15 seconds, 865 milliseconds.
+[info] Total number of tests run: 75
+[info] Suites: completed 2, aborted 0
+[info] Tests: succeeded 75, failed 0, canceled 0, ignored 0, pending 0
+[info] All tests passed.
+[success] elapsed time: 17 s, cache 90%, 28 disk cache hits, 3 onsite tasks

@@ -385,8 +385,12 @@ test.describe("HEL-1773 dashboard grantees open a shared dashboard", () => {
         .locator(".dashboard-list__shared-badge"),
     ).toHaveCount(0);
 
-    // The meta row states only the panel count: its refresh and source facts come from Output and pipeline routes.
-    await expect(viewer.page.locator(".dashboard-meta-row__facts")).toHaveText("2 panels");
+    // The meta row states the panel count and (HEL-1786) the refresh and source facts, which come from the dashboard
+    // panel-status route, not the Output and pipeline routes the invariant below forbids.
+    const facts = viewer.page.locator(".dashboard-meta-row__facts");
+    await expect(facts).toContainText("2 panels");
+    await expect(facts.locator(".dashboard-meta-row__refresh")).toHaveText(/refreshed/);
+    await expect(facts).toContainText("HEL1773 source");
 
     // No editing affordance of any kind.
     await expectNoEditingControls(viewer.page);

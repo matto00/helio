@@ -5,7 +5,7 @@ import com.helio.services.audit.AuditService
 import com.helio.services.auth.AccessChecker
 import com.helio.api.protocols.pipelines.{AssertionStatusResponse, CreateOutputRequest, DeleteOutputResponse, OutputPanelPlacementResponse, OutputRowsResponse, UpdateOutputRequest}
 import com.helio.domain.outputs.InsightReadsCheck
-import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineRunId, PipelineStepId, ResourceAccess}
+import com.helio.domain.model.{AuthenticatedUser, NodeRef, Output, OutputId, OutputKind, Page, PagedResult, PipelineId, PipelineStepId, ResourceAccess}
 import com.helio.infrastructure.persistence.pipelines.{NodeSnapshotRepository, OutputRepository, PipelineRootRepository, PipelineRunRepository}
 import com.helio.infrastructure.persistence.panels.PanelRepository
 import org.slf4j.LoggerFactory
@@ -327,7 +327,7 @@ final class OutputService(
    *  `pipeline_runs` table (`onDryRunSuccess` sequences `insertAssertions` after it specifically
    *  so the row exists as the assertions' FK parent); `listByPipelineInternal` has no status
    *  filter and returns dry runs sorted alongside real ones. Filtering `status != "dry_run"`
-   *  explicitly below is therefore load-bearing, not defensive dead code -- without it, a
+   *  explicitly (now in `AssertionStatusRule`) is therefore load-bearing, not defensive dead code -- without it, a
    *  preview (dry) run's assertion outcome could be reported as the pipeline's real last-run
    *  status. */
   def assertionStatus(id: OutputId, user: AuthenticatedUser): Future[Either[ServiceError, AssertionStatusResponse]] =
@@ -336,16 +336,9 @@ final class OutputService(
       case Some(output) if output.node.stepId.isEmpty || pipelineRunRepo == null =>
         Future.successful(Right(AssertionStatusResponse(id.value, invalid = false, failedRuleCount = 0)))
       case Some(output) =>
-        val stepId = output.node.stepId.get.value
-        pipelineRunRepo.listByPipelineInternal(output.node.pipelineId).flatMap { runs =>
-          runs.find(_.status != "dry_run") match {
-            case None => Future.successful(Right(AssertionStatusResponse(id.value, invalid = false, failedRuleCount = 0)))
-            case Some(latestRealRun) =>
-              pipelineRunRepo.listAssertionsByRunInternal(PipelineRunId(latestRealRun.id)).map { assertions =>
-                val failedCount = assertions.count(a => a.stepId == stepId && a.severity == "error" && !a.passed)
-                Right(AssertionStatusResponse(id.value, invalid = failedCount > 0, failedRuleCount = failedCount))
-              }
-          }
+        AssertionStatusRule.latestRealRunAssertions(pipelineRunRepo, output.node.pipelineId).map { assertions =>
+          val failedCount = AssertionStatusRule.failedErrorCount(output, assertions)
+          Right(AssertionStatusResponse(id.value, invalid = failedCount > 0, failedRuleCount = failedCount))
         }
     }
 

@@ -21,6 +21,11 @@ import type { DashboardLayout } from "../../../dashboards/types/dashboard";
 import { usePanelData } from "../../hooks/usePanelData";
 import { MobilePanelStack } from "../grid/MobilePanelStack";
 
+// HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
+jest.mock("../../services/panelStatusService", () => ({
+  fetchDashboardPanelStatus: jest.fn(() => new Promise(() => {})),
+}));
+
 // This suite's tree includes a chart panel path — `ChartPanel.tsx` renders via
 // `echarts-for-react/esm/core` (F-022, tree-shaken `echarts/core`
 // registration) rather than the default `echarts-for-react` export. Mirrors

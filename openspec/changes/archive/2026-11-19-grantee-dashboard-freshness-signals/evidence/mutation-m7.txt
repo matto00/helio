@@ -1,0 +1,446 @@
+> helio-frontend@0.0.0 test
+> jest --config jest.config.cjs --passWithNoTests --maxWorkers=3 --testPathPatterns=PanelCardBody.statusRefresh
+FAIL src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx (5.493 s)
+  ● PanelCardBody run-finish refresh in panel scope › a viewer's panel re-reads its rows when the status route reports newer data, and not before
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+    Expected number of calls: 2
+    Received number of calls: 1
+    Ignored nodes: comments, script, style
+    <html>
+      <head />
+      <body>
+        <div>
+          <div
+            aria-label="Panel controls"
+            class="output-viewer-control-bar"
+            role="group"
+          >
+            <div
+              class="output-viewer-control-bar__control"
+            >
+              <span
+                aria-hidden="true"
+                class="output-viewer-control-bar__label"
+              >
+                Region
+              </span>
+              <div
+                class="ui-select"
+              >
+                <button
+                  aria-controls="_r_0_-listbox"
+                  aria-expanded="false"
+                  aria-haspopup="listbox"
+                  aria-label="Region"
+                  class="ui-select__trigger"
+                  role="combobox"
+                  type="button"
+                >
+                  <span
+                    class="ui-select__trigger-label"
+                  >
+                    All
+                  </span>
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-chevron-down ui-select__chevron"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="m6 9 6 6 6-6"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            class="crossfade"
+          >
+            <div
+              class="crossfade__layer crossfade__content--entering"
+            >
+              <div
+                class="panel-content panel-content--table"
+              >
+                <div
+                  class="ui-data-grid__frame ui-data-grid__frame--full ui-data-grid--normal"
+                >
+                  <div
+                    class="ui-data-grid__filter-toolbar"
+                  >
+                    <button
+                      aria-expanded="false"
+                      class="ui-data-grid__filter-toggle-btn"
+                      type="button"
+                    >
+                      Filters
+                    </button>
+                  </div>
+                  <div
+                    aria-label="Data grid"
+                    class="ui-data-grid ui-data-grid--full ui-data-grid--normal"
+                    role="region"
+                  >
+                    <table
+                      aria-rowcount="2"
+                      class="ui-data-grid__table"
+                    >
+                      <thead>
+                        <tr
+                          aria-rowindex="1"
+                          class="ui-data-grid__header-row"
+                        >
+                          <th
+                            aria-sort="none"
+                            class="ui-data-grid__th--pin-reserve"
+                            style="width: 160px;"
+                            title="region"
+                          >
+                            <button
+                              class="sortable-th__btn"
+                              type="button"
+                            >
+                              <span
+                                class="sortable-th__label"
+                              >
+                                region
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-up-down sortable-th__glyph sortable-th__glyph--neutral"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="m21 16-4 4-4-4"
+                                />
+                                <path
+                                  d="M17 20V4"
+                                />
+                                <path
+                                  d="m3 8 4-4 4 4"
+                                />
+                                <path
+                                  d="M7 4v16"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              aria-label="Pin column region"
+                              aria-pressed="false"
+                              class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs ui-data-grid__pin-toggle-btn"
+                              title="Pin"
+                              type="button"
+                            >
+                              <span
+                                aria-hidden="true"
+                                class="ui-icon-btn__icon"
+                              >
+                                <svg
+                                  aria-hidden="true"
+                                  class="lucide lucide-pin"
+                                  fill="none"
+                                  height="14"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M12 17v5"
+                                  />
+                                  <path
+                                    d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+                                  />
+                                </svg>
+                              </span>
+                            </button>
+                            <span
+                              aria-label="Resize column region"
+                              aria-orientation="vertical"
+                              class="ui-data-grid__resize-handle"
+                              role="separator"
+                              tabindex="0"
+                            />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          aria-rowindex="2"
+                        >
+                          <td>
+                            East
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="sr-only"
+            role="status"
+          >
+            1 result.
+          </div>
+        </div>
+      </body>
+    </html>
+      219 |         await Promise.resolve();
+      220 |       });
+    > 221 |       await waitFor(() => expect(fetchPublicPanelRows).toHaveBeenCalledTimes(baseline + 1));
+          |                                                        ^
+      222 |       expect(outputService.getOutputRows).not.toHaveBeenCalled();
+      223 |       expect(outputService.getOutputById).toHaveBeenCalledTimes(outputByIdCalls);
+      224 |     },
+      at src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx:221:56
+      at runWithExpensiveErrorDiagnosticsDisabled (node_modules/@testing-library/dom/dist/config.js:47:12)
+      at checkCallback (node_modules/@testing-library/dom/dist/wait-for.js:124:77)
+      at checkRealTimersCallback (node_modules/@testing-library/dom/dist/wait-for.js:118:16)
+      at Timeout.task [as _onTimeout] (node_modules/jsdom/lib/jsdom/browser/Window.js:579:19)
+  ● PanelCardBody run-finish refresh in panel scope › a editor's panel re-reads its rows when the status route reports newer data, and not before
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+    Expected number of calls: 2
+    Received number of calls: 1
+    Ignored nodes: comments, script, style
+    <html>
+      <head />
+      <body>
+        <div>
+          <div
+            aria-label="Panel controls"
+            class="output-viewer-control-bar"
+            role="group"
+          >
+            <div
+              class="output-viewer-control-bar__control"
+            >
+              <span
+                aria-hidden="true"
+                class="output-viewer-control-bar__label"
+              >
+                Region
+              </span>
+              <div
+                class="ui-select"
+              >
+                <button
+                  aria-controls="_r_1_-listbox"
+                  aria-expanded="false"
+                  aria-haspopup="listbox"
+                  aria-label="Region"
+                  class="ui-select__trigger"
+                  role="combobox"
+                  type="button"
+                >
+                  <span
+                    class="ui-select__trigger-label"
+                  >
+                    All
+                  </span>
+                  <svg
+                    aria-hidden="true"
+                    class="lucide lucide-chevron-down ui-select__chevron"
+                    fill="none"
+                    height="14"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    viewBox="0 0 24 24"
+                    width="14"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="m6 9 6 6 6-6"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            class="crossfade"
+          >
+            <div
+              class="crossfade__layer crossfade__content--entering"
+            >
+              <div
+                class="panel-content panel-content--table"
+              >
+                <div
+                  class="ui-data-grid__frame ui-data-grid__frame--full ui-data-grid--normal"
+                >
+                  <div
+                    class="ui-data-grid__filter-toolbar"
+                  >
+                    <button
+                      aria-expanded="false"
+                      class="ui-data-grid__filter-toggle-btn"
+                      type="button"
+                    >
+                      Filters
+                    </button>
+                  </div>
+                  <div
+                    aria-label="Data grid"
+                    class="ui-data-grid ui-data-grid--full ui-data-grid--normal"
+                    role="region"
+                  >
+                    <table
+                      aria-rowcount="2"
+                      class="ui-data-grid__table"
+                    >
+                      <thead>
+                        <tr
+                          aria-rowindex="1"
+                          class="ui-data-grid__header-row"
+                        >
+                          <th
+                            aria-sort="none"
+                            class="ui-data-grid__th--pin-reserve"
+                            style="width: 160px;"
+                            title="region"
+                          >
+                            <button
+                              class="sortable-th__btn"
+                              type="button"
+                            >
+                              <span
+                                class="sortable-th__label"
+                              >
+                                region
+                              </span>
+                              <svg
+                                aria-hidden="true"
+                                class="lucide lucide-arrow-up-down sortable-th__glyph sortable-th__glyph--neutral"
+                                fill="none"
+                                height="14"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                                width="14"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="m21 16-4 4-4-4"
+                                />
+                                <path
+                                  d="M17 20V4"
+                                />
+                                <path
+                                  d="m3 8 4-4 4 4"
+                                />
+                                <path
+                                  d="M7 4v16"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              aria-label="Pin column region"
+                              aria-pressed="false"
+                              class="ui-icon-btn ui-icon-btn--ghost ui-icon-btn--xs ui-data-grid__pin-toggle-btn"
+                              title="Pin"
+                              type="button"
+                            >
+                              <span
+                                aria-hidden="true"
+                                class="ui-icon-btn__icon"
+                              >
+                                <svg
+                                  aria-hidden="true"
+                                  class="lucide lucide-pin"
+                                  fill="none"
+                                  height="14"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M12 17v5"
+                                  />
+                                  <path
+                                    d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+                                  />
+                                </svg>
+                              </span>
+                            </button>
+                            <span
+                              aria-label="Resize column region"
+                              aria-orientation="vertical"
+                              class="ui-data-grid__resize-handle"
+                              role="separator"
+                              tabindex="0"
+                            />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr
+                          aria-rowindex="2"
+                        >
+                          <td>
+                            East
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="sr-only"
+            role="status"
+          >
+            1 result.
+          </div>
+        </div>
+      </body>
+    </html>
+      219 |         await Promise.resolve();
+      220 |       });
+    > 221 |       await waitFor(() => expect(fetchPublicPanelRows).toHaveBeenCalledTimes(baseline + 1));
+          |                                                        ^
+      222 |       expect(outputService.getOutputRows).not.toHaveBeenCalled();
+      223 |       expect(outputService.getOutputById).toHaveBeenCalledTimes(outputByIdCalls);
+      224 |     },
+      at src/features/panels/ui/PanelCardBody.statusRefresh.test.tsx:221:56
+      at runWithExpensiveErrorDiagnosticsDisabled (node_modules/@testing-library/dom/dist/config.js:47:12)
+      at checkCallback (node_modules/@testing-library/dom/dist/wait-for.js:124:77)
+      at checkRealTimersCallback (node_modules/@testing-library/dom/dist/wait-for.js:118:16)
+      at Timeout.task [as _onTimeout] (node_modules/jsdom/lib/jsdom/browser/Window.js:579:19)
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 1 passed, 3 total
+Snapshots:   0 total
+Time:        6.014 s
+Ran all test suites matching PanelCardBody.statusRefresh.

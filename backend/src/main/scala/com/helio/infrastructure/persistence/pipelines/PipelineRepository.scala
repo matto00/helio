@@ -67,6 +67,14 @@ class PipelineRepository(
       pipelinesTable.filter(_.id === id.value).result.headOption
     ).map(_.map(rowToPipeline))
 
+  /** ACL-bypassing batch read by id, one query (HEL-1786: the dashboard panel-status route reads the last-run columns of
+   *  every pipeline feeding a dashboard). Same caller contract as [[findByIdInternal]]; an id that no longer resolves is absent. */
+  def findByIdsInternal(ids: Vector[PipelineId]): Future[Map[String, Pipeline]] =
+    if (ids.isEmpty) Future.successful(Map.empty)
+    else
+      ctx.withSystemContext(pipelinesTable.filter(_.id.inSet(ids.map(_.value))).result)
+        .map(_.map(rowToPipeline).map(p => p.id.value -> p).toMap)
+
   /** Sharing-aware read. Returns Some if:
    *  - `callerOpt` is Some and the caller is the owner, or
    *  - `callerOpt` is Some and the caller has an editor/viewer grant.

@@ -136,6 +136,13 @@ class OutputRepository(ctx: DbContext, locks: PipelineDefinitionLocks = Pipeline
   def findByIdInternal(id: OutputId): Future[Option[Output]] =
     ctx.withSystemContext(table.filter(_.id === id.value).result.headOption).map(_.map(rowToDomain))
 
+  /** ACL-bypassing batch read by id, one query (HEL-1786: the dashboard panel-status route reads every Output bound on a
+   *  dashboard, which a request-bound `findById` per Output would turn into N reads). Safe only after the caller has authorized
+   *  the dashboard the ids come from; an id that no longer resolves is simply absent. */
+  def findByIdsInternal(ids: Vector[String]): Future[Vector[Output]] =
+    if (ids.isEmpty) Future.successful(Vector.empty)
+    else ctx.withSystemContext(table.filter(_.id.inSet(ids)).result).map(_.map(rowToDomain).toVector)
+
   /** Sharing-aware read (HEL-906): relies entirely on the `outputs_select`
    *  RLS policy (`helio_can_access_pipeline`, V94) rather than an app-level
    *  filter — a cross-tenant caller's query simply returns zero rows, giving
