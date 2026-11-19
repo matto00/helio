@@ -27,7 +27,10 @@ import {
 import { isAxiosError } from "axios";
 
 import { currentGeneration } from "./outputFreshness";
-import { getOutputMetaCached } from "./outputMetaCache";
+import { getOutputMetaCached, scopeOutputToPanel, unscopeOutput } from "./outputMetaCache";
+import { getOutputId } from "./panelNarrowing";
+import { fetchPublicPanelRows } from "../../dashboards/services/publicDashboardService";
+import { isKnownNonOwnedDashboard } from "../../dashboards/state/dashboardAccess";
 
 import { serverNowMs } from "../../dashboards/tabs/serverClock";
 
@@ -71,9 +74,18 @@ export const fetchPanels = createAsyncThunk<
   { state: RootState; rejectValue: string }
 >(
   "panels/fetchPanels",
-  async (dashboardId, { rejectWithValue }) => {
+  async (dashboardId, { rejectWithValue, getState }) => {
     try {
-      return await fetchPanelsRequest(dashboardId);
+      const panels = await fetchPanelsRequest(dashboardId);
+      // HEL-1773: decide, before any card mounts, how this dashboard's Outputs are read (see `outputMetaCache`).
+      const nonOwned = isKnownNonOwnedDashboard(getState(), dashboardId);
+      for (const panel of panels) {
+        const outputId = getOutputId(panel);
+        if (outputId === null) continue;
+        if (nonOwned) scopeOutputToPanel(outputId, dashboardId, panel.id);
+        else unscopeOutput(outputId);
+      }
+      return panels;
     } catch {
       return rejectWithValue("Failed to load panels.");
     }
@@ -369,11 +381,38 @@ export const fetchPanelPage = createAsyncThunk<
   "panels/fetchPanelPage",
   async (
     { panelId, outputId, page, pageSize, sort, filter, crossFilterEq },
-    { rejectWithValue },
+    { rejectWithValue, getState },
   ) => {
     const generation = currentGeneration(outputId);
     try {
       const offset = page * pageSize;
+      // HEL-1773: a panel on a dashboard the caller does not own is read through the dashboard-scoped per-panel route
+      // (admitted by the caller's grant), never `GET /api/outputs/:id/rows`. No sort, filter or cross-filter is sent:
+      // the shell offers none of them to a non-owner (the server would refuse a filter outside the panel's own controls).
+      const state = getState();
+      const scopedPanel = state.panels.items.find((p) => p.id === panelId);
+      if (scopedPanel !== undefined && isKnownNonOwnedDashboard(state, scopedPanel.dashboardId)) {
+        const result = await fetchPublicPanelRows(
+          scopedPanel.dashboardId,
+          panelId,
+          undefined,
+          offset,
+          pageSize,
+        );
+        return {
+          panelId,
+          page,
+          rows: result.items,
+          hasMore: offset + pageSize < result.total,
+          // The per-panel route answers 200 with `items: []` for an Output that never ran; it carries no flag for it.
+          materialized: true,
+          total: result.total,
+          metric: result.metric,
+          columns: result.columns,
+          schemaNames: getOutputMetaCached(outputId)?.schema.map((f) => f.name),
+          generation,
+        };
+      }
       const effectiveFilter = crossFilterEq
         ? composeOutputRowsFilter(filter, [
             ...(filter?.ops ?? []),

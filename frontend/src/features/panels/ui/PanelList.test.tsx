@@ -339,6 +339,40 @@ describe("PanelList", () => {
     expect(screen.getByText("Failed to load panels.")).toBeInTheDocument();
   });
 
+  // HEL-1773: a viewer grantee cannot add a panel, so the empty state offers no "Add panel" action and
+  // PanelList provides the caller's role to every panel component below it.
+  it.each([
+    ["owner", true],
+    ["editor", true],
+    ["viewer", false],
+  ] as const)(
+    "empty state for a %s on a shared dashboard: Add panel offered = %s",
+    (role, offered) => {
+      renderWithStore(<PanelList />, {
+        auth: { status: "authenticated", currentUser: { id: "me" } as never },
+        dashboards: {
+          items: [
+            {
+              id: "dashboard-1",
+              name: "Operations",
+              meta: defaultMeta,
+              appearance: defaultDashboardAppearance,
+              layout: defaultDashboardLayout,
+              accessRole: role,
+              ownerId: role === "owner" ? "me" : "other",
+            },
+          ],
+          selectedDashboardId: "dashboard-1",
+        },
+        panels: { items: [], loadedDashboardId: "dashboard-1", status: "succeeded" },
+      });
+      const emptyState = screen.getByLabelText("No panels yet");
+      expect(within(emptyState).queryByRole("button", { name: "Add panel" }) !== null).toBe(
+        offered,
+      );
+    },
+  );
+
   it("renders the empty-state message when a selected dashboard has no panels", () => {
     renderWithStore(<PanelList />, {
       dashboards: {

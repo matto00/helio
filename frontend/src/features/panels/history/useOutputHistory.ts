@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { subscribeToPipelineTerminal } from "../services/pipelineRunFanout";
 import {
   getCachedHistory,
@@ -29,12 +30,16 @@ export function useOutputHistory(
   panelId: string,
   pipelineId: string | undefined,
   source: HistorySource | undefined,
-  enabled: boolean,
+  enabledRequested: boolean,
   /** The Output config's current `compare` (null-normalised). A cached history resolved for a
    *  different comparison is refetched, once per distinct expected value (cannot loop). */
   expectedCompare: string | null,
 ): OutputHistory | null {
   const isPublic = source !== undefined;
+  // HEL-1773: `GET /api/outputs/:id/history` is an Output route a dashboard grantee cannot read; a panel-scoped (public) source
+  // is unaffected, and a grantee gets no history until it is read through a per-panel route for them.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const enabled = enabledRequested && (isPublic || canUseOutputRoutes);
   const key = source ? publicHistoryKey(source.dashboardId, panelId) : outputHistoryKey(outputId);
   const publicDashboardId = source?.dashboardId;
   const publicToken = source?.token;

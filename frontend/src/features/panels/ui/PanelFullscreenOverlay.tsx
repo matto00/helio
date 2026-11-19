@@ -10,6 +10,7 @@ import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { clearSelection, selectDataPoint } from "../state/panelsSlice";
 import { getOutputId, isOutputPanel } from "../state/panelNarrowing";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { useViewerControls } from "../hooks/useViewerControls";
 import { getDistinctValues } from "../../pipelines/services/outputService";
 import type { PanelDataResult } from "../hooks/usePanelData";
@@ -136,9 +137,10 @@ export function PanelFullscreenOverlay({
   // actually dispatched the winning request is irrelevant here). Rendering the bar here is purely
   // so the viewer can SEE/ADJUST the same controls while fullscreen, per spec.md's "the same
   // control value... persists when the panel is viewed fullscreen".
-  const controls: OutputControlSpec[] = isOutputPanel(panel)
-    ? panel.config.controls
-    : EMPTY_CONTROLS;
+  // HEL-1773: viewer controls (and their distinct-values reads) are an Output-route feature, off for a dashboard grantee.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const controls: OutputControlSpec[] =
+    isOutputPanel(panel) && canUseOutputRoutes ? panel.config.controls : EMPTY_CONTROLS;
   const outputId = getOutputId(panel);
   const {
     values: controlValues,
@@ -191,7 +193,7 @@ export function PanelFullscreenOverlay({
       ariaLabel={`${panel.title} fullscreen`}
       headerActions={
         // HEL-1207 A1. Gated on `open` like the body: a closed overlay renders no second trigger.
-        open && outputId ? (
+        open && outputId && canUseOutputRoutes ? (
           <ProvenanceTrigger
             panelId={panel.id}
             panelTitle={panel.title}

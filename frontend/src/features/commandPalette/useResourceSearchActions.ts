@@ -1,3 +1,4 @@
+import { isSharedDashboard } from "../dashboards/state/dashboardAccess";
 import { createElement, useEffect, useMemo, useState } from "react";
 import { Database, LayoutDashboard, Table2, Workflow } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -130,6 +131,7 @@ export function useResourceSearchActions(): ResourceSearchResult {
   const statuses = useIndexStatuses();
 
   const dashboards = useAppSelector((state) => state.dashboards.items);
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
   const sources = useAppSelector((state) => state.sources.items);
   const pipelines = useAppSelector((state) => state.pipelines.items);
   const outputs = useAppSelector((state) => state.outputs.allItems);
@@ -137,7 +139,13 @@ export function useResourceSearchActions(): ResourceSearchResult {
   return useMemo(() => {
     const pipelineNameById = new Map(pipelines.map((p) => [p.id, p.name]));
     const items: SearchableItem[] = [
-      ...dashboards.map((d) => ({ kind: "dashboard" as const, id: d.id, title: d.name })),
+      // HEL-1773: a dashboard shared with the user is marked "Shared" in its result row.
+      ...dashboards.map((d) => ({
+        kind: "dashboard" as const,
+        id: d.id,
+        title: d.name,
+        subtitle: isSharedDashboard(d, currentUserId) ? "Shared" : undefined,
+      })),
       ...sources.map((s) => ({ kind: "source" as const, id: s.id, title: s.name })),
       ...pipelines.map((p) => ({ kind: "pipeline" as const, id: p.id, title: p.name })),
       ...outputs.map((o) => ({
@@ -187,5 +195,14 @@ export function useResourceSearchActions(): ResourceSearchResult {
       isIndexing,
       overflowNotices,
     };
-  }, [debouncedQuery, dashboards, sources, pipelines, outputs, statuses, navigateToResource]);
+  }, [
+    debouncedQuery,
+    dashboards,
+    currentUserId,
+    sources,
+    pipelines,
+    outputs,
+    statuses,
+    navigateToResource,
+  ]);
 }

@@ -36,6 +36,11 @@
       "type": "boolean",
       "description": "HEL-1646: true when the dashboard has at least one output panel bound to an Output. Emitted only by GET /api/dashboards (list items); other single-dashboard responses omit it, and a client keeps a previously-known value. Lets the phone skeleton reserve the refreshed-line slot before panels load."
     },
+    "accessRole": {
+      "type": "string",
+      "enum": ["owner", "editor", "viewer"],
+      "description": "HEL-1773: the caller's role on this dashboard. GET /api/dashboards always sets it (`owner` unless the request passed `include=shared` and the item is a named-grant dashboard); create, duplicate and layout repair set `owner`; other responses omit it and a client keeps the role it already knows."
+    },
     "tag": {
       "type": "string",
       "minLength": 1,

@@ -1,6 +1,7 @@
 // HEL-1575 D4/D5: capturing a tab's loaded state when it is left (and, for the active tab, on
 // hidden/pagehide) into the in-memory warm cache and, debounced, the browser store.
 
+import { isKnownNonOwnedDashboard } from "../../state/dashboardAccess";
 import type { RootState } from "../../../../store/store";
 import { getObservedRunId } from "../../../panels/services/pipelineRunFanout";
 import { peekOutputMeta } from "../../../panels/state/outputMetaCache";
@@ -101,6 +102,9 @@ export function captureTab(
   options: { retain: boolean; immediate?: boolean; viewedAt?: number },
 ): void {
   const state = getState();
+  // HEL-1773: a dashboard the caller does not own is never captured: its panels were read through the per-panel routes, and
+  // the warm copy (rows, Output metadata, run baselines) is built from the Output path.
+  if (isKnownNonOwnedDashboard(state, dashboardId)) return;
   const userId = state.auth.currentUser?.id;
   const items = loadedListOf(state, dashboardId);
   const prior = getListEntry(dashboardId);

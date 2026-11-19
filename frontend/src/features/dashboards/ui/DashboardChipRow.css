@@ -24,6 +24,8 @@
 .dashboard-chip {
   /* The tap-expander pattern (shared/ui/tapTarget.css): 32px painted pill, 44px hit area via ::after. */
   position: relative;
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
   box-sizing: border-box;
   height: var(--control-md);
@@ -47,9 +49,20 @@
 
 .dashboard-chip__label {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* HEL-1773: the "Shared" marker of a dashboard shared with the user. */
+.dashboard-chip__shared {
+  margin-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
 }
 
 /* Active: inverted ink, no accent (DESIGN.md §0 accent discipline). */

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import type { Output, PublicOutputMeta } from "../../pipelines/types/output";
 import type { HistorySource } from "../history/useOutputHistory";
 import { InsightNotRenderedState } from "../ui/InsightNotRenderedState";
@@ -36,7 +37,21 @@ const NOTES: Record<Exclude<InsightNote, "none">, string> = {
 /** HEL-1744 D7 -- the panel body of an `insight` Output: the stored render as sanitized markdown with citation chips, and
  *  exactly one state (see `insightState.ts`). It never shows cost, model or token values (the service drops them), never
  *  asks the server to render, and never reads the Output's rows. */
-export function InsightPanelBody({
+export function InsightPanelBody(props: InsightPanelBodyProps) {
+  // HEL-1773: an insight read is `GET /api/outputs/:id/insight` (an Output route); a dashboard grantee gets a neutral
+  // state until it is served through the per-panel route for them. The public viewer (a `historySource`) is unaffected.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  if (!canUseOutputRoutes && props.historySource === undefined) {
+    return (
+      <div className="panel-content panel-content--state">
+        <span className="panel-content__state-label">Not available on shared dashboards yet</span>
+      </div>
+    );
+  }
+  return <InsightPanelBodyContent {...props} />;
+}
+
+function InsightPanelBodyContent({
   panelId,
   outputId,
   output,

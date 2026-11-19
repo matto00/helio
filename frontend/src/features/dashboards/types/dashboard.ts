@@ -43,7 +43,13 @@ export interface Dashboard {
    *  settled panels (`dashboardPipelineFedObserved`). The phone skeleton reads it to reserve the refreshed-line slot
    *  before the panels load; `undefined` means unknown (no slot). */
   hasPipelineFedPanels?: boolean;
+  /** HEL-1773: the caller's role on this dashboard. The list route always sends it; create/duplicate/repair send
+   *  `owner`; other responses omit it and the store keeps the role it already holds (`withKnownFlag`). Never read
+   *  directly in the shell: use `selectDashboardAccessRole` (dashboardAccess.ts), which fails closed when absent. */
+  accessRole?: DashboardAccessRole;
 }
+
+export type DashboardAccessRole = "owner" | "editor" | "viewer";
 
 export interface DuplicateDashboardResponse {
   dashboard: Dashboard;

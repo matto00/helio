@@ -7,6 +7,7 @@ import { ProvenanceTrigger } from "../provenance/ProvenanceTrigger";
 import { useDataInvalid } from "../provenance/useDataInvalid";
 import { useInsightChrome } from "../insight/insightChromeStore";
 import { useAppDispatch } from "../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { useInFlightGuard } from "../../../hooks/useInFlightGuard";
 import { PanelFullscreenOverlay } from "./PanelFullscreenOverlay";
 import { PanelCardHeader } from "./PanelCardHeader";
@@ -141,7 +142,9 @@ export const PanelCard = React.memo(function PanelCard({
 
   // HEL-1207 A4: the badge's status read is deduped across consumers and, once the provenance
   // popover has loaded, derived from its cache.
-  const isDataInvalid = useDataInvalid(outputId);
+  // HEL-1773: the badge reads `GET /api/outputs/:id/assertion-status`, an Output route a dashboard grantee has no access to.
+  const canUseOutputRoutes = useCanUseOutputRoutes();
+  const isDataInvalid = useDataInvalid(canUseOutputRoutes ? outputId : null);
 
   // 2.2 — Memoize style to avoid a new object identity on every render.
   const style = useMemo(
@@ -325,7 +328,7 @@ export const PanelCard = React.memo(function PanelCard({
       )}
       <div className="panel-grid-card__footer">
         <span className="panel-grid-card__type-badge">{panel.type}</span>
-        {outputId && (
+        {outputId && canUseOutputRoutes && (
           <ProvenanceTrigger
             panelId={panel.id}
             panelTitle={panel.title}

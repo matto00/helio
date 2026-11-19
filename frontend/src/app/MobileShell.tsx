@@ -1,3 +1,5 @@
+import { isSharedDashboard } from "../features/dashboards/state/dashboardAccess";
+import { useAppSelector } from "../hooks/reduxHooks";
 import { useLocation } from "react-router-dom";
 
 import { BottomNav } from "../shared/chrome/BottomNav";
@@ -24,6 +26,9 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
   // shared empty-state copy table (HEL-773 design.md D11).
   const pickerId = pickerIdForPathname(location.pathname);
   const shareDialog = useShareDialog();
+  // HEL-1773: only the owner may share a dashboard, so the sheet's "Share" is offered on owned rows only.
+  const dashboards = useAppSelector((state) => state.dashboards.items);
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
 
   return (
     <>
@@ -46,10 +51,17 @@ export function MobileShell({ isMobileNavSheetOpen, onClose }: MobileShellProps)
         // `usePickerSelection.ts`).
         secondaryAction={
           pickerId === "dashboards"
-            ? (item) => ({
-                label: "Share",
-                onClick: () => shareDialog.open({ dashboardId: item.id, dashboardName: item.name }),
-              })
+            ? (item) => {
+                const dashboard = dashboards.find((d) => d.id === item.id);
+                if (dashboard === undefined || isSharedDashboard(dashboard, currentUserId)) {
+                  return null;
+                }
+                return {
+                  label: "Share",
+                  onClick: () =>
+                    shareDialog.open({ dashboardId: item.id, dashboardName: item.name }),
+                };
+              }
             : undefined
         }
       />

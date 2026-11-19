@@ -50,7 +50,11 @@ final case class DashboardResponse(
     // HEL-1646: true when the dashboard has at least one output panel bound to an Output. Emitted ONLY by
     // `GET /api/dashboards` (every other response leaves it None, which spray-json omits); the phone skeleton
     // reads it to reserve the refreshed-line slot before the panels have loaded.
-    hasPipelineFedPanels: Option[Boolean] = None
+    hasPipelineFedPanels: Option[Boolean] = None,
+    // HEL-1773: the caller's role on this dashboard (`owner` | `editor` | `viewer`). Always set by `GET /api/dashboards`;
+    // the owner-only responses (create, duplicate, layout repair) set `owner`; any other response leaves it None
+    // (omitted on the wire) and the client keeps the role it already knows.
+    accessRole: Option[String] = None
 )
 /** Body of the 409 a stale layout write gets: `dashboard` is the row as it is now (HEL-1457). */
 final case class LayoutConflictResponse(message: String, dashboard: DashboardResponse)
@@ -124,6 +128,9 @@ final case class DashboardSnapshotPayload(
 )
 
 object DashboardResponse {
+  def withRole(dashboard: Dashboard, accessRole: Option[String]): DashboardResponse =
+    fromDomain(dashboard).copy(accessRole = accessRole)
+
   def fromDomain(dashboard: Dashboard): DashboardResponse =
     DashboardResponse(
       id         = dashboard.id.value,
@@ -242,7 +249,7 @@ trait DashboardProtocol extends SprayJsonSupport with DefaultJsonProtocol with P
   implicit val dashboardAppearanceResponseFormat: RootJsonFormat[DashboardAppearanceResponse] = jsonFormat2(DashboardAppearanceResponse.apply)
   implicit val dashboardLayoutItemResponseFormat: RootJsonFormat[DashboardLayoutItemResponse] = jsonFormat5(DashboardLayoutItemResponse.apply)
   implicit val dashboardLayoutResponseFormat: RootJsonFormat[DashboardLayoutResponse]         = jsonFormat4(DashboardLayoutResponse.apply)
-  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat9(DashboardResponse.apply)
+  implicit val dashboardResponseFormat: RootJsonFormat[DashboardResponse]                     = jsonFormat10(DashboardResponse.apply)
   implicit val layoutConflictResponseFormat: RootJsonFormat[LayoutConflictResponse]           = jsonFormat2(LayoutConflictResponse.apply)
   implicit val dashboardsResponseFormat: RootJsonFormat[DashboardsResponse]                   = jsonFormat1(DashboardsResponse.apply)
   implicit val duplicateDashboardResponseFormat: RootJsonFormat[DuplicateDashboardResponse]   = jsonFormat2(DuplicateDashboardResponse.apply)

@@ -1,7 +1,8 @@
 import type React from "react";
 
 import { isFullscreenEligible } from "../state/panelNarrowing";
-import { ActionsMenu } from "../../../shared/chrome/ActionsMenu";
+import { ActionsMenu, type ActionsMenuItem } from "../../../shared/chrome/ActionsMenu";
+import { useCanEditPanels } from "../../dashboards/state/dashboardAccessContext";
 import { InlineError } from "../../../shared/chrome/InlineError";
 import { IconButton } from "../../../shared/ui/IconButton";
 import { TextField } from "../../../shared/ui/TextField";
@@ -63,6 +64,25 @@ export function PanelCardHeader({
   handleTitleKeyDown,
   handleTitleBlur,
 }: PanelCardHeaderProps) {
+  // HEL-1773: a viewer's menu offers only what reads (view details, inspect); an editor keeps every panel edit the
+  // server allows. The move handle is the layout-edit drag handle, so it is an edit affordance too.
+  const canEdit = useCanEditPanels();
+  const menuItems: ActionsMenuItem[] = canEdit
+    ? [
+        { label: "Rename", onClick: handleRename },
+        { label: "Customize", onClick: handleDetail },
+        {
+          label: "Duplicate",
+          onClick: handleDuplicate,
+          disabled: isPending(panel.id),
+        },
+        ...(chartInspectConfig ? [{ label: "Inspect", onClick: handleOpenInspectFromMenu }] : []),
+        { label: "Delete", onClick: handleRequestDelete, danger: true },
+      ]
+    : [
+        { label: "View details", onClick: handleDetail },
+        ...(chartInspectConfig ? [{ label: "Inspect", onClick: handleOpenInspectFromMenu }] : []),
+      ];
   return (
     <div className="panel-grid-card__top">
       <div className="panel-grid-card__title-area">
@@ -153,39 +173,22 @@ export function PanelCardHeader({
               />
             )}
             {isEditingTitle ? null : (
-              <ActionsMenu
-                label={`${panel.title} panel actions`}
-                items={[
-                  { label: "Rename", onClick: handleRename },
-                  { label: "Customize", onClick: handleDetail },
-                  {
-                    label: "Duplicate",
-                    onClick: handleDuplicate,
-                    disabled: isPending(panel.id),
-                  },
-                  // HEL-572 design.md D7 — chart-eligible panels only
-                  // (`chartInspectConfig` is non-null exactly then); opens
-                  // for the panel's current selection, or `PanelInspectView`'s
-                  // own empty state when nothing is selected yet.
-                  ...(chartInspectConfig
-                    ? [{ label: "Inspect", onClick: handleOpenInspectFromMenu }]
-                    : []),
-                  { label: "Delete", onClick: handleRequestDelete, danger: true },
-                ]}
-              />
+              <ActionsMenu label={`${panel.title} panel actions`} items={menuItems} />
             )}
-            <button
-              type="button"
-              className="panel-grid-card__handle"
-              aria-label={`Move ${panel.title} panel`}
-              title={`Move ${panel.title} panel`}
-            >
-              {/* F-099: a grip-vertical glyph reads as distinctly different
-                    from the adjacent ActionsMenu trigger's horizontal 3-dot
-                    ellipsis, instead of the old 2-dot mark that only differed
-                    from it by dot count. */}
-              <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                className="panel-grid-card__handle"
+                aria-label={`Move ${panel.title} panel`}
+                title={`Move ${panel.title} panel`}
+              >
+                {/* F-099: a grip-vertical glyph reads as distinctly different
+                      from the adjacent ActionsMenu trigger's horizontal 3-dot
+                      ellipsis, instead of the old 2-dot mark that only differed
+                      from it by dot count. */}
+                <GripVertical aria-hidden="true" size={ICON_SIZE.sm} />
+              </button>
+            )}
           </>
         )}
       </div>

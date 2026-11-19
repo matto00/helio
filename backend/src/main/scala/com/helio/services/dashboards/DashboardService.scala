@@ -67,13 +67,19 @@ final class DashboardService(
     dashboardRepo.findAll(user.id, page)
 
   /** The list route's page of dashboards plus their `hasPipelineFedPanels` flag (HEL-1646), computed in one
-   *  extra query for the page. Separate from `findAll` so its other callers pay nothing. */
-  def findAllWithPipelineFedFlag(user: AuthenticatedUser, page: Page): Future[PagedResult[(Dashboard, Boolean)]] =
-    findAll(user, page).flatMap { result =>
-      dashboardRepo.pipelineFedDashboardIds(user.id, result.items.map(_.id)).map { fed =>
-        result.copy(items = result.items.map(d => (d, fed.contains(d.id))))
+   *  extra query for the page, and the caller's `accessRole` (HEL-1773). `includeShared = false` is the original
+   *  owner-only list (every item `owner`); `true` adds the dashboards the caller holds a named grant on.
+   *  Separate from `findAll` so its other callers (assistant, search) pay nothing and stay owner-only. */
+  def findAllWithPipelineFedFlag(user: AuthenticatedUser, page: Page, includeShared: Boolean = false): Future[PagedResult[DashboardListItem]] = {
+    val pageF: Future[PagedResult[(Dashboard, String)]] =
+      if (includeShared) dashboardRepo.findAllVisiblePaged(user.id, page)
+      else findAll(user, page).map(r => r.copy(items = r.items.map(d => (d, DashboardRepository.AccessRoleOwner))))
+    pageF.flatMap { result =>
+      dashboardRepo.pipelineFedDashboardIds(user.id, result.items.map(_._1.id)).map { fed =>
+        result.copy(items = result.items.map { case (d, role) => DashboardListItem(d, fed.contains(d.id), role) })
       }
     }
+  }
 
   /** Owner-scoped single-resource read (HEL-661 design.md D3), added in the same shape as the
    *  (since-retired, HEL-904) `DataTypeService.findById` over `DashboardRepository.findByIdOwned`
@@ -277,6 +283,9 @@ final class DashboardService(
 }
 
 object DashboardService {
+
+  /** One row of the dashboard list route: the dashboard, its `hasPipelineFedPanels` flag and the caller's role. */
+  final case class DashboardListItem(dashboard: Dashboard, hasPipelineFedPanels: Boolean, accessRole: String)
 
   /** Inputs accepted by `create`. A small wrapper instead of leaking the
    *  protocol-level `CreateDashboardRequest` to keep the service signature

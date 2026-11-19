@@ -263,7 +263,8 @@ export function baseTitle(title: string): string {
  *  Returns an edit-less patch set when the workspace has no dashboard/panel
  *  yet — the page then shows guidance instead of an empty review modal. */
 async function synthesizeDemoPatchSet(): Promise<PatchSet> {
-  const dashboards = await fetchDashboards();
+  // Owner-only (HEL-1773): the demo edit must target a dashboard the user can write.
+  const dashboards = await fetchDashboards({ includeShared: false });
   const firstDashboard = dashboards[0];
   if (!firstDashboard) return { edits: [] };
 

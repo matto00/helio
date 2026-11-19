@@ -161,20 +161,31 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
     ).map(_.map(rowToDomain))
   }
 
-  /** Sharing-aware list. Returns dashboards owned by the user OR where the
-   *  user has an explicit grant.
+  /** The caller's dashboard list with sharing (HEL-1773): every dashboard they own plus every dashboard on which they
+   *  hold a NAMED grant (`grantee_id` = the caller; a public grant has no grantee and never matches), each with the
+   *  caller's role (`owner`, `editor` or `viewer`). Paged and counted over the same query, ordered `last_updated`
+   *  desc then id for stable paging.
    *
-   *  NOT wired to any UI route in this PR — feature-flagged off.
-   *  Exists for future "shared with me" list support. */
-  def findAllVisible(user: AuthenticatedUser): Future[Vector[Dashboard]] = {
-    val userId = UUID.fromString(user.id.value)
-    val owned = table.filter(_.ownerId === userId)
-    val granted = for {
-      perm <- permTable if perm.resourceType === "dashboard" && perm.granteeId === userId
-      dash <- table if dash.id === perm.resourceId
-    } yield dash
-    ctx.withUserContext(user.id.value)((owned union granted).sortBy(_.lastUpdated.desc).result)
-      .map(_.map(rowToDomain).toVector)
+   *  One left join on the caller's own grant row, not a union, so a dashboard is listed exactly once even when its
+   *  owner also holds a grant row on it (the role is `owner` whenever `owner_id` is the caller). Runs in the
+   *  caller's user context, so `dashboards_select` (`helio_can_access_dashboard`) applies on the app pool too. */
+  def findAllVisiblePaged(userId: UserId, page: Page): Future[PagedResult[(Dashboard, String)]] = {
+    val uid = UUID.fromString(userId.value)
+    val visible = table
+      .joinLeft(permTable.filter(p => p.resourceType === "dashboard" && p.granteeId === uid && p.role.inSet(GrantRoles)))
+      .on((d, p) => d.id === p.resourceId)
+      .filter { case (d, p) => d.ownerId === uid || p.map(_.role).isDefined }
+    ctx.withUserContext(userId.value)(
+      for {
+        total <- visible.length.result
+        rows  <- visible.sortBy { case (d, _) => (d.lastUpdated.desc, d.id.asc) }.drop(page.offset).take(page.limit).result
+      } yield PagedResult(
+        rows.map { case (row, grant) =>
+          (rowToDomain(row), if (row.ownerId == uid) AccessRoleOwner else grant.map(_.role).getOrElse(AccessRoleViewer))
+        }.toVector,
+        total, page.offset, page.limit
+      )
+    )
   }
 
   def insert(dashboard: Dashboard): Future[Dashboard] =
@@ -217,6 +228,11 @@ class DashboardRepository(protected val ctx: DbContext)(implicit protected val e
 }
 
 object DashboardRepository {
+
+  /** The roles `findAllVisiblePaged` reports (HEL-1773): the caller's own, or the named grant's. */
+  val AccessRoleOwner: String  = "owner"
+  val AccessRoleViewer: String = "viewer"
+  private val GrantRoles: Set[String] = Set("editor", "viewer")
 
   implicit val instantColumnType: BaseColumnType[Instant] =
     MappedColumnType.base[Instant, Timestamp](

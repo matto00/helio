@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 
 import { setPanelCreationModalOpen } from "../state/panelsSlice";
+import { selectCanEditDashboard } from "../../dashboards/state/dashboardAccess";
 import { useAppDispatch, useAppSelector } from "../../../hooks/reduxHooks";
 import type { EmptyStateCta } from "../../../shared/ui/EmptyState";
 
@@ -27,7 +28,9 @@ export interface CreateActionResult {
 export function useCreatePanelAction(): CreateActionResult {
   const dispatch = useAppDispatch();
   const selectedDashboardId = useAppSelector((state) => state.dashboards.selectedDashboardId);
-  const disabled = selectedDashboardId === null;
+  // HEL-1773: a viewer cannot add a panel, so the action is unavailable from every entry (the palette's included).
+  const canEdit = useAppSelector((state) => selectCanEditDashboard(state, selectedDashboardId));
+  const disabled = selectedDashboardId === null || !canEdit;
 
   return {
     cta: {

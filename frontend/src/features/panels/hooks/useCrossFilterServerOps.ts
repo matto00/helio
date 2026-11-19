@@ -4,6 +4,7 @@ import { buildViewerControlFilterOps } from "../state/viewerControlValues";
 import { useViewerControls } from "./useViewerControls";
 
 import { useAppSelector } from "../../../hooks/reduxHooks";
+import { useCanUseOutputRoutes } from "../../dashboards/state/dashboardAccessContext";
 import { isPanelFilterableByDimension } from "../../../utils/crossFilterRows";
 import type { Output } from "../../pipelines/types/output";
 import { isOutputPanel } from "../state/panelNarrowing";
@@ -39,6 +40,8 @@ export function useCrossFilterServerOps(
   output: Pick<Output, "id" | "kind" | "config" | "schema"> | null,
 ): CrossFilterServerOps {
   const crossFilter = useAppSelector((state) => state.panels.crossFilter ?? null);
+  // HEL-1773: filter capabilities are an Output route; a dashboard grantee has no cross-filter (hidden, not broken).
+  const canUseOutputRoutes = useCanUseOutputRoutes();
 
   // design.md D2a — the panel's viewer-control ops, derived from the SAME URL-held source every
   // host reads (`useViewerControls` is keyed by panel id), so every host reaches the same decision.
@@ -52,6 +55,7 @@ export function useCrossFilterServerOps(
   const dimension = crossFilter?.dimension ?? null;
   const schemaNames = useMemo(() => (output?.schema ?? []).map((f) => f.name), [output?.schema]);
   const isCandidate =
+    canUseOutputRoutes &&
     crossFilter !== null &&
     crossFilter.panelId !== panel.id &&
     isOutputPanel(panel) &&

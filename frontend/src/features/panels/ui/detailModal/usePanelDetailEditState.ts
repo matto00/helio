@@ -13,9 +13,14 @@ import { clampTransparency } from "../../../../theme/appearance";
 import type { Panel } from "../../types/panel";
 import type { PanelEditorHandle } from "../editors/editorTypes";
 
-export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edit") {
+export function usePanelDetailEditState(
+  panel: Panel,
+  initialMode: "view" | "edit",
+  /** HEL-1773: false for a viewer grantee, who never reaches edit mode (not by the button, the E key or `initialMode`). */
+  canEdit = true,
+) {
   // Modal mode: "view" is the default on open; "edit" shows the unified settings form
-  const [modalMode, setModalMode] = useState<"view" | "edit">(initialMode);
+  const [modalMode, setModalMode] = useState<"view" | "edit">(canEdit ? initialMode : "view");
 
   // Background / color hold the RAW appearance value — which may be a sentinel
   // (`"transparent"` / `"inherit"`), not the display-fallback hex. They are only
@@ -91,7 +96,7 @@ export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edi
   // listener, since focus is always trapped inside the open dialog).
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (modalMode !== "view") return;
+      if (modalMode !== "view" || !canEdit) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -105,7 +110,7 @@ export function usePanelDetailEditState(panel: Panel, initialMode: "view" | "edi
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [modalMode]);
+  }, [modalMode, canEdit]);
   return {
     modalMode,
     setModalMode,

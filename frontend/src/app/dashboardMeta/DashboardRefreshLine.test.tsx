@@ -395,3 +395,32 @@ describe("DashboardRefreshLine refresh button (HEL-1681)", () => {
     expect(button()).toBeNull();
   });
 });
+
+// HEL-1773 D6: the refreshed line reads Output metadata and pipeline summaries (Output and pipeline routes), so a dashboard the
+// caller does not own has none: nothing rendered, and the facts hook is given no panels (it makes no request).
+describe("DashboardRefreshLine on a shared dashboard (HEL-1773)", () => {
+  it.each(["viewer", "editor"] as const)(
+    "renders nothing for a %s and asks the hook for no panels",
+    (role) => {
+      metaMock.mockReset();
+      metaMock.mockReturnValue({
+        ...baseMeta,
+        refreshState: "ran",
+        refreshedAt: nineHoursAgo(),
+        refreshIntent: "success",
+      });
+      const { container } = renderWithStore(
+        <DashboardRefreshLine />,
+        {
+          dashboards: {
+            items: [{ id: "d1", name: "Ops", accessRole: role, ownerId: "other" }],
+            selectedDashboardId: "d1",
+          },
+        },
+        "/dashboards",
+      );
+      expect(container.querySelector(".dashboard-refresh-line")).toBeNull();
+      expect(metaMock).toHaveBeenLastCalledWith("d1", []);
+    },
+  );
+});

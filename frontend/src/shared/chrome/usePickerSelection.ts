@@ -1,3 +1,4 @@
+import { isSharedDashboard } from "../../features/dashboards/state/dashboardAccess";
 import { useNavigate } from "react-router-dom";
 
 import { useCreateConversationAction } from "../../features/assistant/hooks/useCreateConversationAction";
@@ -69,6 +70,7 @@ export function usePickerSelection(pathname: string): PickerSelection {
     (state) => state.dashboards,
   );
   const sources = useAppSelector((state) => state.sources);
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
   const pipelines = useAppSelector((state) => state.pipelines);
   const conversations = useAppSelector((state) => state.assistantConversations);
 
@@ -93,6 +95,8 @@ export function usePickerSelection(pathname: string): PickerSelection {
         id: dashboard.id,
         name: dashboard.name,
         isActive: dashboard.id === selectedDashboardId,
+        // HEL-1773: a dashboard shared with the user is marked on the phone sheet like everywhere else.
+        subtitle: isSharedDashboard(dashboard, currentUserId) ? "Shared" : undefined,
       }));
       return {
         items,

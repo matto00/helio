@@ -1,3 +1,4 @@
+import { isSharedDashboard } from "../dashboards/state/dashboardAccess";
 import { createElement, useMemo } from "react";
 import { LayoutDashboard } from "lucide-react";
 
@@ -17,6 +18,7 @@ export function useOpenTabActions(enabled: boolean): CommandAction[] {
   const dispatch = useAppDispatch();
   const query = useCommandQuery();
   const dashboards = useAppSelector((state) => state.dashboards.items);
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
 
   return useMemo(() => {
     if (!enabled) return [];
@@ -32,6 +34,7 @@ export function useOpenTabActions(enabled: boolean): CommandAction[] {
     return ranked.map(({ dashboard }) => ({
       id: `open-tab.${dashboard.id}`,
       title: dashboard.name,
+      subtitle: isSharedDashboard(dashboard, currentUserId) ? "Shared" : undefined,
       section: SEARCH_SECTION,
       icon: createElement(LayoutDashboard),
       matchesQuery: true,
@@ -39,5 +42,5 @@ export function useOpenTabActions(enabled: boolean): CommandAction[] {
         dispatch(openTabActivate(dashboard.id));
       },
     }));
-  }, [enabled, query, dashboards, dispatch]);
+  }, [enabled, query, dashboards, currentUserId, dispatch]);
 }

@@ -1,3 +1,4 @@
+import { selectOwnedDashboards } from "../../dashboards/state/dashboardAccess";
 import { useEffect } from "react";
 
 import { fetchPipelines } from "../../pipelines/state/pipelinesSlice";
@@ -35,6 +36,10 @@ export function useOnboardingHost(): OnboardingHostResult {
   const currentUserId = useAppSelector((state) => state.auth.currentUser?.id ?? null);
   const { active, dismissed } = useAppSelector((state) => state.onboarding);
   const dashboards = useAppSelector((state) => state.dashboards);
+  // HEL-1773: the "make a dashboard" step counts the dashboards the user OWNS (one shared with them is not one made). The
+  // checklist still auto-opens only for an EMPTY list: for a user whose only dashboards are shared, it would otherwise
+  // cover (and fetch sources and pipelines under) the shared dashboard they opened.
+  const ownedDashboardCount = useAppSelector((state) => selectOwnedDashboards(state).length);
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const panels = useAppSelector((state) => state.panels);
@@ -101,7 +106,7 @@ export function useOnboardingHost(): OnboardingHostResult {
   // background sweep over every account's data.
   useEffect(() => {
     if (!visible || dismissed !== false) return;
-    const dashboardStatus = deriveCollectionStepStatus(dashboards.status, dashboards.items.length);
+    const dashboardStatus = deriveCollectionStepStatus(dashboards.status, ownedDashboardCount);
     const panelStatus = derivePanelStepStatus({
       selectedDashboardId: dashboards.selectedDashboardId,
       panels,
@@ -114,7 +119,7 @@ export function useOnboardingHost(): OnboardingHostResult {
     if (allOnboardingStepsComplete(steps)) {
       dispatch(recordOnboardingComplete());
     }
-  }, [visible, dismissed, sources, pipelines, dashboards, panels, dispatch]);
+  }, [visible, dismissed, sources, pipelines, dashboards, ownedDashboardCount, panels, dispatch]);
 
   return { visible };
 }

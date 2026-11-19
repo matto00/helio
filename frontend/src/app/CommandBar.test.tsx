@@ -5,7 +5,11 @@ import { MemoryRouter } from "react-router-dom";
 
 import { assistantConversationsReducer } from "../features/assistant/state/assistantConversationsSlice";
 import { authReducer } from "../features/auth/state/authSlice";
-import { dashboardsReducer, fetchDashboards } from "../features/dashboards/state/dashboardsSlice";
+import {
+  dashboardsReducer,
+  fetchDashboards,
+  setSelectedDashboardId,
+} from "../features/dashboards/state/dashboardsSlice";
 import {
   layoutHistoryReducer,
   pushLayoutSnapshot,
@@ -219,5 +223,63 @@ describe("CommandBar — HEL-1746 ask opener", () => {
   it("adds nothing on a non-dashboard page", () => {
     renderCommandBar("/chat", storeWithDashboard());
     expect(screen.queryByRole("button", { name: "Dashboard actions" })).not.toBeInTheDocument();
+  });
+});
+
+// HEL-1773 D5: the dashboard kebab (phone shell) follows the caller's role on the open dashboard.
+describe("CommandBar — dashboard kebab by role (HEL-1773)", () => {
+  function storeWithRole(accessRole: "owner" | "editor" | "viewer") {
+    const store = makeStore();
+    store.dispatch(
+      fetchDashboards.fulfilled(
+        [
+          {
+            id: "d1",
+            name: "Dash",
+            meta: {
+              createdBy: "s",
+              createdAt: "2026-03-14T00:00:00Z",
+              lastUpdated: "2026-03-14T00:00:00Z",
+            },
+            appearance: { background: "transparent", gridBackground: "transparent" },
+            layout: { lg: [], md: [], sm: [], xs: [] },
+            accessRole,
+          },
+        ],
+        "req",
+        undefined,
+      ),
+    );
+    store.dispatch(setSelectedDashboardId("d1"));
+    return store;
+  }
+
+  function kebabItems(role: "owner" | "editor" | "viewer"): string[] | null {
+    const { unmount } = renderCommandBar("/dashboards", storeWithRole(role));
+    const kebab = screen.queryByRole("button", { name: "Dashboard actions" });
+    if (kebab === null) {
+      unmount();
+      return null;
+    }
+    fireEvent.click(kebab);
+    const items = screen.getAllByRole("menuitem").map((el) => el.textContent?.trim() ?? "");
+    unmount();
+    return items;
+  }
+
+  it("owner: add panel, refine and ask", () => {
+    expect(kebabItems("owner")).toEqual([
+      "Add panel",
+      "Refine with AI",
+      "Ask about this dashboard",
+    ]);
+  });
+
+  it("editor: add panel and refine, no ask", () => {
+    expect(kebabItems("editor")).toEqual(["Add panel", "Refine with AI"]);
+  });
+
+  it("viewer: no kebab at all", () => {
+    expect(kebabItems("viewer")).toBeNull();
   });
 });

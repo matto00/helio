@@ -1,3 +1,4 @@
+import { isSharedDashboard } from "../../dashboards/state/dashboardAccess";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,6 +26,11 @@ export function HomePage() {
   const summary = useAppSelector((state) => state.homeSummary);
   const dashboards = useAppSelector((state) => state.dashboards);
   const changedIds = useChangedDashboardIds();
+  const currentUserId = useAppSelector((state) => state.auth?.currentUser?.id ?? null);
+  // HEL-1773: dashboards shared with the user are listed on the shelf, marked "Shared".
+  const sharedIds = new Set(
+    dashboards.items.filter((d) => isSharedDashboard(d, currentUserId)).map((d) => d.id),
+  );
   // A 60s tick moves the now line and the relative times without a request; the offset keeps it on server time.
   const tick = useNow(60_000);
   const now = tick + getServerOffsetMs();
@@ -75,6 +81,7 @@ export function HomePage() {
         dashboards={dashboards.items}
         status={dashboards.status}
         changedIds={changedIds}
+        sharedIds={sharedIds}
         now={now}
         onStepByStep={() => {
           dispatch(reopenOnboarding());

@@ -1,3 +1,4 @@
+import { selectOwnedDashboards } from "../../dashboards/state/dashboardAccess";
 import { X } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -67,6 +68,8 @@ export function OnboardingChecklist({
   const sources = useAppSelector((state) => state.sources);
   const pipelines = useAppSelector((state) => state.pipelines);
   const dashboards = useAppSelector((state) => state.dashboards);
+  // HEL-1773: owned dashboards only (a shared one is not a step done).
+  const ownedDashboardCount = useAppSelector((state) => selectOwnedDashboards(state).length);
   const panels = useAppSelector((state) => state.panels);
   const pipelineAction = useCreatePipelineAction();
   const panelAction = useCreatePanelAction();
@@ -81,7 +84,7 @@ export function OnboardingChecklist({
     panel: false,
   });
 
-  const dashboardStatus = deriveCollectionStepStatus(dashboards.status, dashboards.items.length);
+  const dashboardStatus = deriveCollectionStepStatus(dashboards.status, ownedDashboardCount);
   const panelStatus = derivePanelStepStatus({
     selectedDashboardId: dashboards.selectedDashboardId,
     panels,
