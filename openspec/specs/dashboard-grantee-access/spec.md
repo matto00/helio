@@ -247,6 +247,17 @@ refusal message, without a client-side guess.
 - **WHEN** a viewer grantee calls `update_dashboard` on the shared dashboard
 - **THEN** the tool result is an error naming status 403 and the server's view-only message
 
+### Requirement: Grantees can ask about a shared dashboard
+
+A grantee's shell SHALL offer "Ask about this dashboard" on a dashboard shared with them, for both `viewer` and
+`editor` roles; Ask is not an owner-only action. Pinning an answer SHALL remain governed by the server's `pin` field.
+
+#### Scenario: Viewer sees the Ask entry
+
+- **WHEN** a viewer grantee opens a shared dashboard
+- **THEN** the "Ask about this dashboard" entry is offered, while share, delete, duplicate and editing controls remain
+  absent
+
 ### Requirement: A dashboard's panel status is readable by its grantees without Output or pipeline routes
 
 The system SHALL serve `GET /api/dashboards/:id/panel-status` to a signed-in caller who owns the dashboard or holds an editor or viewer grant on it, re-checking that access on every request. Any other signed-in caller, and an unknown dashboard id, SHALL get the same `404`. The response SHALL list, for each Output panel of that dashboard whose Output and pipeline resolve, the panel id, the pipeline's last run time (or `null` when it has never run), the last run status (`succeeded`, `failed`, or `null`), the capture time of the panel's latest stored data (or `null`), and whether the panel's Output is data-invalid (an error-severity assertion on the Output's own step failed on the pipeline's latest non-dry run); and the distinct source names the per-panel provenance would show for the dashboard's Output panels, in first-seen panel order. The response SHALL NOT contain any pipeline, step, run, Output or user id, any step name, or any error or log text. Access SHALL hold under row-level security for the non-`BYPASSRLS` application role.

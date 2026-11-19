@@ -34,14 +34,14 @@ class AskSeamSpec extends AnyWordSpec with Matchers with HelioRouteTest with Jso
 
   private val dir = Paths.get("../shared-test-fixtures/ask")
 
-  private var owner, viewer, free, capped: String = _
+  private var owner, viewer, editorNoPipe, free, capped: String = _
   private var pid, board: String                  = _
   private var rev, cost: Output                   = _
   private var askApi: Route                       = _
 
   override def beforeAll(): Unit = {
     super.beforeAll(); startHarness()
-    owner = seedUser("owner"); viewer = seedUser("beta"); free = seedUser("free"); capped = seedUser("beta")
+    owner = seedUser("owner"); viewer = seedUser("beta"); editorNoPipe = seedUser("beta"); free = seedUser("free"); capped = seedUser("beta")
     pid = seedPipelineWithOutput(owner, "table")._1
     rev = addOutput(pid, owner, "Revenue", OutputKind.Table, regionSchema)
     cost = addOutput(pid, owner, "Cost", OutputKind.Table, regionSchema)
@@ -49,6 +49,7 @@ class AskSeamSpec extends AnyWordSpec with Matchers with HelioRouteTest with Jso
     board = seedBoard(owner)
     seedBoardPanel(board, owner, rev.id.value, "Revenue panel"); seedBoardPanel(board, owner, cost.id.value, "Cost panel")
     Seq(viewer, free, capped).foreach(grantBoard(board, _, "viewer"))
+    grantBoard(board, editorNoPipe, "editor")
     val today = LocalDate.now(ZoneOffset.UTC).toString
     awaitDb(db.run(sqlu"INSERT INTO assistant_daily_usage (user_id, usage_date, message_count) VALUES (${capped}::uuid, $today::date, 100000)"))
     askApi = buildAskApi(ClaudeModelCatalog.HaikuId)
@@ -136,6 +137,12 @@ class AskSeamSpec extends AnyWordSpec with Matchers with HelioRouteTest with Jso
 
     "write a 200 with an explicit null pin for a dashboard viewer, equal to the committed fixture" in {
       val fx = checkCase("ask-200-no-pin.json", "ask/ask-response.schema.json", 200, ask(viewer, citedAnswer())).asJsObject
+      fx.fields("pin") shouldBe JsNull
+    }
+
+    // HEL-1781 D3b: a GUARD proven by mutation (the server was already correct), not a red-first case.
+    "write a 200 with an explicit null pin for a dashboard EDITOR with no grant on the cited pipeline, equal to the committed no-pin fixture" in {
+      val fx = checkCase("ask-200-no-pin.json", "ask/ask-response.schema.json", 200, ask(editorNoPipe, citedAnswer())).asJsObject
       fx.fields("pin") shouldBe JsNull
     }
 

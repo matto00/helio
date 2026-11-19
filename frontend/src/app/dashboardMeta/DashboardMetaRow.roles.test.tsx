@@ -1,7 +1,7 @@
 // HEL-1773 D5: the dashboard meta row offers a role only what it may do. A viewer gets no editing control and no owner
 // action; an editor edits but cannot share or ask; an owner is unchanged. The facts (Output metadata, pipeline summaries)
 // are read for an owner only: a non-owner's row asks the hook for none.
-import { act, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 
 import { useDashboardMeta } from "../../features/panels/hooks/useDashboardMeta";
 import type { DashboardMeta } from "../../features/panels/state/dashboardMeta";
@@ -10,6 +10,7 @@ import { setDesktopGridDashboardId } from "../../features/layout/state/layoutHis
 import { makeTextPanel } from "../../test/panelFixtures";
 import { renderWithStore } from "../../test/renderWithStore";
 import { DashboardMetaRow } from "./DashboardMetaRow";
+import { useMetaRowTier } from "./useMetaRowTier";
 
 // HEL-1786: a panel on a dashboard the caller does not own polls the dashboard panel-status route; no network in a unit test.
 jest.mock("../../features/panels/services/panelStatusService", () => ({
@@ -79,27 +80,27 @@ describe("DashboardMetaRow by role", () => {
     expect(metaMock).toHaveBeenLastCalledWith("d1", expect.arrayContaining([expect.anything()]));
   });
 
-  it("an editor edits but neither shares nor asks", () => {
+  it("an editor edits and asks (HEL-1781) but does not share", () => {
     setup("editor");
     expect(present("Edit layout")).toBe(true);
     expect(present("Add panel")).toBe(true);
     expect(present("Customize dashboard appearance")).toBe(true);
     expect(present("Share dashboard")).toBe(false);
-    expect(present("Ask about this dashboard")).toBe(false);
+    expect(present("Ask about this dashboard")).toBe(true);
   });
 
-  it("a viewer has no editing or owner control, and no dashboard actions menu", () => {
+  it("a viewer can ask (HEL-1781) but has no editing or owner control, and no dashboard actions menu", () => {
     setup("viewer");
     for (const name of [
       "Edit layout",
       "Add panel",
       "Customize dashboard appearance",
       "Share dashboard",
-      "Ask about this dashboard",
       "Dashboard actions",
     ]) {
       expect(present(name)).toBe(false);
     }
+    expect(present("Ask about this dashboard")).toBe(true);
     // The assistant entry is not a dashboard action, so it stays.
     expect(present("Open assistant")).toBe(true);
   });
@@ -108,5 +109,32 @@ describe("DashboardMetaRow by role", () => {
     setup("viewer");
     expect(metaMock).toHaveBeenLastCalledWith("d1", []);
     expect(screen.getByText("2 panels")).toBeInTheDocument();
+  });
+
+  it("the narrow kebab carries Ask for a viewer and an editor but Share only for an owner (HEL-1781)", () => {
+    jest.mocked(useMetaRowTier).mockReturnValue(2);
+    try {
+      const items = (role: "owner" | "editor" | "viewer") => {
+        const { unmount } = setup(role);
+        fireEvent.click(screen.getByRole("button", { name: "Dashboard actions" }));
+        const labels = screen.getAllByRole("menuitem").map((el) => el.textContent?.trim());
+        unmount();
+        return labels;
+      };
+      expect(items("viewer")).toEqual(["Ask about this dashboard", "Open assistant"]);
+      expect(items("editor")).toEqual([
+        "Refine with AI",
+        "Ask about this dashboard",
+        "Open assistant",
+      ]);
+      expect(items("owner")).toEqual([
+        "Refine with AI",
+        "Share",
+        "Ask about this dashboard",
+        "Open assistant",
+      ]);
+    } finally {
+      jest.mocked(useMetaRowTier).mockReturnValue(0);
+    }
   });
 });

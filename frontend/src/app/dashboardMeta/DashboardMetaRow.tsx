@@ -123,6 +123,9 @@ export function DashboardMetaRow({
   if (shareInKebab) {
     if (isOwner) {
       kebabItems.push({ label: "Share", ariaLabel: "Share dashboard", onClick: openShare });
+    }
+    // HEL-1781: asking is offered to anyone who can read the dashboard; the server decides the pin.
+    if (selectedDashboard) {
       kebabItems.push({
         label: "Ask about this dashboard",
         onClick: () => onOpenAsk(KEBAB_TRIGGER_SELECTOR),
@@ -233,7 +236,7 @@ export function DashboardMetaRow({
             onPreviewChange={setDraftAppearance}
           />
         )}
-        {selectedDashboard && isOwner && !shareInKebab && askButton}
+        {selectedDashboard && !shareInKebab && askButton}
         {(!shareInKebab || !selectedDashboard) && assistantButton}
         {selectedDashboard && kebabItems.length > 0 && (
           <ActionsMenu label="Dashboard actions" items={kebabItems} />
