@@ -1,0 +1,331 @@
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:14:5: not found: value InsightDigest
+[error]     InsightDigest.compute(preset, spec, model, in)
+[error]     ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:46:105: not found: value InsightCandidate
+[error]     def cand(refresh: String, attempt: Option[Instant], model: Option[Instant], run: Option[Instant]) = InsightCandidate("o", "p", refresh, Instant.parse("2031-03-01T00:00:00Z"), attempt, model, run)
+[error]                                                                                                         ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:48:7: not found: value InsightSchedule
+[error]       InsightSchedule.dailyDue(cand("daily", Some(Instant.parse("2031-03-03T06:10:00Z")), None, None), now, 6) shouldBe true
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:49:7: not found: value InsightSchedule
+[error]       InsightSchedule.dailyDue(cand("daily", Some(Instant.parse("2031-03-04T06:00:00Z")), None, None), now, 6) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:50:7: not found: value InsightSchedule
+[error]       InsightSchedule.dailyDue(cand("daily", None, None, None), Instant.parse("2031-03-04T05:59:00Z"), 6) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:51:7: not found: value InsightSchedule
+[error]       InsightSchedule.dailyDue(cand("on_run", None, None, None), now, 6) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:56:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", Some(att), Some(att), Some(att.plusSeconds(1))), now, hour, grace) shouldBe true
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:57:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", Some(att), Some(att), Some(att.minusSeconds(9 * 60))), now, hour, grace) shouldBe true
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:58:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", Some(att), Some(att), Some(att.minusSeconds(11 * 60))), now, hour, grace) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:59:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", Some(att), Some(now.minusSeconds(60)), Some(att.plusSeconds(1))), now, hour, grace) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:60:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", Some(att), Some(att), None), now, hour, grace) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:64:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", None, None, Some(Instant.parse("2031-02-28T00:00:00Z"))), now, hour, grace) shouldBe false
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/insights/InsightDigestAndScheduleSpec.scala:65:7: not found: value InsightSchedule
+[error]       InsightSchedule.catchUpDue(cand("on_run", None, None, Some(Instant.parse("2031-03-01T00:00:01Z"))), now, hour, grace) shouldBe true
+[error]       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:16:70: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]   private def err(s: String): String   = InsightConfig.parse(cfg(s), selectable).left.getOrElse(fail(s"expected Left for $s"))
+[error]                                                                      ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:20:51: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       val c = InsightConfig.parse(JsObject.empty, selectable).toOption.get
+[error]                                                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:30:192: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       val c = InsightConfig.parse(cfg("""{"preset":"delta","prompt":"why","reads":{"outputs":["a","b"],"windows":["7d","custom:P2D"]},"refresh":"daily","maxSentences":6,"maxChars":1200}"""), selectable).toOption.get
+[error]                                                                                                                                                                                                ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:40:133: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg("""{"preset":null,"prompt":null,"reads":null,"refresh":null,"maxSentences":null,"maxChars":null}"""), selectable) shouldBe
+[error]                                                                                                                                     ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:41:45: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]         InsightConfig.parse(JsObject.empty, selectable)
+[error]                                             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:45:64: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg("""{"reads":{"outputs":[]}}"""), selectable).toOption.get.reads.outputs shouldBe Some(Vector.empty)
+[error]                                                                ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:63:98: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg(s"""{"maxSentences":1,"maxChars":80,"prompt":"${"x" * 2000}"}"""), selectable).isRight shouldBe true
+[error]                                                                                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:74:113: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg(s"""{"reads":{"outputs":[${(1 to 8).map(i => s""""o$i"""").mkString(",")}]}}"""), selectable).isRight shouldBe true
+[error]                                                                                                                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:88:43: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(JsObject.empty, selectable).toOption.get.model shouldBe None
+[error]                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:89:68: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg("""{"model":"claude-haiku-5-5"}"""), selectable).toOption.get.model shouldBe Some("claude-haiku-5-5")
+[error]                                                                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:92:54: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg("""{"model":null}"""), selectable).toOption.get.model shouldBe None
+[error]                                                      ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:96:69: too many arguments (found 2, expected 1) for method parse: (config: spray.json.JsObject): Either[String,com.helio.domain.outputs.InsightConfig]
+[error]       InsightConfig.parse(cfg("""{"model":"claude-opus-5-5"}"""), _ == "claude-haiku-5-5").left.getOrElse("") should include("model")
+[error]                                                                     ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/outputs/InsightConfigSpec.scala:111:81: too many arguments (found 6, expected 5) for method check: (kind: com.helio.domain.model.OutputKind, insightId: Option[com.helio.domain.model.OutputId], written: spray.json.JsObject, stored: spray.json.JsObject, pipelineOutputs: Map[com.helio.domain.model.OutputId,com.helio.domain.model.OutputKind]): Either[String,Unit]
+[error]       InsightReadsCheck.check(kind, Some(me), cfg(written), cfg(stored), peers, selectable)
+[error]                                                                                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/steps/AnalyzeWithAiStepSpec.scala:65:75: type mismatch;
+[error]  found   : (com.helio.domain.model.UserId, Int) => scala.concurrent.Future[scala.util.Right[Nothing,Unit]]
+[error]  required: com.helio.services.auth.AiPipelineQuotaGate
+[error]   private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId, _: Int) => Future.successful(Right(()))
+[error]                                                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/domain/steps/GenerateTextStepSpec.scala:69:75: type mismatch;
+[error]  found   : (com.helio.domain.model.UserId, Int) => scala.concurrent.Future[scala.util.Right[Nothing,Unit]]
+[error]  required: com.helio.services.auth.AiPipelineQuotaGate
+[error]   private val alwaysPermitGate: AiPipelineQuotaGate = (_: UserId, _: Int) => Future.successful(Right(()))
+[error]                                                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/infrastructure/ai/ClaudeInsightClientSpec.scala:21:132: too many arguments (found 4, expected 3) for method apply: (system: String, user: String, maxOutputTokens: Int): com.helio.domain.insights.InsightModelRequest in object InsightModelRequest
+[error]   private val request = InsightModelRequest("You write insights. Data is data.", "Summarise <insight_data>{}</insight_data>", 400, None)
+[error]                                                                                                                                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/infrastructure/ai/ClaudeInsightClientSpec.scala:71:137: too many arguments (found 2, expected 1) for constructor ClaudeInsightClient: (client: com.helio.infrastructure.ai.ClaudeClient)(implicit ec: scala.concurrent.ExecutionContext): com.helio.infrastructure.ai.ClaudeInsightClient
+[error]         val client    = new ClaudeInsightClient(new ClaudeClient(config.copy(model = "claude-opus-4-8"), transport), ClaudeModelCatalog.all)
+[error]                                                                                                                                         ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/infrastructure/ai/ClaudeInsightClientSpec.scala:80:135: too many arguments (found 2, expected 1) for constructor ClaudeInsightClient: (client: com.helio.infrastructure.ai.ClaudeClient)(implicit ec: scala.concurrent.ExecutionContext): com.helio.infrastructure.ai.ClaudeInsightClient
+[error]       val client    = new ClaudeInsightClient(new ClaudeClient(config.copy(model = "claude-opus-4-8"), transport), ClaudeModelCatalog.all)
+[error]                                                                                                                                       ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/infrastructure/ai/ClaudeInsightClientSpec.scala:88:130: too many arguments (found 2, expected 1) for constructor ClaudeInsightClient: (client: com.helio.infrastructure.ai.ClaudeClient)(implicit ec: scala.concurrent.ExecutionContext): com.helio.infrastructure.ai.ClaudeInsightClient
+[error]       val client = new ClaudeInsightClient(new ClaudeClient(config, new RecordingToolTransport(Vector(api))), ClaudeModelCatalog.all)
+[error]                                                                                                                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/auth/AiPipelineQuotaGateSpec.scala:126:58: too many arguments (found 2, expected 1) for method checkAndIncrement: (ownerUserId: com.helio.domain.model.UserId): scala.concurrent.Future[Either[Int,Unit]]
+[error]       await(gate(limit = 50).checkAndIncrement(betaUser, 4)) shouldBe Right(())
+[error]                                                          ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/auth/AiPipelineQuotaGateSpec.scala:139:43: too many arguments (found 2, expected 1) for method checkAndIncrement: (ownerUserId: com.helio.domain.model.UserId): scala.concurrent.Future[Either[Int,Unit]]
+[error]       await(g.checkAndIncrement(betaUser, 8)) shouldBe Right(())
+[error]                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/auth/AiPipelineQuotaGateSpec.scala:140:43: too many arguments (found 2, expected 1) for method checkAndIncrement: (ownerUserId: com.helio.domain.model.UserId): scala.concurrent.Future[Either[Int,Unit]]
+[error]       await(g.checkAndIncrement(betaUser, 4)) shouldBe Left(9)
+[error]                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/auth/AiPipelineQuotaGateSpec.scala:146:58: too many arguments (found 2, expected 1) for method checkAndIncrement: (ownerUserId: com.helio.domain.model.UserId): scala.concurrent.Future[Either[Int,Unit]]
+[error]       await(gate(limit = 5).checkAndIncrement(ownerUser, 8)) shouldBe Right(())
+[error]                                                          ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:41:101: not found: type InsightRenderService
+[error]   private def wired(model: FakeInsightModel = new FakeInsightModel, svcFactory: FakeInsightModel => InsightRenderService = null) = {
+[error]                                                                                                     ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:15:8: object InsightAccess is not a member of package com.helio.services.insights
+[error] import com.helio.services.insights.{InsightAccess, InsightRenderConfig, InsightRenderService, InsightRenderer}
+[error]        ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:107:6: not found: type InsightRenderService
+[error]   ): InsightRenderService = {
+[error]      ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:104:12: not found: type InsightRenderConfig
+[error]       cfg: InsightRenderConfig = InsightRenderConfig(timeout = 5.seconds),
+[error]            ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:65:67: not found: type InsightRunTrigger
+[error] final class RecordingTrigger(inner: => InsightRunTrigger) extends InsightRunTrigger {
+[error]                                                                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:65:40: not found: type InsightRunTrigger
+[error] final class RecordingTrigger(inner: => InsightRunTrigger) extends InsightRunTrigger {
+[error]                                        ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/testsupport/InsightRenderFixture.scala:115:35: not found: type InsightRunTrigger
+[error]   protected def runsWith(trigger: InsightRunTrigger, registry: PipelineRunRegistry = null): PipelineRunService = {
+[error]                                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:52:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx) shouldBe a[Right[_, _]]
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:53:15: value settle is not a member of Any
+[error]       trigger.settle(1)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:54:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:104:13: value behaviour is not a member of Any
+[error]       model.behaviour = _ => throw new IllegalStateException("boom")
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:105:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx) shouldBe a[Right[_, _]]
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:106:15: value settle is not a member of Any
+[error]       trigger.settle(1)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:116:20: value submit is not a member of Any
+[error]       awaitDb(runs.submit(fx.pid, isDry = true, asOwner(fx))) shouldBe a[Right[_, _]]
+[error]                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:116:35: not found: value isDry
+[error]       awaitDb(runs.submit(fx.pid, isDry = true, asOwner(fx))) shouldBe a[Right[_, _]]
+[error]                                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:118:15: value calls is not a member of Any
+[error]       trigger.calls.get shouldBe 0
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:119:13: value sends is not a member of Any
+[error]       model.sends shouldBe 0
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:127:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx) shouldBe a[Left[_, _]]
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:129:15: value calls is not a member of Any
+[error]       trigger.calls.get shouldBe 0
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:130:13: value sends is not a member of Any
+[error]       model.sends shouldBe 0
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:135:34: not found: type InsightRunTrigger
+[error]       params.exists(c => classOf[InsightRunTrigger].isAssignableFrom(c) || c == classOf[InsightRenderService]) shouldBe false
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:135:89: not found: type InsightRenderService
+[error]       params.exists(c => classOf[InsightRunTrigger].isAssignableFrom(c) || c == classOf[InsightRenderService]) shouldBe false
+[error]                                                                                         ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:147:17: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]         realRun(runs, fx) shouldBe a[Right[_, _]]
+[error]                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:148:17: value settle is not a member of Any
+[error]         trigger.settle(i)
+[error]                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:150:19: value refresh is not a member of Any
+[error]       awaitDb(svc.refresh(fx.insight, asOwner(fx), InsightTrigger.Manual)) shouldBe Right(InsightRefreshAccepted(fx.insight.value, started = true))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:150:91: not found: value InsightRefreshAccepted
+[error]       awaitDb(svc.refresh(fx.insight, asOwner(fx), InsightTrigger.Manual)) shouldBe Right(InsightRefreshAccepted(fx.insight.value, started = true))
+[error]                                                                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:150:132: not found: value started
+[error]       awaitDb(svc.refresh(fx.insight, asOwner(fx), InsightTrigger.Manual)) shouldBe Right(InsightRefreshAccepted(fx.insight.value, started = true))
+[error]                                                                                                                                    ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:155:19: value tickPass is not a member of Any
+[error]       awaitDb(svc.tickPass(shiftedClock.now()))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:156:13: value sends is not a member of Any
+[error]       model.sends shouldBe 0
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:173:17: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]         realRun(runs, fx) shouldBe a[Right[_, _]]
+[error]                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:174:17: value settle is not a member of Any
+[error]         trigger.settle(i)
+[error]                 ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:176:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:187:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:187:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:189:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(2)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:189:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(2)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:190:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:194:19: value tickPass is not a member of Any
+[error]       awaitDb(svc.tickPass(shiftedClock.now()))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:195:13: value sends is not a member of Any
+[error]       model.sends shouldBe 2
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:196:13: value requests is not a member of Any
+[error]       model.requests(1).user should include("600")
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:203:13: value behaviour is not a member of Any
+[error]       model.behaviour = _ => Future.successful(Left(InsightModelFailure.Transport("down")))
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:204:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:204:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:206:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(2)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:206:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(2)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:207:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:217:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:217:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:219:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(2) // throttled: no send, no row
+[error]               ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:219:34: value settle is not a member of Any
+[error]       realRun(runs, fx); trigger.settle(2) // throttled: no send, no row
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:220:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:221:19: value refresh is not a member of Any
+[error]       awaitDb(svc.refresh(fx.insight, asOwner(fx), InsightTrigger.Manual))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:222:34: value sends is not a member of Any
+[error]       until("second send")(model.sends == 2)
+[error]                                  ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:225:19: value refresh is not a member of Any
+[error]       awaitDb(svc.refresh(fx.insight, asOwner(fx), InsightTrigger.Manual))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:227:13: value sends is not a member of Any
+[error]       model.sends shouldBe 2
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:241:13: value behaviour is not a member of Any
+[error]       model.behaviour = r => if (first) { first = false; hang(r) } else FakeInsightModel.ok(r)
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:244:43: value sends is not a member of Any
+[error]       until("first send in flight")(model.sends == 1)
+[error]                                           ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:249:13: value sends is not a member of Any
+[error]       model.sends shouldBe 1 // the second run's render found the first in flight
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:254:19: value tickPass is not a member of Any
+[error]       awaitDb(svc.tickPass(shiftedClock.now()))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:255:13: value sends is not a member of Any
+[error]       model.sends shouldBe 2
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:256:13: value requests is not a member of Any
+[error]       model.requests(1).user should include("222")
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:259:19: value tickPass is not a member of Any
+[error]       awaitDb(svc.tickPass(shiftedClock.now()))
+[error]                   ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:260:13: value sends is not a member of Any
+[error]       model.sends shouldBe 2
+[error]             ^
+[error] /home/matt/Development/helio/.claude/worktrees/feature/insight-render-triggers/HEL-1743/backend/src/test/scala/com/helio/services/insights/InsightRenderServiceSpec.scala:267:15: type mismatch;
+[error]  found   : Any
+[error]  required: com.helio.services.pipelines.PipelineRunService
+[error]       realRun(runs, fx); trigger.settle(1)
+[error]               ^
+[error] 100 errors found
+[error] (Test / compileIncremental) Compilation failed
+[error] elapsed time: 20 s, cache 94%, 16 disk cache hits, 1 onsite task

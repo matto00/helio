@@ -28,6 +28,10 @@ object InsightStatus {
   case object SkippedUnchanged extends InsightStatus("skipped_unchanged")
   case object SkippedBudget    extends InsightStatus("skipped_budget")
 
+  /** HEL-1743 R3b: a read-side projection only (never stored, so not in [[all]]): what a viewer grantee sees for a quota or
+   *  budget skip, so a viewer cannot tell the owner hit a limit. */
+  case object NotUpdated extends InsightStatus("not_updated")
+
   val all: Vector[InsightStatus] = Vector(Ok, Failed, SkippedQuota, SkippedUnchanged, SkippedBudget)
 
   def fromString(s: String): Option[InsightStatus] = all.find(_.wire == s)
@@ -107,7 +111,18 @@ final case class OutputInsightRecord(
     cacheReadTokens: Option[Int],
     costMicros: Option[Long],
     createdAt: Instant
-)
+) {
+
+  /** HEL-1743 R3/R3b: the viewer-grantee shape, built by REMOVING what a viewer may not see (model, token counts, cost, run id,
+   *  input digest) and mapping a quota or budget skip to [[InsightStatus.NotUpdated]]. Done on the record, before it reaches any
+   *  response writer, so no writer can leak a field it was never given. */
+  def forViewer: OutputInsightRecord =
+    copy(
+      runId = None, inputDigest = None, model = None, inputTokens = None, outputTokens = None,
+      cacheCreationTokens = None, cacheReadTokens = None, costMicros = None,
+      status = if (status == InsightStatus.SkippedQuota || status == InsightStatus.SkippedBudget) InsightStatus.NotUpdated else status
+    )
+}
 
 /** One row to insert (everything but the generated `id`); the write seam L4 uses. */
 final case class OutputInsightInsert(

@@ -193,7 +193,7 @@ final class OutputService(
     if (kind != OutputKind.Insight || !written.fields.contains("reads")) Future.successful(Right(()))
     else
       outputRepo.listByPipelineInternal(pipelineId).map { outputs =>
-        InsightReadsCheck.check(kind, insightId, written, stored, outputs.map(o => o.id -> o.kind).toMap)
+        InsightReadsCheck.check(kind, insightId, written, stored, outputs.map(o => o.id -> o.kind).toMap, OutputConfigValidation.isSelectableModel)
           .left.map(msg => ServiceError.BadRequest(msg): ServiceError)
       }
 

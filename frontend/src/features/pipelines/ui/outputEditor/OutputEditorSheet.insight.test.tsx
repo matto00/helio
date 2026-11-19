@@ -275,4 +275,83 @@ describe("OutputEditorSheet -- insight settings card (HEL-1744)", () => {
     await pickInsightKind();
     expect(screen.queryByText("Insights render on the beta plan.")).toBeNull();
   });
+
+  // HEL-1743 D13: the per-Output model selector, after the preset.
+  describe("model selector", () => {
+    const MODELS = {
+      models: [
+        { id: "claude-haiku-5-5", label: "Haiku 5.5", betaWeight: 1 },
+        { id: "claude-sonnet-5-5", label: "Sonnet 5.5", betaWeight: 4 },
+      ],
+      serverDefault: { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+      defaultModel: { id: "claude-haiku-5-5", label: "Haiku 5.5" },
+    };
+    function withModels(result: "ok" | "refused") {
+      const previous = http.get.getMockImplementation();
+      http.get.mockImplementation((url: string) =>
+        url === "/api/assistant-models"
+          ? result === "ok"
+            ? Promise.resolve({ data: MODELS })
+            : Promise.reject(new Error("403"))
+          : (previous as (u: string) => Promise<unknown>)(url),
+      );
+    }
+
+    it("lists the selectable models plus Server default (the default shown) and, once chosen, writes the model", async () => {
+      withModels("ok");
+      await renderSheet({ siblings: SIBLINGS });
+      await pickInsightKind();
+      const select = await screen.findByRole("combobox", { name: "Model" });
+      expect(select).toHaveTextContent("Server default");
+      fireEvent.click(select);
+      const listbox = await screen.findByRole("listbox");
+      expect(
+        within(listbox)
+          .getAllByRole("option")
+          .map((o) => o.textContent),
+      ).toEqual(["Server default", "Haiku 5.5", "Sonnet 5.5"]);
+      await act(async () => {
+        fireEvent.click(within(listbox).getByRole("option", { name: "Haiku 5.5" }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /^(Save|Create)/ }));
+      });
+      await waitFor(() => expect(http.post).toHaveBeenCalled());
+      expect(JSON.parse(JSON.stringify(http.post.mock.calls[0][1])).config).toEqual({
+        model: "claude-haiku-5-5",
+      });
+    });
+
+    it("clears a stored model when Server default is chosen on an edit", async () => {
+      withModels("ok");
+      const insight = outputOf("i-1", "insight", { config: { model: "claude-sonnet-5-5" } });
+      await renderSheet({ output: insight, siblings: SIBLINGS });
+      const select = await screen.findByRole("combobox", { name: "Model" });
+      expect(select).toHaveTextContent("Sonnet 5.5");
+      fireEvent.click(select);
+      const listbox = await screen.findByRole("listbox");
+      await act(async () => {
+        fireEvent.click(within(listbox).getByRole("option", { name: "Server default" }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      });
+      await waitFor(() => expect(http.patch).toHaveBeenCalled());
+      expect(JSON.parse(JSON.stringify(http.patch.mock.calls[0][1])).config).toEqual({
+        model: null,
+      });
+    });
+
+    it("hides the selector when the model list cannot be loaded, and saving still works", async () => {
+      withModels("refused");
+      await renderSheet({ siblings: SIBLINGS });
+      await pickInsightKind();
+      expect(screen.queryByRole("combobox", { name: "Model" })).toBeNull();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: /^(Save|Create)/ }));
+      });
+      await waitFor(() => expect(http.post).toHaveBeenCalled());
+      expect(JSON.parse(JSON.stringify(http.post.mock.calls[0][1])).config).toEqual({});
+    });
+  });
 });

@@ -42,11 +42,11 @@ class ClaudeNoAnswerAndStripSpec extends AnyWordSpec with Matchers {
   "sendWithTools no-answer handling (5.4)" should {
     "fail a refusal with the stop_details category" in {
       run(new RecordingToolTransport(Vector(fixture("refusal.json")))) shouldBe
-        ClaudeToolOutcome.Failed(ClaudeError.NoAnswer(Some("refusal"), Some("cyber")))
+        ClaudeToolOutcome.Failed(ClaudeError.NoAnswer(Some("refusal"), Some("cyber")))()
     }
     "fail a thinking-only max_tokens response" in {
       run(new RecordingToolTransport(Vector(fixture("thinking-only-max-tokens.json")))) shouldBe
-        ClaudeToolOutcome.Failed(ClaudeError.NoAnswer(Some("max_tokens"), None))
+        ClaudeToolOutcome.Failed(ClaudeError.NoAnswer(Some("max_tokens"), None))()
     }
     "keep an empty end_turn after a tool hop as a successful empty final response" in {
       val t = new RecordingToolTransport(Vector(fixture("nosearch-hop1-thinking-tooluse.json"), fixture("empty-end-turn.json")))

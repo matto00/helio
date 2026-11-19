@@ -39,24 +39,25 @@ describe("deriveInsightState", () => {
       input({ lastAttempt: attempt("skipped_unchanged") }),
       { kind: "rendered", note: "unchanged" },
     ],
+    // HEL-1743 D13: the server sends `skipped_quota` only to the owner and editors, so whoever receives it sees the quota note.
     [
       "render + quota, pipeline owner",
       input({ lastAttempt: attempt("skipped_quota"), isPipelineOwner: true }),
       { kind: "rendered", note: "quota" },
     ],
     [
-      "render + budget, pipeline owner",
-      input({ lastAttempt: attempt("skipped_budget"), isPipelineOwner: true }),
+      "render + quota, an editor (not the pipeline owner)",
+      input({ lastAttempt: attempt("skipped_quota") }),
       { kind: "rendered", note: "quota" },
     ],
     [
-      "render + quota, not the pipeline owner",
-      input({ lastAttempt: attempt("skipped_quota") }),
+      "render + budget, pipeline owner",
+      input({ lastAttempt: attempt("skipped_budget"), isPipelineOwner: true }),
       { kind: "rendered", note: "notUpdated" },
     ],
     [
-      "render + budget, not the pipeline owner",
-      input({ lastAttempt: attempt("skipped_budget") }),
+      "render + not_updated (a viewer's view of a quota or budget skip)",
+      input({ lastAttempt: attempt("not_updated") }),
       { kind: "rendered", note: "notUpdated" },
     ],
     [

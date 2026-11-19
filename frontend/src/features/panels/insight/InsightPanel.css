@@ -98,3 +98,21 @@
 .insight-panel__note--error {
   color: var(--app-error);
 }
+
+/* HEL-1743 -- the panel's own Refresh button (owner and editors only); sits quietly under the text. */
+.insight-panel__refresh {
+  justify-self: start;
+}
+
+/* The pending state lives on the button itself (its label), so it adds no line and cannot push the action out of a short panel. */
+.insight-panel__refresh[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* The status block of a no-render state: label and detail stacked and centred, like the shared state pattern. */
+.insight-panel__state {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: center;
+  text-align: center;
+}

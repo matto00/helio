@@ -87,6 +87,9 @@ export interface OutputKindState {
   setInsightRefresh: (v: string) => void;
   insightPrompt: string;
   setInsightPrompt: (v: string) => void;
+  /** HEL-1743: `""` = Server default. */
+  insightModel: string;
+  setInsightModel: (v: string) => void;
   /** The ticked Output ids the user chose, or `null` while the checklist follows the same-node default. */
   insightReads: string[] | null;
   setInsightReads: (ids: string[] | null) => void;
@@ -186,6 +189,7 @@ export function useOutputKindState(
   const [insightPreset, setInsightPreset] = useState<string>(seed.insightPreset ?? "auto");
   const [insightRefresh, setInsightRefresh] = useState<string>(seed.insightRefresh ?? "on_run");
   const [insightPrompt, setInsightPrompt] = useState<string>(seed.insightPrompt ?? "");
+  const [insightModel, setInsightModel] = useState<string>(seed.insightModel ?? "");
   const [insightReads, setInsightReads] = useState<string[] | null>(seed.insightReads ?? null);
 
   return {
@@ -236,6 +240,8 @@ export function useOutputKindState(
     setInsightRefresh,
     insightPrompt,
     setInsightPrompt,
+    insightModel,
+    setInsightModel,
     insightReads,
     setInsightReads,
     insightDefaultReads,
@@ -268,6 +274,7 @@ export function useOutputKindState(
       insightPreset,
       insightRefresh,
       insightPrompt,
+      insightModel,
       insightReads,
       insightDefaultReads,
       insightWindows: seed.insightWindows,

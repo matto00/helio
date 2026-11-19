@@ -1,5 +1,6 @@
 package com.helio.services.insights
 
+import com.helio.services.auth.AccessChecker
 import com.helio.infrastructure.persistence.pipelines.{OutputInsightRepository, OutputRepository}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -14,15 +15,21 @@ import scala.concurrent.ExecutionContext
 class OutputInsightReadServiceShapeSpec extends AnyWordSpec with Matchers {
 
   "OutputInsightReadService's constructor" should {
-    "take exactly the Output repository, the insight repository and the execution context" in {
+    // HEL-1743 D8: the role comes from `InsightAccess` (an `OutputRepository` and an `AccessChecker`): still no model client.
+    "take exactly the insight repository, the access helper and the execution context" in {
       val ctors = classOf[OutputInsightReadService].getConstructors
       ctors should have size 1
-      ctors.head.getParameterTypes.toSeq shouldBe Seq[Class[_]](classOf[OutputRepository], classOf[OutputInsightRepository], classOf[ExecutionContext])
+      ctors.head.getParameterTypes.toSeq shouldBe Seq[Class[_]](classOf[OutputInsightRepository], classOf[InsightAccess], classOf[ExecutionContext])
     }
 
     "hold no field beyond those collaborators" in {
       val fieldTypes = classOf[OutputInsightReadService].getDeclaredFields.map(_.getType).toSet
-      fieldTypes should contain only (classOf[OutputRepository], classOf[OutputInsightRepository], classOf[ExecutionContext])
+      fieldTypes should contain only (classOf[OutputInsightRepository], classOf[InsightAccess], classOf[ExecutionContext])
+    }
+
+    "give the access helper no model client, renderer or render service" in {
+      val ctor = classOf[InsightAccess].getConstructors.head.getParameterTypes.toSeq
+      ctor shouldBe Seq[Class[_]](classOf[OutputRepository], classOf[AccessChecker], classOf[ExecutionContext])
     }
   }
 }

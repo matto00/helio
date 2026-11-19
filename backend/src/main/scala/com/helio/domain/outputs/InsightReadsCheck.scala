@@ -15,11 +15,12 @@ object InsightReadsCheck {
       insightId:       Option[OutputId],
       written:         JsObject,
       stored:          JsObject,
-      pipelineOutputs: Map[OutputId, OutputKind]
+      pipelineOutputs: Map[OutputId, OutputKind],
+      isSelectableModel: String => Boolean
   ): Either[String, Unit] =
     if (kind != OutputKind.Insight || !readsChanged(written, stored)) Right(())
     else
-      InsightConfig.parse(JsObject(stored.fields ++ written.fields)).flatMap { cfg =>
+      InsightConfig.parse(JsObject(stored.fields ++ written.fields), isSelectableModel).flatMap { cfg =>
         val ids = cfg.reads.outputs.getOrElse(Vector.empty)
         if (ids.exists(id => insightId.contains(id))) Left("reads.outputs must not name the insight itself")
         else {

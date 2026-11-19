@@ -389,6 +389,8 @@ export interface InsightOutputConfig {
   preset: InsightPresetValue | undefined;
   refresh: InsightRefreshValue | undefined;
   prompt: string | undefined;
+  /** HEL-1743: the per-Output model id; absent means the server default. */
+  model: string | undefined;
   /** `null` = no `reads.outputs` stored (the same-node default); an array, even empty, is explicit. */
   readsOutputs: string[] | null;
   /** The stored `reads.windows`, carried unchanged by every edit (the editor never changes them). */
@@ -408,6 +410,7 @@ export function readInsightConfig(config: Record<string, unknown>): InsightOutpu
     preset: INSIGHT_PRESETS.find((p) => p === config.preset),
     refresh: INSIGHT_REFRESHES.find((r) => r === config.refresh),
     prompt: typeof config.prompt === "string" ? config.prompt : undefined,
+    model: typeof config.model === "string" && config.model !== "" ? config.model : undefined,
     readsOutputs: stringArray(reads.outputs),
     readsWindows: stringArray(reads.windows) ?? [],
   };

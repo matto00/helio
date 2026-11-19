@@ -308,7 +308,9 @@ object Main {
         outputHistoryRetentionService = outputHistoryRetentionService,
         // HEL-1511: the reaper publishes each reaped run's terminal `failed` event on the run service's own registry.
         registry = apiRoutes.runRegistry,
-        storedObjectDeletionService = storedObjectDeletionService
+        storedObjectDeletionService = storedObjectDeletionService,
+        // HEL-1743 D5: the SAME service the run path and the refresh route use; `daily` renders at 06:00 UTC on this tick.
+        insightTickPass = apiRoutes.insightRenderService
       )
       context.spawn(PipelineSchedulerActor(pipelineSchedulerService, schedulerTickInterval), "pipeline-scheduler")
       // HEL-1511: the liveness heartbeat is its own 30 s timer (the scheduler tick is stalled for a long scheduled

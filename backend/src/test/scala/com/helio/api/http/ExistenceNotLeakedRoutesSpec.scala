@@ -452,6 +452,8 @@ object ExistenceNotLeakedRoutesSpec {
     // foreign and an absent id even with no model client configured. AskPinBuilder only decides the pin of an answer a
     // caller already got; it is listed because it calls requireAccess("pipeline") (never reachable by a stranger probe).
     Row("POST dashboard ask", HttpMethods.POST, "/api/dashboards/{id}/ask", Dashboard, Set("AskAccess.scala", "AskPinBuilder.scala"), Json("""{"question":"q"}""")),
+    // HEL-1743: the seeded Output is not an insight, so even the owner gets the one 404 an unknown id gets (hence no owner control).
+    Row("POST insight refresh", HttpMethods.POST, "/api/outputs/{id}/insight/refresh", OutputT, Set("InsightAccess.scala"), Json("{}"), ownerControl = false),
     Row("POST output ask", HttpMethods.POST, "/api/outputs/{id}/ask", OutputT, Set("AskAccess.scala"), Json("""{"question":"q"}""")),
     // pipeline-scoped
     Row("GET pipeline outputs", HttpMethods.GET, "/api/pipelines/{id}/outputs", Pipeline, Set("OutputService.scala")),
@@ -541,6 +543,10 @@ object ExistenceNotLeakedRoutesSpec {
     // pipeline, so the caller already knows it exists; an invisible pipeline is the same 404 as an absent one. Legitimate.
     "DraftSaveService.scala"         -> 1,
     "HookTriggerService.scala"       -> 1,
+    // HEL-1743: `InsightRenderService.refresh` -- a viewer grantee refused a manual refresh, reached only after `InsightAccess.resolve`
+    // (the sharing-aware `OutputRepository.findById` plus `requireAccess`) returned a grant, so the caller already knows the Output
+    // exists; a stranger, an unknown id and a non-insight Output are the same 404. Legitimate.
+    "InsightRenderService.scala"     -> 1,
     "OutputService.scala"            -> 1,
     "PanelService.scala"             -> 5,
     "PatchSetApplyResolvers.scala"   -> 4,

@@ -1,6 +1,7 @@
 package com.helio.services.pipelines
 
 import com.helio.domain.ai.AiStepClient
+import com.helio.domain.insights.InsightRunTrigger
 import com.helio.services.ServiceError
 import com.helio.services.alerts.AlertEvaluationService
 import com.helio.services.audit.AuditService
@@ -109,7 +110,9 @@ final class PipelineRunService(
     val liveRunTracker: LiveRunTracker = new LiveRunTracker,
     // HEL-1739 (design.md D2/D3): nullable-optional like pipelineRunGuardRepo -- a fixture that omits it never
     // snapshots or cancels a pending dataset-write auto-run.
-    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null
+    autoRunDebounceRepo: PipelineAutoRunDebounceRepository = null,
+    // HEL-1743 D1: renders a pipeline's `on_run` insights after a real run's `succeeded` event; no-op in fixtures.
+    insightTrigger: InsightRunTrigger = InsightRunTrigger.NoOp
 )(implicit ec: ExecutionContext) {
 
   require(outputRepo != null, "PipelineRunService requires an OutputRepository")
@@ -135,7 +138,7 @@ final class PipelineRunService(
   // HEL-1371: concern-focused collaborators, built after `backend` (eagerly initialised) and in dependency order.
   private val support   = new PipelineRunSupport(pipelineRepo, dataSourceRepo)
   private val terminal  = new PipelineRunTerminalWrites(pipelineRepo, pipelineRunRepo, registry, support)
-  private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal, autoRunDebounceRepo)
+  private val succeeded = new PipelineRunSucceededWrites(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, binaryRefRepo, alertEvaluationService, outputRepo, nodeSnapshotRepo, outputHistoryRepo, nodePayloadRepo, payloadConfig, support, terminal, autoRunDebounceRepo, insightTrigger)
   private val executor  = new PipelineRunExecutor(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, pipelineRunGuardRepo, guardConfig, guardClock, backend, support, terminal, succeeded, liveRunTracker, outputRepo, autoRunDebounceRepo)
   private val backfill  = new PipelineRunBackfill(pipelineRepo, pipelineStepRepo, dataSourceRepo, pipelineRunRepo, outputRepo, nodeSnapshotRepo, backend, support)
   private val queries   = new PipelineRunQueries(pipelineRepo, pipelineRunRepo, cache)

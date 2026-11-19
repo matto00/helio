@@ -60,7 +60,7 @@ class InsightRendererSpec extends AnyWordSpec with Matchers {
         case other => fail(s"expected Accepted, got $other")
       }
       client.calls shouldBe 1
-      client.requests.head.maxOutputTokens shouldBe 400
+      client.requests.head.maxOutputTokens shouldBe 4096
       client.requests.head.system should not be empty
     }
     "be accepted on the retry after one rejection, with usage and cost summed" in {

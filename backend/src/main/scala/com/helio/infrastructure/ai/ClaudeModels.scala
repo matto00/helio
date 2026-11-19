@@ -223,5 +223,7 @@ object ClaudeToolOutcome {
 
   /** A guardrail rejection or transport/API failure at any hop (design.md D6/D7's error-mapping
    *  parity with [[ClaudeClient.send]]). */
-  final case class Failed(error: ClaudeError) extends ClaudeToolOutcome
+  /** HEL-1743: `usage` is what the failed loop had already spent (a `max_tokens` stop still billed its tokens); second parameter
+   *  list so equality and every existing pattern are unchanged. */
+  final case class Failed(error: ClaudeError)(val usage: Option[TokenUsage] = None, val responseModel: Option[String] = None) extends ClaudeToolOutcome
 }

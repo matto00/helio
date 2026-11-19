@@ -101,7 +101,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
       val history = hop.history
       guardrailRejectTool(request.system, history) match {
         case Some(reason) =>
-          Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason)))
+          Future.successful(ClaudeToolOutcome.Failed(ClaudeError.GuardrailExceeded(reason))())
         case None =>
           val thisHop = hopsUsed + 1
           transport
@@ -118,7 +118,7 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
             }
             .flatMap {
               case Left(err) =>
-                Future.successful(ClaudeToolOutcome.Failed(err))
+                Future.successful(ClaudeToolOutcome.Failed(err)())
               case Right(apiResponse) =>
                 logHop(requestedId(request.model), apiResponse)
                 val totalUsage      = addUsage(usage, apiResponse.usage)
@@ -129,14 +129,14 @@ class ClaudeClient(config: ClaudeConfig, transport: ClaudeTransport)(implicit ec
                 val assistantTurn   = ClaudeToolMessage(ClaudeRole.Assistant, blocks)
 
                 if (apiResponse.stopReason.contains("refusal")) {
-                  Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
+                  Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse))(Some(totalUsage), apiResponse.model))
                 } else if (toolUses.isEmpty) {
                   // HEL-1636 D6: an `end_turn` with no text stays a (possibly empty) FinalResponse --
                   // after a tool result that is the assistant's normal way to finish. Running out of
                   // tokens or pausing with nothing visible is a failure, never a blank answer.
                   val noVisibleText = !blocks.exists { case ClaudeContentBlock.Text(t) => !ClaudeContentBlock.isBlankText(t); case _ => false }
                   if (noVisibleText && apiResponse.stopReason.exists(r => r == "max_tokens" || r == "pause_turn"))
-                    Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse)))
+                    Future.successful(ClaudeToolOutcome.Failed(noAnswer(apiResponse))(Some(totalUsage), apiResponse.model))
                   else
                     Future.successful(
                       ClaudeToolOutcome.FinalResponse(extractText(blocks), history :+ assistantTurn, totalUsage)(apiResponse.model, apiResponse.stopReason)

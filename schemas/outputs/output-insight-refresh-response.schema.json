@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helio.local/schemas/outputs/output-insight-refresh-response.schema.json",
+  "title": "OutputInsightRefreshResponse",
+  "description": "Response (202) for POST /api/outputs/:id/insight/refresh (HEL-1743): a render of the insight Output was started and the request did not wait for the model; the result appears as lastAttempt on GET /api/outputs/:id/insight. `started` is false when a render of that Output was already in flight in this process (the caller then sees that render's attempt). Owner and editor grantees only: a viewer is 403; a stranger, an unknown id and a non-insight Output are the same 404. The optional request body {\"trigger\":\"pin\"} records the attempt with trigger pin (any other body value is 400). Rate-limited by its own limiter (INSIGHT_REFRESH_RATE_LIMIT_PER_WINDOW, default 6 per RATE_LIMIT_WINDOW_SECONDS).",
+  "type": "object",
+  "properties": {
+    "outputId": { "type": "string" },
+    "started": { "type": "boolean" }
+  },
+  "required": ["outputId", "started"],
+  "additionalProperties": false
+}
